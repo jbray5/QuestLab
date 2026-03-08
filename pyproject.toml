@@ -1,0 +1,18 @@
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.interrogate]
+fail-under = 80
+ignore-init-method = true
+ignore-magic = true
+ignore-module = true
+ignore-nested-functions = true
+verbose = 0
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short"

@@ -1,0 +1,269 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   QuestLab — Dark Fantasy Theme
+   Palette:
+     #0D0D0D   deep black (background)
+     #161616   card background
+     #1E1E2E   sidebar / panel
+     #8B0000   crimson primary (dark red)
+     #A80000   crimson hover
+     #C9A84C   gold accent
+     #D4B86A   gold hover
+     #F5E6C8   parchment text
+     #B0A090   muted text
+     #2D1B4E   shadow purple (secondary panel)
+   Fonts (loaded via Google Fonts in main.py):
+     Cinzel Decorative — headings
+     EB Garamond       — body / prose
+     Share Tech Mono   — stat blocks, dice, numbers
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Hide Streamlit auto-generated page nav (we use our own sidebar links) ── */
+[data-testid="stSidebarNav"] { display: none !important; }
+
+/* ── Global reset ─────────────────────────────────────────────────────────── */
+html, body, [data-testid="stAppViewContainer"] {
+    background-color: #0D0D0D !important;
+    color: #F5E6C8 !important;
+    font-family: 'EB Garamond', Georgia, serif !important;
+}
+
+/* ── Typography ───────────────────────────────────────────────────────────── */
+h1, h2, h3 {
+    font-family: 'Cinzel Decorative', 'Palatino Linotype', serif !important;
+    color: #C9A84C !important;
+    letter-spacing: 0.05em;
+}
+
+h4, h5, h6 {
+    font-family: 'Cinzel Decorative', serif !important;
+    color: #D4B86A !important;
+}
+
+p, li, label, .stMarkdown {
+    font-family: 'EB Garamond', Georgia, serif !important;
+    font-size: 1.05rem;
+    color: #F5E6C8;
+}
+
+code, pre, .stCode, [class*="monospace"] {
+    font-family: 'Share Tech Mono', 'Courier New', monospace !important;
+    color: #C9A84C !important;
+    background-color: #1E1E2E !important;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+[data-testid="stSidebar"] {
+    background-color: #1E1E2E !important;
+    border-right: 1px solid #8B0000;
+}
+
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3 {
+    color: #C9A84C !important;
+}
+
+[data-testid="stSidebar"] .stMarkdown p {
+    color: #B0A090;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.stButton > button {
+    background-color: #8B0000 !important;
+    color: #F5E6C8 !important;
+    border: 1px solid #C9A84C !important;
+    border-radius: 4px !important;
+    font-family: 'Cinzel Decorative', serif !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.08em;
+    padding: 0.4rem 1.2rem !important;
+    transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.stButton > button:hover {
+    background-color: #A80000 !important;
+    box-shadow: 0 0 10px #8B000066;
+}
+
+.stButton > button[kind="secondary"] {
+    background-color: transparent !important;
+    border-color: #C9A84C !important;
+    color: #C9A84C !important;
+}
+
+/* ── Inputs ───────────────────────────────────────────────────────────────── */
+.stTextInput input,
+.stTextArea textarea,
+.stSelectbox select,
+.stNumberInput input {
+    background-color: #161616 !important;
+    color: #F5E6C8 !important;
+    border: 1px solid #2D1B4E !important;
+    border-radius: 4px !important;
+    font-family: 'EB Garamond', serif !important;
+}
+
+.stTextInput input:focus,
+.stTextArea textarea:focus {
+    border-color: #C9A84C !important;
+    box-shadow: 0 0 6px #C9A84C44 !important;
+}
+
+/* ── Cards / containers ───────────────────────────────────────────────────── */
+[data-testid="stExpander"] {
+    background-color: #161616 !important;
+    border: 1px solid #2D1B4E !important;
+    border-radius: 6px !important;
+}
+
+[data-testid="stExpander"] summary {
+    color: #C9A84C !important;
+    font-family: 'Cinzel Decorative', serif !important;
+}
+
+/* ── Metrics ──────────────────────────────────────────────────────────────── */
+[data-testid="stMetric"] {
+    background-color: #161616;
+    border: 1px solid #2D1B4E;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+}
+
+[data-testid="stMetricLabel"] {
+    color: #B0A090 !important;
+    font-family: 'Cinzel Decorative', serif !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.1em;
+}
+
+[data-testid="stMetricValue"] {
+    color: #C9A84C !important;
+    font-family: 'Share Tech Mono', monospace !important;
+}
+
+/* ── Dividers ─────────────────────────────────────────────────────────────── */
+hr {
+    border-color: #8B0000 !important;
+    opacity: 0.5;
+}
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+.stTabs [data-baseweb="tab-list"] {
+    background-color: #161616;
+    border-bottom: 1px solid #8B0000;
+}
+
+.stTabs [data-baseweb="tab"] {
+    color: #B0A090 !important;
+    font-family: 'Cinzel Decorative', serif !important;
+    font-size: 0.8rem !important;
+}
+
+.stTabs [aria-selected="true"] {
+    color: #C9A84C !important;
+    border-bottom: 2px solid #C9A84C !important;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0D0D0D; }
+::-webkit-scrollbar-thumb { background: #8B0000; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #C9A84C; }
+
+/* ── Stat block card (custom class applied via st.markdown) ───────────────── */
+.stat-block {
+    background-color: #1C1008;
+    border: 2px solid #8B0000;
+    border-radius: 6px;
+    padding: 1rem 1.5rem;
+    font-family: 'EB Garamond', serif;
+    color: #F5E6C8;
+    box-shadow: inset 0 0 30px #00000066, 0 4px 20px #00000088;
+}
+
+.stat-block h3 {
+    font-family: 'Cinzel Decorative', serif !important;
+    color: #8B0000 !important;
+    margin-bottom: 0.1rem;
+}
+
+.stat-block .stat-divider {
+    height: 3px;
+    background: linear-gradient(to right, #8B0000, #C9A84C, #8B0000);
+    margin: 0.5rem 0;
+    border: none;
+}
+
+.stat-block .stat-row {
+    display: flex;
+    gap: 1.5rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+}
+
+/* ── Read-aloud text box ──────────────────────────────────────────────────── */
+.read-aloud {
+    background-color: #1A1208;
+    border-left: 4px solid #C9A84C;
+    border-radius: 0 6px 6px 0;
+    padding: 1rem 1.5rem;
+    font-family: 'EB Garamond', serif;
+    font-style: italic;
+    font-size: 1.1rem;
+    color: #F5E6C8;
+    line-height: 1.7;
+    box-shadow: 0 2px 12px #00000066;
+    animation: fadeIn 0.6s ease;
+}
+
+/* ── Difficulty badges ────────────────────────────────────────────────────── */
+.badge-low      { background:#1a3a1a; color:#4caf50; border:1px solid #4caf50; }
+.badge-moderate { background:#3a3a1a; color:#ffc107; border:1px solid #ffc107; }
+.badge-high     { background:#3a1a00; color:#ff9800; border:1px solid #ff9800; }
+.badge-deadly   { background:#3a0000; color:#f44336; border:1px solid #f44336; }
+
+.badge-low, .badge-moderate, .badge-high, .badge-deadly {
+    padding: 0.2rem 0.7rem;
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+/* ── Animations ───────────────────────────────────────────────────────────── */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes glow {
+    0%, 100% { box-shadow: 0 0 5px #8B000066; }
+    50%       { box-shadow: 0 0 20px #8B0000AA; }
+}
+
+.active-encounter {
+    animation: glow 2s ease-in-out infinite;
+    border-color: #8B0000 !important;
+}
+
+/* ── Nav / top bar ────────────────────────────────────────────────────────── */
+[data-testid="stHeader"] {
+    background-color: #0D0D0D !important;
+    border-bottom: 1px solid #8B0000;
+}
+
+/* ── DataFrames / tables ──────────────────────────────────────────────────── */
+[data-testid="stDataFrame"] {
+    background-color: #161616;
+}
+
+thead tr th {
+    background-color: #1E1E2E !important;
+    color: #C9A84C !important;
+    font-family: 'Cinzel Decorative', serif !important;
+}
+
+tbody tr:nth-child(even) { background-color: #161616; }
+tbody tr:nth-child(odd)  { background-color: #0D0D0D; }
+tbody tr:hover           { background-color: #2D1B4E !important; }

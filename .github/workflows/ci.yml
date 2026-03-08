@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: black — format check
+        run: black --check --line-length 100 .
+
+      - name: isort — import order check
+        run: isort --check-only --profile black --line-length 100 .
+
+      - name: flake8 — lint
+        run: flake8 --max-line-length 100 .
+
+      - name: interrogate — docstring coverage
+        run: interrogate -c pyproject.toml .
+
+      - name: pip-audit — vulnerability scan
+        # PYSEC-2022-42969: py 1.11.0 ReDoS — transitive dep of interrogate;
+        # no fix available (py package unmaintained). Tracked in QUALITY.md TD-004.
+        run: pip-audit -r requirements.txt --ignore-vuln PYSEC-2022-42969
+
+      - name: pytest — test suite
+        env:
+          ENV: development
+          DB_BACKEND: duckdb
+          DUCKDB_PATH: ":memory:"
+          CURRENT_USER_EMAIL: ci@questlab.test
+          AUTH_EMAIL_HEADER: X-MS-CLIENT-PRINCIPAL-NAME
+          BOOTSTRAP_ADMIN_EMAILS: ci@questlab.test
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          LOG_LEVEL: WARNING
+        run: pytest -q --tb=short
