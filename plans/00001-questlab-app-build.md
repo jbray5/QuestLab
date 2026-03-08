@@ -32,7 +32,7 @@ visually stunning with a dark fantasy aesthetic. This plan covers all 10 stages 
 - [x] **Stage 7** — AI Engine (Claude API — runbooks, dialog, loot, NPCs) (complete — 210 tests pass)
 - [x] **Stage 8** — Map Builder (complete — 243 tests pass)
 - [x] **Stage 9** — Session Runner (complete — 272 tests pass)
-- [ ] **Stage 10** — Visual Polish & React Migration
+- [x] **Stage 10** — Visual Polish & React Migration (complete — 283 tests pass)
 
 ---
 
@@ -586,6 +586,7 @@ MVP approach: SVG-based grid rendered via Streamlit HTML component.
 
 ### STAGE 9 — Session Runner ✅ COMPLETE (2026-03-08)
 
+
 **Goal:** DM can run a live session using QuestLab: track initiative, view runbook, reference encounters.
 
 #### 9.1 Session service
@@ -609,7 +610,7 @@ Split-pane layout:
 
 ---
 
-### STAGE 10 — Visual Polish & React Migration Prep
+### STAGE 10 — Visual Polish & React Migration Prep ✅ COMPLETE (2026-03-08)
 
 **Goal:** App is visually stunning. Dark fantasy aesthetic with custom fonts, color palette, and card layouts.
 React migration groundwork laid.

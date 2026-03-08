@@ -127,3 +127,20 @@ class MonsterRepo:
             Total row count.
         """
         return len(session.exec(select(MonsterStatBlock)).all())
+
+    @staticmethod
+    def delete_all(session: Session) -> int:
+        """Delete all monster stat blocks (used before a force-reseed).
+
+        Args:
+            session: Active database session.
+
+        Returns:
+            Number of rows deleted.
+        """
+        monsters = session.exec(select(MonsterStatBlock)).all()
+        count = len(monsters)
+        for m in monsters:
+            session.delete(m)
+        session.commit()
+        return count
