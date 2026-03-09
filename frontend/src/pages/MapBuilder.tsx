@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -58,6 +58,7 @@ export default function MapBuilder() {
   const [newNodeType, setNewNodeType] = useState<NodeType>("Room");
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const { data: maps = [] } = useQuery({
     queryKey: ["maps", adventureId],
@@ -65,7 +66,6 @@ export default function MapBuilder() {
     enabled: !!adventureId,
   });
 
-  // Load nodes + edges when a map is selected
   const { data: mapNodes = [] } = useQuery({
     queryKey: ["map-nodes", selectedMapId],
     queryFn: () => mapsApi.listNodes(selectedMapId!),
@@ -73,31 +73,33 @@ export default function MapBuilder() {
     staleTime: 0,
   });
 
-  useQuery({
+  const { data: mapEdges = [] } = useQuery({
     queryKey: ["map-edges", selectedMapId],
     queryFn: () => mapsApi.listEdges(selectedMapId!),
     enabled: !!selectedMapId,
     staleTime: 0,
-    select: (data) => {
-      setEdges(data.map(toFlowEdge));
-      return data;
-    },
   });
 
-  // Sync nodes from query into flow state
-  if (mapNodes.length > 0 && nodes.length === 0) {
+  // Sync server data into ReactFlow state via useEffect (never during render)
+  useEffect(() => {
     setNodes(mapNodes.map(toFlowNode));
-  }
+  }, [mapNodes]);
+
+  useEffect(() => {
+    setEdges(mapEdges.map(toFlowEdge));
+  }, [mapEdges]);
 
   const createMap = useMutation({
     mutationFn: () => mapsApi.create(adventureId!, newMapName || "New Map"),
     onSuccess: (m) => {
+      setCreateError(null);
       qc.invalidateQueries({ queryKey: ["maps", adventureId] });
       setSelectedMapId(m.id);
       setNodes([]);
       setEdges([]);
       setNewMapName("");
     },
+    onError: (err: Error) => setCreateError(err.message),
   });
 
   const addNodeMut = useMutation({
@@ -168,18 +170,29 @@ export default function MapBuilder() {
             {m.name}
           </button>
         ))}
-        <div className="flex gap-2">
+        <div className="flex gap-2" style={{ alignItems: "center" }}>
           <input
             placeholder="New map name"
             value={newMapName}
             onChange={(e) => setNewMapName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && createMap.mutate()}
             style={{ width: 160 }}
           />
-          <button className="btn btn-secondary" onClick={() => createMap.mutate()} disabled={createMap.isPending}>
-            + Create Map
+          <button
+            className="btn btn-secondary"
+            onClick={() => createMap.mutate()}
+            disabled={createMap.isPending}
+          >
+            {createMap.isPending ? "Creating…" : "+ Create Map"}
           </button>
         </div>
       </div>
+
+      {createError && (
+        <p className="text-sm" style={{ color: "var(--crimson)", marginBottom: "0.75rem" }}>
+          Error: {createError}
+        </p>
+      )}
 
       {selectedMapId && (
         <>
@@ -240,6 +253,10 @@ export default function MapBuilder() {
 
       {!selectedMapId && maps.length === 0 && (
         <p className="text-muted">Create a map to get started.</p>
+      )}
+
+      {!selectedMapId && maps.length > 0 && (
+        <p className="text-muted">Select a map above to open it.</p>
       )}
     </div>
   );

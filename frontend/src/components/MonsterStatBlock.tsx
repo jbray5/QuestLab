@@ -93,9 +93,10 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
         zIndex: 1000,
         background: "rgba(0,0,0,0.8)",
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "center",
-        padding: "1rem",
+        overflowY: "auto",
+        padding: "2rem 1rem",
       }}
     >
       <div
@@ -105,8 +106,6 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
           position: "relative",
           maxWidth: "600px",
           width: "100%",
-          maxHeight: "90vh",
-          overflowY: "auto",
           background: "var(--surface)",
           borderColor: "var(--gold)",
           padding: "1.5rem",
