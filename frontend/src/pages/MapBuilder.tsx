@@ -16,11 +16,13 @@ import {
   type OnEdgesChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { mapsApi } from "../api/maps";
-import type { AdventureMap } from "../api/types";
+import { mapsApi, type NodeType } from "../api/maps";
+import type { MapNode, MapEdge } from "../api/types";
 
-function toFlowNodes(map: AdventureMap): Node[] {
-  return map.nodes.map((n) => ({
+const NODE_TYPES: NodeType[] = ["Room", "Corridor", "Outdoor", "Settlement", "Dungeon", "Lair"];
+
+function toFlowNode(n: MapNode): Node {
+  return {
     id: n.id,
     position: { x: n.x, y: n.y },
     data: { label: n.label },
@@ -33,17 +35,17 @@ function toFlowNodes(map: AdventureMap): Node[] {
       fontSize: "0.8rem",
       fontFamily: "EB Garamond, Georgia, serif",
     },
-  }));
+  };
 }
 
-function toFlowEdges(map: AdventureMap): Edge[] {
-  return map.edges.map((e) => ({
+function toFlowEdge(e: MapEdge): Edge {
+  return {
     id: e.id,
-    source: e.source_id,
-    target: e.target_id,
+    source: e.from_node_id,
+    target: e.to_node_id,
     label: e.label ?? undefined,
     style: { stroke: "var(--gold)", strokeWidth: 1.5 },
-  }));
+  };
 }
 
 export default function MapBuilder() {
@@ -51,8 +53,9 @@ export default function MapBuilder() {
   const qc = useQueryClient();
 
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
-  const [newMapTitle, setNewMapTitle] = useState("");
+  const [newMapName, setNewMapName] = useState("");
   const [newNodeLabel, setNewNodeLabel] = useState("");
+  const [newNodeType, setNewNodeType] = useState<NodeType>("Room");
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
 
@@ -62,37 +65,53 @@ export default function MapBuilder() {
     enabled: !!adventureId,
   });
 
-  useQuery({
-    queryKey: ["map", selectedMapId],
-    queryFn: () => mapsApi.get(selectedMapId!),
+  // Load nodes + edges when a map is selected
+  const { data: mapNodes = [] } = useQuery({
+    queryKey: ["map-nodes", selectedMapId],
+    queryFn: () => mapsApi.listNodes(selectedMapId!),
     enabled: !!selectedMapId,
-    select: (map) => {
-      setNodes(toFlowNodes(map));
-      setEdges(toFlowEdges(map));
-      return map;
+    staleTime: 0,
+  });
+
+  useQuery({
+    queryKey: ["map-edges", selectedMapId],
+    queryFn: () => mapsApi.listEdges(selectedMapId!),
+    enabled: !!selectedMapId,
+    staleTime: 0,
+    select: (data) => {
+      setEdges(data.map(toFlowEdge));
+      return data;
     },
   });
 
+  // Sync nodes from query into flow state
+  if (mapNodes.length > 0 && nodes.length === 0) {
+    setNodes(mapNodes.map(toFlowNode));
+  }
+
   const createMap = useMutation({
-    mutationFn: () => mapsApi.create(adventureId!, newMapTitle || "New Map"),
+    mutationFn: () => mapsApi.create(adventureId!, newMapName || "New Map"),
     onSuccess: (m) => {
       qc.invalidateQueries({ queryKey: ["maps", adventureId] });
       setSelectedMapId(m.id);
-      setNewMapTitle("");
+      setNodes([]);
+      setEdges([]);
+      setNewMapName("");
     },
   });
 
-  const addNode = useMutation({
+  const addNodeMut = useMutation({
     mutationFn: () =>
       mapsApi.addNode(selectedMapId!, {
         label: newNodeLabel || "Room",
-        x: Math.random() * 400 + 50,
-        y: Math.random() * 300 + 50,
-        node_type: "location",
+        node_type: newNodeType,
+        x: Math.round(Math.random() * 400 + 50),
+        y: Math.round(Math.random() * 300 + 50),
         description: null,
       }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["map", selectedMapId] });
+    onSuccess: (n) => {
+      setNodes((prev) => [...prev, toFlowNode(n)]);
+      qc.invalidateQueries({ queryKey: ["map-nodes", selectedMapId] });
       setNewNodeLabel("");
     },
   });
@@ -100,11 +119,14 @@ export default function MapBuilder() {
   const addEdgeMut = useMutation({
     mutationFn: (conn: Connection) =>
       mapsApi.addEdge(selectedMapId!, {
-        source_id: conn.source!,
-        target_id: conn.target!,
+        from_node_id: conn.source!,
+        to_node_id: conn.target!,
         label: null,
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["map", selectedMapId] }),
+    onSuccess: (e) => {
+      setEdges((prev) => [...prev.filter((x) => x.id !== "temp"), toFlowEdge(e)]);
+      qc.invalidateQueries({ queryKey: ["map-edges", selectedMapId] });
+    },
   });
 
   const onNodesChange: OnNodesChange = useCallback(
@@ -119,31 +141,38 @@ export default function MapBuilder() {
 
   const onConnect = useCallback(
     (conn: Connection) => {
-      setEdges((es) => addEdge(conn, es));
+      setEdges((es) => addEdge({ ...conn, id: "temp" }, es));
       addEdgeMut.mutate(conn);
     },
     [addEdgeMut],
   );
 
+  function selectMap(id: string) {
+    setSelectedMapId(id);
+    setNodes([]);
+    setEdges([]);
+  }
+
   return (
     <div className="fade-in">
       <h1 style={{ marginBottom: "1rem" }}>Map Builder</h1>
 
+      {/* Map selector */}
       <div className="flex gap-2" style={{ marginBottom: "1rem", flexWrap: "wrap" }}>
         {maps.map((m) => (
           <button
             key={m.id}
             className={`btn ${selectedMapId === m.id ? "btn-primary" : "btn-ghost"}`}
-            onClick={() => setSelectedMapId(m.id)}
+            onClick={() => selectMap(m.id)}
           >
-            {m.title}
+            {m.name}
           </button>
         ))}
         <div className="flex gap-2">
           <input
-            placeholder="New map title"
-            value={newMapTitle}
-            onChange={(e) => setNewMapTitle(e.target.value)}
+            placeholder="New map name"
+            value={newMapName}
+            onChange={(e) => setNewMapName(e.target.value)}
             style={{ width: 160 }}
           />
           <button className="btn btn-secondary" onClick={() => createMap.mutate()} disabled={createMap.isPending}>
@@ -154,14 +183,28 @@ export default function MapBuilder() {
 
       {selectedMapId && (
         <>
-          <div className="flex gap-2" style={{ marginBottom: "1rem" }}>
+          {/* Node controls */}
+          <div className="flex gap-2" style={{ marginBottom: "1rem", flexWrap: "wrap" }}>
             <input
-              placeholder="Node label"
+              placeholder="Location name"
               value={newNodeLabel}
               onChange={(e) => setNewNodeLabel(e.target.value)}
               style={{ width: 160 }}
             />
-            <button className="btn btn-secondary" onClick={() => addNode.mutate()} disabled={addNode.isPending}>
+            <select
+              value={newNodeType}
+              onChange={(e) => setNewNodeType(e.target.value as NodeType)}
+              style={{ width: 120 }}
+            >
+              {NODE_TYPES.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+            <button
+              className="btn btn-secondary"
+              onClick={() => addNodeMut.mutate()}
+              disabled={addNodeMut.isPending}
+            >
               + Add Location
             </button>
           </div>
@@ -190,7 +233,7 @@ export default function MapBuilder() {
           </div>
 
           <p className="text-sm text-muted" style={{ marginTop: "0.5rem" }}>
-            Drag to pan · Scroll to zoom · Drag between nodes to connect
+            Drag to pan · Scroll to zoom · Drag from a node handle to connect
           </p>
         </>
       )}

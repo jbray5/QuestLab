@@ -50,7 +50,17 @@ def create_encounter(
     """
     try:
         return encounter_service.create_encounter(
-            db, adventure_id=adventure_id, payload=body, dm_email=user
+            db,
+            adventure_id=adventure_id,
+            name=body.name,
+            dm_email=user,
+            description=body.description,
+            monster_roster=body.monster_roster or [],
+            terrain_notes=body.terrain_notes,
+            read_aloud_text=body.read_aloud_text,
+            dm_notes=body.dm_notes,
+            reward_xp=body.reward_xp,
+            loot_table_id=body.loot_table_id,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))

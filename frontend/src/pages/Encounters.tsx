@@ -4,10 +4,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { encountersApi } from "../api/encounters";
 
 const DIFFICULTY_BADGE: Record<string, string> = {
-  easy: "badge-ready",
-  medium: "badge-draft",
-  hard: "badge-progress",
-  deadly: "badge-artifact",
+  Low: "badge-ready",
+  Moderate: "badge-draft",
+  High: "badge-progress",
+  Deadly: "badge-artifact",
 };
 
 export default function Encounters() {
@@ -15,9 +15,9 @@ export default function Encounters() {
   const qc = useQueryClient();
 
   const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState("");
+  const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [difficulty, setDifficulty] = useState("medium");
+  const [difficulty, setDifficulty] = useState("Moderate");
   const [xpBudget, setXpBudget] = useState(0);
 
   const { data: encounters = [], isLoading } = useQuery({
@@ -28,10 +28,10 @@ export default function Encounters() {
 
   const create = useMutation({
     mutationFn: () =>
-      encountersApi.create(adventureId!, { title, description, difficulty, xp_budget: xpBudget }),
+      encountersApi.create(adventureId!, { name, description, difficulty, xp_budget: xpBudget }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["encounters", adventureId] });
-      setTitle(""); setDescription(""); setDifficulty("medium"); setXpBudget(0);
+      setName(""); setDescription(""); setDifficulty("Moderate"); setXpBudget(0);
       setShowForm(false);
     },
   });
@@ -54,8 +54,8 @@ export default function Encounters() {
         <div className="card" style={{ marginBottom: "1.5rem", maxWidth: 480 }}>
           <h3>New Encounter</h3>
           <div className="form-group">
-            <label>Title *</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Goblin Ambush" />
+            <label>Name *</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Goblin Ambush" />
           </div>
           <div className="form-group">
             <label>Description</label>
@@ -65,10 +65,10 @@ export default function Encounters() {
             <div className="form-group">
               <label>Difficulty</label>
               <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-                <option value="deadly">Deadly</option>
+                <option value="Low">Low</option>
+                <option value="Moderate">Moderate</option>
+                <option value="High">High</option>
+                <option value="Deadly">Deadly</option>
               </select>
             </div>
             <div className="form-group">
@@ -79,7 +79,7 @@ export default function Encounters() {
           <button
             className="btn btn-primary"
             onClick={() => create.mutate()}
-            disabled={!title.trim() || create.isPending}
+            disabled={!name.trim() || create.isPending}
           >
             {create.isPending ? "Creating…" : "Create Encounter"}
           </button>
@@ -93,7 +93,7 @@ export default function Encounters() {
           <div key={e.id} className="card">
             <div className="flex items-center" style={{ justifyContent: "space-between" }}>
               <div className="flex items-center gap-2">
-                <strong style={{ color: "var(--gold)" }}>{e.title}</strong>
+                <strong style={{ color: "var(--gold)" }}>{e.name}</strong>
                 {e.difficulty && (
                   <span className={`badge ${DIFFICULTY_BADGE[e.difficulty] ?? "badge-draft"}`}>
                     {e.difficulty}

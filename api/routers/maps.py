@@ -60,9 +60,37 @@ def create_map(adventure_id: uuid.UUID, body: MapCreate, db: DB, user: CurrentUs
         Newly created Map.
     """
     try:
-        return map_service.create_map(db, adventure_id=adventure_id, payload=body, dm_email=user)
+        return map_service.create_map(
+            db,
+            adventure_id=adventure_id,
+            name=body.name,
+            dm_email=user,
+            grid_width=body.grid_width,
+            grid_height=body.grid_height,
+            background_color=body.background_color,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.get("/maps/{map_id}", response_model=Map)
+def get_map(map_id: uuid.UUID, db: DB, user: CurrentUser) -> Map:
+    """Fetch a single map by ID.
+
+    Args:
+        map_id: UUID of the map.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Map object.
+    """
+    try:
+        return map_service.get_map(db, map_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
@@ -140,7 +168,18 @@ def create_node(map_id: uuid.UUID, body: MapNodeCreate, db: DB, user: CurrentUse
         Newly created MapNode.
     """
     try:
-        return map_service.create_node(db, map_id, user, body)
+        return map_service.create_node(
+            db,
+            map_id=map_id,
+            label=body.label,
+            node_type=body.node_type,
+            x=body.x,
+            y=body.y,
+            dm_email=user,
+            description=body.description,
+            encounter_id=body.encounter_id,
+            notes=body.notes,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except PermissionError as exc:
@@ -224,7 +263,15 @@ def create_edge(map_id: uuid.UUID, body: MapEdgeCreate, db: DB, user: CurrentUse
         Newly created MapEdge.
     """
     try:
-        return map_service.create_edge(db, map_id, user, body)
+        return map_service.create_edge(
+            db,
+            map_id=map_id,
+            from_node_id=body.from_node_id,
+            to_node_id=body.to_node_id,
+            dm_email=user,
+            label=body.label,
+            is_secret=body.is_secret,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except PermissionError as exc:

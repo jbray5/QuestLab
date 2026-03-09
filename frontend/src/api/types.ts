@@ -72,21 +72,28 @@ export interface PlayerCharacterCreate {
 export interface Encounter {
   id: string;
   adventure_id: string;
-  title: string;
+  name: string;
   description: string | null;
-  difficulty: string | null;
-  xp_budget: number | null;
-  status: string;
-  monster_ids: string[];
-  created_at: string | null;
+  difficulty: string;
+  xp_budget: number;
+  terrain_notes: string | null;
+  read_aloud_text: string | null;
+  dm_notes: string | null;
+  reward_xp: number;
+  monster_roster: Record<string, unknown>[];
 }
 
 export interface EncounterCreate {
-  title: string;
+  adventure_id: string;
+  name: string;
   description?: string;
   difficulty?: string;
   xp_budget?: number;
-  monster_ids?: string[];
+  monster_roster?: Record<string, unknown>[];
+  terrain_notes?: string;
+  read_aloud_text?: string;
+  dm_notes?: string;
+  reward_xp?: number;
 }
 
 export interface GameSession {
@@ -130,26 +137,32 @@ export interface SessionRunbook {
 
 export interface MapNode {
   id: string;
+  map_id: string;
   label: string;
   x: number;
   y: number;
   node_type: string;
   description: string | null;
+  encounter_id: string | null;
+  notes: string | null;
 }
 
 export interface MapEdge {
   id: string;
-  source_id: string;
-  target_id: string;
+  map_id: string;
+  from_node_id: string;
+  to_node_id: string;
   label: string | null;
+  is_secret: boolean;
 }
 
 export interface AdventureMap {
   id: string;
   adventure_id: string;
-  title: string;
-  nodes: MapNode[];
-  edges: MapEdge[];
+  name: string;
+  grid_width: number;
+  grid_height: number;
+  background_color: string;
 }
 
 export interface Monster {
