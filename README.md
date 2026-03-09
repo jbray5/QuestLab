@@ -13,32 +13,57 @@ encounter flows, monster stat blocks, and loot tables. Run live sessions with in
 - Python 3.11+
 - Git
 
+### Prerequisites
+- Python 3.11+
+- Node.js 18+ (for frontend)
+- Git
+
 ### Setup
 
 ```bash
 # 1. Clone and enter repo
-git clone <repo-url>
+git clone https://github.com/jbray5/QuestLab.git
 cd questlab
 
 # 2. Create virtual environment
 python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+source .venv/Scripts/activate      # Windows Git Bash
+# source .venv/bin/activate        # macOS / Linux
 
-# 3. Install dependencies
+# 3. Install Python dependencies
 pip install -r requirements.txt
 
 # 4. Configure environment
 cp .env.example .env
 # Edit .env — set ANTHROPIC_API_KEY and CURRENT_USER_EMAIL at minimum
 
-# 5. Run the app
-streamlit run main.py
+# 5a. Start the FastAPI backend
+uvicorn api.main:app --reload --port 8000
+
+# 5b. In a separate terminal — start the React frontend (dev mode)
+cd frontend
+npm install
+npm run dev
 ```
 
-The app will open at `http://localhost:8501`.
+- **Backend API + docs:** `http://localhost:8000/docs`
+- **React frontend:** `http://localhost:5173` (proxies `/api` → backend)
+
+### Production build (FastAPI serves React)
+
+```bash
+cd frontend && npm run build    # outputs to frontend/dist/
+uvicorn api.main:app --port 8000
+# Visit http://localhost:8000
+```
 
 ### Local dev uses DuckDB by default
 Set `DB_BACKEND=duckdb` in `.env` — no Postgres needed locally.
+
+### Legacy Streamlit UI (still functional)
+```bash
+streamlit run main.py    # http://localhost:8501
+```
 
 ---
 
@@ -68,18 +93,27 @@ Set `DB_BACKEND=duckdb` in `.env` — no Postgres needed locally.
 ## Commands
 
 ```bash
-# Run app
-streamlit run main.py
+# ── FastAPI backend ────────────────────────────────────────────────────
+uvicorn api.main:app --reload --port 8000
 
-# Quality gates (all must pass before merge)
-black . && isort . && flake8 && interrogate -c pyproject.toml && pip-audit && pytest -q
+# ── React frontend (dev) ───────────────────────────────────────────────
+cd frontend && npm run dev              # http://localhost:5173
 
-# Database migrations (Postgres only)
+# ── React frontend (production build) ─────────────────────────────────
+cd frontend && npm run build            # served by FastAPI at /
+
+# ── Legacy Streamlit UI ────────────────────────────────────────────────
+streamlit run main.py                   # http://localhost:8501
+
+# ── Python quality gates (all must pass before merge) ─────────────────
+black . && isort . && flake8 && interrogate -c pyproject.toml && pip-audit --ignore-vuln PYSEC-2022-42969 && pytest -q
+
+# ── Database migrations (Postgres only) ───────────────────────────────
 alembic revision --autogenerate -m "description"
 alembic upgrade head
 alembic current
 
-# Install pre-commit hooks (one-time)
+# ── Install pre-commit hooks (one-time) ───────────────────────────────
 pre-commit install
 ```
 

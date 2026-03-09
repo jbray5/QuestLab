@@ -1,0 +1,339 @@
+@import url("https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Share+Tech+Mono&display=swap");
+
+/* ── Design tokens ─────────────────────────────────────────────────────────── */
+:root {
+  --bg:        #0d0d0f;
+  --surface:   #16161a;
+  --surface2:  #1e1e24;
+  --border:    #2e2e38;
+  --crimson:   #8b1a1a;
+  --crimson2:  #c0392b;
+  --gold:      #c9a84c;
+  --gold2:     #f5d06a;
+  --parch:     #f4e9c3;
+  --parch2:    #e8d8a0;
+  --text:      #e8e0d0;
+  --muted:     #8a8070;
+  --green:     #2e7d32;
+  --green2:    #4caf50;
+  --yellow:    #f9a825;
+  --red:       #c62828;
+  --shadow:    rgba(0, 0, 0, 0.6);
+
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text);
+  background-color: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Reset ──────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--bg);
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3 {
+  font-family: "Cinzel Decorative", serif;
+  color: var(--gold);
+  margin: 0 0 0.5rem;
+}
+
+h4, h5, h6 {
+  font-family: "Cinzel Decorative", serif;
+  color: var(--gold2);
+  margin: 0 0 0.25rem;
+}
+
+a {
+  color: var(--gold);
+  text-decoration: none;
+}
+a:hover { color: var(--gold2); text-decoration: underline; }
+
+p { margin: 0 0 0.75rem; }
+
+code, pre {
+  font-family: "Share Tech Mono", monospace;
+  background: var(--surface2);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.parchment-card {
+  background: linear-gradient(135deg, var(--parch) 0%, var(--parch2) 100%);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+  padding: 1.5rem;
+  color: #2c1a00;
+  box-shadow: 0 4px 16px var(--shadow);
+  font-family: "EB Garamond", Georgia, serif;
+}
+.parchment-card h1,
+.parchment-card h2,
+.parchment-card h3,
+.parchment-card h4 {
+  color: var(--crimson);
+}
+
+/* ── Badges ─────────────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 0.2em 0.6em;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: "Share Tech Mono", monospace;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.badge-draft     { background: #333; color: #aaa; }
+.badge-ready     { background: #1b3a2d; color: var(--green2); }
+.badge-progress  { background: #3a1f00; color: var(--yellow); }
+.badge-complete  { background: #1a2a3a; color: #64b5f6; }
+.badge-common    { background: #2a2a2a; color: #ccc; }
+.badge-uncommon  { background: #1b3a1b; color: #4caf50; }
+.badge-rare      { background: #1a1a3a; color: #7986cb; }
+.badge-very-rare { background: #2a1a3a; color: #ba68c8; }
+.badge-legendary { background: #3a2a00; color: var(--gold); }
+.badge-artifact  { background: #3a0a00; color: var(--crimson2); }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-family: "Cinzel Decorative", serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-primary {
+  background: var(--crimson);
+  border-color: var(--crimson2);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--crimson2);
+  box-shadow: 0 0 12px rgba(192, 57, 43, 0.5);
+}
+
+.btn-secondary {
+  background: transparent;
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(201, 168, 76, 0.1);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--text);
+  color: var(--text);
+}
+
+.btn-danger {
+  background: transparent;
+  border-color: var(--red);
+  color: var(--red);
+}
+.btn-danger:hover:not(:disabled) {
+  background: rgba(198, 40, 40, 0.15);
+}
+
+/* ── Form elements ───────────────────────────────────────────────────────────── */
+input, textarea, select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 1rem;
+  padding: 0.5rem 0.75rem;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.2);
+}
+input::placeholder, textarea::placeholder { color: var(--muted); }
+
+label {
+  display: block;
+  font-family: "Cinzel Decorative", serif;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.3rem;
+  letter-spacing: 0.05em;
+}
+
+.form-group { margin-bottom: 1rem; }
+
+/* ── HP Bar ──────────────────────────────────────────────────────────────────── */
+.hp-bar-track {
+  background: var(--surface2);
+  border-radius: 4px;
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.hp-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.hp-bar-fill.green  { background: var(--green2); }
+.hp-bar-fill.yellow { background: var(--yellow); }
+.hp-bar-fill.red    { background: var(--red); }
+
+/* ── Read-aloud box ──────────────────────────────────────────────────────────── */
+.read-aloud {
+  background: linear-gradient(135deg, #1a1208 0%, #120e05 100%);
+  border-left: 4px solid var(--gold);
+  border-radius: 0 6px 6px 0;
+  padding: 1rem 1.25rem;
+  font-style: italic;
+  color: var(--parch);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Stat block (D&D Beyond style) ──────────────────────────────────────────── */
+.stat-block {
+  background: #fdf1dc;
+  border: 2px solid #9c2a2a;
+  border-radius: 4px;
+  padding: 1rem;
+  color: #1a0000;
+  font-family: "EB Garamond", Georgia, serif;
+  max-width: 420px;
+}
+.stat-block .monster-name {
+  font-family: "Cinzel Decorative", serif;
+  color: #9c2a2a;
+  font-size: 1.3rem;
+  border-bottom: 2px solid #9c2a2a;
+  padding-bottom: 0.25rem;
+  margin-bottom: 0.4rem;
+}
+.stat-block .ability-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  text-align: center;
+  gap: 0.25rem;
+  background: #9c2a2a;
+  color: #fff;
+  padding: 0.4rem;
+  border-radius: 4px;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+.stat-block hr {
+  border: none;
+  border-top: 1px solid #9c2a2a;
+  margin: 0.5rem 0;
+}
+
+/* ── Divider ─────────────────────────────────────────────────────────────────── */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  margin: 1.5rem 0;
+  border: none;
+}
+
+/* ── Sidebar nav ─────────────────────────────────────────────────────────────── */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 6px;
+  color: var(--muted);
+  text-decoration: none;
+  font-family: "Cinzel Decorative", serif;
+  font-size: 0.78rem;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: rgba(139, 26, 26, 0.3); color: var(--gold); border-left: 2px solid var(--crimson2); }
+
+/* ── Animations ──────────────────────────────────────────────────────────────── */
+@keyframes diceRoll {
+  0%   { transform: rotate(0deg) scale(1); }
+  25%  { transform: rotate(90deg) scale(1.2); }
+  50%  { transform: rotate(180deg) scale(1); }
+  75%  { transform: rotate(270deg) scale(1.2); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+.dice-rolling { animation: diceRoll 0.6s ease-in-out; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.3s ease forwards; }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ── Utility ─────────────────────────────────────────────────────────────────── */
+.text-muted   { color: var(--muted); }
+.text-gold    { color: var(--gold); }
+.text-crimson { color: var(--crimson2); }
+.text-sm      { font-size: 0.875rem; }
+.text-mono    { font-family: "Share Tech Mono", monospace; }
+.flex         { display: flex; }
+.flex-col     { flex-direction: column; }
+.items-center { align-items: center; }
+.gap-2        { gap: 0.5rem; }
+.gap-4        { gap: 1rem; }
+.mt-4         { margin-top: 1rem; }
+.mb-4         { margin-bottom: 1rem; }
+.w-full       { width: 100%; }
+.grid-2       { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+.grid-3       { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }

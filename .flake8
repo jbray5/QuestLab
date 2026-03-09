@@ -6,5 +6,6 @@ exclude =
     __pycache__,
     alembic/versions,
     data,
-    static
+    static,
+    frontend
 extend-ignore = E203, W503
