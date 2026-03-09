@@ -22,10 +22,14 @@ import type { MapNode, MapEdge } from "../api/types";
 
 const NODE_TYPES: NodeType[] = ["Room", "Corridor", "Outdoor", "Settlement", "Dungeon", "Lair"];
 
+// Grid coords from backend are small integers (col/row).
+// Scale up to pixels so nodes are spaced visibly on the canvas.
+const GRID_SCALE = 120;
+
 function toFlowNode(n: MapNode): Node {
   return {
     id: n.id,
-    position: { x: n.x, y: n.y },
+    position: { x: n.x * GRID_SCALE, y: n.y * GRID_SCALE },
     data: { label: n.label },
     type: "default",
     style: {
@@ -52,7 +56,11 @@ function toFlowEdge(e: MapEdge): Edge {
 export default function MapBuilder() {
   const { adventureId } = useParams<{ adventureId: string }>();
   const qc = useQueryClient();
-  const rfRef = useRef<ReactFlowInstance | null>(null);
+
+  // Use state (not ref) so the fitView effect can react when instance becomes ready
+  const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
+  // Track which map we last auto-fitted so we don't re-fit on every node drag
+  const lastFitMap = useRef<string | null>(null);
 
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
   const [newMapName, setNewMapName] = useState("");
@@ -82,20 +90,32 @@ export default function MapBuilder() {
     staleTime: 0,
   });
 
-  // Sync nodes and fit view after they load — fitView must be called
-  // imperatively because the static `fitView` prop only fires on mount.
+  // Sync query data into ReactFlow state
   useEffect(() => {
-    const flowNodes = mapNodes.map(toFlowNode);
-    setNodes(flowNodes);
-    if (flowNodes.length > 0) {
-      // Let React flush the state update before fitting
-      setTimeout(() => rfRef.current?.fitView({ padding: 0.15, duration: 400 }), 50);
-    }
+    setNodes(mapNodes.map(toFlowNode));
   }, [mapNodes]);
 
   useEffect(() => {
     setEdges(mapEdges.map(toFlowEdge));
   }, [mapEdges]);
+
+  // Reset fit tracking when map changes so we re-fit the new map's nodes
+  useEffect(() => {
+    lastFitMap.current = null;
+  }, [selectedMapId]);
+
+  // Fit the viewport once per map load — fires when EITHER the instance becomes
+  // ready OR new nodes arrive, whichever happens last. rAF ensures nodes are
+  // painted before we measure the bounding box.
+  useEffect(() => {
+    if (!rfInstance || mapNodes.length === 0) return;
+    if (lastFitMap.current === selectedMapId) return; // already fitted this map
+    lastFitMap.current = selectedMapId;
+    const raf = requestAnimationFrame(() => {
+      rfInstance.fitView({ padding: 0.2, duration: 500 });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [rfInstance, mapNodes, selectedMapId]);
 
   const createMap = useMutation({
     mutationFn: () => mapsApi.create(adventureId!, newMapName || "New Map"),
@@ -115,8 +135,8 @@ export default function MapBuilder() {
       mapsApi.addNode(selectedMapId!, {
         label: newNodeLabel || "Room",
         node_type: newNodeType,
-        x: Math.round(Math.random() * 400 + 50),
-        y: Math.round(Math.random() * 300 + 50),
+        x: Math.round(Math.random() * 8 + 1),
+        y: Math.round(Math.random() * 6 + 1),
         description: null,
       }),
     onSuccess: (n) => {
@@ -251,7 +271,7 @@ export default function MapBuilder() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
-              onInit={(instance) => { rfRef.current = instance; }}
+              onInit={setRfInstance}
               style={{ background: "var(--surface)" }}
             >
               <MiniMap style={{ background: "var(--surface2)" }} />
