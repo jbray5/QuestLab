@@ -16,7 +16,16 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from api.routers import admin, adventures, campaigns, characters, encounters, maps, sessions
+from api.routers import (
+    admin,
+    adventures,
+    campaigns,
+    characters,
+    encounters,
+    maps,
+    monsters,
+    sessions,
+)
 
 load_dotenv()
 
@@ -72,6 +81,7 @@ app.include_router(characters.router, prefix=_PREFIX)
 app.include_router(encounters.router, prefix=_PREFIX)
 app.include_router(maps.router, prefix=_PREFIX)
 app.include_router(sessions.router, prefix=_PREFIX)
+app.include_router(monsters.router, prefix=_PREFIX)
 app.include_router(admin.router, prefix=_PREFIX)
 
 

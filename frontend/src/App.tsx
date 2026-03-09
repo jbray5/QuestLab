@@ -9,6 +9,7 @@ import MapBuilder from "./pages/MapBuilder";
 import Sessions from "./pages/Sessions";
 import SessionRunner from "./pages/SessionRunner";
 import Admin from "./pages/Admin";
+import Monsters from "./pages/Monsters";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="adventures/:adventureId/maps" element={<MapBuilder />} />
         <Route path="adventures/:adventureId/sessions" element={<Sessions />} />
         <Route path="sessions/:sessionId/run" element={<SessionRunner />} />
+        <Route path="monsters" element={<Monsters />} />
         <Route path="admin" element={<Admin />} />
         <Route path="*" element={<NotFound />} />
       </Route>

@@ -4,17 +4,17 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sessionsApi } from "../api/sessions";
 
 const STATUS_BADGE: Record<string, string> = {
-  DRAFT: "badge-draft",
-  READY: "badge-ready",
-  IN_PROGRESS: "badge-progress",
-  COMPLETE: "badge-complete",
+  Draft: "badge-draft",
+  Ready: "badge-ready",
+  InProgress: "badge-progress",
+  Complete: "badge-complete",
 };
 
 const STATUS_EMOJI: Record<string, string> = {
-  DRAFT: "📝",
-  READY: "✅",
-  IN_PROGRESS: "⚔️",
-  COMPLETE: "🏁",
+  Draft: "📝",
+  Ready: "✅",
+  InProgress: "⚔️",
+  Complete: "🏁",
 };
 
 export default function Sessions() {
@@ -127,7 +127,7 @@ export default function Sessions() {
                   className="btn btn-ghost"
                   style={{ fontSize: "0.7rem" }}
                   onClick={() => advance.mutate(s.id)}
-                  disabled={s.status === "COMPLETE" || advance.isPending}
+                  disabled={s.status === "Complete" || advance.isPending}
                 >
                   Advance →
                 </button>

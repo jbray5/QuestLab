@@ -5,6 +5,7 @@ import { useCampaignStore } from "../stores/useCampaignStore";
 const NAV_ITEMS = [
   { to: "/", label: "⚔ Dashboard", end: true },
   { to: "/campaigns", label: "📜 Campaigns" },
+  { to: "/monsters", label: "🐉 Monsters" },
   { to: "/admin", label: "🛡 Admin" },
 ];
 

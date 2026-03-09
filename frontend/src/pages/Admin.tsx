@@ -149,11 +149,11 @@ export default function Admin() {
                       style={{ borderBottom: "1px solid var(--border)" }}
                     >
                       <td style={{ padding: "0.4rem 0.6rem", color: "var(--gold)" }}>{m.name}</td>
-                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.cr}</td>
-                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center", color: "var(--muted)" }}>{m.type}</td>
-                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.hp ?? "—"}</td>
-                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.ac ?? "—"}</td>
-                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.xp ?? "—"}</td>
+                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.challenge_rating}</td>
+                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center", color: "var(--muted)" }}>{m.creature_type}</td>
+                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.hp_average}</td>
+                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.ac}</td>
+                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.xp}</td>
                     </tr>
                   ))}
                 </tbody>

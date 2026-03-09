@@ -118,20 +118,36 @@ export interface SessionCreate {
 }
 
 export interface RunbookScene {
-  scene_number: number;
   title: string;
   read_aloud: string;
   dm_notes: string;
-  encounter_id: string | null;
-  expected_duration_minutes: number;
+  estimated_minutes: number;
+}
+
+export interface RunbookNpcDialog {
+  npc_name: string;
+  lines: string[];
+  improv_hooks: string[];
+}
+
+export interface RunbookEncounterFlow {
+  encounter_name: string;
+  round_by_round: string[];
+  tactics: string;
+  terrain_notes: string;
 }
 
 export interface SessionRunbook {
+  id: string;
   session_id: string;
+  model_used: string;
+  opening_scene: string;
   scenes: RunbookScene[];
-  hooks: string[];
-  loot: Record<string, unknown>[];
-  total_xp: number;
+  npc_dialog: RunbookNpcDialog[];
+  encounter_flows: RunbookEncounterFlow[];
+  closing_hooks: string | null;
+  xp_awards: Record<string, number> | null;
+  loot_awards: Record<string, unknown>[] | null;
   generated_at: string;
 }
 
@@ -165,26 +181,47 @@ export interface AdventureMap {
   background_color: string;
 }
 
+export interface MonsterAbility {
+  name: string;
+  desc: string;
+}
+
 export interface Monster {
   id: string;
   name: string;
-  cr: string;
-  size: string | null;
-  type: string | null;
+  source: string;
+  size: string;
+  creature_type: string;
   alignment: string | null;
-  hp: number | null;
-  ac: number | null;
-  speed: string | null;
-  str_score: number;
-  dex_score: number;
-  con_score: number;
-  int_score: number;
-  wis_score: number;
-  cha_score: number;
-  traits: Record<string, unknown>[];
-  actions: Record<string, unknown>[];
-  legendary_actions: Record<string, unknown>[];
-  xp: number | null;
+  ac: number;
+  ac_notes: string | null;
+  hp_average: number;
+  hp_formula: string;
+  speed: Record<string, number> | null;
+  score_str: number;
+  score_dex: number;
+  score_con: number;
+  score_int: number;
+  score_wis: number;
+  score_cha: number;
+  saving_throws: Record<string, number> | null;
+  skills: Record<string, number> | null;
+  damage_resistances: string[];
+  damage_immunities: string[];
+  condition_immunities: string[] | null;
+  senses: Record<string, number | string> | null;
+  languages: string | null;
+  challenge_rating: string;
+  xp: number;
+  proficiency_bonus: number;
+  traits: MonsterAbility[] | null;
+  actions: MonsterAbility[] | null;
+  bonus_actions: MonsterAbility[] | null;
+  reactions: MonsterAbility[] | null;
+  legendary_actions: MonsterAbility[] | null;
+  lair_actions: MonsterAbility[] | null;
+  is_custom: boolean;
+  created_by_email: string | null;
 }
 
 export interface Combatant {
