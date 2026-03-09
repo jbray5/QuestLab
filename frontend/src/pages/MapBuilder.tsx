@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -14,6 +14,7 @@ import {
   type Connection,
   type OnNodesChange,
   type OnEdgesChange,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { mapsApi, type NodeType } from "../api/maps";
@@ -51,6 +52,7 @@ function toFlowEdge(e: MapEdge): Edge {
 export default function MapBuilder() {
   const { adventureId } = useParams<{ adventureId: string }>();
   const qc = useQueryClient();
+  const rfRef = useRef<ReactFlowInstance | null>(null);
 
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
   const [newMapName, setNewMapName] = useState("");
@@ -66,23 +68,29 @@ export default function MapBuilder() {
     enabled: !!adventureId,
   });
 
-  const { data: mapNodes = [] } = useQuery({
+  const { data: mapNodes = [], isError: nodesError } = useQuery({
     queryKey: ["map-nodes", selectedMapId],
     queryFn: () => mapsApi.listNodes(selectedMapId!),
     enabled: !!selectedMapId,
     staleTime: 0,
   });
 
-  const { data: mapEdges = [] } = useQuery({
+  const { data: mapEdges = [], isError: edgesError } = useQuery({
     queryKey: ["map-edges", selectedMapId],
     queryFn: () => mapsApi.listEdges(selectedMapId!),
     enabled: !!selectedMapId,
     staleTime: 0,
   });
 
-  // Sync server data into ReactFlow state via useEffect (never during render)
+  // Sync nodes and fit view after they load — fitView must be called
+  // imperatively because the static `fitView` prop only fires on mount.
   useEffect(() => {
-    setNodes(mapNodes.map(toFlowNode));
+    const flowNodes = mapNodes.map(toFlowNode);
+    setNodes(flowNodes);
+    if (flowNodes.length > 0) {
+      // Let React flush the state update before fitting
+      setTimeout(() => rfRef.current?.fitView({ padding: 0.15, duration: 400 }), 50);
+    }
   }, [mapNodes]);
 
   useEffect(() => {
@@ -190,18 +198,25 @@ export default function MapBuilder() {
 
       {createError && (
         <p className="text-sm" style={{ color: "var(--crimson)", marginBottom: "0.75rem" }}>
-          Error: {createError}
+          Error creating map: {createError}
         </p>
       )}
 
       {selectedMapId && (
         <>
+          {(nodesError || edgesError) && (
+            <p className="text-sm" style={{ color: "var(--crimson)", marginBottom: "0.75rem" }}>
+              Failed to load map data — check that the backend is running and you are authenticated.
+            </p>
+          )}
+
           {/* Node controls */}
           <div className="flex gap-2" style={{ marginBottom: "1rem", flexWrap: "wrap" }}>
             <input
               placeholder="Location name"
               value={newNodeLabel}
               onChange={(e) => setNewNodeLabel(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addNodeMut.mutate()}
               style={{ width: 160 }}
             />
             <select
@@ -236,7 +251,7 @@ export default function MapBuilder() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
-              fitView
+              onInit={(instance) => { rfRef.current = instance; }}
               style={{ background: "var(--surface)" }}
             >
               <MiniMap style={{ background: "var(--surface2)" }} />
