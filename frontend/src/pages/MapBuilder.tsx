@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -14,7 +14,6 @@ import {
   type Connection,
   type OnNodesChange,
   type OnEdgesChange,
-  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { mapsApi, type NodeType } from "../api/maps";
@@ -24,7 +23,7 @@ const NODE_TYPES: NodeType[] = ["Room", "Corridor", "Outdoor", "Settlement", "Du
 
 // Grid coords from backend are small integers (col/row).
 // Scale up to pixels so nodes are spaced visibly on the canvas.
-const GRID_SCALE = 120;
+const GRID_SCALE = 150;
 
 function toFlowNode(n: MapNode): Node {
   return {
@@ -57,11 +56,6 @@ export default function MapBuilder() {
   const { adventureId } = useParams<{ adventureId: string }>();
   const qc = useQueryClient();
 
-  // Use state (not ref) so the fitView effect can react when instance becomes ready
-  const [rfInstance, setRfInstance] = useState<ReactFlowInstance | null>(null);
-  // Track which map we last auto-fitted so we don't re-fit on every node drag
-  const lastFitMap = useRef<string | null>(null);
-
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
   const [newMapName, setNewMapName] = useState("");
   const [newNodeLabel, setNewNodeLabel] = useState("");
@@ -69,6 +63,7 @@ export default function MapBuilder() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const { data: maps = [] } = useQuery({
     queryKey: ["maps", adventureId],
@@ -99,24 +94,6 @@ export default function MapBuilder() {
     setEdges(mapEdges.map(toFlowEdge));
   }, [mapEdges]);
 
-  // Reset fit tracking when map changes so we re-fit the new map's nodes
-  useEffect(() => {
-    lastFitMap.current = null;
-  }, [selectedMapId]);
-
-  // Fit the viewport once per map load — fires when EITHER the instance becomes
-  // ready OR new nodes arrive, whichever happens last. rAF ensures nodes are
-  // painted before we measure the bounding box.
-  useEffect(() => {
-    if (!rfInstance || mapNodes.length === 0) return;
-    if (lastFitMap.current === selectedMapId) return; // already fitted this map
-    lastFitMap.current = selectedMapId;
-    const raf = requestAnimationFrame(() => {
-      rfInstance.fitView({ padding: 0.2, duration: 500 });
-    });
-    return () => cancelAnimationFrame(raf);
-  }, [rfInstance, mapNodes, selectedMapId]);
-
   const createMap = useMutation({
     mutationFn: () => mapsApi.create(adventureId!, newMapName || "New Map"),
     onSuccess: (m) => {
@@ -128,6 +105,17 @@ export default function MapBuilder() {
       setNewMapName("");
     },
     onError: (err: Error) => setCreateError(err.message),
+  });
+
+  const deleteMap = useMutation({
+    mutationFn: (mapId: string) => mapsApi.delete(mapId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["maps", adventureId] });
+      setSelectedMapId(null);
+      setNodes([]);
+      setEdges([]);
+      setDeleteConfirmId(null);
+    },
   });
 
   const addNodeMut = useMutation({
@@ -190,13 +178,40 @@ export default function MapBuilder() {
       {/* Map selector */}
       <div className="flex gap-2" style={{ marginBottom: "1rem", flexWrap: "wrap" }}>
         {maps.map((m) => (
-          <button
-            key={m.id}
-            className={`btn ${selectedMapId === m.id ? "btn-primary" : "btn-ghost"}`}
-            onClick={() => selectMap(m.id)}
-          >
-            {m.name}
-          </button>
+          <div key={m.id} className="flex gap-1" style={{ alignItems: "center" }}>
+            <button
+              className={`btn ${selectedMapId === m.id ? "btn-primary" : "btn-ghost"}`}
+              onClick={() => selectMap(m.id)}
+            >
+              {m.name}
+            </button>
+            {deleteConfirmId === m.id ? (
+              <>
+                <span className="text-sm" style={{ color: "var(--crimson)", alignSelf: "center" }}>
+                  Delete?
+                </span>
+                <button
+                  className="btn btn-danger"
+                  onClick={() => deleteMap.mutate(m.id)}
+                  disabled={deleteMap.isPending}
+                >
+                  {deleteMap.isPending ? "…" : "Yes"}
+                </button>
+                <button className="btn btn-ghost" onClick={() => setDeleteConfirmId(null)}>
+                  No
+                </button>
+              </>
+            ) : (
+              <button
+                className="btn btn-ghost"
+                onClick={() => setDeleteConfirmId(m.id)}
+                style={{ padding: "0.2rem 0.4rem", fontSize: "0.75rem", opacity: 0.6 }}
+                title="Delete map"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         ))}
         <div className="flex gap-2" style={{ alignItems: "center" }}>
           <input
@@ -263,21 +278,52 @@ export default function MapBuilder() {
               border: "1px solid var(--border)",
               borderRadius: 8,
               overflow: "hidden",
+              position: "relative",
             }}
           >
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onInit={setRfInstance}
-              style={{ background: "var(--surface)" }}
-            >
-              <MiniMap style={{ background: "var(--surface2)" }} />
-              <Controls />
-              <Background color="var(--border)" />
-            </ReactFlow>
+            {nodes.length === 0 && mapNodes.length === 0 ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "100%",
+                  color: "var(--text-muted)",
+                  background: "var(--surface)",
+                }}
+              >
+                Add a location above to get started.
+              </div>
+            ) : nodes.length === 0 ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "100%",
+                  color: "var(--text-muted)",
+                  background: "var(--surface)",
+                }}
+              >
+                Loading map…
+              </div>
+            ) : (
+              <ReactFlow
+                key={selectedMapId}
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                fitView
+                fitViewOptions={{ padding: 0.3 }}
+                style={{ background: "var(--surface)" }}
+              >
+                <MiniMap style={{ background: "var(--surface2)" }} />
+                <Controls />
+                <Background color="var(--border)" />
+              </ReactFlow>
+            )}
           </div>
 
           <p className="text-sm text-muted" style={{ marginTop: "0.5rem" }}>

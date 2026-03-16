@@ -1,0 +1,110 @@
+name: Build & Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api/**"
+      - "frontend/src/**"
+      - "frontend/index.html"
+      - "frontend/package*.json"
+      - "frontend/vite.config.ts"
+      - "Dockerfile"
+      - "entrypoint.sh"
+      - "requirements.txt"
+      - "alembic/**"
+
+jobs:
+  build-and-deploy:
+    name: Build, Push, Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.ACR_LOGIN_SERVER }}/questlab:${{ github.sha }}
+            ${{ secrets.ACR_LOGIN_SERVER }}/questlab:latest
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to Container Apps
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            # Create app on first run, update image on subsequent runs
+            if az containerapp show \
+                --name questlab-app \
+                --resource-group questlab-rg \
+                --output none 2>/dev/null; then
+
+              echo "Updating existing Container App..."
+              az containerapp update \
+                --name questlab-app \
+                --resource-group questlab-rg \
+                --image ${{ secrets.ACR_LOGIN_SERVER }}/questlab:${{ github.sha }}
+
+            else
+
+              echo "Creating Container App for the first time..."
+              az containerapp create \
+                --name questlab-app \
+                --resource-group questlab-rg \
+                --environment questlab-env \
+                --image ${{ secrets.ACR_LOGIN_SERVER }}/questlab:${{ github.sha }} \
+                --registry-server ${{ secrets.ACR_LOGIN_SERVER }} \
+                --registry-username ${{ secrets.ACR_USERNAME }} \
+                --registry-password ${{ secrets.ACR_PASSWORD }} \
+                --target-port 8000 \
+                --ingress external \
+                --min-replicas 0 \
+                --max-replicas 2 \
+                --cpu 0.5 \
+                --memory 1.0Gi \
+                --env-vars \
+                    DB_BACKEND=postgres \
+                    PGHOST=${{ secrets.PGHOST }} \
+                    PGPORT=5432 \
+                    PGDATABASE=${{ secrets.PGDATABASE }} \
+                    PGUSER=${{ secrets.PGUSER }} \
+                    PGPASSWORD=secretref:pgpassword \
+                    PGSSLMODE=require \
+                    CURRENT_USER_EMAIL=${{ secrets.CURRENT_USER_EMAIL }} \
+                    BOOTSTRAP_ADMIN_EMAILS=${{ secrets.BOOTSTRAP_ADMIN_EMAILS }} \
+                    ANTHROPIC_API_KEY=secretref:anthropickey \
+                    LOG_LEVEL=INFO \
+                    ENV=production \
+                --secrets \
+                    pgpassword=${{ secrets.PGPASSWORD }} \
+                    anthropickey=${{ secrets.ANTHROPIC_API_KEY }}
+            fi
+
+      - name: Print app URL
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            FQDN=$(az containerapp show \
+              --name questlab-app \
+              --resource-group questlab-rg \
+              --query properties.configuration.ingress.fqdn -o tsv)
+            echo "QuestLab is live at: https://$FQDN"

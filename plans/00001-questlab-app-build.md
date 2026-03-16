@@ -1,7 +1,7 @@
 # Plan 00001 — QuestLab App Build
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
 
 **Started:** 2026-03-07
 **Last updated:** 2026-03-07

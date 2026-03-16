@@ -27,9 +27,19 @@ from api.routers import (
     sessions,
 )
 
+import os
+
 load_dotenv()
 
 _FRONTEND_DIST = Path(__file__).parent.parent / "frontend" / "dist"
+
+_DEFAULT_ORIGINS = [
+    "http://localhost:5173",  # Vite dev server
+    "http://localhost:8000",  # FastAPI serving built frontend
+]
+# CORS_ORIGINS env var: comma-separated extra origins (e.g. the Container Apps URL)
+_extra = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
+_CORS_ORIGINS = _DEFAULT_ORIGINS + _extra
 
 
 @asynccontextmanager
@@ -63,10 +73,7 @@ app = FastAPI(
 # ── CORS — allow Vite dev server (port 5173) and same-origin prod ──────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite dev server
-        "http://localhost:8000",  # FastAPI serving built frontend
-    ],
+    allow_origins=_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,0 +1,17 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+.env
+.env.*
+!.env.example
+data/
+frontend/node_modules
+frontend/dist
+.git
+.github
+tests/
+*.md
+plans/
+docs/
+infra/
