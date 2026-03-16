@@ -63,6 +63,7 @@ export default function MapBuilder() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [addNodeError, setAddNodeError] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const { data: maps = [] } = useQuery({
@@ -128,10 +129,12 @@ export default function MapBuilder() {
         description: null,
       }),
     onSuccess: (n) => {
+      setAddNodeError(null);
       setNodes((prev) => [...prev, toFlowNode(n)]);
       qc.invalidateQueries({ queryKey: ["map-nodes", selectedMapId] });
       setNewNodeLabel("");
     },
+    onError: (err: Error) => setAddNodeError(err.message),
   });
 
   const addEdgeMut = useMutation({
@@ -268,9 +271,15 @@ export default function MapBuilder() {
               onClick={() => addNodeMut.mutate()}
               disabled={addNodeMut.isPending}
             >
-              + Add Location
+              {addNodeMut.isPending ? "Adding…" : "+ Add Location"}
             </button>
           </div>
+
+          {addNodeError && (
+            <p className="text-sm" style={{ color: "var(--crimson2)", marginBottom: "0.75rem" }}>
+              Error: {addNodeError}
+            </p>
+          )}
 
           <div
             style={{
