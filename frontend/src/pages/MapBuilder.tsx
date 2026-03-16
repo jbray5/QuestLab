@@ -30,164 +30,384 @@ const GRID_SCALE = 150;
 
 // ── Fantasy map export ────────────────────────────────────────────────────────
 
-const PARCH_COLORS: Record<string, { fill: string; stroke: string }> = {
-  Region:     { fill: "#ddd0f0", stroke: "#6a3d9a" },
-  City:       { fill: "#ffe082", stroke: "#7a5200" },
-  Town:       { fill: "#c8e6c9", stroke: "#2e7d32" },
-  Village:    { fill: "#dcedc8", stroke: "#558b2f" },
-  Landmark:   { fill: "#d7ccc8", stroke: "#5d4037" },
-  Port:       { fill: "#b3e5fc", stroke: "#01579b" },
-  Fortress:   { fill: "#ffcdd2", stroke: "#b71c1c" },
-  Room:       { fill: "#f0e8d0", stroke: "#8b6c0a" },
-  Corridor:   { fill: "#ede0c8", stroke: "#795548" },
-  Outdoor:    { fill: "#dcedc8", stroke: "#558b2f" },
-  Settlement: { fill: "#ffe082", stroke: "#e65100" },
-  Dungeon:    { fill: "#d1c4e9", stroke: "#512da8" },
-  Lair:       { fill: "#ffcdd2", stroke: "#c62828" },
-};
+// ── Seeded PRNG (deterministic scatter per node) ───────────────────────────
+function makePRNG(seed: number) {
+  let s = (seed | 0) >>> 0;
+  return () => {
+    s ^= s << 13;
+    s ^= s >> 17;
+    s ^= s << 5;
+    return (s >>> 0) / 0xffffffff;
+  };
+}
+
+// ── Node symbols (illustrated SVG, centered at cx,cy) ─────────────────────
+
+function symCity(cx: number, cy: number) {
+  const pts = Array.from({ length: 16 }, (_, i) => {
+    const a = (i * Math.PI) / 8 - Math.PI / 2;
+    const r = i % 2 === 0 ? 17 : 9;
+    return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
+  }).join(" ");
+  return `<polygon points="${pts}" fill="#f0d060" stroke="#8b6010" stroke-width="1.5" filter="url(#wobble)"/>
+          <circle cx="${cx}" cy="${cy}" r="4.5" fill="#8b6010"/>
+          <circle cx="${cx}" cy="${cy}" r="22" fill="none" stroke="#8b6010" stroke-width="0.7" opacity="0.4"/>`;
+}
+
+function symTown(cx: number, cy: number) {
+  const x = cx - 14;
+  const y = cy - 12;
+  return `<rect x="${x}" y="${y + 4}" width="11" height="14" fill="#d4c890" stroke="#8b6030" stroke-width="0.9"/>
+          <polygon points="${x},${y + 4} ${x + 5.5},${y - 3} ${x + 11},${y + 4}" fill="#9b4040" stroke="#8b6030" stroke-width="0.8"/>
+          <rect x="${cx + 3}" y="${y + 1}" width="13" height="17" fill="#c8b880" stroke="#8b6030" stroke-width="0.9"/>
+          <polygon points="${cx + 2},${y + 1} ${cx + 9.5},${y - 7} ${cx + 17},${y + 1}" fill="#9b4040" stroke="#8b6030" stroke-width="0.8"/>`;
+}
+
+function symVillage(cx: number, cy: number) {
+  const x = cx - 9;
+  const y = cy - 10;
+  return `<rect x="${x}" y="${y + 5}" width="18" height="13" fill="#d4c890" stroke="#8b6030" stroke-width="0.8"/>
+          <polygon points="${x - 1},${y + 5} ${cx},${y - 3} ${x + 19},${y + 5}" fill="#9b4040" stroke="#8b6030" stroke-width="0.8"/>
+          <rect x="${cx - 3}" y="${y + 8}" width="6" height="9" fill="#a08840" stroke="#8b6030" stroke-width="0.5"/>`;
+}
+
+function symPort(cx: number, cy: number) {
+  return `<line x1="${cx}" y1="${cy - 15}" x2="${cx}" y2="${cy + 15}" stroke="#2a4a80" stroke-width="2.2"/>
+          <line x1="${cx - 13}" y1="${cy - 8}" x2="${cx + 13}" y2="${cy - 8}" stroke="#2a4a80" stroke-width="2"/>
+          <circle cx="${cx}" cy="${cy - 15}" r="4" fill="none" stroke="#2a4a80" stroke-width="1.8"/>
+          <path d="M${cx - 13},${cy + 8} Q${cx - 17},${cy + 16} ${cx - 9},${cy + 13}" fill="none" stroke="#2a4a80" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M${cx + 13},${cy + 8} Q${cx + 17},${cy + 16} ${cx + 9},${cy + 13}" fill="none" stroke="#2a4a80" stroke-width="1.5" stroke-linecap="round"/>`;
+}
+
+function symFortress(cx: number, cy: number) {
+  const x = cx - 17;
+  const y = cy - 14;
+  return `<rect x="${x + 5}" y="${y + 8}" width="24" height="16" fill="#b8a878" stroke="#6a5030" stroke-width="0.9"/>
+          <rect x="${x}" y="${y + 2}" width="11" height="22" fill="#a89868" stroke="#6a5030" stroke-width="0.9"/>
+          <rect x="${x + 23}" y="${y + 2}" width="11" height="22" fill="#a89868" stroke="#6a5030" stroke-width="0.9"/>
+          <rect x="${x}" y="${y - 3}" width="4" height="7" fill="#a89868" stroke="#6a5030" stroke-width="0.7"/>
+          <rect x="${x + 7}" y="${y - 3}" width="4" height="7" fill="#a89868" stroke="#6a5030" stroke-width="0.7"/>
+          <rect x="${x + 23}" y="${y - 3}" width="4" height="7" fill="#a89868" stroke="#6a5030" stroke-width="0.7"/>
+          <rect x="${x + 30}" y="${y - 3}" width="4" height="7" fill="#a89868" stroke="#6a5030" stroke-width="0.7"/>
+          <rect x="${cx - 6}" y="${y + 11}" width="12" height="13" fill="#5a4020" stroke="#6a5030" stroke-width="0.8"/>
+          <path d="M${cx - 6},${y + 11} Q${cx},${y + 6} ${cx + 6},${y + 11}" fill="#5a4020" stroke="#6a5030" stroke-width="0.7"/>`;
+}
+
+function symLandmark(cx: number, cy: number) {
+  return `<polygon points="${cx},${cy - 20} ${cx + 5},${cy - 3} ${cx + 4},${cy + 16} ${cx - 4},${cy + 16} ${cx - 5},${cy - 3}"
+           fill="#c8b888" stroke="#7a6040" stroke-width="1" filter="url(#wobble)"/>
+          <line x1="${cx - 4}" y1="${cy + 2}" x2="${cx + 4}" y2="${cy + 2}" stroke="#7a6040" stroke-width="0.6" opacity="0.7"/>
+          <line x1="${cx - 4}" y1="${cy + 9}" x2="${cx + 4}" y2="${cy + 9}" stroke="#7a6040" stroke-width="0.6" opacity="0.7"/>`;
+}
+
+function symRegion(cx: number, cy: number) {
+  return `<circle cx="${cx}" cy="${cy}" r="7" fill="none" stroke="#9a7050" stroke-width="1.8" stroke-dasharray="3,2.5"/>
+          <circle cx="${cx}" cy="${cy}" r="3" fill="#9a7050"/>`;
+}
+
+function symDungeon(cx: number, cy: number) {
+  return `<path d="M${cx - 14},${cy + 12} Q${cx - 8},${cy - 12} ${cx},${cy - 15} Q${cx + 8},${cy - 12} ${cx + 14},${cy + 12}
+           Q${cx + 6},${cy + 5} ${cx},${cy + 8} Q${cx - 6},${cy + 5} Z"
+           fill="#7a6060" stroke="#4a3030" stroke-width="1" filter="url(#wobble)"/>`;
+}
+
+function symLair(cx: number, cy: number) {
+  return `<path d="M${cx - 18},${cy + 10} Q${cx - 10},${cy - 8} ${cx},${cy - 12} Q${cx + 10},${cy - 8} ${cx + 18},${cy + 10}
+           Q${cx + 8},${cy + 4} ${cx},${cy + 7} Q${cx - 8},${cy + 4} Z"
+           fill="#6a5050" stroke="#4a3030" stroke-width="1" filter="url(#wobble)"/>`;
+}
+
+function getNodeSymbol(type: string, cx: number, cy: number): string {
+  switch (type) {
+    case "City":       return symCity(cx, cy);
+    case "Town":       return symTown(cx, cy);
+    case "Village":    return symVillage(cx, cy);
+    case "Port":       return symPort(cx, cy);
+    case "Fortress":   return symFortress(cx, cy);
+    case "Landmark":   return symLandmark(cx, cy);
+    case "Region":     return symRegion(cx, cy);
+    case "Dungeon":    return symDungeon(cx, cy);
+    case "Lair":       return symLair(cx, cy);
+    case "Settlement": return symTown(cx, cy);
+    case "Outdoor":    return symVillage(cx, cy);
+    case "Room":
+      return `<rect x="${cx - 11}" y="${cy - 9}" width="22" height="18" fill="#d4c8a8" stroke="#7a6040" stroke-width="1.2" rx="3"/>`;
+    case "Corridor":
+      return `<rect x="${cx - 16}" y="${cy - 6}" width="32" height="12" fill="#c4b898" stroke="#7a6040" stroke-width="1" rx="2"/>`;
+    default:
+      return symRegion(cx, cy);
+  }
+}
+
+// ── Terrain decoration generators ────────────────────────────────────────────
+
+function terrMountain(bx: number, by: number, rng: () => number): string {
+  const dx = (rng() - 0.5) * 60;
+  const dy = (rng() - 0.5) * 40;
+  const s = 0.75 + rng() * 0.55;
+  const cx = bx + dx;
+  const cy = by + dy;
+  return `<g transform="translate(${cx},${cy}) scale(${s})" opacity="0.82">
+    <polygon points="-18,0 -10,-22 -2,0"  fill="#c2b292" stroke="#8a7050" stroke-width="0.7"/>
+    <polygon points="-7,0 4,-28 15,0"     fill="#d2c2a2" stroke="#8a7050" stroke-width="0.7"/>
+    <polygon points="7,0 15,-20 23,0"     fill="#c2b292" stroke="#8a7050" stroke-width="0.7"/>
+    <polygon points="-12,-14 -10,-22 -8,-14" fill="#eae4d8"/>
+    <polygon points="2,-20 4,-28 6,-20"   fill="#eae4d8"/>
+    <polygon points="13,-13 15,-20 17,-13" fill="#eae4d8"/>
+  </g>`;
+}
+
+function terrForest(bx: number, by: number, rng: () => number): string {
+  const dx = (rng() - 0.5) * 60;
+  const dy = (rng() - 0.5) * 40;
+  const s = 0.65 + rng() * 0.55;
+  const cx = bx + dx;
+  const cy = by + dy;
+  return `<g transform="translate(${cx},${cy}) scale(${s})" opacity="0.78">
+    <polygon points="-13,0 -7,-19 -1,0"  fill="#4a7840" stroke="#2a5020" stroke-width="0.5"/>
+    <rect x="-11" y="0" width="7" height="6" fill="#5a3a18"/>
+    <polygon points="-3,0 5,-24 13,0"    fill="#3a6830" stroke="#2a5020" stroke-width="0.5"/>
+    <rect x="0" y="0" width="7" height="6" fill="#5a3a18"/>
+    <polygon points="10,0 17,-17 24,0"   fill="#4a7840" stroke="#2a5020" stroke-width="0.5"/>
+    <rect x="12" y="0" width="7" height="6" fill="#5a3a18"/>
+  </g>`;
+}
+
+function terrWave(bx: number, by: number, rng: () => number): string {
+  const dx = (rng() - 0.5) * 80;
+  const dy = (rng() - 0.5) * 60;
+  const cx = bx + dx;
+  const cy = by + dy;
+  return `<g opacity="0.38">
+    <path d="M${cx - 22},${cy} Q${cx - 15},${cy - 6} ${cx - 8},${cy} Q${cx - 1},${cy + 6} ${cx + 6},${cy}"
+          fill="none" stroke="#4080b0" stroke-width="1.4"/>
+    <path d="M${cx - 12},${cy + 9} Q${cx - 5},${cy + 3} ${cx + 2},${cy + 9} Q${cx + 9},${cy + 15} ${cx + 16},${cy + 9}"
+          fill="none" stroke="#4080b0" stroke-width="1.1"/>
+  </g>`;
+}
+
+// ── Main export function ──────────────────────────────────────────────────────
 
 function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
   if (nodes.length === 0) return;
 
-  const NW = 150;
-  const NH = 46;
-  const PAD = 90;
-  const TITLE_H = 70;
+  const SYM_H = 36; // symbol height (half above, half below cy)
+  const LABEL_GAP = 22; // gap from cy to bottom of label
+  const PAD = 120;
+  const TITLE_H = 90;
 
   const xs = nodes.map((n) => n.position.x);
   const ys = nodes.map((n) => n.position.y);
   const minX = Math.min(...xs) - PAD;
   const minY = Math.min(...ys) - PAD - TITLE_H;
-  const W = Math.max(...xs) + NW + PAD - minX;
-  const H = Math.max(...ys) + NH + PAD - minY;
+  const W = Math.max(...xs) + PAD - minX + 80;
+  const H = Math.max(...ys) + PAD - minY + 80;
 
   const pos = new Map(
     nodes.map((n) => [
       n.id,
       {
-        x: n.position.x - minX,
-        y: n.position.y - minY,
-        cx: n.position.x - minX + NW / 2,
-        cy: n.position.y - minY + NH / 2,
+        cx: n.position.x - minX,
+        cy: n.position.y - minY + SYM_H,
       },
     ]),
   );
 
+  // ── Soft terrain tints (behind everything) ─────────────────────────────
+  const waterTints = nodes
+    .filter((n) => String(n.data.node_type ?? "") === "Port")
+    .map((n) => {
+      const p = pos.get(n.id)!;
+      return `<ellipse cx="${p.cx}" cy="${p.cy + 25}" rx="110" ry="80"
+               fill="#a8c8e0" opacity="0.38"/>`;
+    })
+    .join("");
+
+  const forestTints = nodes
+    .filter((n) =>
+      ["Village", "Outdoor", "Region"].includes(String(n.data.node_type ?? "")),
+    )
+    .map((n) => {
+      const p = pos.get(n.id)!;
+      return `<ellipse cx="${p.cx}" cy="${p.cy}" rx="90" ry="66" fill="#6aaa58" opacity="0.13"/>`;
+    })
+    .join("");
+
+  const mountainTints = nodes
+    .filter((n) =>
+      ["Fortress", "Dungeon", "Lair", "Landmark"].includes(
+        String(n.data.node_type ?? ""),
+      ),
+    )
+    .map((n) => {
+      const p = pos.get(n.id)!;
+      return `<ellipse cx="${p.cx}" cy="${p.cy}" rx="85" ry="60" fill="#988060" opacity="0.13"/>`;
+    })
+    .join("");
+
+  // ── Scattered terrain illustrations ────────────────────────────────────
+  const terrainSvg = nodes
+    .map((n) => {
+      const p = pos.get(n.id);
+      if (!p) return "";
+      const type = String(n.data.node_type ?? "Room");
+      const seed = n.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+      const rng = makePRNG(seed);
+      let out = "";
+      const isMtn = ["Fortress", "Dungeon", "Lair", "Landmark"].includes(type);
+      const isFst = ["Village", "Outdoor", "Region"].includes(type);
+      const isPort = type === "Port";
+      if (isMtn) for (let i = 0; i < 3; i++) out += terrMountain(p.cx, p.cy, rng);
+      if (isFst) for (let i = 0; i < 3; i++) out += terrForest(p.cx, p.cy, rng);
+      if (isPort) for (let i = 0; i < 5; i++) out += terrWave(p.cx, p.cy, rng);
+      return out;
+    })
+    .join("");
+
+  // ── Roads / edges ───────────────────────────────────────────────────────
   const edgeSvg = edges
     .map((e) => {
       const s = pos.get(e.source);
       const d = pos.get(e.target);
       if (!s || !d) return "";
-      const mx = (s.cx + d.cx) / 2;
-      const my = (s.cy + d.cy) / 2;
-      const label = typeof e.label === "string" ? e.label : "";
-      // Slightly curved path for organic feel
       const dx = d.cx - s.cx;
       const dy = d.cy - s.cy;
-      const cx1 = s.cx + dx * 0.25 + dy * 0.1;
-      const cy1 = s.cy + dy * 0.25 - dx * 0.1;
-      const cx2 = s.cx + dx * 0.75 - dy * 0.1;
-      const cy2 = s.cy + dy * 0.75 + dx * 0.1;
+      const cx1 = s.cx + dx * 0.3 + dy * 0.12;
+      const cy1 = s.cy + dy * 0.3 - dx * 0.12;
+      const cx2 = s.cx + dx * 0.7 - dy * 0.12;
+      const cy2 = s.cy + dy * 0.7 + dx * 0.12;
+      const mx = (s.cx + d.cx) / 2;
+      const my = (s.cy + d.cy) / 2 - 7;
+      const label = typeof e.label === "string" ? e.label : "";
       return `
         <path d="M${s.cx},${s.cy} C${cx1},${cy1} ${cx2},${cy2} ${d.cx},${d.cy}"
-              fill="none" stroke="#5d3a1a" stroke-width="1.8" stroke-opacity="0.65"
-              filter="url(#wobble)"/>
-        ${label ? `<text x="${mx}" y="${my - 5}" text-anchor="middle"
-                    font-family="EB Garamond,Georgia,serif" font-size="12"
-                    fill="#5d3a1a" font-style="italic" opacity="0.85"
-                    filter="url(#wobble)">${label}</text>` : ""}`;
+              fill="none" stroke="#7a5830" stroke-width="2.4" stroke-dasharray="9,5" opacity="0.55"/>
+        <path d="M${s.cx},${s.cy} C${cx1},${cy1} ${cx2},${cy2} ${d.cx},${d.cy}"
+              fill="none" stroke="#d4aa70" stroke-width="0.9" stroke-dasharray="9,5" opacity="0.35"/>
+        ${
+          label
+            ? `<text x="${mx}" y="${my}" text-anchor="middle"
+                   font-family="EB Garamond,Georgia,serif" font-size="11"
+                   fill="#5d3a1a" font-style="italic" opacity="0.8"
+                   stroke="#f0e8d0" stroke-width="2.5" paint-order="stroke">${label}</text>`
+            : ""
+        }`;
     })
     .join("");
 
+  // ── Node symbols + floating labels ─────────────────────────────────────
   const nodeSvg = nodes
     .map((n) => {
       const p = pos.get(n.id);
       if (!p) return "";
       const label = String(n.data.label ?? "");
       const type = String(n.data.node_type ?? "Room");
-      const c = PARCH_COLORS[type] ?? PARCH_COLORS["Room"];
-      const display = label.length > 17 ? label.slice(0, 16) + "…" : label;
-      return `
-        <rect x="${p.x}" y="${p.y}" width="${NW}" height="${NH}"
-              rx="7" ry="7" fill="${c.fill}" stroke="${c.stroke}"
-              stroke-width="2" filter="url(#wobble)"/>
-        <text x="${p.cx}" y="${p.y + 26}" text-anchor="middle"
-              font-family="Cinzel Decorative,serif" font-size="10.5"
-              fill="#2c1a00" font-weight="700">${display}</text>
-        <text x="${p.cx}" y="${p.y + NH - 7}" text-anchor="middle"
-              font-family="EB Garamond,Georgia,serif" font-size="9"
-              fill="${c.stroke}" font-style="italic">${type}</text>`;
+      const symbol = getNodeSymbol(type, p.cx, p.cy);
+      const display = label.length > 20 ? label.slice(0, 19) + "…" : label;
+      const isMajor = ["City", "Region"].includes(type);
+      const fontSize = isMajor ? 14 : 11.5;
+      const fontWeight = isMajor ? "700" : "600";
+      return `${symbol}
+        <text x="${p.cx}" y="${p.cy + LABEL_GAP}" text-anchor="middle"
+              font-family="Cinzel Decorative,Cinzel,Georgia,serif"
+              font-size="${fontSize}" font-weight="${fontWeight}"
+              stroke="#f0e8d0" stroke-width="3.5" paint-order="stroke"
+              fill="#2c1800">${display}</text>`;
     })
     .join("");
 
+  // ── Compass rose ────────────────────────────────────────────────────────
+  const crX = W - 78;
+  const crY = H - 80;
+  const compassRose = `<g transform="translate(${crX},${crY})">
+    <circle cx="0" cy="0" r="34" fill="#f0ddb0" stroke="#8b6020" stroke-width="1" opacity="0.7"/>
+    <polygon points="0,-34 4,-13 0,-19 -4,-13" fill="#c8a050" stroke="#8b6020" stroke-width="0.8"/>
+    <polygon points="0,34 4,13 0,19 -4,13"  fill="#a08040" stroke="#8b6020" stroke-width="0.8"/>
+    <polygon points="-34,0 -13,4 -19,0 -13,-4" fill="#c8a050" stroke="#8b6020" stroke-width="0.8"/>
+    <polygon points="34,0 13,4 19,0 13,-4"  fill="#c8a050" stroke="#8b6020" stroke-width="0.8"/>
+    <polygon points="-21,-21 -9,-9 -14,-7 -7,-14" fill="#b09040" stroke="#8b6020" stroke-width="0.6"/>
+    <polygon points="21,-21 9,-9 7,-14 14,-7"  fill="#b09040" stroke="#8b6020" stroke-width="0.6"/>
+    <polygon points="-21,21 -9,9 -7,14 -14,7"  fill="#b09040" stroke="#8b6020" stroke-width="0.6"/>
+    <polygon points="21,21 9,9 14,7 7,14"   fill="#b09040" stroke="#8b6020" stroke-width="0.6"/>
+    <circle cx="0" cy="0" r="6" fill="#c8a050" stroke="#8b6020" stroke-width="1.5"/>
+    <circle cx="0" cy="0" r="2.5" fill="#8b6020"/>
+    <text x="0" y="-38" text-anchor="middle" font-family="Cinzel,Georgia,serif"
+          font-size="12" fill="#5a3a10" font-weight="700">N</text>
+  </g>`;
+
+  // ── SVG assembly ────────────────────────────────────────────────────────
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
-    <!-- Hand-drawn wobble on shapes -->
-    <filter id="wobble" x="-4%" y="-4%" width="108%" height="108%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="3" seed="7" result="noise"/>
-      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.8"
-                         xChannelSelector="R" yChannelSelector="G"/>
+    <filter id="wobble" x="-6%" y="-6%" width="112%" height="112%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.013" numOctaves="4" seed="42" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
-    <!-- Paper grain overlay -->
     <filter id="grain">
-      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4"
-                    stitchTiles="stitch" result="noise"/>
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" result="noise"/>
       <feColorMatrix type="saturate" values="0" in="noise" result="grey"/>
       <feBlend in="SourceGraphic" in2="grey" mode="multiply"/>
     </filter>
-    <!-- Parchment radial gradient -->
-    <radialGradient id="parch" cx="50%" cy="45%" r="65%">
-      <stop offset="0%"   stop-color="#f8edd8"/>
-      <stop offset="55%"  stop-color="#f0ddb0"/>
-      <stop offset="100%" stop-color="#c8a878"/>
+    <radialGradient id="parch" cx="50%" cy="42%" r="72%">
+      <stop offset="0%"   stop-color="#f7eccc"/>
+      <stop offset="42%"  stop-color="#edd89e"/>
+      <stop offset="82%"  stop-color="#d2b66e"/>
+      <stop offset="100%" stop-color="#b89248"/>
     </radialGradient>
-    <!-- Vignette -->
-    <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
-      <stop offset="0%"   stop-color="#7a4a1a" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#7a4a1a" stop-opacity="0.35"/>
+    <radialGradient id="vignette" cx="50%" cy="50%" r="72%">
+      <stop offset="0%"   stop-color="#6a3a0a" stop-opacity="0"/>
+      <stop offset="75%"  stop-color="#6a3a0a" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#4a2000" stop-opacity="0.52"/>
     </radialGradient>
   </defs>
 
-  <!-- Parchment base -->
+  <!-- Parchment -->
   <rect width="${W}" height="${H}" fill="url(#parch)"/>
-  <!-- Paper grain -->
-  <rect width="${W}" height="${H}" fill="#c8a060" opacity="0.08" filter="url(#grain)"/>
-  <!-- Vignette -->
+  ${waterTints}
+  ${forestTints}
+  ${mountainTints}
+  <rect width="${W}" height="${H}" fill="#a07030" opacity="0.055" filter="url(#grain)"/>
   <rect width="${W}" height="${H}" fill="url(#vignette)"/>
 
-  <!-- Outer border -->
-  <rect x="10" y="10" width="${W - 20}" height="${H - 20}"
-        fill="none" stroke="#7a4a1a" stroke-width="3.5" rx="5"/>
-  <!-- Inner decorative border -->
-  <rect x="18" y="18" width="${W - 36}" height="${H - 36}"
-        fill="none" stroke="#7a4a1a" stroke-width="1"
-        stroke-dasharray="8,5" rx="3" opacity="0.7"/>
+  <!-- Borders -->
+  <rect x="8"  y="8"  width="${W - 16}" height="${H - 16}" fill="none" stroke="#7a4a1a" stroke-width="4"   rx="5"/>
+  <rect x="17" y="17" width="${W - 34}" height="${H - 34}" fill="none" stroke="#7a4a1a" stroke-width="1.3" rx="3"/>
+  <rect x="22" y="22" width="${W - 44}" height="${H - 44}" fill="none" stroke="#9a6030" stroke-width="0.8"
+        stroke-dasharray="6,4" rx="2" opacity="0.55"/>
+
   <!-- Corner ornaments -->
-  <text x="18" y="34" font-family="serif" font-size="16" fill="#7a4a1a" opacity="0.8">✦</text>
-  <text x="${W - 32}" y="34" font-family="serif" font-size="16" fill="#7a4a1a" opacity="0.8">✦</text>
-  <text x="18" y="${H - 16}" font-family="serif" font-size="16" fill="#7a4a1a" opacity="0.8">✦</text>
-  <text x="${W - 32}" y="${H - 16}" font-family="serif" font-size="16" fill="#7a4a1a" opacity="0.8">✦</text>
+  <text x="14"      y="31"      font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
+  <text x="${W - 36}" y="31"    font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
+  <text x="14"      y="${H - 10}" font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
+  <text x="${W - 36}" y="${H - 10}" font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
 
-  <!-- Title -->
-  <text x="${W / 2}" y="${TITLE_H - 18}" text-anchor="middle"
-        font-family="Cinzel Decorative,serif" font-size="24"
-        fill="#4a2800" letter-spacing="4" filter="url(#wobble)">${mapName}</text>
-  <line x1="${W / 2 - 140}" y1="${TITLE_H - 8}"
-        x2="${W / 2 + 140}" y2="${TITLE_H - 8}"
-        stroke="#7a4a1a" stroke-width="1.2" opacity="0.6"/>
+  <!-- Title block -->
+  <text x="${W / 2}" y="${TITLE_H - 30}" text-anchor="middle"
+        font-family="Cinzel Decorative,Cinzel,Georgia,serif" font-size="28"
+        fill="#3a1800" letter-spacing="5"
+        stroke="#f0e0b0" stroke-width="4" paint-order="stroke">${mapName}</text>
+  <line x1="${W / 2 - 180}" y1="${TITLE_H - 16}" x2="${W / 2 + 180}" y2="${TITLE_H - 16}"
+        stroke="#7a4a1a" stroke-width="1.6" opacity="0.6"/>
+  <text x="${W / 2}" y="${TITLE_H - 4}" text-anchor="middle"
+        font-family="EB Garamond,Georgia,serif" font-size="12" font-style="italic"
+        fill="#8b6030" opacity="0.75" letter-spacing="2">— A Fantasy World Map —</text>
 
-  <!-- Edges (under nodes) -->
+  <!-- Terrain (mountains, forests, waves) -->
+  ${terrainSvg}
+
+  <!-- Roads -->
   ${edgeSvg}
 
-  <!-- Nodes -->
+  <!-- Location symbols + labels -->
   ${nodeSvg}
 
-  <!-- Final grain pass -->
-  <rect width="${W}" height="${H}" fill="#8b5e3c" opacity="0.03" filter="url(#grain)"/>
+  <!-- Compass rose -->
+  ${compassRose}
+
+  <!-- Final grain -->
+  <rect width="${W}" height="${H}" fill="#8b5e3c" opacity="0.038" filter="url(#grain)"/>
 </svg>`;
 
-  // Render SVG → canvas → PNG download
   const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const img = new Image();
