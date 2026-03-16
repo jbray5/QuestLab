@@ -23,8 +23,15 @@ async function request<T>(
   });
 
   if (!res.ok) {
-    const detail = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(detail?.detail ?? res.statusText);
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    const detail = body?.detail;
+    const message =
+      typeof detail === "string"
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join("; ")
+          : res.statusText;
+    throw new Error(message);
   }
 
   if (res.status === 204) return undefined as T;

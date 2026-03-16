@@ -53,9 +53,10 @@ async def lifespan(app: FastAPI):
     """
     from sqlmodel import Session
 
-    from db.base import get_engine
+    from db.base import create_db_and_tables, get_engine
     from integrations.dnd_rules.stat_blocks import seed_monsters
 
+    create_db_and_tables()
     engine = get_engine()
     with Session(engine) as db:
         seed_monsters(db)

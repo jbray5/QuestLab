@@ -20,15 +20,10 @@ class TestCampaignCreate:
         )
         assert c.name == "The Sunken Citadel"
 
-    def test_email_normalised(self):
-        """DM email is lowercased and stripped."""
-        c = CampaignCreate(
-            name="Test",
-            setting="Test",
-            tone="Test",
-            dm_email="  DM@EXAMPLE.COM  ",
-        )
-        assert c.dm_email == "dm@example.com"
+    def test_email_optional(self):
+        """dm_email is optional on CampaignCreate (injected by auth at API layer)."""
+        c = CampaignCreate(name="Test", setting="Test", tone="Test")
+        assert c.dm_email is None
 
     def test_name_required(self):
         """Empty name raises validation error."""

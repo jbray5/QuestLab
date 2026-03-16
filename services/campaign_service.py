@@ -100,7 +100,7 @@ def create_campaign(
         name=name,
         setting=setting,
         tone=tone,
-        dm_email=dm_email,
+        dm_email=dm_email.strip().lower(),
         world_notes=world_notes,
     )
     campaign = CampaignRepo.create(session, data)

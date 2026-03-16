@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
 
 
@@ -30,15 +30,13 @@ class Campaign(CampaignBase, table=True):
 
 
 class CampaignCreate(CampaignBase):
-    """Input schema for creating a new campaign."""
+    """Input schema for creating a new campaign.
 
-    dm_email: str
+    dm_email is optional here — the API router injects it from the auth
+    header; the service always sets it explicitly before persisting.
+    """
 
-    @field_validator("dm_email")
-    @classmethod
-    def normalise_email(cls, v: str) -> str:
-        """Lowercase and strip whitespace from email."""
-        return v.strip().lower()
+    dm_email: Optional[str] = None
 
 
 class CampaignRead(CampaignBase):
