@@ -8,6 +8,7 @@ import Encounters from "./pages/Encounters";
 import MapBuilder from "./pages/MapBuilder";
 import Sessions from "./pages/Sessions";
 import SessionRunner from "./pages/SessionRunner";
+import SessionHud from "./pages/SessionHud";
 import Admin from "./pages/Admin";
 import Monsters from "./pages/Monsters";
 import NotFound from "./pages/NotFound";
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="adventures/:adventureId/maps" element={<MapBuilder />} />
         <Route path="adventures/:adventureId/sessions" element={<Sessions />} />
         <Route path="sessions/:sessionId/run" element={<SessionRunner />} />
+        <Route path="sessions/:sessionId/hud" element={<SessionHud />} />
         <Route path="monsters" element={<Monsters />} />
         <Route path="admin" element={<Admin />} />
         <Route path="*" element={<NotFound />} />

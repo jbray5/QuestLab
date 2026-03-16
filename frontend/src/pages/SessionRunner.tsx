@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sessionsApi } from "../api/sessions";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
@@ -294,6 +294,7 @@ function RunbookView({ runbook }: { runbook: SessionRunbook }) {
 
 export default function SessionRunner() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [dmNotes, setDmNotes] = useState("");
   const [extraNotes, setExtraNotes] = useState("");
@@ -386,10 +387,20 @@ export default function SessionRunner() {
         </div>
       )}
 
-      <h1 style={{ marginBottom: "0.25rem" }}>
-        Session {session.session_number}
-        {session.title ? `: ${session.title}` : ""}
-      </h1>
+      <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.25rem" }}>
+        <h1>
+          Session {session.session_number}
+          {session.title ? `: ${session.title}` : ""}
+        </h1>
+        <button
+          className="btn btn-primary"
+          onClick={() => navigate(`/sessions/${sessionId}/hud`)}
+          title="Open Session HUD — party HP, combat tracker, dice, rules reference"
+          style={{ flexShrink: 0 }}
+        >
+          🖥 Open HUD
+        </button>
+      </div>
       <p className="text-muted" style={{ marginBottom: "2rem" }}>
         Status: <strong style={{ color: "var(--gold)" }}>{session.status}</strong>
       </p>

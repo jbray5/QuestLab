@@ -124,6 +124,14 @@ export default function Sessions() {
                   ▶ Run
                 </button>
                 <button
+                  className="btn btn-primary"
+                  style={{ fontSize: "0.7rem" }}
+                  onClick={() => navigate(`/sessions/${s.id}/hud`)}
+                  title="Open Session HUD — party HP, combat tracker, dice, rules"
+                >
+                  🖥 HUD
+                </button>
+                <button
                   className="btn btn-ghost"
                   style={{ fontSize: "0.7rem" }}
                   onClick={() => advance.mutate(s.id)}
