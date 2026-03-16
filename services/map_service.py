@@ -143,6 +143,7 @@ def create_map(
     grid_width: int = 20,
     grid_height: int = 20,
     background_color: str = "#1a1a2e",
+    scale: str = "Dungeon",
 ) -> Map:
     """Create a new map for an adventure.
 
@@ -178,6 +179,7 @@ def create_map(
     payload = MapCreate(
         adventure_id=adventure_id,
         name=name,
+        scale=scale,
         grid_width=grid_width,
         grid_height=grid_height,
         background_color=background_color,

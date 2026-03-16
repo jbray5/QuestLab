@@ -69,6 +69,7 @@ def create_map(adventure_id: uuid.UUID, body: MapCreate, db: DB, user: CurrentUs
             grid_width=body.grid_width,
             grid_height=body.grid_height,
             background_color=body.background_color,
+            scale=body.scale.value,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
