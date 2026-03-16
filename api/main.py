@@ -8,6 +8,7 @@ Run with:
     uvicorn api.main:app --reload --port 8000
 """
 
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -26,8 +27,6 @@ from api.routers import (
     monsters,
     sessions,
 )
-
-import os
 
 load_dotenv()
 

@@ -149,9 +149,9 @@ class TestSpellSchool:
 class TestMapNodeType:
     """Tests for MapNodeType enum."""
 
-    def test_six_node_types(self):
-        """Six map node types are defined."""
-        assert len(MapNodeType) == 6
+    def test_node_types_count(self):
+        """Thirteen map node types are defined (6 dungeon-scale + 7 world-scale)."""
+        assert len(MapNodeType) == 13
 
     def test_lair_present(self):
         """Lair node type is defined."""

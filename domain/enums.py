@@ -123,14 +123,30 @@ class ItemRarity(str, Enum):
 
 
 class MapNodeType(str, Enum):
-    """Types of nodes on a QuestLab map."""
+    """Types of nodes on a QuestLab map (dungeon-scale and world-scale)."""
 
+    # Dungeon-scale
     ROOM = "Room"
     CORRIDOR = "Corridor"
     OUTDOOR = "Outdoor"
     SETTLEMENT = "Settlement"
     DUNGEON = "Dungeon"
     LAIR = "Lair"
+    # World-scale
+    REGION = "Region"
+    CITY = "City"
+    TOWN = "Town"
+    VILLAGE = "Village"
+    LANDMARK = "Landmark"
+    PORT = "Port"
+    FORTRESS = "Fortress"
+
+
+class MapScale(str, Enum):
+    """Scale of a QuestLab map."""
+
+    DUNGEON = "Dungeon"
+    WORLD = "World"
 
 
 class SessionStatus(str, Enum):

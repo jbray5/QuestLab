@@ -6,13 +6,14 @@ from typing import Optional
 from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
 
-from domain.enums import MapNodeType
+from domain.enums import MapNodeType, MapScale
 
 
 class MapBase(SQLModel):
     """Shared fields for Map create and read schemas."""
 
     name: str = Field(min_length=1, max_length=200)
+    scale: MapScale = Field(default=MapScale.DUNGEON)
     grid_width: int = Field(default=20, ge=5, le=100)
     grid_height: int = Field(default=20, ge=5, le=100)
     background_color: str = Field(default="#1a1a2e", max_length=20)

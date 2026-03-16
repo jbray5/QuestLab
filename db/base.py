@@ -15,8 +15,9 @@ Usage::
 import os
 from collections.abc import Generator
 
-import domain  # noqa: F401 — registers all SQLModel table classes with metadata
 from sqlmodel import Session, SQLModel, create_engine
+
+import domain  # noqa: F401 — registers all SQLModel table classes with metadata
 
 _engine = None
 

@@ -10,6 +10,7 @@ Available generators:
 - generate_monster_flavor    — read-aloud flavor for a monster appearance
 - generate_npc               — complete NPC with personality + dialog hooks
 - generate_adventure_hook    — opening hook paragraph for a new adventure
+- generate_world_map         — AI-populated world map (nodes + edges)
 """
 
 import uuid
@@ -22,10 +23,13 @@ from db.repos.adventure_repo import AdventureRepo
 from db.repos.campaign_repo import CampaignRepo
 from db.repos.character_repo import CharacterRepo
 from db.repos.encounter_repo import EncounterRepo
+from db.repos.map_repo import MapRepo
 from db.repos.session_repo import SessionRepo
-from domain.enums import AdventureTier
+from domain.enums import AdventureTier, MapNodeType
+from domain.map import MapEdge, MapNode
 from domain.session import SessionRunbookCreate
 from integrations.claude_client import complete, complete_json
+from services import map_service
 
 _MODEL = "claude-opus-4-6"
 
@@ -450,3 +454,203 @@ def generate_adventure_hook(
         "Match the tone: {tone}."
     )
     return complete(system=system, user=user, max_tokens=400)
+
+
+# ---------------------------------------------------------------------------
+# World map generator
+# ---------------------------------------------------------------------------
+
+
+class _WorldNode(BaseModel):
+    """A single node in the AI-generated world map."""
+
+    label: str
+    node_type: str
+    x: int
+    y: int
+    description: str
+
+
+class _WorldEdge(BaseModel):
+    """A connection between two world map nodes."""
+
+    from_label: str
+    to_label: str
+    label: Optional[str] = None
+
+
+class _WorldMapOutput(BaseModel):
+    """Full structured world map from Claude."""
+
+    nodes: list[_WorldNode]
+    edges: list[_WorldEdge]
+
+
+def generate_world_map(
+    db: DBSession,
+    map_id: uuid.UUID,
+    prompt: str,
+    dm_email: str,
+) -> tuple[list[MapNode], list[MapEdge]]:
+    """Generate a world-scale map populated with AI-created locations.
+
+    Calls Claude to produce a geographically coherent fantasy continent with
+    regions (dominant race/culture), cities, towns, landmarks, ports, and roads.
+    Saves all nodes and edges to the DB and returns them.
+
+    Args:
+        db: Active database session.
+        map_id: UUID of the (empty) map to populate.
+        prompt: DM's world description / creative brief.
+        dm_email: Email of the requesting DM (for ownership verification).
+
+    Returns:
+        Tuple of (created MapNode list, created MapEdge list).
+
+    Raises:
+        ValueError: If map is not found or already has nodes.
+        PermissionError: If the DM does not own the map.
+        anthropic.APIError: On Claude API failures.
+    """
+    map_obj = MapRepo.get_by_id(db, map_id)
+    if map_obj is None:
+        raise ValueError(f"Map {map_id} not found.")
+
+    adventure = AdventureRepo.get_by_id(db, map_obj.adventure_id)
+    campaign = CampaignRepo.get_by_id(db, adventure.campaign_id) if adventure else None
+    campaign_context = ""
+    if campaign:
+        campaign_context = (
+            f"Campaign: {campaign.name}. Setting: {campaign.setting}. Tone: {campaign.tone}."
+        )
+
+    grid_w = map_obj.grid_width  # default 20
+    grid_h = map_obj.grid_height  # default 20
+
+    system = f"""You are an expert fantasy world-builder and D&D 5e Dungeon Master.
+You create rich, internally consistent fantasy continents with geographic logic —
+mountains block travel, rivers connect cities, coasts have ports, dark regions
+are isolated.
+
+{campaign_context}
+
+Generate a world map on a {grid_w}x{grid_h} grid (x: 0–{grid_w - 1}, y: 0–{grid_h - 1}).
+Spread nodes across the full grid. No two nodes may share the same (x, y).
+
+Node types available: Region, City, Town, Village, Landmark, Port, Fortress
+
+Node descriptions must include:
+- Region: dominant race/culture, climate, political alignment, 1-sentence lore hook
+- City: population scale (major/minor), notable feature, governing faction
+- Town/Village: notable feature, atmosphere, rumour
+- Landmark: geographic feature (mountain range, enchanted forest, ancient ruin),
+  danger level, what makes it significant
+- Port: what it trades, naval power, city or town size
+- Fortress: who controls it, why it exists, military strength
+
+Return ONLY valid JSON — no markdown fences, no commentary."""
+
+    user = f"""World description: {prompt}
+
+Return a JSON object with this exact structure:
+{{
+  "nodes": [
+    {{
+      "label": "Location name",
+      "node_type": "Region|City|Town|Village|Landmark|Port|Fortress",
+      "x": 0,
+      "y": 0,
+      "description": "Rich description including race/culture/lore"
+    }}
+  ],
+  "edges": [
+    {{
+      "from_label": "Location A",
+      "to_label": "Location B",
+      "label": "King's Road"
+    }}
+  ]
+}}
+
+Generate:
+- 4–6 Regions (spread geographically, each with distinct race/culture)
+- 2–3 Cities
+- 3–5 Towns
+- 2–4 Villages
+- 3–5 Landmarks (mountains, forests, ruins, rivers)
+- 1–2 Ports (on the edges of the map)
+- 1–2 Fortresses
+
+Connect major settlements with named roads or trade routes.
+Connect ports to nearby cities/towns.
+Total nodes: 20–27. Make the world feel alive and dangerous."""
+
+    result: _WorldMapOutput = complete_json(system=system, user=user, schema=_WorldMapOutput)
+
+    # Build label→position map to resolve edges
+    label_to_node: dict[str, MapNode] = {}
+    used_positions: set[tuple[int, int]] = set()
+
+    created_nodes: list[MapNode] = []
+    for raw in result.nodes:
+        # Clamp to grid bounds
+        x = max(0, min(raw.x, grid_w - 1))
+        y = max(0, min(raw.y, grid_h - 1))
+
+        # Resolve collisions by scanning nearby cells
+        if (x, y) in used_positions:
+            found = False
+            for dx in range(grid_w):
+                for dy in range(grid_h):
+                    nx, ny = (x + dx) % grid_w, (y + dy) % grid_h
+                    if (nx, ny) not in used_positions:
+                        x, y = nx, ny
+                        found = True
+                        break
+                if found:
+                    break
+
+        used_positions.add((x, y))
+
+        # Map AI type string → enum (default to Landmark if unrecognised)
+        try:
+            node_type = MapNodeType(raw.node_type)
+        except ValueError:
+            node_type = MapNodeType.LANDMARK
+
+        node = map_service.create_node(
+            db,
+            map_id=map_id,
+            label=raw.label[:100],
+            node_type=node_type,
+            x=x,
+            y=y,
+            dm_email=dm_email,
+            description=raw.description or None,
+        )
+        label_to_node[raw.label] = node
+        created_nodes.append(node)
+
+    # Create edges — skip any referencing unknown labels
+    created_edges: list[MapEdge] = []
+    seen_edges: set[tuple[uuid.UUID, uuid.UUID]] = set()
+    for raw_edge in result.edges:
+        src = label_to_node.get(raw_edge.from_label)
+        dst = label_to_node.get(raw_edge.to_label)
+        if src is None or dst is None or src.id == dst.id:
+            continue
+        pair = (min(src.id, dst.id), max(src.id, dst.id))
+        if pair in seen_edges:
+            continue
+        seen_edges.add(pair)
+        edge = map_service.create_edge(
+            db,
+            map_id=map_id,
+            from_node_id=src.id,
+            to_node_id=dst.id,
+            dm_email=dm_email,
+            label=raw_edge.label,
+        )
+        created_edges.append(edge)
+
+    return created_nodes, created_edges

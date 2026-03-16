@@ -172,10 +172,13 @@ export interface MapEdge {
   is_secret: boolean;
 }
 
+export type MapScale = "World" | "Dungeon";
+
 export interface AdventureMap {
   id: string;
   adventure_id: string;
   name: string;
+  scale: MapScale;
   grid_width: number;
   grid_height: number;
   background_color: string;

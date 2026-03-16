@@ -3,6 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel
 
 from api.deps import DB, CurrentUser
 from domain.map import (
@@ -16,7 +17,7 @@ from domain.map import (
     MapNodeUpdate,
     MapUpdate,
 )
-from services import map_service
+from services import ai_service, map_service
 
 router = APIRouter(tags=["maps"])
 
@@ -318,3 +319,51 @@ def delete_edge(map_id: uuid.UUID, edge_id: uuid.UUID, db: DB, user: CurrentUser
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+# ── World map generation ───────────────────────────────────────────────────────
+
+
+class _GenerateWorldRequest(BaseModel):
+    """Request body for world map generation."""
+
+    prompt: str
+
+
+class _GenerateWorldResponse(BaseModel):
+    """Response body for world map generation."""
+
+    nodes: list[MapNode]
+    edges: list[MapEdge]
+
+
+@router.post("/maps/{map_id}/generate", response_model=_GenerateWorldResponse)
+def generate_world(
+    map_id: uuid.UUID, body: _GenerateWorldRequest, db: DB, user: CurrentUser
+) -> _GenerateWorldResponse:
+    """Generate a world-scale map using Claude AI.
+
+    Populates an empty map with regions, cities, towns, landmarks, ports,
+    and roads based on the DM's creative prompt.
+
+    Args:
+        map_id: UUID of the map to populate (should be empty).
+        body: Contains the DM's world description prompt.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Created nodes and edges.
+    """
+    try:
+        nodes, edges = ai_service.generate_world_map(db, map_id, body.prompt, user)
+        return _GenerateWorldResponse(nodes=nodes, edges=edges)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI generation failed: {exc}",
+        )
