@@ -26,6 +26,7 @@ export default function Sessions() {
   const [title, setTitle] = useState("");
   const [sessionNumber, setSessionNumber] = useState(1);
   const [datePlanned, setDatePlanned] = useState("");
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ["sessions", adventureId],
@@ -41,10 +42,12 @@ export default function Sessions() {
         date_planned: datePlanned || undefined,
       }),
     onSuccess: () => {
+      setCreateError(null);
       qc.invalidateQueries({ queryKey: ["sessions", adventureId] });
       setTitle(""); setSessionNumber(sessions.length + 2); setDatePlanned("");
       setShowForm(false);
     },
+    onError: (err: Error) => setCreateError(err.message),
   });
 
   const advance = useMutation({
@@ -83,6 +86,11 @@ export default function Sessions() {
             <label>Title</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="The Heist…" />
           </div>
+          {createError && (
+            <p className="text-sm" style={{ color: "var(--crimson2)", marginBottom: "0.5rem" }}>
+              Error: {createError}
+            </p>
+          )}
           <button
             className="btn btn-primary"
             onClick={() => create.mutate()}

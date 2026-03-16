@@ -55,7 +55,7 @@ def create_session(
             db,
             adventure_id=adventure_id,
             session_number=body.session_number or 1,
-            title=body.title or "",
+            title=body.title or "Untitled Session",
             dm_email=user,
             date_planned=body.date_planned,
             attending_pc_ids=body.attending_pc_ids,

@@ -65,6 +65,7 @@ class SessionRead(BaseModel):
 class SessionUpdate(BaseModel):
     """Partial update schema for a session."""
 
+    session_number: Optional[int] = None
     title: Optional[str] = None
     date_planned: Optional[date] = None
     attending_pc_ids: Optional[list[uuid.UUID]] = None
