@@ -28,6 +28,185 @@ import type { MapNode, MapEdge, MapScale } from "../api/types";
 
 const GRID_SCALE = 150;
 
+// ── Fantasy map export ────────────────────────────────────────────────────────
+
+const PARCH_COLORS: Record<string, { fill: string; stroke: string }> = {
+  Region:     { fill: "#ddd0f0", stroke: "#6a3d9a" },
+  City:       { fill: "#ffe082", stroke: "#7a5200" },
+  Town:       { fill: "#c8e6c9", stroke: "#2e7d32" },
+  Village:    { fill: "#dcedc8", stroke: "#558b2f" },
+  Landmark:   { fill: "#d7ccc8", stroke: "#5d4037" },
+  Port:       { fill: "#b3e5fc", stroke: "#01579b" },
+  Fortress:   { fill: "#ffcdd2", stroke: "#b71c1c" },
+  Room:       { fill: "#f0e8d0", stroke: "#8b6c0a" },
+  Corridor:   { fill: "#ede0c8", stroke: "#795548" },
+  Outdoor:    { fill: "#dcedc8", stroke: "#558b2f" },
+  Settlement: { fill: "#ffe082", stroke: "#e65100" },
+  Dungeon:    { fill: "#d1c4e9", stroke: "#512da8" },
+  Lair:       { fill: "#ffcdd2", stroke: "#c62828" },
+};
+
+function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
+  if (nodes.length === 0) return;
+
+  const NW = 150;
+  const NH = 46;
+  const PAD = 90;
+  const TITLE_H = 70;
+
+  const xs = nodes.map((n) => n.position.x);
+  const ys = nodes.map((n) => n.position.y);
+  const minX = Math.min(...xs) - PAD;
+  const minY = Math.min(...ys) - PAD - TITLE_H;
+  const W = Math.max(...xs) + NW + PAD - minX;
+  const H = Math.max(...ys) + NH + PAD - minY;
+
+  const pos = new Map(
+    nodes.map((n) => [
+      n.id,
+      {
+        x: n.position.x - minX,
+        y: n.position.y - minY,
+        cx: n.position.x - minX + NW / 2,
+        cy: n.position.y - minY + NH / 2,
+      },
+    ]),
+  );
+
+  const edgeSvg = edges
+    .map((e) => {
+      const s = pos.get(e.source);
+      const d = pos.get(e.target);
+      if (!s || !d) return "";
+      const mx = (s.cx + d.cx) / 2;
+      const my = (s.cy + d.cy) / 2;
+      const label = typeof e.label === "string" ? e.label : "";
+      // Slightly curved path for organic feel
+      const dx = d.cx - s.cx;
+      const dy = d.cy - s.cy;
+      const cx1 = s.cx + dx * 0.25 + dy * 0.1;
+      const cy1 = s.cy + dy * 0.25 - dx * 0.1;
+      const cx2 = s.cx + dx * 0.75 - dy * 0.1;
+      const cy2 = s.cy + dy * 0.75 + dx * 0.1;
+      return `
+        <path d="M${s.cx},${s.cy} C${cx1},${cy1} ${cx2},${cy2} ${d.cx},${d.cy}"
+              fill="none" stroke="#5d3a1a" stroke-width="1.8" stroke-opacity="0.65"
+              filter="url(#wobble)"/>
+        ${label ? `<text x="${mx}" y="${my - 5}" text-anchor="middle"
+                    font-family="EB Garamond,Georgia,serif" font-size="12"
+                    fill="#5d3a1a" font-style="italic" opacity="0.85"
+                    filter="url(#wobble)">${label}</text>` : ""}`;
+    })
+    .join("");
+
+  const nodeSvg = nodes
+    .map((n) => {
+      const p = pos.get(n.id);
+      if (!p) return "";
+      const label = String(n.data.label ?? "");
+      const type = String(n.data.node_type ?? "Room");
+      const c = PARCH_COLORS[type] ?? PARCH_COLORS["Room"];
+      const display = label.length > 17 ? label.slice(0, 16) + "…" : label;
+      return `
+        <rect x="${p.x}" y="${p.y}" width="${NW}" height="${NH}"
+              rx="7" ry="7" fill="${c.fill}" stroke="${c.stroke}"
+              stroke-width="2" filter="url(#wobble)"/>
+        <text x="${p.cx}" y="${p.y + 26}" text-anchor="middle"
+              font-family="Cinzel Decorative,serif" font-size="10.5"
+              fill="#2c1a00" font-weight="700">${display}</text>
+        <text x="${p.cx}" y="${p.y + NH - 7}" text-anchor="middle"
+              font-family="EB Garamond,Georgia,serif" font-size="9"
+              fill="${c.stroke}" font-style="italic">${type}</text>`;
+    })
+    .join("");
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <defs>
+    <!-- Hand-drawn wobble on shapes -->
+    <filter id="wobble" x="-4%" y="-4%" width="108%" height="108%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="3" seed="7" result="noise"/>
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.8"
+                         xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <!-- Paper grain overlay -->
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4"
+                    stitchTiles="stitch" result="noise"/>
+      <feColorMatrix type="saturate" values="0" in="noise" result="grey"/>
+      <feBlend in="SourceGraphic" in2="grey" mode="multiply"/>
+    </filter>
+    <!-- Parchment radial gradient -->
+    <radialGradient id="parch" cx="50%" cy="45%" r="65%">
+      <stop offset="0%"   stop-color="#f8edd8"/>
+      <stop offset="55%"  stop-color="#f0ddb0"/>
+      <stop offset="100%" stop-color="#c8a878"/>
+    </radialGradient>
+    <!-- Vignette -->
+    <radialGradient id="vignette" cx="50%" cy="50%" r="70%">
+      <stop offset="0%"   stop-color="#7a4a1a" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#7a4a1a" stop-opacity="0.35"/>
+    </radialGradient>
+  </defs>
+
+  <!-- Parchment base -->
+  <rect width="${W}" height="${H}" fill="url(#parch)"/>
+  <!-- Paper grain -->
+  <rect width="${W}" height="${H}" fill="#c8a060" opacity="0.08" filter="url(#grain)"/>
+  <!-- Vignette -->
+  <rect width="${W}" height="${H}" fill="url(#vignette)"/>
+
+  <!-- Outer border -->
+  <rect x="10" y="10" width="${W - 20}" height="${H - 20}"
+        fill="none" stroke="#7a4a1a" stroke-width="3.5" rx="5"/>
+  <!-- Inner decorative border -->
+  <rect x="18" y="18" width="${W - 36}" height="${H - 36}"
+        fill="none" stroke="#7a4a1a" stroke-width="1"
+        stroke-dasharray="8,5" rx="3" opacity="0.7"/>
+  <!-- Corner ornaments -->
+  <text x="18" y="34" font-family="serif" font-size="16" fill="#7a4a1a" opacity="0.8">✦</text>
+  <text x="${W - 32}" y="34" font-family="serif" font-size="16" fill="#7a4a1a" opacity="0.8">✦</text>
+  <text x="18" y="${H - 16}" font-family="serif" font-size="16" fill="#7a4a1a" opacity="0.8">✦</text>
+  <text x="${W - 32}" y="${H - 16}" font-family="serif" font-size="16" fill="#7a4a1a" opacity="0.8">✦</text>
+
+  <!-- Title -->
+  <text x="${W / 2}" y="${TITLE_H - 18}" text-anchor="middle"
+        font-family="Cinzel Decorative,serif" font-size="24"
+        fill="#4a2800" letter-spacing="4" filter="url(#wobble)">${mapName}</text>
+  <line x1="${W / 2 - 140}" y1="${TITLE_H - 8}"
+        x2="${W / 2 + 140}" y2="${TITLE_H - 8}"
+        stroke="#7a4a1a" stroke-width="1.2" opacity="0.6"/>
+
+  <!-- Edges (under nodes) -->
+  ${edgeSvg}
+
+  <!-- Nodes -->
+  ${nodeSvg}
+
+  <!-- Final grain pass -->
+  <rect width="${W}" height="${H}" fill="#8b5e3c" opacity="0.03" filter="url(#grain)"/>
+</svg>`;
+
+  // Render SVG → canvas → PNG download
+  const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = W * 2;
+    canvas.height = H * 2;
+    const ctx = canvas.getContext("2d")!;
+    ctx.scale(2, 2);
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `${mapName.replace(/\s+/g, "-").toLowerCase()}-map.png`;
+    a.click();
+  };
+  img.src = url;
+}
+
 function toFlowNode(n: MapNode): Node {
   const colors = NODE_COLORS[n.node_type as NodeType] ?? NODE_COLORS["Room"];
   return {
@@ -461,6 +640,19 @@ export default function MapBuilder() {
             >
               {addNodeMut.isPending ? "Adding…" : "+ Add Location"}
             </button>
+            {nodes.length > 0 && (
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  const map = maps.find((m) => m.id === selectedMapId);
+                  exportFantasyMap(nodes, edges, map?.name ?? "map");
+                }}
+                title="Export as fantasy parchment PNG"
+                style={{ marginLeft: "auto" }}
+              >
+                🗺 Export Map
+              </button>
+            )}
           </div>
 
           {addNodeError && (
