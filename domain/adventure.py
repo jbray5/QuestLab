@@ -31,12 +31,16 @@ class Adventure(SQLModel, table=True):
 
 
 class AdventureCreate(BaseModel):
-    """Input schema for creating a new adventure."""
+    """Input schema for creating a new adventure.
 
-    campaign_id: uuid.UUID
+    campaign_id is optional — injected from the URL path at the API layer.
+    tier defaults to Tier1 when not provided by the frontend.
+    """
+
+    campaign_id: Optional[uuid.UUID] = None
     title: str
     synopsis: Optional[str] = None
-    tier: AdventureTier
+    tier: AdventureTier = AdventureTier.TIER1
     act_count: int = Field(default=3, ge=1, le=5)
     npc_roster: Optional[list[dict[str, Any]]] = None
     location_notes: Optional[str] = None
