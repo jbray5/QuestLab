@@ -10,7 +10,7 @@ export const encountersApi = {
       adventure_id: adventureId,
     }),
   get: (id: string) => api.get<Encounter>(`/encounters/${id}`),
-  update: (id: string, data: Partial<EncounterCreate>) =>
+  update: (id: string, data: Partial<EncounterCreate> & { pc_levels?: number[] }) =>
     api.patch<Encounter>(`/encounters/${id}`, data),
   delete: (id: string) => api.delete(`/encounters/${id}`),
 };

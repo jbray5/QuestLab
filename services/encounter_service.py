@@ -250,14 +250,17 @@ def update_encounter(
 
     patch = update.model_dump(exclude_unset=True)
 
+    # pc_levels may come from caller or from body (EncounterUpdate.pc_levels).
+    effective_levels = pc_levels or patch.get("pc_levels") or []
+
     # If roster or pc_levels supplied, recalculate budget
     new_roster = patch.get("monster_roster", encounter.monster_roster or [])
-    if pc_levels is not None and "xp_budget" not in patch and "difficulty" not in patch:
+    if effective_levels and "xp_budget" not in patch and "difficulty" not in patch:
         xp_budget, difficulty = _compute_xp_and_difficulty(session, new_roster, pc_levels)
         patch["xp_budget"] = xp_budget
         patch["difficulty"] = difficulty
-    elif "monster_roster" in patch and pc_levels is not None:
-        xp_budget, difficulty = _compute_xp_and_difficulty(session, new_roster, pc_levels)
+    elif "monster_roster" in patch and effective_levels:
+        xp_budget, difficulty = _compute_xp_and_difficulty(session, new_roster, effective_levels)
         patch["xp_budget"] = xp_budget
         patch["difficulty"] = difficulty
 

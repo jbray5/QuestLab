@@ -91,3 +91,5 @@ class EncounterUpdate(BaseModel):
     dm_notes: Optional[str] = None
     reward_xp: Optional[int] = Field(default=None, ge=0)
     loot_table_id: Optional[uuid.UUID] = None
+    # Not persisted — passed to service for XP auto-calculation only.
+    pc_levels: Optional[list[int]] = None

@@ -227,6 +227,14 @@ export interface Monster {
   created_by_email: string | null;
 }
 
+export interface RosterEntry {
+  monster_id: string;
+  count: number;
+  name: string;
+  xp: number;
+  cr: string;
+}
+
 export interface Combatant {
   name: string;
   dex_score: number;

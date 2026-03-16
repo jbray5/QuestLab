@@ -71,9 +71,12 @@ class EncounterRepo:
         Returns:
             The updated Encounter.
         """
+        # pc_levels is not a DB column — used only for XP calculation in the service.
+        _non_columns = {"pc_levels"}
         patch = data.model_dump(exclude_unset=True)
         for field, value in patch.items():
-            setattr(encounter, field, value)
+            if field not in _non_columns:
+                setattr(encounter, field, value)
         session.add(encounter)
         session.commit()
         session.refresh(encounter)
