@@ -50,7 +50,36 @@ def create_character(
     """
     try:
         return character_service.create_character(
-            db, campaign_id=campaign_id, payload=body, dm_email=user
+            db,
+            campaign_id=campaign_id,
+            dm_email=user,
+            player_name=body.player_name,
+            character_name=body.character_name,
+            race=body.race,
+            character_class=body.character_class,
+            level=body.level,
+            score_str=body.score_str,
+            score_dex=body.score_dex,
+            score_con=body.score_con,
+            score_int=body.score_int,
+            score_wis=body.score_wis,
+            score_cha=body.score_cha,
+            hp_max=body.hp_max,
+            hp_current=body.hp_current,
+            ac=body.ac,
+            speed=body.speed or 30,
+            subclass=body.subclass,
+            background=body.background,
+            alignment=body.alignment,
+            saving_throw_proficiencies=body.saving_throw_proficiencies,
+            skill_proficiencies=body.skill_proficiencies,
+            feats=body.feats,
+            equipment=body.equipment,
+            spells_known=body.spells_known,
+            spell_slots=body.spell_slots,
+            backstory=body.backstory,
+            notes=body.notes,
+            portrait_url=body.portrait_url,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))

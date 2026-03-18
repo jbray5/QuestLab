@@ -17,4 +17,6 @@ export const monstersApi = {
     return api.get<Monster[]>(`/monsters${query ? `?${query}` : ""}`);
   },
   get: (id: string) => api.get<Monster>(`/monsters/${id}`),
+  updateImage: (id: string, image_url: string) =>
+    api.patch<Monster>(`/monsters/${id}`, { image_url }),
 };

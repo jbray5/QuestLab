@@ -28,7 +28,8 @@ class SessionRepo:
         Returns:
             GameSession if found, else None.
         """
-        return session.get(GameSession, session_id)
+        stmt = select(GameSession).where(GameSession.id == session_id).limit(1)
+        return session.exec(stmt).first()
 
     @staticmethod
     def list_by_adventure(session: Session, adventure_id: uuid.UUID) -> list[GameSession]:

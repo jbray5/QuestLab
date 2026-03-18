@@ -1,4 +1,4 @@
-"""Public monster browser router — read-only, available to all authenticated DMs."""
+"""Public monster browser router — read-only browse + image update."""
 
 import uuid
 from typing import Optional
@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from api.deps import DB, CurrentUser
 from db.repos.monster_repo import MonsterRepo
-from domain.monster import MonsterStatBlockRead
+from domain.monster import MonsterStatBlockRead, MonsterStatBlockUpdate
 
 router = APIRouter(tags=["monsters"])
 
@@ -66,4 +66,37 @@ def get_monster(
     monster = MonsterRepo.get_by_id(db, monster_id)
     if not monster:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monster not found")
+    return monster
+
+
+@router.patch("/monsters/{monster_id}", response_model=MonsterStatBlockRead)
+def update_monster(
+    monster_id: uuid.UUID,
+    body: MonsterStatBlockUpdate,
+    db: DB,
+    _user: CurrentUser,
+) -> MonsterStatBlockRead:
+    """Partially update a monster stat block (e.g. set image_url).
+
+    Args:
+        monster_id: UUID of the monster to update.
+        body: Partial update payload.
+        db: Database session.
+        _user: Authenticated DM email.
+
+    Returns:
+        Updated MonsterStatBlockRead.
+
+    Raises:
+        HTTPException 404: If monster not found.
+    """
+    monster = MonsterRepo.get_by_id(db, monster_id)
+    if not monster:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monster not found")
+    patch = body.model_dump(exclude_unset=True)
+    for field, value in patch.items():
+        setattr(monster, field, value)
+    db.add(monster)
+    db.commit()
+    db.refresh(monster)
     return monster

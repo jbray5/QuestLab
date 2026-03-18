@@ -104,7 +104,7 @@ class SessionRunbookCreate(BaseModel):
     encounter_flows: list[dict[str, Any]] = Field(default_factory=list)
     closing_hooks: Optional[str] = None
     xp_awards: Optional[dict[str, Any]] = None
-    loot_awards: Optional[list[dict[str, Any]]] = None
+    loot_awards: Optional[list[Any]] = None
 
 
 class SessionRunbookRead(BaseModel):
@@ -119,7 +119,7 @@ class SessionRunbookRead(BaseModel):
     encounter_flows: list[dict[str, Any]] = Field(default_factory=list)
     closing_hooks: Optional[str] = None
     xp_awards: Optional[dict[str, Any]] = None
-    loot_awards: Optional[list[dict[str, Any]]] = None
+    loot_awards: Optional[list[Any]] = None
     generated_at: datetime
 
     model_config = {"from_attributes": True}

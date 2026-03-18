@@ -39,6 +39,8 @@ function RosterEditor({ encounter, pcLevels, onSaved }: RosterEditorProps) {
     name: String(e.name ?? ""),
     xp: Number(e.xp ?? 0),
     cr: String(e.cr ?? "?"),
+    hp: Number(e.hp ?? 10),
+    ac: Number(e.ac ?? 10),
   }));
   const [roster, setRoster] = useState<RosterEntry[]>(initialRoster);
 
@@ -83,7 +85,7 @@ function RosterEditor({ encounter, pcLevels, onSaved }: RosterEditorProps) {
       }
       return [
         ...prev,
-        { monster_id: m.id, count: 1, name: m.name, xp: m.xp, cr: m.challenge_rating },
+        { monster_id: m.id, count: 1, name: m.name, xp: m.xp, cr: m.challenge_rating, hp: m.hp_average, ac: m.ac },
       ];
     });
     setSearch("");

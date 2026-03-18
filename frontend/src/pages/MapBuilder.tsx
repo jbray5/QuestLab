@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,12 +9,15 @@ import {
   MiniMap,
   Controls,
   Background,
+  NodeResizer,
   type Node,
   type Edge,
   type Connection,
   type OnNodesChange,
   type OnEdgesChange,
   type NodeMouseHandler,
+  type NodeProps,
+  type EdgeMouseHandler,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
@@ -22,15 +25,154 @@ import {
   NODE_COLORS,
   DUNGEON_NODE_TYPES,
   WORLD_NODE_TYPES,
+  DOOR_EDGE_STYLES,
+  DOOR_ICONS,
+  DOOR_TYPE_OPTIONS,
   type NodeType,
+  type DoorType,
 } from "../api/maps";
-import type { MapNode, MapEdge, MapScale } from "../api/types";
+import { encountersApi } from "../api/encounters";
+import type { MapNode, MapEdge, MapScale, Encounter } from "../api/types";
 
 const GRID_SCALE = 150;
 
-// ── Fantasy map export ────────────────────────────────────────────────────────
+// ── Room type icons ───────────────────────────────────────────────────────────
 
-// ── Seeded PRNG (deterministic scatter per node) ───────────────────────────
+const ROOM_ICONS: Record<string, string> = {
+  Room:           "⬜",
+  Corridor:       "—",
+  Entrance:       "🚪",
+  Exit:           "🔓",
+  "Boss Chamber": "💀",
+  "Treasure Room":"💰",
+  "Trap Room":    "⚙",
+  "Secret Room":  "👁",
+  "Stairs Up":    "⬆",
+  "Stairs Down":  "⬇",
+};
+
+// ── Custom dungeon room node ──────────────────────────────────────────────────
+
+function DungeonRoomNode({ data, selected }: NodeProps) {
+  const nodeType = String(data.node_type ?? "Room") as NodeType;
+  const colors = NODE_COLORS[nodeType] ?? NODE_COLORS["Room"];
+  const icon = ROOM_ICONS[nodeType] ?? "⬜";
+  const hasEncounter = !!data.encounter_name;
+  const hasLoot = !!(data.loot_notes as string | null);
+  const hasTrap = !!(data.trap_notes as string | null);
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        background: colors.bg,
+        border: `2px solid ${colors.border}`,
+        borderRadius: 6,
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+        boxShadow: selected
+          ? `0 0 12px ${colors.border}88, inset 0 0 20px rgba(0,0,0,0.5)`
+          : "inset 0 0 20px rgba(0,0,0,0.5)",
+      }}
+    >
+      <NodeResizer
+        minWidth={80}
+        minHeight={50}
+        isVisible={selected}
+        color={colors.border}
+        lineStyle={{ borderColor: colors.border }}
+        handleStyle={{ background: colors.border, border: "none" }}
+      />
+
+      {/* Header bar */}
+      <div
+        style={{
+          background: `${colors.border}22`,
+          borderBottom: `1px solid ${colors.border}44`,
+          padding: "3px 6px",
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ fontSize: "0.7rem" }}>{icon}</span>
+        <span
+          style={{
+            fontSize: "0.6rem",
+            color: colors.border,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            opacity: 0.8,
+          }}
+        >
+          {nodeType}
+        </span>
+      </div>
+
+      {/* Room label */}
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "4px 6px",
+          textAlign: "center",
+        }}
+      >
+        <span
+          style={{
+            fontSize: "0.78rem",
+            fontFamily: "EB Garamond, Georgia, serif",
+            color: "var(--text)",
+            fontWeight: 600,
+            lineHeight: 1.2,
+            wordBreak: "break-word",
+          }}
+        >
+          {String(data.label ?? "")}
+        </span>
+      </div>
+
+      {/* Indicator badges */}
+      {(hasEncounter || hasLoot || hasTrap) && (
+        <div
+          style={{
+            display: "flex",
+            gap: 3,
+            padding: "2px 6px 4px",
+            flexShrink: 0,
+          }}
+        >
+          {hasEncounter && (
+            <span
+              title={`Encounter: ${data.encounter_name}`}
+              style={{ fontSize: "0.6rem", color: "#ef5350", cursor: "default" }}
+            >
+              ⚔
+            </span>
+          )}
+          {hasLoot && (
+            <span title="Has loot notes" style={{ fontSize: "0.6rem", color: "#ffd700", cursor: "default" }}>
+              💰
+            </span>
+          )}
+          {hasTrap && (
+            <span title="Has trap notes" style={{ fontSize: "0.6rem", color: "#ff8c00", cursor: "default" }}>
+              ⚙
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Fantasy map export (world-scale) ─────────────────────────────────────────
+
 function makePRNG(seed: number) {
   let s = (seed | 0) >>> 0;
   return () => {
@@ -40,8 +182,6 @@ function makePRNG(seed: number) {
     return (s >>> 0) / 0xffffffff;
   };
 }
-
-// ── Node symbols (illustrated SVG, centered at cx,cy) ─────────────────────
 
 function symCity(cx: number, cy: number) {
   const pts = Array.from({ length: 16 }, (_, i) => {
@@ -105,18 +245,6 @@ function symRegion(cx: number, cy: number) {
           <circle cx="${cx}" cy="${cy}" r="3" fill="#9a7050"/>`;
 }
 
-function symDungeon(cx: number, cy: number) {
-  return `<path d="M${cx - 14},${cy + 12} Q${cx - 8},${cy - 12} ${cx},${cy - 15} Q${cx + 8},${cy - 12} ${cx + 14},${cy + 12}
-           Q${cx + 6},${cy + 5} ${cx},${cy + 8} Q${cx - 6},${cy + 5} Z"
-           fill="#7a6060" stroke="#4a3030" stroke-width="1" filter="url(#wobble)"/>`;
-}
-
-function symLair(cx: number, cy: number) {
-  return `<path d="M${cx - 18},${cy + 10} Q${cx - 10},${cy - 8} ${cx},${cy - 12} Q${cx + 10},${cy - 8} ${cx + 18},${cy + 10}
-           Q${cx + 8},${cy + 4} ${cx},${cy + 7} Q${cx - 8},${cy + 4} Z"
-           fill="#6a5050" stroke="#4a3030" stroke-width="1" filter="url(#wobble)"/>`;
-}
-
 function getNodeSymbol(type: string, cx: number, cy: number): string {
   switch (type) {
     case "City":       return symCity(cx, cy);
@@ -126,10 +254,6 @@ function getNodeSymbol(type: string, cx: number, cy: number): string {
     case "Fortress":   return symFortress(cx, cy);
     case "Landmark":   return symLandmark(cx, cy);
     case "Region":     return symRegion(cx, cy);
-    case "Dungeon":    return symDungeon(cx, cy);
-    case "Lair":       return symLair(cx, cy);
-    case "Settlement": return symTown(cx, cy);
-    case "Outdoor":    return symVillage(cx, cy);
     case "Room":
       return `<rect x="${cx - 11}" y="${cy - 9}" width="22" height="18" fill="#d4c8a8" stroke="#7a6040" stroke-width="1.2" rx="3"/>`;
     case "Corridor":
@@ -138,8 +262,6 @@ function getNodeSymbol(type: string, cx: number, cy: number): string {
       return symRegion(cx, cy);
   }
 }
-
-// ── Terrain decoration generators ────────────────────────────────────────────
 
 function terrMountain(bx: number, by: number, rng: () => number): string {
   const dx = (rng() - 0.5) * 60;
@@ -186,13 +308,11 @@ function terrWave(bx: number, by: number, rng: () => number): string {
   </g>`;
 }
 
-// ── Main export function ──────────────────────────────────────────────────────
-
 function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
   if (nodes.length === 0) return;
 
-  const SYM_H = 36; // symbol height (half above, half below cy)
-  const LABEL_GAP = 22; // gap from cy to bottom of label
+  const SYM_H = 36;
+  const LABEL_GAP = 22;
   const PAD = 120;
   const TITLE_H = 90;
 
@@ -204,29 +324,19 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
   const H = Math.max(...ys) + PAD - minY + 80;
 
   const pos = new Map(
-    nodes.map((n) => [
-      n.id,
-      {
-        cx: n.position.x - minX,
-        cy: n.position.y - minY + SYM_H,
-      },
-    ]),
+    nodes.map((n) => [n.id, { cx: n.position.x - minX, cy: n.position.y - minY + SYM_H }]),
   );
 
-  // ── Soft terrain tints (behind everything) ─────────────────────────────
   const waterTints = nodes
     .filter((n) => String(n.data.node_type ?? "") === "Port")
     .map((n) => {
       const p = pos.get(n.id)!;
-      return `<ellipse cx="${p.cx}" cy="${p.cy + 25}" rx="110" ry="80"
-               fill="#a8c8e0" opacity="0.38"/>`;
+      return `<ellipse cx="${p.cx}" cy="${p.cy + 25}" rx="110" ry="80" fill="#a8c8e0" opacity="0.38"/>`;
     })
     .join("");
 
   const forestTints = nodes
-    .filter((n) =>
-      ["Village", "Outdoor", "Region"].includes(String(n.data.node_type ?? "")),
-    )
+    .filter((n) => ["Village", "Region"].includes(String(n.data.node_type ?? "")))
     .map((n) => {
       const p = pos.get(n.id)!;
       return `<ellipse cx="${p.cx}" cy="${p.cy}" rx="90" ry="66" fill="#6aaa58" opacity="0.13"/>`;
@@ -234,18 +344,13 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
     .join("");
 
   const mountainTints = nodes
-    .filter((n) =>
-      ["Fortress", "Dungeon", "Lair", "Landmark"].includes(
-        String(n.data.node_type ?? ""),
-      ),
-    )
+    .filter((n) => ["Fortress", "Landmark"].includes(String(n.data.node_type ?? "")))
     .map((n) => {
       const p = pos.get(n.id)!;
       return `<ellipse cx="${p.cx}" cy="${p.cy}" rx="85" ry="60" fill="#988060" opacity="0.13"/>`;
     })
     .join("");
 
-  // ── Scattered terrain illustrations ────────────────────────────────────
   const terrainSvg = nodes
     .map((n) => {
       const p = pos.get(n.id);
@@ -254,17 +359,13 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
       const seed = n.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
       const rng = makePRNG(seed);
       let out = "";
-      const isMtn = ["Fortress", "Dungeon", "Lair", "Landmark"].includes(type);
-      const isFst = ["Village", "Outdoor", "Region"].includes(type);
-      const isPort = type === "Port";
-      if (isMtn) for (let i = 0; i < 3; i++) out += terrMountain(p.cx, p.cy, rng);
-      if (isFst) for (let i = 0; i < 3; i++) out += terrForest(p.cx, p.cy, rng);
-      if (isPort) for (let i = 0; i < 5; i++) out += terrWave(p.cx, p.cy, rng);
+      if (["Fortress", "Landmark"].includes(type)) for (let i = 0; i < 3; i++) out += terrMountain(p.cx, p.cy, rng);
+      if (["Village", "Region"].includes(type)) for (let i = 0; i < 3; i++) out += terrForest(p.cx, p.cy, rng);
+      if (type === "Port") for (let i = 0; i < 5; i++) out += terrWave(p.cx, p.cy, rng);
       return out;
     })
     .join("");
 
-  // ── Roads / edges ───────────────────────────────────────────────────────
   const edgeSvg = edges
     .map((e) => {
       const s = pos.get(e.source);
@@ -284,18 +385,15 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
               fill="none" stroke="#7a5830" stroke-width="2.4" stroke-dasharray="9,5" opacity="0.55"/>
         <path d="M${s.cx},${s.cy} C${cx1},${cy1} ${cx2},${cy2} ${d.cx},${d.cy}"
               fill="none" stroke="#d4aa70" stroke-width="0.9" stroke-dasharray="9,5" opacity="0.35"/>
-        ${
-          label
-            ? `<text x="${mx}" y="${my}" text-anchor="middle"
-                   font-family="EB Garamond,Georgia,serif" font-size="11"
-                   fill="#5d3a1a" font-style="italic" opacity="0.8"
-                   stroke="#f0e8d0" stroke-width="2.5" paint-order="stroke">${label}</text>`
-            : ""
-        }`;
+        ${label
+          ? `<text x="${mx}" y="${my}" text-anchor="middle"
+                 font-family="EB Garamond,Georgia,serif" font-size="11"
+                 fill="#5d3a1a" font-style="italic" opacity="0.8"
+                 stroke="#f0e8d0" stroke-width="2.5" paint-order="stroke">${label}</text>`
+          : ""}`;
     })
     .join("");
 
-  // ── Node symbols + floating labels ─────────────────────────────────────
   const nodeSvg = nodes
     .map((n) => {
       const p = pos.get(n.id);
@@ -305,18 +403,15 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
       const symbol = getNodeSymbol(type, p.cx, p.cy);
       const display = label.length > 20 ? label.slice(0, 19) + "…" : label;
       const isMajor = ["City", "Region"].includes(type);
-      const fontSize = isMajor ? 14 : 11.5;
-      const fontWeight = isMajor ? "700" : "600";
       return `${symbol}
         <text x="${p.cx}" y="${p.cy + LABEL_GAP}" text-anchor="middle"
               font-family="Cinzel Decorative,Cinzel,Georgia,serif"
-              font-size="${fontSize}" font-weight="${fontWeight}"
+              font-size="${isMajor ? 14 : 11.5}" font-weight="${isMajor ? "700" : "600"}"
               stroke="#f0e8d0" stroke-width="3.5" paint-order="stroke"
               fill="#2c1800">${display}</text>`;
     })
     .join("");
 
-  // ── Compass rose ────────────────────────────────────────────────────────
   const crX = W - 78;
   const crY = H - 80;
   const compassRose = `<g transform="translate(${crX},${crY})">
@@ -325,17 +420,12 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
     <polygon points="0,34 4,13 0,19 -4,13"  fill="#a08040" stroke="#8b6020" stroke-width="0.8"/>
     <polygon points="-34,0 -13,4 -19,0 -13,-4" fill="#c8a050" stroke="#8b6020" stroke-width="0.8"/>
     <polygon points="34,0 13,4 19,0 13,-4"  fill="#c8a050" stroke="#8b6020" stroke-width="0.8"/>
-    <polygon points="-21,-21 -9,-9 -14,-7 -7,-14" fill="#b09040" stroke="#8b6020" stroke-width="0.6"/>
-    <polygon points="21,-21 9,-9 7,-14 14,-7"  fill="#b09040" stroke="#8b6020" stroke-width="0.6"/>
-    <polygon points="-21,21 -9,9 -7,14 -14,7"  fill="#b09040" stroke="#8b6020" stroke-width="0.6"/>
-    <polygon points="21,21 9,9 14,7 7,14"   fill="#b09040" stroke="#8b6020" stroke-width="0.6"/>
     <circle cx="0" cy="0" r="6" fill="#c8a050" stroke="#8b6020" stroke-width="1.5"/>
     <circle cx="0" cy="0" r="2.5" fill="#8b6020"/>
     <text x="0" y="-38" text-anchor="middle" font-family="Cinzel,Georgia,serif"
           font-size="12" fill="#5a3a10" font-weight="700">N</text>
   </g>`;
 
-  // ── SVG assembly ────────────────────────────────────────────────────────
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <defs>
@@ -360,28 +450,16 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
       <stop offset="100%" stop-color="#4a2000" stop-opacity="0.52"/>
     </radialGradient>
   </defs>
-
-  <!-- Parchment -->
   <rect width="${W}" height="${H}" fill="url(#parch)"/>
-  ${waterTints}
-  ${forestTints}
-  ${mountainTints}
+  ${waterTints}${forestTints}${mountainTints}
   <rect width="${W}" height="${H}" fill="#a07030" opacity="0.055" filter="url(#grain)"/>
   <rect width="${W}" height="${H}" fill="url(#vignette)"/>
-
-  <!-- Borders -->
   <rect x="8"  y="8"  width="${W - 16}" height="${H - 16}" fill="none" stroke="#7a4a1a" stroke-width="4"   rx="5"/>
   <rect x="17" y="17" width="${W - 34}" height="${H - 34}" fill="none" stroke="#7a4a1a" stroke-width="1.3" rx="3"/>
-  <rect x="22" y="22" width="${W - 44}" height="${H - 44}" fill="none" stroke="#9a6030" stroke-width="0.8"
-        stroke-dasharray="6,4" rx="2" opacity="0.55"/>
-
-  <!-- Corner ornaments -->
-  <text x="14"      y="31"      font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
-  <text x="${W - 36}" y="31"    font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
-  <text x="14"      y="${H - 10}" font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
+  <text x="14" y="31" font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
+  <text x="${W - 36}" y="31" font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
+  <text x="14" y="${H - 10}" font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
   <text x="${W - 36}" y="${H - 10}" font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
-
-  <!-- Title block -->
   <text x="${W / 2}" y="${TITLE_H - 30}" text-anchor="middle"
         font-family="Cinzel Decorative,Cinzel,Georgia,serif" font-size="28"
         fill="#3a1800" letter-spacing="5"
@@ -391,20 +469,10 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
   <text x="${W / 2}" y="${TITLE_H - 4}" text-anchor="middle"
         font-family="EB Garamond,Georgia,serif" font-size="12" font-style="italic"
         fill="#8b6030" opacity="0.75" letter-spacing="2">— A Fantasy World Map —</text>
-
-  <!-- Terrain (mountains, forests, waves) -->
   ${terrainSvg}
-
-  <!-- Roads -->
   ${edgeSvg}
-
-  <!-- Location symbols + labels -->
   ${nodeSvg}
-
-  <!-- Compass rose -->
   ${compassRose}
-
-  <!-- Final grain -->
   <rect width="${W}" height="${H}" fill="#8b5e3c" opacity="0.038" filter="url(#grain)"/>
 </svg>`;
 
@@ -427,8 +495,32 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
   img.src = url;
 }
 
-function toFlowNode(n: MapNode): Node {
+// ── Flow node / edge converters ───────────────────────────────────────────────
+
+function toFlowNode(n: MapNode, scale: MapScale, encounters: Encounter[]): Node {
+  const isDungeon = scale === "Dungeon";
   const colors = NODE_COLORS[n.node_type as NodeType] ?? NODE_COLORS["Room"];
+
+  if (isDungeon) {
+    const enc = encounters.find((e) => e.id === n.encounter_id);
+    return {
+      id: n.id,
+      position: { x: n.x, y: n.y },
+      type: "dungeonRoom",
+      data: {
+        label: n.label,
+        node_type: n.node_type,
+        description: n.description,
+        encounter_id: n.encounter_id,
+        encounter_name: enc?.name ?? null,
+        notes: n.notes,
+        loot_notes: n.loot_notes,
+        trap_notes: n.trap_notes,
+      },
+      style: { width: n.width || 200, height: n.height || 120 },
+    };
+  }
+
   return {
     id: n.id,
     position: { x: n.x * GRID_SCALE, y: n.y * GRID_SCALE },
@@ -448,35 +540,67 @@ function toFlowNode(n: MapNode): Node {
 }
 
 function toFlowEdge(e: MapEdge): Edge {
+  const doorType = (e.door_type ?? "open") as DoorType;
+  const styleInfo = DOOR_EDGE_STYLES[doorType] ?? DOOR_EDGE_STYLES.open;
+  const icon = DOOR_ICONS[doorType];
+  const displayLabel = icon
+    ? icon + (e.label ? ` ${e.label}` : "")
+    : (e.label ?? undefined);
+
   return {
     id: e.id,
     source: e.from_node_id,
     target: e.to_node_id,
-    label: e.label ?? undefined,
-    style: { stroke: "var(--gold)", strokeWidth: 1.5 },
-    labelStyle: { fill: "var(--muted)", fontSize: "0.7rem" },
+    label: displayLabel,
+    style: { stroke: styleInfo.stroke, strokeWidth: 2, strokeDasharray: styleInfo.strokeDasharray },
+    labelStyle: { fill: styleInfo.stroke, fontSize: "0.75rem" },
+    labelBgStyle: { fill: "#0d0d14", fillOpacity: 0.85 },
   };
 }
 
+// ── Node detail panel ─────────────────────────────────────────────────────────
+
 interface NodeDetailProps {
   node: Node;
+  isDungeon: boolean;
+  encounters: Encounter[];
   onClose: () => void;
-  onDescriptionSave: (nodeId: string, description: string) => void;
+  onSave: (nodeId: string, updates: Partial<MapNode>) => void;
   saving: boolean;
 }
 
-function NodeDetail({ node, onClose, onDescriptionSave, saving }: NodeDetailProps) {
+function NodeDetail({ node, isDungeon, encounters, onClose, onSave, saving }: NodeDetailProps) {
   const [desc, setDesc] = useState<string>((node.data.description as string) ?? "");
-  const colors = NODE_COLORS[(node.data.node_type as NodeType)] ?? NODE_COLORS["Room"];
+  const [notes, setNotes] = useState<string>((node.data.notes as string) ?? "");
+  const [lootNotes, setLootNotes] = useState<string>((node.data.loot_notes as string) ?? "");
+  const [trapNotes, setTrapNotes] = useState<string>((node.data.trap_notes as string) ?? "");
+  const [encounterId, setEncounterId] = useState<string>((node.data.encounter_id as string) ?? "");
+  const nodeType = String(node.data.node_type ?? "Room") as NodeType;
+  const colors = NODE_COLORS[nodeType] ?? NODE_COLORS["Room"];
 
   useEffect(() => {
     setDesc((node.data.description as string) ?? "");
-  }, [node.id, node.data.description]);
+    setNotes((node.data.notes as string) ?? "");
+    setLootNotes((node.data.loot_notes as string) ?? "");
+    setTrapNotes((node.data.trap_notes as string) ?? "");
+    setEncounterId((node.data.encounter_id as string) ?? "");
+  }, [node.id]);
+
+  function handleSave() {
+    const updates: Partial<MapNode> = { description: desc || null };
+    if (isDungeon) {
+      updates.notes = notes || null;
+      updates.loot_notes = lootNotes || null;
+      updates.trap_notes = trapNotes || null;
+      updates.encounter_id = encounterId || null;
+    }
+    onSave(node.id, updates);
+  }
 
   return (
     <div
       style={{
-        width: 280,
+        width: 290,
         background: "var(--surface)",
         borderLeft: "1px solid var(--border)",
         display: "flex",
@@ -498,7 +622,7 @@ function NodeDetail({ node, onClose, onDescriptionSave, saving }: NodeDetailProp
               fontSize: "0.65rem",
             }}
           >
-            {node.data.node_type as string}
+            {nodeType}
           </span>
         </div>
         <button className="btn btn-ghost" onClick={onClose} style={{ padding: "0.2rem 0.5rem" }}>
@@ -506,28 +630,168 @@ function NodeDetail({ node, onClose, onDescriptionSave, saving }: NodeDetailProp
         </button>
       </div>
 
+      {isDungeon && (
+        <div className="form-group" style={{ marginBottom: 0 }}>
+          <label>Encounter Link</label>
+          <select
+            value={encounterId}
+            onChange={(e) => setEncounterId(e.target.value)}
+            style={{ fontSize: "0.85rem" }}
+          >
+            <option value="">— None —</option>
+            {encounters.map((enc) => (
+              <option key={enc.id} value={enc.id}>
+                {enc.name} ({enc.difficulty})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="form-group" style={{ marginBottom: 0 }}>
-        <label>Description / Lore</label>
+        <label>Description / Read-Aloud</label>
         <textarea
           value={desc}
           onChange={(e) => setDesc(e.target.value)}
-          rows={6}
+          rows={4}
           style={{ resize: "vertical", fontSize: "0.9rem" }}
-          placeholder="Add lore, notes, or details…"
+          placeholder="What the players see and hear…"
         />
       </div>
 
+      {isDungeon && (
+        <>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label>DM Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={3}
+              style={{ resize: "vertical", fontSize: "0.9rem" }}
+              placeholder="Private DM notes…"
+            />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label>💰 Loot Notes</label>
+            <textarea
+              value={lootNotes}
+              onChange={(e) => setLootNotes(e.target.value)}
+              rows={2}
+              style={{ resize: "vertical", fontSize: "0.9rem" }}
+              placeholder="Treasure, items, coins…"
+            />
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label>⚙ Trap Notes</label>
+            <textarea
+              value={trapNotes}
+              onChange={(e) => setTrapNotes(e.target.value)}
+              rows={2}
+              style={{ resize: "vertical", fontSize: "0.9rem" }}
+              placeholder="Trap type, DC, damage…"
+            />
+          </div>
+        </>
+      )}
+
       <button
         className="btn btn-secondary"
-        onClick={() => onDescriptionSave(node.id, desc)}
+        onClick={handleSave}
         disabled={saving}
         style={{ width: "100%" }}
       >
-        {saving ? "Saving…" : "Save Notes"}
+        {saving ? "Saving…" : "Save"}
       </button>
     </div>
   );
 }
+
+// ── Edge detail panel (dungeon) ───────────────────────────────────────────────
+
+interface EdgeDetailProps {
+  edge: Edge;
+  mapId: string;
+  onClose: () => void;
+  onUpdated: (updated: MapEdge) => void;
+}
+
+function EdgeDetail({ edge, mapId, onClose, onUpdated }: EdgeDetailProps) {
+  const [doorType, setDoorType] = useState<DoorType>(
+    (edge.data?.door_type as DoorType) ?? "open",
+  );
+  const [isSecret, setIsSecret] = useState<boolean>(
+    (edge.data?.is_secret as boolean) ?? false,
+  );
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const updated = await mapsApi.updateEdge(mapId, edge.id, { door_type: doorType, is_secret: isSecret });
+      onUpdated(updated);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        width: 220,
+        background: "var(--surface)",
+        borderLeft: "1px solid var(--border)",
+        padding: "1rem",
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.75rem",
+      }}
+    >
+      <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: "0.85rem", fontWeight: 600 }}>Door / Passage</span>
+        <button className="btn btn-ghost" onClick={onClose} style={{ padding: "0.2rem 0.5rem" }}>
+          ✕
+        </button>
+      </div>
+
+      <div className="form-group" style={{ marginBottom: 0 }}>
+        <label>Type</label>
+        <select value={doorType} onChange={(e) => setDoorType(e.target.value as DoorType)}>
+          {DOOR_TYPE_OPTIONS.map((dt) => (
+            <option key={dt} value={dt}>
+              {DOOR_ICONS[dt]} {dt.charAt(0).toUpperCase() + dt.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="form-group" style={{ marginBottom: 0 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={isSecret}
+            onChange={(e) => setIsSecret(e.target.checked)}
+          />
+          Secret passage
+        </label>
+      </div>
+
+      <button
+        className="btn btn-secondary"
+        onClick={handleSave}
+        disabled={saving}
+        style={{ width: "100%" }}
+      >
+        {saving ? "Saving…" : "Save"}
+      </button>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+const customNodeTypes = { dungeonRoom: DungeonRoomNode };
 
 export default function MapBuilder() {
   const { adventureId } = useParams<{ adventureId: string }>();
@@ -547,7 +811,9 @@ export default function MapBuilder() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [savingDesc, setSavingDesc] = useState(false);
+  const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
+  const [savingNode, setSavingNode] = useState(false);
+  const [savingLayout, setSavingLayout] = useState(false);
 
   const { data: maps = [] } = useQuery({
     queryKey: ["maps", adventureId],
@@ -569,8 +835,22 @@ export default function MapBuilder() {
     staleTime: 0,
   });
 
-  useEffect(() => { setNodes(mapNodes.map(toFlowNode)); }, [mapNodes]);
-  useEffect(() => { setEdges(mapEdges.map(toFlowEdge)); }, [mapEdges]);
+  const { data: encounters = [] } = useQuery({
+    queryKey: ["encounters", adventureId],
+    queryFn: () => encountersApi.list(adventureId!),
+    enabled: !!adventureId,
+  });
+
+  // Stable memoised node types for React Flow
+  const nodeTypes = useMemo(() => customNodeTypes, []);
+
+  useEffect(() => {
+    setNodes(mapNodes.map((n) => toFlowNode(n, selectedMapScale, encounters)));
+  }, [mapNodes, selectedMapScale, encounters]);
+
+  useEffect(() => {
+    setEdges(mapEdges.map(toFlowEdge));
+  }, [mapEdges]);
 
   // Keep newNodeType in sync when scale changes
   useEffect(() => {
@@ -604,21 +884,26 @@ export default function MapBuilder() {
       setEdges([]);
       setDeleteConfirmId(null);
       setSelectedNode(null);
+      setSelectedEdge(null);
     },
   });
 
   const addNodeMut = useMutation({
-    mutationFn: () =>
-      mapsApi.addNode(selectedMapId!, {
-        label: newNodeLabel || (selectedMapScale === "World" ? "Location" : "Room"),
+    mutationFn: () => {
+      const isDungeon = selectedMapScale === "Dungeon";
+      return mapsApi.addNode(selectedMapId!, {
+        label: newNodeLabel || (isDungeon ? "Room" : "Location"),
         node_type: newNodeType,
-        x: Math.round(Math.random() * 8 + 1),
-        y: Math.round(Math.random() * 6 + 1),
+        x: isDungeon ? Math.round(Math.random() * 600 + 100) : Math.round(Math.random() * 8 + 1),
+        y: isDungeon ? Math.round(Math.random() * 400 + 100) : Math.round(Math.random() * 6 + 1),
+        width: 200,
+        height: 120,
         description: null,
-      }),
+      });
+    },
     onSuccess: (n) => {
       setAddNodeError(null);
-      setNodes((prev) => [...prev, toFlowNode(n)]);
+      setNodes((prev) => [...prev, toFlowNode(n, selectedMapScale, encounters)]);
       qc.invalidateQueries({ queryKey: ["map-nodes", selectedMapId] });
       setNewNodeLabel("");
     },
@@ -629,7 +914,7 @@ export default function MapBuilder() {
     mutationFn: () => mapsApi.generateWorld(selectedMapId!, worldPrompt),
     onSuccess: (result) => {
       setGenerateError(null);
-      setNodes(result.nodes.map(toFlowNode));
+      setNodes(result.nodes.map((n) => toFlowNode(n, selectedMapScale, encounters)));
       setEdges(result.edges.map(toFlowEdge));
       qc.invalidateQueries({ queryKey: ["map-nodes", selectedMapId] });
       qc.invalidateQueries({ queryKey: ["map-edges", selectedMapId] });
@@ -643,6 +928,7 @@ export default function MapBuilder() {
         from_node_id: conn.source!,
         to_node_id: conn.target!,
         label: null,
+        door_type: "open",
       }),
     onSuccess: (e) => {
       setEdges((prev) => [...prev.filter((x) => x.id !== "temp"), toFlowEdge(e)]);
@@ -668,7 +954,49 @@ export default function MapBuilder() {
 
   const onNodeClick: NodeMouseHandler = useCallback((_evt, node) => {
     setSelectedNode(node);
+    setSelectedEdge(null);
   }, []);
+
+  const onEdgeClick: EdgeMouseHandler = useCallback(
+    (_evt, edge) => {
+      if (selectedMapScale !== "Dungeon") return;
+      setSelectedEdge(edge);
+      setSelectedNode(null);
+    },
+    [selectedMapScale],
+  );
+
+  // Auto-save position when a node is dragged
+  const onNodeDragStop: NodeMouseHandler = useCallback(
+    (_evt, node) => {
+      if (!selectedMapId) return;
+      const x = Math.round(node.position.x);
+      const y = Math.round(node.position.y);
+      mapsApi.updateNode(selectedMapId, node.id, { x, y });
+    },
+    [selectedMapId],
+  );
+
+  // Save all dungeon room sizes (after resize) and positions
+  async function handleSaveLayout() {
+    if (!selectedMapId) return;
+    setSavingLayout(true);
+    try {
+      await Promise.all(
+        nodes.map((n) =>
+          mapsApi.updateNode(selectedMapId, n.id, {
+            x: Math.round(n.position.x),
+            y: Math.round(n.position.y),
+            ...(n.style?.width ? { width: Number(n.style.width) } : {}),
+            ...(n.style?.height ? { height: Number(n.style.height) } : {}),
+          }),
+        ),
+      );
+      qc.invalidateQueries({ queryKey: ["map-nodes", selectedMapId] });
+    } finally {
+      setSavingLayout(false);
+    }
+  }
 
   function selectMap(m: { id: string; scale: MapScale }) {
     setSelectedMapId(m.id);
@@ -676,32 +1004,65 @@ export default function MapBuilder() {
     setNodes([]);
     setEdges([]);
     setSelectedNode(null);
+    setSelectedEdge(null);
   }
 
-  async function handleDescriptionSave(nodeId: string, description: string) {
-    setSavingDesc(true);
+  async function handleNodeSave(nodeId: string, updates: Partial<MapNode>) {
+    if (!selectedMapId) return;
+    setSavingNode(true);
     try {
-      const updated = await mapsApi.updateNode(selectedMapId!, nodeId, { description });
+      const updated = await mapsApi.updateNode(selectedMapId, nodeId, updates);
+      const enc = encounters.find((e) => e.id === updated.encounter_id);
       setNodes((prev) =>
         prev.map((n) =>
           n.id === nodeId
-            ? { ...n, data: { ...n.data, description: updated.description } }
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  description: updated.description,
+                  encounter_id: updated.encounter_id,
+                  encounter_name: enc?.name ?? null,
+                  notes: updated.notes,
+                  loot_notes: updated.loot_notes,
+                  trap_notes: updated.trap_notes,
+                },
+              }
             : n,
         ),
       );
       setSelectedNode((prev) =>
         prev?.id === nodeId
-          ? { ...prev, data: { ...prev.data, description: updated.description } }
+          ? {
+              ...prev,
+              data: {
+                ...prev.data,
+                description: updated.description,
+                encounter_id: updated.encounter_id,
+                encounter_name: enc?.name ?? null,
+                notes: updated.notes,
+                loot_notes: updated.loot_notes,
+                trap_notes: updated.trap_notes,
+              },
+            }
           : prev,
       );
     } finally {
-      setSavingDesc(false);
+      setSavingNode(false);
     }
   }
 
-  const nodeTypes = selectedMapScale === "World" ? WORLD_NODE_TYPES : DUNGEON_NODE_TYPES;
+  function handleEdgeUpdated(updated: MapEdge) {
+    setEdges((prev) => prev.map((e) => (e.id === updated.id ? toFlowEdge(updated) : e)));
+    setSelectedEdge(null);
+    qc.invalidateQueries({ queryKey: ["map-edges", selectedMapId] });
+  }
+
+  const nodeTypeOptions = selectedMapScale === "World" ? WORLD_NODE_TYPES : DUNGEON_NODE_TYPES;
+  const isDungeon = selectedMapScale === "Dungeon";
   const isGenerating = generateWorldMut.isPending;
   const isEmpty = nodes.length === 0 && mapNodes.length === 0;
+  const canvasBg = isDungeon ? "#0a0a0e" : "var(--surface)";
 
   return (
     <div className="fade-in" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -790,7 +1151,7 @@ export default function MapBuilder() {
           )}
 
           {/* ── AI Generate panel (World maps only) ───────────────────── */}
-          {selectedMapScale === "World" && (isEmpty || nodes.length > 0) && (
+          {!isDungeon && (isEmpty || nodes.length > 0) && (
             <div
               className="card"
               style={{
@@ -805,7 +1166,7 @@ export default function MapBuilder() {
                     value={worldPrompt}
                     onChange={(e) => setWorldPrompt(e.target.value)}
                     rows={2}
-                    placeholder="A dark fantasy continent ruled by rival undead empires, with elven forest enclaves and dwarven mountain fortresses…"
+                    placeholder="A dark fantasy continent ruled by rival undead empires…"
                     style={{ fontSize: "0.9rem", resize: "vertical" }}
                   />
                 </div>
@@ -813,11 +1174,7 @@ export default function MapBuilder() {
                   className="btn btn-primary"
                   onClick={() => generateWorldMut.mutate()}
                   disabled={isGenerating || !worldPrompt.trim()}
-                  style={{
-                    background: "#4a1a8a",
-                    borderColor: "#9575cd",
-                    marginBottom: "0.1rem",
-                  }}
+                  style={{ background: "#4a1a8a", borderColor: "#9575cd", marginBottom: "0.1rem" }}
                 >
                   {isGenerating ? "Generating…" : "Generate World"}
                 </button>
@@ -835,10 +1192,10 @@ export default function MapBuilder() {
             </div>
           )}
 
-          {/* ── Manual node controls ───────────────────────────────────── */}
+          {/* ── Toolbar ────────────────────────────────────────────────── */}
           <div className="flex gap-2" style={{ flexWrap: "wrap", alignItems: "center" }}>
             <input
-              placeholder="Location name"
+              placeholder={isDungeon ? "Room name" : "Location name"}
               value={newNodeLabel}
               onChange={(e) => setNewNodeLabel(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addNodeMut.mutate()}
@@ -847,10 +1204,13 @@ export default function MapBuilder() {
             <select
               value={newNodeType}
               onChange={(e) => setNewNodeType(e.target.value as NodeType)}
-              style={{ width: 130 }}
+              style={{ width: 150 }}
             >
-              {nodeTypes.map((t) => (
-                <option key={t} value={t}>{t}</option>
+              {nodeTypeOptions.map((t) => (
+                <option key={t} value={t}>
+                  {isDungeon ? (ROOM_ICONS[t] ?? "") + " " : ""}
+                  {t}
+                </option>
               ))}
             </select>
             <button
@@ -858,9 +1218,22 @@ export default function MapBuilder() {
               onClick={() => addNodeMut.mutate()}
               disabled={addNodeMut.isPending}
             >
-              {addNodeMut.isPending ? "Adding…" : "+ Add Location"}
+              {addNodeMut.isPending ? "Adding…" : isDungeon ? "+ Add Room" : "+ Add Location"}
             </button>
-            {nodes.length > 0 && (
+
+            {isDungeon && nodes.length > 0 && (
+              <button
+                className="btn btn-ghost"
+                onClick={handleSaveLayout}
+                disabled={savingLayout}
+                title="Save all room positions and sizes"
+                style={{ fontSize: "0.8rem" }}
+              >
+                {savingLayout ? "Saving…" : "💾 Save Layout"}
+              </button>
+            )}
+
+            {!isDungeon && nodes.length > 0 && (
               <button
                 className="btn btn-ghost"
                 onClick={() => {
@@ -887,7 +1260,7 @@ export default function MapBuilder() {
               style={{
                 flex: 1,
                 border: "1px solid var(--border)",
-                borderRadius: selectedNode ? "8px 0 0 8px" : 8,
+                borderRadius: selectedNode || selectedEdge ? "8px 0 0 8px" : 8,
                 overflow: "hidden",
                 position: "relative",
               }}
@@ -900,14 +1273,16 @@ export default function MapBuilder() {
                     justifyContent: "center",
                     height: "100%",
                     color: "var(--muted)",
-                    background: "var(--surface)",
+                    background: canvasBg,
                     flexDirection: "column",
                     gap: "0.5rem",
+                    padding: "2rem",
+                    textAlign: "center",
                   }}
                 >
-                  {selectedMapScale === "World"
-                    ? "Describe your world above and click Generate, or add locations manually."
-                    : "Add a location above to get started."}
+                  {isDungeon
+                    ? "Add rooms above to start building your dungeon. Drag from room handles to connect with doors and passages."
+                    : "Describe your world above and click Generate, or add locations manually."}
                 </div>
               ) : nodes.length === 0 ? (
                 <div
@@ -917,7 +1292,7 @@ export default function MapBuilder() {
                     justifyContent: "center",
                     height: "100%",
                     color: "var(--muted)",
-                    background: "var(--surface)",
+                    background: canvasBg,
                   }}
                 >
                   Loading map…
@@ -927,33 +1302,59 @@ export default function MapBuilder() {
                   key={selectedMapId}
                   nodes={nodes}
                   edges={edges}
+                  nodeTypes={nodeTypes}
                   onNodesChange={onNodesChange}
                   onEdgesChange={onEdgesChange}
                   onConnect={onConnect}
                   onNodeClick={onNodeClick}
+                  onEdgeClick={onEdgeClick}
+                  onNodeDragStop={onNodeDragStop}
                   fitView
                   fitViewOptions={{ padding: 0.3 }}
-                  style={{ background: "var(--surface)" }}
+                  style={{ background: canvasBg }}
                 >
-                  <MiniMap style={{ background: "var(--surface2)" }} />
+                  <MiniMap
+                    style={{ background: isDungeon ? "#0d0d14" : "var(--surface2)" }}
+                    nodeColor={(n) => {
+                      const nt = String(n.data?.node_type ?? "Room") as NodeType;
+                      return NODE_COLORS[nt]?.border ?? "#c9a84c";
+                    }}
+                  />
                   <Controls />
-                  <Background color="var(--border)" />
+                  <Background
+                    color={isDungeon ? "#1a1a24" : "var(--border)"}
+                    gap={isDungeon ? 40 : 16}
+                    size={isDungeon ? 1.5 : 1}
+                  />
                 </ReactFlow>
               )}
             </div>
 
-            {selectedNode && (
+            {selectedNode && !selectedEdge && (
               <NodeDetail
                 node={selectedNode}
+                isDungeon={isDungeon}
+                encounters={encounters}
                 onClose={() => setSelectedNode(null)}
-                onDescriptionSave={handleDescriptionSave}
-                saving={savingDesc}
+                onSave={handleNodeSave}
+                saving={savingNode}
+              />
+            )}
+
+            {selectedEdge && isDungeon && !selectedNode && (
+              <EdgeDetail
+                edge={selectedEdge}
+                mapId={selectedMapId}
+                onClose={() => setSelectedEdge(null)}
+                onUpdated={handleEdgeUpdated}
               />
             )}
           </div>
 
           <p className="text-sm text-muted">
-            Drag to pan · Scroll to zoom · Drag from a node handle to connect · Click a node to view details
+            {isDungeon
+              ? "Drag rooms to reposition · Drag edges from handles to connect · Click a room to edit · Click a connection to set door type · Resize rooms by selecting then dragging corners · 💾 Save Layout to persist sizes"
+              : "Drag to pan · Scroll to zoom · Drag from a node handle to connect · Click a node to view details"}
           </p>
         </div>
       )}

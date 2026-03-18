@@ -10,6 +10,7 @@ import Sessions from "./pages/Sessions";
 import SessionRunner from "./pages/SessionRunner";
 import SessionHud from "./pages/SessionHud";
 import Admin from "./pages/Admin";
+import MagicItems from "./pages/MagicItems";
 import Monsters from "./pages/Monsters";
 import NotFound from "./pages/NotFound";
 
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="sessions/:sessionId/run" element={<SessionRunner />} />
         <Route path="sessions/:sessionId/hud" element={<SessionHud />} />
         <Route path="monsters" element={<Monsters />} />
+        <Route path="magic-items" element={<MagicItems />} />
         <Route path="admin" element={<Admin />} />
         <Route path="*" element={<NotFound />} />
       </Route>

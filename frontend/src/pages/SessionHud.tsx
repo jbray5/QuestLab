@@ -19,7 +19,8 @@ import { useQuery } from "@tanstack/react-query";
 import { sessionsApi } from "../api/sessions";
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
-import type { PlayerCharacter, RunbookScene } from "../api/types";
+import { encountersApi } from "../api/encounters";
+import type { PlayerCharacter, RunbookScene, Encounter, RosterEntry } from "../api/types";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -360,6 +361,12 @@ export default function SessionHud() {
     retry: false,
   });
 
+  const { data: adventureEncounters = [] } = useQuery<Encounter[]>({
+    queryKey: ["encounters", session?.adventure_id],
+    queryFn: () => encountersApi.list(session!.adventure_id),
+    enabled: !!session?.adventure_id,
+  });
+
   // Filter to attending PCs (or all if none specified)
   const partyIds = session?.attending_pc_ids ?? [];
   const party: PlayerCharacter[] = allChars.filter(
@@ -372,7 +379,7 @@ export default function SessionHud() {
   async function saveHp(charId: string, newHp: number) {
     setSavingHp((p) => ({ ...p, [charId]: true }));
     try {
-      await charactersApi.update(charId, { hp: newHp });
+      await charactersApi.update(charId, { hp_current: newHp });
     } finally {
       setSavingHp((p) => ({ ...p, [charId]: false }));
     }
@@ -394,7 +401,7 @@ export default function SessionHud() {
     const key = `${pcId}-${slotLevel}`;
     setSpellSlots((prev) => {
       const maxSlots = maxSlotsForLevel(
-        party.find((p) => p.id === pcId)?.char_class ?? null,
+        party.find((p) => p.id === pcId)?.character_class ?? null,
         party.find((p) => p.id === pcId)?.level ?? 1,
       );
       const current = prev[key] ?? Array(maxSlots[slotLevel] ?? 0).fill(false);
@@ -416,6 +423,7 @@ export default function SessionHud() {
   const [round, setRound] = useState(1);
   const [newCName, setNewCName] = useState("");
   const [newCType, setNewCType] = useState<"pc" | "monster" | "npc">("monster");
+  const [loadEncounterId, setLoadEncounterId] = useState("");
   const [newCHp, setNewCHp] = useState(10);
   const [newCHpMax, setNewCHpMax] = useState(10);
   const [newCAc, setNewCAc] = useState(10);
@@ -427,11 +435,11 @@ export default function SessionHud() {
       setCombatants(
         party.map((pc) => ({
           id: pc.id,
-          name: pc.name,
+          name: pc.character_name,
           type: "pc",
           initiative: 0,
-          hp: pc.hp,
-          maxHp: pc.max_hp,
+          hp: pc.hp_current,
+          maxHp: pc.hp_max,
           ac: pc.ac,
           conditions: new Set<Condition>(),
           defeated: false,
@@ -458,6 +466,33 @@ export default function SessionHud() {
       },
     ]);
     setNewCName(""); setNewCHp(10); setNewCHpMax(10); setNewCAc(10); setNewCInit(0);
+  }
+
+  function loadEncounter() {
+    const enc = adventureEncounters.find((e) => e.id === loadEncounterId);
+    if (!enc) return;
+    const roster: RosterEntry[] = (enc.monster_roster ?? []) as unknown as RosterEntry[];
+    const newCombatants: HudCombatant[] = [];
+    for (const entry of roster) {
+      const count = entry.count ?? 1;
+      for (let i = 0; i < count; i++) {
+        const label = count === 1 ? entry.name : `${entry.name} ${i + 1}`;
+        newCombatants.push({
+          id: crypto.randomUUID(),
+          name: label,
+          type: "monster",
+          initiative: 0,
+          hp: entry.hp ?? 10,
+          maxHp: entry.hp ?? 10,
+          ac: entry.ac ?? 10,
+          conditions: new Set<Condition>(),
+          defeated: false,
+        });
+      }
+    }
+    if (newCombatants.length === 0) return;
+    setCombatants((prev) => [...prev, ...newCombatants]);
+    setLoadEncounterId("");
   }
 
   function rollAllInitiative() {
@@ -494,7 +529,7 @@ export default function SessionHud() {
     );
     // If this is a PC, also persist
     const pc = party.find((p) => p.id === id);
-    if (pc) saveHp(id, Math.min(pc.max_hp, Math.max(0, newHp)));
+    if (pc) saveHp(id, Math.min(pc.hp_max, Math.max(0, newHp)));
   }
 
   function toggleCombatantCondition(id: string, cond: Condition) {
@@ -649,9 +684,9 @@ export default function SessionHud() {
           {party.map((pc) => {
             const mod = abilityMod;
             const pb = profBonus(pc.level);
-            const pp = passivePerception(pc.wis_score, pb);
+            const pp = passivePerception(pc.score_wis, pb);
             const pcConditions = conditions[pc.id] ?? new Set<Condition>();
-            const isUnconcious = pc.hp <= 0;
+            const isUnconcious = pc.hp_current <= 0;
 
             return (
               <div
@@ -666,7 +701,7 @@ export default function SessionHud() {
                 <div className="flex" style={{ justifyContent: "space-between", marginBottom: "0.3rem" }}>
                   <div>
                     <span style={{ fontWeight: 700, fontSize: "0.9rem", color: isUnconcious ? "var(--crimson2)" : "var(--gold)" }}>
-                      {pc.name}
+                      {pc.character_name}
                     </span>
                     {pc.player_name && (
                       <span style={{ fontSize: "0.7rem", color: "var(--muted)", marginLeft: "0.4rem" }}>
@@ -674,7 +709,7 @@ export default function SessionHud() {
                       </span>
                     )}
                     <div style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
-                      {[pc.race, pc.char_class, `Lvl ${pc.level}`].filter(Boolean).join(" · ")}
+                      {[pc.race, pc.character_class, `Lvl ${pc.level}`].filter(Boolean).join(" · ")}
                     </div>
                   </div>
                   <div style={{ textAlign: "right", fontSize: "0.72rem", color: "var(--muted)" }}>
@@ -685,8 +720,8 @@ export default function SessionHud() {
 
                 {/* HP bar */}
                 <HpEditor
-                  hp={pc.hp}
-                  maxHp={pc.max_hp}
+                  hp={pc.hp_current}
+                  maxHp={pc.hp_max}
                   onSave={(n) => saveHp(pc.id, n)}
                   saving={savingHp[pc.id] ?? false}
                 />
@@ -694,7 +729,7 @@ export default function SessionHud() {
                 {/* Ability scores compact */}
                 <div className="flex" style={{ gap: "0.3rem", marginTop: "0.4rem", flexWrap: "wrap" }}>
                   {(["STR", "DEX", "CON", "INT", "WIS", "CHA"] as const).map((stat, i) => {
-                    const scores = [pc.str_score, pc.dex_score, pc.con_score, pc.int_score, pc.wis_score, pc.cha_score];
+                    const scores = [pc.score_str, pc.score_dex, pc.score_con, pc.score_int, pc.score_wis, pc.score_cha];
                     const m = mod(scores[i]);
                     return (
                       <div key={stat} style={{
@@ -720,7 +755,7 @@ export default function SessionHud() {
 
                 {/* Spell slots */}
                 <SpellSlotTracker
-                  cls={pc.char_class}
+                  cls={pc.character_class}
                   level={pc.level}
                   pcId={pc.id}
                   slots={spellSlots}
@@ -923,6 +958,39 @@ export default function SessionHud() {
               </button>
             </div>
           </div>
+
+          {/* Load Encounter */}
+          {adventureEncounters.length > 0 && (
+            <div style={{
+              padding: "0.4rem 0.75rem",
+              borderBottom: "1px solid var(--border)",
+              background: "var(--surface2)",
+              display: "flex",
+              gap: "0.4rem",
+              alignItems: "center",
+            }}>
+              <select
+                value={loadEncounterId}
+                onChange={(e) => setLoadEncounterId(e.target.value)}
+                style={{ flex: 1, fontSize: "0.72rem" }}
+              >
+                <option value="">Load Encounter…</option>
+                {adventureEncounters.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name} ({e.difficulty})
+                  </option>
+                ))}
+              </select>
+              <button
+                className="btn btn-secondary"
+                style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", whiteSpace: "nowrap" }}
+                disabled={!loadEncounterId}
+                onClick={loadEncounter}
+              >
+                ⚔️ Load
+              </button>
+            </div>
+          )}
 
           {/* Add combatant form */}
           <div style={{

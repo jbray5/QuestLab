@@ -127,11 +127,15 @@ class MapNodeType(str, Enum):
 
     # Dungeon-scale
     ROOM = "Room"
+    BOSS_CHAMBER = "Boss Chamber"
+    TREASURE_ROOM = "Treasure Room"
+    TRAP_ROOM = "Trap Room"
+    SECRET_ROOM = "Secret Room"
+    ENTRANCE = "Entrance"
+    EXIT = "Exit"
+    STAIRS_UP = "Stairs Up"
+    STAIRS_DOWN = "Stairs Down"
     CORRIDOR = "Corridor"
-    OUTDOOR = "Outdoor"
-    SETTLEMENT = "Settlement"
-    DUNGEON = "Dungeon"
-    LAIR = "Lair"
     # World-scale
     REGION = "Region"
     CITY = "City"
@@ -140,6 +144,17 @@ class MapNodeType(str, Enum):
     LANDMARK = "Landmark"
     PORT = "Port"
     FORTRESS = "Fortress"
+
+
+class DoorType(str, Enum):
+    """Connection types between dungeon rooms."""
+
+    OPEN = "open"
+    LOCKED = "locked"
+    SECRET = "secret"
+    TRAPPED = "trapped"
+    BARRICADED = "barricaded"
+    PORTCULLIS = "portcullis"
 
 
 class MapScale(str, Enum):

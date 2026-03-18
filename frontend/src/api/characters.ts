@@ -10,4 +10,6 @@ export const charactersApi = {
   update: (id: string, data: Partial<PlayerCharacterCreate>) =>
     api.patch<PlayerCharacter>(`/characters/${id}`, data),
   delete: (id: string) => api.delete(`/characters/${id}`),
+  updateImage: (id: string, portrait_url: string) =>
+    api.patch<PlayerCharacter>(`/characters/${id}`, { portrait_url }),
 };

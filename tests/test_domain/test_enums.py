@@ -150,12 +150,15 @@ class TestMapNodeType:
     """Tests for MapNodeType enum."""
 
     def test_node_types_count(self):
-        """Thirteen map node types are defined (6 dungeon-scale + 7 world-scale)."""
-        assert len(MapNodeType) == 13
+        """Seventeen map node types are defined (10 dungeon-scale + 7 world-scale)."""
+        assert len(MapNodeType) == 17
 
-    def test_lair_present(self):
-        """Lair node type is defined."""
-        assert MapNodeType.LAIR.value == "Lair"
+    def test_dungeon_types_present(self):
+        """Core dungeon node types are defined."""
+        assert MapNodeType.BOSS_CHAMBER.value == "Boss Chamber"
+        assert MapNodeType.TREASURE_ROOM.value == "Treasure Room"
+        assert MapNodeType.TRAP_ROOM.value == "Trap Room"
+        assert MapNodeType.SECRET_ROOM.value == "Secret Room"
 
 
 class TestItemRarity:

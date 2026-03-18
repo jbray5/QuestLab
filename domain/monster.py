@@ -80,6 +80,7 @@ class MonsterStatBlock(SQLModel, table=True):
     languages: Optional[str] = Field(default=None, max_length=500)
     is_custom: bool = Field(default=False)
     created_by_email: Optional[str] = Field(default=None, max_length=200)
+    image_url: Optional[str] = Field(default=None, max_length=500)
     # JSON columns
     speed: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
     saving_throws: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
@@ -135,6 +136,7 @@ class MonsterStatBlockCreate(BaseModel):
     lair_actions: Optional[list[dict[str, Any]]] = None
     is_custom: bool = False
     created_by_email: Optional[str] = None
+    image_url: Optional[str] = None
 
     @field_validator("challenge_rating")
     @classmethod
@@ -183,6 +185,7 @@ class MonsterStatBlockRead(BaseModel):
     lair_actions: Optional[list[dict[str, Any]]] = None
     is_custom: bool
     created_by_email: Optional[str] = None
+    image_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -202,3 +205,4 @@ class MonsterStatBlockUpdate(BaseModel):
     reactions: Optional[list[dict[str, Any]]] = None
     legendary_actions: Optional[list[dict[str, Any]]] = None
     lair_actions: Optional[list[dict[str, Any]]] = None
+    image_url: Optional[str] = None

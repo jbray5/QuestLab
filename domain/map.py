@@ -6,7 +6,7 @@ from typing import Optional
 from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
 
-from domain.enums import MapNodeType, MapScale
+from domain.enums import DoorType, MapNodeType, MapScale
 
 
 class MapBase(SQLModel):
@@ -58,12 +58,16 @@ class MapNodeBase(SQLModel):
 
     label: str = Field(min_length=1, max_length=100)
     node_type: MapNodeType
-    x: int = Field(ge=0, description="Grid column position")
-    y: int = Field(ge=0, description="Grid row position")
+    x: int = Field(ge=0, description="Pixel x position")
+    y: int = Field(ge=0, description="Pixel y position")
+    width: int = Field(default=200, ge=60, description="Node width in pixels")
+    height: int = Field(default=120, ge=40, description="Node height in pixels")
     description: Optional[str] = None
     encounter_id: Optional[uuid.UUID] = Field(default=None, foreign_key="encounters.id")
     loot_table_id: Optional[uuid.UUID] = Field(default=None, foreign_key="loot_tables.id")
     notes: Optional[str] = None
+    loot_notes: Optional[str] = None
+    trap_notes: Optional[str] = None
 
 
 class MapNode(MapNodeBase, table=True):
@@ -98,10 +102,14 @@ class MapNodeUpdate(BaseModel):
     node_type: Optional[MapNodeType] = None
     x: Optional[int] = Field(default=None, ge=0)
     y: Optional[int] = Field(default=None, ge=0)
+    width: Optional[int] = Field(default=None, ge=60)
+    height: Optional[int] = Field(default=None, ge=40)
     description: Optional[str] = None
     encounter_id: Optional[uuid.UUID] = None
     loot_table_id: Optional[uuid.UUID] = None
     notes: Optional[str] = None
+    loot_notes: Optional[str] = None
+    trap_notes: Optional[str] = None
 
 
 class MapEdgeBase(SQLModel):
@@ -111,6 +119,7 @@ class MapEdgeBase(SQLModel):
     to_node_id: uuid.UUID = Field(foreign_key="map_nodes.id")
     label: Optional[str] = Field(default=None, max_length=100)
     is_secret: bool = Field(default=False, description="Hidden passage not shown to players")
+    door_type: DoorType = Field(default=DoorType.OPEN, description="Connection type")
 
 
 class MapEdge(MapEdgeBase, table=True):
@@ -143,3 +152,4 @@ class MapEdgeUpdate(BaseModel):
 
     label: Optional[str] = Field(default=None, max_length=100)
     is_secret: Optional[bool] = None
+    door_type: Optional[DoorType] = None

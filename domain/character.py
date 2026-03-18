@@ -66,7 +66,7 @@ class PlayerCharacter(SQLModel, table=True):
 class PlayerCharacterCreate(BaseModel):
     """Input schema for creating a new player character."""
 
-    campaign_id: uuid.UUID
+    campaign_id: Optional[uuid.UUID] = None
     player_name: str
     character_name: str
     race: str

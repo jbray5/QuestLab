@@ -178,9 +178,13 @@ def create_node(map_id: uuid.UUID, body: MapNodeCreate, db: DB, user: CurrentUse
             x=body.x,
             y=body.y,
             dm_email=user,
+            width=body.width,
+            height=body.height,
             description=body.description,
             encounter_id=body.encounter_id,
             notes=body.notes,
+            loot_notes=body.loot_notes,
+            trap_notes=body.trap_notes,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
@@ -205,7 +209,7 @@ def update_node(
         Updated MapNode object.
     """
     try:
-        return map_service.update_node(db, map_id, node_id, user, body)
+        return map_service.update_node(db, node_id, user, body)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
@@ -223,7 +227,7 @@ def delete_node(map_id: uuid.UUID, node_id: uuid.UUID, db: DB, user: CurrentUser
         user: Authenticated DM email.
     """
     try:
-        map_service.delete_node(db, map_id, node_id, user)
+        map_service.delete_node(db, node_id, user)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
@@ -273,6 +277,7 @@ def create_edge(map_id: uuid.UUID, body: MapEdgeCreate, db: DB, user: CurrentUse
             dm_email=user,
             label=body.label,
             is_secret=body.is_secret,
+            door_type=body.door_type,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
@@ -297,7 +302,7 @@ def update_edge(
         Updated MapEdge object.
     """
     try:
-        return map_service.update_edge(db, map_id, edge_id, user, body)
+        return map_service.update_edge(db, edge_id, user, body)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
@@ -315,7 +320,7 @@ def delete_edge(map_id: uuid.UUID, edge_id: uuid.UUID, db: DB, user: CurrentUser
         user: Authenticated DM email.
     """
     try:
-        map_service.delete_edge(db, map_id, edge_id, user)
+        map_service.delete_edge(db, edge_id, user)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:

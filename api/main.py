@@ -23,9 +23,11 @@ from api.routers import (
     campaigns,
     characters,
     encounters,
+    items,
     maps,
     monsters,
     sessions,
+    uploads,
 )
 
 load_dotenv()
@@ -53,13 +55,16 @@ async def lifespan(app: FastAPI):
     """
     from sqlmodel import Session
 
-    from db.base import create_db_and_tables, get_engine
+    from db.base import create_db_and_tables, get_engine, patch_duckdb_schema
     from integrations.dnd_rules.stat_blocks import seed_monsters
+    from services.item_service import seed_magic_items
 
     create_db_and_tables()
+    patch_duckdb_schema()
     engine = get_engine()
     with Session(engine) as db:
         seed_monsters(db)
+        seed_magic_items(db)
     yield
 
 
@@ -89,6 +94,8 @@ app.include_router(encounters.router, prefix=_PREFIX)
 app.include_router(maps.router, prefix=_PREFIX)
 app.include_router(sessions.router, prefix=_PREFIX)
 app.include_router(monsters.router, prefix=_PREFIX)
+app.include_router(items.router, prefix=_PREFIX)
+app.include_router(uploads.router, prefix=_PREFIX)
 app.include_router(admin.router, prefix=_PREFIX)
 
 
@@ -101,6 +108,11 @@ def health() -> dict:
     """
     return {"ok": True}
 
+
+# ── Serve uploaded images ──────────────────────────────────────────────────────
+_UPLOADS_DIR = Path(__file__).parent.parent / "uploads"
+_UPLOADS_DIR.mkdir(exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_UPLOADS_DIR)), name="uploads")
 
 # ── Serve React frontend (production build) ────────────────────────────────────
 if _FRONTEND_DIST.exists():

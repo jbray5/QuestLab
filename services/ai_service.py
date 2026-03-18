@@ -11,6 +11,7 @@ Available generators:
 - generate_npc               — complete NPC with personality + dialog hooks
 - generate_adventure_hook    — opening hook paragraph for a new adventure
 - generate_world_map         — AI-populated world map (nodes + edges)
+- generate_item_lore         — adventure-specific flavor lore for a magic item
 """
 
 import uuid
@@ -23,6 +24,7 @@ from db.repos.adventure_repo import AdventureRepo
 from db.repos.campaign_repo import CampaignRepo
 from db.repos.character_repo import CharacterRepo
 from db.repos.encounter_repo import EncounterRepo
+from db.repos.item_repo import ItemRepo
 from db.repos.map_repo import MapRepo
 from db.repos.session_repo import SessionRepo
 from domain.enums import AdventureTier, MapNodeType
@@ -272,7 +274,7 @@ Make read-aloud text atmospheric and suited to the {campaign.tone} tone."""
         encounter_flows=[e.model_dump() for e in result.encounter_flows],
         closing_hooks=result.closing_hooks,
         xp_awards=dict(result.xp_awards),
-        loot_awards=[{"notes": result.loot_notes}] if result.loot_notes else None,
+        loot_awards=[result.loot_notes] if result.loot_notes else None,
     )
 
 
@@ -654,3 +656,90 @@ Total nodes: 20–27. Make the world feel alive and dangerous."""
         created_edges.append(edge)
 
     return created_nodes, created_edges
+
+
+# ---------------------------------------------------------------------------
+# Magic item lore
+# ---------------------------------------------------------------------------
+
+
+def generate_item_lore(
+    db: DBSession,
+    item_id: uuid.UUID,
+    dm_email: str,
+    adventure_id: Optional[uuid.UUID] = None,
+) -> str:
+    """Generate adventure-specific flavor lore for a magic item.
+
+    Loads item details and, if provided, the adventure/campaign context so the
+    lore ties the item to the current story. Returns 2-3 paragraphs of flavor
+    text the DM can share with players or use as inspiration.
+
+    Args:
+        db: Active database session.
+        item_id: UUID of the magic item to generate lore for.
+        dm_email: Email of the requesting DM.
+        adventure_id: Optional UUID of the adventure to tie the lore to.
+
+    Returns:
+        A string containing 2-3 paragraphs of flavor lore.
+
+    Raises:
+        ValueError: If the item is not found.
+        PermissionError: If the adventure is not owned by dm_email.
+    """
+    item = ItemRepo.get_by_id(db, item_id)
+    if item is None:
+        raise ValueError(f"Item {item_id} not found.")
+
+    # Build optional adventure/campaign context block
+    adventure_context = ""
+    if adventure_id:
+        adventure = AdventureRepo.get_by_id(db, adventure_id)
+        if adventure:
+            campaign = CampaignRepo.get_by_id(db, adventure.campaign_id)
+            if campaign and campaign.dm_email != dm_email.strip().lower():
+                raise PermissionError("You do not have permission to access this adventure.")
+            if campaign:
+                adventure_context = (
+                    f"\n\n## Current Campaign\n"
+                    f"- Campaign: {campaign.name}\n"
+                    f"- Setting: {campaign.setting}\n"
+                    f"- Tone: {campaign.tone}\n"
+                    f"- World Notes: {campaign.world_notes or 'None'}\n"
+                    f"\n## Current Adventure\n"
+                    f"- Title: {adventure.title}\n"
+                    f"- Synopsis: {adventure.synopsis or 'Not provided'}\n"
+                    f"- Location Notes: {adventure.location_notes or 'None'}"
+                )
+
+    attunement_note = (
+        "Requires attunement." if item.attunement_required else "No attunement required."
+    )
+    props = item.properties or {}
+    source = props.get("source", "PHB")
+
+    system = f"""You are an expert D&D 5e lore writer and Dungeon Master.
+You craft evocative, story-rich flavor lore for magic items that brings them \
+to life at the table.
+Your lore should feel legendary — like the item has a history, a maker, \
+a purpose.{adventure_context}"""
+
+    user = f"""Write 2-3 paragraphs of flavor lore for the following magic item.
+
+## Item
+- Name: {item.name}
+- Rarity: {item.rarity.value}
+- Type: {item.item_type}
+- Mechanics: {item.description or 'Standard effects for this item type.'}
+- {attunement_note}
+- Source: {source}
+
+The lore should:
+1. Give the item a legendary origin — who made it, why, and what era or civilization forged it.
+2. Describe one famous (or infamous) past wielder and what they did with it.
+3. {"Connect the item to the adventure's story, themes, or NPCs in a way the DM can use at the table." if adventure_id else "Leave an open hook — a rumor, a curse, or a prophecy tied to the item."}
+
+Write in an immersive, slightly archaic fantasy prose style. Do not repeat the mechanical description verbatim — translate it into narrative."""  # noqa: E501
+
+    return complete(system=system, user=user, max_tokens=600)

@@ -13,6 +13,10 @@ from sqlmodel import Session
 
 from db.repos.adventure_repo import AdventureRepo
 from db.repos.campaign_repo import CampaignRepo
+from db.repos.encounter_repo import EncounterRepo
+from db.repos.item_repo import LootTableRepo
+from db.repos.map_repo import MapEdgeRepo, MapNodeRepo, MapRepo
+from db.repos.session_repo import SessionRepo, SessionRunbookRepo
 from domain.adventure import Adventure, AdventureCreate, AdventureRead, AdventureUpdate
 from domain.enums import AdventureTier
 
@@ -184,7 +188,11 @@ def update_adventure(
 
 
 def delete_adventure(session: Session, adventure_id: uuid.UUID, dm_email: str) -> None:
-    """Delete an adventure, enforcing ownership.
+    """Delete an adventure and all child records, enforcing ownership.
+
+    Deletion order respects FK constraints:
+    session_runbooks → game_sessions → map_edges → map_nodes → maps
+    → encounters → loot_tables → adventure
 
     Args:
         session: Active database session.
@@ -199,4 +207,24 @@ def delete_adventure(session: Session, adventure_id: uuid.UUID, dm_email: str) -
     if adventure is None:
         raise ValueError(f"Adventure {adventure_id} not found.")
     _assert_adventure_owner(session, adventure, dm_email)
+
+    for game_session in SessionRepo.list_by_adventure(session, adventure_id):
+        runbook = SessionRunbookRepo.get_by_session(session, game_session.id)
+        if runbook:
+            SessionRunbookRepo.delete(session, runbook)
+        SessionRepo.delete(session, game_session)
+
+    for enc in EncounterRepo.list_by_adventure(session, adventure_id):
+        EncounterRepo.delete(session, enc)
+
+    for loot_table in LootTableRepo.list_by_adventure(session, adventure_id):
+        LootTableRepo.delete(session, loot_table)
+
+    for map_obj in MapRepo.list_by_adventure(session, adventure_id):
+        for edge in MapEdgeRepo.list_by_map(session, map_obj.id):
+            MapEdgeRepo.delete(session, edge)
+        for node in MapNodeRepo.list_by_map(session, map_obj.id):
+            MapNodeRepo.delete(session, node)
+        MapRepo.delete(session, map_obj)
+
     AdventureRepo.delete(session, adventure)

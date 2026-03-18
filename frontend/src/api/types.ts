@@ -32,41 +32,51 @@ export interface AdventureCreate {
 export interface PlayerCharacter {
   id: string;
   campaign_id: string;
-  name: string;
-  player_name: string | null;
-  race: string | null;
-  char_class: string | null;
+  character_name: string;
+  player_name: string;
+  race: string;
+  character_class: string;
+  subclass: string | null;
   level: number;
-  hp: number;
-  max_hp: number;
+  hp_current: number;
+  hp_max: number;
   ac: number;
-  str_score: number;
-  dex_score: number;
-  con_score: number;
-  int_score: number;
-  wis_score: number;
-  cha_score: number;
+  speed: number;
+  score_str: number;
+  score_dex: number;
+  score_con: number;
+  score_int: number;
+  score_wis: number;
+  score_cha: number;
   background: string | null;
+  backstory: string | null;
   notes: string | null;
+  portrait_url: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PlayerCharacterCreate {
-  name: string;
-  player_name?: string;
-  race?: string;
-  char_class?: string;
+  character_name: string;
+  player_name: string;
+  race: string;
+  character_class: string;
+  subclass?: string;
   level?: number;
-  hp?: number;
-  max_hp?: number;
+  hp_current?: number;
+  hp_max?: number;
   ac?: number;
-  str_score?: number;
-  dex_score?: number;
-  con_score?: number;
-  int_score?: number;
-  wis_score?: number;
-  cha_score?: number;
+  speed?: number;
+  score_str?: number;
+  score_dex?: number;
+  score_con?: number;
+  score_int?: number;
+  score_wis?: number;
+  score_cha?: number;
   background?: string;
+  backstory?: string;
   notes?: string;
+  portrait_url?: string;
 }
 
 export interface Encounter {
@@ -157,10 +167,14 @@ export interface MapNode {
   label: string;
   x: number;
   y: number;
+  width: number;
+  height: number;
   node_type: string;
   description: string | null;
   encounter_id: string | null;
   notes: string | null;
+  loot_notes: string | null;
+  trap_notes: string | null;
 }
 
 export interface MapEdge {
@@ -170,6 +184,7 @@ export interface MapEdge {
   to_node_id: string;
   label: string | null;
   is_secret: boolean;
+  door_type: string;
 }
 
 export type MapScale = "World" | "Dungeon";
@@ -225,6 +240,7 @@ export interface Monster {
   lair_actions: MonsterAbility[] | null;
   is_custom: boolean;
   created_by_email: string | null;
+  image_url: string | null;
 }
 
 export interface RosterEntry {
@@ -233,6 +249,8 @@ export interface RosterEntry {
   name: string;
   xp: number;
   cr: string;
+  hp: number;
+  ac: number;
 }
 
 export interface Combatant {

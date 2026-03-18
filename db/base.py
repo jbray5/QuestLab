@@ -15,6 +15,7 @@ Usage::
 import os
 from collections.abc import Generator
 
+from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine
 
 import domain  # noqa: F401 — registers all SQLModel table classes with metadata
@@ -73,6 +74,40 @@ def create_db_and_tables() -> None:
     Alembic migrations are the authoritative schema source.
     """
     SQLModel.metadata.create_all(get_engine())
+
+
+def patch_duckdb_schema() -> None:
+    """Apply additive schema changes to an existing DuckDB database.
+
+    Runs ``ALTER TABLE … ADD COLUMN IF NOT EXISTS`` for every column that was
+    added after the initial ``create_all``.  Safe to call on every startup —
+    DuckDB accepts ``IF NOT EXISTS`` so it is a no-op when the column already
+    exists.  Only executes when ``DB_BACKEND=duckdb``.
+    """
+    if os.environ.get("DB_BACKEND", "postgres").lower() != "duckdb":
+        return
+    engine = get_engine()
+    patches = [
+        # 0002 — map scale
+        "ALTER TABLE maps ADD COLUMN IF NOT EXISTS scale VARCHAR(20) DEFAULT 'DUNGEON'",
+        "UPDATE maps SET scale = 'DUNGEON' WHERE scale = 'Dungeon'",
+        # 0003 — dungeon builder fields
+        "ALTER TABLE map_nodes ADD COLUMN IF NOT EXISTS width INTEGER DEFAULT 200",
+        "ALTER TABLE map_nodes ADD COLUMN IF NOT EXISTS height INTEGER DEFAULT 120",
+        "ALTER TABLE map_nodes ADD COLUMN IF NOT EXISTS loot_notes VARCHAR",
+        "ALTER TABLE map_nodes ADD COLUMN IF NOT EXISTS trap_notes VARCHAR",
+        "ALTER TABLE map_edges ADD COLUMN IF NOT EXISTS door_type VARCHAR(20) DEFAULT 'OPEN'",
+        # Fix rows stored with lowercase value instead of SQLAlchemy enum name
+        "UPDATE map_edges SET door_type = 'OPEN' WHERE door_type = 'open'",
+        # 0004 — image urls
+        "ALTER TABLE items ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)",
+        "ALTER TABLE monster_stat_blocks ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)",
+        # portrait_url was in initial schema for player_characters but guard anyway
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS portrait_url VARCHAR(500)",
+    ]
+    with engine.begin() as conn:
+        for stmt in patches:
+            conn.execute(text(stmt))
 
 
 def get_session() -> Generator[Session, None, None]:

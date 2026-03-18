@@ -236,8 +236,8 @@ def generate_runbook(
     """
     try:
         extra_notes = (body or {}).get("notes", "")
-        game_session = session_service.get_session(db, session_id, user)
-        runbook_create = ai_service.generate_session_runbook(db, game_session, extra_notes)
+        session_service.get_session(db, session_id, user)  # ownership check
+        runbook_create = ai_service.generate_session_runbook(db, session_id, user, extra_notes)
         return session_service.save_runbook(db, session_id, user, runbook_create)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))

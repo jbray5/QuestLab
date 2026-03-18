@@ -270,11 +270,19 @@ function RunbookView({ runbook }: { runbook: SessionRunbook }) {
         <div className="card" style={{ marginBottom: "1rem" }}>
           <h3>💰 Loot</h3>
           <ul style={{ paddingLeft: "1.25rem", margin: 0 }}>
-            {runbook.loot_awards!.map((item, i) => (
-              <li key={i} style={{ marginBottom: "0.25rem" }}>
-                {typeof item === "string" ? item : JSON.stringify(item)}
-              </li>
-            ))}
+            {runbook.loot_awards!.map((item, i) => {
+              const text =
+                typeof item === "string"
+                  ? item
+                  : typeof item === "object" && item !== null && "notes" in item
+                    ? String((item as Record<string, unknown>).notes)
+                    : JSON.stringify(item);
+              return (
+                <li key={i} style={{ marginBottom: "0.25rem" }}>
+                  {text}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

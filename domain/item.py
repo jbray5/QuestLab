@@ -25,6 +25,7 @@ class Item(SQLModel, table=True):
     attunement_required: bool = Field(default=False)
     value_gp: int = Field(default=0, ge=0)
     is_magic: bool = Field(default=False)
+    image_url: Optional[str] = Field(default=None, max_length=500)
     # JSON column
     properties: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
 
@@ -54,6 +55,7 @@ class ItemRead(BaseModel):
     properties: Optional[dict[str, Any]] = None
     value_gp: int
     is_magic: bool
+    image_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -69,6 +71,7 @@ class ItemUpdate(BaseModel):
     properties: Optional[dict[str, Any]] = None
     value_gp: Optional[int] = Field(default=None, ge=0)
     is_magic: Optional[bool] = None
+    image_url: Optional[str] = None
 
 
 class LootTable(SQLModel, table=True):

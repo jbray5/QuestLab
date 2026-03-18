@@ -1,4 +1,7 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Monster } from "../api/types";
+import { monstersApi } from "../api/monsters";
+import ImageUpload from "./ImageUpload";
 
 interface Props {
   monster: Monster;
@@ -75,6 +78,12 @@ function ActionSection({ title, entries }: SectionProps) {
 }
 
 export default function MonsterStatBlock({ monster, onClose }: Props) {
+  const qc = useQueryClient();
+  const updateImage = useMutation({
+    mutationFn: (url: string) => monstersApi.updateImage(monster.id, url),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["monsters"] }),
+  });
+
   const scores: Array<{ label: string; value: number }> = [
     { label: "STR", value: monster.score_str },
     { label: "DEX", value: monster.score_dex },
@@ -130,22 +139,30 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
         </button>
 
         {/* Header */}
-        <div style={{ paddingRight: "2rem" }}>
-          <h2
-            style={{
-              fontFamily: "var(--font-serif)",
-              color: "var(--gold)",
-              fontSize: "1.6rem",
-              marginBottom: "0.2rem",
-              lineHeight: 1.2,
-            }}
-          >
-            {monster.name}
-          </h2>
-          <p style={{ fontStyle: "italic", color: "var(--text-muted)", fontSize: "0.9rem" }}>
-            {monster.size} {monster.creature_type}
-            {monster.alignment ? `, ${monster.alignment}` : ""}
-          </p>
+        <div style={{ paddingRight: "2rem", display: "flex", gap: "1rem", alignItems: "flex-start" }}>
+          <ImageUpload
+            currentUrl={monster.image_url}
+            onUrlChange={(url) => updateImage.mutate(url)}
+            label="Monster Art"
+            size={90}
+          />
+          <div>
+            <h2
+              style={{
+                fontFamily: "var(--font-serif)",
+                color: "var(--gold)",
+                fontSize: "1.6rem",
+                marginBottom: "0.2rem",
+                lineHeight: 1.2,
+              }}
+            >
+              {monster.name}
+            </h2>
+            <p style={{ fontStyle: "italic", color: "var(--text-muted)", fontSize: "0.9rem" }}>
+              {monster.size} {monster.creature_type}
+              {monster.alignment ? `, ${monster.alignment}` : ""}
+            </p>
+          </div>
         </div>
 
         <Divider />

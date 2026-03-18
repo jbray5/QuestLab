@@ -10,7 +10,13 @@ from typing import Optional
 
 from sqlmodel import Session
 
+from db.repos.adventure_repo import AdventureRepo
 from db.repos.campaign_repo import CampaignRepo
+from db.repos.character_repo import CharacterRepo
+from db.repos.encounter_repo import EncounterRepo
+from db.repos.item_repo import LootTableRepo
+from db.repos.map_repo import MapEdgeRepo, MapNodeRepo, MapRepo
+from db.repos.session_repo import SessionRepo, SessionRunbookRepo
 from domain.campaign import Campaign, CampaignCreate, CampaignRead, CampaignUpdate
 
 MAX_CAMPAIGNS_PER_DM = 20
@@ -137,7 +143,11 @@ def update_campaign(
 
 
 def delete_campaign(session: Session, campaign_id: uuid.UUID, dm_email: str) -> None:
-    """Delete a campaign, enforcing ownership.
+    """Delete a campaign and all child records, enforcing ownership.
+
+    Deletion order respects FK constraints:
+    session_runbooks → game_sessions → map_edges → map_nodes → maps
+    → encounters → loot_tables → adventures → player_characters → campaign
 
     Args:
         session: Active database session.
@@ -152,4 +162,40 @@ def delete_campaign(session: Session, campaign_id: uuid.UUID, dm_email: str) -> 
     if campaign is None:
         raise ValueError(f"Campaign {campaign_id} not found.")
     _assert_owner(campaign, dm_email)
+
+    # Cascade: delete all child records in FK-safe order
+    for character in CharacterRepo.list_by_campaign(session, campaign_id):
+        CharacterRepo.delete(session, character)
+
+    for adventure in AdventureRepo.list_by_campaign(session, campaign_id):
+        _delete_adventure_children(session, adventure.id)
+        AdventureRepo.delete(session, adventure)
+
     CampaignRepo.delete(session, campaign)
+
+
+def _delete_adventure_children(session: Session, adventure_id: uuid.UUID) -> None:
+    """Delete all child records of an adventure in FK-safe order.
+
+    Args:
+        session: Active database session.
+        adventure_id: UUID of the adventure whose children to delete.
+    """
+    for game_session in SessionRepo.list_by_adventure(session, adventure_id):
+        runbook = SessionRunbookRepo.get_by_session(session, game_session.id)
+        if runbook:
+            SessionRunbookRepo.delete(session, runbook)
+        SessionRepo.delete(session, game_session)
+
+    for enc in EncounterRepo.list_by_adventure(session, adventure_id):
+        EncounterRepo.delete(session, enc)
+
+    for loot_table in LootTableRepo.list_by_adventure(session, adventure_id):
+        LootTableRepo.delete(session, loot_table)
+
+    for map_obj in MapRepo.list_by_adventure(session, adventure_id):
+        for edge in MapEdgeRepo.list_by_map(session, map_obj.id):
+            MapEdgeRepo.delete(session, edge)
+        for node in MapNodeRepo.list_by_map(session, map_obj.id):
+            MapNodeRepo.delete(session, node)
+        MapRepo.delete(session, map_obj)

@@ -9,3 +9,5 @@ exclude =
     static,
     frontend
 extend-ignore = E203, W503
+per-file-ignores =
+    integrations/dnd_rules/stat_blocks.py: E501

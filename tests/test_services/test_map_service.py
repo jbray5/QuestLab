@@ -87,14 +87,19 @@ class TestCreateMap:
         with pytest.raises(ValueError, match="name"):
             map_svc.create_map(duckdb_session, adventure_id=adv.id, name="   ", dm_email=dm)
 
-    def test_map_limit_enforced(self, duckdb_session: Session):
-        """Creating more than MAX_MAPS_PER_ADVENTURE raises ValueError."""
+    def test_multiple_maps_allowed(self, duckdb_session: Session):
+        """Multiple maps per adventure are supported."""
         dm = _unique_dm()
         c = _make_campaign(duckdb_session, dm)
         adv = _make_adventure(duckdb_session, c.id, dm)
-        _make_map(duckdb_session, adv.id, dm)
-        with pytest.raises(ValueError, match="maximum"):
-            _make_map(duckdb_session, adv.id, dm, name="Second Map")
+        m1 = _make_map(duckdb_session, adv.id, dm, name="World Map")
+        m2 = _make_map(duckdb_session, adv.id, dm, name="Dungeon Level 1")
+        m3 = _make_map(duckdb_session, adv.id, dm, name="Dungeon Level 2")
+        from services import map_service as map_svc  # noqa: F811
+
+        maps = map_svc.list_maps(duckdb_session, adventure_id=adv.id, dm_email=dm)
+        assert len(maps) == 3
+        assert {m.id for m in maps} == {m1.id, m2.id, m3.id}
 
     def test_non_owner_cannot_create(self, duckdb_session: Session):
         """Non-owner gets PermissionError."""
@@ -217,33 +222,25 @@ class TestCreateNode:
         assert node.y == 3
         assert node.map_id == m.id
 
-    def test_duplicate_position_raises(self, duckdb_session: Session):
-        """Two nodes at the same (x, y) raises ValueError."""
+    def test_duplicate_position_allowed(self, duckdb_session: Session):
+        """Two nodes at the same pixel (x, y) are both accepted (pixel coords, not grid cells)."""
         dm = _unique_dm()
         c = _make_campaign(duckdb_session, dm)
         adv = _make_adventure(duckdb_session, c.id, dm)
         m = _make_map(duckdb_session, adv.id, dm)
-        _make_node(duckdb_session, m.id, dm, label="A", x=3, y=3)
-        with pytest.raises(ValueError, match="occupied"):
-            _make_node(duckdb_session, m.id, dm, label="B", x=3, y=3)
+        _make_node(duckdb_session, m.id, dm, label="A", x=300, y=300)
+        node_b = _make_node(duckdb_session, m.id, dm, label="B", x=300, y=300)
+        assert node_b.label == "B"
 
-    def test_out_of_bounds_x_raises(self, duckdb_session: Session):
-        """Node x beyond grid width raises ValueError."""
+    def test_large_pixel_coordinates_allowed(self, duckdb_session: Session):
+        """Node at large pixel coordinates is accepted (no grid-bounds check)."""
         dm = _unique_dm()
         c = _make_campaign(duckdb_session, dm)
         adv = _make_adventure(duckdb_session, c.id, dm)
         m = _make_map(duckdb_session, adv.id, dm)
-        with pytest.raises(ValueError, match="outside grid"):
-            _make_node(duckdb_session, m.id, dm, label="X", x=999, y=0)
-
-    def test_out_of_bounds_y_raises(self, duckdb_session: Session):
-        """Node y beyond grid height raises ValueError."""
-        dm = _unique_dm()
-        c = _make_campaign(duckdb_session, dm)
-        adv = _make_adventure(duckdb_session, c.id, dm)
-        m = _make_map(duckdb_session, adv.id, dm)
-        with pytest.raises(ValueError, match="outside grid"):
-            _make_node(duckdb_session, m.id, dm, label="Y", x=0, y=999)
+        node = _make_node(duckdb_session, m.id, dm, label="Far Room", x=2000, y=1500)
+        assert node.x == 2000
+        assert node.y == 1500
 
     def test_empty_label_raises(self, duckdb_session: Session):
         """Empty node label raises ValueError."""
@@ -280,16 +277,16 @@ class TestUpdateNode:
         updated = map_svc.update_node(duckdb_session, node.id, dm, MapNodeUpdate(label="New Label"))
         assert updated.label == "New Label"
 
-    def test_update_position_to_occupied_raises(self, duckdb_session: Session):
-        """Moving a node to an occupied position raises ValueError."""
+    def test_update_position_to_any_pixel_allowed(self, duckdb_session: Session):
+        """Moving a node to any pixel coordinate is accepted (no collision check)."""
         dm = _unique_dm()
         c = _make_campaign(duckdb_session, dm)
         adv = _make_adventure(duckdb_session, c.id, dm)
         m = _make_map(duckdb_session, adv.id, dm)
         n1 = _make_node(duckdb_session, m.id, dm, label="A", x=0, y=0)
-        _make_node(duckdb_session, m.id, dm, label="B", x=1, y=0)
-        with pytest.raises(ValueError, match="occupied"):
-            map_svc.update_node(duckdb_session, n1.id, dm, MapNodeUpdate(x=1, y=0))
+        _make_node(duckdb_session, m.id, dm, label="B", x=100, y=0)
+        updated = map_svc.update_node(duckdb_session, n1.id, dm, MapNodeUpdate(x=100, y=0))
+        assert updated.x == 100
 
     def test_update_position_to_same_position_ok(self, duckdb_session: Session):
         """Updating a node without changing position is allowed."""

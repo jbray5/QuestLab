@@ -6,7 +6,6 @@ Rules enforced here:
 - No two nodes on the same map may share the same (x, y) grid position.
 - Edges must reference nodes that belong to the same map.
 - Deleting a map cascades to its nodes and edges.
-- At most 1 map per adventure (MVP limit).
 """
 
 import uuid
@@ -17,7 +16,7 @@ from sqlmodel import Session
 from db.repos.adventure_repo import AdventureRepo
 from db.repos.campaign_repo import CampaignRepo
 from db.repos.map_repo import MapEdgeRepo, MapNodeRepo, MapRepo
-from domain.enums import MapNodeType
+from domain.enums import DoorType, MapNodeType
 from domain.map import (
     Map,
     MapCreate,
@@ -31,7 +30,6 @@ from domain.map import (
 )
 
 MAX_NODES_PER_MAP = 200
-MAX_MAPS_PER_ADVENTURE = 1
 
 
 # ---------------------------------------------------------------------------
@@ -169,13 +167,6 @@ def create_map(
 
     _assert_adventure_owner(db, adventure_id, dm_email)
 
-    existing = MapRepo.list_by_adventure(db, adventure_id)
-    if len(existing) >= MAX_MAPS_PER_ADVENTURE:
-        raise ValueError(
-            f"Adventure already has {MAX_MAPS_PER_ADVENTURE} map (maximum). "
-            "Delete the existing map to create a new one."
-        )
-
     payload = MapCreate(
         adventure_id=adventure_id,
         name=name,
@@ -272,9 +263,13 @@ def create_node(
     x: int,
     y: int,
     dm_email: str,
+    width: int = 200,
+    height: int = 120,
     description: Optional[str] = None,
     encounter_id: Optional[uuid.UUID] = None,
     notes: Optional[str] = None,
+    loot_notes: Optional[str] = None,
+    trap_notes: Optional[str] = None,
 ) -> MapNode:
     """Create a new node on a map.
 
@@ -282,19 +277,23 @@ def create_node(
         db: Active database session.
         map_id: UUID of the parent map.
         label: Short node label.
-        node_type: Type of map node (Room, Corridor, etc.).
-        x: Grid column position (0-indexed).
-        y: Grid row position (0-indexed).
+        node_type: Type of map node.
+        x: Pixel x position.
+        y: Pixel y position.
         dm_email: Email of the owning DM.
-        description: Optional longer description shown on hover/click.
+        width: Node width in pixels.
+        height: Node height in pixels.
+        description: Optional read-aloud description.
         encounter_id: Optional UUID of a linked encounter.
         notes: Optional private DM notes.
+        loot_notes: Optional loot description.
+        trap_notes: Optional trap description.
 
     Returns:
         Newly created MapNode ORM object.
 
     Raises:
-        ValueError: If label is empty, position out of grid bounds, or position occupied.
+        ValueError: If label is empty or node limit reached.
         PermissionError: If the DM does not own the campaign.
     """
     label = label.strip()
@@ -304,17 +303,9 @@ def create_node(
     map_obj = _get_map_or_raise(db, map_id)
     _assert_map_owner(db, map_obj, dm_email)
 
-    if x < 0 or x >= map_obj.grid_width:
-        raise ValueError(f"x={x} is outside grid width {map_obj.grid_width}.")
-    if y < 0 or y >= map_obj.grid_height:
-        raise ValueError(f"y={y} is outside grid height {map_obj.grid_height}.")
-
     existing_nodes = MapNodeRepo.list_by_map(db, map_id)
     if len(existing_nodes) >= MAX_NODES_PER_MAP:
         raise ValueError(f"Map already has {MAX_NODES_PER_MAP} nodes (maximum).")
-    for node in existing_nodes:
-        if node.x == x and node.y == y:
-            raise ValueError(f"Position ({x}, {y}) is already occupied by node '{node.label}'.")
 
     payload = MapNodeCreate(
         map_id=map_id,
@@ -322,9 +313,13 @@ def create_node(
         node_type=node_type,
         x=x,
         y=y,
+        width=width,
+        height=height,
         description=description,
         encounter_id=encounter_id,
         notes=notes,
+        loot_notes=loot_notes,
+        trap_notes=trap_notes,
     )
     return MapNodeRepo.create(db, payload)
 
@@ -360,19 +355,6 @@ def update_node(
         update.label = update.label.strip()
         if not update.label:
             raise ValueError("Node label cannot be empty.")
-
-    new_x = update.x if update.x is not None else node.x
-    new_y = update.y if update.y is not None else node.y
-    if new_x != node.x or new_y != node.y:
-        if new_x < 0 or new_x >= map_obj.grid_width:
-            raise ValueError(f"x={new_x} is outside grid width {map_obj.grid_width}.")
-        if new_y < 0 or new_y >= map_obj.grid_height:
-            raise ValueError(f"y={new_y} is outside grid height {map_obj.grid_height}.")
-        for other in MapNodeRepo.list_by_map(db, node.map_id):
-            if other.id != node_id and other.x == new_x and other.y == new_y:
-                raise ValueError(
-                    f"Position ({new_x}, {new_y}) is already occupied by '{other.label}'."
-                )
 
     return MapNodeRepo.update(db, node, update)
 
@@ -437,6 +419,7 @@ def create_edge(
     dm_email: str,
     label: Optional[str] = None,
     is_secret: bool = False,
+    door_type: DoorType = DoorType.OPEN,
 ) -> MapEdge:
     """Create a directed edge between two nodes on the same map.
 
@@ -481,6 +464,7 @@ def create_edge(
         to_node_id=to_node_id,
         label=label.strip() if label else None,
         is_secret=is_secret,
+        door_type=door_type,
     )
     return MapEdgeRepo.create(db, payload)
 
