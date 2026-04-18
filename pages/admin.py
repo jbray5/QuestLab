@@ -15,11 +15,9 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from db.base import get_session
-from db.repos.campaign_repo import CampaignRepo
-from db.repos.monster_repo import MonsterRepo
 from integrations.dnd_rules.stat_blocks import seed_monsters
 from integrations.identity import get_current_user_email
-from services import auth_service
+from services import auth_service, campaign_service, encounter_service
 
 load_dotenv()
 
@@ -59,8 +57,8 @@ with tab_overview:
     col_a, col_b, col_c = st.columns(3)
 
     with next(get_session()) as db:
-        campaign_count = len(CampaignRepo.list_by_dm(db, dm_email))
-        monster_count = MonsterRepo.count(db)
+        campaign_count = len(campaign_service.list_campaigns(db, dm_email))
+        monster_count = encounter_service.count_monsters(db)
 
     with col_a:
         st.metric("Bootstrap Admins", len(admins))
@@ -90,7 +88,7 @@ with tab_monsters:
     st.subheader("SRD Monster Stat Blocks")
 
     with next(get_session()) as db:
-        count = MonsterRepo.count(db)
+        count = encounter_service.count_monsters(db)
 
     col_info, col_actions = st.columns([3, 2])
 
@@ -122,7 +120,7 @@ with tab_monsters:
             )
             if st.button("🗑️ Delete All & Reseed", type="secondary", use_container_width=True):
                 with next(get_session()) as db:
-                    deleted = MonsterRepo.delete_all(db)
+                    deleted = encounter_service.delete_all_monsters(db)
                     inserted = seed_monsters(db)
                 st.success(f"Deleted {deleted} monsters, re-seeded {inserted}.")
                 st.rerun()
@@ -130,7 +128,7 @@ with tab_monsters:
     st.divider()
     st.markdown("#### Monster List")
     with next(get_session()) as db:
-        monsters = MonsterRepo.list_all(db)
+        monsters = encounter_service.list_monsters(db)
     if monsters:
         rows = [
             {
@@ -158,7 +156,7 @@ with tab_export:
     )
 
     with next(get_session()) as db:
-        all_campaigns = CampaignRepo.list_by_dm(db, dm_email)
+        all_campaigns = campaign_service.list_campaigns(db, dm_email)
 
     if not all_campaigns:
         st.info("No campaigns to export.")
@@ -169,6 +167,8 @@ with tab_export:
                 "name": c.name,
                 "setting": c.setting,
                 "tone": c.tone,
+                "description": c.description,
+                "world_notes": c.world_notes,
                 "dm_email": c.dm_email,
                 "created_at": c.created_at.isoformat() if c.created_at else None,
             }

@@ -30,11 +30,15 @@ class Session(SQLModel, table=True):
 
 
 class SessionCreate(BaseModel):
-    """Input schema for creating a session."""
+    """Input schema for creating a session.
 
-    adventure_id: uuid.UUID
+    adventure_id is optional here — the API router injects it from the URL path;
+    the service always sets it explicitly before persisting.
+    """
+
+    adventure_id: Optional[uuid.UUID] = None
     session_number: int = Field(ge=1)
-    title: str
+    title: str = Field(min_length=1, max_length=200)
     date_planned: Optional[date] = None
     attending_pc_ids: list[uuid.UUID] = Field(default_factory=list)
     status: SessionStatus = SessionStatus.DRAFT
@@ -65,8 +69,8 @@ class SessionRead(BaseModel):
 class SessionUpdate(BaseModel):
     """Partial update schema for a session."""
 
-    session_number: Optional[int] = None
-    title: Optional[str] = None
+    session_number: Optional[int] = Field(default=None, ge=1)
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     date_planned: Optional[date] = None
     attending_pc_ids: Optional[list[uuid.UUID]] = None
     status: Optional[SessionStatus] = None

@@ -19,6 +19,7 @@ from db.repos.encounter_repo import EncounterRepo
 from db.repos.monster_repo import MonsterRepo
 from domain.encounter import Encounter, EncounterCreate, EncounterUpdate
 from domain.enums import EncounterDifficulty
+from domain.monster import MonsterStatBlock, MonsterStatBlockUpdate
 from integrations.dnd_rules.encounter_math import calculate_difficulty, cr_to_xp
 
 MAX_ENCOUNTERS_PER_ADVENTURE = 20
@@ -105,6 +106,55 @@ def _compute_xp_and_difficulty(
     return result.adjusted_xp, result.difficulty
 
 
+def _hydrate_roster(session: Session, encounter: Encounter) -> Encounter:
+    """Enrich monster roster entries with name, hp, ac, xp, cr from the DB.
+
+    Entries that were saved with only ``monster_id`` and ``count`` are
+    back-filled so that all consumers (frontend roster editor, initiative
+    tracker, session HUD) receive complete data without a second round-trip.
+
+    Args:
+        session: Active database session.
+        encounter: Encounter whose roster to hydrate (mutated in place).
+
+    Returns:
+        The same Encounter, with roster entries enriched.
+    """
+    roster = encounter.monster_roster
+    if not roster:
+        return encounter
+    hydrated: list[dict[str, Any]] = []
+    for entry in roster:
+        mid_str = entry.get("monster_id")
+        count = int(entry.get("count", 1))
+        # If name is already present, keep existing data
+        if entry.get("name"):
+            hydrated.append(entry)
+            continue
+        try:
+            mid = uuid.UUID(str(mid_str))
+        except (ValueError, TypeError):
+            hydrated.append(entry)
+            continue
+        monster = MonsterRepo.get_by_id(session, mid)
+        if monster is None:
+            hydrated.append(entry)
+            continue
+        hydrated.append(
+            {
+                "monster_id": str(mid),
+                "count": count,
+                "name": monster.name,
+                "xp": monster.xp or cr_to_xp(monster.challenge_rating),
+                "cr": monster.challenge_rating,
+                "hp": monster.hp_average,
+                "ac": monster.ac,
+            }
+        )
+    encounter.monster_roster = hydrated
+    return encounter
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -126,7 +176,10 @@ def list_encounters(session: Session, adventure_id: uuid.UUID, dm_email: str) ->
         PermissionError: If the DM does not own the campaign.
     """
     _assert_adventure_owner(session, adventure_id, dm_email)
-    return EncounterRepo.list_by_adventure(session, adventure_id)
+    encounters = EncounterRepo.list_by_adventure(session, adventure_id)
+    for enc in encounters:
+        _hydrate_roster(session, enc)
+    return encounters
 
 
 def get_encounter(session: Session, encounter_id: uuid.UUID, dm_email: str) -> Encounter:
@@ -148,7 +201,7 @@ def get_encounter(session: Session, encounter_id: uuid.UUID, dm_email: str) -> E
     if encounter is None:
         raise ValueError(f"Encounter {encounter_id} not found.")
     _assert_encounter_owner(session, encounter, dm_email)
-    return encounter
+    return _hydrate_roster(session, encounter)
 
 
 def create_encounter(
@@ -217,7 +270,7 @@ def create_encounter(
         reward_xp=reward_xp,
         loot_table_id=loot_table_id,
     )
-    return EncounterRepo.create(session, payload)
+    return _hydrate_roster(session, EncounterRepo.create(session, payload))
 
 
 def update_encounter(
@@ -255,18 +308,14 @@ def update_encounter(
 
     # If roster or pc_levels supplied, recalculate budget
     new_roster = patch.get("monster_roster", encounter.monster_roster or [])
-    if effective_levels and "xp_budget" not in patch and "difficulty" not in patch:
-        xp_budget, difficulty = _compute_xp_and_difficulty(session, new_roster, pc_levels)
-        patch["xp_budget"] = xp_budget
-        patch["difficulty"] = difficulty
-    elif "monster_roster" in patch and effective_levels:
+    if effective_levels and ("xp_budget" not in patch or "monster_roster" in patch):
         xp_budget, difficulty = _compute_xp_and_difficulty(session, new_roster, effective_levels)
         patch["xp_budget"] = xp_budget
         patch["difficulty"] = difficulty
 
     # Apply via a fresh EncounterUpdate with the merged patch
     merged = EncounterUpdate(**patch)
-    return EncounterRepo.update(session, encounter, merged)
+    return _hydrate_roster(session, EncounterRepo.update(session, encounter, merged))
 
 
 def delete_encounter(session: Session, encounter_id: uuid.UUID, dm_email: str) -> bool:
@@ -311,3 +360,76 @@ def list_monsters(
         q = search.strip().lower()
         monsters = [m for m in monsters if q in m.name.lower()]
     return monsters
+
+
+def count_monsters(session: Session) -> int:
+    """Return the total number of monster stat blocks in the database.
+
+    Args:
+        session: Active database session.
+
+    Returns:
+        Integer count of monsters.
+    """
+    return MonsterRepo.count(session)
+
+
+def delete_all_monsters(session: Session) -> int:
+    """Delete all monster stat blocks.
+
+    Args:
+        session: Active database session.
+
+    Returns:
+        Number of monsters deleted.
+    """
+    return MonsterRepo.delete_all(session)
+
+
+def get_monster(session: Session, monster_id: uuid.UUID) -> MonsterStatBlock:
+    """Fetch a single monster by ID.
+
+    Args:
+        session: Active database session.
+        monster_id: UUID of the monster.
+
+    Returns:
+        MonsterStatBlock ORM object.
+
+    Raises:
+        ValueError: If monster not found.
+    """
+    monster = MonsterRepo.get_by_id(session, monster_id)
+    if monster is None:
+        raise ValueError(f"Monster {monster_id} not found.")
+    return monster
+
+
+def update_monster(
+    session: Session,
+    monster_id: uuid.UUID,
+    update: MonsterStatBlockUpdate,
+) -> MonsterStatBlock:
+    """Partially update a monster stat block.
+
+    Args:
+        session: Active database session.
+        monster_id: UUID of the monster.
+        update: Partial update payload.
+
+    Returns:
+        Updated MonsterStatBlock ORM object.
+
+    Raises:
+        ValueError: If monster not found.
+    """
+    monster = MonsterRepo.get_by_id(session, monster_id)
+    if monster is None:
+        raise ValueError(f"Monster {monster_id} not found.")
+    patch = update.model_dump(exclude_unset=True)
+    for field, value in patch.items():
+        setattr(monster, field, value)
+    session.add(monster)
+    session.commit()
+    session.refresh(monster)
+    return monster

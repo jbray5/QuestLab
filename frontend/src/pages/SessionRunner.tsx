@@ -328,8 +328,8 @@ export default function SessionRunner() {
 
   // Initialise DM notes from saved value
   useEffect(() => {
-    if (session?.dm_notes) setDmNotes(session.dm_notes);
-  }, [session?.dm_notes]);
+    if (session?.actual_notes) setDmNotes(session.actual_notes);
+  }, [session?.actual_notes]);
 
   const generateRunbook = useMutation({
     mutationFn: () => sessionsApi.generateRunbook(sessionId!, extraNotes),

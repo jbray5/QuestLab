@@ -61,6 +61,7 @@ def create_encounter(
             dm_notes=body.dm_notes,
             reward_xp=body.reward_xp,
             loot_table_id=body.loot_table_id,
+            pc_levels=body.pc_levels,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))

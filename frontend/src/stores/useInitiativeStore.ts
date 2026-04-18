@@ -24,7 +24,7 @@ export const useInitiativeStore = create<InitiativeState>((set, get) => ({
     const active = combatants.filter((c) => !c.defeated);
     if (active.length === 0) return;
     const nextIdx = (currentIndex + 1) % combatants.length;
-    const newRound = nextIdx < currentIndex ? round + 1 : round;
+    const newRound = nextIdx === 0 ? round + 1 : round;
     const updated = combatants.map((c, i) => ({ ...c, active: i === nextIdx }));
     set({ combatants: updated, currentIndex: nextIdx, round: newRound });
   },

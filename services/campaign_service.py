@@ -78,6 +78,7 @@ def create_campaign(
     setting: str,
     tone: str,
     dm_email: str,
+    description: Optional[str] = None,
     world_notes: Optional[str] = None,
 ) -> CampaignRead:
     """Create a new campaign for the requesting DM.
@@ -88,6 +89,7 @@ def create_campaign(
         setting: World or setting name.
         tone: Narrative tone description.
         dm_email: Email of the owning DM.
+        description: Optional campaign premise and overview.
         world_notes: Optional free-form world-building notes.
 
     Returns:
@@ -107,6 +109,7 @@ def create_campaign(
         setting=setting,
         tone=tone,
         dm_email=dm_email.strip().lower(),
+        description=description,
         world_notes=world_notes,
     )
     campaign = CampaignRepo.create(session, data)

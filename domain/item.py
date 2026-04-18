@@ -41,6 +41,7 @@ class ItemCreate(BaseModel):
     properties: Optional[dict[str, Any]] = None
     value_gp: int = Field(default=0, ge=0)
     is_magic: bool = False
+    image_url: Optional[str] = None
 
 
 class ItemRead(BaseModel):

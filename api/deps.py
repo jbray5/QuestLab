@@ -10,7 +10,7 @@ Inject these via FastAPI's Depends() mechanism:
 import os
 from typing import Annotated, Generator
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from sqlmodel import Session
 
 from db.base import get_engine
@@ -30,17 +30,15 @@ def get_db() -> Generator[Session, None, None]:
 DB = Annotated[Session, Depends(get_db)]
 
 
-def current_user(
-    x_ms_client_principal_name: Annotated[str | None, Header()] = None,
-) -> str:
+def current_user(request: Request) -> str:
     """Resolve the authenticated user's email from the trusted identity header.
 
-    In production, Azure Front Door injects the header set by AUTH_EMAIL_HEADER.
+    In production, Azure Front Door injects the header named by AUTH_EMAIL_HEADER
+    (default: X-MS-CLIENT-PRINCIPAL-NAME).
     In local development, falls back to CURRENT_USER_EMAIL env var.
 
     Args:
-        x_ms_client_principal_name: Value of the X-MS-CLIENT-PRINCIPAL-NAME header
-            (FastAPI lowercases and underscores header names automatically).
+        request: The incoming HTTP request (used to read the configured header).
 
     Returns:
         Lowercased, stripped email string.
@@ -48,15 +46,8 @@ def current_user(
     Raises:
         HTTPException 401: If no identity can be resolved.
     """
-    # Check configured header name (may differ from the default)
     header_name = os.environ.get("AUTH_EMAIL_HEADER", "X-MS-CLIENT-PRINCIPAL-NAME")
-    # FastAPI normalises headers to lowercase with underscores
-    normalised = header_name.lower().replace("-", "_")
-
-    # For the default header, FastAPI already passes it as the parameter above.
-    # For custom header names we fall back to env var (same logic as identity.py).
-    email = x_ms_client_principal_name or os.environ.get("CURRENT_USER_EMAIL", "")
-    _ = normalised  # used implicitly via the header parameter name convention
+    email = request.headers.get(header_name) or os.environ.get("CURRENT_USER_EMAIL", "")
 
     if not email:
         raise HTTPException(

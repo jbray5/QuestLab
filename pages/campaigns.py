@@ -3,6 +3,8 @@
 UI only. All business logic and authorization is enforced in services.campaign_service.
 """
 
+from html import escape
+
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -71,6 +73,11 @@ if st.session_state.show_create_form:
         new_tone = st.text_input(
             "Tone*", max_chars=200, placeholder="Dark and gritty, political intrigue"
         )
+        new_description = st.text_area(
+            "Campaign Description",
+            placeholder="What is this campaign about? Summarise the premise, central conflict, and themes…",  # noqa: E501
+            height=120,
+        )
         new_notes = st.text_area(
             "World Notes", placeholder="Key lore, factions, geography…", height=100
         )
@@ -87,6 +94,7 @@ if st.session_state.show_create_form:
                             setting=new_setting,
                             tone=new_tone,
                             dm_email=dm_email,
+                            description=new_description or None,
                             world_notes=new_notes or None,
                         )
                     st.session_state.show_create_form = False
@@ -111,6 +119,12 @@ else:
                 e_name = st.text_input("Name", value=c.name, max_chars=200)
                 e_setting = st.text_input("Setting", value=c.setting, max_chars=200)
                 e_tone = st.text_input("Tone", value=c.tone, max_chars=200)
+                e_description = st.text_area(
+                    "Campaign Description",
+                    value=c.description or "",
+                    height=120,
+                    placeholder="What is this campaign about? Summarise the premise, central conflict, and themes…",  # noqa: E501
+                )
                 e_notes = st.text_area("World Notes", value=c.world_notes or "", height=80)
                 col_save, col_cancel = st.columns(2)
                 with col_save:
@@ -128,6 +142,7 @@ else:
                                 name=e_name,
                                 setting=e_setting,
                                 tone=e_tone,
+                                description=e_description or None,
                                 world_notes=e_notes or None,
                             ),
                         )
@@ -160,9 +175,13 @@ else:
             continue
 
         # Normal card
+        desc_html = ""
+        if c.description:
+            snip = escape(c.description[:160] + ("…" if len(c.description) > 160 else ""))
+            desc_html = f"<br><span style='color:#c8b89a; font-size:0.85rem;'>{snip}</span>"
         notes_html = ""
         if c.world_notes:
-            snip = c.world_notes[:120] + ("…" if len(c.world_notes) > 120 else "")
+            snip = escape(c.world_notes[:100] + ("…" if len(c.world_notes) > 100 else ""))
             notes_html = f"<br><span style='color:#9a8878; font-size:0.8rem;'>{snip}</span>"
         with st.container():
             c1, c2 = st.columns([7, 3])
@@ -170,10 +189,12 @@ else:
                 st.markdown(
                     f"<div style='{_card_style(False)}'>"
                     f"<span style='color:#C9A84C; font-size:1.1rem; font-weight:600;'>"
-                    f"{c.name}</span>"
-                    f"<br><span style='color:#8B9DC3; font-size:0.85rem;'>🌍 {c.setting}</span>"
+                    f"{escape(c.name)}</span>"
+                    f"<br><span style='color:#8B9DC3; font-size:0.85rem;'>"
+                    f"🌍 {escape(c.setting)}</span>"
                     f"&nbsp;&nbsp;<span style='color:#B0A090; font-size:0.85rem;"
-                    f" font-style:italic;'>{c.tone}</span>"
+                    f" font-style:italic;'>{escape(c.tone)}</span>"
+                    f"{desc_html}"
                     f"{notes_html}"
                     "</div>",
                     unsafe_allow_html=True,

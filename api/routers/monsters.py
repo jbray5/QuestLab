@@ -6,8 +6,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.deps import DB, CurrentUser
-from db.repos.monster_repo import MonsterRepo
 from domain.monster import MonsterStatBlockRead, MonsterStatBlockUpdate
+from services import encounter_service
 
 router = APIRouter(tags=["monsters"])
 
@@ -32,7 +32,7 @@ def list_monsters(
     Returns:
         Filtered list of monster stat blocks ordered by name.
     """
-    monsters = MonsterRepo.list_all(db)
+    monsters = encounter_service.list_monsters(db)
     if search:
         q = search.lower()
         monsters = [m for m in monsters if q in m.name.lower()]
@@ -63,10 +63,10 @@ def get_monster(
     Raises:
         HTTPException 404: If monster not found.
     """
-    monster = MonsterRepo.get_by_id(db, monster_id)
-    if not monster:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monster not found")
-    return monster
+    try:
+        return encounter_service.get_monster(db, monster_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
 @router.patch("/monsters/{monster_id}", response_model=MonsterStatBlockRead)
@@ -90,13 +90,7 @@ def update_monster(
     Raises:
         HTTPException 404: If monster not found.
     """
-    monster = MonsterRepo.get_by_id(db, monster_id)
-    if not monster:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monster not found")
-    patch = body.model_dump(exclude_unset=True)
-    for field, value in patch.items():
-        setattr(monster, field, value)
-    db.add(monster)
-    db.commit()
-    db.refresh(monster)
-    return monster
+    try:
+        return encounter_service.update_monster(db, monster_id, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))

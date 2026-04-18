@@ -33,9 +33,13 @@ class Encounter(SQLModel, table=True):
 
 
 class EncounterCreate(BaseModel):
-    """Input schema for creating an encounter."""
+    """Input schema for creating an encounter.
 
-    adventure_id: uuid.UUID
+    adventure_id is optional here — the API router injects it from the URL path;
+    the service always sets it explicitly before persisting.
+    """
+
+    adventure_id: Optional[uuid.UUID] = None
     name: str
     description: Optional[str] = None
     difficulty: EncounterDifficulty = EncounterDifficulty.MODERATE
@@ -46,6 +50,8 @@ class EncounterCreate(BaseModel):
     dm_notes: Optional[str] = None
     reward_xp: int = Field(default=0, ge=0)
     loot_table_id: Optional[uuid.UUID] = None
+    # Not persisted — passed to service for XP auto-calculation only.
+    pc_levels: Optional[list[int]] = None
 
     @field_validator("monster_roster")
     @classmethod
@@ -93,3 +99,16 @@ class EncounterUpdate(BaseModel):
     loot_table_id: Optional[uuid.UUID] = None
     # Not persisted — passed to service for XP auto-calculation only.
     pc_levels: Optional[list[int]] = None
+
+    @field_validator("monster_roster")
+    @classmethod
+    def validate_roster(cls, v: Optional[list[dict[str, Any]]]) -> Optional[list[dict[str, Any]]]:
+        """Each roster entry must have monster_id and count >= 1 when provided."""
+        if v is None:
+            return v
+        for entry in v:
+            if "monster_id" not in entry:
+                raise ValueError("Each monster_roster entry must include 'monster_id'")
+            if "count" not in entry or int(entry["count"]) < 1:
+                raise ValueError("Each monster_roster entry must have count >= 1")
+        return v

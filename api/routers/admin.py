@@ -5,11 +5,9 @@ import json
 from fastapi import APIRouter, HTTPException, Response, status
 
 from api.deps import DB, CurrentUser
-from db.repos.campaign_repo import CampaignRepo
-from db.repos.monster_repo import MonsterRepo
 from domain.monster import MonsterStatBlock as Monster
 from integrations.dnd_rules.stat_blocks import seed_monsters
-from services import auth_service
+from services import auth_service, campaign_service, encounter_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -41,7 +39,7 @@ def list_monsters(db: DB, user: CurrentUser) -> list[Monster]:
         List of Monster objects.
     """
     _require_admin(user)
-    return MonsterRepo.list_all(db)
+    return encounter_service.list_monsters(db)
 
 
 @router.post("/monsters/seed", status_code=status.HTTP_200_OK)
@@ -72,7 +70,7 @@ def reseed(db: DB, user: CurrentUser) -> dict:
         Dict with ``deleted`` and ``inserted`` counts.
     """
     _require_admin(user)
-    deleted = MonsterRepo.delete_all(db)
+    deleted = encounter_service.delete_all_monsters(db)
     inserted = seed_monsters(db)
     return {"deleted": deleted, "inserted": inserted}
 
@@ -89,13 +87,15 @@ def export_campaigns(db: DB, user: CurrentUser) -> Response:
         JSON file download response.
     """
     _require_admin(user)
-    campaigns = CampaignRepo.list_by_dm(db, user)
+    campaigns = campaign_service.list_campaigns(db, user)
     data = [
         {
             "id": str(c.id),
             "name": c.name,
             "setting": c.setting,
             "tone": c.tone,
+            "description": c.description,
+            "world_notes": c.world_notes,
             "dm_email": c.dm_email,
             "created_at": c.created_at.isoformat() if c.created_at else None,
         }

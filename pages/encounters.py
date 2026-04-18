@@ -5,6 +5,7 @@ UI only. All business logic is in services.encounter_service.
 """
 
 import uuid
+from html import escape
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -45,7 +46,6 @@ except ValueError:
 try:
     with next(get_session()) as session:
         adventure = adventure_service.get_adventure(session, adventure_id, dm_email)
-    with next(get_session()) as session:
         campaign = campaign_service.get_campaign(session, adventure.campaign_id, dm_email)
 except (ValueError, PermissionError) as exc:
     st.error(str(exc))
@@ -80,8 +80,8 @@ st.markdown(
 )
 st.markdown(
     f"<p style='color:#8B9DC3; font-size:1.05rem; margin-top:-0.5rem;'>"
-    f"Campaign: <strong>{campaign.name}</strong> &nbsp;·&nbsp; "
-    f"Adventure: <strong>{adventure.title}</strong></p>",
+    f"Campaign: <strong>{escape(campaign.name)}</strong> &nbsp;·&nbsp; "
+    f"Adventure: <strong>{escape(adventure.title)}</strong></p>",
     unsafe_allow_html=True,
 )
 st.divider()
@@ -436,7 +436,7 @@ else:
                     f"<div style='background:#1e1412; border:2px solid #3a2a1a; "
                     f"border-radius:8px; padding:1rem 1.2rem; margin-bottom:0.6rem;'>"
                     f"<span style='color:#C9A84C; font-size:1.05rem; font-weight:600;'>"
-                    f"{enc.name}</span>"
+                    f"{escape(enc.name)}</span>"
                     f"<br>{diff_badge_html}"
                     f"&nbsp;&nbsp;<span style='color:#B0A090; font-size:0.85rem;'>"
                     f"💰 {enc.xp_budget:,} XP budget</span>"
@@ -445,7 +445,7 @@ else:
                     f"&nbsp;&nbsp;🎁 {enc.reward_xp:,} reward XP</span>"
                     + (
                         f"<br><span style='color:#9a8878; font-size:0.78rem; font-style:italic;'>"
-                        f"{(enc.description or '')[:100]}"
+                        f"{escape((enc.description or '')[:100])}"
                         f"{'…' if len(enc.description or '') > 100 else ''}</span>"
                         if enc.description
                         else ""
@@ -484,6 +484,6 @@ else:
                 if enc.read_aloud_text:
                     with st.expander("📖 Read-Aloud"):
                         st.markdown(
-                            f"<div class='read-aloud'>{enc.read_aloud_text}</div>",
+                            f"<div class='read-aloud'>{escape(enc.read_aloud_text)}</div>",
                             unsafe_allow_html=True,
                         )

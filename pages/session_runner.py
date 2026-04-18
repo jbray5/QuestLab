@@ -10,14 +10,12 @@ Layout:
 """
 
 import uuid
+from html import escape
 
 import streamlit as st
 from dotenv import load_dotenv
 
 from db.base import get_session
-from db.repos.character_repo import CharacterRepo
-from db.repos.encounter_repo import EncounterRepo
-from db.repos.monster_repo import MonsterRepo
 from domain.enums import SessionStatus
 from integrations.identity import get_current_user_email
 from services import ai_service, session_service
@@ -37,11 +35,11 @@ def _get_campaign_id(db, adventure_id: uuid.UUID) -> uuid.UUID:
 
     Returns:
         UUID of the parent campaign.
-    """
-    from db.repos.adventure_repo import AdventureRepo  # noqa: PLC0415
 
-    adv = AdventureRepo.get_by_id(db, adventure_id)
-    return adv.campaign_id if adv else uuid.uuid4()
+    Raises:
+        ValueError: If the adventure does not exist.
+    """
+    return session_service.get_campaign_id_for_adventure(db, adventure_id)
 
 
 st.set_page_config(page_title="Session Runner · QuestLab", page_icon="🎲", layout="wide")
@@ -122,7 +120,7 @@ with col_back:
 with col_title:
     st.markdown(
         f"<h2 style='font-family:\"Cinzel Decorative\",serif; color:#C9A84C; margin:0;'>"
-        f"🎲 Session {game_session.session_number}: {game_session.title}</h2>",
+        f"🎲 Session {game_session.session_number}: {escape(game_session.title)}</h2>",
         unsafe_allow_html=True,
     )
 
@@ -168,16 +166,28 @@ with col_left:
             with next(get_session()) as db:
                 # Attending PCs
                 pc_ids = [uuid.UUID(str(pid)) for pid in (game_session.attending_pc_ids or [])]
-                all_pcs = CharacterRepo.list_by_campaign(
-                    db,
-                    # We need the campaign_id — get it via adventure
-                    # Load via the adventure's campaign
-                    _get_campaign_id(db, game_session.adventure_id),
-                )
+                campaign_id = _get_campaign_id(db, game_session.adventure_id)
+                all_pcs = session_service.list_pcs_for_campaign(db, campaign_id)
                 attending_pcs = [pc for pc in all_pcs if pc.id in pc_ids] if pc_ids else all_pcs[:4]
 
                 # Encounters for this adventure
-                encounters = EncounterRepo.list_by_adventure(db, game_session.adventure_id)
+                encounters = session_service.list_encounters_for_adventure(
+                    db, game_session.adventure_id
+                )
+
+                # Batch-load all unique monsters from encounter rosters
+                all_monster_ids = set()
+                monster_counts: dict[uuid.UUID, int] = {}
+                for enc in encounters:
+                    for entry in enc.monster_roster or []:
+                        try:
+                            mid = uuid.UUID(str(entry.get("monster_id", "")))
+                        except ValueError:
+                            continue
+                        if mid not in all_monster_ids:
+                            all_monster_ids.add(mid)
+                            monster_counts[mid] = int(entry.get("count", 1))
+                monsters_map = session_service.get_monsters_by_ids(db, list(all_monster_ids))
 
             combatants_to_roll = []
             for pc in attending_pcs:
@@ -192,28 +202,19 @@ with col_left:
                 )
 
             # Add monsters from encounters
-            monster_ids_seen = set()
-            for enc in encounters:
-                for entry in enc.monster_roster or []:
-                    mid = uuid.UUID(str(entry.get("monster_id", "")))
-                    count = int(entry.get("count", 1))
-                    if mid in monster_ids_seen:
-                        continue
-                    monster_ids_seen.add(mid)
-                    with next(get_session()) as db:
-                        monster = MonsterRepo.get_by_id(db, mid)
-                    if monster:
-                        for i in range(count):
-                            suffix = f" #{i + 1}" if count > 1 else ""
-                            combatants_to_roll.append(
-                                {
-                                    "name": f"{monster.name}{suffix}",
-                                    "dex_score": monster.score_dex,
-                                    "hp": monster.hp_average,
-                                    "max_hp": monster.hp_average,
-                                    "type": "monster",
-                                }
-                            )
+            for mid, monster in monsters_map.items():
+                count = monster_counts.get(mid, 1)
+                for i in range(count):
+                    suffix = f" #{i + 1}" if count > 1 else ""
+                    combatants_to_roll.append(
+                        {
+                            "name": f"{monster.name}{suffix}",
+                            "dex_score": monster.score_dex,
+                            "hp": monster.hp_average,
+                            "max_hp": monster.hp_average,
+                            "type": "monster",
+                        }
+                    )
 
             # Allow manual additions
             st.markdown(f"**{len(combatants_to_roll)} combatants loaded** from session data.")
@@ -301,7 +302,7 @@ with col_left:
                         f"border-radius:6px; padding:0.4rem 0.7rem; margin-bottom:0.3rem;'>"
                         f"<span style='font-size:1rem;'>{icon}</span> "
                         f"<span style='color:{name_color}; font-weight:600;'>"
-                        f"{combatant['name']}</span>"
+                        f"{escape(combatant['name'])}</span>"
                         f"<br><span style='color:#8B9DC3; font-size:0.78rem;'>"
                         f"Initiative: {init_val} &nbsp;·&nbsp; "
                         f"HP: {hp}/{max_hp}</span>"
@@ -412,7 +413,7 @@ with col_right:
             f"<div style='background:#1a1412; border-left:4px solid #C9A84C; "
             f"padding:0.8rem 1rem; border-radius:0 6px 6px 0; font-style:italic; "
             f"color:#d4c4b0; margin-bottom:0.6rem;'>"
-            f"{runbook.opening_scene}</div>",
+            f"{escape(runbook.opening_scene)}</div>",
             unsafe_allow_html=True,
         )
 
@@ -432,7 +433,7 @@ with col_right:
                 st.markdown(
                     f"<div style='text-align:center; color:#C9A84C; font-weight:600;'>"
                     f"Scene {scene_idx + 1} of {len(scenes)}: "
-                    f"{scene.get('title', '')}</div>",
+                    f"{escape(scene.get('title', ''))}</div>",
                     unsafe_allow_html=True,
                 )
             with nav_next:
@@ -447,7 +448,7 @@ with col_right:
                 f"<div style='background:#1a1412; border-left:4px solid #8B9DC3; "
                 f"padding:0.7rem 0.9rem; border-radius:0 6px 6px 0; "
                 f"font-style:italic; color:#d4c4b0; margin:0.4rem 0;'>"
-                f"{scene.get('read_aloud', '')}</div>",
+                f"{escape(scene.get('read_aloud', ''))}</div>",
                 unsafe_allow_html=True,
             )
             est = scene.get("estimated_minutes", 20)
@@ -492,7 +493,7 @@ with col_right:
                     st.markdown(
                         f"<div style='background:#12181a; border-left:3px solid #5a7a5a; "
                         f"padding:0.6rem 0.8rem; border-radius:0 4px 4px 0; color:#d4c4b0;'>"
-                        f"{runbook.closing_hooks}</div>",
+                        f"{escape(runbook.closing_hooks)}</div>",
                         unsafe_allow_html=True,
                     )
             with xp_col:
@@ -505,49 +506,49 @@ with col_right:
     st.markdown("---")
     with st.expander("📖 Monster Stat Block Reference"):
         with next(get_session()) as db:
-            encounters = EncounterRepo.list_by_adventure(db, game_session.adventure_id)
-        seen_monster_ids: set[uuid.UUID] = set()
-        for enc in encounters:
-            for entry in enc.monster_roster or []:
-                mid = uuid.UUID(str(entry.get("monster_id", "")))
-                if mid in seen_monster_ids:
-                    continue
-                seen_monster_ids.add(mid)
-                with next(get_session()) as db:
-                    monster = MonsterRepo.get_by_id(db, mid)
-                if monster:
-                    with st.expander(
-                        f"👹 {monster.name} (CR {monster.challenge_rating})", expanded=False
-                    ):
-                        s1, s2, s3 = st.columns(3)
-                        with s1:
-                            st.metric("AC", monster.ac)
-                            st.metric("HP", f"{monster.hp_average} ({monster.hp_formula})")
-                        with s2:
-                            st.metric("CR", monster.challenge_rating)
-                            st.metric("XP", f"{monster.xp:,}")
-                        with s3:
-                            st.metric("Prof. Bonus", f"+{monster.proficiency_bonus}")
-                        ab_cols = st.columns(6)
-                        for col, (label, val) in zip(
-                            ab_cols,
-                            [
-                                ("STR", monster.score_str),
-                                ("DEX", monster.score_dex),
-                                ("CON", monster.score_con),
-                                ("INT", monster.score_int),
-                                ("WIS", monster.score_wis),
-                                ("CHA", monster.score_cha),
-                            ],
-                        ):
-                            mod = (val - 10) // 2
-                            sign = "+" if mod >= 0 else ""
-                            col.metric(label, f"{val} ({sign}{mod})")
-                        if monster.actions:
-                            st.markdown("**Actions**")
-                            for action in monster.actions or []:
-                                name = action.get("name", "")
-                                desc = action.get("description", "")
-                                st.markdown(f"**{name}:** {desc}")
-        if not seen_monster_ids:
+            encounters = session_service.list_encounters_for_adventure(
+                db, game_session.adventure_id
+            )
+            # Collect all unique monster IDs
+            seen_monster_ids: set[uuid.UUID] = set()
+            for enc in encounters:
+                for entry in enc.monster_roster or []:
+                    try:
+                        seen_monster_ids.add(uuid.UUID(str(entry.get("monster_id", ""))))
+                    except ValueError:
+                        continue
+            ref_monsters = session_service.get_monsters_by_ids(db, list(seen_monster_ids))
+        for _mid, monster in ref_monsters.items():
+            with st.expander(f"👹 {monster.name} (CR {monster.challenge_rating})", expanded=False):
+                s1, s2, s3 = st.columns(3)
+                with s1:
+                    st.metric("AC", monster.ac)
+                    st.metric("HP", f"{monster.hp_average} ({monster.hp_formula})")
+                with s2:
+                    st.metric("CR", monster.challenge_rating)
+                    st.metric("XP", f"{monster.xp:,}")
+                with s3:
+                    st.metric("Prof. Bonus", f"+{monster.proficiency_bonus}")
+                ab_cols = st.columns(6)
+                for col, (label, val) in zip(
+                    ab_cols,
+                    [
+                        ("STR", monster.score_str),
+                        ("DEX", monster.score_dex),
+                        ("CON", monster.score_con),
+                        ("INT", monster.score_int),
+                        ("WIS", monster.score_wis),
+                        ("CHA", monster.score_cha),
+                    ],
+                ):
+                    mod = (val - 10) // 2
+                    sign = "+" if mod >= 0 else ""
+                    col.metric(label, f"{val} ({sign}{mod})")
+                if monster.actions:
+                    st.markdown("**Actions**")
+                    for action in monster.actions or []:
+                        name = action.get("name", "")
+                        desc = action.get("description", "")
+                        st.markdown(f"**{name}:** {desc}")
+        if not ref_monsters:
             st.caption("No monsters linked to this adventure's encounters yet.")

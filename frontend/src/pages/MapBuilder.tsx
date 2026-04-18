@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCampaignStore } from "../stores/useCampaignStore";
 import {
   ReactFlow,
   addEdge,
@@ -795,7 +796,9 @@ const customNodeTypes = { dungeonRoom: DungeonRoomNode };
 
 export default function MapBuilder() {
   const { adventureId } = useParams<{ adventureId: string }>();
+  const navigate = useNavigate();
   const qc = useQueryClient();
+  const { activeCampaign, activeAdventure } = useCampaignStore();
 
   const [selectedMapId, setSelectedMapId] = useState<string | null>(null);
   const [selectedMapScale, setSelectedMapScale] = useState<MapScale>("Dungeon");
@@ -1066,6 +1069,29 @@ export default function MapBuilder() {
 
   return (
     <div className="fade-in" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      {/* Breadcrumb */}
+      <nav className="text-sm" style={{ marginBottom: "0.5rem", opacity: 0.7 }}>
+        <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate("/")}>Dashboard</span>
+        {activeCampaign && (
+          <>
+            {" / "}
+            <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate(`/campaigns/${activeCampaign.id}/adventures`)}>
+              {activeCampaign.name}
+            </span>
+          </>
+        )}
+        {activeAdventure && (
+          <>
+            {" / "}
+            <span style={{ cursor: "pointer", color: "var(--gold)" }}
+              onClick={() => navigate(`/adventures/${activeAdventure.id}/sessions`)}>
+              {activeAdventure.title}
+            </span>
+          </>
+        )}
+        {" / "}
+        <strong>Map Builder</strong>
+      </nav>
       <h1 style={{ marginBottom: "1rem" }}>Map Builder</h1>
 
       {/* ── Map selector ─────────────────────────────────────────────────── */}

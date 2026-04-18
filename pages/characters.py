@@ -5,6 +5,7 @@ UI only. All business logic and authorization is enforced in services.character_
 """
 
 import uuid
+from html import escape
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -117,8 +118,8 @@ st.markdown(
 )
 st.markdown(
     f"<p style='color:#8B9DC3; font-size:1.05rem; margin-top:-0.5rem;'>"
-    f"Campaign: <strong>{campaign.name}</strong> &nbsp;·&nbsp; "
-    f"<em style='color:#B0A090;'>{campaign.setting}</em></p>",
+    f"Campaign: <strong>{escape(campaign.name)}</strong> &nbsp;·&nbsp; "
+    f"<em style='color:#B0A090;'>{escape(campaign.setting)}</em></p>",
     unsafe_allow_html=True,
 )
 st.divider()
@@ -449,10 +450,11 @@ else:
                     f"<div style='background:#1e1412; border:2px solid #3a2a1a; "
                     f"border-radius:8px; padding:1rem 1.2rem; margin-bottom:0.4rem;'>"
                     f"<span style='color:#C9A84C; font-size:1.05rem; font-weight:600;'>"
-                    f"{char.character_name}</span>"
-                    f"<span style='color:#9a8878; font-size:0.85rem;'> — {char.player_name}</span>"
+                    f"{escape(char.character_name)}</span>"
+                    f"<span style='color:#9a8878; font-size:0.85rem;'>"
+                    f" — {escape(char.player_name)}</span>"
                     f"<br><span style='color:#8B9DC3; font-size:0.82rem;'>"
-                    f"🎭 {class_level} &nbsp;·&nbsp; {char.race}</span>"
+                    f"🎭 {escape(class_level)} &nbsp;·&nbsp; {escape(char.race)}</span>"
                     f"<br><span style='color:#B0A090; font-size:0.82rem;'>"
                     f"{hp_text} &nbsp;·&nbsp; 🛡️ AC {char.ac}"
                     f" &nbsp;·&nbsp; ⭐ PB {_prof_str(pb)}</span>"

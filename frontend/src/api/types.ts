@@ -5,14 +5,19 @@ export interface Campaign {
   name: string;
   setting: string | null;
   tone: string | null;
+  description: string | null;
+  world_notes: string | null;
   dm_email: string;
   created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface CampaignCreate {
   name: string;
   setting?: string;
   tone?: string;
+  description?: string;
+  world_notes?: string;
 }
 
 export interface Adventure {
@@ -20,13 +25,20 @@ export interface Adventure {
   campaign_id: string;
   title: string;
   synopsis: string | null;
-  status: string;
+  tier: string;
+  act_count: number;
+  npc_roster: Record<string, unknown>[] | null;
+  location_notes: string | null;
   created_at: string | null;
 }
 
 export interface AdventureCreate {
   title: string;
   synopsis?: string;
+  tier?: string;
+  act_count?: number;
+  npc_roster?: Record<string, unknown>[];
+  location_notes?: string;
 }
 
 export interface PlayerCharacter {
@@ -115,13 +127,12 @@ export interface GameSession {
   date_planned: string | null;
   attending_pc_ids: string[];
   actual_notes: string | null;
-  dm_notes: string | null;
   created_at: string | null;
 }
 
 export interface SessionCreate {
-  session_number?: number;
-  title?: string;
+  session_number: number;
+  title: string;
   date_planned?: string;
   attending_pc_ids?: string[];
   actual_notes?: string;

@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB, CurrentUser
 from domain.session import Session as GameSession
-from domain.session import SessionRunbook, SessionUpdate
+from domain.session import SessionCreate, SessionRunbook, SessionUpdate
 from services import ai_service, session_service
 
 router = APIRouter(tags=["sessions"])
@@ -37,13 +37,13 @@ def list_sessions(adventure_id: uuid.UUID, db: DB, user: CurrentUser) -> list[Ga
     status_code=status.HTTP_201_CREATED,
 )
 def create_session(
-    adventure_id: uuid.UUID, body: SessionUpdate, db: DB, user: CurrentUser
+    adventure_id: uuid.UUID, body: SessionCreate, db: DB, user: CurrentUser
 ) -> GameSession:
     """Create a new session within an adventure.
 
     Args:
         adventure_id: UUID of the parent adventure.
-        body: Session creation payload (title, session_number required).
+        body: Session creation payload.
         db: Database session.
         user: Authenticated DM email.
 
@@ -54,8 +54,8 @@ def create_session(
         return session_service.create_session(
             db,
             adventure_id=adventure_id,
-            session_number=body.session_number or 1,
-            title=body.title or "Untitled Session",
+            session_number=body.session_number,
+            title=body.title,
             dm_email=user,
             date_planned=body.date_planned,
             attending_pc_ids=body.attending_pc_ids,

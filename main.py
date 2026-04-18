@@ -19,13 +19,14 @@ import domain.item  # noqa: F401
 import domain.map  # noqa: F401
 import domain.monster  # noqa: F401
 import domain.session  # noqa: F401
-from db.base import create_db_and_tables, get_session
+from db.base import create_db_and_tables, get_session, patch_duckdb_schema
 from integrations.dnd_rules.stat_blocks import seed_monsters
 
 load_dotenv()
 
 # ── DB bootstrap — creates tables in DuckDB on first run ───────────────────────
 create_db_and_tables()
+patch_duckdb_schema()
 with next(get_session()) as _seed_session:
     seed_monsters(_seed_session)
 
@@ -83,9 +84,6 @@ def _render_sidebar() -> None:
         st.markdown("**Navigation**")
         st.page_link("main.py", label="Home", icon="🏰")
         st.page_link("pages/campaigns.py", label="Campaigns", icon="📜")
-        st.page_link("pages/encounters.py", label="Encounters", icon="⚔️")
-        st.page_link("pages/maps.py", label="Maps", icon="🗺️")
-        st.page_link("pages/session_runner.py", label="Session Runner", icon="🎲")
 
         st.divider()
         st.page_link("pages/admin.py", label="Admin", icon="⚙️")

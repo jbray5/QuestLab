@@ -66,9 +66,9 @@ def _validate_npc_roster(roster: Optional[list[dict[str, Any]]]) -> None:
     if not roster:
         return
     for i, npc in enumerate(roster):
-        if not npc.get("name"):
+        if not npc.get("name", "").strip():
             raise ValueError(f"NPC entry {i} is missing a 'name'.")
-        if not npc.get("role"):
+        if not npc.get("role", "").strip():
             raise ValueError(f"NPC entry {i} is missing a 'role'.")
 
 

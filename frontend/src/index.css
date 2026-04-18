@@ -14,11 +14,17 @@
   --parch2:    #e8d8a0;
   --text:      #e8e0d0;
   --muted:     #8a8070;
+  --text-muted: #8a8070;
   --green:     #2e7d32;
   --green2:    #4caf50;
   --yellow:    #f9a825;
   --red:       #c62828;
   --shadow:    rgba(0, 0, 0, 0.6);
+
+  --font-serif: "Cinzel Decorative", serif;
+  --font-body:  "EB Garamond", Georgia, serif;
+  --font-mono:  "Share Tech Mono", monospace;
+  --danger:     #c62828;
 
   font-family: "EB Garamond", Georgia, serif;
   font-size: 18px;
@@ -78,6 +84,12 @@ code, pre {
   border-radius: 8px;
   padding: 1.25rem;
   box-shadow: 0 2px 8px var(--shadow);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.card[style*="cursor: pointer"]:hover,
+.card-clickable:hover {
+  border-color: var(--gold);
+  box-shadow: 0 4px 16px rgba(201, 168, 76, 0.15);
 }
 
 .parchment-card {
@@ -297,6 +309,7 @@ label {
   text-align: left;
 }
 .nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 .nav-item.active { background: rgba(139, 26, 26, 0.3); color: var(--gold); border-left: 2px solid var(--crimson2); }
 
 /* ── Animations ──────────────────────────────────────────────────────────────── */
@@ -337,3 +350,32 @@ label {
 .w-full       { width: 100%; }
 .grid-2       { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 .grid-3       { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+
+/* ── Focus-visible default ──────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+.btn:focus-visible { outline-offset: 2px; }
+
+/* ── Empty state ────────────────────────────────────────────────────────────── */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: var(--muted);
+  font-style: italic;
+}
+.empty-state .empty-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.5;
+}
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .grid-3 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .grid-3 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+}

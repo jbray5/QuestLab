@@ -228,13 +228,6 @@ export default function Monsters() {
               style={{
                 padding: "0.75rem 1rem",
                 cursor: "pointer",
-                transition: "border-color 0.15s",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "var(--gold)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.borderColor = "";
               }}
             >
               <div

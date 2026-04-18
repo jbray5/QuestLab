@@ -195,10 +195,21 @@ class MonsterStatBlockUpdate(BaseModel):
 
     name: Optional[str] = None
     ac: Optional[int] = Field(default=None, ge=1, le=30)
+    ac_notes: Optional[str] = None
     hp_average: Optional[int] = Field(default=None, ge=1)
     hp_formula: Optional[str] = None
+    speed: Optional[dict[str, Any]] = None
+    score_str: Optional[int] = Field(default=None, ge=1, le=30)
+    score_dex: Optional[int] = Field(default=None, ge=1, le=30)
+    score_con: Optional[int] = Field(default=None, ge=1, le=30)
+    score_int: Optional[int] = Field(default=None, ge=1, le=30)
+    score_wis: Optional[int] = Field(default=None, ge=1, le=30)
+    score_cha: Optional[int] = Field(default=None, ge=1, le=30)
+    saving_throws: Optional[dict[str, Any]] = None
+    skills: Optional[dict[str, Any]] = None
     challenge_rating: Optional[str] = None
     xp: Optional[int] = Field(default=None, ge=0)
+    proficiency_bonus: Optional[int] = Field(default=None, ge=2, le=9)
     traits: Optional[list[dict[str, Any]]] = None
     actions: Optional[list[dict[str, Any]]] = None
     bonus_actions: Optional[list[dict[str, Any]]] = None
@@ -206,3 +217,11 @@ class MonsterStatBlockUpdate(BaseModel):
     legendary_actions: Optional[list[dict[str, Any]]] = None
     lair_actions: Optional[list[dict[str, Any]]] = None
     image_url: Optional[str] = None
+
+    @field_validator("challenge_rating")
+    @classmethod
+    def validate_cr(cls, v: Optional[str]) -> Optional[str]:
+        """Ensure CR is a recognised D&D 5e challenge rating when provided."""
+        if v is not None and v not in VALID_CRS:
+            raise ValueError(f"Invalid challenge rating '{v}'")
+        return v

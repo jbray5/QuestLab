@@ -38,7 +38,7 @@ class AdventureCreate(BaseModel):
     """
 
     campaign_id: Optional[uuid.UUID] = None
-    title: str
+    title: str = Field(min_length=1, max_length=200)
     synopsis: Optional[str] = None
     tier: AdventureTier = AdventureTier.TIER1
     act_count: int = Field(default=3, ge=1, le=5)
@@ -73,7 +73,7 @@ class AdventureRead(BaseModel):
 class AdventureUpdate(BaseModel):
     """Partial update schema for an adventure."""
 
-    title: Optional[str] = None
+    title: Optional[str] = Field(default=None, min_length=1, max_length=200)
     synopsis: Optional[str] = None
     tier: Optional[AdventureTier] = None
     act_count: Optional[int] = Field(default=None, ge=1, le=5)

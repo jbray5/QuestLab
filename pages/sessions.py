@@ -6,6 +6,7 @@ UI only. All business logic is in services.session_service.
 
 import uuid
 from datetime import date
+from html import escape
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -76,8 +77,8 @@ st.markdown(
 )
 st.markdown(
     f"<p style='color:#8B9DC3; font-size:1.05rem; margin-top:-0.5rem;'>"
-    f"Adventure: <strong>{adventure.title}</strong> &nbsp;·&nbsp; "
-    f"Campaign: <em style='color:#B0A090;'>{campaign.name}</em></p>",
+    f"Adventure: <strong>{escape(adventure.title)}</strong> &nbsp;·&nbsp; "
+    f"Campaign: <em style='color:#B0A090;'>{escape(campaign.name)}</em></p>",
     unsafe_allow_html=True,
 )
 st.divider()
@@ -223,7 +224,7 @@ else:
                     f"<div style='background:#1a1e12; border:2px solid #2a3a1a; "
                     f"border-radius:8px; padding:1rem 1.2rem; margin-bottom:0.6rem;'>"
                     f"<span style='color:#C9A84C; font-size:1.05rem; font-weight:600;'>"
-                    f"Session {gs.session_number}: {gs.title}</span>"
+                    f"Session {gs.session_number}: {escape(gs.title)}</span>"
                     f"<br><span style='color:#8B9DC3; font-size:0.82rem;'>"
                     f"{status_emoji} {gs.status.value.capitalize()}</span>"
                     f"&nbsp;&nbsp;<span style='color:#B0A090; font-size:0.82rem;'>"

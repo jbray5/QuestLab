@@ -365,7 +365,10 @@ export default function Characters() {
           </div>
         ))}
         {!isLoading && characters.length === 0 && (
-          <p className="text-muted">No characters yet.</p>
+          <div className="empty-state">
+            <div className="empty-icon">🧙</div>
+            <p>No characters yet — add one above.</p>
+          </div>
         )}
       </div>
     </div>

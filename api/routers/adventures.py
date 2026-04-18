@@ -55,6 +55,10 @@ def create_adventure(
             title=body.title,
             tier=body.tier,
             dm_email=user,
+            synopsis=body.synopsis,
+            act_count=body.act_count,
+            npc_roster=body.npc_roster,
+            location_notes=body.location_notes,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))

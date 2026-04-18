@@ -5,6 +5,7 @@ UI only. All business logic is in services.adventure_service.
 """
 
 import uuid
+from html import escape
 
 import streamlit as st
 from dotenv import load_dotenv
@@ -67,8 +68,8 @@ st.markdown(
 )
 st.markdown(
     f"<p style='color:#8B9DC3; font-size:1.05rem; margin-top:-0.5rem;'>"
-    f"Campaign: <strong>{campaign.name}</strong> &nbsp;·&nbsp; "
-    f"<em style='color:#B0A090;'>{campaign.setting}</em></p>",
+    f"Campaign: <strong>{escape(campaign.name)}</strong> &nbsp;·&nbsp; "
+    f"<em style='color:#B0A090;'>{escape(campaign.setting)}</em></p>",
     unsafe_allow_html=True,
 )
 st.divider()
@@ -230,7 +231,7 @@ else:
         npc_count = len(adv.npc_roster or [])
         synopsis_html = ""
         if adv.synopsis:
-            snip = adv.synopsis[:100] + ("…" if len(adv.synopsis) > 100 else "")
+            snip = escape(adv.synopsis[:100] + ("…" if len(adv.synopsis) > 100 else ""))
             synopsis_html = (
                 f"<br><span style='color:#9a8878; font-size:0.8rem; font-style:italic;'>"
                 f"{snip}</span>"
@@ -243,7 +244,7 @@ else:
                     f"<div style='background:#1e1412; border:2px solid #3a2a1a; "
                     f"border-radius:8px; padding:1rem 1.2rem; margin-bottom:0.6rem;'>"
                     f"<span style='color:#C9A84C; font-size:1.05rem; font-weight:600;'>"
-                    f"{adv.title}</span>"
+                    f"{escape(adv.title)}</span>"
                     f"<br><span style='color:#8B9DC3; font-size:0.82rem;'>"
                     f"🎭 {_TIER_LABELS[adv.tier]}</span>"
                     f"&nbsp;&nbsp;<span style='color:#B0A090; font-size:0.82rem;'>"

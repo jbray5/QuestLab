@@ -17,6 +17,9 @@ from sqlmodel import Session as DBSession
 
 from db.repos.adventure_repo import AdventureRepo
 from db.repos.campaign_repo import CampaignRepo
+from db.repos.character_repo import CharacterRepo
+from db.repos.encounter_repo import EncounterRepo
+from db.repos.monster_repo import MonsterRepo
 from db.repos.session_repo import SessionRepo, SessionRunbookRepo
 from domain.enums import SessionStatus
 from domain.session import Session as GameSession
@@ -392,3 +395,71 @@ def update_notes(db: DBSession, session_id: uuid.UUID, dm_email: str, notes: str
     """
     game_session = get_session(db, session_id, dm_email)
     return SessionRepo.update(db, game_session, SessionUpdate(actual_notes=notes or None))
+
+
+# ---------------------------------------------------------------------------
+# Session runner helpers — data loading for the live session UI
+# ---------------------------------------------------------------------------
+
+
+def get_campaign_id_for_adventure(db: DBSession, adventure_id: uuid.UUID) -> uuid.UUID:
+    """Return the campaign_id for a given adventure.
+
+    Args:
+        db: Active database session.
+        adventure_id: UUID of the adventure.
+
+    Returns:
+        UUID of the parent campaign.
+
+    Raises:
+        ValueError: If the adventure does not exist.
+    """
+    adv = AdventureRepo.get_by_id(db, adventure_id)
+    if adv is None:
+        raise ValueError(f"Adventure {adventure_id} not found.")
+    return adv.campaign_id
+
+
+def list_pcs_for_campaign(db: DBSession, campaign_id: uuid.UUID) -> list:
+    """Return all player characters in a campaign.
+
+    Args:
+        db: Active database session.
+        campaign_id: UUID of the campaign.
+
+    Returns:
+        List of PlayerCharacter ORM objects.
+    """
+    return CharacterRepo.list_by_campaign(db, campaign_id)
+
+
+def list_encounters_for_adventure(db: DBSession, adventure_id: uuid.UUID) -> list:
+    """Return all encounters in an adventure.
+
+    Args:
+        db: Active database session.
+        adventure_id: UUID of the adventure.
+
+    Returns:
+        List of Encounter ORM objects.
+    """
+    return EncounterRepo.list_by_adventure(db, adventure_id)
+
+
+def get_monsters_by_ids(db: DBSession, monster_ids: list[uuid.UUID]) -> dict:
+    """Batch-load monster stat blocks by a list of IDs.
+
+    Args:
+        db: Active database session.
+        monster_ids: UUIDs of the monsters to fetch.
+
+    Returns:
+        Dict mapping monster UUID to MonsterStatBlock (missing IDs omitted).
+    """
+    result = {}
+    for mid in monster_ids:
+        monster = MonsterRepo.get_by_id(db, mid)
+        if monster:
+            result[mid] = monster
+    return result

@@ -105,8 +105,8 @@ st.markdown(
 )
 st.markdown(
     f"<p style='color:#8B9DC3; font-size:1.05rem; margin-top:-0.5rem;'>"
-    f"Adventure: <strong>{adventure.title}</strong> &nbsp;·&nbsp; "
-    f"Campaign: <em style='color:#B0A090;'>{campaign.name}</em></p>",
+    f"Adventure: <strong>{escape(adventure.title)}</strong> &nbsp;·&nbsp; "
+    f"Campaign: <em style='color:#B0A090;'>{escape(campaign.name)}</em></p>",
     unsafe_allow_html=True,
 )
 st.divider()

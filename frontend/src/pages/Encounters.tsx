@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { encountersApi } from "../api/encounters";
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
 import { monstersApi } from "../api/monsters";
+import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Encounter, Monster, RosterEntry } from "../api/types";
 
 const DIFFICULTY_BADGE: Record<string, string> = {
@@ -64,6 +65,8 @@ function RosterEditor({ encounter, pcLevels, onSaved }: RosterEditorProps) {
           name: r.name,
           xp: r.xp,
           cr: r.cr,
+          hp: r.hp,
+          ac: r.ac,
         })),
         pc_levels: pcLevels,
       }),
@@ -283,7 +286,9 @@ function RosterEditor({ encounter, pcLevels, onSaved }: RosterEditorProps) {
 
 export default function Encounters() {
   const { adventureId } = useParams<{ adventureId: string }>();
+  const navigate = useNavigate();
   const qc = useQueryClient();
+  const { activeCampaign, activeAdventure } = useCampaignStore();
 
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
@@ -334,6 +339,29 @@ export default function Encounters() {
 
   return (
     <div className="fade-in">
+      {/* Breadcrumb */}
+      <nav className="text-sm" style={{ marginBottom: "0.75rem", opacity: 0.7 }}>
+        <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate("/")}>Dashboard</span>
+        {activeCampaign && (
+          <>
+            {" / "}
+            <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate(`/campaigns/${activeCampaign.id}/adventures`)}>
+              {activeCampaign.name}
+            </span>
+          </>
+        )}
+        {(activeAdventure || adventure) && (
+          <>
+            {" / "}
+            <span style={{ cursor: "pointer", color: "var(--gold)" }}
+              onClick={() => navigate(`/adventures/${(activeAdventure ?? adventure)!.id}/sessions`)}>
+              {activeAdventure?.title ?? adventure?.title}
+            </span>
+          </>
+        )}
+        {" / "}
+        <strong>Encounters</strong>
+      </nav>
       <div className="flex items-center" style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}>
         <h1>Encounters</h1>
         <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
@@ -478,7 +506,10 @@ export default function Encounters() {
           );
         })}
         {!isLoading && encounters.length === 0 && (
-          <p className="text-muted">No encounters yet — create one above.</p>
+          <div className="empty-state">
+            <div className="empty-icon">💀</div>
+            <p>No encounters yet — create one above.</p>
+          </div>
         )}
       </div>
     </div>
