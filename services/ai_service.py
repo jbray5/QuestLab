@@ -195,6 +195,8 @@ def generate_session_runbook(
         AdventureTier.TIER4: "Tier 4 (Levels 17–20)",
     }
 
+    dm_notes_block = f"### DM Notes\n{extra_notes}" if extra_notes else ""
+
     system = f"""You are an expert D&D 5e (2024 rules) Dungeon Master assistant.
 You write vivid, practical session runbooks that DMs can use at the table.
 
@@ -222,7 +224,7 @@ You write vivid, practical session runbooks that DMs can use at the table.
 ### Encounters
 {enc_lines}
 
-{('### DM Notes\\n' + extra_notes) if extra_notes else ''}
+{dm_notes_block}
 """
 
     session_ref = f'Session {game_session.session_number}: "{game_session.title}"'
