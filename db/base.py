@@ -12,13 +12,37 @@ Usage::
         results = session.exec(select(Campaign)).all()
 """
 
+import json
 import os
+import uuid
 from collections.abc import Generator
+from datetime import date, datetime
 
 from sqlalchemy import text
 from sqlmodel import Session, SQLModel, create_engine
 
-import domain  # noqa: F401 — registers all SQLModel table classes with metadata
+
+def _json_serializer(obj: object) -> str:
+    """JSON serializer that handles UUID, datetime, and date objects.
+
+    Used as the ``json_serializer`` for the SQLAlchemy engine so that JSON
+    columns containing UUIDs (e.g. ``attending_pc_ids``) are stored correctly
+    in DuckDB (and Postgres).
+    """
+
+    def _default(o: object) -> object:
+        if isinstance(o, uuid.UUID):
+            return str(o)
+        if isinstance(o, datetime):
+            return o.isoformat()
+        if isinstance(o, date):
+            return o.isoformat()
+        raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+
+    return json.dumps(obj, default=_default)
+
+
+import domain  # noqa: E305, E402, F401 — registers all SQLModel table classes with metadata
 
 _engine = None
 
@@ -63,7 +87,7 @@ def get_engine():
     global _engine
     if _engine is None:
         connection_string = _build_connection_string()
-        _engine = create_engine(connection_string, echo=False)
+        _engine = create_engine(connection_string, echo=False, json_serializer=_json_serializer)
     return _engine
 
 
@@ -104,6 +128,8 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE monster_stat_blocks ADD COLUMN IF NOT EXISTS image_url VARCHAR(500)",
         # portrait_url was in initial schema for player_characters but guard anyway
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS portrait_url VARCHAR(500)",
+        # 0005 — campaign description
+        "ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS description TEXT",
     ]
     with engine.begin() as conn:
         for stmt in patches:

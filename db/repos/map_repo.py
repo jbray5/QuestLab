@@ -3,6 +3,7 @@
 import uuid
 from typing import Optional
 
+from sqlalchemy.exc import NotSupportedError
 from sqlmodel import Session, select
 
 from domain.map import (
@@ -152,6 +153,11 @@ class MapNodeRepo:
     def update(session: Session, node: MapNode, data: MapNodeUpdate) -> MapNode:
         """Apply a partial update to a map node.
 
+        DuckDB treats UPDATE as DELETE+INSERT internally, which triggers
+        spurious FK-constraint violations when ``map_edges`` references this
+        node.  On DuckDB we detach referencing edges, flush the node update,
+        then re-attach them.
+
         Args:
             session: Active database session.
             node: Existing MapNode ORM object.
@@ -164,7 +170,50 @@ class MapNodeRepo:
         for field, value in patch.items():
             setattr(node, field, value)
         session.add(node)
-        session.commit()
+        try:
+            session.commit()
+        except NotSupportedError:
+            # DuckDB FK constraint workaround — detach edges, update, re-attach
+            session.rollback()
+            edges = list(
+                session.exec(
+                    select(MapEdge).where(
+                        (MapEdge.from_node_id == node.id) | (MapEdge.to_node_id == node.id)
+                    )
+                ).all()
+            )
+            edge_data = [
+                {
+                    "id": str(e.id),
+                    "map_id": str(e.map_id),
+                    "from_node_id": str(e.from_node_id),
+                    "to_node_id": str(e.to_node_id),
+                    "label": e.label,
+                    "is_secret": e.is_secret,
+                    "door_type": e.door_type,
+                }
+                for e in edges
+            ]
+            for e in edges:
+                session.delete(e)
+            session.flush()
+            # Re-apply patch (rollback undid the setattr changes)
+            for field, value in patch.items():
+                setattr(node, field, value)
+            session.add(node)
+            session.flush()
+            for ed in edge_data:
+                restored = MapEdge(
+                    id=uuid.UUID(ed["id"]),
+                    map_id=uuid.UUID(ed["map_id"]),
+                    from_node_id=uuid.UUID(ed["from_node_id"]),
+                    to_node_id=uuid.UUID(ed["to_node_id"]),
+                    label=ed["label"],
+                    is_secret=ed["is_secret"],
+                    door_type=ed["door_type"],
+                )
+                session.add(restored)
+            session.commit()
         session.refresh(node)
         return node
 

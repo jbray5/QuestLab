@@ -14,6 +14,7 @@ class CampaignBase(SQLModel):
     name: str = Field(min_length=1, max_length=200)
     setting: str = Field(min_length=1, max_length=200, description="World or setting name")
     tone: str = Field(min_length=1, max_length=200, description="Campaign tone, e.g. 'dark horror'")
+    description: Optional[str] = Field(default=None, description="Campaign premise and overview")
     world_notes: Optional[str] = Field(default=None, description="Free-form world-building notes")
 
 
@@ -56,4 +57,5 @@ class CampaignUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     setting: Optional[str] = Field(default=None, min_length=1, max_length=200)
     tone: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    description: Optional[str] = None
     world_notes: Optional[str] = None

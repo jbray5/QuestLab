@@ -8,19 +8,22 @@ metadata is imported here so that ``--autogenerate`` can detect schema changes.
 import os
 from logging.config import fileConfig
 
+from dotenv import load_dotenv
 from sqlmodel import SQLModel
+
+load_dotenv()
 
 # ── Import all domain models so their tables appear in metadata ────────────────
 # Every SQLModel table= True class must be imported here for autogenerate to work.
-import domain.adventure  # noqa: F401
-import domain.campaign  # noqa: F401
-import domain.character  # noqa: F401
-import domain.encounter  # noqa: F401
-import domain.item  # noqa: F401
-import domain.map  # noqa: F401
-import domain.monster  # noqa: F401
-import domain.session  # noqa: F401
-from alembic import context
+import domain.adventure  # noqa: E402, F401
+import domain.campaign  # noqa: E402, F401
+import domain.character  # noqa: E402, F401
+import domain.encounter  # noqa: E402, F401
+import domain.item  # noqa: E402, F401
+import domain.map  # noqa: E402, F401
+import domain.monster  # noqa: E402, F401
+import domain.session  # noqa: E402, F401
+from alembic import context  # noqa: E402
 
 # ── Alembic config ─────────────────────────────────────────────────────────────
 config = context.config
