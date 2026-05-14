@@ -11,3 +11,4 @@ exclude =
 extend-ignore = E203, W503
 per-file-ignores =
     integrations/dnd_rules/stat_blocks.py: E501
+    integrations/dnd_rules/srd_spells_2024.py: E501

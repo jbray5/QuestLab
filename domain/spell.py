@@ -31,13 +31,15 @@ class Spell(SQLModel, table=True):
     # 0 = cantrip
     level: int = Field(ge=0, le=9, index=True)
     school: str = Field(min_length=1, max_length=40)
-    casting_time: str = Field(min_length=1, max_length=60)
-    range: str = Field(min_length=1, max_length=60)
+    # SRD allows long reaction-trigger descriptions in casting_time (Counterspell, Shield),
+    # so cap higher than the printed-block size.
+    casting_time: str = Field(min_length=1, max_length=400)
+    range: str = Field(min_length=1, max_length=120)
     components_v: bool = Field(default=False)
     components_s: bool = Field(default=False)
     # Material component text. None when M is not part of the spell's components.
-    components_m: Optional[str] = Field(default=None, max_length=300)
-    duration: str = Field(min_length=1, max_length=60)
+    components_m: Optional[str] = Field(default=None, max_length=600)
+    duration: str = Field(min_length=1, max_length=120)
     is_ritual: bool = Field(default=False)
     is_concentration: bool = Field(default=False)
     description: str = Field(min_length=1)
@@ -61,12 +63,12 @@ class SpellCreate(BaseModel):
     name: str = PydanticField(min_length=1, max_length=120)
     level: int = PydanticField(ge=0, le=9)
     school: str = PydanticField(min_length=1, max_length=40)
-    casting_time: str = PydanticField(min_length=1, max_length=60)
-    range: str = PydanticField(min_length=1, max_length=60)
+    casting_time: str = PydanticField(min_length=1, max_length=400)
+    range: str = PydanticField(min_length=1, max_length=120)
     components_v: bool = False
     components_s: bool = False
-    components_m: Optional[str] = None
-    duration: str = PydanticField(min_length=1, max_length=60)
+    components_m: Optional[str] = PydanticField(default=None, max_length=600)
+    duration: str = PydanticField(min_length=1, max_length=120)
     is_ritual: bool = False
     is_concentration: bool = False
     description: str = PydanticField(min_length=1)

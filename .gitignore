@@ -74,3 +74,6 @@ logs/
 
 # Serena MCP server working directory
 .serena/
+
+# Local cache for one-shot SRD parsing scripts
+scripts/.srd_*.md
