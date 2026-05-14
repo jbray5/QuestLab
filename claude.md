@@ -78,3 +78,12 @@ On first scaffold, create and populate: - docs/STACK.md — technology decisions
 The following should be generated and updated as part of follow-up plans once app content exists - docs/architecture.md — detailed layered diagram, auth flow, design decisions - docs/data_dictionary.md — schema, columns, constraints, enums, PII fields - docs/deployment.md — Azure deployment runbook, env vars, Alembic runbook - ARCHITECTURE.md (root) — bird's-eye codemap, key invariants, file index
 
 Important: - Documentation should be a runbook for a new engineer - Must be updated continually to match current code state and deployment - Treat documentation as a first-class citizen
+
+Claude Code Configuration
+Project-shared Claude Code config lives in `.claude/`. See `.claude/README.md` for the full index. Highlights:
+- **Subagents** in `.claude/agents/` — `boundary-checker`, `migration-reviewer`, `ai-prompt-tuner`, `test-writer`. Auto-delegate based on what you're touching.
+- **Slash commands** in `.claude/commands/` — `/new-plan`, `/new-migration`, `/quality-gate`, `/new-layer-module`.
+- **Hooks** in `.claude/hooks/` (wired in `.claude/settings.json`) — auto-format Python on edit, block force-push to main, block alembic downgrade, block writes to `.env`.
+- **Path-scoped rules** in `.claude/rules/layers.md` — layer import matrix and per-layer conventions, loaded only when editing those layers.
+- **MCP servers** in `.mcp.json` — Serena (code-graph, token-saving symbol navigation), Postgres (read-only DB introspection), GitHub (PRs, issues, CI). See `.claude/README.md` for setup.
+- **Codemap** at `ARCHITECTURE.md` — bird's-eye file index and key invariants.

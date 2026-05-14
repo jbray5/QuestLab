@@ -71,3 +71,6 @@ desktop.ini
 # ── Logs ──────────────────────────────────────────────────────────────────────
 *.log
 logs/
+
+# Serena MCP server working directory
+.serena/
