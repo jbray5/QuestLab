@@ -23,6 +23,7 @@ from api.routers import (
     campaigns,
     characters,
     encounters,
+    inventory,
     items,
     maps,
     monsters,
@@ -102,6 +103,7 @@ app.include_router(sessions.router, prefix=_PREFIX)
 app.include_router(monsters.router, prefix=_PREFIX)
 app.include_router(items.router, prefix=_PREFIX)
 app.include_router(spells.router, prefix=_PREFIX)
+app.include_router(inventory.router, prefix=_PREFIX)
 app.include_router(uploads.router, prefix=_PREFIX)
 app.include_router(admin.router, prefix=_PREFIX)
 

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { charactersApi } from "../api/characters";
 import type { PlayerCharacter } from "../api/types";
 import ImageUpload from "../components/ImageUpload";
+import InventoryPanel from "../components/InventoryPanel";
 
 function mod(score: number) {
   const m = Math.floor((score - 10) / 2);
@@ -349,6 +350,8 @@ export default function Characters() {
                 size={48}
               />
             </div>
+
+            <InventoryPanel characterId={c.id} characterName={c.character_name} />
 
             <div className="flex gap-2" style={{ marginTop: "0.75rem" }}>
               <button className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => startEdit(c)}>

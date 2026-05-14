@@ -391,3 +391,32 @@ export interface WeaponAttackPreview {
   proficient: boolean;
   two_handed: boolean;
 }
+
+// ── PC inventory (Plan 00019) ────────────────────────────────────────────────
+
+export interface CharacterItem {
+  id: string;
+  character_id: string;
+  item_id: string;
+  quantity: number;
+  equipped: boolean;
+  attuned: boolean;
+  attuned_at: string | null;
+  acquired_at: string;
+  notes: string | null;
+}
+
+export interface CharacterItemCreate {
+  item_id: string;
+  quantity?: number;
+  equipped?: boolean;
+  attuned?: boolean;
+  notes?: string;
+}
+
+export interface CharacterItemUpdate {
+  quantity?: number;
+  equipped?: boolean;
+  attuned?: boolean;
+  notes?: string;
+}

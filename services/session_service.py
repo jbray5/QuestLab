@@ -658,7 +658,15 @@ def record_item_handout(
     line = f"[{stamp}] Gave {item.name} to {pc.character_name}"
     current = game_session.actual_notes or ""
     new_notes = f"{current}\n{line}".strip() if current else line
-    return SessionRepo.update(db, game_session, SessionUpdate(actual_notes=new_notes))
+    updated = SessionRepo.update(db, game_session, SessionUpdate(actual_notes=new_notes))
+
+    # Plan 00019 — also create or increment the PC's inventory row. Import
+    # locally to avoid an import cycle (inventory_service imports nothing from
+    # session_service, but services/__init__ would otherwise re-export both).
+    from services import inventory_service
+
+    inventory_service.add_handout(db, character_id=pc_id, item_id=item_id, dm_email=dm_email)
+    return updated
 
 
 def advance_combat_turn(

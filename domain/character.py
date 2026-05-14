@@ -178,3 +178,69 @@ class PlayerCharacterUpdate(BaseModel):
     backstory: Optional[str] = None
     notes: Optional[str] = None
     portrait_url: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Plan 00019 — PC inventory: junction between PlayerCharacter and Item
+# ---------------------------------------------------------------------------
+
+
+class AttunementLimitError(ValueError):
+    """Raised when a PC tries to attune to a 4th item (RAW cap is 3)."""
+
+
+class CharacterItem(SQLModel, table=True):
+    """A PC's instance of an item (from the items compendium).
+
+    Quantity > 1 for stackables (potions, ammunition). One row per stack,
+    not per copy. Equipped + attuned flags drive the character sheet display
+    and the attack-preview integration for weapons.
+    """
+
+    __tablename__ = "character_items"
+    __table_args__ = {"extend_existing": True}
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    character_id: uuid.UUID = Field(foreign_key="player_characters.id", index=True)
+    item_id: uuid.UUID = Field(foreign_key="items.id", index=True)
+    quantity: int = Field(default=1, ge=1)
+    equipped: bool = Field(default=False)
+    attuned: bool = Field(default=False)
+    attuned_at: Optional[datetime] = Field(default=None)
+    acquired_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+
+class CharacterItemCreate(BaseModel):
+    """Input schema for adding an item to a PC's inventory."""
+
+    item_id: uuid.UUID
+    quantity: int = Field(default=1, ge=1)
+    equipped: bool = False
+    attuned: bool = False
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+
+class CharacterItemRead(BaseModel):
+    """Output schema for a PC inventory row."""
+
+    id: uuid.UUID
+    character_id: uuid.UUID
+    item_id: uuid.UUID
+    quantity: int
+    equipped: bool
+    attuned: bool
+    attuned_at: Optional[datetime] = None
+    acquired_at: datetime
+    notes: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class CharacterItemUpdate(BaseModel):
+    """Partial update for a PC inventory row."""
+
+    quantity: Optional[int] = Field(default=None, ge=0)
+    equipped: Optional[bool] = None
+    attuned: Optional[bool] = None
+    notes: Optional[str] = Field(default=None, max_length=500)
