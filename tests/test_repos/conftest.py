@@ -12,3 +12,4 @@ import domain.item  # noqa: F401
 import domain.map  # noqa: F401
 import domain.monster  # noqa: F401
 import domain.session  # noqa: F401
+import domain.spell  # noqa: F401

@@ -13,6 +13,7 @@ import SessionHud from "./pages/SessionHud";
 import Admin from "./pages/Admin";
 import MagicItems from "./pages/MagicItems";
 import Monsters from "./pages/Monsters";
+import Spells from "./pages/Spells";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -44,6 +45,7 @@ export default function App() {
         />
         <Route path="monsters" element={<Monsters />} />
         <Route path="magic-items" element={<MagicItems />} />
+        <Route path="spells" element={<Spells />} />
         <Route path="admin" element={<Admin />} />
         <Route path="*" element={<NotFound />} />
       </Route>

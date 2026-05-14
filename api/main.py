@@ -27,6 +27,7 @@ from api.routers import (
     maps,
     monsters,
     sessions,
+    spells,
     uploads,
 )
 
@@ -56,8 +57,10 @@ async def lifespan(app: FastAPI):
     from sqlmodel import Session
 
     from db.base import create_db_and_tables, get_engine, patch_duckdb_schema
+    from integrations.dnd_rules.srd_spells_2024 import SRD_SPELLS_2024
     from integrations.dnd_rules.stat_blocks import seed_monsters
     from services.item_service import seed_magic_items
+    from services.spell_service import seed_spells
 
     create_db_and_tables()
     patch_duckdb_schema()
@@ -65,6 +68,7 @@ async def lifespan(app: FastAPI):
     with Session(engine) as db:
         seed_monsters(db)
         seed_magic_items(db)
+        seed_spells(db, SRD_SPELLS_2024)
     yield
 
 
@@ -95,6 +99,7 @@ app.include_router(maps.router, prefix=_PREFIX)
 app.include_router(sessions.router, prefix=_PREFIX)
 app.include_router(monsters.router, prefix=_PREFIX)
 app.include_router(items.router, prefix=_PREFIX)
+app.include_router(spells.router, prefix=_PREFIX)
 app.include_router(uploads.router, prefix=_PREFIX)
 app.include_router(admin.router, prefix=_PREFIX)
 

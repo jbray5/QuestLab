@@ -334,3 +334,37 @@ export interface SessionCombatStateWrite {
   active_combatant_id?: string | null;
   combatants: SessionCombatantCreate[];
 }
+
+// ── Spells (Plan 00017 — SRD 5.5e catalog) ───────────────────────────────────
+
+export interface Spell {
+  id: string;
+  name: string;
+  level: number;
+  school: string;
+  casting_time: string;
+  range: string;
+  components_v: boolean;
+  components_s: boolean;
+  components_m: string | null;
+  duration: string;
+  is_ritual: boolean;
+  is_concentration: boolean;
+  description: string;
+  higher_levels: string | null;
+  damage_dice: string | null;
+  damage_type: string | null;
+  save_ability: string | null;
+  attack_type: string | null;
+  classes: string[];
+  source: string;
+}
+
+export interface SpellListParams {
+  q?: string;
+  level?: number;
+  school?: string;
+  class_name?: string;
+  is_ritual?: boolean;
+  is_concentration?: boolean;
+}
