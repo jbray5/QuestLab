@@ -135,6 +135,14 @@ def patch_duckdb_schema() -> None:
         # since it's a new table, not a column on an existing one.)
         "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS combat_round INTEGER DEFAULT 1",
         "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS combat_active_combatant_id VARCHAR",
+        # 0009 — weapon columns on items (Plan 00018)
+        "ALTER TABLE items ADD COLUMN IF NOT EXISTS weapon_category VARCHAR(40)",
+        "ALTER TABLE items ADD COLUMN IF NOT EXISTS damage_die VARCHAR(20)",
+        "ALTER TABLE items ADD COLUMN IF NOT EXISTS damage_type VARCHAR(20)",
+        "ALTER TABLE items ADD COLUMN IF NOT EXISTS weapon_properties JSON",
+        "ALTER TABLE items ADD COLUMN IF NOT EXISTS versatile_damage VARCHAR(20)",
+        "ALTER TABLE items ADD COLUMN IF NOT EXISTS weapon_range VARCHAR(40)",
+        "ALTER TABLE items ADD COLUMN IF NOT EXISTS mastery VARCHAR(20)",
     ]
     with engine.begin() as conn:
         for stmt in patches:

@@ -368,3 +368,26 @@ export interface SpellListParams {
   is_ritual?: boolean;
   is_concentration?: boolean;
 }
+
+// ── Weapons (Plan 00018) ─────────────────────────────────────────────────────
+// Weapons are Items with weapon_* fields populated.
+
+export interface WeaponListParams {
+  q?: string;
+  category?: string;
+  mastery?: string;
+  property_name?: string;
+  is_magic?: boolean;
+}
+
+export interface WeaponAttackPreview {
+  weapon_id: string;
+  character_id: string;
+  ability: "STR" | "DEX";
+  hit_bonus: number;
+  damage_roll: string;
+  damage_type: string;
+  mastery: string | null;
+  proficient: boolean;
+  two_handed: boolean;
+}

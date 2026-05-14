@@ -7,9 +7,10 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
 from api.deps import DB, CurrentUser
+from db.repos.character_repo import CharacterRepo
 from db.repos.item_repo import ItemRepo
-from domain.item import ItemRead, ItemUpdate
-from services import ai_service, item_service
+from domain.item import ItemRead, ItemUpdate, WeaponAttackPreview
+from services import ai_service, attack_service, item_service
 
 router = APIRouter(tags=["items"])
 
@@ -47,6 +48,90 @@ def list_items(
         Filtered list of magic items ordered by name.
     """
     return item_service.list_items(db, q=q, rarity=rarity, item_type=item_type)
+
+
+@router.get("/weapons", response_model=list[ItemRead])
+def list_weapons(
+    db: DB,
+    _user: CurrentUser,
+    q: Optional[str] = Query(None, description="Name search (case-insensitive)"),
+    category: Optional[str] = Query(
+        None, description="Weapon category (Simple Melee, Martial Ranged, ...)"
+    ),
+    mastery: Optional[str] = Query(None, description="2024 mastery property (Vex, Nick, ...)"),
+    property_name: Optional[str] = Query(
+        None,
+        alias="property",
+        description="Weapon must have this property (Finesse, Heavy, Thrown, ...)",
+    ),
+    is_magic: Optional[bool] = Query(None, description="Filter to magic-only or mundane-only"),
+) -> list[ItemRead]:
+    """Browse all weapons (mundane + magic) with optional filters.
+
+    Args:
+        db: Database session.
+        _user: Authenticated DM.
+        q: Optional name substring search.
+        category: Optional weapon category.
+        mastery: Optional 2024 mastery property.
+        property_name: Optional required property (query param ``property``).
+        is_magic: Optional magic filter.
+
+    Returns:
+        Filtered list of weapon items ordered by name.
+    """
+    return item_service.list_weapons(
+        db,
+        q=q,
+        category=category,
+        mastery=mastery,
+        property_name=property_name,
+        is_magic=is_magic,
+    )
+
+
+@router.post("/items/{item_id}/attack-preview", response_model=WeaponAttackPreview)
+def attack_preview(
+    item_id: uuid.UUID,
+    db: DB,
+    _user: CurrentUser,
+    character_id: uuid.UUID = Query(..., description="UUID of the wielding character"),
+    proficient: bool = Query(True, description="Treat the character as proficient"),
+    two_handed: bool = Query(False, description="Use versatile damage die"),
+) -> WeaponAttackPreview:
+    """Compute the attack-roll output for a PC wielding the given weapon.
+
+    Args:
+        item_id: UUID of the weapon item.
+        db: Database session.
+        _user: Authenticated DM.
+        character_id: UUID of the player character.
+        proficient: Whether the character is proficient with this weapon.
+        two_handed: For Versatile weapons, use the larger die.
+
+    Returns:
+        WeaponAttackPreview with hit bonus, damage roll, mastery, etc.
+
+    Raises:
+        HTTPException 404: If the item or character is not found.
+        HTTPException 422: If the item is not a weapon.
+    """
+    try:
+        item = item_service.get_item(db, item_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+    character = CharacterRepo.get_by_id(db, character_id)
+    if character is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
+    try:
+        return attack_service.compute_attack(
+            item,
+            character,
+            proficient=proficient,
+            two_handed=two_handed,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
 
 @router.get("/items/{item_id}", response_model=ItemRead)

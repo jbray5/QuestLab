@@ -11,6 +11,18 @@ from domain.item import Item, ItemCreate, ItemRead
 from integrations.dnd_rules.magic_items import PHB_MAGIC_ITEMS
 
 
+def is_weapon(item: Item) -> bool:
+    """Return True iff the item has weapon stats populated.
+
+    Args:
+        item: An Item ORM object.
+
+    Returns:
+        True if both ``weapon_category`` and ``damage_die`` are set.
+    """
+    return bool(item.weapon_category and item.damage_die)
+
+
 def list_items(
     db: Session,
     q: Optional[str] = None,
@@ -38,6 +50,67 @@ def list_items(
         lower_type = item_type.lower()
         items = [i for i in items if i.item_type.lower() == lower_type]
     return [ItemRead.model_validate(i) for i in items]
+
+
+def list_weapons(
+    db: Session,
+    q: Optional[str] = None,
+    category: Optional[str] = None,
+    mastery: Optional[str] = None,
+    property_name: Optional[str] = None,
+    is_magic: Optional[bool] = None,
+) -> list[ItemRead]:
+    """Return all weapon items with optional filters.
+
+    A weapon is an item with ``weapon_category`` and ``damage_die`` populated.
+
+    Args:
+        db: Active database session.
+        q: Optional case-insensitive name substring.
+        category: Optional exact match on ``weapon_category`` (e.g. 'Simple Melee').
+        mastery: Optional exact match on mastery property (e.g. 'Vex').
+        property_name: Optional property the weapon must have (e.g. 'Finesse').
+        is_magic: Optional magic filter. None = both mundane and magic.
+
+    Returns:
+        Filtered list of ItemRead objects ordered by name.
+    """
+    items = ItemRepo.list_all(db, is_magic=is_magic)
+    items = [i for i in items if is_weapon(i)]
+    if q:
+        lower = q.lower()
+        items = [i for i in items if lower in i.name.lower()]
+    if category:
+        items = [i for i in items if (i.weapon_category or "").lower() == category.lower()]
+    if mastery:
+        items = [i for i in items if (i.mastery or "").lower() == mastery.lower()]
+    if property_name:
+        target = property_name.lower()
+        items = [i for i in items if any(p.lower() == target for p in (i.weapon_properties or []))]
+    return [ItemRead.model_validate(i) for i in items]
+
+
+def seed_weapons(db: Session, payloads: list[ItemCreate]) -> int:
+    """Seed mundane SRD weapons into the items table. Idempotent.
+
+    Distinct from ``seed_magic_items`` — those are magical-only. Weapon seeding
+    inserts only if the items table has no weapons yet.
+
+    Args:
+        db: Active database session.
+        payloads: Validated ItemCreate payloads (each must have weapon fields set).
+
+    Returns:
+        Number of weapons inserted (0 if any already present).
+    """
+    existing = [i for i in ItemRepo.list_all(db) if is_weapon(i)]
+    if existing:
+        return 0
+    inserted = 0
+    for payload in payloads:
+        ItemRepo.create(db, payload)
+        inserted += 1
+    return inserted
 
 
 def get_item(db: Session, item_id: uuid.UUID) -> Item:

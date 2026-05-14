@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: "/campaigns", label: "📜 Campaigns" },
   { to: "/monsters", label: "🐉 Monsters" },
   { to: "/spells", label: "📖 Spells" },
+  { to: "/weapons", label: "🗡 Weapons" },
   { to: "/magic-items", label: "⚗️ Magic Items" },
   { to: "/admin", label: "🛡 Admin" },
 ];

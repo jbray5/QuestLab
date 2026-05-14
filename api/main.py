@@ -58,8 +58,9 @@ async def lifespan(app: FastAPI):
 
     from db.base import create_db_and_tables, get_engine, patch_duckdb_schema
     from integrations.dnd_rules.srd_spells_2024 import SRD_SPELLS_2024
+    from integrations.dnd_rules.srd_weapons_2024 import SRD_WEAPONS_2024
     from integrations.dnd_rules.stat_blocks import seed_monsters
-    from services.item_service import seed_magic_items
+    from services.item_service import seed_magic_items, seed_weapons
     from services.spell_service import seed_spells
 
     create_db_and_tables()
@@ -68,6 +69,7 @@ async def lifespan(app: FastAPI):
     with Session(engine) as db:
         seed_monsters(db)
         seed_magic_items(db)
+        seed_weapons(db, SRD_WEAPONS_2024)
         seed_spells(db, SRD_SPELLS_2024)
     yield
 
