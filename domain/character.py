@@ -58,6 +58,10 @@ class PlayerCharacter(SQLModel, table=True):
     equipment: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
     spells_known: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
     spell_slots: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # Plan 00020 — persistent slot-consumption tracker. Keyed by slot level
+    # as a string (Postgres JSON keys are strings): {"1": 2, "2": 1, ...}.
+    # remaining = compute_spell_slots(class, level)[level] - spell_slots_used[level]
+    spell_slots_used: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -134,6 +138,7 @@ class PlayerCharacterRead(BaseModel):
     equipment: Optional[list[dict[str, Any]]] = None
     spells_known: Optional[list[dict[str, Any]]] = None
     spell_slots: Optional[dict[str, Any]] = None
+    spell_slots_used: Optional[dict[str, int]] = None
     backstory: Optional[str] = None
     notes: Optional[str] = None
     portrait_url: Optional[str] = None
@@ -244,3 +249,78 @@ class CharacterItemUpdate(BaseModel):
     equipped: Optional[bool] = None
     attuned: Optional[bool] = None
     notes: Optional[str] = Field(default=None, max_length=500)
+
+
+# ---------------------------------------------------------------------------
+# Plan 00020 — PC spell knowledge + slot tracking
+# ---------------------------------------------------------------------------
+
+
+class NoSpellSlotError(ValueError):
+    """Raised when a PC tries to expend a slot of a level they have none of."""
+
+
+class CharacterSpell(SQLModel, table=True):
+    """A PC's known/prepared spell, referencing the spells catalog.
+
+    Two boolean flags: ``known`` (on the PC's spellbook / class list) and
+    ``prepared`` (selected for today). For classes that don't distinguish
+    (Sorcerer, Warlock), the UI keeps both flags in sync.
+    """
+
+    __tablename__ = "character_spells"
+    __table_args__ = {"extend_existing": True}
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    character_id: uuid.UUID = Field(foreign_key="player_characters.id", index=True)
+    spell_id: uuid.UUID = Field(foreign_key="spells.id", index=True)
+    known: bool = Field(default=True)
+    prepared: bool = Field(default=False)
+    added_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class CharacterSpellCreate(BaseModel):
+    """Input schema for adding a spell to a PC's spell list."""
+
+    spell_id: uuid.UUID
+    known: bool = True
+    prepared: bool = False
+
+
+class CharacterSpellRead(BaseModel):
+    """Output schema for a PC's spell list row."""
+
+    id: uuid.UUID
+    character_id: uuid.UUID
+    spell_id: uuid.UUID
+    known: bool
+    prepared: bool
+    added_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CharacterSpellUpdate(BaseModel):
+    """Partial update for a PC's spell list row."""
+
+    known: Optional[bool] = None
+    prepared: Optional[bool] = None
+
+
+class SpellSlotLevelState(BaseModel):
+    """Per-level slot state for a PC: max, used, remaining."""
+
+    max: int = Field(ge=0)
+    used: int = Field(ge=0)
+    remaining: int = Field(ge=0)
+
+
+class SpellSlotStateRead(BaseModel):
+    """Aggregate slot state for a PC (Plan 00020).
+
+    ``levels`` keys are slot levels as strings ("1".."9"). Cantrips (level 0)
+    are not slot-consuming and are omitted.
+    """
+
+    character_id: uuid.UUID
+    levels: dict[str, SpellSlotLevelState] = Field(default_factory=dict)

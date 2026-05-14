@@ -420,3 +420,36 @@ export interface CharacterItemUpdate {
   attuned?: boolean;
   notes?: string;
 }
+
+// ── PC spell knowledge + slot tracking (Plan 00020) ──────────────────────────
+
+export interface CharacterSpell {
+  id: string;
+  character_id: string;
+  spell_id: string;
+  known: boolean;
+  prepared: boolean;
+  added_at: string;
+}
+
+export interface CharacterSpellCreate {
+  spell_id: string;
+  known?: boolean;
+  prepared?: boolean;
+}
+
+export interface CharacterSpellUpdate {
+  known?: boolean;
+  prepared?: boolean;
+}
+
+export interface SpellSlotLevelState {
+  max: number;
+  used: number;
+  remaining: number;
+}
+
+export interface SpellSlotStateRead {
+  character_id: string;
+  levels: Record<string, SpellSlotLevelState>;
+}
