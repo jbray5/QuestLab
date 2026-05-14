@@ -1,4 +1,5 @@
 import { Routes, Route } from "react-router-dom";
+import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./pages/Layout";
 import Dashboard from "./pages/Dashboard";
 import Campaigns from "./pages/Campaigns";
@@ -25,8 +26,22 @@ export default function App() {
         <Route path="adventures/:adventureId/encounters" element={<Encounters />} />
         <Route path="adventures/:adventureId/maps" element={<MapBuilder />} />
         <Route path="adventures/:adventureId/sessions" element={<Sessions />} />
-        <Route path="sessions/:sessionId/run" element={<SessionRunner />} />
-        <Route path="sessions/:sessionId/hud" element={<SessionHud />} />
+        <Route
+          path="sessions/:sessionId/run"
+          element={
+            <ErrorBoundary label="Session Runner">
+              <SessionRunner />
+            </ErrorBoundary>
+          }
+        />
+        <Route
+          path="sessions/:sessionId/hud"
+          element={
+            <ErrorBoundary label="Session HUD">
+              <SessionHud />
+            </ErrorBoundary>
+          }
+        />
         <Route path="monsters" element={<Monsters />} />
         <Route path="magic-items" element={<MagicItems />} />
         <Route path="admin" element={<Admin />} />

@@ -4,10 +4,19 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel
 
 from api.deps import DB, CurrentUser
 from domain.session import Session as GameSession
-from domain.session import SessionCreate, SessionRunbook, SessionUpdate
+from domain.session import (
+    SessionCombatantRead,
+    SessionCombatantUpdate,
+    SessionCombatStateRead,
+    SessionCombatStateWrite,
+    SessionCreate,
+    SessionRunbook,
+    SessionUpdate,
+)
 from services import ai_service, session_service
 
 router = APIRouter(tags=["sessions"])
@@ -241,5 +250,172 @@ def generate_runbook(
         return session_service.save_runbook(db, session_id, user, runbook_create)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# Combat persistence (Plan 00015)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/sessions/{session_id}/combat", response_model=SessionCombatStateRead)
+def get_combat_state(session_id: uuid.UUID, db: DB, user: CurrentUser) -> SessionCombatStateRead:
+    """Return the persisted combat state for a session.
+
+    Includes the combatant roster (in initiative order), current round, and
+    the id of the combatant whose turn it is.
+
+    Args:
+        session_id: UUID of the session.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Aggregate combat state.
+    """
+    try:
+        return session_service.load_combat_state(db, session_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.put("/sessions/{session_id}/combat", response_model=SessionCombatStateRead)
+def save_combat_state(
+    session_id: uuid.UUID,
+    body: SessionCombatStateWrite,
+    db: DB,
+    user: CurrentUser,
+) -> SessionCombatStateRead:
+    """Replace the entire combat state for a session in one call.
+
+    Used when fresh initiative is rolled. Existing combatants are deleted
+    and replaced with the provided roster.
+
+    Args:
+        session_id: UUID of the session.
+        body: Full combat snapshot.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The newly persisted combat state.
+    """
+    try:
+        return session_service.save_combat_state(db, session_id, user, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.patch(
+    "/sessions/{session_id}/combat/{combatant_id}",
+    response_model=SessionCombatantRead,
+)
+def patch_combatant(
+    session_id: uuid.UUID,
+    combatant_id: uuid.UUID,
+    body: SessionCombatantUpdate,
+    db: DB,
+    user: CurrentUser,
+) -> SessionCombatantRead:
+    """Patch a single combatant (HP, defeated flag, conditions, ...).
+
+    Args:
+        session_id: UUID of the parent session.
+        combatant_id: UUID of the combatant row.
+        body: Partial update payload.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Updated combatant row.
+    """
+    try:
+        return session_service.update_combatant(db, session_id, combatant_id, user, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.delete("/sessions/{session_id}/combat", status_code=status.HTTP_204_NO_CONTENT)
+def clear_combat_state(session_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
+    """Clear the combatant roster and reset round/turn state for a session.
+
+    Args:
+        session_id: UUID of the session.
+        db: Database session.
+        user: Authenticated DM email.
+    """
+    try:
+        session_service.clear_combat_state(db, session_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/sessions/{session_id}/combat/advance", response_model=SessionCombatStateRead)
+def advance_combat_turn(session_id: uuid.UUID, db: DB, user: CurrentUser) -> SessionCombatStateRead:
+    """Advance the turn pointer to the next non-defeated combatant.
+
+    Increments the round when the pointer wraps to the first combatant.
+
+    Args:
+        session_id: UUID of the session.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Updated combat state.
+    """
+    try:
+        return session_service.advance_combat_turn(db, session_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# Item handouts (Plan 00016)
+# ---------------------------------------------------------------------------
+
+
+class _HandoutRequest(BaseModel):
+    """Body for ``POST /sessions/{id}/handouts``."""
+
+    pc_id: uuid.UUID
+    item_id: uuid.UUID
+
+
+@router.post("/sessions/{session_id}/handouts", response_model=GameSession)
+def record_handout(
+    session_id: uuid.UUID,
+    body: _HandoutRequest,
+    db: DB,
+    user: CurrentUser,
+) -> GameSession:
+    """Record handing an item to a PC during a live session.
+
+    Appends a timestamped line to the session's notes.
+
+    Args:
+        session_id: UUID of the session.
+        body: PC + item ids.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Updated GameSession with the appended notes line.
+    """
+    try:
+        return session_service.record_item_handout(db, session_id, body.pc_id, body.item_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))

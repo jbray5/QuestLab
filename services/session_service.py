@@ -10,7 +10,7 @@ Rules enforced here:
 
 import random
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any, Optional
 
 from sqlmodel import Session as DBSession
@@ -19,11 +19,16 @@ from db.repos.adventure_repo import AdventureRepo
 from db.repos.campaign_repo import CampaignRepo
 from db.repos.character_repo import CharacterRepo
 from db.repos.encounter_repo import EncounterRepo
+from db.repos.item_repo import ItemRepo
 from db.repos.monster_repo import MonsterRepo
-from db.repos.session_repo import SessionRepo, SessionRunbookRepo
+from db.repos.session_repo import SessionCombatantRepo, SessionRepo, SessionRunbookRepo
 from domain.enums import SessionStatus
 from domain.session import Session as GameSession
 from domain.session import (
+    SessionCombatant,
+    SessionCombatantUpdate,
+    SessionCombatStateRead,
+    SessionCombatStateWrite,
     SessionCreate,
     SessionRunbook,
     SessionRunbookCreate,
@@ -463,3 +468,243 @@ def get_monsters_by_ids(db: DBSession, monster_ids: list[uuid.UUID]) -> dict:
         if monster:
             result[mid] = monster
     return result
+
+
+# ---------------------------------------------------------------------------
+# Combat persistence — live initiative tracker survives browser refresh
+# ---------------------------------------------------------------------------
+
+
+def load_combat_state(
+    db: DBSession, session_id: uuid.UUID, dm_email: str
+) -> SessionCombatStateRead:
+    """Return the persisted combat state for a session.
+
+    Includes the combatant roster (in initiative order), current round, and
+    the id of the combatant whose turn it is.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        SessionCombatStateRead with combatants, round, and active combatant id.
+
+    Raises:
+        ValueError: If the session does not exist.
+        PermissionError: If the DM does not own the campaign.
+    """
+    game_session = get_session(db, session_id, dm_email)
+    combatants = SessionCombatantRepo.list_for_session(db, session_id)
+    return SessionCombatStateRead.model_validate(
+        {
+            "session_id": session_id,
+            "round": game_session.combat_round,
+            "active_combatant_id": game_session.combat_active_combatant_id,
+            "combatants": combatants,
+        }
+    )
+
+
+def save_combat_state(
+    db: DBSession,
+    session_id: uuid.UUID,
+    dm_email: str,
+    payload: SessionCombatStateWrite,
+) -> SessionCombatStateRead:
+    """Replace the entire combat state for a session in one transaction.
+
+    Used when fresh initiative is rolled. Existing combatants are removed.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+        payload: Full combat snapshot to persist.
+
+    Returns:
+        The newly-persisted combat state.
+
+    Raises:
+        ValueError: If the session does not exist.
+        PermissionError: If the DM does not own the campaign.
+    """
+    game_session = get_session(db, session_id, dm_email)
+    created = SessionCombatantRepo.replace_all(db, session_id, payload.combatants)
+
+    # Resolve active_combatant_id — if caller passed an id that doesn't
+    # match any new row, fall back to the first combatant (lowest sort_index).
+    valid_ids = {row.id for row in created}
+    active_id = payload.active_combatant_id if payload.active_combatant_id in valid_ids else None
+    if active_id is None and created:
+        active_id = created[0].id
+
+    # SessionUpdate doesn't expose combat_* columns, so mutate directly.
+    game_session.combat_round = payload.round
+    game_session.combat_active_combatant_id = active_id
+    db.add(game_session)
+    db.commit()
+    db.refresh(game_session)
+
+    return SessionCombatStateRead.model_validate(
+        {
+            "session_id": session_id,
+            "round": game_session.combat_round,
+            "active_combatant_id": game_session.combat_active_combatant_id,
+            "combatants": created,
+        }
+    )
+
+
+def update_combatant(
+    db: DBSession,
+    session_id: uuid.UUID,
+    combatant_id: uuid.UUID,
+    dm_email: str,
+    update: SessionCombatantUpdate,
+) -> SessionCombatant:
+    """Patch a single combatant in a session's tracker.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the parent session.
+        combatant_id: UUID of the combatant row.
+        dm_email: Email of the requesting DM.
+        update: Partial update payload.
+
+    Returns:
+        Updated SessionCombatant row.
+
+    Raises:
+        ValueError: If the session or combatant is not found, or the
+            combatant does not belong to the session.
+        PermissionError: If the DM does not own the campaign.
+    """
+    get_session(db, session_id, dm_email)  # ownership check
+    combatant = SessionCombatantRepo.get_by_id(db, combatant_id)
+    if combatant is None or combatant.session_id != session_id:
+        raise ValueError(f"Combatant {combatant_id} not found in session {session_id}.")
+    return SessionCombatantRepo.update_one(db, combatant, update)
+
+
+def clear_combat_state(db: DBSession, session_id: uuid.UUID, dm_email: str) -> int:
+    """Wipe the combatant roster and reset round state for a session.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        Number of combatant rows deleted.
+
+    Raises:
+        ValueError: If the session does not exist.
+        PermissionError: If the DM does not own the campaign.
+    """
+    game_session = get_session(db, session_id, dm_email)
+    count = SessionCombatantRepo.clear_for_session(db, session_id)
+    game_session.combat_round = 1
+    game_session.combat_active_combatant_id = None
+    db.add(game_session)
+    db.commit()
+    return count
+
+
+def record_item_handout(
+    db: DBSession,
+    session_id: uuid.UUID,
+    pc_id: uuid.UUID,
+    item_id: uuid.UUID,
+    dm_email: str,
+) -> GameSession:
+    """Log an item handed from the DM to a PC during a session.
+
+    Appends a single timestamped line to the session's ``actual_notes``,
+    format: ``[YYYY-MM-DD HH:MM] Gave <item> to <pc>``. Idempotent only by
+    timestamp — clicking twice in the same minute creates two lines, which
+    is intentional (DM may give two of the same item).
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        pc_id: UUID of the player character receiving the item.
+        item_id: UUID of the magic item being handed out.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        Updated GameSession with the appended notes line.
+
+    Raises:
+        ValueError: If the session, PC, or item is not found, or if the PC
+            does not belong to the same campaign as the session.
+        PermissionError: If the DM does not own the campaign.
+    """
+    game_session = get_session(db, session_id, dm_email)
+    item = ItemRepo.get_by_id(db, item_id)
+    if item is None:
+        raise ValueError(f"Item {item_id} not found.")
+    pc = CharacterRepo.get_by_id(db, pc_id)
+    if pc is None:
+        raise ValueError(f"Player character {pc_id} not found.")
+
+    # Verify the PC belongs to the same campaign as the session.
+    campaign_id = get_campaign_id_for_adventure(db, game_session.adventure_id)
+    if pc.campaign_id != campaign_id:
+        raise ValueError(f"Player character {pc_id} does not belong to this session's campaign.")
+
+    stamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
+    line = f"[{stamp}] Gave {item.name} to {pc.character_name}"
+    current = game_session.actual_notes or ""
+    new_notes = f"{current}\n{line}".strip() if current else line
+    return SessionRepo.update(db, game_session, SessionUpdate(actual_notes=new_notes))
+
+
+def advance_combat_turn(
+    db: DBSession, session_id: uuid.UUID, dm_email: str
+) -> SessionCombatStateRead:
+    """Advance the turn pointer to the next non-defeated combatant.
+
+    Increments ``combat_round`` when the pointer wraps back to the first
+    non-defeated combatant in the initiative order.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        Updated combat state.
+
+    Raises:
+        ValueError: If the session does not exist or has no combatants.
+        PermissionError: If the DM does not own the campaign.
+    """
+    game_session = get_session(db, session_id, dm_email)
+    combatants = SessionCombatantRepo.list_for_session(db, session_id)
+    if not combatants:
+        raise ValueError("No combatants in tracker — roll initiative first.")
+
+    alive = [c for c in combatants if not c.defeated]
+    if not alive:
+        # everyone is down — keep the state as-is; caller decides what to do
+        return load_combat_state(db, session_id, dm_email)
+
+    current_id = game_session.combat_active_combatant_id
+    alive_ids = [c.id for c in alive]
+    if current_id not in alive_ids:
+        next_idx = 0
+    else:
+        cur_pos = alive_ids.index(current_id)
+        next_idx = (cur_pos + 1) % len(alive)
+    next_combatant = alive[next_idx]
+
+    new_round = game_session.combat_round + (1 if next_idx == 0 else 0)
+    game_session.combat_round = new_round
+    game_session.combat_active_combatant_id = next_combatant.id
+    db.add(game_session)
+    db.commit()
+    db.refresh(game_session)
+
+    return load_combat_state(db, session_id, dm_email)

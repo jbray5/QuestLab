@@ -7,9 +7,17 @@ from sqlmodel import Session
 
 import services.adventure_service as adv_svc
 import services.campaign_service as camp_svc
+import services.character_service as char_svc
 import services.session_service as sess_svc
-from domain.enums import AdventureTier, SessionStatus
-from domain.session import SessionUpdate
+from db.repos.item_repo import ItemRepo
+from domain.enums import AdventureTier, CharacterClass, ItemRarity, SessionStatus
+from domain.item import ItemCreate
+from domain.session import (
+    SessionCombatantCreate,
+    SessionCombatantUpdate,
+    SessionCombatStateWrite,
+    SessionUpdate,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -369,3 +377,513 @@ class TestUpdateNotes:
         gs = _make_session(duckdb_session, adv.id, dm1)
         with pytest.raises(PermissionError):
             sess_svc.update_notes(duckdb_session, gs.id, dm2, "Hacked notes")
+
+
+# ---------------------------------------------------------------------------
+# Combat persistence (Plan 00015)
+# ---------------------------------------------------------------------------
+
+
+def _persist_combatant(idx: int, name: str, dex: int = 14, hp: int = 20) -> SessionCombatantCreate:
+    """Build a SessionCombatantCreate payload for persistence tests."""
+    return SessionCombatantCreate(
+        sort_index=idx,
+        name=name,
+        dex_score=dex,
+        initiative_roll=15 - idx,  # deterministic descending order
+        hp_current=hp,
+        hp_max=hp,
+        type="pc",
+    )
+
+
+class TestLoadCombatState:
+    """Tests for session_service.load_combat_state."""
+
+    def test_fresh_session_returns_empty_roster(self, duckdb_session: Session):
+        """A session with no combatants returns an empty roster and round 1."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+
+        state = sess_svc.load_combat_state(duckdb_session, gs.id, dm)
+
+        assert state.session_id == gs.id
+        assert state.round == 1
+        assert state.active_combatant_id is None
+        assert state.combatants == []
+
+    def test_unknown_session_raises(self, duckdb_session: Session):
+        """Loading combat for a non-existent session raises ValueError."""
+        dm = _unique_dm()
+        with pytest.raises(ValueError):
+            sess_svc.load_combat_state(duckdb_session, uuid.uuid4(), dm)
+
+    def test_non_owner_denied(self, duckdb_session: Session):
+        """A DM who does not own the campaign cannot load combat state."""
+        dm1 = _unique_dm()
+        dm2 = _unique_dm()
+        c = _make_campaign(duckdb_session, dm1)
+        adv = _make_adventure(duckdb_session, c.id, dm1)
+        gs = _make_session(duckdb_session, adv.id, dm1)
+        with pytest.raises(PermissionError):
+            sess_svc.load_combat_state(duckdb_session, gs.id, dm2)
+
+
+class TestSaveCombatState:
+    """Tests for session_service.save_combat_state."""
+
+    def test_persists_combatants_in_sort_order(self, duckdb_session: Session):
+        """Saving combatants persists them and returns them in sort_index order."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+
+        payload = SessionCombatStateWrite(
+            round=1,
+            combatants=[
+                _persist_combatant(0, "Aragorn"),
+                _persist_combatant(1, "Goblin"),
+                _persist_combatant(2, "Legolas"),
+            ],
+        )
+        state = sess_svc.save_combat_state(duckdb_session, gs.id, dm, payload)
+
+        assert [c.name for c in state.combatants] == ["Aragorn", "Goblin", "Legolas"]
+        assert state.round == 1
+        # First combatant auto-selected as active when none specified
+        assert state.active_combatant_id == state.combatants[0].id
+
+    def test_replaces_existing_roster_on_reroll(self, duckdb_session: Session):
+        """A second save fully replaces the prior combatant roster."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+
+        sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(combatants=[_persist_combatant(0, "Old")]),
+        )
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                combatants=[
+                    _persist_combatant(0, "New A"),
+                    _persist_combatant(1, "New B"),
+                ]
+            ),
+        )
+
+        assert [c.name for c in state.combatants] == ["New A", "New B"]
+
+    def test_persists_round_and_active(self, duckdb_session: Session):
+        """Round number and explicit active combatant id are persisted."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+
+        first_state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                round=4,
+                combatants=[
+                    _persist_combatant(0, "A"),
+                    _persist_combatant(1, "B"),
+                ],
+            ),
+        )
+        target_id = first_state.combatants[1].id
+
+        # Re-save with explicit active pointing at the second combatant
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                round=4,
+                active_combatant_id=target_id,
+                combatants=[
+                    SessionCombatantCreate(
+                        sort_index=0,
+                        name="A",
+                        dex_score=14,
+                        initiative_roll=15,
+                        hp_current=20,
+                        hp_max=20,
+                        type="pc",
+                    ),
+                    SessionCombatantCreate(
+                        sort_index=1,
+                        name="B",
+                        dex_score=14,
+                        initiative_roll=14,
+                        hp_current=20,
+                        hp_max=20,
+                        type="pc",
+                    ),
+                ],
+            ),
+        )
+
+        assert state.round == 4
+        # Active id from the previous save no longer exists (rows replaced),
+        # so service falls back to the new first combatant.
+        assert state.active_combatant_id == state.combatants[0].id
+
+    def test_non_owner_denied(self, duckdb_session: Session):
+        """A non-owning DM cannot save combat state."""
+        dm1 = _unique_dm()
+        dm2 = _unique_dm()
+        c = _make_campaign(duckdb_session, dm1)
+        adv = _make_adventure(duckdb_session, c.id, dm1)
+        gs = _make_session(duckdb_session, adv.id, dm1)
+        with pytest.raises(PermissionError):
+            sess_svc.save_combat_state(
+                duckdb_session,
+                gs.id,
+                dm2,
+                SessionCombatStateWrite(combatants=[_persist_combatant(0, "X")]),
+            )
+
+
+class TestUpdateCombatant:
+    """Tests for session_service.update_combatant."""
+
+    def test_patches_hp(self, duckdb_session: Session):
+        """A partial update changes only the provided fields."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(combatants=[_persist_combatant(0, "Hero", hp=30)]),
+        )
+        combatant_id = state.combatants[0].id
+
+        updated = sess_svc.update_combatant(
+            duckdb_session,
+            gs.id,
+            combatant_id,
+            dm,
+            SessionCombatantUpdate(hp_current=12),
+        )
+
+        assert updated.hp_current == 12
+        assert updated.hp_max == 30  # untouched
+        assert updated.defeated is False  # untouched
+
+    def test_unknown_combatant_raises(self, duckdb_session: Session):
+        """Patching a combatant that doesn't exist raises ValueError."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        with pytest.raises(ValueError):
+            sess_svc.update_combatant(
+                duckdb_session,
+                gs.id,
+                uuid.uuid4(),
+                dm,
+                SessionCombatantUpdate(hp_current=1),
+            )
+
+    def test_cross_session_combatant_raises(self, duckdb_session: Session):
+        """A combatant from one session cannot be patched via another session id."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs_a = _make_session(duckdb_session, adv.id, dm, session_number=1, title="A")
+        gs_b = _make_session(duckdb_session, adv.id, dm, session_number=2, title="B")
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs_a.id,
+            dm,
+            SessionCombatStateWrite(combatants=[_persist_combatant(0, "X")]),
+        )
+        with pytest.raises(ValueError):
+            sess_svc.update_combatant(
+                duckdb_session,
+                gs_b.id,
+                state.combatants[0].id,
+                dm,
+                SessionCombatantUpdate(hp_current=1),
+            )
+
+
+class TestAdvanceCombatTurn:
+    """Tests for session_service.advance_combat_turn."""
+
+    def test_moves_to_next_combatant(self, duckdb_session: Session):
+        """Advancing moves the active pointer to the next sort_index."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                combatants=[
+                    _persist_combatant(0, "First"),
+                    _persist_combatant(1, "Second"),
+                    _persist_combatant(2, "Third"),
+                ]
+            ),
+        )
+        assert state.active_combatant_id == state.combatants[0].id
+
+        advanced = sess_svc.advance_combat_turn(duckdb_session, gs.id, dm)
+        assert advanced.active_combatant_id == state.combatants[1].id
+        assert advanced.round == 1
+
+    def test_wrap_increments_round(self, duckdb_session: Session):
+        """Wrapping from last combatant back to first bumps the round."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                combatants=[
+                    _persist_combatant(0, "Alpha"),
+                    _persist_combatant(1, "Beta"),
+                ]
+            ),
+        )
+
+        # alpha -> beta -> wrap to alpha (round 2)
+        sess_svc.advance_combat_turn(duckdb_session, gs.id, dm)
+        wrapped = sess_svc.advance_combat_turn(duckdb_session, gs.id, dm)
+
+        assert wrapped.round == 2
+        assert wrapped.active_combatant_id == state.combatants[0].id
+
+    def test_skips_defeated(self, duckdb_session: Session):
+        """Defeated combatants are skipped in the turn order."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                combatants=[
+                    _persist_combatant(0, "Alpha"),
+                    _persist_combatant(1, "Down"),
+                    _persist_combatant(2, "Beta"),
+                ]
+            ),
+        )
+        # Mark middle combatant defeated
+        sess_svc.update_combatant(
+            duckdb_session,
+            gs.id,
+            state.combatants[1].id,
+            dm,
+            SessionCombatantUpdate(defeated=True),
+        )
+
+        advanced = sess_svc.advance_combat_turn(duckdb_session, gs.id, dm)
+        assert advanced.active_combatant_id == state.combatants[2].id
+
+    def test_raises_when_no_combatants(self, duckdb_session: Session):
+        """Advancing on an empty tracker raises ValueError."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        with pytest.raises(ValueError):
+            sess_svc.advance_combat_turn(duckdb_session, gs.id, dm)
+
+
+class TestClearCombatState:
+    """Tests for session_service.clear_combat_state."""
+
+    def test_removes_all_combatants_and_resets_round(self, duckdb_session: Session):
+        """Clearing wipes combatants and resets round to 1 with no active combatant."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                round=3,
+                combatants=[
+                    _persist_combatant(0, "A"),
+                    _persist_combatant(1, "B"),
+                ],
+            ),
+        )
+
+        count = sess_svc.clear_combat_state(duckdb_session, gs.id, dm)
+        state = sess_svc.load_combat_state(duckdb_session, gs.id, dm)
+
+        assert count == 2
+        assert state.combatants == []
+        assert state.round == 1
+        assert state.active_combatant_id is None
+
+    def test_non_owner_denied(self, duckdb_session: Session):
+        """A non-owning DM cannot clear combat state."""
+        dm1 = _unique_dm()
+        dm2 = _unique_dm()
+        c = _make_campaign(duckdb_session, dm1)
+        adv = _make_adventure(duckdb_session, c.id, dm1)
+        gs = _make_session(duckdb_session, adv.id, dm1)
+        with pytest.raises(PermissionError):
+            sess_svc.clear_combat_state(duckdb_session, gs.id, dm2)
+
+
+# ---------------------------------------------------------------------------
+# Item handouts (Plan 00016)
+# ---------------------------------------------------------------------------
+
+
+def _make_pc(db: Session, campaign_id: uuid.UUID, dm_email: str, name: str = "Hero"):
+    """Create a minimal PC in a campaign for handout tests."""
+    return char_svc.create_character(
+        db,
+        campaign_id=campaign_id,
+        dm_email=dm_email,
+        player_name="Player",
+        character_name=name,
+        race="Human",
+        character_class=CharacterClass.FIGHTER,
+        level=1,
+        score_str=14,
+        score_dex=14,
+        score_con=14,
+        score_int=10,
+        score_wis=10,
+        score_cha=10,
+        hp_max=12,
+        hp_current=12,
+        ac=16,
+        speed=30,
+    )
+
+
+def _make_item(db: Session, name: str = "Potion of Healing"):
+    """Create a magic item directly via repo for handout tests."""
+    return ItemRepo.create(
+        db,
+        ItemCreate(
+            name=name,
+            rarity=ItemRarity.COMMON,
+            item_type="Potion",
+            description="Restores 2d4+2 HP.",
+            attunement_required=False,
+            value_gp=50,
+            is_magic=True,
+        ),
+    )
+
+
+class TestRecordItemHandout:
+    """Tests for session_service.record_item_handout."""
+
+    def test_appends_line_to_notes(self, duckdb_session: Session):
+        """A successful handout appends a timestamped line to actual_notes."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        pc = _make_pc(duckdb_session, c.id, dm)
+        item = _make_item(duckdb_session)
+
+        updated = sess_svc.record_item_handout(duckdb_session, gs.id, pc.id, item.id, dm)
+
+        assert updated.actual_notes is not None
+        assert "Gave Potion of Healing to Hero" in updated.actual_notes
+
+    def test_appends_below_existing_notes(self, duckdb_session: Session):
+        """Existing notes are preserved; handout is appended on a new line."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        sess_svc.update_notes(duckdb_session, gs.id, dm, "Session opened in the tavern.")
+        pc = _make_pc(duckdb_session, c.id, dm)
+        item = _make_item(duckdb_session)
+
+        updated = sess_svc.record_item_handout(duckdb_session, gs.id, pc.id, item.id, dm)
+
+        assert updated.actual_notes is not None
+        assert "Session opened in the tavern." in updated.actual_notes
+        assert "Gave Potion of Healing to Hero" in updated.actual_notes
+        # Original line comes before the appended one.
+        assert updated.actual_notes.index("Session opened") < updated.actual_notes.index(
+            "Gave Potion"
+        )
+
+    def test_unknown_item_raises(self, duckdb_session: Session):
+        """Handing out a non-existent item raises ValueError."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        pc = _make_pc(duckdb_session, c.id, dm)
+        with pytest.raises(ValueError):
+            sess_svc.record_item_handout(duckdb_session, gs.id, pc.id, uuid.uuid4(), dm)
+
+    def test_unknown_pc_raises(self, duckdb_session: Session):
+        """Handing an item to a non-existent PC raises ValueError."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        item = _make_item(duckdb_session)
+        with pytest.raises(ValueError):
+            sess_svc.record_item_handout(duckdb_session, gs.id, uuid.uuid4(), item.id, dm)
+
+    def test_pc_from_other_campaign_raises(self, duckdb_session: Session):
+        """A PC that belongs to a different campaign cannot receive items."""
+        dm = _unique_dm()
+        c1 = _make_campaign(duckdb_session, dm)
+        c2 = camp_svc.create_campaign(
+            duckdb_session,
+            name="Other Campaign",
+            setting="Eberron",
+            tone="Gritty",
+            dm_email=dm,
+        )
+        adv = _make_adventure(duckdb_session, c1.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        foreign_pc = _make_pc(duckdb_session, c2.id, dm, name="Stranger")
+        item = _make_item(duckdb_session)
+        with pytest.raises(ValueError):
+            sess_svc.record_item_handout(duckdb_session, gs.id, foreign_pc.id, item.id, dm)
+
+    def test_non_owner_denied(self, duckdb_session: Session):
+        """A DM who does not own the campaign cannot record handouts."""
+        dm1 = _unique_dm()
+        dm2 = _unique_dm()
+        c = _make_campaign(duckdb_session, dm1)
+        adv = _make_adventure(duckdb_session, c.id, dm1)
+        gs = _make_session(duckdb_session, adv.id, dm1)
+        pc = _make_pc(duckdb_session, c.id, dm1)
+        item = _make_item(duckdb_session)
+        with pytest.raises(PermissionError):
+            sess_svc.record_item_handout(duckdb_session, gs.id, pc.id, item.id, dm2)

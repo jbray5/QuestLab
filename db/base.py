@@ -130,6 +130,11 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS portrait_url VARCHAR(500)",
         # 0005 — campaign description
         "ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS description TEXT",
+        # 0006 — session combat state columns on sessions
+        # (session_combatants table itself is created by create_all on first boot
+        # since it's a new table, not a column on an existing one.)
+        "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS combat_round INTEGER DEFAULT 1",
+        "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS combat_active_combatant_id VARCHAR",
     ]
     with engine.begin() as conn:
         for stmt in patches:

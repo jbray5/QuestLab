@@ -1,28 +1,58 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { adventuresApi } from "../api/adventures";
 import { sessionsApi } from "../api/sessions";
+import LootPanel from "../components/LootPanel";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
 import type { Combatant, SessionRunbook } from "../api/types";
 
 // ── Initiative Tracker ────────────────────────────────────────────────────────
 
 function InitiativeTracker({ sessionId }: { sessionId: string }) {
-  const { combatants, round, setCombatants, nextTurn, toggleDefeated, setHp, reset } =
-    useInitiativeStore();
+  const {
+    combatants,
+    round,
+    activeCombatantId,
+    loading,
+    error,
+    hydrate,
+    replaceFromRoll,
+    patchCombatant,
+    toggleDefeated,
+    nextTurn,
+    reset,
+  } = useInitiativeStore();
 
   const [newName, setNewName] = useState("");
   const [newDex, setNewDex] = useState(10);
   const [newHp, setNewHp] = useState(10);
   const [newType, setNewType] = useState<"pc" | "monster" | "npc">("monster");
 
+  // Hydrate from backend on mount / session change — survives browser refresh.
+  useEffect(() => {
+    if (sessionId) void hydrate(sessionId);
+  }, [sessionId, hydrate]);
+
   const roll = useMutation({
     mutationFn: (cs: Combatant[]) => sessionsApi.rollInitiative(sessionId, cs),
-    onSuccess: (data) => setCombatants(data),
+    onSuccess: (data) => replaceFromRoll(sessionId, data),
   });
 
   function addCombatant() {
     if (!newName.trim()) return;
+    // Project current persisted combatants back to the raw shape the roller wants,
+    // then append the new one. The server re-sorts and the store re-persists,
+    // so linkbacks (monster_id, character_id) must survive the round-trip.
+    const existing: Combatant[] = combatants.map((c) => ({
+      name: c.name,
+      dex_score: c.dex_score,
+      hp: c.hp_current,
+      max_hp: c.hp_max,
+      type: (c.type as "pc" | "monster" | "npc") ?? "monster",
+      monster_id: c.monster_id,
+      character_id: c.character_id,
+    }));
     const next: Combatant = {
       name: newName.trim(),
       dex_score: newDex,
@@ -33,7 +63,7 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
     setNewName("");
     setNewDex(10);
     setNewHp(10);
-    roll.mutate([...combatants.filter((c) => !c.roll), next]);
+    roll.mutate([...existing, next]);
   }
 
   return (
@@ -43,10 +73,23 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
         style={{ justifyContent: "space-between", marginBottom: "1rem" }}
       >
         <h3 style={{ margin: 0 }}>⚔ Initiative — Round {round}</h3>
-        <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }} onClick={reset}>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: "0.75rem" }}
+          onClick={() => void reset()}
+        >
           Reset
         </button>
       </div>
+
+      {error && (
+        <p
+          className="text-sm"
+          style={{ color: "var(--red)", marginBottom: "0.75rem" }}
+        >
+          {error}
+        </p>
+      )}
 
       <div className="flex gap-2" style={{ marginBottom: "1rem", flexWrap: "wrap" }}>
         <input
@@ -84,63 +127,72 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
         </button>
       </div>
 
-      {combatants.length === 0 && (
+      {loading && (
+        <p className="text-muted text-sm">Loading combat state…</p>
+      )}
+
+      {!loading && combatants.length === 0 && (
         <p className="text-muted text-sm">Add combatants above, then roll initiative.</p>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-        {combatants.map((c, i) => (
-          <div
-            key={`${c.name}-${i}`}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.5rem 0.75rem",
-              borderRadius: 6,
-              background: c.active ? "rgba(139,26,26,0.3)" : "var(--surface2)",
-              border: c.active ? "1px solid var(--crimson2)" : "1px solid var(--border)",
-              opacity: c.defeated ? 0.4 : 1,
-            }}
-          >
-            <span
-              className="text-mono"
-              style={{ minWidth: 30, color: "var(--gold)", fontWeight: 700 }}
+        {combatants.map((c) => {
+          const isActive = c.id === activeCombatantId;
+          return (
+            <div
+              key={c.id}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                padding: "0.5rem 0.75rem",
+                borderRadius: 6,
+                background: isActive ? "rgba(139,26,26,0.3)" : "var(--surface2)",
+                border: isActive ? "1px solid var(--crimson2)" : "1px solid var(--border)",
+                opacity: c.defeated ? 0.4 : 1,
+              }}
             >
-              {c.initiative ?? "—"}
-            </span>
-            <span style={{ flex: 1, textDecoration: c.defeated ? "line-through" : "none" }}>
-              {c.name}
-            </span>
-            <span
-              className={`badge badge-${
-                c.type === "pc" ? "ready" : c.type === "monster" ? "artifact" : "draft"
-              }`}
-            >
-              {c.type}
-            </span>
-            <input
-              type="number"
-              value={c.hp}
-              onChange={(e) => setHp(c.name, Number(e.target.value))}
-              style={{ width: 55, textAlign: "center", padding: "0.2rem 0.3rem" }}
-            />
-            <button
-              className="btn btn-ghost"
-              style={{ fontSize: "0.65rem", padding: "0.2rem 0.4rem" }}
-              onClick={() => toggleDefeated(c.name)}
-            >
-              {c.defeated ? "Revive" : "✕"}
-            </button>
-          </div>
-        ))}
+              <span
+                className="text-mono"
+                style={{ minWidth: 30, color: "var(--gold)", fontWeight: 700 }}
+              >
+                {c.initiative_roll}
+              </span>
+              <span style={{ flex: 1, textDecoration: c.defeated ? "line-through" : "none" }}>
+                {c.name}
+              </span>
+              <span
+                className={`badge badge-${
+                  c.type === "pc" ? "ready" : c.type === "monster" ? "artifact" : "draft"
+                }`}
+              >
+                {c.type}
+              </span>
+              <input
+                type="number"
+                value={c.hp_current}
+                onChange={(e) =>
+                  void patchCombatant(c.id, { hp_current: Math.max(0, Number(e.target.value)) })
+                }
+                style={{ width: 55, textAlign: "center", padding: "0.2rem 0.3rem" }}
+              />
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: "0.65rem", padding: "0.2rem 0.4rem" }}
+                onClick={() => void toggleDefeated(c.id)}
+              >
+                {c.defeated ? "Revive" : "✕"}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       {combatants.length > 0 && (
         <button
           className="btn btn-primary"
           style={{ marginTop: "0.75rem", width: "100%" }}
-          onClick={nextTurn}
+          onClick={() => void nextTurn()}
         >
           Next Turn →
         </button>
@@ -326,10 +378,21 @@ export default function SessionRunner() {
     enabled: !!sessionId,
   });
 
-  // Initialise DM notes from saved value
+  // Adventure is loaded so the LootPanel can scope PCs to this campaign.
+  const { data: adventure } = useQuery({
+    queryKey: ["adventure", session?.adventure_id],
+    queryFn: () => adventuresApi.get(session!.adventure_id),
+    enabled: !!session?.adventure_id,
+  });
+
+  // Initialise DM notes from saved value when the server-side notes change
+  // (e.g. after a handout appends a line). Don't clobber unsaved local edits.
+  const [notesDirty, setNotesDirty] = useState(false);
   useEffect(() => {
-    if (session?.actual_notes) setDmNotes(session.actual_notes);
-  }, [session?.actual_notes]);
+    if (!notesDirty && session?.actual_notes !== undefined) {
+      setDmNotes(session.actual_notes ?? "");
+    }
+  }, [session?.actual_notes, notesDirty]);
 
   const generateRunbook = useMutation({
     mutationFn: () => sessionsApi.generateRunbook(sessionId!, extraNotes),
@@ -337,8 +400,22 @@ export default function SessionRunner() {
   });
 
   const saveNotes = useMutation({
-    mutationFn: () => sessionsApi.updateNotes(sessionId!, dmNotes),
+    mutationFn: (value: string) => sessionsApi.updateNotes(sessionId!, value),
+    onSuccess: () => {
+      setNotesDirty(false);
+    },
   });
+
+  // Debounced autosave — fires 1.2s after the last keystroke. The manual
+  // "Save Notes" button remains as a flush-now affordance.
+  useEffect(() => {
+    if (!sessionId || !notesDirty) return;
+    const handle = window.setTimeout(() => {
+      saveNotes.mutate(dmNotes);
+    }, 1200);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dmNotes, notesDirty, sessionId]);
 
   if (sessionLoading || runbookLoading) {
     return (
@@ -480,7 +557,10 @@ export default function SessionRunner() {
             <h3>📝 DM Notes</h3>
             <textarea
               value={dmNotes}
-              onChange={(e) => setDmNotes(e.target.value)}
+              onChange={(e) => {
+                setDmNotes(e.target.value);
+                setNotesDirty(true);
+              }}
               rows={6}
               placeholder="Live session notes…"
               style={{ resize: "vertical", marginBottom: "0.5rem" }}
@@ -488,21 +568,29 @@ export default function SessionRunner() {
             <div className="flex items-center gap-2">
               <button
                 className="btn btn-secondary"
-                onClick={() => saveNotes.mutate()}
-                disabled={saveNotes.isPending}
+                onClick={() => saveNotes.mutate(dmNotes)}
+                disabled={saveNotes.isPending || !notesDirty}
+                title="Notes also save automatically a moment after you stop typing"
               >
-                {saveNotes.isPending ? "Saving…" : "Save Notes"}
+                {saveNotes.isPending ? "Saving…" : notesDirty ? "Save now" : "Saved"}
               </button>
-              {saveNotes.isSuccess && (
-                <span style={{ color: "var(--green2)", fontSize: "0.85rem" }}>✓ Saved</span>
+              {!notesDirty && saveNotes.isSuccess && (
+                <span style={{ color: "var(--green2)", fontSize: "0.85rem" }}>✓ Autosaved</span>
               )}
             </div>
           </div>
         </div>
 
-        {/* ── Right: initiative ── */}
+        {/* ── Right: initiative + loot ── */}
         <div>
           <InitiativeTracker sessionId={sessionId!} />
+          {adventure && (
+            <LootPanel
+              sessionId={sessionId!}
+              attendingPcIds={session.attending_pc_ids ?? []}
+              campaignId={adventure.campaign_id}
+            />
+          )}
         </div>
       </div>
     </div>

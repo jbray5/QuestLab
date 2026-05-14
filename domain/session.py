@@ -27,6 +27,9 @@ class Session(SQLModel, table=True):
     actual_notes: Optional[str] = None
     # JSON column
     attending_pc_ids: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # Combat round state (companions to session_combatants rows)
+    combat_round: int = Field(default=1, ge=1)
+    combat_active_combatant_id: Optional[uuid.UUID] = Field(default=None)
 
 
 class SessionCreate(BaseModel):
@@ -127,3 +130,107 @@ class SessionRunbookRead(BaseModel):
     generated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ---------------------------------------------------------------------------
+# SessionCombatant — persistent live-combat state
+# ---------------------------------------------------------------------------
+
+
+class SessionCombatant(SQLModel, table=True):
+    """One row per combatant in a live session's initiative tracker.
+
+    Persisted so the React tracker survives a browser refresh. One Session
+    has many SessionCombatants; round / active-combatant state lives on the
+    parent Session row (combat_round, combat_active_combatant_id).
+    """
+
+    __tablename__ = "session_combatants"
+    __table_args__ = {"extend_existing": True}
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    session_id: uuid.UUID = Field(foreign_key="sessions.id", index=True)
+    sort_index: int = Field(ge=0)
+    name: str = Field(min_length=1, max_length=100)
+    dex_score: int = Field(ge=1, le=30)
+    initiative_roll: int = Field(ge=-10, le=50)
+    hp_current: int = Field(ge=0)
+    hp_max: int = Field(ge=1)
+    # "pc" | "monster" | "npc" — kept as a string to avoid a tight enum coupling
+    type: str = Field(min_length=1, max_length=20)
+    defeated: bool = Field(default=False)
+    # Linkbacks for stat-block lookups and PC-side updates. Optional because
+    # ad-hoc combatants (NPCs improvised mid-session) won't have either.
+    monster_id: Optional[uuid.UUID] = Field(default=None)
+    character_id: Optional[uuid.UUID] = Field(default=None)
+    # JSON list of active 5e condition strings, e.g. ["blinded", "prone"]
+    conditions: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
+
+
+class SessionCombatantCreate(BaseModel):
+    """Input schema for creating a combatant row."""
+
+    sort_index: int = Field(ge=0)
+    name: str = Field(min_length=1, max_length=100)
+    dex_score: int = Field(ge=1, le=30)
+    initiative_roll: int = Field(ge=-10, le=50)
+    hp_current: int = Field(ge=0)
+    hp_max: int = Field(ge=1)
+    type: str = Field(min_length=1, max_length=20)
+    defeated: bool = False
+    monster_id: Optional[uuid.UUID] = None
+    character_id: Optional[uuid.UUID] = None
+    conditions: list[str] = Field(default_factory=list)
+
+
+class SessionCombatantRead(BaseModel):
+    """Output schema for a combatant row."""
+
+    id: uuid.UUID
+    session_id: uuid.UUID
+    sort_index: int
+    name: str
+    dex_score: int
+    initiative_roll: int
+    hp_current: int
+    hp_max: int
+    type: str
+    defeated: bool
+    monster_id: Optional[uuid.UUID] = None
+    character_id: Optional[uuid.UUID] = None
+    conditions: list[str] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+
+
+class SessionCombatantUpdate(BaseModel):
+    """Partial update for a single combatant row."""
+
+    sort_index: Optional[int] = Field(default=None, ge=0)
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    hp_current: Optional[int] = Field(default=None, ge=0)
+    hp_max: Optional[int] = Field(default=None, ge=1)
+    defeated: Optional[bool] = None
+    initiative_roll: Optional[int] = Field(default=None, ge=-10, le=50)
+    conditions: Optional[list[str]] = None
+
+
+class SessionCombatStateRead(BaseModel):
+    """Aggregate read of the full combat state for a session."""
+
+    session_id: uuid.UUID
+    round: int = Field(ge=1)
+    active_combatant_id: Optional[uuid.UUID] = None
+    combatants: list[SessionCombatantRead] = Field(default_factory=list)
+
+
+class SessionCombatStateWrite(BaseModel):
+    """Full-snapshot write payload for combat state.
+
+    Used by ``PUT /sessions/{id}/combat`` to replace the entire combatant
+    roster + round state in one call (e.g. after rolling initiative).
+    """
+
+    round: int = Field(default=1, ge=1)
+    active_combatant_id: Optional[uuid.UUID] = None
+    combatants: list[SessionCombatantCreate] = Field(default_factory=list)

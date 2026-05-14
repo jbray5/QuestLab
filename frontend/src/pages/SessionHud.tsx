@@ -13,14 +13,25 @@
  * HP changes are persisted via PATCH /characters/:id.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { sessionsApi } from "../api/sessions";
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
 import { encountersApi } from "../api/encounters";
-import type { PlayerCharacter, RunbookScene, Encounter, RosterEntry } from "../api/types";
+import { monstersApi } from "../api/monsters";
+import LootPanel from "../components/LootPanel";
+import MonsterStatBlock from "../components/MonsterStatBlock";
+import { useInitiativeStore } from "../stores/useInitiativeStore";
+import type {
+  Combatant,
+  PlayerCharacter,
+  RunbookScene,
+  Encounter,
+  RosterEntry,
+  SessionCombatant,
+} from "../api/types";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -195,11 +206,17 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
 interface ConditionTagsProps {
   active: Set<Condition>;
   onToggle: (c: Condition) => void;
+  /** Lowercase condition names the target is immune to (from monster stat block). */
+  immunities?: Set<string>;
 }
 
-function ConditionTags({ active, onToggle }: ConditionTagsProps) {
+function ConditionTags({ active, onToggle, immunities }: ConditionTagsProps) {
   const [open, setOpen] = useState(false);
   const [tooltip, setTooltip] = useState<Condition | null>(null);
+
+  function isImmune(c: Condition): boolean {
+    return !!immunities && immunities.has(c.toLowerCase());
+  }
 
   return (
     <div style={{ position: "relative" }}>
@@ -251,21 +268,28 @@ function ConditionTags({ active, onToggle }: ConditionTagsProps) {
           flexWrap: "wrap", gap: "0.25rem", maxWidth: 300,
           boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
         }}>
-          {CONDITIONS.map((c) => (
-            <button
-              key={c}
-              onClick={() => { onToggle(c); setOpen(false); }}
-              style={{
-                background: active.has(c) ? CONDITION_COLOR[c] : "var(--surface2)",
-                color: active.has(c) ? "#fff" : "var(--text)",
-                border: `1px solid ${CONDITION_COLOR[c]}`,
-                borderRadius: 4, padding: "0.15rem 0.45rem",
-                fontSize: "0.7rem", cursor: "pointer",
-              }}
-            >
-              {c}
-            </button>
-          ))}
+          {CONDITIONS.map((c) => {
+            const immune = isImmune(c);
+            return (
+              <button
+                key={c}
+                onClick={() => { onToggle(c); setOpen(false); }}
+                title={immune ? `Target is immune to ${c}. Click to apply anyway.` : CONDITION_RULES[c]}
+                style={{
+                  background: active.has(c) ? CONDITION_COLOR[c] : "var(--surface2)",
+                  color: active.has(c) ? "#fff" : immune ? "var(--muted)" : "var(--text)",
+                  border: `1px solid ${immune ? "var(--border)" : CONDITION_COLOR[c]}`,
+                  borderRadius: 4, padding: "0.15rem 0.45rem",
+                  fontSize: "0.7rem", cursor: "pointer",
+                  opacity: immune && !active.has(c) ? 0.45 : 1,
+                  textDecoration: immune && !active.has(c) ? "line-through" : "none",
+                }}
+              >
+                {c}
+                {immune && !active.has(c) ? " 🛡" : ""}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -327,6 +351,7 @@ interface HudCombatant {
   ac: number;
   conditions: Set<Condition>;
   defeated: boolean;
+  monsterId: string | null;
 }
 
 // ── Main HUD ──────────────────────────────────────────────────────────────────
@@ -416,11 +441,21 @@ export default function SessionHud() {
   const scenes: RunbookScene[] = runbook?.scenes ?? [];
   const currentScene = scenes[sceneIdx] ?? null;
 
-  // ── Combat tracker ─────────────────────────────────────────────────────────
-  const [combatants, setCombatants] = useState<HudCombatant[]>([]);
-  const [combatActive, setCombatActive] = useState(false);
-  const [currentTurn, setCurrentTurn] = useState(0);
-  const [round, setRound] = useState(1);
+  // ── Combat tracker (Plan 00015 — persists across browser refresh) ─────────
+  // The Zustand store is the source of truth for combatants, round, and the
+  // active turn. AC is NOT yet persisted (no column on session_combatants),
+  // so for monsters we keep a local override map and for PCs we pull from
+  // the character record.
+  const persistedCombatants = useInitiativeStore((s) => s.combatants);
+  const storeRound = useInitiativeStore((s) => s.round);
+  const storeActiveId = useInitiativeStore((s) => s.activeCombatantId);
+  const hydrateStore = useInitiativeStore((s) => s.hydrate);
+  const replaceFromRoll = useInitiativeStore((s) => s.replaceFromRoll);
+  const patchPersistedCombatant = useInitiativeStore((s) => s.patchCombatant);
+  const advanceTurn = useInitiativeStore((s) => s.nextTurn);
+  const resetCombat = useInitiativeStore((s) => s.reset);
+
+  const [acOverrides, setAcOverrides] = useState<Record<string, number>>({});
   const [newCName, setNewCName] = useState("");
   const [newCType, setNewCType] = useState<"pc" | "monster" | "npc">("monster");
   const [loadEncounterId, setLoadEncounterId] = useState("");
@@ -429,123 +464,267 @@ export default function SessionHud() {
   const [newCAc, setNewCAc] = useState(10);
   const [newCInit, setNewCInit] = useState(0);
 
-  // Pre-populate combat with party on first open
+  // Hydrate persisted combat state on session change.
   useEffect(() => {
-    if (party.length > 0 && combatants.length === 0) {
-      setCombatants(
-        party.map((pc) => ({
-          id: pc.id,
-          name: pc.character_name,
-          type: "pc",
-          initiative: 0,
-          hp: pc.hp_current,
-          maxHp: pc.hp_max,
-          ac: pc.ac,
-          conditions: new Set<Condition>(),
-          defeated: false,
-        })),
-      );
+    if (sessionId) void hydrateStore(sessionId);
+  }, [sessionId, hydrateStore]);
+
+  // Map party PCs by id for AC + canonical name/hp lookups.
+  const partyById = useMemo(() => {
+    const m: Record<string, PlayerCharacter> = {};
+    for (const pc of party) m[pc.id] = pc;
+    return m;
+  }, [party]);
+
+  function acFor(c: SessionCombatant): number {
+    if (acOverrides[c.id] !== undefined) return acOverrides[c.id];
+    if (c.character_id && partyById[c.character_id]) return partyById[c.character_id].ac;
+    return 10;
+  }
+
+  // Derive the HUD's view shape from the persisted store. AC is best-effort
+  // (PC ac, AC override, or default 10). Conditions are persisted as string[]
+  // but rendered as Set<Condition>.
+  const combatants: HudCombatant[] = useMemo(() => {
+    return persistedCombatants.map((c) => {
+      const validConditions = new Set<Condition>();
+      for (const raw of c.conditions ?? []) {
+        if ((CONDITIONS as readonly string[]).includes(raw)) {
+          validConditions.add(raw as Condition);
+        }
+      }
+      return {
+        id: c.id,
+        name: c.name,
+        type: (c.type === "pc" || c.type === "npc" ? c.type : "monster") as "pc" | "monster" | "npc",
+        initiative: c.initiative_roll,
+        hp: c.hp_current,
+        maxHp: c.hp_max,
+        ac: acFor(c),
+        conditions: validConditions,
+        defeated: c.defeated,
+        monsterId: c.monster_id,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistedCombatants, acOverrides, partyById]);
+
+  const combatActive = combatants.length > 0;
+  const currentTurn = Math.max(
+    0,
+    persistedCombatants.findIndex((c) => c.id === storeActiveId),
+  );
+  const round = storeRound;
+
+  // Project a persisted SessionCombatant back to the loose Combatant shape
+  // expected by the initiative roller and replaceFromRoll. Carries linkbacks
+  // so the server-side row keeps its monster_id / character_id on re-roll.
+  function projectExisting(): Combatant[] {
+    return persistedCombatants.map((c) => ({
+      name: c.name,
+      dex_score: c.dex_score,
+      hp: c.hp_current,
+      max_hp: c.hp_max,
+      type: (c.type as "pc" | "monster" | "npc") ?? "monster",
+      initiative: c.initiative_roll,
+      defeated: c.defeated,
+      monster_id: c.monster_id,
+      character_id: c.character_id,
+    }));
+  }
+
+  // Pre-populate combat with party on first open IF nothing persisted yet.
+  useEffect(() => {
+    if (
+      sessionId
+      && party.length > 0
+      && persistedCombatants.length === 0
+      && !useInitiativeStore.getState().loading
+    ) {
+      const seeded: Combatant[] = party.map((pc) => ({
+        name: pc.character_name,
+        dex_score: pc.score_dex,
+        hp: pc.hp_current,
+        max_hp: pc.hp_max,
+        type: "pc",
+        initiative: 0,
+        defeated: false,
+        character_id: pc.id,
+      }));
+      void replaceFromRoll(sessionId, seeded);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [party.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, party.length, persistedCombatants.length]);
 
   function addCombatant() {
-    if (!newCName.trim()) return;
-    setCombatants((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        name: newCName.trim(),
-        type: newCType,
-        initiative: newCInit,
-        hp: newCHp,
-        maxHp: newCHpMax,
-        ac: newCAc,
-        conditions: new Set<Condition>(),
-        defeated: false,
-      },
-    ]);
-    setNewCName(""); setNewCHp(10); setNewCHpMax(10); setNewCAc(10); setNewCInit(0);
+    if (!newCName.trim() || !sessionId) return;
+    const existing = projectExisting();
+    const added: Combatant = {
+      name: newCName.trim(),
+      dex_score: 10,
+      hp: newCHp,
+      max_hp: newCHpMax,
+      type: newCType,
+      initiative: newCInit,
+      defeated: false,
+    };
+    void (async () => {
+      await replaceFromRoll(sessionId, [...existing, added]);
+      // After persistence completes, attribute AC override by name match
+      // (the newly created combatant has a server-assigned id we look up).
+      setTimeout(() => {
+        const fresh = useInitiativeStore
+          .getState()
+          .combatants.find((c) => c.name === added.name && !acOverrides[c.id]);
+        if (fresh) setAcOverrides((p) => ({ ...p, [fresh.id]: newCAc }));
+      }, 0);
+    })();
+    setNewCName("");
+    setNewCHp(10);
+    setNewCHpMax(10);
+    setNewCAc(10);
+    setNewCInit(0);
   }
 
   function loadEncounter() {
+    if (!sessionId) return;
     const enc = adventureEncounters.find((e) => e.id === loadEncounterId);
     if (!enc) return;
     const roster: RosterEntry[] = (enc.monster_roster ?? []) as unknown as RosterEntry[];
-    const newCombatants: HudCombatant[] = [];
+    const additions: { combatant: Combatant; ac: number }[] = [];
     for (const entry of roster) {
       const count = entry.count ?? 1;
       for (let i = 0; i < count; i++) {
         const label = count === 1 ? entry.name : `${entry.name} ${i + 1}`;
-        newCombatants.push({
-          id: crypto.randomUUID(),
-          name: label,
-          type: "monster",
-          initiative: 0,
-          hp: entry.hp ?? 10,
-          maxHp: entry.hp ?? 10,
+        additions.push({
+          combatant: {
+            name: label,
+            dex_score: 10,
+            hp: entry.hp ?? 10,
+            max_hp: entry.hp ?? 10,
+            type: "monster",
+            initiative: 0,
+            defeated: false,
+            monster_id: entry.monster_id ?? null,
+          },
           ac: entry.ac ?? 10,
-          conditions: new Set<Condition>(),
-          defeated: false,
         });
       }
     }
-    if (newCombatants.length === 0) return;
-    setCombatants((prev) => [...prev, ...newCombatants]);
+    if (additions.length === 0) return;
+    const existing = projectExisting();
+    void (async () => {
+      await replaceFromRoll(sessionId, [...existing, ...additions.map((a) => a.combatant)]);
+      // Attribute AC overrides by name match on the new rows.
+      setTimeout(() => {
+        const fresh = useInitiativeStore.getState().combatants;
+        const updates: Record<string, number> = {};
+        for (const a of additions) {
+          const match = fresh.find(
+            (c) => c.name === a.combatant.name && acOverrides[c.id] === undefined,
+          );
+          if (match) updates[match.id] = a.ac;
+        }
+        if (Object.keys(updates).length > 0) {
+          setAcOverrides((p) => ({ ...p, ...updates }));
+        }
+      }, 0);
+    })();
     setLoadEncounterId("");
   }
 
   function rollAllInitiative() {
-    setCombatants((prev) =>
-      [...prev]
-        .map((c) => ({ ...c, initiative: Math.floor(Math.random() * 20) + 1 + abilityMod(10) }))
-        .sort((a, b) => b.initiative - a.initiative),
-    );
-    setCombatActive(true);
-    setCurrentTurn(0);
-    setRound(1);
+    if (!sessionId || persistedCombatants.length === 0) return;
+    const rolled: Combatant[] = projectExisting()
+      .map((c) => ({ ...c, initiative: Math.floor(Math.random() * 20) + 1 + abilityMod(c.dex_score) }))
+      .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0));
+    void replaceFromRoll(sessionId, rolled);
   }
 
   function nextTurn() {
-    const alive = combatants.filter((c) => !c.defeated);
-    if (alive.length === 0) return;
-    const nextIdx = (currentTurn + 1) % combatants.length;
-    // Skip defeated
-    let i = nextIdx;
-    while (combatants[i]?.defeated && i !== currentTurn) {
-      i = (i + 1) % combatants.length;
-    }
-    if (i < currentTurn || (i === 0 && currentTurn === combatants.length - 1)) {
-      setRound((r) => r + 1);
-    }
-    setCurrentTurn(i);
+    void advanceTurn();
   }
 
   function updateCombatantHp(id: string, newHp: number) {
-    setCombatants((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, hp: Math.min(c.maxHp, Math.max(0, newHp)) } : c,
-      ),
-    );
-    // If this is a PC, also persist
-    const pc = party.find((p) => p.id === id);
-    if (pc) saveHp(id, Math.min(pc.hp_max, Math.max(0, newHp)));
+    const target = persistedCombatants.find((c) => c.id === id);
+    if (!target) return;
+    const clamped = Math.min(target.hp_max, Math.max(0, newHp));
+    void patchPersistedCombatant(id, { hp_current: clamped });
+    // If this is a PC, also persist to the canonical character record.
+    if (target.character_id) saveHp(target.character_id, clamped);
+    else {
+      const pc = party.find((p) => p.id === id);
+      if (pc) saveHp(id, clamped);
+    }
   }
 
   function toggleCombatantCondition(id: string, cond: Condition) {
-    setCombatants((prev) =>
-      prev.map((c) => {
-        if (c.id !== id) return c;
-        const s = new Set(c.conditions);
-        s.has(cond) ? s.delete(cond) : s.add(cond);
-        return { ...c, conditions: s };
-      }),
-    );
+    const target = persistedCombatants.find((c) => c.id === id);
+    if (!target) return;
+    const currentList = target.conditions ?? [];
+    const has = currentList.includes(cond);
+    const next = has ? currentList.filter((c) => c !== cond) : [...currentList, cond];
+    void patchPersistedCombatant(id, { conditions: next });
   }
 
   function removeCombatant(id: string) {
-    setCombatants((prev) => prev.filter((c) => c.id !== id));
+    if (!sessionId) return;
+    const remaining = projectExisting().filter((_, idx) => persistedCombatants[idx].id !== id);
+    void replaceFromRoll(sessionId, remaining);
+    setAcOverrides((p) => {
+      const { [id]: _drop, ...rest } = p;
+      return rest;
+    });
   }
+
+  function resetCombatTracker() {
+    void resetCombat();
+    setAcOverrides({});
+  }
+
+  // ── Loot modal ─────────────────────────────────────────────────────────────
+  const [lootOpen, setLootOpen] = useState(false);
+
+  // ── Monster stat-block modal ───────────────────────────────────────────────
+  const [statBlockMonsterId, setStatBlockMonsterId] = useState<string | null>(null);
+  const { data: statBlockMonster } = useQuery({
+    queryKey: ["monster", statBlockMonsterId],
+    queryFn: () => monstersApi.get(statBlockMonsterId!),
+    enabled: !!statBlockMonsterId,
+  });
+
+  // ── Condition immunities (Plan 00015 enhancement) ──────────────────────────
+  // Batch-fetch monster stat blocks for any combatants that have a monster_id,
+  // then expose a map of lowercase condition-immunity sets keyed by monster id.
+  // Stat blocks are immutable per-id, so cache for the session.
+  const distinctMonsterIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of persistedCombatants) {
+      if (c.monster_id) set.add(c.monster_id);
+    }
+    return Array.from(set);
+  }, [persistedCombatants]);
+
+  const monsterQueries = useQueries({
+    queries: distinctMonsterIds.map((mid) => ({
+      queryKey: ["monster", mid],
+      queryFn: () => monstersApi.get(mid),
+      staleTime: Infinity,
+    })),
+  });
+
+  const immunitiesByMonsterId = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+    monsterQueries.forEach((q, i) => {
+      const m = q.data;
+      if (m) {
+        map[distinctMonsterIds[i]] = new Set(
+          (m.condition_immunities ?? []).map((c) => c.toLowerCase()),
+        );
+      }
+    });
+    return map;
+  }, [monsterQueries, distinctMonsterIds]);
 
   // ── Dice roller ────────────────────────────────────────────────────────────
   const [diceLog, setDiceLog] = useState<{ die: number; result: number }[]>([]);
@@ -624,7 +803,16 @@ export default function SessionHud() {
             </span>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2" style={{ alignItems: "center" }}>
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+            onClick={() => setLootOpen(true)}
+            title="Hand out a magic item to a PC"
+            disabled={!adventure}
+          >
+            💰 Loot
+          </button>
           <Link
             to={`/sessions/${sessionId}/run`}
             style={{ fontSize: "0.75rem", color: "var(--muted)" }}
@@ -1110,9 +1298,24 @@ export default function SessionHud() {
                         <ConditionTags
                           active={c.conditions}
                           onToggle={(cond) => toggleCombatantCondition(c.id, cond)}
+                          immunities={
+                            c.monsterId ? immunitiesByMonsterId[c.monsterId] : undefined
+                          }
                         />
                       </div>
                     </div>
+
+                    {/* Stat block (monsters only) */}
+                    {c.monsterId && (
+                      <button
+                        className="btn btn-ghost"
+                        style={{ fontSize: "0.7rem", padding: "0.1rem 0.3rem", marginRight: "0.2rem" }}
+                        onClick={() => setStatBlockMonsterId(c.monsterId)}
+                        title="View stat block"
+                      >
+                        📖
+                      </button>
+                    )}
 
                     {/* Remove */}
                     <button
@@ -1223,6 +1426,68 @@ export default function SessionHud() {
           ))}
         </div>
       </div>
+
+      {/* Monster stat block modal (Plan 00015 — wire stat blocks into HUD) */}
+      {statBlockMonster && (
+        <MonsterStatBlock
+          monster={statBlockMonster}
+          onClose={() => setStatBlockMonsterId(null)}
+        />
+      )}
+
+      {/* Loot modal (Plan 00016 — hand out items mid-session) */}
+      {lootOpen && sessionId && adventure && (
+        <div
+          onClick={() => setLootOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.7)",
+            zIndex: 200,
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            padding: "4rem 1rem 1rem",
+            overflowY: "auto",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 640,
+              width: "100%",
+              background: "var(--surface)",
+              borderRadius: 8,
+              border: "1px solid var(--border)",
+              padding: "1rem",
+              position: "relative",
+            }}
+          >
+            <button
+              onClick={() => setLootOpen(false)}
+              style={{
+                position: "absolute",
+                top: "0.5rem",
+                right: "0.6rem",
+                background: "transparent",
+                border: "none",
+                color: "var(--muted)",
+                fontSize: "1.2rem",
+                cursor: "pointer",
+              }}
+              title="Close"
+            >
+              ✕
+            </button>
+            <LootPanel
+              sessionId={sessionId}
+              attendingPcIds={session?.attending_pc_ids ?? []}
+              campaignId={adventure.campaign_id}
+              defaultOpen
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

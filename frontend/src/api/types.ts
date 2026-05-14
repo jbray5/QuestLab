@@ -270,9 +270,67 @@ export interface Combatant {
   hp: number;
   max_hp: number;
   type: "pc" | "monster" | "npc";
+  // optional linkbacks for stat-block lookups + PC HP sync
+  monster_id?: string | null;
+  character_id?: string | null;
   // added by server
   roll?: number;
   initiative?: number;
   active?: boolean;
   defeated?: boolean;
+}
+
+// ── Persistent combat state (Plan 00015) ─────────────────────────────────────
+
+export interface SessionCombatant {
+  id: string;
+  session_id: string;
+  sort_index: number;
+  name: string;
+  dex_score: number;
+  initiative_roll: number;
+  hp_current: number;
+  hp_max: number;
+  type: "pc" | "monster" | "npc" | string;
+  defeated: boolean;
+  monster_id: string | null;
+  character_id: string | null;
+  conditions: string[];
+}
+
+export interface SessionCombatantCreate {
+  sort_index: number;
+  name: string;
+  dex_score: number;
+  initiative_roll: number;
+  hp_current: number;
+  hp_max: number;
+  type: "pc" | "monster" | "npc" | string;
+  defeated?: boolean;
+  monster_id?: string | null;
+  character_id?: string | null;
+  conditions?: string[];
+}
+
+export interface SessionCombatantUpdate {
+  sort_index?: number;
+  name?: string;
+  hp_current?: number;
+  hp_max?: number;
+  defeated?: boolean;
+  initiative_roll?: number;
+  conditions?: string[];
+}
+
+export interface SessionCombatStateRead {
+  session_id: string;
+  round: number;
+  active_combatant_id: string | null;
+  combatants: SessionCombatant[];
+}
+
+export interface SessionCombatStateWrite {
+  round?: number;
+  active_combatant_id?: string | null;
+  combatants: SessionCombatantCreate[];
 }

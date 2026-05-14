@@ -7,6 +7,9 @@ from sqlmodel import Session, select
 
 from domain.session import Session as GameSession
 from domain.session import (
+    SessionCombatant,
+    SessionCombatantCreate,
+    SessionCombatantUpdate,
     SessionCreate,
     SessionRunbook,
     SessionRunbookCreate,
@@ -154,3 +157,116 @@ class SessionRunbookRepo:
         session.delete(runbook)
         session.commit()
         return True
+
+
+class SessionCombatantRepo:
+    """CRUD operations for SessionCombatant rows (live initiative tracker state)."""
+
+    @staticmethod
+    def list_for_session(session: Session, session_id: uuid.UUID) -> list[SessionCombatant]:
+        """Return all combatants for a session ordered by sort_index ascending.
+
+        Args:
+            session: Active database session.
+            session_id: UUID of the parent game session.
+
+        Returns:
+            Combatants in initiative order (0 = first).
+        """
+        stmt = (
+            select(SessionCombatant)
+            .where(SessionCombatant.session_id == session_id)
+            .order_by(SessionCombatant.sort_index.asc())
+        )
+        return list(session.exec(stmt).all())
+
+    @staticmethod
+    def get_by_id(session: Session, combatant_id: uuid.UUID) -> Optional[SessionCombatant]:
+        """Fetch a single combatant by primary key.
+
+        Args:
+            session: Active database session.
+            combatant_id: UUID of the combatant row.
+
+        Returns:
+            SessionCombatant if found, else None.
+        """
+        stmt = select(SessionCombatant).where(SessionCombatant.id == combatant_id).limit(1)
+        return session.exec(stmt).first()
+
+    @staticmethod
+    def replace_all(
+        session: Session,
+        session_id: uuid.UUID,
+        combatants: list[SessionCombatantCreate],
+    ) -> list[SessionCombatant]:
+        """Replace the entire combatant roster for a session in one transaction.
+
+        Used when rolling fresh initiative — old rows are deleted, new ones
+        created with the provided sort_indexes.
+
+        Args:
+            session: Active database session.
+            session_id: UUID of the parent game session.
+            combatants: New combatant payloads.
+
+        Returns:
+            Newly-created SessionCombatant rows ordered by sort_index.
+        """
+        existing = SessionCombatantRepo.list_for_session(session, session_id)
+        for row in existing:
+            session.delete(row)
+        session.flush()
+
+        created: list[SessionCombatant] = []
+        for payload in combatants:
+            row = SessionCombatant.model_validate(
+                {**payload.model_dump(), "session_id": session_id}
+            )
+            session.add(row)
+            created.append(row)
+        session.commit()
+        for row in created:
+            session.refresh(row)
+        return sorted(created, key=lambda r: r.sort_index)
+
+    @staticmethod
+    def update_one(
+        session: Session,
+        combatant: SessionCombatant,
+        data: SessionCombatantUpdate,
+    ) -> SessionCombatant:
+        """Apply a partial update to a single combatant row.
+
+        Args:
+            session: Active database session.
+            combatant: Existing SessionCombatant ORM object.
+            data: Partial update payload.
+
+        Returns:
+            The updated SessionCombatant.
+        """
+        patch = data.model_dump(exclude_unset=True)
+        for field, value in patch.items():
+            setattr(combatant, field, value)
+        session.add(combatant)
+        session.commit()
+        session.refresh(combatant)
+        return combatant
+
+    @staticmethod
+    def clear_for_session(session: Session, session_id: uuid.UUID) -> int:
+        """Delete all combatants for a session. Returns count deleted.
+
+        Args:
+            session: Active database session.
+            session_id: UUID of the parent game session.
+
+        Returns:
+            Number of rows deleted.
+        """
+        rows = SessionCombatantRepo.list_for_session(session, session_id)
+        for row in rows:
+            session.delete(row)
+        session.commit()
+        return len(rows)

@@ -1,5 +1,14 @@
 import { api } from "./client";
-import type { Combatant, GameSession, SessionCreate, SessionRunbook } from "./types";
+import type {
+  Combatant,
+  GameSession,
+  SessionCombatant,
+  SessionCombatantUpdate,
+  SessionCombatStateRead,
+  SessionCombatStateWrite,
+  SessionCreate,
+  SessionRunbook,
+} from "./types";
 
 export const sessionsApi = {
   list: (adventureId: string) =>
@@ -19,4 +28,27 @@ export const sessionsApi = {
     api.get<SessionRunbook | null>(`/sessions/${id}/runbook`),
   generateRunbook: (id: string, notes?: string) =>
     api.post<SessionRunbook>(`/sessions/${id}/runbook`, { notes: notes ?? "" }),
+  // ── Persistent combat state (Plan 00015) ────────────────────────────────
+  getCombatState: (id: string) =>
+    api.get<SessionCombatStateRead>(`/sessions/${id}/combat`),
+  saveCombatState: (id: string, payload: SessionCombatStateWrite) =>
+    api.put<SessionCombatStateRead>(`/sessions/${id}/combat`, payload),
+  clearCombatState: (id: string) => api.delete(`/sessions/${id}/combat`),
+  patchCombatant: (
+    id: string,
+    combatantId: string,
+    payload: SessionCombatantUpdate,
+  ) =>
+    api.patch<SessionCombatant>(
+      `/sessions/${id}/combat/${combatantId}`,
+      payload,
+    ),
+  advanceCombatTurn: (id: string) =>
+    api.post<SessionCombatStateRead>(`/sessions/${id}/combat/advance`),
+  // ── Item handouts (Plan 00016) ──────────────────────────────────────────
+  recordHandout: (id: string, pcId: string, itemId: string) =>
+    api.post<GameSession>(`/sessions/${id}/handouts`, {
+      pc_id: pcId,
+      item_id: itemId,
+    }),
 };
