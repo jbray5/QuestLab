@@ -54,6 +54,50 @@ interface InitiativeState {
   reset: () => Promise<void>;
 }
 
+// ─── Per-combatant debounced sync ───────────────────────────────────────────
+// Rapid HP clicks (e.g. − three times in a quarter second) used to fire three
+// sequential PATCHes; responses arriving in order overwrote the optimistic
+// state with stale-looking data, producing visible rubber-banding.
+//
+// New behavior: every patch immediately mutates local state, and a single
+// PATCH is scheduled 220 ms after the last call per-combatant. The PATCH
+// sends the LATEST local state, not the original diff. Server response does
+// NOT overwrite local state on success — only errors are surfaced.
+
+const SYNC_DELAY_MS = 220;
+const pendingSyncTimers: Record<string, number> = {};
+
+function scheduleSync(
+  combatantId: string,
+  get: () => InitiativeState,
+  set: (partial: Partial<InitiativeState>) => void,
+): void {
+  if (pendingSyncTimers[combatantId] !== undefined) {
+    window.clearTimeout(pendingSyncTimers[combatantId]);
+  }
+  pendingSyncTimers[combatantId] = window.setTimeout(async () => {
+    delete pendingSyncTimers[combatantId];
+    const state = get();
+    if (!state.sessionId) return;
+    const current = state.combatants.find((c) => c.id === combatantId);
+    if (!current) return;
+    // Send the latest authoritative local snapshot.
+    const payload: SessionCombatantUpdate = {
+      hp_current: current.hp_current,
+      hp_max: current.hp_max,
+      defeated: current.defeated,
+      conditions: current.conditions ?? [],
+    };
+    try {
+      await sessionsApi.patchCombatant(state.sessionId, combatantId, payload);
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : "Failed to sync combatant",
+      });
+    }
+  }, SYNC_DELAY_MS);
+}
+
 function toCreatePayload(c: Combatant, sortIndex: number): SessionCombatantCreate {
   const type: "pc" | "monster" | "npc" =
     c.type === "pc" || c.type === "monster" || c.type === "npc" ? c.type : "monster";
@@ -123,7 +167,7 @@ export const useInitiativeStore = create<InitiativeState>((set, get) => ({
   },
 
   patchCombatant: async (combatantId, patch) => {
-    const { sessionId, combatants } = get();
+    const { sessionId } = get();
     if (!sessionId) return;
 
     // Auto-defeat at 0 HP. Only auto-flip TO defeated; revive must be explicit
@@ -133,30 +177,20 @@ export const useInitiativeStore = create<InitiativeState>((set, get) => ({
       if (effectivePatch.defeated === undefined) effectivePatch.defeated = true;
     }
 
-    // Optimistic update — apply locally, then persist. On error revert.
-    const previous = combatants;
-    const optimistic = combatants.map((c) =>
-      c.id === combatantId ? { ...c, ...effectivePatch } : c,
-    );
-    set({ combatants: optimistic, saving: true, error: null });
+    // Optimistic update — apply locally IMMEDIATELY. The local state is the
+    // source of truth for what the DM sees; the server is a durable mirror.
+    set((s) => ({
+      combatants: s.combatants.map((c) =>
+        c.id === combatantId ? { ...c, ...effectivePatch } : c,
+      ),
+      error: null,
+    }));
 
-    try {
-      const updated = await sessionsApi.patchCombatant(
-        sessionId,
-        combatantId,
-        effectivePatch,
-      );
-      set((s) => ({
-        combatants: s.combatants.map((c) => (c.id === combatantId ? updated : c)),
-        saving: false,
-      }));
-    } catch (err) {
-      set({
-        combatants: previous,
-        saving: false,
-        error: err instanceof Error ? err.message : "Failed to update combatant",
-      });
-    }
+    // Debounce server sync per-combatant so rapid clicks (e.g. −, −, −) collapse
+    // into a single PATCH with the latest values. Without this, sequential
+    // responses arriving out-of-order overwrite the optimistic UI state and
+    // produce a "rubber-band" snap-back effect.
+    scheduleSync(combatantId, get, set);
   },
 
   toggleDefeated: async (combatantId) => {
@@ -175,8 +209,10 @@ export const useInitiativeStore = create<InitiativeState>((set, get) => ({
     set({ saving: true, error: null });
     try {
       const state = await sessionsApi.advanceCombatTurn(sessionId);
+      // Don't overwrite local combatants — advance_combat_turn only mutates
+      // round + active_combatant_id server-side, and clobbering combatants
+      // would lose any HP/condition changes still in the debounced sync queue.
       set({
-        combatants: state.combatants,
         round: state.round,
         activeCombatantId: state.active_combatant_id,
         saving: false,
