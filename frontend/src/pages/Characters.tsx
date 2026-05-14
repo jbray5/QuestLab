@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { charactersApi } from "../api/characters";
 import type { PlayerCharacter } from "../api/types";
+import FeaturePanel from "../components/FeaturePanel";
 import ImageUpload from "../components/ImageUpload";
 import InventoryPanel from "../components/InventoryPanel";
 import SpellPanel from "../components/SpellPanel";
@@ -357,6 +358,13 @@ export default function Characters() {
             <SpellPanel
               characterId={c.id}
               characterClass={c.character_class}
+              characterName={c.character_name}
+            />
+
+            <FeaturePanel
+              characterId={c.id}
+              characterClass={c.character_class}
+              characterLevel={c.level}
               characterName={c.character_name}
             />
 

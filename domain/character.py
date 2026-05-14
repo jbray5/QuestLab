@@ -324,3 +324,120 @@ class SpellSlotStateRead(BaseModel):
 
     character_id: uuid.UUID
     levels: dict[str, SpellSlotLevelState] = Field(default_factory=dict)
+
+
+# ---------------------------------------------------------------------------
+# Plan 00021 — Class features + per-PC usage tracking
+# ---------------------------------------------------------------------------
+
+
+from domain.enums import RecoveryType, UsesFormula  # noqa: E402
+
+
+class ClassFeature(SQLModel, table=True):
+    """One row per published 2024 SRD/PHB class feature with a use-counter.
+
+    Passive features (Sneak Attack damage, Fighting Style, ASI) are not
+    catalogued here — only features with limited daily/short-rest uses
+    that the DM needs to track at the table.
+    """
+
+    __tablename__ = "class_features"
+    __table_args__ = {"extend_existing": True}
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    name: str = Field(min_length=1, max_length=80)
+    character_class: CharacterClass = Field(index=True)
+    subclass: Optional[str] = Field(default=None, max_length=80)
+    level_acquired: int = Field(ge=1, le=20)
+    recovery: RecoveryType
+    uses_formula: UsesFormula
+    description: str
+    source: str = Field(default="SRD 5.5e / 2024 PHB", max_length=60)
+
+
+class ClassFeatureCreate(BaseModel):
+    """Input schema for cataloguing a class feature."""
+
+    name: str = Field(min_length=1, max_length=80)
+    character_class: CharacterClass
+    subclass: Optional[str] = None
+    level_acquired: int = Field(ge=1, le=20)
+    recovery: RecoveryType
+    uses_formula: UsesFormula
+    description: str
+    source: str = "SRD 5.5e / 2024 PHB"
+
+
+class ClassFeatureRead(BaseModel):
+    """Output schema for a class feature."""
+
+    id: uuid.UUID
+    name: str
+    character_class: CharacterClass
+    subclass: Optional[str] = None
+    level_acquired: int
+    recovery: RecoveryType
+    uses_formula: UsesFormula
+    description: str
+    source: str
+
+    model_config = {"from_attributes": True}
+
+
+class CharacterFeature(SQLModel, table=True):
+    """A PC's instance of a class feature, with current usage."""
+
+    __tablename__ = "character_features"
+    __table_args__ = {"extend_existing": True}
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    character_id: uuid.UUID = Field(foreign_key="player_characters.id", index=True)
+    feature_id: uuid.UUID = Field(foreign_key="class_features.id", index=True)
+    uses_spent: int = Field(default=0, ge=0)
+    notes: Optional[str] = Field(default=None, max_length=300)
+
+
+class CharacterFeatureCreate(BaseModel):
+    """Input schema for adding a feature to a PC."""
+
+    feature_id: uuid.UUID
+    uses_spent: int = Field(default=0, ge=0)
+    notes: Optional[str] = None
+
+
+class CharacterFeatureRead(BaseModel):
+    """Output schema for a PC feature row, with computed max uses + name.
+
+    ``max_uses`` and ``feature_name`` are populated by the service layer at
+    read time so the frontend has a single payload to render.
+    """
+
+    id: uuid.UUID
+    character_id: uuid.UUID
+    feature_id: uuid.UUID
+    feature_name: str = ""
+    uses_spent: int
+    max_uses: int = 0
+    recovery: RecoveryType = RecoveryType.NONE
+    notes: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
+class CharacterFeatureUpdate(BaseModel):
+    """Partial update for a PC feature row."""
+
+    uses_spent: Optional[int] = Field(default=None, ge=0)
+    notes: Optional[str] = Field(default=None, max_length=300)
+
+
+class RestSummary(BaseModel):
+    """Service output for a rest operation (per PC)."""
+
+    character_id: uuid.UUID
+    character_name: str
+    rest_type: str  # "short" | "long"
+    features_restored: list[str] = Field(default_factory=list)
+    slot_levels_restored: list[str] = Field(default_factory=list)
+    hp_restored: int = 0

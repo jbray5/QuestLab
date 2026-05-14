@@ -23,10 +23,12 @@ from api.routers import (
     campaigns,
     characters,
     encounters,
+    features,
     inventory,
     items,
     maps,
     monsters,
+    rest,
     sessions,
     spellcasting,
     spells,
@@ -59,9 +61,11 @@ async def lifespan(app: FastAPI):
     from sqlmodel import Session
 
     from db.base import create_db_and_tables, get_engine, patch_duckdb_schema
+    from integrations.dnd_rules.class_features_2024 import CLASS_FEATURES_2024
     from integrations.dnd_rules.srd_spells_2024 import SRD_SPELLS_2024
     from integrations.dnd_rules.srd_weapons_2024 import SRD_WEAPONS_2024
     from integrations.dnd_rules.stat_blocks import seed_monsters
+    from services.feature_service import seed_catalog as seed_class_features
     from services.item_service import seed_magic_items, seed_weapons
     from services.spell_service import seed_spells
 
@@ -73,6 +77,7 @@ async def lifespan(app: FastAPI):
         seed_magic_items(db)
         seed_weapons(db, SRD_WEAPONS_2024)
         seed_spells(db, SRD_SPELLS_2024)
+        seed_class_features(db, CLASS_FEATURES_2024)
     yield
 
 
@@ -106,6 +111,8 @@ app.include_router(items.router, prefix=_PREFIX)
 app.include_router(spells.router, prefix=_PREFIX)
 app.include_router(inventory.router, prefix=_PREFIX)
 app.include_router(spellcasting.router, prefix=_PREFIX)
+app.include_router(features.router, prefix=_PREFIX)
+app.include_router(rest.router, prefix=_PREFIX)
 app.include_router(uploads.router, prefix=_PREFIX)
 app.include_router(admin.router, prefix=_PREFIX)
 

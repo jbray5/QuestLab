@@ -453,3 +453,45 @@ export interface SpellSlotStateRead {
   character_id: string;
   levels: Record<string, SpellSlotLevelState>;
 }
+
+// ── Class features + rest (Plan 00021) ──────────────────────────────────────
+
+export type RecoveryType = "short" | "long" | "none" | "per_turn";
+
+export interface ClassFeature {
+  id: string;
+  name: string;
+  character_class: string;
+  subclass: string | null;
+  level_acquired: number;
+  recovery: RecoveryType;
+  uses_formula: string;
+  description: string;
+  source: string;
+}
+
+export interface CharacterFeature {
+  id: string;
+  character_id: string;
+  feature_id: string;
+  feature_name: string;
+  uses_spent: number;
+  max_uses: number;
+  recovery: RecoveryType;
+  notes: string | null;
+}
+
+export interface CharacterFeatureCreate {
+  feature_id: string;
+  uses_spent?: number;
+  notes?: string;
+}
+
+export interface RestSummary {
+  character_id: string;
+  character_name: string;
+  rest_type: "short" | "long";
+  features_restored: string[];
+  slot_levels_restored: string[];
+  hp_restored: number;
+}

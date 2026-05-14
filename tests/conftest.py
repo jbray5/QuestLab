@@ -9,10 +9,16 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
+from db.base import _json_serializer
+
 
 @pytest.fixture(scope="session")
 def duckdb_engine():
     """Create an in-memory DuckDB engine with all tables for the test session.
+
+    Wires in the same UUID-aware JSON serializer as production so JSON columns
+    containing UUIDs (e.g. ``sessions.attending_pc_ids``) round-trip correctly
+    in tests.
 
     Returns:
         SQLAlchemy Engine backed by an in-memory DuckDB database.
@@ -20,6 +26,7 @@ def duckdb_engine():
     engine = create_engine(
         "duckdb:///:memory:",
         poolclass=StaticPool,
+        json_serializer=_json_serializer,
     )
     SQLModel.metadata.create_all(engine)
     return engine

@@ -171,3 +171,30 @@ class SessionStatus(str, Enum):
     READY = "Ready"
     IN_PROGRESS = "InProgress"
     COMPLETE = "Complete"
+
+
+class RecoveryType(str, Enum):
+    """When a class feature's uses recover (Plan 00021)."""
+
+    SHORT = "short"
+    LONG = "long"
+    NONE = "none"
+    PER_TURN = "per_turn"
+
+
+class UsesFormula(str, Enum):
+    """Max-uses formula for a class feature. Resolved against a PC by feature_service."""
+
+    NONE = "none"
+    FIXED_1 = "fixed_1"
+    FIXED_2 = "fixed_2"
+    FIXED_3 = "fixed_3"
+    FIXED_4 = "fixed_4"
+    PROF_BONUS = "prof_bonus"
+    WIS_MOD = "wis_mod"
+    CHA_MOD = "cha_mod"
+    INT_MOD = "int_mod"
+    CON_MOD = "con_mod"
+    LEVEL = "level"
+    LEVEL_DIV_3 = "level_div_3"
+    LEVEL_DIV_2 = "level_div_2"

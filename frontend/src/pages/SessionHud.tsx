@@ -15,12 +15,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { sessionsApi } from "../api/sessions";
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
 import { encountersApi } from "../api/encounters";
 import { monstersApi } from "../api/monsters";
+import { restApi } from "../api/rest";
 import LootPanel from "../components/LootPanel";
 import MonsterStatBlock from "../components/MonsterStatBlock";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
@@ -685,6 +686,52 @@ export default function SessionHud() {
   // ── Loot modal ─────────────────────────────────────────────────────────────
   const [lootOpen, setLootOpen] = useState(false);
 
+  // ── Party rest (Plan 00021) ────────────────────────────────────────────────
+  const [restToast, setRestToast] = useState<string | null>(null);
+  const qc = useQueryClient();
+
+  const shortRestParty = useMutation({
+    mutationFn: () => restApi.shortRestParty(sessionId!),
+    onSuccess: (summaries) => {
+      const total = summaries.length;
+      const totalFeatures = summaries.reduce(
+        (sum, s) => sum + s.features_restored.length,
+        0,
+      );
+      setRestToast(
+        `⛺ Short rest applied to ${total} PC${total === 1 ? "" : "s"} · ` +
+          `${totalFeatures} feature use(s) restored`,
+      );
+      // Refresh any open feature/spell/character data on the rest of the app.
+      qc.invalidateQueries({ queryKey: ["features"] });
+      qc.invalidateQueries({ queryKey: ["spell-slots"] });
+      qc.invalidateQueries({ queryKey: ["characters"] });
+      setTimeout(() => setRestToast(null), 5000);
+    },
+    onError: (e: Error) => setRestToast(`Short rest failed: ${e.message}`),
+  });
+
+  const longRestParty = useMutation({
+    mutationFn: () => restApi.longRestParty(sessionId!),
+    onSuccess: (summaries) => {
+      const total = summaries.length;
+      const totalHp = summaries.reduce((sum, s) => sum + s.hp_restored, 0);
+      const totalFeatures = summaries.reduce(
+        (sum, s) => sum + s.features_restored.length,
+        0,
+      );
+      setRestToast(
+        `🌙 Long rest applied to ${total} PC${total === 1 ? "" : "s"} · ` +
+          `${totalFeatures} feature(s), all slots, +${totalHp} HP total`,
+      );
+      qc.invalidateQueries({ queryKey: ["features"] });
+      qc.invalidateQueries({ queryKey: ["spell-slots"] });
+      qc.invalidateQueries({ queryKey: ["characters"] });
+      setTimeout(() => setRestToast(null), 5000);
+    },
+    onError: (e: Error) => setRestToast(`Long rest failed: ${e.message}`),
+  });
+
   // ── Monster stat-block modal ───────────────────────────────────────────────
   const [statBlockMonsterId, setStatBlockMonsterId] = useState<string | null>(null);
   const { data: statBlockMonster } = useQuery({
@@ -807,6 +854,40 @@ export default function SessionHud() {
           <button
             className="btn btn-secondary"
             style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+            onClick={() => {
+              if (
+                window.confirm(
+                  "⛺ Short rest the whole party? This restores short-rest features (Action Surge, Channel Divinity, etc.) and Warlock pact slots for every attending PC.",
+                )
+              ) {
+                shortRestParty.mutate();
+              }
+            }}
+            disabled={shortRestParty.isPending}
+            title="Apply a short rest to every attending PC"
+          >
+            ⛺ Short rest
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+            onClick={() => {
+              if (
+                window.confirm(
+                  "🌙 Long rest the whole party? This restores all class features, all spell slots, and HP to max for every attending PC.",
+                )
+              ) {
+                longRestParty.mutate();
+              }
+            }}
+            disabled={longRestParty.isPending}
+            title="Apply a long rest to every attending PC"
+          >
+            🌙 Long rest
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
             onClick={() => setLootOpen(true)}
             title="Hand out a magic item to a PC"
             disabled={!adventure}
@@ -828,6 +909,28 @@ export default function SessionHud() {
           </button>
         </div>
       </div>
+
+      {/* Rest toast (auto-dismisses after 5s) */}
+      {restToast && (
+        <div
+          style={{
+            position: "fixed",
+            top: "4rem",
+            right: "1rem",
+            background: "var(--surface)",
+            border: "1px solid var(--gold)",
+            color: "var(--text)",
+            padding: "0.6rem 0.9rem",
+            borderRadius: 6,
+            zIndex: 250,
+            maxWidth: 380,
+            fontSize: "0.85rem",
+            boxShadow: "0 4px 18px rgba(0,0,0,0.5)",
+          }}
+        >
+          {restToast}
+        </div>
+      )}
 
       {/* ── Three-panel body ────────────────────────────────────────────── */}
       <div style={{
