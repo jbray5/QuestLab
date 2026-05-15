@@ -89,7 +89,7 @@ function DenominationCell({
 
   const save = useMutation({
     mutationFn: (n: number) =>
-      charactersApi.update(pc.id, { [denom]: n } as never),
+      charactersApi.update(pc.id, { [denom]: n }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["character", pc.id] });
       qc.invalidateQueries({ queryKey: ["characters"] });

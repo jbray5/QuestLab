@@ -2,6 +2,7 @@ import { api } from "./client";
 import type {
   PlayerCharacter,
   PlayerCharacterCreate,
+  PlayerCharacterUpdate,
   SpellcastingStats,
 } from "./types";
 
@@ -11,7 +12,7 @@ export const charactersApi = {
   create: (campaignId: string, data: PlayerCharacterCreate) =>
     api.post<PlayerCharacter>(`/campaigns/${campaignId}/characters`, data),
   get: (id: string) => api.get<PlayerCharacter>(`/characters/${id}`),
-  update: (id: string, data: Partial<PlayerCharacterCreate>) =>
+  update: (id: string, data: PlayerCharacterUpdate) =>
     api.patch<PlayerCharacter>(`/characters/${id}`, data),
   delete: (id: string) => api.delete(`/characters/${id}`),
   updateImage: (id: string, portrait_url: string) =>

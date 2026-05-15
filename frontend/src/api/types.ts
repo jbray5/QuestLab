@@ -88,6 +88,12 @@ export interface SpellcastingStats {
   attack_bonus: number | null;
 }
 
+// PATCH /characters/{id} body — mirrors backend PlayerCharacterUpdate.
+// All fields optional. Includes combat-state + resource fields from Plans 23/24.
+export type PlayerCharacterUpdate = Partial<
+  Omit<PlayerCharacter, "id" | "campaign_id" | "created_at" | "updated_at">
+>;
+
 export interface PlayerCharacterCreate {
   character_name: string;
   player_name: string;

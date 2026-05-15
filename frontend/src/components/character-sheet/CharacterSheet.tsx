@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { charactersApi } from "../../api/characters";
-import type { PlayerCharacter } from "../../api/types";
+import type { PlayerCharacter, PlayerCharacterUpdate } from "../../api/types";
 import FeaturePanel from "../FeaturePanel";
 import InventoryPanel from "../InventoryPanel";
 import SpellPanel from "../SpellPanel";
@@ -83,8 +83,8 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
   };
 
   const patchPc = useMutation({
-    mutationFn: (data: Partial<PlayerCharacter>) =>
-      charactersApi.update(characterId, data as never),
+    mutationFn: (data: PlayerCharacterUpdate) =>
+      charactersApi.update(characterId, data),
     onSuccess: invalidatePc,
   });
 
@@ -266,7 +266,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
               onClick={() =>
                 patchPc.mutate({
                   heroic_inspiration: !pc.heroic_inspiration,
-                } as Partial<PlayerCharacter>)
+                })
               }
               title={
                 pc.heroic_inspiration
@@ -407,7 +407,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                     onClick={() =>
                       patchPc.mutate({
                         concentration_on: null,
-                      } as Partial<PlayerCharacter>)
+                      })
                     }
                     className="btn btn-ghost"
                     style={{ fontSize: "0.72rem", padding: "0.2rem 0.5rem" }}
@@ -421,7 +421,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
           {!pc.concentration_on && !readOnly && (
             <ConcentrationStarter
               onStart={(label) =>
-                patchPc.mutate({ concentration_on: label } as Partial<PlayerCharacter>)
+                patchPc.mutate({ concentration_on: label })
               }
             />
           )}

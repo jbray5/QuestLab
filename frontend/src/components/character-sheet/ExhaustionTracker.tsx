@@ -21,7 +21,7 @@ export default function ExhaustionTracker({ pc, readOnly = false }: Props) {
 
   const set = useMutation({
     mutationFn: (newLevel: number) =>
-      charactersApi.update(pc.id, { exhaustion: newLevel } as never),
+      charactersApi.update(pc.id, { exhaustion: newLevel }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["character", pc.id] });
       qc.invalidateQueries({ queryKey: ["characters"] });
