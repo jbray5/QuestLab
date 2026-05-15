@@ -145,6 +145,21 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE items ADD COLUMN IF NOT EXISTS mastery VARCHAR(20)",
         # 0011 — persistent slot-consumption tracker (Plan 00020)
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS spell_slots_used JSON",
+        # 0013 — combat state (Plan 00023)
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS temp_hp INTEGER DEFAULT 0",
+        (
+            "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS "
+            "heroic_inspiration BOOLEAN DEFAULT FALSE"
+        ),
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS concentration_on VARCHAR(120)",
+        (
+            "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS "
+            "death_save_successes INTEGER DEFAULT 0"
+        ),
+        (
+            "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS "
+            "death_save_failures INTEGER DEFAULT 0"
+        ),
     ]
     with engine.begin() as conn:
         for stmt in patches:

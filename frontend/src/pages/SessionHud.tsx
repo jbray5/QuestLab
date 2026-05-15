@@ -1075,6 +1075,9 @@ export default function SessionHud() {
                   </div>
                 </div>
 
+                {/* Plan 23 — combat-state status icons */}
+                <PcStatusIcons pc={pc} />
+
                 {/* HP bar */}
                 <HpEditor
                   hp={pc.hp_current}
@@ -1710,5 +1713,93 @@ export default function SessionHud() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Plan 23 — compact at-a-glance icons for each PC in the party panel.
+ *
+ * Shows only the icons that are *active* (temp HP > 0, inspiration on,
+ * concentrating, dying). Nothing renders when the PC has no statuses,
+ * so the row stays tight for the common case.
+ */
+function PcStatusIcons({ pc }: { pc: PlayerCharacter }) {
+  const tempHp = pc.temp_hp ?? 0;
+  const insp = pc.heroic_inspiration ?? false;
+  const conc = pc.concentration_on ?? null;
+  const dying = pc.hp_current === 0;
+  const hasAny = tempHp > 0 || insp || !!conc || dying;
+  if (!hasAny) return null;
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: "0.35rem",
+        marginTop: "0.3rem",
+        flexWrap: "wrap",
+        alignItems: "center",
+      }}
+    >
+      {tempHp > 0 && (
+        <StatusBadge
+          color="var(--green2, #4caf50)"
+          title={`Temp HP +${tempHp}`}
+        >
+          🛡 +{tempHp}
+        </StatusBadge>
+      )}
+      {insp && (
+        <StatusBadge color="var(--gold)" title="Heroic Inspiration available">
+          ✨ Insp
+        </StatusBadge>
+      )}
+      {conc && (
+        <StatusBadge
+          color="var(--green2, #4caf50)"
+          title={`Concentrating on: ${conc}`}
+        >
+          🌀 {conc}
+        </StatusBadge>
+      )}
+      {dying && (
+        <StatusBadge
+          color="var(--red, #ef5350)"
+          title={`Death saves: ${pc.death_save_successes ?? 0}✓ / ${pc.death_save_failures ?? 0}✗`}
+        >
+          💀 {pc.death_save_successes ?? 0}✓/{pc.death_save_failures ?? 0}✗
+        </StatusBadge>
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({
+  color,
+  title,
+  children,
+}: {
+  color: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <span
+      title={title}
+      style={{
+        fontSize: "0.65rem",
+        fontWeight: 600,
+        padding: "0.12rem 0.4rem",
+        borderRadius: 10,
+        background: "var(--surface2)",
+        border: `1px solid ${color}`,
+        color,
+        whiteSpace: "nowrap",
+        maxWidth: 160,
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+      }}
+    >
+      {children}
+    </span>
   );
 }

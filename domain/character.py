@@ -62,6 +62,14 @@ class PlayerCharacter(SQLModel, table=True):
     # as a string (Postgres JSON keys are strings): {"1": 2, "2": 1, ...}.
     # remaining = compute_spell_slots(class, level)[level] - spell_slots_used[level]
     spell_slots_used: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # Plan 00023 — combat state
+    temp_hp: int = Field(default=0, ge=0)
+    heroic_inspiration: bool = Field(default=False)
+    # Free-text label of the spell/effect the PC is concentrating on.
+    concentration_on: Optional[str] = Field(default=None, max_length=120)
+    # Death save pips — 0..3 each; auto-zeroed when hp_current > 0.
+    death_save_successes: int = Field(default=0, ge=0, le=3)
+    death_save_failures: int = Field(default=0, ge=0, le=3)
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -139,6 +147,12 @@ class PlayerCharacterRead(BaseModel):
     spells_known: Optional[list[dict[str, Any]]] = None
     spell_slots: Optional[dict[str, Any]] = None
     spell_slots_used: Optional[dict[str, int]] = None
+    # Combat state (Plan 00023)
+    temp_hp: int = 0
+    heroic_inspiration: bool = False
+    concentration_on: Optional[str] = None
+    death_save_successes: int = 0
+    death_save_failures: int = 0
     backstory: Optional[str] = None
     notes: Optional[str] = None
     portrait_url: Optional[str] = None
@@ -180,6 +194,12 @@ class PlayerCharacterUpdate(BaseModel):
     equipment: Optional[list[dict[str, Any]]] = None
     spells_known: Optional[list[dict[str, Any]]] = None
     spell_slots: Optional[dict[str, Any]] = None
+    # Combat state (Plan 00023) — DM can set any of these via PATCH
+    temp_hp: Optional[int] = Field(default=None, ge=0)
+    heroic_inspiration: Optional[bool] = None
+    concentration_on: Optional[str] = Field(default=None, max_length=120)
+    death_save_successes: Optional[int] = Field(default=None, ge=0, le=3)
+    death_save_failures: Optional[int] = Field(default=None, ge=0, le=3)
     backstory: Optional[str] = None
     notes: Optional[str] = None
     portrait_url: Optional[str] = None

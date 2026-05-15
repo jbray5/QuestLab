@@ -18,35 +18,43 @@ interface Props {
   onClose: () => void;
 }
 
+type RollMode = "normal" | "adv" | "dis";
+
 function fmt(n: number): string {
   return n >= 0 ? `+${n}` : `${n}`;
 }
 
 /**
- * Real-die roll helper for in-person play (Plan 22 enhancement).
+ * Real-die roll helper for in-person play (Plan 22 + Plan 23 adv/dis).
  *
  * When the DM/player clicks a roll button (skill, save, attack, etc.) this
  * helper appears in the top-right corner with:
  *
  *   1. Big modifier display ("+5")
- *   2. Input for "what did your real d20 show?" (autofocus, accepts 1–20)
+ *   2. NORMAL / ADV / DIS toggle (Plan 00023)
+ *      - normal: one d20 input
+ *      - adv: two d20 inputs; total uses the higher
+ *      - dis: two d20 inputs; total uses the lower
  *   3. Live-updating total as they type
- *   4. Crit / fumble color hints when the d20 is 1 or 20
- *   5. "🎲 Roll digital" fallback button for when no real die is handy
+ *   4. Crit / fumble color hints when the selected d20 is 1 or 20
+ *   5. "🎲 Roll digital" fallback button(s)
  *   6. Optional pass/fail hint if a DC was provided
  *   7. Optional damage formula for attacks (real damage dice rolled by hand)
  *
  * Closes on ESC, click-outside, or the ✕ button.
  */
 export default function RollHelper({ context, onClose }: Props) {
-  const [d20, setD20] = useState<number | "">("");
+  const [mode, setMode] = useState<RollMode>("normal");
+  const [d20a, setD20a] = useState<number | "">("");
+  const [d20b, setD20b] = useState<number | "">("");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Reset on context change + focus the input
   useEffect(() => {
     if (context) {
-      setD20("");
-      // microtask so the input is mounted
+      setMode("normal");
+      setD20a("");
+      setD20b("");
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [context]);
@@ -63,34 +71,41 @@ export default function RollHelper({ context, onClose }: Props) {
 
   if (!context) return null;
 
-  const value = d20 === "" ? null : Number(d20);
-  const isValid = value !== null && value >= 1 && value <= 20;
-  const total = isValid ? value + context.mod : null;
-  const isCrit = value === 20;
-  const isFumble = value === 1;
+  const a = d20a === "" ? null : Number(d20a);
+  const b = d20b === "" ? null : Number(d20b);
+  const aValid = a !== null && a >= 1 && a <= 20;
+  const bValid = b !== null && b >= 1 && b <= 20;
+
+  // Pick the effective d20 according to mode.
+  let selected: number | null = null;
+  if (mode === "normal") {
+    selected = aValid ? a : null;
+  } else if (aValid && bValid) {
+    selected = mode === "adv" ? Math.max(a as number, b as number) : Math.min(a as number, b as number);
+  }
+  const total = selected !== null ? selected + context.mod : null;
+  const isCrit = selected === 20;
+  const isFumble = selected === 1;
   const accent = isCrit
     ? "var(--green2, #4caf50)"
     : isFumble
       ? "var(--red, #ef5350)"
       : "var(--gold)";
 
-  function rollDigital() {
-    setD20(Math.floor(Math.random() * 20) + 1);
+  function rollDigitalA() {
+    setD20a(Math.floor(Math.random() * 20) + 1);
+  }
+  function rollDigitalB() {
+    setD20b(Math.floor(Math.random() * 20) + 1);
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value;
-    if (v === "") {
-      setD20("");
-      return;
-    }
-    const n = Math.max(1, Math.min(20, Math.floor(Number(v))));
-    setD20(n);
+  function clamp(v: string): number | "" {
+    if (v === "") return "";
+    return Math.max(1, Math.min(20, Math.floor(Number(v))));
   }
 
   return (
     <>
-      {/* Click-outside backdrop (transparent — doesn't darken; the helper is supplementary) */}
       <div
         onClick={onClose}
         style={{
@@ -111,15 +126,14 @@ export default function RollHelper({ context, onClose }: Props) {
           borderRadius: 8,
           padding: "0.85rem 1.1rem",
           zIndex: 9999,
-          minWidth: 280,
-          maxWidth: 360,
+          minWidth: 300,
+          maxWidth: 380,
           boxShadow: "0 6px 28px rgba(0,0,0,0.65)",
           fontFamily: "inherit",
         }}
         role="dialog"
         aria-label={`Roll helper: ${context.label}`}
       >
-        {/* Header */}
         <div
           className="flex items-center"
           style={{ justifyContent: "space-between", marginBottom: "0.35rem" }}
@@ -154,7 +168,6 @@ export default function RollHelper({ context, onClose }: Props) {
           </p>
         )}
 
-        {/* Modifier (always visible) */}
         <div
           style={{
             fontSize: "0.7rem",
@@ -170,14 +183,54 @@ export default function RollHelper({ context, onClose }: Props) {
             fontWeight: 700,
             color: "var(--gold)",
             fontFamily: "monospace",
-            marginBottom: "0.7rem",
+            marginBottom: "0.55rem",
             lineHeight: 1,
           }}
         >
           {fmt(context.mod)}
         </div>
 
-        {/* Roll input */}
+        {/* Mode toggle */}
+        <div
+          role="tablist"
+          aria-label="Roll mode"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "0.25rem",
+            marginBottom: "0.55rem",
+          }}
+        >
+          {(["normal", "adv", "dis"] as RollMode[]).map((m) => {
+            const isActive = mode === m;
+            return (
+              <button
+                key={m}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => {
+                  setMode(m);
+                  if (m === "normal") setD20b("");
+                }}
+                style={{
+                  fontSize: "0.7rem",
+                  padding: "0.3rem 0.4rem",
+                  background: isActive ? "var(--gold)" : "var(--surface2)",
+                  color: isActive ? "var(--bg, #1a1a1a)" : "var(--text)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {m === "normal" ? "Normal" : m === "adv" ? "Adv" : "Dis"}
+              </button>
+            );
+          })}
+        </div>
+
         <label
           style={{
             display: "block",
@@ -188,38 +241,52 @@ export default function RollHelper({ context, onClose }: Props) {
             letterSpacing: "0.05em",
           }}
         >
-          Your real d20 result
+          {mode === "normal" ? "Your real d20 result" : "Your two real d20 results"}
         </label>
+
         <div className="flex" style={{ gap: "0.4rem", alignItems: "center" }}>
           <input
             ref={inputRef}
             type="number"
             min={1}
             max={20}
-            value={d20}
-            onChange={handleChange}
+            value={d20a}
+            onChange={(e) => setD20a(clamp(e.target.value))}
             placeholder="?"
-            style={{
-              width: 70,
-              fontSize: "1.4rem",
-              fontFamily: "monospace",
-              fontWeight: 700,
-              textAlign: "center",
-              padding: "0.25rem 0.4rem",
-              background: "var(--surface2)",
-              border: `1px solid ${accent}`,
-              borderRadius: 4,
-              color: "var(--text)",
-            }}
+            style={dieInputStyle(accent)}
           />
           <button
-            onClick={rollDigital}
+            onClick={rollDigitalA}
             className="btn btn-ghost"
-            style={{ fontSize: "0.75rem", padding: "0.3rem 0.65rem" }}
+            style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem" }}
             title="Roll a digital d20 instead"
           >
-            🎲 Digital
+            🎲
           </button>
+          {mode !== "normal" && (
+            <>
+              <span style={{ color: "var(--muted)", fontWeight: 700 }}>
+                {mode === "adv" ? "▲" : "▼"}
+              </span>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={d20b}
+                onChange={(e) => setD20b(clamp(e.target.value))}
+                placeholder="?"
+                style={dieInputStyle(accent)}
+              />
+              <button
+                onClick={rollDigitalB}
+                className="btn btn-ghost"
+                style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem" }}
+                title="Roll a digital d20 instead"
+              >
+                🎲
+              </button>
+            </>
+          )}
         </div>
 
         {/* Live total */}
@@ -227,7 +294,7 @@ export default function RollHelper({ context, onClose }: Props) {
           style={{
             marginTop: "0.75rem",
             paddingTop: "0.5rem",
-            borderTop: `1px solid ${isValid ? accent : "var(--border)"}`,
+            borderTop: `1px solid ${selected !== null ? accent : "var(--border)"}`,
           }}
         >
           <div
@@ -240,6 +307,11 @@ export default function RollHelper({ context, onClose }: Props) {
             }}
           >
             Total
+            {mode !== "normal" && (
+              <span style={{ marginLeft: 6, color: accent, fontWeight: 700 }}>
+                ({mode === "adv" ? "higher" : "lower"})
+              </span>
+            )}
           </div>
           <div
             style={{
@@ -252,7 +324,7 @@ export default function RollHelper({ context, onClose }: Props) {
           >
             {total !== null ? total : "—"}
           </div>
-          {isValid && (
+          {selected !== null && (
             <div
               style={{
                 fontSize: "0.75rem",
@@ -261,12 +333,11 @@ export default function RollHelper({ context, onClose }: Props) {
                 fontFamily: "monospace",
               }}
             >
-              {value} (d20) {context.mod >= 0 ? "+" : "−"} {Math.abs(context.mod)}
+              {selected} (d20) {context.mod >= 0 ? "+" : "−"} {Math.abs(context.mod)}
             </div>
           )}
 
-          {/* Pass/fail hint if a DC was supplied */}
-          {isValid && context.dc !== undefined && total !== null && (
+          {selected !== null && context.dc !== undefined && total !== null && (
             <div
               style={{
                 marginTop: "0.4rem",
@@ -291,7 +362,6 @@ export default function RollHelper({ context, onClose }: Props) {
           )}
         </div>
 
-        {/* Damage formula for attacks */}
         {context.damage && (
           <div
             style={{
@@ -313,4 +383,19 @@ export default function RollHelper({ context, onClose }: Props) {
       </div>
     </>
   );
+}
+
+function dieInputStyle(accent: string): React.CSSProperties {
+  return {
+    width: 60,
+    fontSize: "1.2rem",
+    fontFamily: "monospace",
+    fontWeight: 700,
+    textAlign: "center",
+    padding: "0.25rem 0.4rem",
+    background: "var(--surface2)",
+    border: `1px solid ${accent}`,
+    borderRadius: 4,
+    color: "var(--text)",
+  };
 }

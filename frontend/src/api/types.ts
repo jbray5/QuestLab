@@ -64,6 +64,12 @@ export interface PlayerCharacter {
   backstory: string | null;
   notes: string | null;
   portrait_url: string | null;
+  // Plan 00023 — combat state
+  temp_hp: number;
+  heroic_inspiration: boolean;
+  concentration_on: string | null;
+  death_save_successes: number;
+  death_save_failures: number;
   created_at: string;
   updated_at: string;
 }

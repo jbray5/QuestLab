@@ -17,4 +17,11 @@ export const charactersApi = {
     api.get<Record<string, number>>(`/characters/${id}/skill-bonuses`),
   savingThrows: (id: string) =>
     api.get<Record<string, number>>(`/characters/${id}/saving-throws`),
+  // Plan 00023 — combat state actions
+  applyDamage: (id: string, amount: number) =>
+    api.post<PlayerCharacter>(`/characters/${id}/damage`, { amount }),
+  applyHealing: (id: string, amount: number) =>
+    api.post<PlayerCharacter>(`/characters/${id}/heal`, { amount }),
+  resolveDeathSave: (id: string, d20: number) =>
+    api.post<PlayerCharacter>(`/characters/${id}/death-save`, { d20 }),
 };

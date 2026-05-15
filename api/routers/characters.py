@@ -187,3 +187,95 @@ def get_saving_throws(character_id: uuid.UUID, db: DB, user: CurrentUser) -> dic
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     return character_service.compute_saving_throws(pc)
+
+
+# ---------------------------------------------------------------------------
+# Plan 00023 — combat state endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/characters/{character_id}/damage", response_model=PlayerCharacter)
+def apply_damage_endpoint(
+    character_id: uuid.UUID,
+    body: dict,
+    db: DB,
+    user: CurrentUser,
+) -> PlayerCharacter:
+    """Apply damage to a PC with the temp-HP-first waterfall (Plan 00023).
+
+    Body: ``{"amount": <int>}``.
+
+    Args:
+        character_id: UUID of the PC.
+        body: JSON with the integer amount.
+        db: Database session.
+        user: Authenticated DM.
+
+    Returns:
+        Updated PlayerCharacter.
+    """
+    try:
+        return character_service.apply_damage(db, character_id, int(body.get("amount", 0)), user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/characters/{character_id}/heal", response_model=PlayerCharacter)
+def apply_healing_endpoint(
+    character_id: uuid.UUID,
+    body: dict,
+    db: DB,
+    user: CurrentUser,
+) -> PlayerCharacter:
+    """Apply healing to a PC, clamped to hp_max. Resets death saves on revive.
+
+    Body: ``{"amount": <int>}``.
+
+    Args:
+        character_id: UUID of the PC.
+        body: JSON with the integer amount.
+        db: Database session.
+        user: Authenticated DM.
+
+    Returns:
+        Updated PlayerCharacter.
+    """
+    try:
+        return character_service.apply_healing(db, character_id, int(body.get("amount", 0)), user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/characters/{character_id}/death-save", response_model=PlayerCharacter)
+def resolve_death_save_endpoint(
+    character_id: uuid.UUID,
+    body: dict,
+    db: DB,
+    user: CurrentUser,
+) -> PlayerCharacter:
+    """Apply a death-save d20 result to the PC's tracker.
+
+    Body: ``{"d20": <int 1..20>}``.
+
+    Args:
+        character_id: UUID of the PC.
+        body: JSON with the d20 result.
+        db: Database session.
+        user: Authenticated DM.
+
+    Returns:
+        Updated PlayerCharacter.
+
+    Raises:
+        HTTPException 422: If d20 is out of range or the PC isn't dying.
+    """
+    try:
+        return character_service.resolve_death_save(db, character_id, int(body.get("d20", 0)), user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))

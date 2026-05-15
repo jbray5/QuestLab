@@ -531,3 +531,129 @@ def delete_character(session: Session, character_id: uuid.UUID, dm_email: str) -
     campaign = _get_campaign_or_raise(session, character.campaign_id)
     _assert_campaign_owner(campaign, dm_email)
     CharacterRepo.delete(session, character)
+
+
+# ---------------------------------------------------------------------------
+# Plan 00023 — combat state helpers
+# ---------------------------------------------------------------------------
+
+
+def apply_damage(
+    session: Session,
+    character_id: uuid.UUID,
+    amount: int,
+    dm_email: str,
+) -> PlayerCharacter:
+    """Apply damage with the temp-HP-first waterfall.
+
+    1. Damage first reduces ``temp_hp`` down to 0.
+    2. Remaining damage reduces ``hp_current`` down to 0.
+    3. Healing back above 0 does NOT happen here — call ``apply_healing``.
+
+    Args:
+        session: Active database session.
+        character_id: UUID of the PC.
+        amount: Damage to apply (>=0; clamped).
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        Updated PlayerCharacter.
+    """
+    character = _get_character_or_raise(session, character_id)
+    campaign = _get_campaign_or_raise(session, character.campaign_id)
+    _assert_campaign_owner(campaign, dm_email)
+    amt = max(0, int(amount))
+    absorbed = min(character.temp_hp, amt)
+    character.temp_hp = max(0, character.temp_hp - absorbed)
+    remaining = amt - absorbed
+    character.hp_current = max(0, character.hp_current - remaining)
+    session.add(character)
+    session.commit()
+    session.refresh(character)
+    return character
+
+
+def apply_healing(
+    session: Session,
+    character_id: uuid.UUID,
+    amount: int,
+    dm_email: str,
+) -> PlayerCharacter:
+    """Apply healing to a PC, clamped to ``hp_max``. Resets death saves on revive.
+
+    Args:
+        session: Active database session.
+        character_id: UUID of the PC.
+        amount: Healing to apply (>=0; clamped).
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        Updated PlayerCharacter.
+    """
+    character = _get_character_or_raise(session, character_id)
+    campaign = _get_campaign_or_raise(session, character.campaign_id)
+    _assert_campaign_owner(campaign, dm_email)
+    amt = max(0, int(amount))
+    was_down = character.hp_current <= 0
+    character.hp_current = min(character.hp_max, character.hp_current + amt)
+    if was_down and character.hp_current > 0:
+        # Reviving from 0 clears the death-save tracker per RAW.
+        character.death_save_successes = 0
+        character.death_save_failures = 0
+    session.add(character)
+    session.commit()
+    session.refresh(character)
+    return character
+
+
+def resolve_death_save(
+    session: Session,
+    character_id: uuid.UUID,
+    d20: int,
+    dm_email: str,
+) -> PlayerCharacter:
+    """Apply a death-save d20 to a PC's tracker per 2024 RAW.
+
+    Rules:
+      - Nat 20: regain 1 HP, zero both tracks.
+      - Nat 1: 2 failures.
+      - >= 10: 1 success.
+      - < 10: 1 failure.
+      - 3 successes total -> ``stable`` (HP stays 0; pips persist).
+      - 3 failures total -> the DM should mark the PC dead manually (we
+        don't auto-set dead state; the failure count of 3 is the signal).
+
+    Args:
+        session: Active database session.
+        character_id: UUID of the PC.
+        d20: The raw d20 result (1..20).
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        Updated PlayerCharacter.
+
+    Raises:
+        ValueError: If d20 is out of range or the PC isn't dying.
+    """
+    if d20 < 1 or d20 > 20:
+        raise ValueError("d20 must be 1..20")
+    character = _get_character_or_raise(session, character_id)
+    campaign = _get_campaign_or_raise(session, character.campaign_id)
+    _assert_campaign_owner(campaign, dm_email)
+    if character.hp_current > 0:
+        raise ValueError("Death saves only apply when HP is 0.")
+
+    if d20 == 20:
+        character.hp_current = 1
+        character.death_save_successes = 0
+        character.death_save_failures = 0
+    elif d20 == 1:
+        character.death_save_failures = min(3, character.death_save_failures + 2)
+    elif d20 >= 10:
+        character.death_save_successes = min(3, character.death_save_successes + 1)
+    else:
+        character.death_save_failures = min(3, character.death_save_failures + 1)
+    session.add(character)
+    session.commit()
+    session.refresh(character)
+    return character
