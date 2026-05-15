@@ -170,3 +170,88 @@ def seed_magic_items(db: Session) -> int:
         ItemRepo.create(db, data)
         inserted += 1
     return inserted
+
+
+# Magic items whose ``item_type`` is generic ("any sword", "any axe") default
+# to a representative SRD weapon so equipped attack rolls just work. Tied to
+# the Plan 18 weapon catalog names (case-insensitive match later).
+_GENERIC_WEAPON_DEFAULTS: dict[str, str] = {
+    "any sword": "Longsword",
+    "any sword that deals slashing damage": "Longsword",
+    "any axe": "Battleaxe",
+    "any axe or sword": "Longsword",
+}
+
+
+def _parse_weapon_template(item_type: str) -> Optional[str]:
+    """Pull the base weapon name from an ``item_type`` like 'Weapon (mace)'.
+
+    Returns:
+        Lowercased base weapon name, or None if the type can't be matched
+        (e.g. "Weapon (any)", "Weapon (arrow)").
+    """
+    if not item_type or "(" not in item_type:
+        return None
+    inside = item_type.split("(", 1)[1].rsplit(")", 1)[0].strip().lower()
+    if not inside:
+        return None
+    if inside in {"any", "arrow", "bolt", "ammunition"}:
+        return None  # too generic or non-weapon
+    # Map generic-but-equippable templates to a default weapon.
+    if inside in _GENERIC_WEAPON_DEFAULTS:
+        return _GENERIC_WEAPON_DEFAULTS[inside].lower()
+    return inside
+
+
+def backfill_weapon_stats(db: Session) -> int:
+    """Populate weapon columns on magic-weapon items by name-matching SRD weapons.
+
+    Called from the lifespan hook after mundane weapons are seeded. Idempotent:
+    only touches magic items whose ``weapon_category`` is currently NULL but
+    whose ``item_type`` parses to a known SRD weapon. Items whose base type is
+    "any" / "arrow" / etc. are skipped.
+
+    Args:
+        db: Active database session.
+
+    Returns:
+        Number of items updated.
+    """
+    from domain.item import ItemUpdate
+
+    all_items = ItemRepo.list_all(db)
+    # Build a name→weapon lookup from items that already have weapon stats.
+    weapon_by_name: dict[str, object] = {}
+    for i in all_items:
+        if i.weapon_category and i.damage_die:
+            weapon_by_name[i.name.lower()] = i
+    if not weapon_by_name:
+        return 0
+
+    updated = 0
+    for item in all_items:
+        if not item.is_magic:
+            continue
+        if item.weapon_category:
+            continue  # already populated
+        template = _parse_weapon_template(item.item_type or "")
+        if not template:
+            continue
+        src = weapon_by_name.get(template)
+        if src is None:
+            continue
+        ItemRepo.update(
+            db,
+            item,
+            ItemUpdate(
+                weapon_category=src.weapon_category,
+                damage_die=src.damage_die,
+                damage_type=src.damage_type,
+                weapon_properties=src.weapon_properties,
+                versatile_damage=src.versatile_damage,
+                weapon_range=src.weapon_range,
+                mastery=src.mastery,
+            ),
+        )
+        updated += 1
+    return updated

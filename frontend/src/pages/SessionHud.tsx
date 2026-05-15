@@ -22,6 +22,7 @@ import { charactersApi } from "../api/characters";
 import { encountersApi } from "../api/encounters";
 import { monstersApi } from "../api/monsters";
 import { restApi } from "../api/rest";
+import { spellcastingApi } from "../api/spellcasting";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import LootPanel from "../components/LootPanel";
 import MonsterStatBlock from "../components/MonsterStatBlock";
@@ -299,40 +300,77 @@ function ConditionTags({ active, onToggle, immunities }: ConditionTagsProps) {
 }
 
 interface SpellSlotTrackerProps {
-  cls: string | null;
-  level: number;
   pcId: string;
-  slots: Record<string, boolean[]>;
-  onToggle: (pcId: string, slotLevel: number, idx: number) => void;
 }
 
-function SpellSlotTracker({ cls, level, pcId, slots, onToggle }: SpellSlotTrackerProps) {
-  const maxSlots = maxSlotsForLevel(cls, level);
-  if (maxSlots.length === 0) return null;
+/**
+ * Persistent slot pips for a PC (Plan 00020 + 00021 fix).
+ *
+ * Reads the real ``/spell-slots`` state instead of ephemeral component
+ * state so party rest, per-PC rest, and explicit cast actions all stay in
+ * sync. Clicking a filled pip spends a slot; clicking a hollow pip
+ * restores one (DM undo).
+ */
+function SpellSlotTracker({ pcId }: SpellSlotTrackerProps) {
+  const qc = useQueryClient();
+  const { data: state } = useQuery({
+    queryKey: ["spell-slots", pcId],
+    queryFn: () => spellcastingApi.slotState(pcId),
+  });
+
+  const expend = useMutation({
+    mutationFn: (lvl: number) => spellcastingApi.expend(pcId, lvl),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["spell-slots", pcId] }),
+  });
+  const restore = useMutation({
+    mutationFn: (lvl: number) => spellcastingApi.restore(pcId, lvl),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["spell-slots", pcId] }),
+  });
+
+  if (!state) return null;
+  const levels = Object.keys(state.levels)
+    .map((k) => parseInt(k, 10))
+    .filter((n) => !Number.isNaN(n))
+    .sort((a, b) => a - b);
+  if (levels.length === 0) return null;
 
   return (
     <div style={{ marginTop: "0.3rem" }}>
-      <div style={{ fontSize: "0.65rem", color: "var(--muted)", marginBottom: "0.2rem" }}>Spell Slots</div>
+      <div style={{ fontSize: "0.65rem", color: "var(--muted)", marginBottom: "0.2rem" }}>
+        Spell Slots
+      </div>
       <div className="flex" style={{ flexWrap: "wrap", gap: "0.3rem" }}>
-        {maxSlots.map((count, lvlIdx) => {
-          const key = `${pcId}-${lvlIdx}`;
-          const used = slots[key] ?? Array(count).fill(false);
+        {levels.map((lvl) => {
+          const s = state.levels[String(lvl)];
           return (
-            <div key={lvlIdx} style={{ display: "flex", alignItems: "center", gap: "0.15rem" }}>
-              <span style={{ fontSize: "0.6rem", color: "var(--muted)", minWidth: 10 }}>{lvlIdx + 1}</span>
-              {used.map((spent, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => onToggle(pcId, lvlIdx, idx)}
-                  title={`L${lvlIdx + 1} slot ${idx + 1} — ${spent ? "spent" : "available"}`}
-                  style={{
-                    width: 10, height: 10, borderRadius: "50%",
-                    border: "1px solid var(--gold)",
-                    background: spent ? "transparent" : "var(--gold)",
-                    cursor: "pointer", padding: 0,
-                  }}
-                />
-              ))}
+            <div
+              key={lvl}
+              style={{ display: "flex", alignItems: "center", gap: "0.15rem" }}
+            >
+              <span style={{ fontSize: "0.6rem", color: "var(--muted)", minWidth: 10 }}>
+                {lvl}
+              </span>
+              {Array.from({ length: s.max }).map((_, idx) => {
+                const filled = idx < s.remaining;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() =>
+                      filled ? expend.mutate(lvl) : restore.mutate(lvl)
+                    }
+                    title={`L${lvl} slot — ${filled ? "available (click to spend)" : "spent (click to restore)"}`}
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: "50%",
+                      border: "1px solid var(--gold)",
+                      background: filled ? "var(--gold)" : "transparent",
+                      cursor: "pointer",
+                      padding: 0,
+                    }}
+                  />
+                );
+              })}
             </div>
           );
         })}
@@ -413,28 +451,15 @@ export default function SessionHud() {
   }
 
   // ── Ephemeral party state ──────────────────────────────────────────────────
+  // Conditions are still local — Plan 21 backend doesn't persist them yet.
+  // Spell slots now live in the persistent store (see SpellSlotTracker).
   const [conditions, setConditions] = useState<Record<string, Set<Condition>>>({});
-  const [spellSlots, setSpellSlots] = useState<Record<string, boolean[]>>({});
 
   function toggleCondition(pcId: string, c: Condition) {
     setConditions((prev) => {
       const s = new Set(prev[pcId] ?? []);
       s.has(c) ? s.delete(c) : s.add(c);
       return { ...prev, [pcId]: s };
-    });
-  }
-
-  function toggleSlot(pcId: string, slotLevel: number, idx: number) {
-    const key = `${pcId}-${slotLevel}`;
-    setSpellSlots((prev) => {
-      const maxSlots = maxSlotsForLevel(
-        party.find((p) => p.id === pcId)?.character_class ?? null,
-        party.find((p) => p.id === pcId)?.level ?? 1,
-      );
-      const current = prev[key] ?? Array(maxSlots[slotLevel] ?? 0).fill(false);
-      const next = [...current];
-      next[idx] = !next[idx];
-      return { ...prev, [key]: next };
     });
   }
 
@@ -1064,14 +1089,8 @@ export default function SessionHud() {
                   />
                 </div>
 
-                {/* Spell slots */}
-                <SpellSlotTracker
-                  cls={pc.character_class}
-                  level={pc.level}
-                  pcId={pc.id}
-                  slots={spellSlots}
-                  onToggle={toggleSlot}
-                />
+                {/* Spell slots — persistent, reads from Plan 20 store */}
+                <SpellSlotTracker pcId={pc.id} />
               </div>
             );
           })}

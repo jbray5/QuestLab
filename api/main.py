@@ -66,7 +66,7 @@ async def lifespan(app: FastAPI):
     from integrations.dnd_rules.srd_weapons_2024 import SRD_WEAPONS_2024
     from integrations.dnd_rules.stat_blocks import seed_monsters
     from services.feature_service import seed_catalog as seed_class_features
-    from services.item_service import seed_magic_items, seed_weapons
+    from services.item_service import backfill_weapon_stats, seed_magic_items, seed_weapons
     from services.spell_service import seed_spells
 
     create_db_and_tables()
@@ -78,6 +78,9 @@ async def lifespan(app: FastAPI):
         seed_weapons(db, SRD_WEAPONS_2024)
         seed_spells(db, SRD_SPELLS_2024)
         seed_class_features(db, CLASS_FEATURES_2024)
+        # After all seeds, backfill magic-weapon items with stats from the
+        # mundane weapon catalog so AttacksList (Plan 22) can render them.
+        backfill_weapon_stats(db)
     yield
 
 
