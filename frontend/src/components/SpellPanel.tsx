@@ -9,6 +9,10 @@ interface Props {
   characterId: string;
   characterClass: string;
   characterName: string;
+  /** Start expanded (used inside the character sheet). */
+  defaultOpen?: boolean;
+  /** Hide mutating controls (Plan 26 player-view foundation). */
+  readOnly?: boolean;
 }
 
 /**
@@ -23,9 +27,11 @@ export default function SpellPanel({
   characterId,
   characterClass,
   characterName,
+  defaultOpen = false,
+  readOnly: _readOnly = false,
 }: Props) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 

@@ -9,6 +9,10 @@ import type { CharacterItem } from "../api/types";
 interface Props {
   characterId: string;
   characterName: string;
+  /** Start expanded (used inside the character sheet). */
+  defaultOpen?: boolean;
+  /** Hide all edit/mutate controls (Plan 26 player-view foundation). */
+  readOnly?: boolean;
 }
 
 /**
@@ -18,9 +22,14 @@ interface Props {
  * equipped, attuned toggles + a remove button. A search-and-add bar at the
  * bottom lets the DM hand out items without going through the session HUD.
  */
-export default function InventoryPanel({ characterId, characterName }: Props) {
+export default function InventoryPanel({
+  characterId,
+  characterName,
+  defaultOpen = false,
+  readOnly = false,
+}: Props) {
   const qc = useQueryClient();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 

@@ -12,4 +12,9 @@ export const charactersApi = {
   delete: (id: string) => api.delete(`/characters/${id}`),
   updateImage: (id: string, portrait_url: string) =>
     api.patch<PlayerCharacter>(`/characters/${id}`, { portrait_url }),
+  // Plan 00022 — computed bonuses
+  skillBonuses: (id: string) =>
+    api.get<Record<string, number>>(`/characters/${id}/skill-bonuses`),
+  savingThrows: (id: string) =>
+    api.get<Record<string, number>>(`/characters/${id}/saving-throws`),
 };

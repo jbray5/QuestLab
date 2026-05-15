@@ -145,3 +145,45 @@ def delete_character(character_id: uuid.UUID, db: DB, user: CurrentUser) -> None
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.get("/characters/{character_id}/skill-bonuses", response_model=dict[str, int])
+def get_skill_bonuses(character_id: uuid.UUID, db: DB, user: CurrentUser) -> dict[str, int]:
+    """Return all 18 skill bonuses for a PC (Plan 00022).
+
+    Args:
+        character_id: UUID of the PC.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Dict of skill_name -> total bonus.
+    """
+    try:
+        pc = character_service.get_character(db, character_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    return character_service.compute_skill_bonuses(pc)
+
+
+@router.get("/characters/{character_id}/saving-throws", response_model=dict[str, int])
+def get_saving_throws(character_id: uuid.UUID, db: DB, user: CurrentUser) -> dict[str, int]:
+    """Return the six saving-throw bonuses for a PC (Plan 00022).
+
+    Args:
+        character_id: UUID of the PC.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Dict keyed by uppercase ability label to total save bonus.
+    """
+    try:
+        pc = character_service.get_character(db, character_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    return character_service.compute_saving_throws(pc)

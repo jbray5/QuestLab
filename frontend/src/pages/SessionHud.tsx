@@ -22,6 +22,7 @@ import { charactersApi } from "../api/characters";
 import { encountersApi } from "../api/encounters";
 import { monstersApi } from "../api/monsters";
 import { restApi } from "../api/rest";
+import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import LootPanel from "../components/LootPanel";
 import MonsterStatBlock from "../components/MonsterStatBlock";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
@@ -686,6 +687,9 @@ export default function SessionHud() {
   // ── Loot modal ─────────────────────────────────────────────────────────────
   const [lootOpen, setLootOpen] = useState(false);
 
+  // ── Character sheet modal (Plan 00022) ────────────────────────────────────
+  const [sheetPcId, setSheetPcId] = useState<string | null>(null);
+
   // ── Party rest (Plan 00021) ────────────────────────────────────────────────
   const [restToast, setRestToast] = useState<string | null>(null);
   const qc = useQueryClient();
@@ -990,10 +994,26 @@ export default function SessionHud() {
               >
                 {/* Name + class/level */}
                 <div className="flex" style={{ justifyContent: "space-between", marginBottom: "0.3rem" }}>
-                  <div>
-                    <span style={{ fontWeight: 700, fontSize: "0.9rem", color: isUnconcious ? "var(--crimson2)" : "var(--gold)" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <button
+                      onClick={() => setSheetPcId(pc.id)}
+                      title="Open full character sheet"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        padding: 0,
+                        cursor: "pointer",
+                        color: isUnconcious ? "var(--crimson2)" : "var(--gold)",
+                        fontWeight: 700,
+                        fontSize: "0.9rem",
+                        fontFamily: "inherit",
+                        textAlign: "left",
+                        textDecoration: "underline dotted",
+                        textUnderlineOffset: 3,
+                      }}
+                    >
                       {pc.character_name}
-                    </span>
+                    </button>
                     {pc.player_name && (
                       <span style={{ fontSize: "0.7rem", color: "var(--muted)", marginLeft: "0.4rem" }}>
                         ({pc.player_name})
@@ -1535,6 +1555,14 @@ export default function SessionHud() {
         <MonsterStatBlock
           monster={statBlockMonster}
           onClose={() => setStatBlockMonsterId(null)}
+        />
+      )}
+
+      {/* Character sheet modal (Plan 00022) */}
+      {sheetPcId && (
+        <CharacterSheet
+          characterId={sheetPcId}
+          onClose={() => setSheetPcId(null)}
         />
       )}
 

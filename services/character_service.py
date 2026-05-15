@@ -230,6 +230,32 @@ def compute_skill_bonuses(character: PlayerCharacter) -> dict[str, int]:
     return bonuses
 
 
+def compute_saving_throws(character: PlayerCharacter) -> dict[str, int]:
+    """Compute the six saving-throw bonuses for a PC.
+
+    A save is the ability modifier, plus proficiency bonus when the PC has
+    that ability listed in ``saving_throw_proficiencies`` (set by class).
+
+    Args:
+        character: PlayerCharacter ORM object.
+
+    Returns:
+        Dict keyed by uppercase ability label ("STR", "DEX", ...) to bonus.
+    """
+    pb = proficiency_bonus(character.level)
+    profs = {
+        p.value if hasattr(p, "value") else p for p in (character.saving_throw_proficiencies or [])
+    }
+    return {
+        "STR": ability_modifier(character.score_str) + (pb if "STR" in profs else 0),
+        "DEX": ability_modifier(character.score_dex) + (pb if "DEX" in profs else 0),
+        "CON": ability_modifier(character.score_con) + (pb if "CON" in profs else 0),
+        "INT": ability_modifier(character.score_int) + (pb if "INT" in profs else 0),
+        "WIS": ability_modifier(character.score_wis) + (pb if "WIS" in profs else 0),
+        "CHA": ability_modifier(character.score_cha) + (pb if "CHA" in profs else 0),
+    }
+
+
 # ── Authorization helpers ──────────────────────────────────────────────────────
 
 

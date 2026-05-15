@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { charactersApi } from "../api/characters";
 import type { PlayerCharacter } from "../api/types";
+import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import FeaturePanel from "../components/FeaturePanel";
 import ImageUpload from "../components/ImageUpload";
 import InventoryPanel from "../components/InventoryPanel";
@@ -68,6 +69,7 @@ export default function Characters() {
   const [editing, setEditing] = useState<PlayerCharacter | null>(null);
   const [form, setForm] = useState(BLANK_FORM);
   const [formError, setFormError] = useState("");
+  const [sheetPcId, setSheetPcId] = useState<string | null>(null);
 
   const { data: characters = [], isLoading } = useQuery({
     queryKey: ["characters", campaignId],
@@ -369,6 +371,14 @@ export default function Characters() {
             />
 
             <div className="flex gap-2" style={{ marginTop: "0.75rem" }}>
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: "0.75rem" }}
+                onClick={() => setSheetPcId(c.id)}
+                title="Open full character sheet"
+              >
+                📜 Open Sheet
+              </button>
               <button className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => startEdit(c)}>
                 Edit
               </button>
@@ -389,6 +399,13 @@ export default function Characters() {
           </div>
         )}
       </div>
+
+      {sheetPcId && (
+        <CharacterSheet
+          characterId={sheetPcId}
+          onClose={() => setSheetPcId(null)}
+        />
+      )}
     </div>
   );
 }
