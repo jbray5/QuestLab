@@ -1,35 +1,37 @@
-import { rollD20 } from "./RollToast";
-import type { RollResult } from "./RollToast";
+import type { RollContext } from "./RollHelper";
 
 interface Props {
-  /** Map of skill name (lowercased) to total bonus. */
+  /** Map of skill key (PascalCase, matching backend) to total bonus. */
   bonuses: Record<string, number>;
   /** Optional map skill → 1=proficient, 2=expertise. */
   proficiencies?: Record<string, number>;
-  onRoll?: (roll: RollResult) => void;
+  onRoll?: (ctx: RollContext) => void;
   readOnly?: boolean;
 }
 
 // The 18 D&D 5e skills, in PHB order, with their tied ability.
-const SKILLS: { name: string; label: string; ability: string }[] = [
-  { name: "acrobatics", label: "Acrobatics", ability: "DEX" },
-  { name: "animal_handling", label: "Animal Handling", ability: "WIS" },
-  { name: "arcana", label: "Arcana", ability: "INT" },
-  { name: "athletics", label: "Athletics", ability: "STR" },
-  { name: "deception", label: "Deception", ability: "CHA" },
-  { name: "history", label: "History", ability: "INT" },
-  { name: "insight", label: "Insight", ability: "WIS" },
-  { name: "intimidation", label: "Intimidation", ability: "CHA" },
-  { name: "investigation", label: "Investigation", ability: "INT" },
-  { name: "medicine", label: "Medicine", ability: "WIS" },
-  { name: "nature", label: "Nature", ability: "INT" },
-  { name: "perception", label: "Perception", ability: "WIS" },
-  { name: "performance", label: "Performance", ability: "CHA" },
-  { name: "persuasion", label: "Persuasion", ability: "CHA" },
-  { name: "religion", label: "Religion", ability: "INT" },
-  { name: "sleight_of_hand", label: "Sleight of Hand", ability: "DEX" },
-  { name: "stealth", label: "Stealth", ability: "DEX" },
-  { name: "survival", label: "Survival", ability: "WIS" },
+// ``key`` MUST match the backend's SKILLS dict in services/character_service.py
+// (PascalCase with spaces — "Animal Handling", "Sleight of Hand"). ``label``
+// is what we display; on most skills they're identical.
+const SKILLS: { key: string; label: string; ability: string }[] = [
+  { key: "Acrobatics", label: "Acrobatics", ability: "DEX" },
+  { key: "Animal Handling", label: "Animal Handling", ability: "WIS" },
+  { key: "Arcana", label: "Arcana", ability: "INT" },
+  { key: "Athletics", label: "Athletics", ability: "STR" },
+  { key: "Deception", label: "Deception", ability: "CHA" },
+  { key: "History", label: "History", ability: "INT" },
+  { key: "Insight", label: "Insight", ability: "WIS" },
+  { key: "Intimidation", label: "Intimidation", ability: "CHA" },
+  { key: "Investigation", label: "Investigation", ability: "INT" },
+  { key: "Medicine", label: "Medicine", ability: "WIS" },
+  { key: "Nature", label: "Nature", ability: "INT" },
+  { key: "Perception", label: "Perception", ability: "WIS" },
+  { key: "Performance", label: "Performance", ability: "CHA" },
+  { key: "Persuasion", label: "Persuasion", ability: "CHA" },
+  { key: "Religion", label: "Religion", ability: "INT" },
+  { key: "Sleight of Hand", label: "Sleight of Hand", ability: "DEX" },
+  { key: "Stealth", label: "Stealth", ability: "DEX" },
+  { key: "Survival", label: "Survival", ability: "WIS" },
 ];
 
 function fmt(n: number): string {
@@ -65,19 +67,18 @@ export default function SkillsList({
         }}
       >
         {SKILLS.map((s) => {
-          const bonus = bonuses[s.name] ?? 0;
-          const profLevel = proficiencies[s.name] ?? 0;
+          const bonus = bonuses[s.key] ?? 0;
+          const profLevel = proficiencies[s.key] ?? 0;
           const dot = profLevel === 2 ? "◆" : profLevel === 1 ? "●" : "○";
           const dotColor =
             profLevel === 2 ? "var(--gold)" : profLevel === 1 ? "var(--gold)" : "var(--muted)";
           return (
             <button
-              key={s.name}
+              key={s.key}
               disabled={!clickable}
               onClick={() =>
                 onRoll?.({
                   label: `${s.label} (${s.ability})`,
-                  d20: rollD20(),
                   mod: bonus,
                   breakdown:
                     profLevel === 2

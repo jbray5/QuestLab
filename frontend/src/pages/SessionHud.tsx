@@ -299,6 +299,27 @@ function ConditionTags({ active, onToggle, immunities }: ConditionTagsProps) {
   );
 }
 
+/** Tiny labeled-input wrapper used by the combat add-combatant form. */
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.1rem",
+        fontSize: "0.6rem",
+        color: "var(--muted)",
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        minWidth: 0,
+      }}
+    >
+      {label}
+      {children}
+    </label>
+  );
+}
+
 interface SpellSlotTrackerProps {
   pcId: string;
 }
@@ -1322,56 +1343,106 @@ export default function SessionHud() {
             </div>
           )}
 
-          {/* Add combatant form */}
-          <div style={{
-            padding: "0.5rem 0.75rem",
-            borderBottom: "1px solid var(--border)",
-            background: "var(--surface2)",
-          }}>
-            <div className="flex gap-1" style={{ flexWrap: "wrap" }}>
+          {/* Add combatant form — grid layout so inputs grow with the column */}
+          <div
+            style={{
+              padding: "0.5rem 0.75rem",
+              borderBottom: "1px solid var(--border)",
+              background: "var(--surface2)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.35rem",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
+                gap: "0.35rem",
+              }}
+            >
               <input
                 placeholder="Name"
                 value={newCName}
                 onChange={(e) => setNewCName(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addCombatant()}
-                style={{ flex: 2, minWidth: 80, fontSize: "0.75rem" }}
+                style={{ fontSize: "0.78rem", padding: "0.25rem 0.4rem", minWidth: 0 }}
               />
               <select
                 value={newCType}
-                onChange={(e) => setNewCType(e.target.value as "pc" | "monster" | "npc")}
-                style={{ flex: 1, minWidth: 70, fontSize: "0.75rem" }}
+                onChange={(e) =>
+                  setNewCType(e.target.value as "pc" | "monster" | "npc")
+                }
+                style={{ fontSize: "0.78rem", padding: "0.25rem 0.3rem", minWidth: 0 }}
               >
                 <option value="monster">Monster</option>
                 <option value="npc">NPC</option>
                 <option value="pc">PC</option>
               </select>
             </div>
-            <div className="flex gap-1" style={{ marginTop: "0.3rem" }}>
-              <input
-                type="number"
-                placeholder="HP"
-                value={newCHp}
-                onChange={(e) => { setNewCHp(Number(e.target.value)); setNewCHpMax(Number(e.target.value)); }}
-                style={{ width: 52, fontSize: "0.75rem" }}
-              />
-              <input
-                type="number"
-                placeholder="AC"
-                value={newCAc}
-                onChange={(e) => setNewCAc(Number(e.target.value))}
-                style={{ width: 48, fontSize: "0.75rem" }}
-              />
-              <input
-                type="number"
-                placeholder="Init"
-                value={newCInit}
-                onChange={(e) => setNewCInit(Number(e.target.value))}
-                style={{ width: 48, fontSize: "0.75rem" }}
-              />
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto",
+                gap: "0.35rem",
+                alignItems: "end",
+              }}
+            >
+              <FormField label="HP">
+                <input
+                  type="number"
+                  value={newCHp}
+                  onChange={(e) => {
+                    setNewCHp(Number(e.target.value));
+                    setNewCHpMax(Number(e.target.value));
+                  }}
+                  style={{
+                    width: "100%",
+                    minWidth: 0,
+                    fontSize: "0.78rem",
+                    padding: "0.2rem 0.35rem",
+                    textAlign: "center",
+                  }}
+                />
+              </FormField>
+              <FormField label="AC">
+                <input
+                  type="number"
+                  value={newCAc}
+                  onChange={(e) => setNewCAc(Number(e.target.value))}
+                  style={{
+                    width: "100%",
+                    minWidth: 0,
+                    fontSize: "0.78rem",
+                    padding: "0.2rem 0.35rem",
+                    textAlign: "center",
+                  }}
+                />
+              </FormField>
+              <FormField label="Init">
+                <input
+                  type="number"
+                  value={newCInit}
+                  onChange={(e) => setNewCInit(Number(e.target.value))}
+                  style={{
+                    width: "100%",
+                    minWidth: 0,
+                    fontSize: "0.78rem",
+                    padding: "0.2rem 0.35rem",
+                    textAlign: "center",
+                  }}
+                />
+              </FormField>
               <button
                 className="btn btn-secondary"
-                style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}
+                style={{
+                  fontSize: "0.72rem",
+                  padding: "0.3rem 0.65rem",
+                  whiteSpace: "nowrap",
+                  alignSelf: "end",
+                }}
                 onClick={addCombatant}
+                title="Add to initiative tracker"
               >
                 + Add
               </button>

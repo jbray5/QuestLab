@@ -8,8 +8,8 @@ import InventoryPanel from "../InventoryPanel";
 import SpellPanel from "../SpellPanel";
 import AbilityBlock from "./AbilityBlock";
 import AttacksList from "./AttacksList";
-import RollToast from "./RollToast";
-import type { RollResult } from "./RollToast";
+import RollHelper from "./RollHelper";
+import type { RollContext } from "./RollHelper";
 import SavingThrows from "./SavingThrows";
 import SkillsList from "./SkillsList";
 
@@ -46,7 +46,7 @@ function fmt(n: number): string {
  * mode without rewriting.
  */
 export default function CharacterSheet({ characterId, onClose, readOnly = false }: Props) {
-  const [roll, setRoll] = useState<RollResult | null>(null);
+  const [rollCtx, setRollCtx] = useState<RollContext | null>(null);
 
   const { data: pc, isLoading } = useQuery({
     queryKey: ["character", characterId],
@@ -197,9 +197,8 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
               value={fmt(initiativeMod)}
               clickable={!readOnly}
               onClick={() =>
-                setRoll({
+                setRollCtx({
                   label: "Initiative",
-                  d20: Math.floor(Math.random() * 20) + 1,
                   mod: initiativeMod,
                   breakdown: `DEX mod (${fmt(initiativeMod)})`,
                 })
@@ -211,7 +210,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
         {/* Body — scrollable */}
         <div style={bodyStyle}>
           <Section title="Ability Scores">
-            <AbilityBlock abilities={abilities} onRoll={setRoll} readOnly={readOnly} />
+            <AbilityBlock abilities={abilities} onRoll={setRollCtx} readOnly={readOnly} />
           </Section>
 
           <div
@@ -225,7 +224,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
               <SavingThrows
                 saves={savingThrows}
                 proficient={profSet}
-                onRoll={setRoll}
+                onRoll={setRollCtx}
                 readOnly={readOnly}
               />
             </Section>
@@ -233,7 +232,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
               <SkillsList
                 bonuses={skillBonuses}
                 proficiencies={skillProfs}
-                onRoll={setRoll}
+                onRoll={setRollCtx}
                 readOnly={readOnly}
               />
             </Section>
@@ -242,41 +241,37 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
           <Section title="⚔ Attacks">
             <AttacksList
               characterId={characterId}
-              onRoll={setRoll}
+              onRoll={setRollCtx}
               readOnly={readOnly}
             />
           </Section>
 
-          {/* Embedded panels — always expanded inside the sheet */}
-          <Section title="📖 Spells">
-            <SpellPanel
-              characterId={characterId}
-              characterClass={pc.character_class}
-              characterName={pc.character_name}
-              defaultOpen
-              readOnly={readOnly}
-            />
-          </Section>
+          {/* Embedded panels — always expanded inside the sheet.
+              The panels render their own headers, so no wrapper Section
+              title (would double up). */}
+          <SpellPanel
+            characterId={characterId}
+            characterClass={pc.character_class}
+            characterName={pc.character_name}
+            defaultOpen
+            readOnly={readOnly}
+          />
 
-          <Section title="⚡ Features">
-            <FeaturePanel
-              characterId={characterId}
-              characterClass={pc.character_class}
-              characterLevel={pc.level}
-              characterName={pc.character_name}
-              defaultOpen
-              readOnly={readOnly}
-            />
-          </Section>
+          <FeaturePanel
+            characterId={characterId}
+            characterClass={pc.character_class}
+            characterLevel={pc.level}
+            characterName={pc.character_name}
+            defaultOpen
+            readOnly={readOnly}
+          />
 
-          <Section title="📦 Inventory">
-            <InventoryPanel
-              characterId={characterId}
-              characterName={pc.character_name}
-              defaultOpen
-              readOnly={readOnly}
-            />
-          </Section>
+          <InventoryPanel
+            characterId={characterId}
+            characterName={pc.character_name}
+            defaultOpen
+            readOnly={readOnly}
+          />
 
           {(pc.backstory || pc.notes) && (
             <Section title="📝 Backstory & Notes">
@@ -335,7 +330,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
         </div>
       </div>
 
-      <RollToast roll={roll} onClose={() => setRoll(null)} />
+      <RollHelper context={rollCtx} onClose={() => setRollCtx(null)} />
     </div>
   );
 }

@@ -4,12 +4,11 @@ import { useQueries, useQuery } from "@tanstack/react-query";
 import { inventoryApi } from "../../api/inventory";
 import { itemsApi } from "../../api/items";
 import type { CharacterItem, MagicItem } from "../../api/types";
-import { rollD20 } from "./RollToast";
-import type { RollResult } from "./RollToast";
+import type { RollContext } from "./RollHelper";
 
 interface Props {
   characterId: string;
-  onRoll?: (roll: RollResult) => void;
+  onRoll?: (ctx: RollContext) => void;
   readOnly?: boolean;
 }
 
@@ -95,12 +94,10 @@ export default function AttacksList({ characterId, onRoll, readOnly = false }: P
               disabled={!clickable || !preview}
               onClick={() => {
                 if (!preview) return;
-                const d20 = rollD20();
                 onRoll?.({
                   label: `${entry.item.name} attack`,
-                  d20,
                   mod: preview.hit_bonus,
-                  breakdown: `${preview.ability} mod + prof = ${preview.hit_bonus >= 0 ? "+" : ""}${preview.hit_bonus}${entry.item.mastery ? ` · mastery: ${entry.item.mastery}` : ""}`,
+                  breakdown: `${preview.ability} mod + prof${entry.item.mastery ? ` · mastery: ${entry.item.mastery}` : ""}`,
                   damage: `${preview.damage_roll} ${preview.damage_type}`,
                 });
               }}

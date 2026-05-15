@@ -1,12 +1,11 @@
-import { rollD20 } from "./RollToast";
-import type { RollResult } from "./RollToast";
+import type { RollContext } from "./RollHelper";
 
 interface Props {
   /** Map of ability label ("STR".."CHA") to total save bonus. */
   saves: Record<string, number>;
   /** Ability labels the PC is proficient in (for the * indicator). */
   proficient?: string[];
-  onRoll?: (roll: RollResult) => void;
+  onRoll?: (ctx: RollContext) => void;
   readOnly?: boolean;
 }
 
@@ -55,7 +54,6 @@ export default function SavingThrows({
               onClick={() =>
                 onRoll?.({
                   label: `${ab} save`,
-                  d20: rollD20(),
                   mod: bonus,
                   breakdown: `${ab} save (${fmt(bonus)})${isProf ? " · proficient" : ""}`,
                 })

@@ -1,5 +1,4 @@
-import { rollD20 } from "./RollToast";
-import type { RollResult } from "./RollToast";
+import type { RollContext } from "./RollHelper";
 
 interface AbilityRow {
   label: "STR" | "DEX" | "CON" | "INT" | "WIS" | "CHA";
@@ -8,8 +7,9 @@ interface AbilityRow {
 
 interface Props {
   abilities: AbilityRow[];
-  /** Called when the DM clicks an ability score to roll a raw ability check. */
-  onRoll?: (roll: RollResult) => void;
+  /** Called when an ability is clicked. The parent surfaces the RollHelper
+   *  so players can enter their real-die result; or click 🎲 Digital. */
+  onRoll?: (ctx: RollContext) => void;
   readOnly?: boolean;
 }
 
@@ -46,7 +46,6 @@ export default function AbilityBlock({ abilities, onRoll, readOnly = false }: Pr
             onClick={() =>
               onRoll?.({
                 label: `${a.label} check`,
-                d20: rollD20(),
                 mod: m,
                 breakdown: `${a.label} mod (${fmt(m)})`,
               })
