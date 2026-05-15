@@ -1,4 +1,8 @@
-const BASE = "/api";
+// Base URL for the QuestLab API.
+//   - Local dev: "/api" — Vite proxies to localhost:8000 (see vite.config.ts)
+//   - Production: set VITE_API_BASE_URL to the deployed backend origin, e.g.
+//     "https://questlab-api.onrender.com/api"
+const BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
 /** Read DM identity from localStorage (set on first load from a meta tag or env). */
 function getAuthHeader(): Record<string, string> {

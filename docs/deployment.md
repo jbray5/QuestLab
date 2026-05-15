@@ -1,102 +1,211 @@
-# Deployment
+# Deployment — Vercel (frontend) + Render (backend)
 
-QuestLab runs as a single Docker container (FastAPI + React SPA) on **Azure Container Apps**,
-backed by **Azure Postgres Flexible Server**.
-
----
-
-## Architecture
+This guide gets QuestLab live in ~30 minutes. The deployment splits the
+React frontend from the FastAPI backend, which is the cleanest fit for
+serverless edge hosting (Vercel) plus a long-running Python service
+(Render).
 
 ```
-Browser
-  └─ HTTPS ──► Azure Container Apps (questlab-app)
-                    │  port 8000 — uvicorn
-                    │  FastAPI serves /api/* routes
-                    │  FastAPI serves React SPA from frontend/dist/
-                    └─ TCP 5432 ──► Azure Postgres Flexible Server
+  ┌──────────────┐ HTTPS   ┌────────────────────┐ TLS  ┌──────────────┐
+  │ Browser      │────────►│ Vercel (frontend)  │      │              │
+  │ player / DM  │         │ React + Vite build │      │              │
+  └──────────────┘         └────────────────────┘      │              │
+         │                          │  fetch           │              │
+         │  ──────────────────────► │  ─────────────►  │  Render Web  │
+         │                          │                  │  questlab-api│
+         │                          │                  │  (FastAPI)   │
+         └──────────────────────────┴─────────────────►│              │
+                                                       └──────┬───────┘
+                                                              │ SSL
+                                                              ▼
+                                                       ┌──────────────┐
+                                                       │ Render PG    │
+                                                       │ questlab-db  │
+                                                       └──────────────┘
 ```
 
----
+> The previous Azure Container Apps deploy plan is preserved in
+> git history (`docs/deployment.md` before this commit). When you return
+> from the road and can update Azure Postgres firewall rules, you can
+> swap Render Postgres → Azure Postgres by just changing PG env vars in
+> Render and running `alembic upgrade head`.
 
-## First-time setup
+## Prerequisites
 
-See **`infra/README.md`** — the complete step-by-step runbook.
-
-Short version:
-1. `./infra/provision.sh` — create Azure resources
-2. Add GitHub secrets (table in `infra/README.md`)
-3. Push to `main` — GitHub Actions deploys automatically
-
----
-
-## Environment variables (production)
-
-| Variable | Description |
-|---|---|
-| `DB_BACKEND` | `postgres` |
-| `PGHOST` | Postgres Flexible Server FQDN |
-| `PGPORT` | `5432` |
-| `PGDATABASE` | `questlab` |
-| `PGUSER` | DB username |
-| `PGPASSWORD` | DB password (stored as Container Apps secret) |
-| `PGSSLMODE` | `require` |
-| `CURRENT_USER_EMAIL` | Identity bypass — single user email for demo deploy |
-| `BOOTSTRAP_ADMIN_EMAILS` | Seeded as admin on first run |
-| `ANTHROPIC_API_KEY` | Claude API key (stored as Container Apps secret) |
-| `CORS_ORIGINS` | Optional extra origins (comma-separated); not needed when frontend is same-origin |
-| `LOG_LEVEL` | `INFO` |
-| `ENV` | `production` |
+- GitHub repo pushed: this repo, on the `main` branch
+- Vercel account: <https://vercel.com>
+- Render account: <https://render.com>
+- Anthropic API key (Claude) for runbook generation: <https://console.anthropic.com>
 
 ---
 
-## CI/CD pipeline
+## Part 1 — Backend on Render (do this first)
 
-`.github/workflows/azure-deploy.yml` runs on every push to `main` that touches
-`api/`, `frontend/src/`, `Dockerfile`, `requirements.txt`, or `alembic/`.
+The frontend needs the backend's URL, so the backend has to exist first.
 
-Steps:
-1. Build multi-stage Docker image (Node → React build, Python → runtime)
-2. Push to Azure Container Registry
-3. `az containerapp update` (or `create` on first run)
-4. On startup, container runs `alembic upgrade head` before uvicorn
+### 1. Connect the repo to Render
 
----
+1. Render dashboard → **New +** → **Blueprint**
+2. **Connect a GitHub repository**, pick this repo
+3. Render reads `render.yaml` at the repo root and proposes:
+   - Web service: `questlab-api` (Python, free plan)
+   - Database: `questlab-db` (Postgres 16, free plan)
+4. Click **Apply**
 
-## Alembic migrations (manual / emergency)
+The first deploy takes 5–10 minutes (build + alembic migrations).
 
-To run migrations manually against prod:
+### 2. Fill in three sync-false env vars
+
+Once the web service is up, open **questlab-api → Environment** and set:
+
+| Key | Value | Notes |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | `sk-ant-…` | Required for `/api/sessions/{id}/runbook` |
+| `BOOTSTRAP_ADMIN_EMAILS` | `you@example.com` | Seeded into admins table on first boot only |
+| `CORS_ORIGINS` | _leave blank until Part 2_ | Comma-separated origins (no trailing slash) |
+
+After saving, click **Manual Deploy → Deploy latest commit** so the new env vars take effect.
+
+### 3. Smoke-test the backend
+
+The Render dashboard shows the public URL — something like
+`https://questlab-api.onrender.com`. Hit:
 
 ```bash
-# Option 1 — exec into a running replica
-az containerapp exec \
-  --name questlab-app \
-  --resource-group questlab-rg \
-  --command "alembic upgrade head"
-
-# Option 2 — run locally against prod DB (requires VPN or firewall rule)
-export PGHOST=questlab-pg.postgres.database.azure.com
-export PGPASSWORD=<password>
-alembic upgrade head
+curl https://questlab-api.onrender.com/api/health
+# expected: {"ok": true}
 ```
+
+If you get a 5xx, check **questlab-api → Logs** for the stack trace.
+Common first-deploy issues:
+
+- `alembic.util.exc.CommandError: Can't locate revision identified by …`
+  → ensure all migrations under `alembic/versions/` were committed
+- `psycopg2.OperationalError: SSL connection has been closed`
+  → `PGSSLMODE=require` is set; if errors persist, the DB is still
+    provisioning. Wait 2 min and redeploy.
+
+> ⏱ **Free tier sleeps after 15 min idle.** First request after sleep
+> takes 30–50s. Fine for prep, painful at the table. Upgrade to Starter
+> ($7/mo) for always-on if needed.
+
+---
+
+## Part 2 — Frontend on Vercel
+
+### 1. Connect the repo to Vercel
+
+1. Vercel dashboard → **Add New… → Project**
+2. Import this GitHub repo
+3. **Root Directory: `frontend`** (critical — Vite is in a sub-folder)
+4. Framework Preset: **Vite** (auto-detected from `vercel.json`)
+5. Don't deploy yet — set env vars first
+
+### 2. Set the environment variable
+
+Project → **Settings → Environment Variables**, add (Production scope):
+
+| Key | Value |
+|---|---|
+| `VITE_API_BASE_URL` | `https://questlab-api.onrender.com/api` |
+
+Note the trailing `/api`. The frontend prepends this to every path.
+
+### 3. Deploy
+
+Hit **Deploy**. Vercel builds and ships in ~2 min. You get a URL like
+`https://questlab.vercel.app`.
+
+### 4. Wire CORS
+
+Copy the Vercel URL and paste it into Render → **questlab-api →
+Environment → CORS_ORIGINS**:
+
+```
+https://questlab.vercel.app
+```
+
+No trailing slash. Multiple origins are comma-separated. Save, then
+**Manual Deploy → Deploy latest commit** so the API trusts the new origin.
+
+### 5. First-load identity
+
+Open the Vercel URL. The app shows "Welcome to QuestLab — enter your DM
+email." This becomes your identity for authz (campaign ownership). It
+persists in browser localStorage; you can change it any time from the
+sidebar.
+
+---
+
+## Part 3 — Verifying it works
+
+1. Set your DM email
+2. Create a test campaign — should appear on the dashboard
+3. Create a PC — should round-trip
+4. Open the HUD for a session, generate a runbook (tests the Claude API key)
+
+If the dashboard shows "API unreachable", inspect the browser's
+DevTools → Network → look at the failed `/campaigns` call:
+
+- **CORS error** → `CORS_ORIGINS` doesn't include your Vercel domain
+- **404** → `VITE_API_BASE_URL` is missing `/api` at the end
+- **5xx** → backend error, check Render logs
 
 ---
 
 ## Auth model
 
-**Current (demo):** `CURRENT_USER_EMAIL` env var — everyone who opens the URL is the same user.
+Identity is just the email the DM types on first load, sent in
+`X-MS-CLIENT-PRINCIPAL-NAME` on every request. The backend uses this for
+authz (DM owns campaign → owns its PCs).
 
-**Future (multi-user):** Azure Front Door + Entra ID authentication.
-Front Door injects `X-MS-CLIENT-PRINCIPAL-NAME` header; no app code changes needed.
-Steps:
-1. Provision Front Door profile with custom domain
-2. Enable Entra ID provider on the Front Door security policy
-3. Point Front Door origin to the Container App
-4. Remove `CURRENT_USER_EMAIL` from Container App env vars
+This is **MVP-level** trust: anyone who knows another DM's email can
+impersonate them. Fine for an in-person table where you control the URL,
+not fine for public hosting. Plan 25 will add real player auth.
+
+If you need to lock down the deployed instance now: put it behind a
+Cloudflare Access policy or Vercel's password protection (Pro plan).
 
 ---
 
-## Tearing down
+## Updating after a code change
 
-```bash
-az group delete --name questlab-rg --yes
-```
+Both Render and Vercel auto-deploy on every push to `main`:
+
+- Push → Vercel rebuilds frontend (~2 min)
+- Push → Render rebuilds backend + runs `alembic upgrade head` (~5 min)
+
+For DB-schema changes:
+
+1. Write the migration locally: `alembic revision --autogenerate -m "…"`
+2. Test against local DuckDB / Postgres
+3. Commit and push — Render runs the migration on deploy
+
+For frontend-only changes the Render deploy is skipped (no relevant
+files changed).
+
+---
+
+## Cost summary (current)
+
+| Service | Plan | Cost | Limit |
+|---|---|---|---|
+| Vercel | Hobby | $0 | 100GB bandwidth / month |
+| Render Web | Free | $0 | 750h/mo, sleeps after 15min idle |
+| Render Postgres | Free | $0 | 1GB storage, **deleted after 90 days** |
+| Claude API | Pay-as-you-go | $$ | ~$0.01–0.05 per runbook |
+
+> 🪙 **Render free Postgres expires after 90 days.** Before then, either
+> upgrade to a paid plan, swap to Azure Postgres (set the PG env vars
+> in Render to your Azure instance and redeploy), or `pg_dump` to a
+> new instance.
+
+---
+
+## Rollback
+
+- **Vercel:** Project → Deployments → click any previous deploy →
+  "Promote to Production"
+- **Render:** Service → Manual Deploy → pick an earlier commit
+- **DB:** Render Postgres has automatic daily backups (paid plans only).
+  Free tier: run `pg_dump` periodically into local storage.

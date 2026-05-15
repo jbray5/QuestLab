@@ -78,6 +78,9 @@ export interface PlayerCharacter {
   ep: number;
   gp: number;
   pp: number;
+  // Proficiencies — JSON columns on the backend (Plan 00022)
+  saving_throw_proficiencies: string[] | null;
+  skill_proficiencies: Record<string, number> | null;
   created_at: string;
   updated_at: string;
 }

@@ -26,7 +26,7 @@ export default function InventoryPanel({
   characterId,
   characterName,
   defaultOpen = false,
-  readOnly = false,
+  readOnly: _readOnly = false,
 }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(defaultOpen);

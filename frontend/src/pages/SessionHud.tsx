@@ -76,38 +76,6 @@ const CONDITION_RULES: Record<Condition, string> = {
 
 const DICE = [4, 6, 8, 10, 12, 20, 100] as const;
 
-const SPELLCASTER_CLASSES = ["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Sorcerer", "Warlock", "Wizard", "Artificer"];
-
-// Rough slot table by class+level (simplified; full short/long rest not tracked)
-function maxSlotsForLevel(cls: string | null, level: number): number[] {
-  if (!cls || !SPELLCASTER_CLASSES.includes(cls)) return [];
-  const isHalf = ["Paladin", "Ranger", "Artificer"].includes(cls);
-  const effectiveLevel = isHalf ? Math.floor(level / 2) : level;
-  const table: Record<number, number[]> = {
-    1:  [2],
-    2:  [3],
-    3:  [4, 2],
-    4:  [4, 3],
-    5:  [4, 3, 2],
-    6:  [4, 3, 3],
-    7:  [4, 3, 3, 1],
-    8:  [4, 3, 3, 2],
-    9:  [4, 3, 3, 3, 1],
-    10: [4, 3, 3, 3, 2],
-    11: [4, 3, 3, 3, 2, 1],
-    12: [4, 3, 3, 3, 2, 1],
-    13: [4, 3, 3, 3, 2, 1, 1],
-    14: [4, 3, 3, 3, 2, 1, 1],
-    15: [4, 3, 3, 3, 2, 1, 1, 1],
-    16: [4, 3, 3, 3, 2, 1, 1, 1],
-    17: [4, 3, 3, 3, 2, 1, 1, 1, 1],
-    18: [4, 3, 3, 3, 3, 1, 1, 1, 1],
-    19: [4, 3, 3, 3, 3, 2, 1, 1, 1],
-    20: [4, 3, 3, 3, 3, 2, 2, 1, 1],
-  };
-  return table[Math.min(Math.max(effectiveLevel, 1), 20)] ?? [];
-}
-
 function abilityMod(score: number) {
   return Math.floor((score - 10) / 2);
 }
@@ -501,7 +469,6 @@ export default function SessionHud() {
   const replaceFromRoll = useInitiativeStore((s) => s.replaceFromRoll);
   const patchPersistedCombatant = useInitiativeStore((s) => s.patchCombatant);
   const advanceTurn = useInitiativeStore((s) => s.nextTurn);
-  const resetCombat = useInitiativeStore((s) => s.reset);
 
   const [acOverrides, setAcOverrides] = useState<Record<string, number>>({});
   const [newCName, setNewCName] = useState("");
@@ -723,11 +690,6 @@ export default function SessionHud() {
       const { [id]: _drop, ...rest } = p;
       return rest;
     });
-  }
-
-  function resetCombatTracker() {
-    void resetCombat();
-    setAcOverrides({});
   }
 
   // ── Loot modal ─────────────────────────────────────────────────────────────

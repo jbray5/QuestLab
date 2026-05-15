@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 
 import { inventoryApi } from "../../api/inventory";
-import { itemsApi } from "../../api/items";
-import type { CharacterItem, MagicItem } from "../../api/types";
+import { itemsApi, type MagicItem } from "../../api/items";
+import type { CharacterItem } from "../../api/types";
 import type { RollContext } from "./RollHelper";
 
 interface Props {

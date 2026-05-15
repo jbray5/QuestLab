@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { charactersApi } from "../../api/characters";
-import type { PlayerCharacter, PlayerCharacterUpdate } from "../../api/types";
+import type { PlayerCharacterUpdate } from "../../api/types";
 import FeaturePanel from "../FeaturePanel";
 import InventoryPanel from "../InventoryPanel";
 import SpellPanel from "../SpellPanel";
@@ -149,13 +149,8 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
     { label: "CHA" as const, score: pc.score_cha },
   ];
   const initiativeMod = mod(pc.score_dex);
-  const profSet = (pc.saving_throw_proficiencies ?? []).map((p) =>
-    typeof p === "string" ? p : String(p),
-  );
-  const skillProfs: Record<string, number> = (pc.skill_proficiencies as Record<
-    string,
-    number
-  > | null) ?? {};
+  const profSet = pc.saving_throw_proficiencies ?? [];
+  const skillProfs: Record<string, number> = pc.skill_proficiencies ?? {};
 
   return (
     <div

@@ -1,0 +1,72 @@
+# Render blueprint for QuestLab backend.
+#
+# Provisions:
+#   1. A Python web service running the FastAPI app on uvicorn
+#   2. A managed Postgres instance
+#
+# To deploy: connect this repo at https://dashboard.render.com → "New +" → "Blueprint",
+# then point at this file. See docs/deployment.md for the full walk-through.
+#
+# After the first successful deploy, set ANTHROPIC_API_KEY and CORS_ORIGINS
+# (the Vercel domain) in the dashboard. These are marked sync: false below
+# so Render does not overwrite manual edits.
+
+services:
+  - type: web
+    name: questlab-api
+    runtime: python
+    region: oregon
+    plan: free
+    branch: main
+    # Build: install deps and run migrations. Alembic upgrade is idempotent,
+    # so this also works on subsequent deploys.
+    buildCommand: pip install -r requirements.txt && alembic upgrade head
+    # Render injects $PORT; uvicorn binds there. --workers 1 keeps memory low
+    # on the free tier (512MB).
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /api/health
+    envVars:
+      - key: DB_BACKEND
+        value: postgres
+      - key: PGSSLMODE
+        value: require
+      - key: AUTH_EMAIL_HEADER
+        value: X-MS-CLIENT-PRINCIPAL-NAME
+      - key: ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      # Auto-wired from the managed Postgres below
+      - key: PGHOST
+        fromDatabase:
+          name: questlab-db
+          property: host
+      - key: PGPORT
+        fromDatabase:
+          name: questlab-db
+          property: port
+      - key: PGDATABASE
+        fromDatabase:
+          name: questlab-db
+          property: database
+      - key: PGUSER
+        fromDatabase:
+          name: questlab-db
+          property: user
+      - key: PGPASSWORD
+        fromDatabase:
+          name: questlab-db
+          property: password
+      # Set these in the Render dashboard after first deploy
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: BOOTSTRAP_ADMIN_EMAILS
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+
+databases:
+  - name: questlab-db
+    plan: free
+    region: oregon
+    postgresMajorVersion: "16"
