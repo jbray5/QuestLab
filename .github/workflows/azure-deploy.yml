@@ -1,18 +1,14 @@
 name: Build & Deploy to Azure
 
+# Disabled as of 2026-05-15 — QuestLab pivoted to Vercel (frontend) +
+# Render (backend) for deploy. See docs/deployment.md. This workflow is
+# preserved for reference and can be re-enabled by restoring the `push:`
+# trigger below if/when Azure Container Apps becomes the target again.
+#
+# Manual trigger remains available via the Actions tab → "Run workflow".
+
 on:
-  push:
-    branches: [main]
-    paths:
-      - "api/**"
-      - "frontend/src/**"
-      - "frontend/index.html"
-      - "frontend/package*.json"
-      - "frontend/vite.config.ts"
-      - "Dockerfile"
-      - "entrypoint.sh"
-      - "requirements.txt"
-      - "alembic/**"
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
