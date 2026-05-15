@@ -12,6 +12,7 @@ import CurrencyBar from "./CurrencyBar";
 import DeathSaveTracker from "./DeathSaveTracker";
 import ExhaustionTracker from "./ExhaustionTracker";
 import HitDiceTracker from "./HitDiceTracker";
+import InfoTip from "./InfoTip";
 import RollHelper from "./RollHelper";
 import type { RollContext } from "./RollHelper";
 import SavingThrows from "./SavingThrows";
@@ -237,13 +238,52 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
             </button>
           </div>
 
+          {/* DM-help inline tooltips */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              marginTop: "0.65rem",
+              fontSize: "0.65rem",
+              color: "var(--muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+            }}
+          >
+            <span>DM help:</span>
+            <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              Temp HP
+              <InfoTip title="Temporary HP">
+                A separate HP pool, used up before real HP. Doesn't stack — a new
+                source replaces the old (don't add).{"\n\n"}
+                Common sources: False Life, Heroism, Inspiring Leader, Tempest Cleric's
+                Channel Divinity. Lost on long rest.{"\n\n"}
+                Use the −Damage button — the waterfall is applied server-side.
+              </InfoTip>
+            </span>
+            <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              Inspiration
+              <InfoTip title="Heroic Inspiration (2024)">
+                A binary boost. The player either HAS inspiration or not — it
+                doesn't stack.{"\n\n"}
+                Spend BEFORE rolling: re-roll any d20 (attack, save, check)
+                and use either result.{"\n\n"}
+                2024 rules grant Heroic Inspiration automatically on any
+                natural 20. Also grant it for cool roleplay, clever solutions,
+                or anything you want to reward at the table.{"\n\n"}
+                Click the Insp chip to toggle on/off.
+              </InfoTip>
+            </span>
+          </div>
+
           {/* Combat stat row */}
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
               gap: "0.5rem",
-              marginTop: "0.75rem",
+              marginTop: "0.5rem",
             }}
           >
             <StatChip
@@ -696,19 +736,35 @@ function ConcentrationStarter({
 
   if (!editing) {
     return (
-      <button
-        onClick={() => setEditing(true)}
-        className="btn btn-ghost"
+      <div
         style={{
-          fontSize: "0.72rem",
-          padding: "0.25rem 0.55rem",
+          display: "flex",
+          alignItems: "center",
+          gap: "0.4rem",
           marginTop: "0.5rem",
-          color: "var(--muted)",
         }}
-        title="Mark this PC as concentrating on a spell/effect"
       >
-        🌀 Start concentration
-      </button>
+        <button
+          onClick={() => setEditing(true)}
+          className="btn btn-ghost"
+          style={{
+            fontSize: "0.72rem",
+            padding: "0.25rem 0.55rem",
+            color: "var(--muted)",
+          }}
+          title="Mark this PC as concentrating on a spell/effect"
+        >
+          🌀 Start concentration
+        </button>
+        <InfoTip title="Concentration">
+          Spells tagged "Concentration" require ongoing focus. Casting another
+          concentration spell drops the first.{"\n\n"}
+          Whenever the PC takes damage they make a CON save:
+          DC = max(10, half damage taken). Failing drops the spell.{"\n\n"}
+          Click "Start concentration" and type the spell name when the
+          player casts something like Bless, Hold Person, or Hunter's Mark.
+        </InfoTip>
+      </div>
     );
   }
   return (

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { charactersApi } from "../../api/characters";
 import type { PlayerCharacter } from "../../api/types";
+import InfoTip from "./InfoTip";
 
 interface Props {
   pc: PlayerCharacter;
@@ -88,6 +89,16 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
         >
           {stateLabel}
         </strong>
+        <InfoTip title="Death Saves">
+          When a PC drops to 0 HP they are dying. At the start of each of
+          their turns they roll a d20 (no modifier){"—"}this is a
+          death save.{"\n\n"}
+          ≥10 = success · &lt;10 = failure · nat 1 = 2 failures ·
+          nat 20 = revive at 1 HP{"\n\n"}
+          3 successes = stable (unconscious but no longer dying).
+          3 failures = dead.{"\n\n"}
+          Any healing brings them to that many HP and clears the tracks.
+        </InfoTip>
       </div>
 
       <div

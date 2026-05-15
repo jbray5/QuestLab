@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { charactersApi } from "../../api/characters";
 import type { PlayerCharacter } from "../../api/types";
+import InfoTip from "./InfoTip";
 
 interface Props {
   pc: PlayerCharacter;
@@ -57,6 +58,16 @@ export default function ExhaustionTracker({ pc, readOnly = false }: Props) {
         >
           Exhaustion
         </h4>
+        <InfoTip title="Exhaustion (2024 rules)">
+          0–6 scale. Each level applies a cumulative −2 penalty to all
+          D20 Tests (attack rolls, ability checks, saving throws).
+          Level 6 = death.{"\n\n"}
+          When to apply: forced march without rest, going hungry/thirsty
+          for too long, failing a CON save vs a harmful effect (e.g.
+          extreme cold), the Ray of Sickness spell, certain monster
+          attacks.{"\n\n"}
+          Long rest reduces by 1. Click a dot to set the level.
+        </InfoTip>
         <span
           style={{
             fontFamily: "monospace",
