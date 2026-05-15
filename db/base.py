@@ -160,6 +160,17 @@ def patch_duckdb_schema() -> None:
             "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS "
             "death_save_failures INTEGER DEFAULT 0"
         ),
+        # 0014 — hit dice / exhaustion / currency (Plan 00024)
+        (
+            "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS "
+            "hit_dice_spent INTEGER DEFAULT 0"
+        ),
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS exhaustion INTEGER DEFAULT 0",
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS cp INTEGER DEFAULT 0",
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS sp INTEGER DEFAULT 0",
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS ep INTEGER DEFAULT 0",
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS gp INTEGER DEFAULT 0",
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS pp INTEGER DEFAULT 0",
     ]
     with engine.begin() as conn:
         for stmt in patches:

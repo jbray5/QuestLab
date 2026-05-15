@@ -1,5 +1,9 @@
 import { api } from "./client";
-import type { PlayerCharacter, PlayerCharacterCreate } from "./types";
+import type {
+  PlayerCharacter,
+  PlayerCharacterCreate,
+  SpellcastingStats,
+} from "./types";
 
 export const charactersApi = {
   list: (campaignId: string) =>
@@ -24,4 +28,9 @@ export const charactersApi = {
     api.post<PlayerCharacter>(`/characters/${id}/heal`, { amount }),
   resolveDeathSave: (id: string, d20: number) =>
     api.post<PlayerCharacter>(`/characters/${id}/death-save`, { d20 }),
+  // Plan 00024 — caster stats + hit dice
+  spellcastingStats: (id: string) =>
+    api.get<SpellcastingStats>(`/characters/${id}/spellcasting-stats`),
+  spendHitDice: (id: string, count: number) =>
+    api.post<PlayerCharacter>(`/characters/${id}/spend-hit-dice`, { count }),
 };

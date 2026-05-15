@@ -657,3 +657,129 @@ def resolve_death_save(
     session.commit()
     session.refresh(character)
     return character
+
+
+# ── Plan 00024 — caster stats, hit dice, exhaustion lookups ────────────────────
+
+# Spellcasting ability per class (2024 PHB).
+_SPELLCASTING_ABILITY: dict[CharacterClass, str] = {
+    CharacterClass.WIZARD: "int",
+    CharacterClass.ARTIFICER: "int",
+    CharacterClass.CLERIC: "wis",
+    CharacterClass.DRUID: "wis",
+    CharacterClass.RANGER: "wis",
+    CharacterClass.BARD: "cha",
+    CharacterClass.PALADIN: "cha",
+    CharacterClass.SORCERER: "cha",
+    CharacterClass.WARLOCK: "cha",
+}
+
+# Hit die size per class (2024 PHB).
+_HIT_DIE_BY_CLASS: dict[CharacterClass, int] = {
+    CharacterClass.SORCERER: 6,
+    CharacterClass.WIZARD: 6,
+    CharacterClass.ARTIFICER: 8,
+    CharacterClass.BARD: 8,
+    CharacterClass.CLERIC: 8,
+    CharacterClass.DRUID: 8,
+    CharacterClass.MONK: 8,
+    CharacterClass.ROGUE: 8,
+    CharacterClass.WARLOCK: 8,
+    CharacterClass.FIGHTER: 10,
+    CharacterClass.PALADIN: 10,
+    CharacterClass.RANGER: 10,
+    CharacterClass.BARBARIAN: 12,
+}
+
+
+def hit_die_for(character_class: CharacterClass) -> int:
+    """Return the hit-die size (d6/d8/d10/d12) for a class per 2024 RAW.
+
+    Args:
+        character_class: The PC's class.
+
+    Returns:
+        Integer die size: 6, 8, 10, or 12.
+    """
+    return _HIT_DIE_BY_CLASS[character_class]
+
+
+def spellcasting_ability(character_class: CharacterClass) -> Optional[str]:
+    """Return the spellcasting ability key for a class, or None for non-casters.
+
+    Args:
+        character_class: The PC's class.
+
+    Returns:
+        One of ``"int"``, ``"wis"``, ``"cha"`` for casters; ``None`` for
+        Barbarian, Fighter, Monk, Rogue.
+    """
+    return _SPELLCASTING_ABILITY.get(character_class)
+
+
+def spellcasting_stats(pc: PlayerCharacter) -> dict[str, Any]:
+    """Return computed spell DC and attack bonus for a PC, or empty for non-casters.
+
+    Formulas (2024 RAW):
+        spell save DC      = 8 + proficiency_bonus + ability_modifier
+        spell attack bonus =     proficiency_bonus + ability_modifier
+
+    Args:
+        pc: The PlayerCharacter row.
+
+    Returns:
+        Dict with ``ability`` (uppercase key) / ``save_dc`` / ``attack_bonus``
+        for casters; ``{"ability": None, "save_dc": None, "attack_bonus": None}``
+        for non-casters.
+    """
+    ability = spellcasting_ability(pc.character_class)
+    if ability is None:
+        return {"ability": None, "save_dc": None, "attack_bonus": None}
+    score = getattr(pc, f"score_{ability}")
+    mod = ability_modifier(score)
+    pb = proficiency_bonus(pc.level)
+    return {
+        "ability": ability.upper(),
+        "save_dc": 8 + pb + mod,
+        "attack_bonus": pb + mod,
+    }
+
+
+def spend_hit_dice(
+    session: Session, character_id: uuid.UUID, count: int, dm_email: str
+) -> PlayerCharacter:
+    """Mark ``count`` hit dice as spent on this PC (short-rest healing).
+
+    Healing itself is applied separately via ``apply_healing`` after the player
+    rolls the HD and adds CON mod — this just bumps the spent counter so the
+    UI's pip tracker stays accurate and long-rest recovery has the right base.
+
+    Args:
+        session: Active database session.
+        character_id: UUID of the PC to update.
+        count: Number of hit dice to spend (must be > 0).
+        dm_email: Email of the DM making the request.
+
+    Returns:
+        The updated PlayerCharacter row.
+
+    Raises:
+        ValueError: If count is not positive or would exceed available HD.
+        PermissionError: If the DM does not own the campaign.
+    """
+    if count <= 0:
+        raise ValueError(f"count must be > 0, got {count}.")
+    character = _get_character_or_raise(session, character_id)
+    campaign = _get_campaign_or_raise(session, character.campaign_id)
+    _assert_campaign_owner(campaign, dm_email)
+    available = character.level - character.hit_dice_spent
+    if count > available:
+        raise ValueError(
+            f"Tried to spend {count} HD but only {available} remain "
+            f"(level {character.level}, already spent {character.hit_dice_spent})."
+        )
+    character.hit_dice_spent += count
+    session.add(character)
+    session.commit()
+    session.refresh(character)
+    return character

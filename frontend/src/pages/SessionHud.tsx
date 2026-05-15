@@ -1728,7 +1728,8 @@ function PcStatusIcons({ pc }: { pc: PlayerCharacter }) {
   const insp = pc.heroic_inspiration ?? false;
   const conc = pc.concentration_on ?? null;
   const dying = pc.hp_current === 0;
-  const hasAny = tempHp > 0 || insp || !!conc || dying;
+  const exhaustion = pc.exhaustion ?? 0;
+  const hasAny = tempHp > 0 || insp || !!conc || dying || exhaustion > 0;
   if (!hasAny) return null;
   return (
     <div
@@ -1767,6 +1768,18 @@ function PcStatusIcons({ pc }: { pc: PlayerCharacter }) {
           title={`Death saves: ${pc.death_save_successes ?? 0}✓ / ${pc.death_save_failures ?? 0}✗`}
         >
           💀 {pc.death_save_successes ?? 0}✓/{pc.death_save_failures ?? 0}✗
+        </StatusBadge>
+      )}
+      {exhaustion > 0 && (
+        <StatusBadge
+          color={exhaustion >= 6 ? "var(--red, #ef5350)" : "var(--crimson2, #8b1a1a)"}
+          title={
+            exhaustion >= 6
+              ? "Exhaustion 6 — dead"
+              : `Exhaustion ${exhaustion} (${exhaustion * -2} to D20 Tests)`
+          }
+        >
+          😵 {exhaustion}
         </StatusBadge>
       )}
     </div>

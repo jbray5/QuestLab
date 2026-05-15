@@ -70,8 +70,22 @@ export interface PlayerCharacter {
   concentration_on: string | null;
   death_save_successes: number;
   death_save_failures: number;
+  // Plan 00024 — hit dice, exhaustion, currency
+  hit_dice_spent: number;
+  exhaustion: number;
+  cp: number;
+  sp: number;
+  ep: number;
+  gp: number;
+  pp: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface SpellcastingStats {
+  ability: "INT" | "WIS" | "CHA" | null;
+  save_dc: number | null;
+  attack_bonus: number | null;
 }
 
 export interface PlayerCharacterCreate {

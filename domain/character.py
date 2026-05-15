@@ -70,6 +70,15 @@ class PlayerCharacter(SQLModel, table=True):
     # Death save pips — 0..3 each; auto-zeroed when hp_current > 0.
     death_save_successes: int = Field(default=0, ge=0, le=3)
     death_save_failures: int = Field(default=0, ge=0, le=3)
+    # Plan 00024 — hit dice spent (recovered on long rest), exhaustion 0..6,
+    # currency in copper/silver/electrum/gold/platinum.
+    hit_dice_spent: int = Field(default=0, ge=0)
+    exhaustion: int = Field(default=0, ge=0, le=6)
+    cp: int = Field(default=0, ge=0)
+    sp: int = Field(default=0, ge=0)
+    ep: int = Field(default=0, ge=0)
+    gp: int = Field(default=0, ge=0)
+    pp: int = Field(default=0, ge=0)
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -153,6 +162,14 @@ class PlayerCharacterRead(BaseModel):
     concentration_on: Optional[str] = None
     death_save_successes: int = 0
     death_save_failures: int = 0
+    # Plan 00024 — caster stats are computed on read (services), not stored.
+    hit_dice_spent: int = 0
+    exhaustion: int = 0
+    cp: int = 0
+    sp: int = 0
+    ep: int = 0
+    gp: int = 0
+    pp: int = 0
     backstory: Optional[str] = None
     notes: Optional[str] = None
     portrait_url: Optional[str] = None
@@ -200,6 +217,14 @@ class PlayerCharacterUpdate(BaseModel):
     concentration_on: Optional[str] = Field(default=None, max_length=120)
     death_save_successes: Optional[int] = Field(default=None, ge=0, le=3)
     death_save_failures: Optional[int] = Field(default=None, ge=0, le=3)
+    # Plan 00024 — hit dice / exhaustion / currency
+    hit_dice_spent: Optional[int] = Field(default=None, ge=0)
+    exhaustion: Optional[int] = Field(default=None, ge=0, le=6)
+    cp: Optional[int] = Field(default=None, ge=0)
+    sp: Optional[int] = Field(default=None, ge=0)
+    ep: Optional[int] = Field(default=None, ge=0)
+    gp: Optional[int] = Field(default=None, ge=0)
+    pp: Optional[int] = Field(default=None, ge=0)
     backstory: Optional[str] = None
     notes: Optional[str] = None
     portrait_url: Optional[str] = None

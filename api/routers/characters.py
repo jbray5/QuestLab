@@ -279,3 +279,67 @@ def resolve_death_save_endpoint(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+# ── Plan 00024 — caster stats + hit dice ────────────────────────────────────
+
+
+@router.get("/characters/{character_id}/spellcasting-stats")
+def spellcasting_stats_endpoint(
+    character_id: uuid.UUID,
+    db: DB,
+    user: CurrentUser,
+) -> dict:
+    """Return computed spell save DC and attack bonus for a PC.
+
+    Returns ``{"ability": "INT|WIS|CHA", "save_dc": int, "attack_bonus": int}``
+    for casters, or ``{"ability": null, "save_dc": null, "attack_bonus": null}``
+    for non-casters.
+
+    Args:
+        character_id: UUID of the PC.
+        db: Database session.
+        user: Authenticated DM.
+
+    Returns:
+        Dict with computed spellcasting stats.
+    """
+    try:
+        pc = character_service.get_character(db, character_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    return character_service.spellcasting_stats(pc)
+
+
+@router.post("/characters/{character_id}/spend-hit-dice", response_model=PlayerCharacter)
+def spend_hit_dice_endpoint(
+    character_id: uuid.UUID,
+    body: dict,
+    db: DB,
+    user: CurrentUser,
+) -> PlayerCharacter:
+    """Mark N hit dice as spent on a PC (short-rest healing).
+
+    Body: ``{"count": <int>}``. Healing itself is applied separately via the
+    /heal endpoint after the player rolls the HD plus CON mod.
+
+    Args:
+        character_id: UUID of the PC.
+        body: JSON with the integer count of HD to spend.
+        db: Database session.
+        user: Authenticated DM.
+
+    Returns:
+        Updated PlayerCharacter.
+
+    Raises:
+        HTTPException 422: If count is non-positive or exceeds available HD.
+    """
+    try:
+        return character_service.spend_hit_dice(db, character_id, int(body.get("count", 0)), user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))

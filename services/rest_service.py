@@ -146,6 +146,18 @@ def long_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSum
     hp_restored = max(0, pc.hp_max - pc.hp_current)
     if hp_restored > 0:
         pc.hp_current = pc.hp_max
+
+    # Plan 00024 — hit dice: regain max(1, level // 2), capped by spent count.
+    hd_recovered = min(pc.hit_dice_spent, max(1, pc.level // 2))
+    if hd_recovered > 0:
+        pc.hit_dice_spent -= hd_recovered
+
+    # Plan 00024 — exhaustion drops by one level on long rest (2024 RAW).
+    exhaustion_dropped = pc.exhaustion > 0
+    if exhaustion_dropped:
+        pc.exhaustion = max(0, pc.exhaustion - 1)
+
+    if hp_restored > 0 or hd_recovered > 0 or exhaustion_dropped:
         db.add(pc)
         db.commit()
         db.refresh(pc)

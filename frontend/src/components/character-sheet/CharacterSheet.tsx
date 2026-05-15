@@ -8,11 +8,32 @@ import InventoryPanel from "../InventoryPanel";
 import SpellPanel from "../SpellPanel";
 import AbilityBlock from "./AbilityBlock";
 import AttacksList from "./AttacksList";
+import CurrencyBar from "./CurrencyBar";
 import DeathSaveTracker from "./DeathSaveTracker";
+import ExhaustionTracker from "./ExhaustionTracker";
+import HitDiceTracker from "./HitDiceTracker";
 import RollHelper from "./RollHelper";
 import type { RollContext } from "./RollHelper";
 import SavingThrows from "./SavingThrows";
 import SkillsList from "./SkillsList";
+
+// Plan 00024 — hit-die size per class (2024 PHB), kept here to avoid an
+// extra API call. Mirrors services/character_service._HIT_DIE_BY_CLASS.
+const HIT_DIE_BY_CLASS: Record<string, number> = {
+  Sorcerer: 6,
+  Wizard: 6,
+  Artificer: 8,
+  Bard: 8,
+  Cleric: 8,
+  Druid: 8,
+  Monk: 8,
+  Rogue: 8,
+  Warlock: 8,
+  Fighter: 10,
+  Paladin: 10,
+  Ranger: 10,
+  Barbarian: 12,
+};
 
 interface Props {
   characterId: string;
@@ -92,6 +113,12 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
   const { data: savingThrows = {} } = useQuery({
     queryKey: ["saving-throws", characterId],
     queryFn: () => charactersApi.savingThrows(characterId),
+    enabled: !!pc,
+  });
+
+  const { data: spellStats } = useQuery({
+    queryKey: ["spellcasting-stats", characterId],
+    queryFn: () => charactersApi.spellcastingStats(characterId),
     enabled: !!pc,
   });
 
@@ -441,6 +468,54 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
             />
           </Section>
 
+          {/* Plan 24 — Spellcasting line (casters only) */}
+          {spellStats && spellStats.ability && (
+            <Section>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.75rem",
+                  padding: "0.5rem 0.85rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    color: "var(--muted)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Spellcasting
+                </span>
+                <span style={{ fontFamily: "monospace", fontSize: "0.9rem" }}>
+                  Ability{" "}
+                  <strong style={{ color: "var(--gold)" }}>
+                    {spellStats.ability}
+                  </strong>
+                </span>
+                <span style={{ fontFamily: "monospace", fontSize: "0.9rem" }}>
+                  Save DC{" "}
+                  <strong style={{ color: "var(--gold)" }}>
+                    {spellStats.save_dc}
+                  </strong>
+                </span>
+                <span style={{ fontFamily: "monospace", fontSize: "0.9rem" }}>
+                  Attack{" "}
+                  <strong style={{ color: "var(--gold)" }}>
+                    {spellStats.attack_bonus !== null &&
+                    spellStats.attack_bonus >= 0
+                      ? "+"
+                      : ""}
+                    {spellStats.attack_bonus}
+                  </strong>
+                </span>
+              </div>
+            </Section>
+          )}
+
           {/* Embedded panels — always expanded inside the sheet.
               The panels render their own headers, so no wrapper Section
               title (would double up). */}
@@ -467,6 +542,29 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
             defaultOpen
             readOnly={readOnly}
           />
+
+          {/* Plan 24 — Resources row */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+              gap: "1rem",
+            }}
+          >
+            <Section title="🎲 Hit Dice">
+              <HitDiceTracker
+                pc={pc}
+                dieSize={HIT_DIE_BY_CLASS[pc.character_class] ?? 8}
+                readOnly={readOnly}
+              />
+            </Section>
+            <Section title="😵 Exhaustion">
+              <ExhaustionTracker pc={pc} readOnly={readOnly} />
+            </Section>
+          </div>
+          <Section title="💰 Currency">
+            <CurrencyBar pc={pc} readOnly={readOnly} />
+          </Section>
 
           {(pc.backstory || pc.notes) && (
             <Section title="📝 Backstory & Notes">
