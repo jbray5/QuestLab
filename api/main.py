@@ -28,6 +28,7 @@ from api.routers import (
     items,
     maps,
     monsters,
+    play,
     rest,
     sessions,
     spellcasting,
@@ -118,6 +119,7 @@ app.include_router(features.router, prefix=_PREFIX)
 app.include_router(rest.router, prefix=_PREFIX)
 app.include_router(uploads.router, prefix=_PREFIX)
 app.include_router(admin.router, prefix=_PREFIX)
+app.include_router(play.router, prefix=_PREFIX)
 
 
 @app.get("/api/health")

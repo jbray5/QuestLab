@@ -13,6 +13,7 @@ import SessionHud from "./pages/SessionHud";
 import Admin from "./pages/Admin";
 import MagicItems from "./pages/MagicItems";
 import Monsters from "./pages/Monsters";
+import PlayerView from "./pages/PlayerView";
 import Spells from "./pages/Spells";
 import Weapons from "./pages/Weapons";
 import NotFound from "./pages/NotFound";
@@ -20,6 +21,9 @@ import NotFound from "./pages/NotFound";
 export default function App() {
   return (
     <Routes>
+      {/* Plan 25 — Player view: standalone route with no DM chrome */}
+      <Route path="/play/:pcId" element={<PlayerView />} />
+
       <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="campaigns" element={<Campaigns />} />

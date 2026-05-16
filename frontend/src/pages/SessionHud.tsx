@@ -24,6 +24,7 @@ import { monstersApi } from "../api/monsters";
 import { restApi } from "../api/rest";
 import { spellcastingApi } from "../api/spellcasting";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
+import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import LootPanel from "../components/LootPanel";
 import MonsterStatBlock from "../components/MonsterStatBlock";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
@@ -1034,6 +1035,9 @@ export default function SessionHud() {
                   <div style={{ textAlign: "right", fontSize: "0.72rem", color: "var(--muted)" }}>
                     <div>AC <strong style={{ color: "var(--text)" }}>{pc.ac}</strong></div>
                     <div>PP <strong style={{ color: "var(--text)" }}>{pp}</strong></div>
+                    <div style={{ marginTop: "0.2rem" }}>
+                      <PlayerLinkButton characterId={pc.id} compact />
+                    </div>
                   </div>
                 </div>
 

@@ -13,6 +13,7 @@ import DeathSaveTracker from "./DeathSaveTracker";
 import ExhaustionTracker from "./ExhaustionTracker";
 import HitDiceTracker from "./HitDiceTracker";
 import InfoTip from "./InfoTip";
+import PlayerLinkButton from "./PlayerLinkButton";
 import RollHelper from "./RollHelper";
 import type { RollContext } from "./RollHelper";
 import SavingThrows from "./SavingThrows";
@@ -231,6 +232,9 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
             >
               ✕
             </button>
+          </div>
+          <div style={{ marginTop: "0.4rem" }}>
+            <PlayerLinkButton characterId={characterId} />
           </div>
 
           {/* DM-help inline tooltips */}
