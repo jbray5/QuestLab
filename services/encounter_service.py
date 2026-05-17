@@ -20,7 +20,11 @@ from db.repos.monster_repo import MonsterRepo
 from domain.encounter import Encounter, EncounterCreate, EncounterUpdate
 from domain.enums import EncounterDifficulty
 from domain.monster import MonsterStatBlock, MonsterStatBlockUpdate
-from integrations.dnd_rules.encounter_math import calculate_difficulty, cr_to_xp
+from integrations.dnd_rules.encounter_math import (
+    _monster_count_multiplier,
+    calculate_difficulty,
+    cr_to_xp,
+)
 
 MAX_ENCOUNTERS_PER_ADVENTURE = 20
 
@@ -347,6 +351,110 @@ def _resolve_party_levels(session: Session, adventure_id: uuid.UUID) -> list[int
     return [int(c.level) for c in chars]
 
 
+def _build_ai_budget(party_levels: list[int], target_difficulty: str) -> Optional[dict[str, Any]]:
+    """Compute the raw-XP target range for the AI prompt (Plan 31 bugfix).
+
+    The 2024 DMG applies a tactical-complexity multiplier to total
+    monster XP (×1.5 for 2 monsters, ×2.0 for 3-6, etc). Without
+    knowing this, the AI picks monsters whose raw XP equals the
+    threshold and overshoots after the multiplier is applied.
+
+    Returns a dict the AI prompt can read to back into a raw-XP target
+    that, when multiplied, lands in the correct adjusted-XP band.
+
+    Args:
+        party_levels: PC levels.
+        target_difficulty: "Low" | "Moderate" | "High" | "Deadly".
+
+    Returns:
+        Budget dict, or None when the party is empty.
+    """
+    if not party_levels:
+        return None
+
+    # Use calculate_difficulty with zero monsters to extract the
+    # party's thresholds (we ignore the difficulty classification).
+    base = calculate_difficulty(party_levels, [])
+    band_lower: int
+    band_upper: int
+    label = target_difficulty.capitalize()
+    if label == "Low":
+        # Low band = [easy, medium)
+        band_lower, band_upper = base.easy_threshold, base.medium_threshold
+    elif label == "Moderate":
+        band_lower, band_upper = base.medium_threshold, base.hard_threshold
+    elif label == "High":
+        band_lower, band_upper = base.hard_threshold, base.deadly_threshold
+    elif label == "Deadly":
+        band_lower = base.deadly_threshold
+        band_upper = int(base.deadly_threshold * 1.5)
+    else:
+        band_lower, band_upper = base.medium_threshold, base.hard_threshold
+
+    # Plan for 3–6 monsters → ×2.0 multiplier.
+    preferred_count = 4
+    expected_multiplier = _monster_count_multiplier(preferred_count)
+    raw_min = max(1, int(band_lower / expected_multiplier))
+    raw_max = max(raw_min + 1, int(band_upper / expected_multiplier))
+
+    return {
+        "target_raw_xp_min": raw_min,
+        "target_raw_xp_max": raw_max,
+        "preferred_monster_count": preferred_count,
+        "adjusted_xp_band": f"{band_lower}–{band_upper} XP ({label})",
+        "band_lower": band_lower,
+        "band_upper": band_upper,
+    }
+
+
+def _trim_overbudget_suggestions(
+    suggestions: list[dict[str, Any]], budget: Optional[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Safety net: reduce counts until projected adjusted XP fits the band.
+
+    Plan 31 bugfix — even with a tight prompt, the AI sometimes picks
+    counts that push past the target. We compute the would-be adjusted
+    XP for the suggestion set, and if it exceeds ``band_upper``, drop
+    one count from the highest-XP monster and retry. Repeat until it
+    fits, or the suggestions are exhausted.
+
+    Args:
+        suggestions: List of {monster_id, monster_name, count, xp, ...} dicts.
+        budget: Output from :func:`_build_ai_budget`.
+
+    Returns:
+        Possibly-trimmed suggestion list. Order is preserved.
+    """
+    if not budget or not suggestions:
+        return suggestions
+    upper = int(budget.get("band_upper", 0))
+    if upper <= 0:
+        return suggestions
+
+    # Work on a deep-enough copy so we don't mutate the AI response.
+    trimmed = [dict(s) for s in suggestions]
+
+    def adjusted_xp(items: list[dict[str, Any]]) -> int:
+        total_count = sum(int(s.get("count", 0)) for s in items)
+        raw = sum(int(s.get("count", 0)) * int(s.get("xp", 0)) for s in items)
+        mult = _monster_count_multiplier(total_count)
+        return int(raw * mult)
+
+    safety = 50  # cap iterations
+    while adjusted_xp(trimmed) > upper and safety > 0:
+        safety -= 1
+        # Drop one count from the entry whose unit XP contributes the
+        # most to the overage — that brings us closest to the band.
+        candidates = [s for s in trimmed if int(s.get("count", 0)) > 0]
+        if not candidates:
+            break
+        worst = max(candidates, key=lambda s: int(s.get("xp", 0)))
+        worst["count"] = int(worst["count"]) - 1
+    # Remove zero-count entries.
+    trimmed = [s for s in trimmed if int(s.get("count", 0)) > 0]
+    return trimmed
+
+
 def suggest_themed_monsters(
     session: Session,
     adventure_id: uuid.UUID,
@@ -412,6 +520,13 @@ def suggest_themed_monsters(
         for m in monsters
     ]
 
+    # Plan 31 bugfix — compute the difficulty band's adjusted-XP range
+    # and back into a raw-XP target so the AI can hit it after the
+    # tactical-complexity multiplier is applied. Without this, Claude
+    # picks monsters whose raw XP sums to the threshold, then the ×2
+    # multiplier on 3–6 monsters overshoots into Deadly.
+    budget = _build_ai_budget(_resolve_party_levels(session, adventure_id), target_difficulty)
+
     ai_result = ai_service.suggest_themed_monsters(
         adventure_title=adventure.title,
         adventure_synopsis=adventure.synopsis,
@@ -421,6 +536,7 @@ def suggest_themed_monsters(
         party_summary=party_summary
         + (f" — {campaign.tone}." if campaign and campaign.tone else "."),
         available_monsters=pool,
+        budget=budget,
     )
 
     # Map Claude's monster_name back to actual monster rows. Case-
@@ -444,9 +560,14 @@ def suggest_themed_monsters(
             }
         )
 
+    # Plan 31 bugfix — final safety net. Even with a tight prompt, the
+    # AI sometimes overshoots after the multiplier kicks in. Trim
+    # counts until the projected adjusted XP fits the target band.
+    trimmed = _trim_overbudget_suggestions(hydrated, budget)
+
     return {
         "encounter_concept": ai_result.get("encounter_concept", ""),
-        "suggestions": hydrated,
+        "suggestions": trimmed,
     }
 
 

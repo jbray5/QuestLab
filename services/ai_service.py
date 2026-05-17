@@ -775,6 +775,7 @@ def suggest_themed_monsters(
     target_difficulty: str,
     party_summary: str,
     available_monsters: list[dict[str, Any]],
+    budget: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """Ask Claude for monster picks that fit the adventure's theme.
 
@@ -794,6 +795,13 @@ def suggest_themed_monsters(
             "4 PCs at level 3: Fighter, Cleric, Rogue, Wizard").
         available_monsters: List of ``{name, challenge_rating, creature_type, xp}``
             dicts — the candidate pool Claude is allowed to pick from.
+        budget: Optional pre-computed difficulty math. When supplied, the
+            prompt explicitly tells Claude the raw-XP target it should
+            hit (post-multiplier), preventing accidental overshoot on
+            multi-monster picks. Shape:
+            ``{"target_raw_xp_min": int, "target_raw_xp_max": int,
+               "preferred_monster_count": int,
+               "adjusted_xp_band": "X-Y (Difficulty)"}``.
 
     Returns:
         Dict with keys:
@@ -816,34 +824,57 @@ def suggest_themed_monsters(
         for m in pool
     )
 
+    # Plan 31 bugfix — give Claude the EXACT post-multiplier math so
+    # it doesn't overshoot. Picking N monsters in 3–6 doubles XP; the
+    # prompt makes the raw-XP target explicit so Claude can hit it.
+    if budget:
+        budget_block = f"""
+### XP budget (CRITICAL — read carefully)
+- Target difficulty: {target_difficulty}
+- Target adjusted-XP band: {budget['adjusted_xp_band']}
+- Encounter XP gets multiplied by a TACTICAL COMPLEXITY multiplier based on monster count:
+    1 monster  → ×1.0
+    2 monsters → ×1.5
+    3–6        → ×2.0
+    7–10       → ×2.5
+    11–14      → ×3.0
+    15+        → ×4.0
+- Recommended total monster count: {budget['preferred_monster_count']} (so multiplier ≈ ×2.0).
+- Recommended **raw** monster XP total (before multiplier): {budget['target_raw_xp_min']}–{budget['target_raw_xp_max']} XP.
+- After your picks, the math will be: (sum of monster XP × count) × multiplier(total monsters). Stay within the band above.
+"""  # noqa: E501
+    else:
+        budget_block = f"### Target difficulty\n{target_difficulty}\n"
+
     system = (
         "You are an expert D&D 5e DM building thematically appropriate "
         "encounters. Match monsters to the adventure's setting, mood, "
-        "and stated location. Aim for the target difficulty using the "
-        "monsters' XP. Prefer 2–4 distinct monster types over a single "
+        "and stated location. Stay within the explicit raw-XP budget "
+        "given below — the encounter math multiplies your total by a "
+        "factor based on monster count, so RAW XP matters more than "
+        "headline XP. Prefer 2–4 distinct monster types over a single "
         "swarm. Use ONLY monsters from the provided pool, and refer to "
         "them by their exact name."
     )
 
-    user = f"""Suggest 4–6 monsters from the pool below for an encounter that fits the adventure.
+    user = f"""Suggest 3–5 monsters from the pool below for an encounter that fits the adventure.
 
 ### Adventure
 {adventure_title}
 {tier_block}{synopsis_block}{location_block}
 ### Party
 {party_summary}
-
-### Target difficulty
-{target_difficulty}
-
+{budget_block}
 ### Available monster pool
 {pool_lines}
+
+Before responding: sum your picks' XP × count, multiply by the count-based multiplier, and confirm the result lands inside the adjusted-XP band. If it would exceed the band, lower counts or pick lower-CR monsters until it fits.
 
 Return JSON in this exact shape (no surrounding prose):
 {{
   "encounter_concept": "<one sentence describing the encounter — what's happening, where, why these monsters are here>",
   "suggestions": [
-    {{"monster_name": "<exact name from the pool above>", "count": <int 1–8>, "rationale": "<one short sentence on why this monster fits>"}},
+    {{"monster_name": "<exact name from the pool above>", "count": <int 1–6>, "rationale": "<one short sentence on why this monster fits>"}},
     ...
   ]
 }}"""  # noqa: E501

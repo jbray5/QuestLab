@@ -167,7 +167,11 @@ class TestSuggestThemedMonsters:
         dm = _dm()
         c = _campaign(duckdb_session, dm)
         adv = _adventure(duckdb_session, c.id, dm)
-        _pc(duckdb_session, c.id, dm)
+        # 4-PC party so the test's "3 skeletons + 1 ghoul" suggestion
+        # lands inside the Moderate band and isn't trimmed by the
+        # Plan-31 safety net.
+        for i in range(4):
+            _pc(duckdb_session, c.id, dm, name=f"PC{i}")
         ghoul = _monster(duckdb_session, "Ghoul", cr="1")
         skeleton = _monster(duckdb_session, "Skeleton", cr="1/4")
         _monster(duckdb_session, "Goblin", cr="1/4")  # in pool but not chosen
@@ -258,3 +262,90 @@ class TestSuggestThemedMonsters:
         adv = _adventure(duckdb_session, c.id, dm1)
         with pytest.raises(PermissionError):
             enc_svc.suggest_themed_monsters(duckdb_session, adv.id, dm2, "Moderate")
+
+
+class TestSuggestionOvershoot:
+    """Plan 31 bugfix — the AI sometimes overshoots; the service must trim."""
+
+    def _setup_party_l3x4(self, db):
+        """4-PC level-3 party — Moderate threshold = 600 XP (75×4×… per the 2024 table)."""
+        dm = _dm()
+        c = _campaign(db, dm)
+        adv = _adventure(db, c.id, dm)
+        for i in range(4):
+            _pc(db, c.id, dm, name=f"PC{i}")
+        return dm, c, adv
+
+    def test_trims_when_ai_overshoots(self, duckdb_session: Session, monkeypatch):
+        """AI returns 4 CR-1 monsters (200 XP × 4 × 2 mult = 1600 adj > Moderate hi).
+
+        The service should reduce counts so the projected adjusted XP
+        no longer exceeds the Moderate band's upper bound.
+        """
+        dm, _c, adv = self._setup_party_l3x4(duckdb_session)
+        _monster(duckdb_session, "Ghoul", cr="1")
+        _monster(duckdb_session, "Skeleton", cr="1/4")
+
+        def fake_ai(**kwargs):
+            # 4 ghouls = 800 raw × 2.0 multiplier = 1600 adjusted. Way
+            # over Moderate (which tops out at the High threshold).
+            return {
+                "encounter_concept": "Way too many ghouls.",
+                "suggestions": [
+                    {"monster_name": "Ghoul", "count": 4, "rationale": "test"},
+                ],
+            }
+
+        from services import ai_service
+
+        monkeypatch.setattr(ai_service, "suggest_themed_monsters", fake_ai)
+
+        result = enc_svc.suggest_themed_monsters(duckdb_session, adv.id, dm, "Moderate")
+        # We should have at most 2 ghouls left (200 × 2 × 1.5 mult = 600).
+        total_count = sum(s["count"] for s in result["suggestions"])
+        assert (
+            total_count <= 3
+        ), f"Service did not trim overbudget suggestions: {result['suggestions']}"
+
+    def test_does_not_trim_when_within_band(self, duckdb_session: Session, monkeypatch):
+        """AI returns picks that already fit — service leaves them alone."""
+        dm, _c, adv = self._setup_party_l3x4(duckdb_session)
+        _monster(duckdb_session, "Skeleton", cr="1/4")
+
+        def fake_ai(**kwargs):
+            # 3 skeletons = 150 raw × 2.0 = 300 adj — well inside Low/Moderate.
+            return {
+                "encounter_concept": "Reasonable encounter.",
+                "suggestions": [
+                    {"monster_name": "Skeleton", "count": 3, "rationale": "test"},
+                ],
+            }
+
+        from services import ai_service
+
+        monkeypatch.setattr(ai_service, "suggest_themed_monsters", fake_ai)
+
+        result = enc_svc.suggest_themed_monsters(duckdb_session, adv.id, dm, "Moderate")
+        # Unchanged — count stays at 3.
+        assert result["suggestions"][0]["count"] == 3
+
+    def test_passes_budget_to_ai_service(self, duckdb_session: Session, monkeypatch):
+        """Service must include a numeric budget in the AI call kwargs."""
+        dm, _c, adv = self._setup_party_l3x4(duckdb_session)
+        _monster(duckdb_session, "Skeleton", cr="1/4")
+        captured: dict = {}
+
+        def fake_ai(**kwargs):
+            captured.update(kwargs)
+            return {"encounter_concept": "", "suggestions": []}
+
+        from services import ai_service
+
+        monkeypatch.setattr(ai_service, "suggest_themed_monsters", fake_ai)
+
+        enc_svc.suggest_themed_monsters(duckdb_session, adv.id, dm, "Moderate")
+        assert "budget" in captured and captured["budget"] is not None
+        b = captured["budget"]
+        assert b["target_raw_xp_min"] > 0
+        assert b["target_raw_xp_max"] > b["target_raw_xp_min"]
+        assert "Moderate" in b["adjusted_xp_band"]
