@@ -795,13 +795,13 @@ def suggest_themed_monsters(
             "4 PCs at level 3: Fighter, Cleric, Rogue, Wizard").
         available_monsters: List of ``{name, challenge_rating, creature_type, xp}``
             dicts — the candidate pool Claude is allowed to pick from.
-        budget: Optional pre-computed difficulty math. When supplied, the
-            prompt explicitly tells Claude the raw-XP target it should
-            hit (post-multiplier), preventing accidental overshoot on
-            multi-monster picks. Shape:
+        budget: Optional pre-computed XP band (2024 RAW — no multiplier).
+            When supplied, the prompt tells Claude the raw-XP target it
+            should hit so the suggested encounter lands in the right
+            difficulty tier. Shape:
             ``{"target_raw_xp_min": int, "target_raw_xp_max": int,
                "preferred_monster_count": int,
-               "adjusted_xp_band": "X-Y (Difficulty)"}``.
+               "xp_band": "X-Y (Difficulty)"}``.
 
     Returns:
         Dict with keys:
@@ -824,37 +824,27 @@ def suggest_themed_monsters(
         for m in pool
     )
 
-    # Plan 31 bugfix — give Claude the EXACT post-multiplier math so
-    # it doesn't overshoot. Picking N monsters in 3–6 doubles XP; the
-    # prompt makes the raw-XP target explicit so Claude can hit it.
+    # Plan 32 — 2024 RAW XP budget. No multiplier; the total XP of all
+    # monsters is compared directly to the party threshold.
     if budget:
         budget_block = f"""
-### XP budget (CRITICAL — read carefully)
+### XP budget (2024 DMG)
 - Target difficulty: {target_difficulty}
-- Target adjusted-XP band: {budget['adjusted_xp_band']}
-- Encounter XP gets multiplied by a TACTICAL COMPLEXITY multiplier based on monster count:
-    1 monster  → ×1.0
-    2 monsters → ×1.5
-    3–6        → ×2.0
-    7–10       → ×2.5
-    11–14      → ×3.0
-    15+        → ×4.0
-- Recommended total monster count: {budget['preferred_monster_count']} (so multiplier ≈ ×2.0).
-- Recommended **raw** monster XP total (before multiplier): {budget['target_raw_xp_min']}–{budget['target_raw_xp_max']} XP.
-- After your picks, the math will be: (sum of monster XP × count) × multiplier(total monsters). Stay within the band above.
-"""  # noqa: E501
+- Target total monster XP: {budget['target_raw_xp_min']}–{budget['target_raw_xp_max']} XP
+- Sum (each monster's XP × count) and confirm the total lands inside that band.
+- 2024 rules have NO count multiplier. Raw XP is the budget.
+"""
     else:
         budget_block = f"### Target difficulty\n{target_difficulty}\n"
 
     system = (
-        "You are an expert D&D 5e DM building thematically appropriate "
-        "encounters. Match monsters to the adventure's setting, mood, "
-        "and stated location. Stay within the explicit raw-XP budget "
-        "given below — the encounter math multiplies your total by a "
-        "factor based on monster count, so RAW XP matters more than "
-        "headline XP. Prefer 2–4 distinct monster types over a single "
-        "swarm. Use ONLY monsters from the provided pool, and refer to "
-        "them by their exact name."
+        "You are an expert D&D 5e DM (2024 rules) building thematically "
+        "appropriate encounters. Match monsters to the adventure's "
+        "setting, mood, and stated location. Stay within the explicit "
+        "XP budget given below — under 2024 rules there is NO encounter "
+        "multiplier; the budget is straight monster XP. Prefer 2–4 "
+        "distinct monster types over a single swarm. Use ONLY monsters "
+        "from the provided pool, and refer to them by their exact name."
     )
 
     user = f"""Suggest 3–5 monsters from the pool below for an encounter that fits the adventure.
@@ -868,7 +858,7 @@ def suggest_themed_monsters(
 ### Available monster pool
 {pool_lines}
 
-Before responding: sum your picks' XP × count, multiply by the count-based multiplier, and confirm the result lands inside the adjusted-XP band. If it would exceed the band, lower counts or pick lower-CR monsters until it fits.
+Before responding: sum (each monster's XP × count) and confirm the total lands inside the XP band above. If it would exceed it, lower counts or pick lower-CR monsters until it fits.
 
 Return JSON in this exact shape (no surrounding prose):
 {{

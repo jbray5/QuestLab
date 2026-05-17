@@ -287,12 +287,13 @@ class TestSuggestionOvershoot:
         _monster(duckdb_session, "Skeleton", cr="1/4")
 
         def fake_ai(**kwargs):
-            # 4 ghouls = 800 raw × 2.0 multiplier = 1600 adjusted. Way
-            # over Moderate (which tops out at the High threshold).
+            # 2024 RAW: 10 ghouls × 200 = 2000 raw. Moderate's target
+            # band for 4×L3 is [900, 1600) (moderate→high thresholds).
+            # 2000 is over the upper bound — trim should fire.
             return {
                 "encounter_concept": "Way too many ghouls.",
                 "suggestions": [
-                    {"monster_name": "Ghoul", "count": 4, "rationale": "test"},
+                    {"monster_name": "Ghoul", "count": 10, "rationale": "test"},
                 ],
             }
 
@@ -301,10 +302,10 @@ class TestSuggestionOvershoot:
         monkeypatch.setattr(ai_service, "suggest_themed_monsters", fake_ai)
 
         result = enc_svc.suggest_themed_monsters(duckdb_session, adv.id, dm, "Moderate")
-        # We should have at most 2 ghouls left (200 × 2 × 1.5 mult = 600).
+        # After trim: ≤ 8 ghouls (200 × 8 = 1600, the boundary).
         total_count = sum(s["count"] for s in result["suggestions"])
         assert (
-            total_count <= 3
+            total_count <= 8
         ), f"Service did not trim overbudget suggestions: {result['suggestions']}"
 
     def test_does_not_trim_when_within_band(self, duckdb_session: Session, monkeypatch):
@@ -348,4 +349,4 @@ class TestSuggestionOvershoot:
         b = captured["budget"]
         assert b["target_raw_xp_min"] > 0
         assert b["target_raw_xp_max"] > b["target_raw_xp_min"]
-        assert "Moderate" in b["adjusted_xp_band"]
+        assert "Moderate" in b["xp_band"]

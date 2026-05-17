@@ -11,11 +11,15 @@ export interface RosterEntry {
 export interface DifficultyPreview {
   party_levels: number[];
   raw_xp: number;
+  // 2024: no multiplier; ``adjusted_xp`` equals ``raw_xp`` and
+  // ``multiplier`` is always 1.0. Kept for back-compat with stored
+  // encounter rows from earlier (2014-style) plans.
   adjusted_xp: number;
   multiplier: number;
-  easy_threshold: number;
+  low_threshold: number;
   moderate_threshold: number;
   high_threshold: number;
+  /** Informal "way above budget" line at 1.5× High — not 2024 RAW. */
   deadly_threshold: number;
   difficulty: EncounterDifficulty | null;
 }

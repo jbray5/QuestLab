@@ -28,15 +28,15 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
     );
   }
 
-  const { adjusted_xp, easy_threshold, moderate_threshold, high_threshold, difficulty } =
+  const { raw_xp, low_threshold, moderate_threshold, high_threshold, difficulty } =
     preview;
 
-  // Bar spans 0 → 1.5 × high (the Deadly line).
+  // Bar spans 0 → 1.5 × high (the informal Deadly line; not 2024 RAW).
   const deadly = Math.max(1, Math.round(high_threshold * 1.5));
-  const pct = Math.min(100, Math.max(0, (adjusted_xp / deadly) * 100));
+  const pct = Math.min(100, Math.max(0, (raw_xp / deadly) * 100));
 
   // Section boundaries as percentages of the bar.
-  const easyPct = (easy_threshold / deadly) * 100;
+  const easyPct = (low_threshold / deadly) * 100;
   const modPct = (moderate_threshold / deadly) * 100;
   const hardPct = (high_threshold / deadly) * 100;
 
@@ -71,8 +71,7 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
           </span>
         )}
         <span style={{ fontFamily: "monospace", fontSize: "0.78rem", color: "var(--muted)", marginLeft: "auto" }}>
-          {adjusted_xp.toLocaleString()} XP{" "}
-          <span style={{ opacity: 0.6 }}>(adj.)</span>
+          {raw_xp.toLocaleString()} XP
           {isLoading && <span style={{ marginLeft: "0.4rem", opacity: 0.6 }}>updating…</span>}
         </span>
       </div>
@@ -150,7 +149,7 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
       <div style={labelsRowStyle}>
         <span style={{ flex: easyPct, color: "#4caf50" }}>
           Low<br />
-          <strong style={{ fontFamily: "monospace" }}>{easy_threshold}</strong>
+          <strong style={{ fontFamily: "monospace" }}>{low_threshold}</strong>
         </span>
         <span style={{ flex: modPct - easyPct, color: "#f9a825" }}>
           Moderate<br />

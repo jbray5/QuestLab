@@ -135,9 +135,9 @@ class TestCreateEncounter:
             monster_roster=[{"monster_id": str(mid), "count": 4}],
             pc_levels=[5, 5, 5, 5],
         )
-        # 4 goblins × 50 XP = 200 raw; multiplier 2.0 → 400 adjusted
-        assert enc.xp_budget == 400
-        # 4×L5 thresholds: easy=1000, med=2000 → 400 < 1000 → LOW
+        # 2024 RAW: 4 goblins × 50 XP = 200 (no multiplier).
+        assert enc.xp_budget == 200
+        # 4×L5 thresholds (2024): low=2000, moderate=3000 → 200 < 2000 → LOW
         assert enc.difficulty == EncounterDifficulty.LOW
 
     def test_adult_red_dragon_vs_l5_party_is_deadly(self, duckdb_session: Session):

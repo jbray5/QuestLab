@@ -1,10 +1,15 @@
 """Tests for integrations.dnd_rules.encounter_math.
 
+2024 DMG XP-budget rules — no count multiplier. Raw monster XP is
+compared directly to the party's Low / Moderate / High thresholds.
+"Deadly" is an informal tier the meter uses at 1.5× High.
+
 Covers:
 - cr_to_xp mapping
-- Monster-count multiplier
-- Difficulty calculation for various party compositions
+- Per-PC + summed party thresholds (2024 values)
+- Difficulty classification at each band boundary
 - Edge cases (empty roster, single PC, no monsters)
+- Back-compat aliases (easy/medium/hard thresholds resolve to 2024 names)
 """
 
 import pytest
@@ -64,8 +69,8 @@ class TestCrToXp:
             assert cr in CR_TO_XP
 
 
-class TestCalculateDifficulty:
-    """Tests for calculate_difficulty()."""
+class TestCalculateDifficulty2024:
+    """2024 RAW: raw XP vs party thresholds; no multiplier."""
 
     def test_empty_roster_is_low(self):
         """No monsters → LOW difficulty."""
@@ -73,9 +78,10 @@ class TestCalculateDifficulty:
         assert result.difficulty == EncounterDifficulty.LOW
         assert result.raw_xp == 0
         assert result.adjusted_xp == 0
+        assert result.multiplier == 1.0
 
-    def test_empty_party_raises(self):
-        """PC level out of range raises ValueError."""
+    def test_pc_level_zero_raises(self):
+        """PC level < 1 raises ValueError."""
         with pytest.raises(ValueError):
             calculate_difficulty([0], [200])
 
@@ -84,136 +90,106 @@ class TestCalculateDifficulty:
         with pytest.raises(ValueError):
             calculate_difficulty([21], [200])
 
-    def test_single_goblin_4_l1_pcs_is_low(self):
-        """1 Goblin (CR 1/4, 50 XP) vs 4 level-1 PCs → LOW.
-
-        Party easy threshold: 4 × 25 = 100.
-        Adjusted XP: 50 × 1.0 (single monster) = 50 < 100.
-        """
-        result = calculate_difficulty([1, 1, 1, 1], [50])
-        assert result.difficulty == EncounterDifficulty.LOW
+    def test_no_multiplier_under_2024(self):
+        """2024 rules: raw_xp == adjusted_xp always; multiplier always 1.0."""
+        result = calculate_difficulty([5, 5, 5, 5], [200, 200, 200, 200, 200, 200])
         assert result.multiplier == 1.0
-        assert result.adjusted_xp == 50
+        assert result.raw_xp == result.adjusted_xp == 1200
 
-    def test_four_goblins_4_l1_pcs_is_moderate(self):
-        """4 Goblins (50 XP each) vs 4 L1 PCs.
+    def test_l3x4_party_thresholds(self):
+        """4×L3 party thresholds match the 2024 table."""
+        result = calculate_difficulty([3, 3, 3, 3], [])
+        # L3 per-PC: 150 / 225 / 400. ×4 PCs.
+        assert result.low_threshold == 600
+        assert result.moderate_threshold == 900
+        assert result.high_threshold == 1600
+        assert result.deadly_threshold == 2400  # 1.5 × high (informal)
 
-        Raw XP = 200, multiplier = 2.0, adjusted = 400.
-        Easy=100, Medium=200, Hard=300, Deadly=400.
-        400 >= 400 → DEADLY.
-        """
-        result = calculate_difficulty([1, 1, 1, 1], [50, 50, 50, 50])
-        assert result.raw_xp == 200
-        assert result.multiplier == 2.0
-        assert result.adjusted_xp == 400
-        assert result.difficulty == EncounterDifficulty.DEADLY
+    def test_l5x4_party_thresholds(self):
+        """4×L5 party thresholds match the 2024 table."""
+        result = calculate_difficulty([5, 5, 5, 5], [])
+        # L5 per-PC: 500 / 750 / 1100. ×4 PCs.
+        assert result.low_threshold == 2000
+        assert result.moderate_threshold == 3000
+        assert result.high_threshold == 4400
 
-    def test_adult_red_dragon_4_l5_pcs_is_deadly(self):
-        """Adult Red Dragon (CR 17, 18000 XP) vs 4 L5 PCs → DEADLY.
-
-        Party deadly threshold: 4 × 1100 = 4400.
-        Single monster multiplier: 1.0, adjusted = 18000 > 4400.
-        """
-        result = calculate_difficulty([5, 5, 5, 5], [18000])
-        assert result.deadly_threshold == 4400
-        assert result.adjusted_xp == 18000
-        assert result.difficulty == EncounterDifficulty.DEADLY
-
-    def test_two_ogres_4_l5_pcs_is_moderate(self):
-        """2 Ogres (450 XP each) vs 4 L5 PCs.
-
-        Raw XP = 900, multiplier = 1.5, adjusted = 1350.
-        Easy=1000, Medium=2000 → LOW (1350 >= 1000 but < 2000 = LOW by enum mapping).
-        Wait, thresholds for L5 are: easy=250, medium=500, hard=750, deadly=1100.
-        Party of 4: easy=1000, medium=2000, hard=3000, deadly=4400.
-        1350 >= 1000 (easy) but < 2000 (medium) → LOW.
-        """
-        result = calculate_difficulty([5, 5, 5, 5], [450, 450])
-        assert result.raw_xp == 900
-        assert result.multiplier == 1.5
-        assert result.adjusted_xp == 1350
+    def test_low_band_classification(self):
+        """raw XP < moderate threshold → LOW."""
+        # 4×L5 → low 2000. One Hobgoblin Captain (1100 XP) sits in the
+        # Low band.
+        result = calculate_difficulty([5, 5, 5, 5], [1100])
+        assert result.raw_xp == 1100
         assert result.difficulty == EncounterDifficulty.LOW
 
-    def test_hard_encounter_l5(self):
-        """Encounter at the Hard band for L5 party.
-
-        Hard threshold for 4×L5 PCs = 4 × 750 = 3000.
-        Need adjusted_xp >= 3000 but < 4400.
-        Use 2 Trolls (1800 XP each): raw=3600, mult=1.5, adjusted=5400 → DEADLY.
-        Use 1 Troll + 1 Gladiator: raw=3600, mult=1.5, adjusted=5400 → DEADLY.
-        Use 3 Ogres (450 XP): raw=1350, mult=2.0, adjusted=2700 → LOW.
-        Use 1 Fire Giant (5000 XP): adjusted=5000 → DEADLY.
-        Let's just verify a hard encounter band directly.
-        """
-        # 4 Bugbears (200 XP each): raw=800, mult=2.0, adj=1600.
-        # L3 PCs (party 4): easy=300, medium=600, hard=900, deadly=1600.
-        # 1600 >= 1600 → DEADLY.
-        result = calculate_difficulty([3, 3, 3, 3], [200, 200, 200, 200])
-        assert result.difficulty == EncounterDifficulty.DEADLY
-
-    def test_multiplier_single(self):
-        """Single monster uses multiplier 1.0."""
-        result = calculate_difficulty([10], [5900])
-        assert result.multiplier == 1.0
-
-    def test_multiplier_two(self):
-        """Two monsters use multiplier 1.5."""
-        result = calculate_difficulty([10], [100, 100])
-        assert result.multiplier == 1.5
-
-    def test_multiplier_three_to_six(self):
-        """3–6 monsters use multiplier 2.0."""
-        result = calculate_difficulty([10], [100, 100, 100])
-        assert result.multiplier == 2.0
-
-    def test_multiplier_seven_to_ten(self):
-        """7–10 monsters use multiplier 2.5."""
-        monsters = [50] * 7
-        result = calculate_difficulty([10], monsters)
-        assert result.multiplier == 2.5
-
-    def test_multiplier_eleven_to_fourteen(self):
-        """11–14 monsters use multiplier 3.0."""
-        monsters = [10] * 11
-        result = calculate_difficulty([5], monsters)
-        assert result.multiplier == 3.0
-
-    def test_multiplier_fifteen_plus(self):
-        """15+ monsters use multiplier 4.0."""
-        monsters = [10] * 15
-        result = calculate_difficulty([5], monsters)
-        assert result.multiplier == 4.0
-
-    def test_thresholds_sum_correctly(self):
-        """Thresholds are summed across all PCs."""
-        # 2 L1 + 1 L5: easy = 25+25+250 = 300
-        result = calculate_difficulty([1, 1, 5], [0])
-        assert result.easy_threshold == 300
-
-    def test_moderate_difficulty(self):
-        """Encounter in MODERATE band."""
-        # 4×L5 PCs: medium=2000, hard=3000.
-        # 2 trolls (1800 each): raw=3600, mult=1.5, adj=5400 → DEADLY.
-        # 1 Mage (2300 XP): adj=2300 → >= 2000 and < 3000 → MODERATE.
-        result = calculate_difficulty([5, 5, 5, 5], [2300])
+    def test_moderate_band_classification(self):
+        """moderate ≤ raw < high → MODERATE."""
+        # 4×L5: moderate=3000, high=4400.
+        # 2 Ogres (450 each) + 1 Troll (1800) = 2700 → still LOW.
+        # Need >= 3000. 6 Ogres (450 × 6 = 2700) → LOW.
+        # 7 Ogres (450 × 7 = 3150) → MODERATE.
+        result = calculate_difficulty([5, 5, 5, 5], [450] * 7)
+        assert result.raw_xp == 3150
         assert result.difficulty == EncounterDifficulty.MODERATE
 
-    def test_high_difficulty(self):
-        """Encounter in HIGH band."""
-        # 4×L5 PCs: hard=3000, deadly=4400.
-        # Stone Giant (2900 XP) + one Ogre (450): raw=3350, mult=1.5, adj=5025 → DEADLY.
-        # Fire Giant alone (5000 XP): adj=5000 → DEADLY.
-        # Use adjusted arithmetic: need 3000 <= adj < 4400 with 1 monster (mult=1.0).
-        # Stone Giant = 2900 → adj=2900 < 3000, that's MODERATE.
-        # Yochlol (5900): adj=5900 → DEADLY.
-        # 4×L8 PCs: hard=5600, deadly=8400. Yochlol=5900 → HIGH.
-        result = calculate_difficulty([8, 8, 8, 8], [5900])
+    def test_high_band_classification(self):
+        """high ≤ raw < 1.5×high → HIGH."""
+        # 4×L5: high=4400, deadly=6600.
+        # 1 Behir (5900) sits in the High band.
+        result = calculate_difficulty([5, 5, 5, 5], [5900])
+        assert result.raw_xp == 5900
         assert result.difficulty == EncounterDifficulty.HIGH
 
+    def test_deadly_band_classification(self):
+        """raw ≥ 1.5×high → DEADLY (informal)."""
+        # 4×L5: deadly=6600. Adult White Dragon (5900) sits in HIGH;
+        # Adult Red Dragon (18000) → DEADLY.
+        result = calculate_difficulty([5, 5, 5, 5], [18000])
+        assert result.difficulty == EncounterDifficulty.DEADLY
+
+    def test_band_boundary_inclusivity(self):
+        """At exactly the threshold, the encounter lands in the higher band."""
+        # 4×L5 → moderate=3000.
+        result = calculate_difficulty([5, 5, 5, 5], [3000])
+        assert result.difficulty == EncounterDifficulty.MODERATE
+        # high=4400.
+        result = calculate_difficulty([5, 5, 5, 5], [4400])
+        assert result.difficulty == EncounterDifficulty.HIGH
+
+    def test_thresholds_sum_across_mixed_levels(self):
+        """Thresholds are summed across all PCs regardless of level."""
+        # 2 L1 + 1 L5: low = 50+50+500 = 600.
+        result = calculate_difficulty([1, 1, 5], [0])
+        assert result.low_threshold == 600
+
+    def test_level_1_party_thresholds(self):
+        """L1 party thresholds per the 2024 table."""
+        result = calculate_difficulty([1], [0])
+        assert result.low_threshold == 50
+        assert result.moderate_threshold == 75
+        assert result.high_threshold == 100
+
     def test_level_20_party_thresholds(self):
-        """L20 party thresholds are correct per table."""
+        """L20 party thresholds per the 2024 table."""
         result = calculate_difficulty([20], [0])
-        assert result.easy_threshold == 2800
-        assert result.medium_threshold == 5700
-        assert result.hard_threshold == 8500
-        assert result.deadly_threshold == 12700
+        assert result.low_threshold == 6400
+        assert result.moderate_threshold == 13200
+        assert result.high_threshold == 22000
+
+
+class TestBackCompatAliases:
+    """The 2014-era field names still resolve so existing callers don't break."""
+
+    def test_easy_threshold_alias(self):
+        """``easy_threshold`` aliases ``low_threshold``."""
+        result = calculate_difficulty([3], [])
+        assert result.easy_threshold == result.low_threshold == 150
+
+    def test_medium_threshold_alias(self):
+        """``medium_threshold`` aliases ``moderate_threshold``."""
+        result = calculate_difficulty([3], [])
+        assert result.medium_threshold == result.moderate_threshold == 225
+
+    def test_hard_threshold_alias(self):
+        """``hard_threshold`` aliases ``high_threshold``."""
+        result = calculate_difficulty([3], [])
+        assert result.hard_threshold == result.high_threshold == 400
