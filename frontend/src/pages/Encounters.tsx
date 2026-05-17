@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { encountersApi } from "../api/encounters";
+import type { ThemedMonsterSuggestion } from "../api/encounters";
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
 import { monstersApi } from "../api/monsters";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Encounter, Monster, RosterEntry } from "../api/types";
+import DifficultyMeter from "../components/encounter-builder/DifficultyMeter";
+import SuggestionsPanel from "../components/encounter-builder/SuggestionsPanel";
 
 const DIFFICULTY_BADGE: Record<string, string> = {
   Low: "badge-ready",
@@ -26,11 +29,12 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 
 interface RosterEditorProps {
   encounter: Encounter;
+  adventureId: string;
   pcLevels: number[];
   onSaved: () => void;
 }
 
-function RosterEditor({ encounter, pcLevels, onSaved }: RosterEditorProps) {
+function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEditorProps) {
   const qc = useQueryClient();
 
   // Local copy of the roster — edited freely, saved on button press
@@ -112,8 +116,72 @@ function RosterEditor({ encounter, pcLevels, onSaved }: RosterEditorProps) {
   const rawXp = roster.reduce((sum, r) => sum + r.xp * r.count, 0);
   const totalMonsters = roster.reduce((sum, r) => sum + r.count, 0);
 
+  // Plan 31 — live difficulty preview. Keyed on the roster contents so
+  // each unique combination triggers one fetch + then caches.
+  const rosterKey = useMemo(
+    () =>
+      JSON.stringify(
+        roster.map((r) => ({ monster_id: r.monster_id, count: r.count })),
+      ),
+    [roster],
+  );
+  const { data: difficultyPreview, isFetching: previewLoading } = useQuery({
+    queryKey: ["encounter-preview", adventureId, rosterKey],
+    queryFn: () =>
+      encountersApi.previewDifficulty(
+        adventureId,
+        roster.map((r) => ({ monster_id: r.monster_id, count: r.count })),
+      ),
+    enabled: pcLevels.length > 0,
+    staleTime: 30_000,
+  });
+
+  function addSuggestion(s: ThemedMonsterSuggestion) {
+    setRoster((prev) => {
+      const existing = prev.find((r) => r.monster_id === s.monster_id);
+      if (existing) {
+        return prev.map((r) =>
+          r.monster_id === s.monster_id
+            ? { ...r, count: r.count + s.count }
+            : r,
+        );
+      }
+      // Pull monster details lazily — store what we know now; details
+      // for HP/AC come from the catalog when we display them, but the
+      // suggestion already carries enough for XP math + display.
+      return [
+        ...prev,
+        {
+          monster_id: s.monster_id,
+          count: s.count,
+          name: s.monster_name,
+          xp: s.xp,
+          cr: s.challenge_rating,
+          hp: 0,
+          ac: 0,
+        },
+      ];
+    });
+  }
+
+  function addAllSuggestions(items: ThemedMonsterSuggestion[]) {
+    items.forEach(addSuggestion);
+  }
+
   return (
     <div style={{ marginTop: "1rem" }}>
+      {/* Plan 31 — themed AI suggestions */}
+      <SuggestionsPanel
+        adventureId={adventureId}
+        onAdd={addSuggestion}
+        onAddAll={addAllSuggestions}
+      />
+
+      {/* Plan 31 — live difficulty meter */}
+      <div style={{ marginBottom: "0.75rem" }}>
+        <DifficultyMeter preview={difficultyPreview} isLoading={previewLoading} />
+      </div>
+
       {/* ── Monster search ──────────────────────────────────────────────── */}
       <div style={{ marginBottom: "0.75rem" }}>
         <label style={{ display: "block", fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.3rem" }}>
@@ -498,6 +566,7 @@ export default function Encounters() {
               {isOpen && (
                 <RosterEditor
                   encounter={e}
+                  adventureId={adventureId!}
                   pcLevels={pcLevels}
                   onSaved={() => setExpandedId(null)}
                 />

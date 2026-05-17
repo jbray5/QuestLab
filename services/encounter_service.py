@@ -318,6 +318,212 @@ def update_encounter(
     return _hydrate_roster(session, EncounterRepo.update(session, encounter, merged))
 
 
+# ---------------------------------------------------------------------------
+# Plan 00031 — Dynamic encounter builder helpers
+# ---------------------------------------------------------------------------
+
+
+def _resolve_party_levels(session: Session, adventure_id: uuid.UUID) -> list[int]:
+    """Return the level of every PC in the adventure's parent campaign.
+
+    Used by the encounter builder's live difficulty meter — the DM
+    doesn't have to enter party size or levels because we can pull them
+    from the campaign's character roster.
+
+    Args:
+        session: Active database session.
+        adventure_id: UUID of the adventure.
+
+    Returns:
+        List of integer levels (one per PC). Empty if the campaign has
+        no PCs yet.
+    """
+    from db.repos.character_repo import CharacterRepo
+
+    adventure = AdventureRepo.get_by_id(session, adventure_id)
+    if adventure is None:
+        raise ValueError(f"Adventure {adventure_id} not found.")
+    chars = CharacterRepo.list_by_campaign(session, adventure.campaign_id)
+    return [int(c.level) for c in chars]
+
+
+def suggest_themed_monsters(
+    session: Session,
+    adventure_id: uuid.UUID,
+    dm_email: str,
+    target_difficulty: str = "Moderate",
+) -> dict[str, Any]:
+    """Ask the AI for monster picks that fit the adventure (Plan 00031).
+
+    Resolves the adventure context (title / synopsis / location notes /
+    tier), the party (campaign PCs), and the available monster pool;
+    delegates the actual ranking to ``ai_service.suggest_themed_monsters``;
+    then maps each returned monster_name back to a monster_id so the
+    frontend can drop suggestions straight into the roster.
+
+    Args:
+        session: Active database session.
+        adventure_id: UUID of the adventure to theme around.
+        dm_email: Email of the requesting DM (for authz).
+        target_difficulty: One of "Low" | "Moderate" | "High" | "Deadly".
+
+    Returns:
+        Dict with:
+          - ``encounter_concept``: Claude's one-sentence pitch
+          - ``suggestions``: list of {monster_id, monster_name, count,
+            rationale, challenge_rating, xp}
+
+    Raises:
+        ValueError: If the adventure is missing.
+        PermissionError: If the DM does not own the campaign.
+    """
+    from services import ai_service
+
+    _assert_adventure_owner(session, adventure_id, dm_email)
+
+    adventure = AdventureRepo.get_by_id(session, adventure_id)
+    if adventure is None:
+        raise ValueError(f"Adventure {adventure_id} not found.")
+    campaign = CampaignRepo.get_by_id(session, adventure.campaign_id)
+    tier = adventure.tier.value if adventure.tier else None
+
+    # Party — pull PCs from the campaign for the summary.
+    from db.repos.character_repo import CharacterRepo
+
+    chars = CharacterRepo.list_by_campaign(session, adventure.campaign_id)
+    if chars:
+        party_summary = f"{len(chars)} PCs: " + ", ".join(
+            f"{c.character_name} (Lv {c.level} {c.character_class.value})" for c in chars
+        )
+    else:
+        party_summary = "Party not yet rostered."
+
+    # Monster pool — every monster the DM has access to. Sorted by CR
+    # ascending so Claude sees the small fry first; it tends to pick a
+    # variety when ordered this way.
+    monsters = MonsterRepo.list_all(session)
+    pool = [
+        {
+            "name": m.name,
+            "challenge_rating": m.challenge_rating,
+            "creature_type": m.creature_type,
+            "xp": cr_to_xp(m.challenge_rating),
+        }
+        for m in monsters
+    ]
+
+    ai_result = ai_service.suggest_themed_monsters(
+        adventure_title=adventure.title,
+        adventure_synopsis=adventure.synopsis,
+        location_notes=getattr(adventure, "location_notes", None),
+        tier=tier,
+        target_difficulty=target_difficulty,
+        party_summary=party_summary
+        + (f" — {campaign.tone}." if campaign and campaign.tone else "."),
+        available_monsters=pool,
+    )
+
+    # Map Claude's monster_name back to actual monster rows. Case-
+    # insensitive match so minor capitalization drift doesn't lose a
+    # suggestion.
+    by_name = {m.name.lower(): m for m in monsters}
+    hydrated: list[dict[str, Any]] = []
+    for s in ai_result.get("suggestions", []):
+        name = (s.get("monster_name") or "").strip()
+        monster = by_name.get(name.lower())
+        if monster is None:
+            continue
+        hydrated.append(
+            {
+                "monster_id": str(monster.id),
+                "monster_name": monster.name,
+                "count": int(s.get("count") or 1),
+                "rationale": s.get("rationale", ""),
+                "challenge_rating": monster.challenge_rating,
+                "xp": cr_to_xp(monster.challenge_rating),
+            }
+        )
+
+    return {
+        "encounter_concept": ai_result.get("encounter_concept", ""),
+        "suggestions": hydrated,
+    }
+
+
+def preview_difficulty(
+    session: Session,
+    adventure_id: uuid.UUID,
+    roster: list[dict[str, Any]],
+    dm_email: str,
+) -> dict[str, Any]:
+    """Compute the difficulty of a hypothetical monster roster (Plan 00031).
+
+    Does not persist anything — used by the live difficulty meter while
+    the DM is editing an encounter. Resolves the party from the
+    adventure's campaign characters.
+
+    Args:
+        session: Active database session.
+        adventure_id: UUID of the adventure.
+        roster: List of ``{"monster_id": str, "count": int}`` dicts.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        Dict with: ``party_levels``, ``raw_xp``, ``adjusted_xp``,
+        ``multiplier``, ``easy_threshold``, ``moderate_threshold``,
+        ``high_threshold``, ``deadly_threshold``, ``difficulty``.
+
+    Raises:
+        ValueError: If the adventure is missing.
+        PermissionError: If the DM does not own the campaign.
+    """
+    _assert_adventure_owner(session, adventure_id, dm_email)
+    levels = _resolve_party_levels(session, adventure_id)
+
+    # Expand the roster into individual XP values (count-aware).
+    xp_values: list[int] = []
+    for entry in roster:
+        monster_id = entry.get("monster_id")
+        count = int(entry.get("count", 0) or 0)
+        if not monster_id or count <= 0:
+            continue
+        try:
+            mid = uuid.UUID(str(monster_id))
+        except (ValueError, TypeError):
+            continue
+        monster = MonsterRepo.get_by_id(session, mid)
+        if monster is None:
+            continue
+        xp = cr_to_xp(monster.challenge_rating)
+        xp_values.extend([xp] * count)
+
+    if not levels:
+        return {
+            "party_levels": [],
+            "raw_xp": sum(xp_values),
+            "adjusted_xp": sum(xp_values),
+            "multiplier": 1.0,
+            "easy_threshold": 0,
+            "moderate_threshold": 0,
+            "high_threshold": 0,
+            "deadly_threshold": 0,
+            "difficulty": None,
+        }
+
+    result = calculate_difficulty(levels, xp_values)
+    return {
+        "party_levels": levels,
+        "raw_xp": result.raw_xp,
+        "adjusted_xp": result.adjusted_xp,
+        "multiplier": result.multiplier,
+        "easy_threshold": result.easy_threshold,
+        "moderate_threshold": result.medium_threshold,
+        "high_threshold": result.hard_threshold,
+        "deadly_threshold": result.deadly_threshold,
+        "difficulty": result.difficulty.value,
+    }
+
+
 def delete_encounter(session: Session, encounter_id: uuid.UUID, dm_email: str) -> bool:
     """Delete an encounter.
 

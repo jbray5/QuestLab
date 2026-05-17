@@ -94,6 +94,21 @@ class _LootOutput(BaseModel):
     entries: list[_LootEntry]
 
 
+class _MonsterSuggestion(BaseModel):
+    """One Claude-suggested monster for an encounter (Plan 00031)."""
+
+    monster_name: str
+    count: int = 1
+    rationale: str
+
+
+class _MonsterSuggestionsOutput(BaseModel):
+    """Wrapper for the themed-monster suggestion response."""
+
+    suggestions: list[_MonsterSuggestion]
+    encounter_concept: str
+
+
 class _NPCOutput(BaseModel):
     """Full NPC profile from Claude."""
 
@@ -745,3 +760,95 @@ The lore should:
 Write in an immersive, slightly archaic fantasy prose style. Do not repeat the mechanical description verbatim — translate it into narrative."""  # noqa: E501
 
     return complete(system=system, user=user, max_tokens=600)
+
+
+# ---------------------------------------------------------------------------
+# Plan 00031 — Theme-aware monster suggestions
+# ---------------------------------------------------------------------------
+
+
+def suggest_themed_monsters(
+    adventure_title: str,
+    adventure_synopsis: Optional[str],
+    location_notes: Optional[str],
+    tier: Optional[str],
+    target_difficulty: str,
+    party_summary: str,
+    available_monsters: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Ask Claude for monster picks that fit the adventure's theme.
+
+    Sends Claude the adventure's title, synopsis, and location notes
+    alongside the available monster catalog (name + CR + type) and the
+    desired difficulty band. Returns 4–6 ranked suggestions with a
+    one-line rationale each, plus a single-sentence "encounter concept"
+    description.
+
+    Args:
+        adventure_title: Title of the adventure.
+        adventure_synopsis: Free-text synopsis from the adventure form.
+        location_notes: Optional location notes from the adventure.
+        tier: Adventure tier label (e.g. "Tier 1 (Levels 1–4)").
+        target_difficulty: One of "Low" | "Moderate" | "High" | "Deadly".
+        party_summary: Short description of the party (e.g.
+            "4 PCs at level 3: Fighter, Cleric, Rogue, Wizard").
+        available_monsters: List of ``{name, challenge_rating, creature_type, xp}``
+            dicts — the candidate pool Claude is allowed to pick from.
+
+    Returns:
+        Dict with keys:
+          - ``encounter_concept``: one-sentence pitch
+          - ``suggestions``: list of {monster_name, count, rationale}
+
+        ``monster_name`` matches an entry's ``name`` in the input pool
+        so the caller can map back to a UUID.
+    """
+    location_block = f"### Location notes\n{location_notes}\n" if location_notes else ""
+    synopsis_block = f"### Adventure synopsis\n{adventure_synopsis}\n" if adventure_synopsis else ""
+    tier_block = f"### Tier\n{tier}\n" if tier else ""
+
+    # Trim the monster pool to keep token usage reasonable. 80 candidates
+    # is plenty for Claude to pick a thematic 4–6.
+    pool = available_monsters[:80]
+    pool_lines = "\n".join(
+        f"- {m['name']} (CR {m['challenge_rating']}, "
+        f"{m.get('creature_type', '?')}, {m.get('xp', 0)} XP)"
+        for m in pool
+    )
+
+    system = (
+        "You are an expert D&D 5e DM building thematically appropriate "
+        "encounters. Match monsters to the adventure's setting, mood, "
+        "and stated location. Aim for the target difficulty using the "
+        "monsters' XP. Prefer 2–4 distinct monster types over a single "
+        "swarm. Use ONLY monsters from the provided pool, and refer to "
+        "them by their exact name."
+    )
+
+    user = f"""Suggest 4–6 monsters from the pool below for an encounter that fits the adventure.
+
+### Adventure
+{adventure_title}
+{tier_block}{synopsis_block}{location_block}
+### Party
+{party_summary}
+
+### Target difficulty
+{target_difficulty}
+
+### Available monster pool
+{pool_lines}
+
+Return JSON in this exact shape (no surrounding prose):
+{{
+  "encounter_concept": "<one sentence describing the encounter — what's happening, where, why these monsters are here>",
+  "suggestions": [
+    {{"monster_name": "<exact name from the pool above>", "count": <int 1–8>, "rationale": "<one short sentence on why this monster fits>"}},
+    ...
+  ]
+}}"""  # noqa: E501
+
+    result: _MonsterSuggestionsOutput = complete_json(
+        system=system, user=user, schema=_MonsterSuggestionsOutput
+    )
+    return result.model_dump()

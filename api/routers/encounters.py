@@ -127,3 +127,67 @@ def delete_encounter(encounter_id: uuid.UUID, db: DB, user: CurrentUser) -> None
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+# ── Plan 00031 — Dynamic encounter builder ────────────────────────────────────
+
+
+@router.post("/adventures/{adventure_id}/encounters/preview-difficulty")
+def preview_difficulty_endpoint(
+    adventure_id: uuid.UUID, body: dict, db: DB, user: CurrentUser
+) -> dict:
+    """Compute the difficulty of a hypothetical monster roster (no save).
+
+    Body: ``{"roster": [{"monster_id": "...", "count": <int>}, ...]}``.
+
+    Returns the party thresholds, raw + adjusted XP, multiplier, and
+    difficulty bucket. Used by the encounter builder's live meter.
+
+    Args:
+        adventure_id: UUID of the adventure.
+        body: JSON payload with the proposed roster.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Difficulty preview dict (see encounter_service.preview_difficulty).
+    """
+    try:
+        return encounter_service.preview_difficulty(db, adventure_id, body.get("roster", []), user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/adventures/{adventure_id}/encounters/suggest-monsters")
+def suggest_monsters_endpoint(
+    adventure_id: uuid.UUID, body: dict, db: DB, user: CurrentUser
+) -> dict:
+    """Ask Claude for monsters that fit the adventure's theme.
+
+    Body: ``{"target_difficulty": "Moderate"}`` (defaults to Moderate).
+
+    Returns ``{encounter_concept, suggestions: [{monster_id, monster_name,
+    count, rationale, challenge_rating, xp}]}``.
+
+    Args:
+        adventure_id: UUID of the adventure to theme around.
+        body: JSON with optional ``target_difficulty``.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Themed-suggestion dict.
+    """
+    try:
+        return encounter_service.suggest_themed_monsters(
+            db,
+            adventure_id,
+            user,
+            target_difficulty=str(body.get("target_difficulty") or "Moderate"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
