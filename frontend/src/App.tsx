@@ -21,6 +21,7 @@ const SessionHud    = lazy(() => import("./pages/SessionHud"));
 const Admin         = lazy(() => import("./pages/Admin"));
 const MagicItems    = lazy(() => import("./pages/MagicItems"));
 const Monsters      = lazy(() => import("./pages/Monsters"));
+const Npcs          = lazy(() => import("./pages/Npcs"));
 const PlayerView    = lazy(() => import("./pages/PlayerView"));
 const Spells        = lazy(() => import("./pages/Spells"));
 const Weapons       = lazy(() => import("./pages/Weapons"));
@@ -74,6 +75,10 @@ export default function App() {
         <Route
           path="campaigns/:campaignId/characters"
           element={lazyRoute(<Characters />)}
+        />
+        <Route
+          path="campaigns/:campaignId/npcs"
+          element={lazyRoute(<Npcs />)}
         />
         <Route
           path="adventures/:adventureId/encounters"

@@ -98,6 +98,16 @@ class AdventureTier(str, Enum):
     TIER4 = "Tier4"  # Levels 17-20
 
 
+class NpcStatus(str, Enum):
+    """Narrative state of an NPC in the campaign (Plan 00033)."""
+
+    ALIVE = "Alive"
+    DEAD = "Dead"
+    MISSING = "Missing"
+    IMPRISONED = "Imprisoned"
+    UNKNOWN = "Unknown"
+
+
 class SpellSchool(str, Enum):
     """D&D 5e schools of magic."""
 

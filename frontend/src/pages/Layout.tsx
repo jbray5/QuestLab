@@ -73,6 +73,12 @@ export default function Layout() {
             >
               🧙 Characters
             </button>
+            <button
+              className="nav-item"
+              onClick={() => navigate(`/campaigns/${activeCampaign.id}/npcs`)}
+            >
+              👤 NPCs
+            </button>
           </>
         )}
 
