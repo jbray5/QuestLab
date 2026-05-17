@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import Confetti from "../Confetti";
+import { useGatedSfx } from "../../hooks/useDicePrefs";
+import { playCritFanfare, playFumbleTrombone } from "../../lib/dice-sound";
 
 export interface RollContext {
   /** Display label, e.g. "Insight (WIS)", "STR save", "Mace of Disruption attack". */
@@ -99,6 +101,16 @@ export default function RollHelper({ context, onClose }: Props) {
   // a 20 or 1; navigating away from it cancels.
   const critKey = isCrit ? `crit-${context.label}-${selected}` : null;
   const shakeKey = isFumble ? `fumble-${context.label}-${selected}` : null;
+
+  // Plan 30 — play sound effects on landing a nat 20 / nat 1, gated by
+  // the persisted sound preference.
+  const playSfx = useGatedSfx();
+  useEffect(() => {
+    if (critKey) playSfx(playCritFanfare);
+  }, [critKey, playSfx]);
+  useEffect(() => {
+    if (shakeKey) playSfx(playFumbleTrombone);
+  }, [shakeKey, playSfx]);
 
   function rollDigitalA() {
     setD20a(Math.floor(Math.random() * 20) + 1);

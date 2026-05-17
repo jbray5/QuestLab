@@ -19,7 +19,10 @@ var/
 sdist/
 develop-eggs/
 .installed.cfg
-lib/
+# "lib/" rule scoped to the repo root so the frontend's src/lib/ JS
+# utility folder (a JS convention) isn't swept up by what was meant for
+# Python packaging build artifacts.
+/lib/
 lib64/
 wheels/
 

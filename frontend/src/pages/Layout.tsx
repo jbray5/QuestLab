@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useCampaignStore } from "../stores/useCampaignStore";
+import DiceTray from "../components/dice-tray/DiceTray";
 
 const NAV_ITEMS = [
   { to: "/", label: "⚔ Dashboard", end: true },
@@ -119,6 +120,9 @@ export default function Layout() {
       <main style={{ flex: 1, padding: "2rem", overflowY: "auto" }}>
         <Outlet />
       </main>
+
+      {/* Plan 30 — floating dice tray, available on every DM page. */}
+      <DiceTray />
     </div>
   );
 }
