@@ -8,6 +8,7 @@ import {
   NPC_STATUS_COLORS,
   npcsApi,
 } from "../../api/npcs";
+import PortraitGenerator from "../PortraitGenerator";
 
 const STATUSES: NpcStatus[] = [
   "Alive",
@@ -97,6 +98,20 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
         </header>
 
         <div style={bodyStyle}>
+          {/* Portrait + AI generation (only for persisted NPCs) */}
+          {initial && (
+            <Field label="Portrait">
+              <PortraitGenerator
+                currentUrl={form.portrait_url ?? null}
+                onGenerate={async (hints) => {
+                  const updated = await npcsApi.generatePortrait(initial.id, hints);
+                  set("portrait_url", updated.portrait_url);
+                  return updated.portrait_url ?? "";
+                }}
+              />
+            </Field>
+          )}
+
           {/* Identity */}
           <Row>
             <Field label="Name" required>

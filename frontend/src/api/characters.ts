@@ -34,4 +34,8 @@ export const charactersApi = {
     api.get<SpellcastingStats>(`/characters/${id}/spellcasting-stats`),
   spendHitDice: (id: string, count: number) =>
     api.post<PlayerCharacter>(`/characters/${id}/spend-hit-dice`, { count }),
+  generatePortrait: (id: string, styleHints?: string) =>
+    api.post<PlayerCharacter>(`/characters/${id}/portrait`, {
+      style_hints: styleHints ?? null,
+    }),
 };

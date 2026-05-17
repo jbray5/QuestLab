@@ -14,6 +14,7 @@ import ExhaustionTracker from "./ExhaustionTracker";
 import HitDiceTracker from "./HitDiceTracker";
 import InfoTip from "./InfoTip";
 import PlayerLinkButton from "./PlayerLinkButton";
+import PortraitGenerator from "../PortraitGenerator";
 import RollHelper from "./RollHelper";
 import type { RollContext } from "./RollHelper";
 import SavingThrows from "./SavingThrows";
@@ -469,6 +470,22 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
         {/* Body — scrollable */}
         <div style={bodyStyle}>
           {pc.hp_current === 0 && <DeathSaveTracker pc={pc} readOnly={readOnly} />}
+
+          {!readOnly && (
+            <Section title="🎨 Portrait">
+              <PortraitGenerator
+                currentUrl={pc.portrait_url ?? null}
+                onGenerate={async (hints) => {
+                  const updated = await charactersApi.generatePortrait(
+                    characterId,
+                    hints,
+                  );
+                  invalidatePc();
+                  return updated.portrait_url ?? "";
+                }}
+              />
+            </Section>
+          )}
 
           <Section title="Ability Scores">
             <AbilityBlock abilities={abilities} onRoll={setRollCtx} readOnly={readOnly} />

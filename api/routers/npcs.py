@@ -141,3 +141,37 @@ def delete_npc(npc_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/npcs/{npc_id}/portrait", response_model=NpcRead)
+def generate_npc_portrait(npc_id: uuid.UUID, body: dict, db: DB, user: CurrentUser) -> NpcRead:
+    """Generate an AI portrait for an NPC and persist the URL (Plan 00034).
+
+    Body: ``{"style_hints": "optional extra style"}``.
+
+    Returns the updated NPC with the new ``portrait_url`` set.
+
+    Args:
+        npc_id: UUID of the NPC.
+        body: JSON with optional ``style_hints``.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Updated NpcRead.
+    """
+    from services import portrait_service
+
+    try:
+        return portrait_service.generate_npc_portrait(
+            db, npc_id, user, style_hints=(body.get("style_hints") or None)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Portrait generation failed: {exc}",
+        )

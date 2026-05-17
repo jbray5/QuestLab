@@ -343,3 +343,42 @@ def spend_hit_dice_endpoint(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+# ── Plan 00034 — AI portrait generation ────────────────────────────────────
+
+
+@router.post("/characters/{character_id}/portrait", response_model=PlayerCharacter)
+def generate_pc_portrait(
+    character_id: uuid.UUID, body: dict, db: DB, user: CurrentUser
+) -> PlayerCharacter:
+    """Generate an AI portrait for a PC and persist the URL.
+
+    Body: ``{"style_hints": "optional extra style"}``. Calls OpenAI
+    ``gpt-image-1`` and uploads the result to Vercel Blob; the new URL
+    is saved to ``portrait_url`` so every connected view picks it up.
+
+    Args:
+        character_id: UUID of the PC.
+        body: JSON with optional ``style_hints``.
+        db: Database session.
+        user: Authenticated DM.
+
+    Returns:
+        Updated PlayerCharacter with portrait_url set.
+    """
+    from services import portrait_service
+
+    try:
+        return portrait_service.generate_pc_portrait(
+            db, character_id, user, style_hints=(body.get("style_hints") or None)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Portrait generation failed: {exc}",
+        )

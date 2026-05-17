@@ -63,6 +63,8 @@ Once the web service is up, open **questlab-api → Environment** and set:
 | `ANTHROPIC_API_KEY` | `sk-ant-…` | Required for `/api/sessions/{id}/runbook` |
 | `BOOTSTRAP_ADMIN_EMAILS` | `you@example.com` | Seeded into admins table on first boot only |
 | `CORS_ORIGINS` | _leave blank until Part 2_ | Comma-separated origins (no trailing slash) |
+| `OPENAI_API_KEY` | `sk-…` _(optional)_ | Required for AI portrait generation (Plan 34). Without it, the "🎨 Generate Portrait" button surfaces a friendly error. |
+| `BLOB_READ_WRITE_TOKEN` | `vercel_blob_rw_…` _(optional)_ | Required alongside `OPENAI_API_KEY`. Generated portraits upload here for permanent URLs. Create a store at Vercel → Storage → Blob → API tokens. |
 
 After saving, click **Manual Deploy → Deploy latest commit** so the new env vars take effect.
 
