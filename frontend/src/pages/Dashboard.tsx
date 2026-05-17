@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { campaignsApi } from "../api/campaigns";
-import { useAuthStore } from "../stores/useAuthStore";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Campaign } from "../api/types";
 import Flourish from "../components/Flourish";
@@ -55,21 +54,15 @@ function CampaignCard({ campaign, onClick }: { campaign: Campaign; onClick: () =
 export default function Dashboard() {
   const navigate = useNavigate();
   const { setActiveCampaign } = useCampaignStore();
-  const { dmEmail, setDmEmail } = useAuthStore();
 
   const { data: campaigns = [], isLoading, isError } = useQuery({
     queryKey: ["campaigns"],
     queryFn: campaignsApi.list,
-    enabled: !!dmEmail,
   });
 
   function open(c: Campaign) {
     setActiveCampaign(c);
     navigate(`/campaigns/${c.id}/adventures`);
-  }
-
-  if (!dmEmail) {
-    return <SetEmailGate onSave={setDmEmail} />;
   }
 
   return (
@@ -109,112 +102,6 @@ export default function Dashboard() {
       <button className="btn btn-primary" onClick={() => navigate("/campaigns")}>
         + Manage Campaigns
       </button>
-    </div>
-  );
-}
-
-/**
- * First-load identity gate. Shown when no DM email is set on the device.
- *
- * Authentication is intentionally minimal: the email becomes the DM's
- * identity for authz (campaign ownership). In a hosted Azure deploy this
- * would come from Entra ID via X-MS-CLIENT-PRINCIPAL-NAME; for the
- * Vercel + Render deployment we let the DM type it on first visit.
- */
-function SetEmailGate({ onSave }: { onSave: (email: string) => void }) {
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const email = String(form.get("email") ?? "").trim();
-    if (email) onSave(email);
-  };
-
-  return (
-    <div
-      className="ql-modal-in"
-      style={{
-        maxWidth: 520,
-        margin: "5vh auto 3rem",
-        padding: "2rem 2rem 1.75rem",
-        background: "var(--surface)",
-        border: "1px solid var(--gold)",
-        borderRadius: 12,
-        boxShadow: "0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(201, 168, 76, 0.08)",
-        textAlign: "center",
-      }}
-    >
-      <img
-        src="/d20.svg"
-        alt=""
-        aria-hidden
-        style={{ width: 72, height: 72, marginBottom: "0.4rem" }}
-      />
-      <h1
-        style={{
-          fontSize: "1.6rem",
-          margin: 0,
-          color: "var(--gold)",
-          fontFamily: "Cinzel Decorative, serif",
-        }}
-      >
-        QuestLab
-      </h1>
-      <Flourish width={180} />
-      <p
-        style={{
-          marginBottom: "1.4rem",
-          fontStyle: "italic",
-          color: "var(--muted)",
-        }}
-      >
-        An AI-powered campaign studio. Plan your worlds, run your sessions,
-        and put a live sheet in every player's hand.
-      </p>
-      <form
-        onSubmit={handleSubmit}
-        style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}
-      >
-        <label
-          htmlFor="dm-email"
-          style={{
-            fontSize: "0.65rem",
-            color: "var(--muted)",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            textAlign: "left",
-          }}
-        >
-          DM email
-        </label>
-        <input
-          id="dm-email"
-          name="email"
-          type="email"
-          required
-          autoFocus
-          placeholder="you@example.com"
-          style={{
-            padding: "0.55rem 0.75rem",
-            fontSize: "1rem",
-            background: "var(--surface2)",
-            border: "1px solid var(--border)",
-            borderRadius: 6,
-            color: "var(--text)",
-          }}
-        />
-        <button className="btn btn-primary" type="submit" style={{ marginTop: "0.4rem" }}>
-          Enter the lab →
-        </button>
-      </form>
-      <p
-        style={{
-          marginTop: "1rem",
-          fontSize: "0.7rem",
-          color: "var(--muted)",
-        }}
-      >
-        Stored on this device only. Change any time from the sidebar.
-      </p>
     </div>
   );
 }

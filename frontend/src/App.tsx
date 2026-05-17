@@ -6,6 +6,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./pages/Layout";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import Welcome from "./pages/Welcome";
 
 // Lazy — heavy / single-use pages. Code-split so a player on /play/{id}
 // doesn't pay for the HUD bundle, and so the Dashboard doesn't pay for
@@ -64,6 +65,9 @@ export default function App() {
     <Routes>
       {/* Plan 25 — Player view: standalone route with no DM chrome */}
       <Route path="/play/:pcId" element={lazyRoute(<PlayerView />)} />
+
+      {/* Plan 35 — Landing / sign-in: standalone, no DM chrome */}
+      <Route path="/welcome" element={<Welcome />} />
 
       <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />

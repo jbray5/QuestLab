@@ -1,4 +1,5 @@
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import DiceTray from "../components/dice-tray/DiceTray";
@@ -14,13 +15,27 @@ const NAV_ITEMS = [
 ];
 
 export default function Layout() {
-  const { dmEmail, setDmEmail } = useAuthStore();
+  const { dmEmail, signOut } = useAuthStore();
   const { activeCampaign, activeAdventure } = useCampaignStore();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  function handleEmailSave(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+  // Plan 35 — auth guard. Any DM page without a signed-in identity
+  // bounces to /welcome with the originally-requested URL preserved.
+  useEffect(() => {
+    if (!dmEmail) {
+      const next = encodeURIComponent(location.pathname + location.search);
+      navigate(`/welcome?next=${next}`, { replace: true });
+    }
+  }, [dmEmail, navigate, location.pathname, location.search]);
+
+  function handleSignOut() {
+    signOut();
+    navigate("/welcome", { replace: true });
   }
+
+  // While redirecting, render nothing — avoids a flash of empty layout.
+  if (!dmEmail) return null;
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -108,17 +123,44 @@ export default function Layout() {
           </>
         )}
 
-        {/* DM Email config at bottom */}
-        <div style={{ marginTop: "auto", paddingTop: "1rem" }}>
-          <label style={{ fontSize: "0.6rem" }}>DM EMAIL</label>
-          <input
-            type="email"
-            value={dmEmail}
-            onChange={(e) => setDmEmail(e.target.value)}
-            onKeyDown={handleEmailSave}
-            placeholder="you@example.com"
-            style={{ fontSize: "0.75rem", padding: "0.3rem 0.5rem" }}
-          />
+        {/* DM identity at the bottom — email + sign out. */}
+        <div
+          style={{
+            marginTop: "auto",
+            paddingTop: "1rem",
+            borderTop: "1px solid var(--border)",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "0.6rem",
+              color: "var(--muted)",
+              margin: "0 0 0.2rem",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            Signed in as
+          </p>
+          <p
+            style={{
+              fontSize: "0.78rem",
+              color: "var(--text)",
+              margin: "0 0 0.5rem",
+              wordBreak: "break-all",
+              fontFamily: "monospace",
+            }}
+            title={dmEmail}
+          >
+            {dmEmail}
+          </p>
+          <button
+            onClick={handleSignOut}
+            className="btn btn-ghost"
+            style={{ width: "100%", fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
+          >
+            ↩ Sign out
+          </button>
         </div>
       </aside>
 
