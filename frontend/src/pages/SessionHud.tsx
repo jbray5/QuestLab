@@ -1365,6 +1365,7 @@ export default function SessionHud() {
                     setNewCHp(Number(e.target.value));
                     setNewCHpMax(Number(e.target.value));
                   }}
+                  onFocus={(e) => e.currentTarget.select()}
                   style={{
                     width: "100%",
                     minWidth: 0,
@@ -1379,6 +1380,7 @@ export default function SessionHud() {
                   type="number"
                   value={newCAc}
                   onChange={(e) => setNewCAc(Number(e.target.value))}
+                  onFocus={(e) => e.currentTarget.select()}
                   style={{
                     width: "100%",
                     minWidth: 0,
@@ -1393,6 +1395,7 @@ export default function SessionHud() {
                   type="number"
                   value={newCInit}
                   onChange={(e) => setNewCInit(Number(e.target.value))}
+                  onFocus={(e) => e.currentTarget.select()}
                   style={{
                     width: "100%",
                     minWidth: 0,

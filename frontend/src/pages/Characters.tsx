@@ -202,19 +202,41 @@ export default function Characters() {
                 </div>
                 <div className="form-group">
                   <label>Level</label>
-                  <input type="number" min={1} max={20} value={form.level} onChange={f("level")} />
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={form.level}
+                    onChange={f("level")}
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
                 </div>
                 <div className="form-group">
                   <label>AC</label>
-                  <input type="number" value={form.ac} onChange={f("ac")} />
+                  <input
+                    type="number"
+                    value={form.ac}
+                    onChange={f("ac")}
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
                 </div>
                 <div className="form-group">
                   <label>HP</label>
-                  <input type="number" value={form.hp_current} onChange={f("hp_current")} />
+                  <input
+                    type="number"
+                    value={form.hp_current}
+                    onChange={f("hp_current")}
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
                 </div>
                 <div className="form-group">
                   <label>Max HP</label>
-                  <input type="number" value={form.hp_max} onChange={f("hp_max")} />
+                  <input
+                    type="number"
+                    value={form.hp_max}
+                    onChange={f("hp_max")}
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
                 </div>
               </div>
             </div>
@@ -237,6 +259,7 @@ export default function Characters() {
                   max={30}
                   value={form[s]}
                   onChange={f(s)}
+                  onFocus={(e) => e.currentTarget.select()}
                   style={{ textAlign: "center" }}
                 />
               </div>
