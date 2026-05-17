@@ -22,6 +22,7 @@ from db.repos.class_feature_repo import CharacterFeatureRepo, ClassFeatureRepo
 from db.repos.session_repo import SessionRepo
 from domain.character import PlayerCharacter, RestSummary
 from domain.enums import CharacterClass, RecoveryType
+from integrations.event_bus import publish_pc_updated
 from services import spellcasting_service
 
 
@@ -106,6 +107,9 @@ def short_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSu
             after = spellcasting_service.long_rest_recover(db, character_id, dm_email)
             slot_levels_restored = list(after.levels.keys())
 
+    # Short rest may have reset features and/or warlock slots — emit once.
+    publish_pc_updated(pc.id, pc.campaign_id)
+
     return RestSummary(
         character_id=pc.id,
         character_name=pc.character_name,
@@ -161,6 +165,11 @@ def long_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSum
         db.add(pc)
         db.commit()
         db.refresh(pc)
+
+    # Long rest changes many sub-systems (HP, slots, features, HD,
+    # exhaustion). Emit a broad pc.updated so the player view and HUD
+    # invalidate every related query in one pass.
+    publish_pc_updated(pc.id, pc.campaign_id)
 
     return RestSummary(
         character_id=pc.id,

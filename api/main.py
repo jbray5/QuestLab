@@ -33,6 +33,7 @@ from api.routers import (
     sessions,
     spellcasting,
     spells,
+    stream,
     uploads,
 )
 
@@ -120,6 +121,7 @@ app.include_router(rest.router, prefix=_PREFIX)
 app.include_router(uploads.router, prefix=_PREFIX)
 app.include_router(admin.router, prefix=_PREFIX)
 app.include_router(play.router, prefix=_PREFIX)
+app.include_router(stream.router, prefix=_PREFIX)
 
 
 @app.get("/api/health")

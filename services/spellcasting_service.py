@@ -28,6 +28,7 @@ from domain.character import (
     SpellSlotStateRead,
 )
 from domain.enums import CharacterClass
+from integrations.event_bus import publish_pc_updated
 from services import character_service
 
 
@@ -252,6 +253,7 @@ def expend_slot(
     db.add(pc)
     db.commit()
     db.refresh(pc)
+    publish_pc_updated(pc.id, pc.campaign_id, kind="pc.spells.updated")
     return slot_state(db, character_id, dm_email)
 
 
@@ -287,6 +289,7 @@ def restore_slot(
         db.add(pc)
         db.commit()
         db.refresh(pc)
+        publish_pc_updated(pc.id, pc.campaign_id, kind="pc.spells.updated")
     return slot_state(db, character_id, dm_email)
 
 
@@ -306,6 +309,7 @@ def long_rest_recover(db: Session, character_id: uuid.UUID, dm_email: str) -> Sp
     db.add(pc)
     db.commit()
     db.refresh(pc)
+    publish_pc_updated(pc.id, pc.campaign_id, kind="pc.spells.updated")
     return slot_state(db, character_id, dm_email)
 
 

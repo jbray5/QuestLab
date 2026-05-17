@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { playApi } from "../api/play";
 import type { PlayerCharacter } from "../api/types";
 import InfoTip from "../components/character-sheet/InfoTip";
+import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 
 /**
  * Player view (Plan 00025).
@@ -74,6 +75,30 @@ function PlayerSheet({ pcId }: { pcId: string }) {
     qc.invalidateQueries({ queryKey: ["play-slots", pcId] });
     qc.invalidateQueries({ queryKey: ["play-features", pcId] });
   };
+
+  // Plan 26 — live sync via SSE. Refetch the relevant queries when the
+  // backend signals this PC changed.
+  const onStreamEvent = useCallback(
+    (evt: StreamEvent) => {
+      if (evt.type === "pc.spells.updated") {
+        qc.invalidateQueries({ queryKey: ["play-slots", pcId] });
+      } else if (evt.type === "pc.features.updated") {
+        qc.invalidateQueries({ queryKey: ["play-features", pcId] });
+      } else if (evt.type === "pc.inventory.updated") {
+        qc.invalidateQueries({ queryKey: ["play-inventory", pcId] });
+      } else {
+        // pc.updated or unspecified — refetch everything.
+        qc.invalidateQueries({ queryKey: ["play-pc", pcId] });
+        qc.invalidateQueries({ queryKey: ["play-slots", pcId] });
+        qc.invalidateQueries({ queryKey: ["play-features", pcId] });
+        qc.invalidateQueries({ queryKey: ["play-spell-stats", pcId] });
+        qc.invalidateQueries({ queryKey: ["play-skills", pcId] });
+        qc.invalidateQueries({ queryKey: ["play-saves", pcId] });
+      }
+    },
+    [qc, pcId],
+  );
+  useEventStream("pc", pcId, onStreamEvent);
 
   if (isLoading) return <LoadingScreen />;
   if (isError || !pc) return <ErrorScreen msg="Could not load character." />;

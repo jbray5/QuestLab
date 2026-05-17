@@ -23,6 +23,7 @@ from domain.character import (
     proficiency_bonus,
 )
 from domain.enums import CharacterClass
+from integrations.event_bus import publish_pc_updated
 
 MAX_CHARACTERS_PER_CAMPAIGN = 8
 
@@ -512,6 +513,7 @@ def update_character(
         patch["spell_slots"] = compute_spell_slots(new_class, new_level) or None
     recompute_update = PlayerCharacterUpdate.model_validate(patch)
     updated = CharacterRepo.update(session, character, recompute_update)
+    publish_pc_updated(updated.id, updated.campaign_id)
     return PlayerCharacterRead.model_validate(updated)
 
 
@@ -570,6 +572,7 @@ def apply_damage(
     session.add(character)
     session.commit()
     session.refresh(character)
+    publish_pc_updated(character.id, character.campaign_id)
     return character
 
 
@@ -603,6 +606,7 @@ def apply_healing(
     session.add(character)
     session.commit()
     session.refresh(character)
+    publish_pc_updated(character.id, character.campaign_id)
     return character
 
 
@@ -656,6 +660,7 @@ def resolve_death_save(
     session.add(character)
     session.commit()
     session.refresh(character)
+    publish_pc_updated(character.id, character.campaign_id)
     return character
 
 
@@ -782,4 +787,5 @@ def spend_hit_dice(
     session.add(character)
     session.commit()
     session.refresh(character)
+    publish_pc_updated(character.id, character.campaign_id)
     return character

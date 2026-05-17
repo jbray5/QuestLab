@@ -28,9 +28,15 @@ from domain.character import (
     CharacterItemUpdate,
     PlayerCharacter,
 )
+from integrations.event_bus import publish_pc_updated
 
 ATTUNEMENT_CAP = 3
 """Max items a PC may be attuned to (D&D 5e 2024 RAW)."""
+
+
+def _emit_inv_event(pc: PlayerCharacter) -> None:
+    """Publish pc.inventory.updated for a PC after a mutation."""
+    publish_pc_updated(pc.id, pc.campaign_id, kind="pc.inventory.updated")
 
 
 def _assert_pc_owner(db: Session, character_id: uuid.UUID, dm_email: str) -> PlayerCharacter:
@@ -128,18 +134,20 @@ def add_item(
         AttunementLimitError: If the payload requests attunement and the PC
             is already at the cap.
     """
-    _assert_pc_owner(db, character_id, dm_email)
+    pc = _assert_pc_owner(db, character_id, dm_email)
     item = ItemRepo.get_by_id(db, payload.item_id)
     if item is None:
         raise ValueError(f"Item {payload.item_id} not found.")
 
     existing = CharacterItemRepo.find_by_pc_and_item(db, character_id, payload.item_id)
     if existing is not None:
-        return CharacterItemRepo.update(
+        merged = CharacterItemRepo.update(
             db,
             existing,
             CharacterItemUpdate(quantity=existing.quantity + payload.quantity),
         )
+        _emit_inv_event(pc)
+        return merged
 
     if payload.attuned:
         current = CharacterItemRepo.count_attuned_for_pc(db, character_id)
@@ -148,7 +156,9 @@ def add_item(
                 f"PC is already attuned to {ATTUNEMENT_CAP} items (RAW cap)."
             )
 
-    return CharacterItemRepo.create(db, character_id, payload)
+    created = CharacterItemRepo.create(db, character_id, payload)
+    _emit_inv_event(pc)
+    return created
 
 
 def add_handout(
@@ -200,10 +210,16 @@ def set_quantity(
     if quantity < 0:
         raise ValueError("Quantity cannot be negative.")
     row = _assert_row_owner(db, character_item_id, dm_email)
+    pc = CharacterRepo.get_by_id(db, row.character_id)
     if quantity == 0:
         CharacterItemRepo.delete(db, row)
+        if pc is not None:
+            _emit_inv_event(pc)
         return None
-    return CharacterItemRepo.update(db, row, CharacterItemUpdate(quantity=quantity))
+    updated = CharacterItemRepo.update(db, row, CharacterItemUpdate(quantity=quantity))
+    if pc is not None:
+        _emit_inv_event(pc)
+    return updated
 
 
 def set_equipped(
@@ -221,7 +237,11 @@ def set_equipped(
         Updated row.
     """
     row = _assert_row_owner(db, character_item_id, dm_email)
-    return CharacterItemRepo.update(db, row, CharacterItemUpdate(equipped=equipped))
+    updated = CharacterItemRepo.update(db, row, CharacterItemUpdate(equipped=equipped))
+    pc = CharacterRepo.get_by_id(db, row.character_id)
+    if pc is not None:
+        _emit_inv_event(pc)
+    return updated
 
 
 def set_attuned(
@@ -255,6 +275,9 @@ def set_attuned(
     db.add(updated)
     db.commit()
     db.refresh(updated)
+    pc = CharacterRepo.get_by_id(db, row.character_id)
+    if pc is not None:
+        _emit_inv_event(pc)
     return updated
 
 
@@ -270,4 +293,8 @@ def remove(db: Session, character_item_id: uuid.UUID, dm_email: str) -> bool:
         True.
     """
     row = _assert_row_owner(db, character_item_id, dm_email)
-    return CharacterItemRepo.delete(db, row)
+    pc = CharacterRepo.get_by_id(db, row.character_id)
+    deleted = CharacterItemRepo.delete(db, row)
+    if pc is not None:
+        _emit_inv_event(pc)
+    return deleted

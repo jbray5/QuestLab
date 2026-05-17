@@ -23,6 +23,7 @@ from domain.character import (
     PlayerCharacter,
 )
 from domain.enums import CharacterClass, UsesFormula
+from integrations.event_bus import publish_pc_updated
 from services import character_service
 
 
@@ -266,6 +267,7 @@ def set_uses_spent(
     max_uses = resolve_max_uses(feature.uses_formula, pc) if feature else 0
     clamped = max(0, min(uses_spent, max_uses)) if max_uses > 0 else 0
     updated = CharacterFeatureRepo.update(db, row, CharacterFeatureUpdate(uses_spent=clamped))
+    publish_pc_updated(pc.id, pc.campaign_id, kind="pc.features.updated")
     return _hydrate(db, updated, pc)
 
 

@@ -26,6 +26,7 @@ import { spellcastingApi } from "../api/spellcasting";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import LootPanel from "../components/LootPanel";
+import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import MonsterStatBlock from "../components/MonsterStatBlock";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
 import type {
@@ -389,6 +390,7 @@ interface HudCombatant {
 export default function SessionHud() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   // ── Remote data ────────────────────────────────────────────────────────────
   const { data: session } = useQuery({
@@ -421,6 +423,26 @@ export default function SessionHud() {
     queryFn: () => encountersApi.list(session!.adventure_id),
     enabled: !!session?.adventure_id,
   });
+
+  // Plan 26 — live sync via SSE. Refetch party + per-PC data when the
+  // backend signals any PC in this campaign changed.
+  const onCampaignStreamEvent = useCallback(
+    (evt: StreamEvent) => {
+      // Refetch the party list so HP/state badges update.
+      qc.invalidateQueries({ queryKey: ["characters", adventure?.campaign_id] });
+      // If a specific PC was updated, invalidate its per-PC queries too —
+      // the character-sheet modal subscribes to ["character", id] and the
+      // spell-slot tracker / features / inventory etc. all key on the PC.
+      if (evt.pc_id) {
+        qc.invalidateQueries({ queryKey: ["character", evt.pc_id] });
+        qc.invalidateQueries({ queryKey: ["spell-slots", evt.pc_id] });
+        qc.invalidateQueries({ queryKey: ["character-features", evt.pc_id] });
+        qc.invalidateQueries({ queryKey: ["inventory", evt.pc_id] });
+      }
+    },
+    [qc, adventure?.campaign_id],
+  );
+  useEventStream("campaign", adventure?.campaign_id, onCampaignStreamEvent);
 
   // Filter to attending PCs (or all if none specified)
   const partyIds = session?.attending_pc_ids ?? [];
@@ -701,7 +723,6 @@ export default function SessionHud() {
 
   // ── Party rest (Plan 00021) ────────────────────────────────────────────────
   const [restToast, setRestToast] = useState<string | null>(null);
-  const qc = useQueryClient();
 
   const shortRestParty = useMutation({
     mutationFn: () => restApi.shortRestParty(sessionId!),
