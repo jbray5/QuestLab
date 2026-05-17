@@ -4,6 +4,7 @@ import { campaignsApi } from "../api/campaigns";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Campaign } from "../api/types";
+import Flourish from "../components/Flourish";
 
 function StatPill({ label, value }: { label: string; value: number }) {
   return (
@@ -73,9 +74,13 @@ export default function Dashboard() {
 
   return (
     <div className="fade-in">
-      <h1>Dashboard</h1>
-      <p className="text-muted" style={{ marginBottom: "2rem" }}>
-        Select a campaign to dive in, or create a new one.
+      <h1 style={{ textAlign: "center", marginBottom: 0 }}>QuestLab</h1>
+      <Flourish />
+      <p
+        className="text-muted"
+        style={{ marginBottom: "2rem", textAlign: "center", fontStyle: "italic" }}
+      >
+        Select a campaign to dive in, or forge a new one.
       </p>
 
       {isError && (
@@ -126,44 +131,90 @@ function SetEmailGate({ onSave }: { onSave: (email: string) => void }) {
 
   return (
     <div
-      className="fade-in"
+      className="ql-modal-in"
       style={{
-        maxWidth: 480,
-        margin: "3rem auto",
-        padding: "1.5rem",
+        maxWidth: 520,
+        margin: "5vh auto 3rem",
+        padding: "2rem 2rem 1.75rem",
         background: "var(--surface)",
         border: "1px solid var(--gold)",
-        borderRadius: 8,
+        borderRadius: 12,
+        boxShadow: "0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(201, 168, 76, 0.08)",
+        textAlign: "center",
       }}
     >
-      <h1 style={{ fontSize: "1.4rem", marginBottom: "0.3rem", color: "var(--gold)" }}>
-        ⚔ Welcome to QuestLab
+      <img
+        src="/d20.svg"
+        alt=""
+        aria-hidden
+        style={{ width: 72, height: 72, marginBottom: "0.4rem" }}
+      />
+      <h1
+        style={{
+          fontSize: "1.6rem",
+          margin: 0,
+          color: "var(--gold)",
+          fontFamily: "Cinzel Decorative, serif",
+        }}
+      >
+        QuestLab
       </h1>
-      <p className="text-muted" style={{ marginBottom: "1.2rem", fontSize: "0.9rem" }}>
-        Enter the email you want to use as your DM identity. This is how the
-        app knows which campaigns belong to you. You can change it any time
-        from the sidebar.
+      <Flourish width={180} />
+      <p
+        style={{
+          marginBottom: "1.4rem",
+          fontStyle: "italic",
+          color: "var(--muted)",
+        }}
+      >
+        An AI-powered campaign studio. Plan your worlds, run your sessions,
+        and put a live sheet in every player's hand.
       </p>
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+      <form
+        onSubmit={handleSubmit}
+        style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}
+      >
+        <label
+          htmlFor="dm-email"
+          style={{
+            fontSize: "0.65rem",
+            color: "var(--muted)",
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            textAlign: "left",
+          }}
+        >
+          DM email
+        </label>
         <input
+          id="dm-email"
           name="email"
           type="email"
           required
           autoFocus
           placeholder="you@example.com"
           style={{
-            padding: "0.5rem 0.7rem",
-            fontSize: "0.95rem",
+            padding: "0.55rem 0.75rem",
+            fontSize: "1rem",
             background: "var(--surface2)",
             border: "1px solid var(--border)",
-            borderRadius: 4,
+            borderRadius: 6,
             color: "var(--text)",
           }}
         />
-        <button className="btn btn-primary" type="submit">
-          Continue
+        <button className="btn btn-primary" type="submit" style={{ marginTop: "0.4rem" }}>
+          Enter the lab →
         </button>
       </form>
+      <p
+        style={{
+          marginTop: "1rem",
+          fontSize: "0.7rem",
+          color: "var(--muted)",
+        }}
+      >
+        Stored on this device only. Change any time from the sidebar.
+      </p>
     </div>
   );
 }

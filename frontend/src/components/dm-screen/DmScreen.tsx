@@ -64,7 +64,7 @@ export default function DmScreen({ open, onClose }: Props) {
 
   return (
     <div style={overlayStyle} onClick={onClose} role="dialog" aria-label="DM Screen">
-      <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
+      <div className="ql-modal-in" style={modalStyle} onClick={(e) => e.stopPropagation()}>
         {/* Sticky header: title + search + close */}
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>

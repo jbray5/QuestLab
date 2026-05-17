@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import Confetti from "../Confetti";
+
 export interface RollContext {
   /** Display label, e.g. "Insight (WIS)", "STR save", "Mace of Disruption attack". */
   label: string;
@@ -92,6 +94,12 @@ export default function RollHelper({ context, onClose }: Props) {
       ? "var(--red, #ef5350)"
       : "var(--gold)";
 
+  // Plan 29 — fire confetti exactly once per nat-20, and shake the dialog
+  // once per nat-1. Keying on `selected` triggers when the user lands on
+  // a 20 or 1; navigating away from it cancels.
+  const critKey = isCrit ? `crit-${context.label}-${selected}` : null;
+  const shakeKey = isFumble ? `fumble-${context.label}-${selected}` : null;
+
   function rollDigitalA() {
     setD20a(Math.floor(Math.random() * 20) + 1);
   }
@@ -106,6 +114,7 @@ export default function RollHelper({ context, onClose }: Props) {
 
   return (
     <>
+      <Confetti trigger={critKey} />
       <div
         onClick={onClose}
         style={{
@@ -116,6 +125,7 @@ export default function RollHelper({ context, onClose }: Props) {
         }}
       />
       <div
+        key={shakeKey ?? "stable"}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: "fixed",
@@ -128,8 +138,11 @@ export default function RollHelper({ context, onClose }: Props) {
           zIndex: 9999,
           minWidth: 300,
           maxWidth: 380,
-          boxShadow: "0 6px 28px rgba(0,0,0,0.65)",
+          boxShadow: isCrit
+            ? "0 0 28px rgba(76, 175, 80, 0.55), 0 6px 28px rgba(0,0,0,0.65)"
+            : "0 6px 28px rgba(0,0,0,0.65)",
           fontFamily: "inherit",
+          animation: isFumble ? "ql-shake 500ms ease-in-out 1 both" : undefined,
         }}
         role="dialog"
         aria-label={`Roll helper: ${context.label}`}
@@ -351,12 +364,40 @@ export default function RollHelper({ context, onClose }: Props) {
           )}
 
           {isCrit && (
-            <div style={{ marginTop: "0.4rem", color: accent, fontWeight: 700, fontSize: "0.85rem" }}>
-              ✨ Natural 20 — critical!
+            <div
+              style={{
+                marginTop: "0.5rem",
+                textAlign: "center",
+                color: "var(--bg, #1a1a1a)",
+                background: "linear-gradient(90deg, var(--gold), #f4d068, var(--gold))",
+                fontWeight: 700,
+                fontSize: "0.95rem",
+                padding: "0.35rem 0.5rem",
+                borderRadius: 6,
+                letterSpacing: "0.08em",
+                fontFamily: "Cinzel Decorative, serif",
+                animation: "ql-crit-pulse 900ms ease-out both",
+                boxShadow: "0 0 16px rgba(214, 175, 54, 0.7)",
+              }}
+            >
+              ✨ CRITICAL! ✨
             </div>
           )}
           {isFumble && (
-            <div style={{ marginTop: "0.4rem", color: accent, fontWeight: 700, fontSize: "0.85rem" }}>
+            <div
+              style={{
+                marginTop: "0.5rem",
+                textAlign: "center",
+                color: "#fff",
+                background: "linear-gradient(90deg, #6a0d0d, var(--red), #6a0d0d)",
+                fontWeight: 700,
+                fontSize: "0.9rem",
+                padding: "0.35rem 0.5rem",
+                borderRadius: 6,
+                letterSpacing: "0.08em",
+                fontFamily: "Cinzel Decorative, serif",
+              }}
+            >
               💀 Natural 1 — critical miss
             </div>
           )}

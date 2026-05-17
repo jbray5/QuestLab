@@ -35,6 +35,14 @@ async function request<T>(
         : Array.isArray(detail)
           ? detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join("; ")
           : res.statusText;
+    // Plan 29 — dispatch a window event so the global ToastProvider can
+    // surface transient API errors that callers don't explicitly handle.
+    // 401s are noisy on first load (no DM email yet); skip them.
+    if (typeof window !== "undefined" && res.status !== 401) {
+      window.dispatchEvent(
+        new CustomEvent("ql:api-error", { detail: { message } }),
+      );
+    }
     throw new Error(message);
   }
 

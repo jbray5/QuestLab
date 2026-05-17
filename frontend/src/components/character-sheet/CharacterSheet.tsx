@@ -160,7 +160,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
       role="dialog"
       aria-label={`${pc.character_name} character sheet`}
     >
-      <div style={sheetStyle} onClick={(e) => e.stopPropagation()}>
+      <div className="ql-modal-in" style={sheetStyle} onClick={(e) => e.stopPropagation()}>
         {/* Sticky header */}
         <div style={stickyHeaderStyle}>
           <div className="flex items-center" style={{ gap: "0.75rem" }}>
