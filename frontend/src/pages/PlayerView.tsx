@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { playApi } from "../api/play";
+import { playApi, type TurnState } from "../api/play";
 import type { PlayerCharacter } from "../api/types";
 import InfoTip from "../components/character-sheet/InfoTip";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
@@ -70,6 +70,15 @@ function PlayerSheet({ pcId }: { pcId: string }) {
     enabled: !!pc,
   });
 
+  // Plan 28 — initial turn-state probe so the banner shows correctly on
+  // load + after reconnect. Event stream takes over for live updates.
+  const { data: turnState } = useQuery({
+    queryKey: ["play-turn-state", pcId],
+    queryFn: () => playApi.turnState(pcId),
+    enabled: !!pc,
+    refetchOnWindowFocus: true,
+  });
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["play-pc", pcId] });
     qc.invalidateQueries({ queryKey: ["play-slots", pcId] });
@@ -86,6 +95,28 @@ function PlayerSheet({ pcId }: { pcId: string }) {
         qc.invalidateQueries({ queryKey: ["play-features", pcId] });
       } else if (evt.type === "pc.inventory.updated") {
         qc.invalidateQueries({ queryKey: ["play-inventory", pcId] });
+      } else if (evt.type === "pc.turn.changed") {
+        // Plan 28 — write the new turn-state straight into the cache so
+        // the banner toggles instantly without a network round-trip.
+        const active = !!(evt as StreamEvent & { active?: boolean }).active;
+        const next: TurnState = active
+          ? {
+              active: true,
+              session_id: (evt as StreamEvent & { session_id?: string }).session_id,
+              round: (evt as StreamEvent & { round?: number }).round,
+              active_combatant_name: (evt as StreamEvent & { active_combatant_name?: string })
+                .active_combatant_name,
+            }
+          : { active: false };
+        qc.setQueryData(["play-turn-state", pcId], next);
+        // On activation, give the phone a short buzz if it supports it.
+        if (active && typeof navigator !== "undefined" && "vibrate" in navigator) {
+          try {
+            navigator.vibrate?.([60, 40, 60]);
+          } catch {
+            /* ignore */
+          }
+        }
       } else {
         // pc.updated or unspecified — refetch everything.
         qc.invalidateQueries({ queryKey: ["play-pc", pcId] });
@@ -110,6 +141,7 @@ function PlayerSheet({ pcId }: { pcId: string }) {
   return (
     <div style={pageStyle}>
       <div style={containerStyle}>
+        <TurnBanner turnState={turnState} />
         <HeaderBanner pc={pc} spellStats={spellStats ?? null} initMod={initMod} />
 
         <HpZone pc={pc} pcId={pcId} conMod={conMod} onUpdate={invalidate} />
@@ -161,6 +193,59 @@ function PlayerSheet({ pcId }: { pcId: string }) {
 }
 
 // ── Sub-blocks ─────────────────────────────────────────────────────────────
+
+function TurnBanner({ turnState }: { turnState: TurnState | undefined }) {
+  if (!turnState?.active) return null;
+  const round = turnState.round;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 50,
+        padding: "0.7rem 1rem",
+        background: "linear-gradient(90deg, var(--gold), #d4af37, var(--gold))",
+        backgroundSize: "200% 100%",
+        color: "var(--bg, #1a1a1a)",
+        fontWeight: 700,
+        letterSpacing: "0.04em",
+        borderRadius: 10,
+        textAlign: "center",
+        fontFamily: "Cinzel Decorative, serif",
+        boxShadow: "0 0 20px rgba(214, 175, 54, 0.5)",
+        animation: "ql-turn-pulse 2.4s ease-in-out infinite, ql-turn-shine 4s linear infinite",
+      }}
+    >
+      <span style={{ fontSize: "1.05rem" }}>⚔ It's your turn!</span>
+      {round !== undefined && (
+        <span
+          style={{
+            display: "block",
+            fontSize: "0.7rem",
+            opacity: 0.75,
+            marginTop: "0.15rem",
+            letterSpacing: "0.08em",
+            fontFamily: "inherit",
+          }}
+        >
+          Round {round}
+        </span>
+      )}
+      <style>{`
+        @keyframes ql-turn-pulse {
+          0%, 100% { box-shadow: 0 0 16px rgba(214, 175, 54, 0.4); }
+          50%      { box-shadow: 0 0 28px rgba(214, 175, 54, 0.8); }
+        }
+        @keyframes ql-turn-shine {
+          0%   { background-position: 0% 0; }
+          100% { background-position: -200% 0; }
+        }
+      `}</style>
+    </div>
+  );
+}
 
 function HeaderBanner({
   pc,

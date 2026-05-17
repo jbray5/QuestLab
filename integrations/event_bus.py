@@ -172,3 +172,25 @@ def publish_session_combat_updated(session_id: Any, campaign_id: Any) -> None:
         "campaign_id": str(campaign_id),
     }
     event_bus.publish(f"campaign:{campaign_id}", payload)
+
+
+def publish_pc_turn_changed(pc_id: Any, active: bool, **extra: Any) -> None:
+    """Publish a per-PC turn-state change event (Plan 00028).
+
+    Used when combat advances or is restarted: emit ``active=True`` to the
+    PC whose turn just began and ``active=False`` to the PC whose turn just
+    ended. The player view listens on its ``pc:{pcId}`` stream and toggles
+    the "It's your turn!" banner.
+
+    Args:
+        pc_id: UUID of the player character whose turn just changed.
+        active: True if it's now this PC's turn; False if it just ended.
+        **extra: Optional extras (session_id, round, active_combatant_name).
+    """
+    payload: Event = {
+        "type": "pc.turn.changed",
+        "pc_id": str(pc_id),
+        "active": active,
+    }
+    payload.update({k: (str(v) if k.endswith("_id") else v) for k, v in extra.items()})
+    event_bus.publish(f"pc:{pc_id}", payload)

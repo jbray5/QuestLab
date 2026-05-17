@@ -129,6 +129,36 @@ def list_inventory(db: Session, pc_id: uuid.UUID):
     return inventory_service.list_for_character(db, pc_id, dm)
 
 
+def turn_state(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
+    """Return whether it's currently this PC's turn (Plan 00028).
+
+    If any session currently has this PC as the active combatant, returns
+    ``{active: True, session_id, round, active_combatant_name}``. Otherwise
+    returns ``{active: False}``.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the player character.
+
+    Returns:
+        Turn-state dict suitable for direct JSON serialization.
+    """
+    # Confirm the PC exists; ignore the result.
+    _get_pc_or_raise(db, pc_id)
+    from db.repos.session_repo import SessionCombatantRepo
+
+    found = SessionCombatantRepo.find_active_for_character(db, pc_id)
+    if found is None:
+        return {"active": False}
+    game_session, combatant = found
+    return {
+        "active": True,
+        "session_id": str(game_session.id),
+        "round": game_session.combat_round,
+        "active_combatant_name": combatant.name,
+    }
+
+
 # ── Writes (table-state actions) ──────────────────────────────────────────────
 
 

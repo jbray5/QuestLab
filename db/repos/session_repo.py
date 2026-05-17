@@ -195,6 +195,35 @@ class SessionCombatantRepo:
         return session.exec(stmt).first()
 
     @staticmethod
+    def find_active_for_character(
+        session: Session, character_id: uuid.UUID
+    ) -> Optional[tuple[GameSession, SessionCombatant]]:
+        """Find the (session, combatant) pair where this PC is the active combatant.
+
+        Plan 00028 — used by the player view to ask "is it my turn?". Joins
+        sessions to their active SessionCombatant and returns the first match
+        whose ``character_id`` equals ``character_id``.
+
+        Args:
+            session: Active database session.
+            character_id: UUID of the player character.
+
+        Returns:
+            ``(GameSession, SessionCombatant)`` if a session currently has this
+            PC as the active combatant; ``None`` otherwise.
+        """
+        stmt = (
+            select(GameSession, SessionCombatant)
+            .where(SessionCombatant.id == GameSession.combat_active_combatant_id)
+            .where(SessionCombatant.character_id == character_id)
+            .limit(1)
+        )
+        row = session.exec(stmt).first()
+        if row is None:
+            return None
+        return (row[0], row[1])
+
+    @staticmethod
     def replace_all(
         session: Session,
         session_id: uuid.UUID,

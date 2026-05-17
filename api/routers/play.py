@@ -105,6 +105,21 @@ def inventory(pc_id: uuid.UUID, db: DB):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
+@router.get("/play/{pc_id}/turn-state")
+def turn_state(pc_id: uuid.UUID, db: DB) -> dict:
+    """Is it this PC's turn in any active session combat? (Plan 00028).
+
+    Returns ``{active: true, session_id, round, active_combatant_name}`` when
+    a session has this PC as the active combatant. Returns ``{active: false}``
+    otherwise. Used by the PlayerView to render the "It's your turn!" banner
+    on initial load and after reconnect.
+    """
+    try:
+        return player_service.turn_state(db, pc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
 # ── Writes (table-state self-service) ─────────────────────────────────────────
 
 

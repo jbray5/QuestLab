@@ -34,8 +34,45 @@ from domain.session import (
     SessionRunbookCreate,
     SessionUpdate,
 )
+from integrations.event_bus import publish_pc_turn_changed
 
 MAX_SESSIONS_PER_ADVENTURE = 20
+
+
+def _emit_turn_change(
+    db: DBSession,
+    previous_active_id: Optional[uuid.UUID],
+    new_active_id: Optional[uuid.UUID],
+    session_id: uuid.UUID,
+    combat_round: int,
+) -> None:
+    """Emit pc.turn.changed events for previous + new active combatants (Plan 00028).
+
+    If either side maps to a PC (via SessionCombatant.character_id), publish
+    a turn-state change event on that PC's topic. Skipped entries (None,
+    monsters/NPCs without character_id) silently no-op.
+
+    Args:
+        db: Active database session.
+        previous_active_id: ID of the combatant whose turn just ended.
+        new_active_id: ID of the combatant whose turn just began.
+        session_id: UUID of the session.
+        combat_round: Current combat round number.
+    """
+    if previous_active_id and previous_active_id != new_active_id:
+        prev = SessionCombatantRepo.get_by_id(db, previous_active_id)
+        if prev and prev.character_id:
+            publish_pc_turn_changed(prev.character_id, active=False)
+    if new_active_id:
+        new = SessionCombatantRepo.get_by_id(db, new_active_id)
+        if new and new.character_id:
+            publish_pc_turn_changed(
+                new.character_id,
+                active=True,
+                session_id=session_id,
+                round=combat_round,
+                active_combatant_name=new.name,
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -531,6 +568,7 @@ def save_combat_state(
         PermissionError: If the DM does not own the campaign.
     """
     game_session = get_session(db, session_id, dm_email)
+    previous_active_id = game_session.combat_active_combatant_id
     created = SessionCombatantRepo.replace_all(db, session_id, payload.combatants)
 
     # Resolve active_combatant_id — if caller passed an id that doesn't
@@ -546,6 +584,17 @@ def save_combat_state(
     db.add(game_session)
     db.commit()
     db.refresh(game_session)
+
+    # Plan 28 — initiative just (re)rolled. The previous active combatant
+    # ID likely points at a deleted row (replace_all wipes); guard against
+    # that lookup and just emit the new active turn to whoever's up first.
+    _emit_turn_change(
+        db,
+        previous_active_id if previous_active_id in valid_ids else None,
+        active_id,
+        session_id,
+        game_session.combat_round,
+    )
 
     return SessionCombatStateRead.model_validate(
         {
@@ -604,11 +653,20 @@ def clear_combat_state(db: DBSession, session_id: uuid.UUID, dm_email: str) -> i
         PermissionError: If the DM does not own the campaign.
     """
     game_session = get_session(db, session_id, dm_email)
+    previous_active_id = game_session.combat_active_combatant_id
+    # Plan 28 — capture the prior active PC BEFORE we wipe the combatants.
+    prev_pc_id = None
+    if previous_active_id:
+        prev = SessionCombatantRepo.get_by_id(db, previous_active_id)
+        if prev and prev.character_id:
+            prev_pc_id = prev.character_id
     count = SessionCombatantRepo.clear_for_session(db, session_id)
     game_session.combat_round = 1
     game_session.combat_active_combatant_id = None
     db.add(game_session)
     db.commit()
+    if prev_pc_id:
+        publish_pc_turn_changed(prev_pc_id, active=False)
     return count
 
 
@@ -709,10 +767,13 @@ def advance_combat_turn(
     next_combatant = alive[next_idx]
 
     new_round = game_session.combat_round + (1 if next_idx == 0 else 0)
+    previous_active_id = current_id
     game_session.combat_round = new_round
     game_session.combat_active_combatant_id = next_combatant.id
     db.add(game_session)
     db.commit()
     db.refresh(game_session)
+
+    _emit_turn_change(db, previous_active_id, next_combatant.id, session_id, new_round)
 
     return load_combat_state(db, session_id, dm_email)
