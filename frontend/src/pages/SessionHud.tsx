@@ -25,6 +25,7 @@ import { restApi } from "../api/rest";
 import { spellcastingApi } from "../api/spellcasting";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
+import DmScreen from "../components/dm-screen/DmScreen";
 import LootPanel from "../components/LootPanel";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import MonsterStatBlock from "../components/MonsterStatBlock";
@@ -717,6 +718,8 @@ export default function SessionHud() {
 
   // ── Loot modal ─────────────────────────────────────────────────────────────
   const [lootOpen, setLootOpen] = useState(false);
+  // Plan 27 — DM Screen modal
+  const [dmScreenOpen, setDmScreenOpen] = useState(false);
 
   // ── Character sheet modal (Plan 00022) ────────────────────────────────────
   const [sheetPcId, setSheetPcId] = useState<string | null>(null);
@@ -846,14 +849,13 @@ export default function SessionHud() {
       "Nat 20 on attack = crit (regardless of modifiers). Roll damage dice twice.",
       "Nat 1 on attack = automatic miss.",
     ],
-    "Exhaustion": [
-      "Level 1: Disadvantage on ability checks",
-      "Level 2: Speed halved",
-      "Level 3: Disadvantage on attacks and saves",
-      "Level 4: HP maximum halved",
-      "Level 5: Speed = 0",
-      "Level 6: Death",
-      "Remove 1 level per long rest.",
+    "Exhaustion (2024)": [
+      "0–6 scale. Each level applies a cumulative −2 to ALL D20 Tests",
+      "(attack rolls, ability checks, saving throws).",
+      "Level 6 = death. Long rest reduces by 1.",
+      "Common triggers: forced march, going without food/water, failed CON",
+      "save vs harmful effect, certain spells (Ray of Sickness).",
+      "Note: 2024 rules — different from 2014's per-level distinct effects.",
     ],
   };
 
@@ -918,6 +920,14 @@ export default function SessionHud() {
             title="Apply a long rest to every attending PC"
           >
             🌙 Long rest
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+            onClick={() => setDmScreenOpen(true)}
+            title="Open the DM rules reference"
+          >
+            📖 DM Screen
           </button>
           <button
             className="btn btn-secondary"
@@ -1702,6 +1712,9 @@ export default function SessionHud() {
           </div>
         </div>
       )}
+
+      {/* Plan 27 — DM Screen modal */}
+      <DmScreen open={dmScreenOpen} onClose={() => setDmScreenOpen(false)} />
     </div>
   );
 }
