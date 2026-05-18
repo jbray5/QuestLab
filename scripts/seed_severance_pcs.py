@@ -48,14 +48,24 @@ PCS: list[dict] = [
         "level": 1,
         "background": "Wayfarer",
         "alignment": None,
-        "score_str": 8, "score_dex": 14, "score_con": 13,
-        "score_int": 12, "score_wis": 12, "score_cha": 16,
-        "hp_max": 9, "hp_current": 9, "ac": 13, "speed": 30,
+        "score_str": 8,
+        "score_dex": 14,
+        "score_con": 13,
+        "score_int": 12,
+        "score_wis": 12,
+        "score_cha": 16,
+        "hp_max": 9,
+        "hp_current": 9,
+        "ac": 13,
+        "speed": 30,
         "saving_throw_proficiencies": ["WIS", "CHA"],
         "feats": ["Lucky"],
         "skill_proficiencies": {
-            "Arcana": 1, "Deception": 1, "Insight": 1,
-            "Perception": 1, "Stealth": 1,
+            "Arcana": 1,
+            "Deception": 1,
+            "Insight": 1,
+            "Perception": 1,
+            "Stealth": 1,
         },
         "spells_to_learn": [
             ("Eldritch Blast", True),
@@ -84,13 +94,22 @@ PCS: list[dict] = [
         "level": 1,
         "background": "Charlatan",
         "alignment": None,
-        "score_str": 10, "score_dex": 14, "score_con": 15,
-        "score_int": 8, "score_wis": 12, "score_cha": 16,
-        "hp_max": 10, "hp_current": 10, "ac": 12, "speed": 30,
+        "score_str": 10,
+        "score_dex": 14,
+        "score_con": 15,
+        "score_int": 8,
+        "score_wis": 12,
+        "score_cha": 16,
+        "hp_max": 10,
+        "hp_current": 10,
+        "ac": 12,
+        "speed": 30,
         "saving_throw_proficiencies": ["CON", "CHA"],
         "feats": ["Skilled", "Tough"],
         "skill_proficiencies": {
-            "Deception": 1, "Insight": 1, "Persuasion": 1,
+            "Deception": 1,
+            "Insight": 1,
+            "Persuasion": 1,
             "Sleight of Hand": 1,
         },
         "spells_to_learn": [
@@ -121,14 +140,25 @@ PCS: list[dict] = [
         "level": 1,
         "background": "Wayfarer",
         "alignment": None,
-        "score_str": 12, "score_dex": 16, "score_con": 13,
-        "score_int": 14, "score_wis": 12, "score_cha": 8,
-        "hp_max": 9, "hp_current": 9, "ac": 14, "speed": 35,
+        "score_str": 12,
+        "score_dex": 16,
+        "score_con": 13,
+        "score_int": 14,
+        "score_wis": 12,
+        "score_cha": 8,
+        "hp_max": 9,
+        "hp_current": 9,
+        "ac": 14,
+        "speed": 35,
         "saving_throw_proficiencies": ["DEX", "INT"],
         "feats": ["Lucky"],
         "skill_proficiencies": {
-            "Acrobatics": 1, "Insight": 1, "Investigation": 1,
-            "Perception": 1, "Sleight of Hand": 2, "Stealth": 2,
+            "Acrobatics": 1,
+            "Insight": 1,
+            "Investigation": 1,
+            "Perception": 1,
+            "Sleight of Hand": 2,
+            "Stealth": 2,
         },
         "spells_to_learn": [],
         "inventory_to_add": [
@@ -146,13 +176,23 @@ PCS: list[dict] = [
         "level": 1,
         "background": "Noble",
         "alignment": "Lawful Neutral",
-        "score_str": 16, "score_dex": 10, "score_con": 13,
-        "score_int": 10, "score_wis": 12, "score_cha": 14,
-        "hp_max": 11, "hp_current": 11, "ac": 18, "speed": 30,
+        "score_str": 16,
+        "score_dex": 10,
+        "score_con": 13,
+        "score_int": 10,
+        "score_wis": 12,
+        "score_cha": 14,
+        "hp_max": 11,
+        "hp_current": 11,
+        "ac": 18,
+        "speed": 30,
         "saving_throw_proficiencies": ["WIS", "CHA"],
         "feats": ["Skilled"],
         "skill_proficiencies": {
-            "Athletics": 1, "History": 1, "Intimidation": 1, "Persuasion": 1,
+            "Athletics": 1,
+            "History": 1,
+            "Intimidation": 1,
+            "Persuasion": 1,
         },
         "spells_to_learn": [
             ("Command", True),
@@ -175,13 +215,23 @@ PCS: list[dict] = [
         "level": 1,
         "background": "Sage",
         "alignment": "Chaotic Neutral",
-        "score_str": 8, "score_dex": 12, "score_con": 14,
-        "score_int": 15, "score_wis": 16, "score_cha": 10,
-        "hp_max": 10, "hp_current": 10, "ac": 12, "speed": 30,
+        "score_str": 8,
+        "score_dex": 12,
+        "score_con": 14,
+        "score_int": 15,
+        "score_wis": 16,
+        "score_cha": 10,
+        "hp_max": 10,
+        "hp_current": 10,
+        "ac": 12,
+        "speed": 30,
         "saving_throw_proficiencies": ["INT", "WIS"],
         "feats": ["Magic Initiate"],
         "skill_proficiencies": {
-            "Arcana": 1, "History": 1, "Nature": 1, "Perception": 1,
+            "Arcana": 1,
+            "History": 1,
+            "Nature": 1,
+            "Perception": 1,
         },
         "spells_to_learn": [
             ("Druidcraft", True),
@@ -275,9 +325,7 @@ def _lookup_item_id(api_base: str, dm_email: str, name: str) -> Optional[str]:
     return None
 
 
-def _create_pc(
-    api_base: str, campaign_id: str, dm_email: str, pc: dict
-) -> Optional[str]:
+def _create_pc(api_base: str, campaign_id: str, dm_email: str, pc: dict) -> Optional[str]:
     """POST a PC and return its UUID, or None on failure."""
     label = f"{pc['character_name']} ({pc['race']} {pc['character_class']})"
     # Strip script-only keys before sending.
@@ -308,9 +356,7 @@ def _patch_gp(api_base: str, dm_email: str, pc_id: str, gp: int) -> None:
         print(f"        (gp PATCH failed: {exc})")
 
 
-def _learn_spells(
-    api_base: str, dm_email: str, pc_id: str, spells: list[tuple[str, bool]]
-) -> None:
+def _learn_spells(api_base: str, dm_email: str, pc_id: str, spells: list[tuple[str, bool]]) -> None:
     """Look up + POST each spell. Misses are logged and skipped."""
     if not spells:
         return
@@ -418,8 +464,10 @@ def main() -> int:
         print(f"[{i}/5] {label}")
 
         if args.dry_run:
-            print(f"        DRY  would POST + add {len(pc['spells_to_learn'])} spells "
-                  f"+ {len(pc['inventory_to_add'])} items, gp={gp}")
+            print(
+                f"        DRY  would POST + add {len(pc['spells_to_learn'])} spells "
+                f"+ {len(pc['inventory_to_add'])} items, gp={gp}"
+            )
             continue
 
         pc_id = _create_pc(args.api_base, args.campaign_id, args.dm_email, pc)
