@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 760" font-family="-apple-system,Segoe UI,Inter,Roboto,Helvetica,Arial,sans-serif">
+  <!--
+    QuestLab production architecture (Plans 25–34 active).
+    Read top-to-bottom: users → frontend → backend → data + AI.
+  -->
+
+  <defs>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f4d068"/>
+      <stop offset="100%" stop-color="#9d7c1f"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1a1a1a"/>
+      <stop offset="100%" stop-color="#0d0d0f"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#c9a84c"/>
+    </marker>
+    <marker id="arrow-dim" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#5a5a5a"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="550" y="36" text-anchor="middle" fill="url(#gold)" font-size="22" font-weight="700" letter-spacing="0.05em">
+    QuestLab — Production Architecture
+  </text>
+  <text x="550" y="58" text-anchor="middle" fill="#8a8070" font-size="12">
+    Vercel hosts what your users touch. Render hosts everything else.
+  </text>
+
+  <!-- ── USERS ROW ───────────────────────────────────────────────── -->
+  <g>
+    <rect x="160" y="90" width="220" height="74" rx="10" fill="#2a2520" stroke="#c9a84c"/>
+    <text x="270" y="118" text-anchor="middle" fill="#f4d068" font-size="14" font-weight="700">💻 DM</text>
+    <text x="270" y="138" text-anchor="middle" fill="#cccccc" font-size="11">browser · laptop</text>
+    <text x="270" y="154" text-anchor="middle" fill="#8a8070" font-size="10">campaign editor + session HUD</text>
+
+    <rect x="720" y="90" width="220" height="74" rx="10" fill="#2a2520" stroke="#c9a84c"/>
+    <text x="830" y="118" text-anchor="middle" fill="#f4d068" font-size="14" font-weight="700">📱 Players (×4–5)</text>
+    <text x="830" y="138" text-anchor="middle" fill="#cccccc" font-size="11">phones</text>
+    <text x="830" y="154" text-anchor="middle" fill="#8a8070" font-size="10">/play/&lt;pc-uuid&gt;</text>
+  </g>
+
+  <!-- arrows users → vercel -->
+  <line x1="270" y1="164" x2="380" y2="218" stroke="#c9a84c" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <line x1="830" y1="164" x2="720" y2="218" stroke="#c9a84c" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- ── VERCEL ROW ──────────────────────────────────────────────── -->
+  <g>
+    <rect x="100" y="220" width="900" height="120" rx="14" fill="#16161a" stroke="#c9a84c" stroke-width="1.5"/>
+    <text x="120" y="245" fill="#f4d068" font-size="13" font-weight="700">▲ VERCEL</text>
+    <text x="180" y="245" fill="#8a8070" font-size="11">— what your users touch</text>
+
+    <!-- frontend static -->
+    <rect x="140" y="262" width="370" height="60" rx="8" fill="#1e1e24" stroke="#5a5a5a"/>
+    <text x="156" y="282" fill="#e8e0d0" font-size="13" font-weight="700">React SPA (static)</text>
+    <text x="156" y="300" fill="#8a8070" font-size="10">quest-lab-tau.vercel.app · CDN-cached globally</text>
+    <text x="156" y="314" fill="#8a8070" font-size="10">Vite build of frontend/ · code-split per route</text>
+
+    <!-- vercel blob -->
+    <rect x="540" y="262" width="320" height="60" rx="8" fill="#1e1e24" stroke="#5a5a5a"/>
+    <text x="556" y="282" fill="#e8e0d0" font-size="13" font-weight="700">Vercel Blob storage</text>
+    <text x="556" y="300" fill="#8a8070" font-size="10">portraits/&lt;kind&gt;-&lt;uuid&gt;.png · permanent URLs</text>
+    <text x="556" y="314" fill="#8a8070" font-size="10">survives Render redeploys (which wipe disk)</text>
+  </g>
+
+  <!-- arrow frontend → backend (the only one that crosses platforms) -->
+  <line x1="325" y1="340" x2="325" y2="408" stroke="#c9a84c" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="335" y="378" fill="#f4d068" font-size="11">HTTPS /api/...</text>
+  <text x="335" y="392" fill="#8a8070" font-size="10">+ SSE /api/stream/...</text>
+
+  <!-- arrow backend → blob (portrait upload) -->
+  <line x1="700" y1="410" x2="700" y2="324" stroke="#c9a84c" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="4,3"/>
+  <text x="708" y="378" fill="#8a8070" font-size="10">PUT portrait PNG</text>
+
+  <!-- ── RENDER ROW ──────────────────────────────────────────────── -->
+  <g>
+    <rect x="100" y="410" width="900" height="180" rx="14" fill="#16161a" stroke="#c9a84c" stroke-width="1.5"/>
+    <text x="120" y="435" fill="#f4d068" font-size="13" font-weight="700">▣ RENDER</text>
+    <text x="180" y="435" fill="#8a8070" font-size="11">— everything that thinks or remembers</text>
+
+    <!-- FastAPI service -->
+    <rect x="140" y="450" width="370" height="120" rx="8" fill="#1e1e24" stroke="#5a5a5a"/>
+    <text x="156" y="471" fill="#e8e0d0" font-size="13" font-weight="700">FastAPI service · questlab-api</text>
+    <text x="156" y="489" fill="#8a8070" font-size="10">Python 3.11 · uvicorn · auto-deploys from GitHub main</text>
+    <text x="156" y="503" fill="#cccccc" font-size="10">• REST endpoints  /api/{campaigns, characters,</text>
+    <text x="166" y="517" fill="#cccccc" font-size="10">  encounters, sessions, npcs, play, ...}</text>
+    <text x="156" y="533" fill="#cccccc" font-size="10">• SSE streams  /api/stream/pc/{id} + campaign/{id}</text>
+    <text x="156" y="549" fill="#cccccc" font-size="10">• Alembic migrations run on every build</text>
+    <text x="156" y="563" fill="#cccccc" font-size="10">• in-process event bus (Plan 26 live sync)</text>
+
+    <!-- Postgres -->
+    <rect x="540" y="450" width="320" height="120" rx="8" fill="#1e1e24" stroke="#5a5a5a"/>
+    <text x="556" y="471" fill="#e8e0d0" font-size="13" font-weight="700">Postgres 16 · questlab-db</text>
+    <text x="556" y="489" fill="#8a8070" font-size="10">free tier · auto-wired to questlab-api</text>
+    <text x="556" y="505" fill="#cccccc" font-size="10">Campaigns · Adventures · Sessions</text>
+    <text x="556" y="521" fill="#cccccc" font-size="10">PlayerCharacters · NPCs · Encounters</text>
+    <text x="556" y="537" fill="#cccccc" font-size="10">Spells · Items · Monsters · Features</text>
+    <text x="556" y="553" fill="#c0392b" font-size="9.5" font-weight="700">⚠ free tier deletes the DB after 90 days</text>
+  </g>
+
+  <!-- FastAPI ↔ Postgres -->
+  <line x1="510" y1="510" x2="540" y2="510" stroke="#c9a84c" stroke-width="1.5"/>
+  <line x1="540" y1="510" x2="510" y2="510" stroke="#c9a84c" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="525" y="503" text-anchor="middle" fill="#8a8070" font-size="9">SQLModel</text>
+
+  <!-- arrows API → external AI -->
+  <line x1="240" y1="590" x2="240" y2="640" stroke="#c9a84c" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="4,3"/>
+  <line x1="400" y1="590" x2="400" y2="640" stroke="#c9a84c" stroke-width="1.5" marker-end="url(#arrow)" stroke-dasharray="4,3"/>
+
+  <!-- ── EXTERNAL AI ROW ─────────────────────────────────────────── -->
+  <g>
+    <rect x="140" y="642" width="220" height="74" rx="10" fill="#2a2520" stroke="#5a5a5a"/>
+    <text x="250" y="667" text-anchor="middle" fill="#f4d068" font-size="13" font-weight="700">🧠 Anthropic Claude</text>
+    <text x="250" y="685" text-anchor="middle" fill="#cccccc" font-size="10">runbooks · NPC dialog</text>
+    <text x="250" y="701" text-anchor="middle" fill="#8a8070" font-size="10">themed monster suggestions</text>
+
+    <rect x="380" y="642" width="220" height="74" rx="10" fill="#2a2520" stroke="#5a5a5a"/>
+    <text x="490" y="667" text-anchor="middle" fill="#f4d068" font-size="13" font-weight="700">🎨 OpenAI gpt-image-1</text>
+    <text x="490" y="685" text-anchor="middle" fill="#cccccc" font-size="10">PC + NPC portrait gen</text>
+    <text x="490" y="701" text-anchor="middle" fill="#8a8070" font-size="10">~$0.04 per image</text>
+  </g>
+
+  <!-- ── GITHUB ROW ──────────────────────────────────────────────── -->
+  <g>
+    <rect x="700" y="642" width="280" height="74" rx="10" fill="#2a2520" stroke="#5a5a5a"/>
+    <text x="840" y="667" text-anchor="middle" fill="#f4d068" font-size="13" font-weight="700">🐙 GitHub · jbray5/QuestLab</text>
+    <text x="840" y="685" text-anchor="middle" fill="#cccccc" font-size="10">source of truth · CI runs tests</text>
+    <text x="840" y="701" text-anchor="middle" fill="#8a8070" font-size="10">webhook fires on push → both hosts redeploy</text>
+  </g>
+
+  <!-- GitHub → Vercel arrow -->
+  <line x1="840" y1="642" x2="840" y2="345" stroke="#5a5a5a" stroke-width="1.2" marker-end="url(#arrow-dim)" stroke-dasharray="2,4"/>
+  <text x="850" y="500" fill="#5a5a5a" font-size="9" transform="rotate(-90 850 500)">git push → auto-deploy</text>
+
+  <!-- GitHub → Render arrow -->
+  <line x1="900" y1="642" x2="900" y2="590" stroke="#5a5a5a" stroke-width="1.2" marker-end="url(#arrow-dim)" stroke-dasharray="2,4"/>
+
+  <!-- Legend -->
+  <g transform="translate(80, 730)">
+    <line x1="0" y1="0" x2="30" y2="0" stroke="#c9a84c" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="38" y="4" fill="#cccccc" font-size="10">runtime data flow</text>
+    <line x1="180" y1="0" x2="210" y2="0" stroke="#c9a84c" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+    <text x="218" y="4" fill="#cccccc" font-size="10">outbound to 3rd party</text>
+    <line x1="360" y1="0" x2="390" y2="0" stroke="#5a5a5a" stroke-width="1.2" stroke-dasharray="2,4" marker-end="url(#arrow-dim)"/>
+    <text x="398" y="4" fill="#cccccc" font-size="10">build-time / deploy webhook</text>
+  </g>
+</svg>
