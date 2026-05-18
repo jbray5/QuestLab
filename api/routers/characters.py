@@ -382,3 +382,12 @@ def generate_pc_portrait(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Portrait generation failed: {exc}",
         )
+    except Exception as exc:
+        # Safety net: any unanticipated error must still produce a real
+        # HTTP response so CORS headers attach. Without this, an
+        # exception path Starlette didn't expect leaves the browser
+        # seeing a misleading CORS error instead of the upstream cause.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Portrait generation failed: {type(exc).__name__}: {exc}",
+        )

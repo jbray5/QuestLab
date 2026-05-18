@@ -72,10 +72,16 @@ def upload(
         "x-add-random-suffix": "0",
         "x-content-type": content_type,
     }
-    resp = httpx.put(url, content=data, headers=headers, timeout=60.0)
+    try:
+        resp = httpx.put(url, content=data, headers=headers, timeout=60.0)
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"Vercel Blob upload network error: {exc}") from exc
     if resp.status_code >= 400:
         raise RuntimeError(f"Vercel Blob upload failed ({resp.status_code}): {resp.text[:300]}")
-    payload = resp.json()
+    try:
+        payload = resp.json()
+    except ValueError as exc:
+        raise RuntimeError(f"Vercel Blob response was not JSON: {resp.text[:300]}") from exc
     blob_url = payload.get("url")
     if not blob_url:
         raise RuntimeError(f"Vercel Blob response missing 'url': {payload!r}")

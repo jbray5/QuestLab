@@ -63,13 +63,22 @@ def generate_image(
         RuntimeError: If the API returns no images or no decodable data.
     """
     client = _get_client()
-    response = client.images.generate(
-        model=model,
-        prompt=prompt,
-        size=size,
-        quality=quality,
-        n=1,
-    )
+    try:
+        response = client.images.generate(
+            model=model,
+            prompt=prompt,
+            size=size,
+            quality=quality,
+            n=1,
+        )
+    except openai.OpenAIError as exc:
+        # Surface a clean error message so the router can return a
+        # proper 502 (and CORS headers get attached). Without this catch
+        # the openai.BadRequestError / RateLimitError / etc. would
+        # bubble out as a raw 500 and the browser would see a
+        # misleading CORS error instead of the real cause.
+        raise RuntimeError(f"OpenAI image API error: {exc}") from exc
+
     if not response.data:
         raise RuntimeError("OpenAI image API returned no data.")
     item = response.data[0]
@@ -79,7 +88,10 @@ def generate_image(
     if getattr(item, "url", None):
         import httpx
 
-        resp = httpx.get(item.url, timeout=30.0)
-        resp.raise_for_status()
+        try:
+            resp = httpx.get(item.url, timeout=30.0)
+            resp.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise RuntimeError(f"OpenAI image URL fetch failed: {exc}") from exc
         return resp.content
     raise RuntimeError("OpenAI image API response missing both b64_json and url.")

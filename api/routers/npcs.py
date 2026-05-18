@@ -175,3 +175,12 @@ def generate_npc_portrait(npc_id: uuid.UUID, body: dict, db: DB, user: CurrentUs
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Portrait generation failed: {exc}",
         )
+    except Exception as exc:
+        # Safety net: any unanticipated error must still produce a real
+        # HTTP response so CORS headers attach. Without this the browser
+        # would see a "no Access-Control-Allow-Origin header" CORS lie
+        # instead of the actual upstream message.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Portrait generation failed: {type(exc).__name__}: {exc}",
+        )

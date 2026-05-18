@@ -190,6 +190,38 @@ class TestGenerateNpcPortrait:
             portrait_svc.generate_npc_portrait(duckdb_session, uuid.uuid4(), "x@y.com")
 
 
+class TestOpenAiErrorWrapping:
+    """OpenAI SDK errors must come out as RuntimeError so the router
+    can return a 502 with proper CORS headers (Plan 34 bugfix)."""
+
+    def test_openai_error_becomes_runtime_error(self, monkeypatch):
+        """Any openai.OpenAIError surfaces as RuntimeError from generate_image.
+
+        Real-world trigger that broke production: a 400 with
+        ``billing_hard_limit_reached``. The constructor for
+        openai.BadRequestError has a finicky signature, so we use the
+        base class directly — the catch in openai_client is on
+        ``openai.OpenAIError``, which covers every concrete subclass.
+        """
+        import openai
+
+        from integrations import openai_client
+
+        class _FakeImages:
+            def generate(self, **kwargs):
+                raise openai.OpenAIError("Billing hard limit has been reached.")
+
+        class _FakeClient:
+            images = _FakeImages()
+
+        monkeypatch.setattr(openai_client, "_get_client", lambda: _FakeClient())
+
+        with pytest.raises(RuntimeError) as excinfo:
+            openai_client.generate_image("a wizard")
+        assert "OpenAI image API error" in str(excinfo.value)
+        assert "Billing hard limit" in str(excinfo.value)
+
+
 class TestPromptBuilder:
     """Direct exercise of the internal prompt builders for fast feedback."""
 
