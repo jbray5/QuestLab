@@ -339,6 +339,9 @@ label {
   100% { transform: rotate(360deg) scale(1); }
 }
 .dice-rolling { animation: diceRoll 0.6s ease-in-out; }
+/* Continuous variant — used while waiting on a long AI call so the die
+   keeps spinning instead of freezing after one tumble. */
+.dice-rolling-loop { animation: diceRoll 1.6s ease-in-out infinite; }
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }

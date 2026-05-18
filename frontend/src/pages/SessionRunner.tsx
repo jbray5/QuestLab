@@ -464,11 +464,13 @@ export default function SessionRunner() {
             gap: "1rem",
           }}
         >
-          <div style={{ fontSize: "3rem" }} className="dice-rolling">🎲</div>
+          <div style={{ fontSize: "3rem" }} className="dice-rolling-loop">🎲</div>
           <p style={{ color: "var(--gold)", fontFamily: "Cinzel Decorative, serif", fontSize: "1.2rem" }}>
             Claude is writing your runbook…
           </p>
-          <p className="text-muted text-sm">This usually takes 20–40 seconds.</p>
+          <p className="text-muted text-sm">
+            Big sessions can take 1–5 minutes. The die keeps spinning while it's working.
+          </p>
         </div>
       )}
 
