@@ -1,5 +1,6 @@
 """Sessions router — session lifecycle, initiative, runbook, and notes."""
 
+import json
 import uuid
 from typing import Any
 
@@ -252,6 +253,11 @@ def generate_runbook(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except (RuntimeError, json.JSONDecodeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Runbook generation failed: {exc}",
+        )
 
 
 # ---------------------------------------------------------------------------

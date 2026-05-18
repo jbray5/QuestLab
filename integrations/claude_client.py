@@ -103,6 +103,14 @@ def complete_json(
         system=system + json_instruction,
         messages=[{"role": "user", "content": user}],
     )
+    # If Claude ran out of tokens mid-response the JSON will be cut off
+    # mid-string and json.loads will raise an unhelpful decode error.
+    # Detect this up front so the caller knows to bump max_tokens.
+    if response.stop_reason == "max_tokens":
+        raise RuntimeError(
+            f"Claude response truncated at max_tokens={max_tokens}; "
+            "JSON output is incomplete. Bump max_tokens and retry."
+        )
     raw = next(b.text for b in response.content if b.type == "text").strip()
     # Strip markdown code fences if Claude adds them despite instructions
     if raw.startswith("```"):

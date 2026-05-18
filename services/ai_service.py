@@ -279,7 +279,11 @@ Return a JSON object with these exact fields:
 Generate 2-3 scenes. Include NPC dialog for key NPCs. Include encounter flows for each encounter.
 Make read-aloud text atmospheric and suited to the {campaign.tone} tone."""
 
-    result: _RunbookOutput = complete_json(system=system, user=user, schema=_RunbookOutput)
+    # 16K output ceiling — a full 5-PC, multi-encounter runbook with
+    # NPC dialog overruns the 8K default and gets truncated mid-string.
+    result: _RunbookOutput = complete_json(
+        system=system, user=user, schema=_RunbookOutput, max_tokens=16384
+    )
 
     # Convert internal schema → domain model
     return SessionRunbookCreate(
