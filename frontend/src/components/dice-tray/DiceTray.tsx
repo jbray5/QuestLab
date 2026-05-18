@@ -230,6 +230,7 @@ export default function DiceTray() {
       )}
 
       <button
+        data-tour-id="dice-tray"
         onClick={() => setOpen(!open)}
         title="Open dice tray"
         aria-expanded={open}

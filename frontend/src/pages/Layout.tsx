@@ -2,11 +2,18 @@ import { useEffect } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useCampaignStore } from "../stores/useCampaignStore";
+import { useTourStore } from "../stores/useTourStore";
 import DiceTray from "../components/dice-tray/DiceTray";
+import TourGuide from "../components/tour/TourGuide";
 
-const NAV_ITEMS = [
+const NAV_ITEMS: Array<{
+  to: string;
+  label: string;
+  end?: boolean;
+  tourId?: string;
+}> = [
   { to: "/", label: "⚔ Dashboard", end: true },
-  { to: "/campaigns", label: "📜 Campaigns" },
+  { to: "/campaigns", label: "📜 Campaigns", tourId: "nav-campaigns" },
   { to: "/monsters", label: "🐉 Monsters" },
   { to: "/spells", label: "📖 Spells" },
   { to: "/weapons", label: "🗡 Weapons" },
@@ -17,6 +24,7 @@ const NAV_ITEMS = [
 export default function Layout() {
   const { dmEmail, signOut } = useAuthStore();
   const { activeCampaign, activeAdventure } = useCampaignStore();
+  const startTour = useTourStore((s) => s.start);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -41,6 +49,7 @@ export default function Layout() {
     <div style={{ display: "flex", minHeight: "100vh" }}>
       {/* Sidebar */}
       <aside
+        data-tour-id="sidebar"
         style={{
           width: 220,
           background: "var(--surface)",
@@ -64,6 +73,7 @@ export default function Layout() {
             key={item.to}
             to={item.to}
             end={item.end}
+            data-tour-id={item.tourId}
             className={({ isActive }) => `nav-item${isActive ? " active" : ""}`}
           >
             {item.label}
@@ -154,13 +164,23 @@ export default function Layout() {
           >
             {dmEmail}
           </p>
-          <button
-            onClick={handleSignOut}
-            className="btn btn-ghost"
-            style={{ width: "100%", fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
-          >
-            ↩ Sign out
-          </button>
+          <div style={{ display: "flex", gap: "0.35rem" }}>
+            <button
+              onClick={startTour}
+              className="btn btn-ghost"
+              title="Replay the new-DM tour"
+              style={{ flex: 1, fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
+            >
+              🧭 Tour
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="btn btn-ghost"
+              style={{ flex: 1, fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
+            >
+              ↩ Sign out
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -171,6 +191,9 @@ export default function Layout() {
 
       {/* Plan 30 — floating dice tray, available on every DM page. */}
       <DiceTray />
+
+      {/* Plan 36 — guided tour overlay (renders nothing unless open). */}
+      <TourGuide />
     </div>
   );
 }

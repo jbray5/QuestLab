@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { campaignsApi } from "../api/campaigns";
 import { useCampaignStore } from "../stores/useCampaignStore";
+import { useTourStore } from "../stores/useTourStore";
 import type { Campaign } from "../api/types";
 import Flourish from "../components/Flourish";
 
@@ -54,11 +56,22 @@ function CampaignCard({ campaign, onClick }: { campaign: Campaign; onClick: () =
 export default function Dashboard() {
   const navigate = useNavigate();
   const { setActiveCampaign } = useCampaignStore();
+  const { completed: tourCompleted, isOpen: tourOpen, start: startTour } = useTourStore();
 
   const { data: campaigns = [], isLoading, isError } = useQuery({
     queryKey: ["campaigns"],
     queryFn: campaignsApi.list,
   });
+
+  // Plan 36 — auto-launch the tour on first sign-in for a brand-new DM.
+  // Only fires when (a) the campaign list has finished loading, (b)
+  // they have NO campaigns yet, and (c) the tour hasn't been completed
+  // or skipped on this device.
+  useEffect(() => {
+    if (!isLoading && !isError && campaigns.length === 0 && !tourCompleted && !tourOpen) {
+      startTour();
+    }
+  }, [isLoading, isError, campaigns.length, tourCompleted, tourOpen, startTour]);
 
   function open(c: Campaign) {
     setActiveCampaign(c);
