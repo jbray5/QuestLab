@@ -209,6 +209,11 @@ input, textarea, select {
   font-size: 1rem;
   padding: 0.5rem 0.75rem;
   width: 100%;
+}
+/* Checkboxes / radios should keep their native size, not stretch full width. */
+input[type="checkbox"], input[type="radio"] {
+  width: auto;
+  padding: 0;
   transition: border-color 0.2s;
 }
 input:focus, textarea:focus, select:focus {
