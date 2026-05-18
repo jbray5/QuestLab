@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Monster } from "../api/types";
 import { monstersApi } from "../api/monsters";
@@ -140,12 +141,15 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
 
         {/* Header */}
         <div style={{ paddingRight: "2rem", display: "flex", gap: "1rem", alignItems: "flex-start" }}>
-          <ImageUpload
-            currentUrl={monster.image_url}
-            onUrlChange={(url) => updateImage.mutate(url)}
-            label="Monster Art"
-            size={90}
-          />
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "center" }}>
+            <ImageUpload
+              currentUrl={monster.image_url}
+              onUrlChange={(url) => updateImage.mutate(url)}
+              label="Monster Art"
+              size={90}
+            />
+            <MonsterPortraitButton monsterId={monster.id} />
+          </div>
           <div>
             <h2
               style={{
@@ -324,6 +328,82 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
           </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Small "🎨 Generate" button for monster portraits.
+ *
+ * Sits under the manual ImageUpload — paste a URL OR generate via AI,
+ * the DM's choice. Optional style-hints input expands on click.
+ */
+function MonsterPortraitButton({ monsterId }: { monsterId: string }) {
+  const qc = useQueryClient();
+  const [expanded, setExpanded] = useState(false);
+  const [hints, setHints] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const gen = useMutation({
+    mutationFn: () =>
+      monstersApi.generatePortrait(monsterId, hints.trim() || undefined),
+    onSuccess: () => {
+      setExpanded(false);
+      setHints("");
+      setError(null);
+      qc.invalidateQueries({ queryKey: ["monsters"] });
+      qc.invalidateQueries({ queryKey: ["monster", monsterId] });
+    },
+    onError: (e) => setError((e as Error)?.message ?? "Generation failed"),
+  });
+
+  if (!expanded) {
+    return (
+      <button
+        onClick={() => setExpanded(true)}
+        className="btn btn-ghost"
+        style={{ fontSize: "0.7rem", padding: "0.25rem 0.55rem", whiteSpace: "nowrap" }}
+        title="Generate a portrait via AI (~$0.04 / image)"
+      >
+        🎨 Generate
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", width: 130 }}>
+      <input
+        type="text"
+        value={hints}
+        onChange={(e) => setHints(e.target.value)}
+        placeholder="style hints…"
+        disabled={gen.isPending}
+        style={{ fontSize: "0.7rem", padding: "0.2rem 0.35rem", width: "100%" }}
+      />
+      <div style={{ display: "flex", gap: "0.25rem" }}>
+        <button
+          onClick={() => gen.mutate()}
+          disabled={gen.isPending}
+          className="btn btn-primary"
+          style={{ fontSize: "0.7rem", padding: "0.25rem 0.5rem", flex: 1 }}
+        >
+          {gen.isPending ? "Painting…" : "🎨 Go"}
+        </button>
+        <button
+          onClick={() => {
+            setExpanded(false);
+            setError(null);
+          }}
+          className="btn btn-ghost"
+          style={{ fontSize: "0.7rem", padding: "0.25rem 0.5rem" }}
+          disabled={gen.isPending}
+        >
+          ✕
+        </button>
+      </div>
+      {error && (
+        <span style={{ fontSize: "0.65rem", color: "var(--red)" }}>{error}</span>
+      )}
     </div>
   );
 }

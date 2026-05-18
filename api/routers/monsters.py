@@ -94,3 +94,48 @@ def update_monster(
         return encounter_service.update_monster(db, monster_id, body)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/monsters/{monster_id}/portrait", response_model=MonsterStatBlockRead)
+def generate_monster_portrait_endpoint(
+    monster_id: uuid.UUID,
+    body: dict,
+    db: DB,
+    user: CurrentUser,
+) -> MonsterStatBlockRead:
+    """Generate an AI portrait for a monster and persist the image URL.
+
+    Body: ``{"style_hints": "optional extra style"}``. Calls OpenAI
+    ``gpt-image-1`` and uploads the result to Vercel Blob.
+
+    Args:
+        monster_id: UUID of the monster.
+        body: JSON with optional ``style_hints``.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Updated MonsterStatBlockRead with ``image_url`` set.
+    """
+    from services import portrait_service
+
+    try:
+        return portrait_service.generate_monster_portrait(
+            db, monster_id, user, style_hints=(body.get("style_hints") or None)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Portrait generation failed: {exc}",
+        )
+    except Exception as exc:
+        # Safety net — keep responses going through CORS even on
+        # unexpected error types.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Portrait generation failed: {type(exc).__name__}: {exc}",
+        )

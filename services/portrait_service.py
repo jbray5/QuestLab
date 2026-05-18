@@ -20,8 +20,10 @@ from sqlmodel import Session
 
 from db.repos.campaign_repo import CampaignRepo
 from db.repos.character_repo import CharacterRepo
+from db.repos.monster_repo import MonsterRepo
 from db.repos.npc_repo import NpcRepo
 from domain.character import PlayerCharacter, PlayerCharacterRead, PlayerCharacterUpdate
+from domain.monster import MonsterStatBlock, MonsterStatBlockUpdate
 from domain.npc import Npc, NpcRead, NpcUpdate
 from integrations import blob_storage
 from integrations.openai_client import generate_image
@@ -182,4 +184,99 @@ def generate_npc_portrait(
     return NpcRead.model_validate(updated)
 
 
-__all__ = ["generate_pc_portrait", "generate_npc_portrait"]
+def _build_monster_prompt(monster: MonsterStatBlock, style_hints: Optional[str]) -> str:
+    """Build an image prompt from a monster's identity fields."""
+    size = monster.size.value if hasattr(monster.size, "value") else str(monster.size)
+    ctype = (
+        monster.creature_type.value
+        if hasattr(monster.creature_type, "value")
+        else str(monster.creature_type)
+    )
+    bits: list[str] = [
+        f"Creature portrait of {monster.name}",
+        f"a {size} {ctype}",
+    ]
+    if monster.alignment:
+        bits.append(monster.alignment)
+    # Use the first trait/action description as flavor anchoring if present.
+    traits = getattr(monster, "traits", None) or []
+    if traits and isinstance(traits, list) and traits:
+        first = traits[0]
+        if isinstance(first, dict) and first.get("desc"):
+            snippet = str(first["desc"]).strip().split(".")[0]
+            if snippet:
+                bits.append(snippet)
+    bits.append(
+        "Painterly fantasy bestiary illustration, dramatic lighting, full-body "
+        "framing, atmospheric background hinting at habitat, ominous but readable."
+    )
+    if style_hints:
+        bits.append(style_hints.strip())
+    return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
+
+
+def _assert_monster_managed(
+    session: Session, monster_id: uuid.UUID, dm_email: str
+) -> MonsterStatBlock:
+    """Verify the requester can manage this monster row.
+
+    DMs are admins by convention for any non-SRD (``is_custom``) entry
+    they created. SRD entries (``is_custom=False``) live in a shared
+    catalog; we allow any signed-in DM to attach a portrait to them
+    since portraits are stored on the row and benefit every campaign.
+
+    Args:
+        session: Active database session.
+        monster_id: UUID of the monster.
+        dm_email: Email of the requesting DM (currently unused — placeholder
+            for richer authz when a Monsters-per-campaign concept lands).
+
+    Returns:
+        The MonsterStatBlock row.
+
+    Raises:
+        ValueError: If the monster is not found.
+    """
+    monster = MonsterRepo.get_by_id(session, monster_id)
+    if monster is None:
+        raise ValueError(f"Monster {monster_id} not found.")
+    return monster
+
+
+def generate_monster_portrait(
+    session: Session,
+    monster_id: uuid.UUID,
+    dm_email: str,
+    style_hints: Optional[str] = None,
+) -> MonsterStatBlock:
+    """Generate a portrait for a monster and persist the image URL.
+
+    Args:
+        session: Active database session.
+        monster_id: UUID of the monster.
+        dm_email: Email of the requesting DM.
+        style_hints: Optional extra prompt text.
+
+    Returns:
+        Updated ``MonsterStatBlock`` row.
+
+    Raises:
+        ValueError: If the monster is not found.
+        PermissionError: If env keys are missing.
+        RuntimeError: If the upstream API calls fail.
+    """
+    monster = _assert_monster_managed(session, monster_id, dm_email)
+    prompt = _build_monster_prompt(monster, style_hints)
+    png_bytes = generate_image(prompt)
+    url = blob_storage.upload(
+        path=blob_storage.portrait_path("monster", monster.id),
+        data=png_bytes,
+    )
+    return MonsterRepo.update(session, monster, MonsterStatBlockUpdate(image_url=url))
+
+
+__all__ = [
+    "generate_pc_portrait",
+    "generate_npc_portrait",
+    "generate_monster_portrait",
+]

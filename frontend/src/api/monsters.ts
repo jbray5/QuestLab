@@ -19,4 +19,8 @@ export const monstersApi = {
   get: (id: string) => api.get<Monster>(`/monsters/${id}`),
   updateImage: (id: string, image_url: string) =>
     api.patch<Monster>(`/monsters/${id}`, { image_url }),
+  generatePortrait: (id: string, styleHints?: string) =>
+    api.post<Monster>(`/monsters/${id}/portrait`, {
+      style_hints: styleHints ?? null,
+    }),
 };

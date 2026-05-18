@@ -190,6 +190,59 @@ class TestGenerateNpcPortrait:
             portrait_svc.generate_npc_portrait(duckdb_session, uuid.uuid4(), "x@y.com")
 
 
+class TestGenerateMonsterPortrait:
+    """generate_monster_portrait orchestrates prompt + gen + upload + save."""
+
+    def _make_monster(self, db):
+        from db.repos.monster_repo import MonsterRepo
+        from domain.monster import MonsterStatBlockCreate
+
+        payload = MonsterStatBlockCreate(
+            name="Cave Bear",
+            size="Large",
+            creature_type="Beast",
+            ac=12,
+            hp_average=42,
+            hp_formula="5d10+15",
+            score_str=20,
+            score_dex=10,
+            score_con=16,
+            score_int=2,
+            score_wis=13,
+            score_cha=7,
+            challenge_rating="2",
+            xp=450,
+            proficiency_bonus=2,
+            speed={"walk": 40, "climb": 30},
+        )
+        return MonsterRepo.create(db, payload)
+
+    def test_happy_path(self, duckdb_session: Session, monkeypatch):
+        """Builds prompt, uploads, persists URL on the monster row."""
+        monster = self._make_monster(duckdb_session)
+        captured = _patch_image_and_blob(monkeypatch)
+
+        result = portrait_svc.generate_monster_portrait(duckdb_session, monster.id, "dm@x.com")
+        assert result.image_url == f"https://fake.blob/portraits/monster-{monster.id}.png"
+        assert "Cave Bear" in captured["prompt"]
+        assert captured["upload_path"] == f"portraits/monster-{monster.id}.png"
+
+    def test_missing_monster_raises(self, duckdb_session: Session, monkeypatch):
+        """Unknown monster ID raises ValueError."""
+        _patch_image_and_blob(monkeypatch)
+        with pytest.raises(ValueError):
+            portrait_svc.generate_monster_portrait(duckdb_session, uuid.uuid4(), "dm@x.com")
+
+    def test_monster_prompt_folds_identity(self, duckdb_session: Session):
+        """Monster prompt mentions name + size + creature type."""
+        monster = self._make_monster(duckdb_session)
+        prompt = portrait_svc._build_monster_prompt(monster, None)
+        assert "Cave Bear" in prompt
+        assert "Large" in prompt
+        assert "Beast" in prompt
+        assert "bestiary" in prompt.lower()
+
+
 class TestOpenAiErrorWrapping:
     """OpenAI SDK errors must come out as RuntimeError so the router
     can return a 502 with proper CORS headers (Plan 34 bugfix)."""
