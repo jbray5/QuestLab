@@ -70,6 +70,10 @@ def upload(
         # Defeat Vercel's default random suffix so deterministic paths
         # (npc-{uuid}.png) don't get a second hash appended.
         "x-add-random-suffix": "0",
+        # Without this, a PUT to an existing blob is a silent no-op — the
+        # API returns 200 with the existing URL and the bytes never change.
+        # Caused the "regenerate portrait does nothing" bug.
+        "x-allow-overwrite": "1",
         "x-content-type": content_type,
     }
     try:
