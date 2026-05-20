@@ -234,6 +234,40 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
               placeholder="Voice: dry whisper. Likely to betray the party in Act 3."
             />
           </Field>
+
+          {/* Plan 38 P3-3 polish — DM-controlled player visibility */}
+          <Field label="Visible to players">
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                fontSize: "0.85rem",
+                color: "var(--text)",
+                cursor: "pointer",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={form.is_revealed ?? true}
+                onChange={(e) => set("is_revealed", e.target.checked)}
+                style={{ width: "auto" }}
+              />
+              <span>
+                {form.is_revealed ?? true ? (
+                  <>
+                    <strong style={{ color: "var(--green2, #4caf50)" }}>Revealed</strong>
+                    {" — shows on player phones in 'People You've Met'"}
+                  </>
+                ) : (
+                  <>
+                    <strong style={{ color: "var(--muted)" }}>Hidden</strong>
+                    {" — DM-only until you toggle this on"}
+                  </>
+                )}
+              </span>
+            </label>
+          </Field>
         </div>
 
         {save.isError && (
@@ -281,6 +315,7 @@ function fromInitial(initial: Npc | null): NpcCreate {
     return {
       name: "",
       status: "Alive",
+      is_revealed: true,
     };
   return {
     name: initial.name,
@@ -299,6 +334,7 @@ function fromInitial(initial: Npc | null): NpcCreate {
     monster_stat_block_id: initial.monster_stat_block_id,
     portrait_url: initial.portrait_url,
     notes: initial.notes,
+    is_revealed: initial.is_revealed ?? true,
   };
 }
 

@@ -152,6 +152,10 @@ def list_visible_npcs(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
     from db.repos.npc_repo import NpcRepo
 
     npcs = NpcRepo.list_for_campaign(db, pc.campaign_id)
+    # Plan 38 P3-3 — DM-controlled visibility. Filter hidden NPCs server
+    # side so even a curious player hitting /api/play/{id}/npcs can't see
+    # the names/portraits of NPCs the DM hasn't revealed yet.
+    visible = [n for n in npcs if getattr(n, "is_revealed", True)]
     return [
         {
             "id": str(npc.id),
@@ -163,7 +167,7 @@ def list_visible_npcs(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
             "status": npc.status.value if hasattr(npc.status, "value") else npc.status,
             "portrait_url": npc.portrait_url,
         }
-        for npc in sorted(npcs, key=lambda n: n.name)
+        for npc in sorted(visible, key=lambda n: n.name)
     ]
 
 

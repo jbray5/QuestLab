@@ -171,6 +171,8 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS ep INTEGER DEFAULT 0",
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS gp INTEGER DEFAULT 0",
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS pp INTEGER DEFAULT 0",
+        # 0016 — NPC player-visibility flag (Plan 38)
+        "ALTER TABLE npcs ADD COLUMN IF NOT EXISTS is_revealed BOOLEAN DEFAULT TRUE",
     ]
     with engine.begin() as conn:
         for stmt in patches:

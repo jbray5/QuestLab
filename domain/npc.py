@@ -47,6 +47,11 @@ class Npc(SQLModel, table=True):
     )
     portrait_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = Field(default=None)
+    # Plan 38 — DM-controlled visibility on the player view. Defaults to
+    # True so existing NPCs stay visible; the DM flips this to False to
+    # hide an NPC (villain reveal, plot twist, future-session character)
+    # until they're ready for players to see the portrait + name.
+    is_revealed: bool = Field(default=True)
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -74,6 +79,7 @@ class NpcCreate(BaseModel):
     monster_stat_block_id: Optional[uuid.UUID] = None
     portrait_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = None
+    is_revealed: bool = True
 
 
 class NpcRead(BaseModel):
@@ -97,6 +103,7 @@ class NpcRead(BaseModel):
     monster_stat_block_id: Optional[uuid.UUID] = None
     portrait_url: Optional[str] = None
     notes: Optional[str] = None
+    is_revealed: bool = True
     created_at: datetime
     updated_at: datetime
 
@@ -122,6 +129,7 @@ class NpcUpdate(BaseModel):
     monster_stat_block_id: Optional[uuid.UUID] = None
     portrait_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = None
+    is_revealed: Optional[bool] = None
 
 
 class NpcGenerate(BaseModel):

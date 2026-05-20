@@ -26,6 +26,7 @@ export interface Npc {
   monster_stat_block_id: string | null;
   portrait_url: string | null;
   notes: string | null;
+  is_revealed: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -47,6 +48,7 @@ export interface NpcCreate {
   monster_stat_block_id?: string | null;
   portrait_url?: string | null;
   notes?: string | null;
+  is_revealed?: boolean;
 }
 
 export type NpcUpdate = Partial<NpcCreate>;
