@@ -21,6 +21,7 @@ import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
 import { encountersApi } from "../api/encounters";
 import { npcsApi } from "../api/npcs";
+import TonightsCastDrawer from "../components/tonights-cast/TonightsCastDrawer";
 import { monstersApi } from "../api/monsters";
 import { restApi } from "../api/rest";
 import { spellcastingApi } from "../api/spellcasting";
@@ -1886,6 +1887,16 @@ export default function SessionHud() {
 
       {/* Plan 27 — DM Screen modal */}
       <DmScreen open={dmScreenOpen} onClose={() => setDmScreenOpen(false)} />
+
+      {/* Plan 38/39 — Tonight's Cast drawer. Slides in from the right
+          with NPC portraits / accents / dialog hooks, highlighting the
+          ones mentioned in the current scene. Toggle button is the 🎭
+          chip at the right edge. */}
+      <TonightsCastDrawer
+        npcs={campaignNpcs}
+        currentScene={currentScene}
+        runbookNpcDialog={runbook?.npc_dialog}
+      />
     </div>
   );
 }
