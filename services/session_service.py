@@ -665,15 +665,22 @@ def clear_combat_state(db: DBSession, session_id: uuid.UUID, dm_email: str) -> i
         PermissionError: If the DM does not own the campaign.
     """
     game_session = get_session(db, session_id, dm_email)
-    # Plan 37 — capture EVERY PC who was a combatant before wiping. Without
-    # this, only the currently-active PC's turn banner clears; any other
-    # PC who had a stale active=True from an earlier round (because their
-    # active=False event was missed mid-combat for any reason) keeps the
-    # "It's your turn!" banner up forever.
+    # Plan 37 — clear the turn banner for EVERY attending PC, not just the
+    # PCs who happen to be in the combatant list right now. Edge case the
+    # narrower version missed: a PC was added to combat, became the active
+    # combatant (active=True published), was then REMOVED mid-fight by the
+    # DM (no active=False published), and now they're not in the combatants
+    # list at end-of-combat. Their phone is stuck with a stale active=True.
+    # Belt-and-suspenders: publish active=False for the union of (current
+    # combatants ∪ attending PCs).
     all_combatants = SessionCombatantRepo.list_for_session(db, session_id)
-    pc_ids_to_clear: list[uuid.UUID] = [
+    combatant_pc_ids: set[uuid.UUID] = {
         c.character_id for c in all_combatants if c.character_id is not None
-    ]
+    }
+    attending_pc_ids: set[uuid.UUID] = {
+        uuid.UUID(str(pid)) for pid in (game_session.attending_pc_ids or [])
+    }
+    pc_ids_to_clear: list[uuid.UUID] = list(combatant_pc_ids | attending_pc_ids)
     count = SessionCombatantRepo.clear_for_session(db, session_id)
     game_session.combat_round = 1
     game_session.combat_active_combatant_id = None
