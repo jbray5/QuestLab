@@ -38,6 +38,17 @@ export interface CombatState {
   defeated: boolean;
 }
 
+export interface VisibleNpc {
+  id: string;
+  name: string;
+  role: string | null;
+  race: string | null;
+  appearance: string | null;
+  location: string | null;
+  status: string;
+  portrait_url: string | null;
+}
+
 export const playApi = {
   get: (pcId: string) => api.get<PlayerCharacter>(`/play/${pcId}`),
   spellcastingStats: (pcId: string) =>
@@ -53,6 +64,7 @@ export const playApi = {
   inventory: (pcId: string) => api.get<CharacterItem[]>(`/play/${pcId}/inventory`),
   turnState: (pcId: string) => api.get<TurnState>(`/play/${pcId}/turn-state`),
   combatState: (pcId: string) => api.get<CombatState>(`/play/${pcId}/combat-state`),
+  npcs: (pcId: string) => api.get<VisibleNpc[]>(`/play/${pcId}/npcs`),
 
   applyDamage: (pcId: string, amount: number) =>
     api.post<PlayerCharacter>(`/play/${pcId}/damage`, { amount }),

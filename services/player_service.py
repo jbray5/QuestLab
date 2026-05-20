@@ -129,6 +129,44 @@ def list_inventory(db: Session, pc_id: uuid.UUID):
     return inventory_service.list_for_character(db, pc_id, dm)
 
 
+def list_visible_npcs(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
+    """Return campaign NPCs as a player-safe projection (Plan 38 P3-3).
+
+    Strips DM-facing fields (secret, motivation, dialog_hooks, notes,
+    tags, monster_stat_block_id) and returns only what a player would
+    plausibly know after meeting the NPC: portrait, name, role, race,
+    appearance, location, status.
+
+    No DM-controlled "revealed" toggle yet — for the MVP we trust that
+    the DM only seeds NPCs the players have met. Future enhancement:
+    add an ``is_revealed`` flag on the Npc model and filter here.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the player character.
+
+    Returns:
+        List of NPC dicts (sorted by name), safe to expose on /play/.
+    """
+    pc = _get_pc_or_raise(db, pc_id)
+    from db.repos.npc_repo import NpcRepo
+
+    npcs = NpcRepo.list_for_campaign(db, pc.campaign_id)
+    return [
+        {
+            "id": str(npc.id),
+            "name": npc.name,
+            "role": npc.role,
+            "race": npc.race,
+            "appearance": npc.appearance,
+            "location": npc.location,
+            "status": npc.status.value if hasattr(npc.status, "value") else npc.status,
+            "portrait_url": npc.portrait_url,
+        }
+        for npc in sorted(npcs, key=lambda n: n.name)
+    ]
+
+
 def combat_state(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     """Return the PC's active-combat conditions and temp HP (Plan 00037).
 

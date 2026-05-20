@@ -234,6 +234,10 @@ function PlayerSheet({ pcId }: { pcId: string }) {
           <SavesBlock saves={savingThrows} />
         </Section>
 
+        <Section title="🎭 People You've Met">
+          <NpcsBlock pcId={pcId} />
+        </Section>
+
         <Section title="📚 Quick Rules Reference">
           <RulesReference pc={pc} />
         </Section>
@@ -1062,6 +1066,142 @@ function TurnWalkthrough({ pc }: { pc: PlayerCharacter }) {
         first session — questions are good. The fastest way to learn is to
         try something and see what happens.
       </p>
+    </div>
+  );
+}
+
+function NpcsBlock({ pcId }: { pcId: string }) {
+  // Plan 38 P3-3 — player-facing campaign NPC roster. Backend strips
+  // DM-facing fields (secret, motivation, dialog hooks, notes). Players
+  // see only what they'd plausibly know after meeting the NPC.
+  const { data: npcs = [], isLoading } = useQuery({
+    queryKey: ["play-npcs", pcId],
+    queryFn: () => playApi.npcs(pcId),
+  });
+  if (isLoading) {
+    return <p className="text-sm text-muted">Loading…</p>;
+  }
+  if (npcs.length === 0) {
+    return (
+      <p className="text-sm text-muted" style={{ fontStyle: "italic" }}>
+        You haven't met anyone yet. Faces will appear here as the DM
+        adds them to the campaign.
+      </p>
+    );
+  }
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+        gap: "0.6rem",
+      }}
+    >
+      {npcs.map((n) => (
+        <article
+          key={n.id}
+          style={{
+            background: "var(--surface2)",
+            border: "1px solid var(--border)",
+            borderRadius: 8,
+            padding: "0.55rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.35rem",
+            alignItems: "center",
+            textAlign: "center",
+          }}
+        >
+          {n.portrait_url ? (
+            <img
+              src={n.portrait_url}
+              alt={n.name}
+              style={{
+                width: "100%",
+                aspectRatio: "1",
+                objectFit: "cover",
+                borderRadius: 6,
+                border: "1px solid var(--gold)",
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                aspectRatio: "1",
+                background: "var(--surface)",
+                borderRadius: 6,
+                border: "1px solid var(--border)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "2rem",
+              }}
+            >
+              👤
+            </div>
+          )}
+          <div>
+            <strong
+              style={{
+                color: "var(--gold)",
+                fontSize: "0.82rem",
+                fontFamily: "Cinzel Decorative, serif",
+                lineHeight: 1.2,
+                display: "block",
+              }}
+            >
+              {n.name}
+            </strong>
+            {n.role && (
+              <p
+                style={{
+                  margin: "0.15rem 0 0",
+                  fontSize: "0.68rem",
+                  color: "var(--muted)",
+                  fontStyle: "italic",
+                  lineHeight: 1.3,
+                }}
+              >
+                {n.role}
+              </p>
+            )}
+            {(n.race || n.location) && (
+              <p
+                style={{
+                  margin: "0.2rem 0 0",
+                  fontSize: "0.62rem",
+                  color: "var(--muted)",
+                  lineHeight: 1.3,
+                }}
+              >
+                {n.race}
+                {n.race && n.location ? " · " : ""}
+                {n.location}
+              </p>
+            )}
+            {n.status && n.status !== "Alive" && (
+              <span
+                style={{
+                  display: "inline-block",
+                  marginTop: "0.25rem",
+                  padding: "0.1rem 0.4rem",
+                  borderRadius: 8,
+                  background: n.status === "Dead" ? "var(--red, #ef5350)" : "var(--surface)",
+                  color: n.status === "Dead" ? "#fff" : "var(--muted)",
+                  fontSize: "0.6rem",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  border: n.status === "Dead" ? "none" : "1px solid var(--border)",
+                }}
+              >
+                {n.status}
+              </span>
+            )}
+          </div>
+        </article>
+      ))}
     </div>
   );
 }

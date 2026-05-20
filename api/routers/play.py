@@ -105,6 +105,21 @@ def inventory(pc_id: uuid.UUID, db: DB):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
+@router.get("/play/{pc_id}/npcs")
+def list_visible_npcs(pc_id: uuid.UUID, db: DB) -> list[dict]:
+    """Return campaign NPCs the player should see (Plan 38 P3-3).
+
+    Public projection: name, role, race, appearance, location, status,
+    portrait_url. DM-facing fields (secret, motivation, dialog_hooks,
+    notes) are stripped server-side so a curious player hitting the API
+    directly can't surface them.
+    """
+    try:
+        return player_service.list_visible_npcs(db, pc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
 @router.get("/play/{pc_id}/combat-state")
 def combat_state(pc_id: uuid.UUID, db: DB) -> dict:
     """Conditions + defeated flag for this PC during active combat (Plan 00037).
