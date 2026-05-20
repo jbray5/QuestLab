@@ -20,6 +20,7 @@ import { sessionsApi } from "../api/sessions";
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
 import { encountersApi } from "../api/encounters";
+import { npcsApi } from "../api/npcs";
 import { monstersApi } from "../api/monsters";
 import { restApi } from "../api/rest";
 import { spellcastingApi } from "../api/spellcasting";
@@ -425,6 +426,14 @@ export default function SessionHud() {
     enabled: !!session?.adventure_id,
   });
 
+  // Plan 38 P4-1/9 — campaign NPC roster, used by the "Add from roster"
+  // dropdown to spawn a known NPC into combat without manual typing.
+  const { data: campaignNpcs = [] } = useQuery({
+    queryKey: ["npcs", adventure?.campaign_id],
+    queryFn: () => npcsApi.list(adventure!.campaign_id),
+    enabled: !!adventure?.campaign_id,
+  });
+
   // Plan 37 — extracted early so the campaign-stream callback below can
   // depend on it without a TDZ violation. The rest of the initiative
   // store is extracted further down where it's used by the combat tracker.
@@ -507,6 +516,15 @@ export default function SessionHud() {
   const resetCombat = useInitiativeStore((s) => s.reset);
 
   const [acOverrides, setAcOverrides] = useState<Record<string, number>>({});
+  // Plan 38 P4-1/9 — link a roster pick (PC or NPC) so addCombatant can
+  // attach the character_id for HP sync. Cleared after each add.
+  const [pendingCharId, setPendingCharId] = useState<string | null>(null);
+  // Plan 38 P4-4b — per-combatant typed amount for −/+ HP buttons.
+  // Defaults to 1; DM can type any positive amount.
+  const [hpDelta, setHpDelta] = useState<Record<string, number>>({});
+  const deltaFor = (id: string) => hpDelta[id] ?? 1;
+  const setDeltaFor = (id: string, n: number) =>
+    setHpDelta((p) => ({ ...p, [id]: Math.max(1, Math.floor(n) || 1) }));
   const [newCName, setNewCName] = useState("");
   const [newCType, setNewCType] = useState<"pc" | "monster" | "npc">("monster");
   const [loadEncounterId, setLoadEncounterId] = useState("");
@@ -556,7 +574,10 @@ export default function SessionHud() {
         defeated: c.defeated,
         monsterId: c.monster_id,
       };
-    });
+    })
+      // Plan 38 P4-2 — display in initiative-desc order so DM-edited
+      // initiative scores immediately reflect in the rendered list.
+      .sort((a, b) => b.initiative - a.initiative);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persistedCombatants, acOverrides, partyById]);
 
@@ -618,6 +639,9 @@ export default function SessionHud() {
       type: newCType,
       initiative: newCInit,
       defeated: false,
+      // Plan 38 P4-1/9 — preserve PC linkback if this row was picked from
+      // the roster dropdown, so HP changes mirror onto the PC sheet.
+      character_id: pendingCharId,
     };
     void (async () => {
       await replaceFromRoll(sessionId, [...existing, added]);
@@ -635,6 +659,36 @@ export default function SessionHud() {
     setNewCHpMax(10);
     setNewCAc(10);
     setNewCInit(0);
+    setPendingCharId(null);
+  }
+
+  // Plan 38 P4-1/9 — pre-fill the manual add form from a roster pick.
+  // Picks come in as "pc:<uuid>" or "npc:<uuid>".
+  function pickFromRoster(key: string) {
+    if (!key) return;
+    const [kind, id] = key.split(":");
+    if (kind === "pc") {
+      const pc = allChars.find((p) => p.id === id);
+      if (!pc) return;
+      setNewCName(pc.character_name);
+      setNewCType("pc");
+      setNewCHp(pc.hp_current);
+      setNewCHpMax(pc.hp_max);
+      setNewCAc(pc.ac);
+      setPendingCharId(pc.id);
+    } else if (kind === "npc") {
+      const npc = campaignNpcs.find((n) => n.id === id);
+      if (!npc) return;
+      setNewCName(npc.name);
+      setNewCType("npc");
+      // NPCs don't carry stat blocks at the campaign level — leave HP/AC
+      // at sensible defaults the DM can adjust before clicking Add.
+      setNewCHp(10);
+      setNewCHpMax(10);
+      setNewCAc(12);
+      // No character_id linkback for NPCs (they aren't PCs).
+      setPendingCharId(null);
+    }
   }
 
   function loadEncounter() {
@@ -1388,6 +1442,45 @@ export default function SessionHud() {
               gap: "0.35rem",
             }}
           >
+            {/* Plan 38 P4-1/9 — Add-from-roster shortcut. Pre-fills the
+                manual form from a known PC or NPC; the DM can still
+                tweak HP / AC / init before clicking + Add. */}
+            {(party.length > 0 || campaignNpcs.length > 0) && (
+              <select
+                value=""
+                onChange={(e) => {
+                  pickFromRoster(e.target.value);
+                  e.target.value = "";
+                }}
+                style={{ fontSize: "0.72rem", padding: "0.2rem 0.35rem", minWidth: 0 }}
+                title="Pre-fill the form from a campaign PC or NPC"
+              >
+                <option value="">+ Add from roster…</option>
+                {party.length > 0 && (
+                  <optgroup label="Party">
+                    {party
+                      .filter(
+                        (p) => !persistedCombatants.some((c) => c.character_id === p.id),
+                      )
+                      .map((p) => (
+                        <option key={p.id} value={`pc:${p.id}`}>
+                          {p.character_name} (Lv {p.level} {p.character_class})
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                {campaignNpcs.length > 0 && (
+                  <optgroup label="NPCs">
+                    {campaignNpcs.map((n) => (
+                      <option key={n.id} value={`npc:${n.id}`}>
+                        {n.name}
+                        {n.role ? ` — ${n.role}` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            )}
             <div
               style={{
                 display: "grid",
@@ -1488,8 +1581,10 @@ export default function SessionHud() {
 
           {/* Combatant list */}
           <div style={{ flex: 1, overflowY: "auto" }}>
-            {combatants.map((c, i) => {
-              const isActive = combatActive && i === currentTurn;
+            {combatants.map((c) => {
+              // Plan 38 P4-2 — match by id since combatants is now sorted
+              // by initiative desc (which can differ from sort_index).
+              const isActive = combatActive && c.id === storeActiveId;
               const pct = c.maxHp > 0 ? Math.max(0, (c.hp / c.maxHp) * 100) : 0;
               const barColor = pct > 50 ? "#4caf50" : pct > 25 ? "#ff9800" : "#f44336";
               const typeColor = c.type === "pc" ? "var(--gold)" : c.type === "npc" ? "#64b5f6" : "#ef5350";
@@ -1515,29 +1610,75 @@ export default function SessionHud() {
                         <span style={{ fontWeight: 700, fontSize: "0.82rem", color: typeColor }}>
                           {c.name}
                         </span>
-                        <span style={{ fontSize: "0.65rem", color: "var(--muted)" }}>
-                          init {c.initiative} · AC {c.ac}
+                        <span style={{ fontSize: "0.65rem", color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: "0.2rem" }}>
+                          init
+                          {/* Plan 38 P4-2 — click-to-edit initiative; PATCH on blur/Enter. */}
+                          <input
+                            type="number"
+                            defaultValue={c.initiative}
+                            key={`init-${c.id}-${c.initiative}`}
+                            onBlur={(e) => {
+                              const v = Number(e.target.value);
+                              if (!Number.isFinite(v) || v === c.initiative) return;
+                              void patchPersistedCombatant(c.id, { initiative_roll: v });
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+                            }}
+                            onFocus={(e) => e.currentTarget.select()}
+                            style={{
+                              width: 36,
+                              fontSize: "0.65rem",
+                              padding: "0 0.2rem",
+                              textAlign: "center",
+                              background: "var(--surface2)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 3,
+                              color: "var(--muted)",
+                            }}
+                            title="Edit initiative — Enter or click out to save"
+                          />
+                          · AC {c.ac}
                         </span>
                       </div>
 
-                      {/* HP row */}
-                      <div className="flex" style={{ alignItems: "center", gap: "0.3rem", marginTop: "0.2rem" }}>
+                      {/* HP row — typed amount drives the −/+ buttons (Plan 38) */}
+                      <div className="flex" style={{ alignItems: "center", gap: "0.25rem", marginTop: "0.2rem" }}>
                         <button
                           className="btn btn-ghost"
-                          style={{ padding: "0 0.3rem", fontSize: "0.7rem" }}
-                          onClick={() => updateCombatantHp(c.id, c.hp - 1)}
+                          style={{ padding: "0 0.35rem", fontSize: "0.75rem", color: "var(--red, #ef5350)", fontWeight: 700 }}
+                          onClick={() => updateCombatantHp(c.id, c.hp - deltaFor(c.id))}
                           disabled={c.defeated}
+                          title={`Apply ${deltaFor(c.id)} damage`}
                         >−</button>
-                        <span style={{ fontSize: "0.8rem", fontWeight: 700, color: barColor, minWidth: 28 }}>
+                        <input
+                          type="number"
+                          min={1}
+                          value={deltaFor(c.id)}
+                          onChange={(e) => setDeltaFor(c.id, Number(e.target.value))}
+                          onFocus={(e) => e.currentTarget.select()}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") updateCombatantHp(c.id, c.hp - deltaFor(c.id));
+                          }}
+                          style={{
+                            width: 38,
+                            fontSize: "0.7rem",
+                            padding: "0.1rem 0.2rem",
+                            textAlign: "center",
+                          }}
+                          title="Damage/heal amount (Enter applies damage)"
+                        />
+                        <button
+                          className="btn btn-ghost"
+                          style={{ padding: "0 0.35rem", fontSize: "0.75rem", color: "var(--green2, #4caf50)", fontWeight: 700 }}
+                          onClick={() => updateCombatantHp(c.id, c.hp + deltaFor(c.id))}
+                          disabled={c.defeated}
+                          title={`Apply ${deltaFor(c.id)} healing`}
+                        >+</button>
+                        <span style={{ fontSize: "0.8rem", fontWeight: 700, color: barColor, minWidth: 28, marginLeft: "0.2rem" }}>
                           {c.hp}
                         </span>
                         <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>/{c.maxHp}</span>
-                        <button
-                          className="btn btn-ghost"
-                          style={{ padding: "0 0.3rem", fontSize: "0.7rem" }}
-                          onClick={() => updateCombatantHp(c.id, c.hp + 1)}
-                          disabled={c.defeated}
-                        >+</button>
                         <div style={{ flex: 1, height: 5, borderRadius: 3, background: "var(--surface2)", overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${pct}%`, background: barColor, transition: "width 0.2s" }} />
                         </div>
