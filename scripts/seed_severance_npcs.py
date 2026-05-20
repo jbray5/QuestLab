@@ -46,17 +46,25 @@ NPCS: list[dict] = [
             "not an artifact."
         ),
         "motivation": (
-            "Preserve the Lantern Shrine and the village's tie to the "
-            "Feywild — at any cost."
+            "Preserve the Lantern Shrine and the village's tie to the " "Feywild — at any cost."
         ),
         "secret": (
             "Her predecessor walked into the shrine and never came out. "
             "She fears the bargain will eventually come for her too."
         ),
         "dialog_hooks": [
-            "The light is older than Hollowmere. It is older than my grandmother's grandmother's name for it.",
-            "If the shrine goes dark, the village goes with it. Some night, eventually. That is the bargain.",
-            "Wenneth speaks like a fool dressed in branches. Do not listen to her at the cost of the village.",
+            (
+                "The light is older than Hollowmere. It is older than my "
+                "grandmother's grandmother's name for it."
+            ),
+            (
+                "If the shrine goes dark, the village goes with it. Some "
+                "night, eventually. That is the bargain."
+            ),
+            (
+                "Wenneth speaks like a fool dressed in branches. Do not "
+                "listen to her at the cost of the village."
+            ),
         ],
         "tags": ["lantern circle", "session 1", "moral pole - preserve"],
         "location": "Hollowmere — Lantern Shrine grounds",
@@ -84,8 +92,7 @@ NPCS: list[dict] = [
             "even of dead things. Doesn't quite get how humans count days."
         ),
         "motivation": (
-            "End the severance pain in her grove — even if it means "
-            "letting the shrine die."
+            "End the severance pain in her grove — even if it means " "letting the shrine die."
         ),
         "secret": (
             "Her own tree is one of the anchors. She physically feels every "
@@ -94,7 +101,10 @@ NPCS: list[dict] = [
         ),
         "dialog_hooks": [
             "The bonds do not hold us close. They hold us still. Stillness is not life.",
-            "Yelvyne loves the shrine the way a child loves a sick dog — by refusing to see it suffer.",
+            (
+                "Yelvyne loves the shrine the way a child loves a sick dog — "
+                "by refusing to see it suffer."
+            ),
             "If you ask me to choose: let it go. The Feywild does not need a leash.",
         ],
         "tags": ["fey", "lantern circle", "session 1", "moral pole - sever"],
@@ -123,8 +133,7 @@ NPCS: list[dict] = [
             "drinks and what they owe."
         ),
         "motivation": (
-            "Keep her tavern open and her people fed. Loves the village "
-            "like a cranky aunt."
+            "Keep her tavern open and her people fed. Loves the village " "like a cranky aunt."
         ),
         "secret": (
             "She rented her loft to the recruiter three nights ago for "
@@ -132,9 +141,18 @@ NPCS: list[dict] = [
             "silence."
         ),
         "dialog_hooks": [
-            "First round's on me 'cause you look like you've ridden a long way — second round, you pay double, friend.",
-            "Wenneth? Comes in for cider every fortnight. Says less than a stone but listens like one.",
-            "Aye, I rented the loft. He paid in old coin. The kind that don't tarnish. Don't ask me again.",
+            (
+                "First round's on me 'cause you look like you've ridden a "
+                "long way — second round, you pay double, friend."
+            ),
+            (
+                "Wenneth? Comes in for cider every fortnight. Says less than "
+                "a stone but listens like one."
+            ),
+            (
+                "Aye, I rented the loft. He paid in old coin. The kind that "
+                "don't tarnish. Don't ask me again."
+            ),
         ],
         "tags": ["session 1", "tavern", "intel"],
         "location": "Hollowmere — The Hollow Drum tavern",
@@ -175,9 +193,19 @@ NPCS: list[dict] = [
             "each of the 5 PCs that made them useful."
         ),
         "dialog_hooks": [
-            "You came because I asked. That is the first decision you have made this evening. Notice it.",
-            "Some lights should be put out. Some lights ARE being put out. The question is who decides — the dying light, or someone who can still see.",
-            "Hollowmere is a small place. A very small place. After tonight, it will be smaller.",
+            (
+                "You came because I asked. That is the first decision you "
+                "have made this evening. Notice it."
+            ),
+            (
+                "Some lights should be put out. Some lights ARE being put "
+                "out. The question is who decides — the dying light, or "
+                "someone who can still see."
+            ),
+            (
+                "Hollowmere is a small place. A very small place. After "
+                "tonight, it will be smaller."
+            ),
         ],
         "tags": ["session 1", "antagonist - cipher", "lantern circle - hidden"],
         "location": "Hollowmere — The Hollow Drum tavern (loft)",
