@@ -1302,11 +1302,18 @@ export default function SessionHud() {
             alignItems: "center",
           }}>
             <span>Combat {combatActive ? `· Round ${round}` : ""}</span>
-            <div className="flex gap-1">
+            <div
+              style={{
+                display: "flex",
+                gap: "0.35rem",
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+              }}
+            >
               {combatActive && (
                 <button
                   className="btn btn-primary"
-                  style={{ fontSize: "0.85rem", padding: "0.35rem 0.9rem", fontWeight: 700 }}
+                  style={{ fontSize: "0.78rem", padding: "0.3rem 0.65rem", fontWeight: 700 }}
                   onClick={nextTurn}
                   title="Advance to the next combatant's turn"
                 >
@@ -1315,7 +1322,7 @@ export default function SessionHud() {
               )}
               <button
                 className="btn btn-secondary"
-                style={{ fontSize: "0.65rem", padding: "0.15rem 0.5rem" }}
+                style={{ fontSize: "0.65rem", padding: "0.2rem 0.55rem" }}
                 onClick={rollAllInitiative}
               >
                 🎲 Roll Init
@@ -1323,7 +1330,7 @@ export default function SessionHud() {
               {combatActive && (
                 <button
                   className="btn btn-danger"
-                  style={{ fontSize: "0.65rem", padding: "0.15rem 0.5rem" }}
+                  style={{ fontSize: "0.7rem", padding: "0.2rem 0.55rem", fontWeight: 600 }}
                   onClick={() => {
                     if (window.confirm("End combat? Clears the initiative tracker and resets the round counter.")) {
                       void resetCombat();

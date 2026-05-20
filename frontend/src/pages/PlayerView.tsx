@@ -156,7 +156,7 @@ function PlayerSheet({ pcId }: { pcId: string }) {
     prevHpRef.current = next;
     if (prev === null || next === prev) return;
     setSheetFlash(next < prev ? "damage" : "heal");
-    const t = setTimeout(() => setSheetFlash(""), 700);
+    const t = setTimeout(() => setSheetFlash(""), 900);
     return () => clearTimeout(t);
   }, [pc?.hp_current]);
 
@@ -175,7 +175,21 @@ function PlayerSheet({ pcId }: { pcId: string }) {
 
   return (
     <div style={pageStyle}>
-      <div style={containerStyle} className={flashClass}>
+      {/* Plan 37 — full-viewport flash so a DM-applied HP change can't be
+          missed even when the user is scrolled past the HP chip. */}
+      {sheetFlash && (
+        <div
+          aria-hidden
+          className={flashClass}
+          style={{
+            position: "fixed",
+            inset: 0,
+            pointerEvents: "none",
+            zIndex: 9999,
+          }}
+        />
+      )}
+      <div style={containerStyle}>
         <TurnBanner turnState={turnState} />
         <ConditionsStrip combatState={combatState} />
         <HeaderBanner pc={pc} spellStats={spellStats ?? null} initMod={initMod} />
