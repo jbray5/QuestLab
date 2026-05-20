@@ -493,6 +493,7 @@ export default function SessionHud() {
   const replaceFromRoll = useInitiativeStore((s) => s.replaceFromRoll);
   const patchPersistedCombatant = useInitiativeStore((s) => s.patchCombatant);
   const advanceTurn = useInitiativeStore((s) => s.nextTurn);
+  const resetCombat = useInitiativeStore((s) => s.reset);
 
   const [acOverrides, setAcOverrides] = useState<Record<string, number>>({});
   const [newCName, setNewCName] = useState("");
@@ -1308,6 +1309,20 @@ export default function SessionHud() {
               >
                 🎲 Roll Init
               </button>
+              {combatActive && (
+                <button
+                  className="btn btn-danger"
+                  style={{ fontSize: "0.65rem", padding: "0.15rem 0.5rem" }}
+                  onClick={() => {
+                    if (window.confirm("End combat? Clears the initiative tracker and resets the round counter.")) {
+                      void resetCombat();
+                    }
+                  }}
+                  title="End combat — clears the initiative tracker"
+                >
+                  🛑 End Combat
+                </button>
+              )}
             </div>
           </div>
 

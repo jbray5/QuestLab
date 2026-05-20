@@ -511,8 +511,19 @@ def update_character(
         new_level = patch.get("level", character.level)
         new_class = patch.get("character_class", character.character_class)
         patch["spell_slots"] = compute_spell_slots(new_class, new_level) or None
+    # Plan 37 — if the DM PATCHes hp_current up from 0, clear the
+    # death-save tracker too (matches apply_healing's revive behavior).
+    prev_hp = character.hp_current
+    new_hp = patch.get("hp_current")
+    if new_hp is not None and new_hp > 0 and prev_hp <= 0:
+        patch.setdefault("death_save_successes", 0)
+        patch.setdefault("death_save_failures", 0)
     recompute_update = PlayerCharacterUpdate.model_validate(patch)
     updated = CharacterRepo.update(session, character, recompute_update)
+    # Plan 37 — sync the combat tracker so the HUD doesn't keep showing the
+    # PC greyed-out + with stale HP after a DM-side hp_current change.
+    if "hp_current" in patch:
+        _sync_combatant_for_pc(session, updated)
     publish_pc_updated(updated.id, updated.campaign_id)
     return PlayerCharacterRead.model_validate(updated)
 
@@ -538,6 +549,43 @@ def delete_character(session: Session, character_id: uuid.UUID, dm_email: str) -
 # ---------------------------------------------------------------------------
 # Plan 00023 — combat state helpers
 # ---------------------------------------------------------------------------
+
+
+def _sync_combatant_for_pc(session: Session, character: PlayerCharacter) -> None:
+    """Mirror the PC's HP / defeated flag onto its active-combat combatant row.
+
+    Plan 00037 — the combat tracker (HUD) reads ``hp_current`` and
+    ``defeated`` from the SessionCombatant row, not from the PC. Without
+    this sync, a DM-side HP change (PATCH /characters or the party-panel
+    +/- buttons) updated the PC sheet but left the combat tracker showing
+    the old HP + greyed-out "defeated" state, which is confusing.
+
+    No-ops if the PC isn't in any active combat right now.
+
+    Args:
+        session: Active database session.
+        character: The just-updated PlayerCharacter (must have current hp).
+    """
+    from db.repos.session_repo import SessionCombatantRepo
+    from integrations.event_bus import publish_pc_combat_updated
+
+    found = SessionCombatantRepo.find_combatant_in_active_combat(session, character.id)
+    if found is None:
+        return
+    _, combatant = found
+    changed = False
+    if combatant.hp_current != character.hp_current:
+        combatant.hp_current = character.hp_current
+        changed = True
+    should_be_defeated = character.hp_current <= 0
+    if combatant.defeated != should_be_defeated:
+        combatant.defeated = should_be_defeated
+        changed = True
+    if changed:
+        session.add(combatant)
+        session.commit()
+        session.refresh(combatant)
+        publish_pc_combat_updated(character.id, character.campaign_id)
 
 
 def apply_damage(
@@ -572,6 +620,7 @@ def apply_damage(
     session.add(character)
     session.commit()
     session.refresh(character)
+    _sync_combatant_for_pc(session, character)
     publish_pc_updated(character.id, character.campaign_id)
     return character
 
@@ -606,6 +655,7 @@ def apply_healing(
     session.add(character)
     session.commit()
     session.refresh(character)
+    _sync_combatant_for_pc(session, character)
     publish_pc_updated(character.id, character.campaign_id)
     return character
 
