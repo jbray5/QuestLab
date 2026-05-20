@@ -144,16 +144,38 @@ function PlayerSheet({ pcId }: { pcId: string }) {
   );
   useEventStream("pc", pcId, onStreamEvent);
 
+  // Plan 37 — when hp_current changes, flash the whole sheet container
+  // (was previously only the HP chip; the user wanted bigger, more obvious
+  // feedback that an HP change just happened). 700ms one-shot.
+  const prevHpRef = useRef<number | null>(null);
+  const [sheetFlash, setSheetFlash] = useState<"" | "damage" | "heal">("");
+  useEffect(() => {
+    const next = pc?.hp_current;
+    if (next === undefined) return;
+    const prev = prevHpRef.current;
+    prevHpRef.current = next;
+    if (prev === null || next === prev) return;
+    setSheetFlash(next < prev ? "damage" : "heal");
+    const t = setTimeout(() => setSheetFlash(""), 700);
+    return () => clearTimeout(t);
+  }, [pc?.hp_current]);
+
   if (isLoading) return <LoadingScreen />;
   if (isError || !pc) return <ErrorScreen msg="Could not load character." />;
 
   const initMod = mod(pc.score_dex);
   const conMod = mod(pc.score_con);
   const dieSize = HIT_DIE_BY_CLASS[pc.character_class] ?? 8;
+  const flashClass =
+    sheetFlash === "damage"
+      ? "ql-sheet-flash-damage"
+      : sheetFlash === "heal"
+        ? "ql-sheet-flash-heal"
+        : "";
 
   return (
     <div style={pageStyle}>
-      <div style={containerStyle}>
+      <div style={containerStyle} className={flashClass}>
         <TurnBanner turnState={turnState} />
         <ConditionsStrip combatState={combatState} />
         <HeaderBanner pc={pc} spellStats={spellStats ?? null} initMod={initMod} />
@@ -344,7 +366,7 @@ function HeaderBanner({
       </div>
 
       <div style={chipRowStyle}>
-        <HpChipWithFlash pc={pc} />
+        <BigChip label="HP" value={`${pc.hp_current}/${pc.hp_max}`} accent={pc.hp_current === 0 ? "var(--red, #ef5350)" : "var(--gold)"} />
         {pc.temp_hp > 0 && <BigChip label="Temp" value={`+${pc.temp_hp}`} accent="var(--green2, #4caf50)" />}
         <BigChip label="AC" value={String(pc.ac)} />
         <BigChip label="Speed" value={`${pc.speed} ft`} />
@@ -360,31 +382,6 @@ function HeaderBanner({
           {spellStats.attack_bonus}
         </div>
       )}
-    </div>
-  );
-}
-
-function HpChipWithFlash({ pc }: { pc: PlayerCharacter }) {
-  // Plan 37 — when hp_current changes (from any source: DM HUD, own button,
-  // SSE-driven refetch), briefly flash the HP chip so the player notices
-  // the silent change. Damage = red, heal = green.
-  const prevHpRef = useRef(pc.hp_current);
-  const [flash, setFlash] = useState<"" | "damage" | "heal">("");
-  useEffect(() => {
-    const prev = prevHpRef.current;
-    const next = pc.hp_current;
-    if (next === prev) return;
-    setFlash(next < prev ? "damage" : "heal");
-    prevHpRef.current = next;
-    const t = setTimeout(() => setFlash(""), 700);
-    return () => clearTimeout(t);
-  }, [pc.hp_current]);
-  const accent = pc.hp_current === 0 ? "var(--red, #ef5350)" : "var(--gold)";
-  const flashClass =
-    flash === "damage" ? "ql-hp-flash-damage" : flash === "heal" ? "ql-hp-flash-heal" : "";
-  return (
-    <div className={flashClass} style={{ borderRadius: 10 }}>
-      <BigChip label="HP" value={`${pc.hp_current}/${pc.hp_max}`} accent={accent} />
     </div>
   );
 }

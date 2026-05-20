@@ -343,23 +343,22 @@ label {
    keeps spinning instead of freezing after one tumble. */
 .dice-rolling-loop { animation: diceRoll 1.6s ease-in-out infinite; }
 
-/* Plan 37 — HP chip flash on damage / heal. Used on the player view so a
-   DM-applied change isn't silent. ~700ms one-shot.
-   Uses inset box-shadow so the flash stays inside the chip's actual
-   bounds (the chip is shorter than a default spread, which would
-   overshoot vertically). */
-@keyframes ql-hp-flash-damage {
+/* Plan 37 — Sheet-wide flash on HP change. Glows the whole player view
+   container so DM-applied damage / heal is impossible to miss on a phone.
+   ~700ms one-shot. Inset shadow so the glow paints inside the container's
+   own bounds (no overshoot into surrounding page). */
+@keyframes ql-sheet-flash-damage {
   0%   { box-shadow: inset 0 0 0 0 rgba(239, 83, 80, 0); }
-  20%  { box-shadow: inset 0 0 0 3px rgba(239, 83, 80, 0.85); }
+  20%  { box-shadow: inset 0 0 60px 8px rgba(239, 83, 80, 0.55); }
   100% { box-shadow: inset 0 0 0 0 rgba(239, 83, 80, 0); }
 }
-@keyframes ql-hp-flash-heal {
+@keyframes ql-sheet-flash-heal {
   0%   { box-shadow: inset 0 0 0 0 rgba(76, 175, 80, 0); }
-  20%  { box-shadow: inset 0 0 0 3px rgba(76, 175, 80, 0.85); }
+  20%  { box-shadow: inset 0 0 60px 8px rgba(76, 175, 80, 0.55); }
   100% { box-shadow: inset 0 0 0 0 rgba(76, 175, 80, 0); }
 }
-.ql-hp-flash-damage { animation: ql-hp-flash-damage 0.7s ease-out; }
-.ql-hp-flash-heal   { animation: ql-hp-flash-heal   0.7s ease-out; }
+.ql-sheet-flash-damage { animation: ql-sheet-flash-damage 0.7s ease-out; }
+.ql-sheet-flash-heal   { animation: ql-sheet-flash-heal   0.7s ease-out; }
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }

@@ -425,6 +425,11 @@ export default function SessionHud() {
     enabled: !!session?.adventure_id,
   });
 
+  // Plan 37 — extracted early so the campaign-stream callback below can
+  // depend on it without a TDZ violation. The rest of the initiative
+  // store is extracted further down where it's used by the combat tracker.
+  const hydrateStore = useInitiativeStore((s) => s.hydrate);
+
   // Plan 26 — live sync via SSE. Refetch party + per-PC data when the
   // backend signals any PC in this campaign changed.
   const onCampaignStreamEvent = useCallback(
@@ -440,8 +445,15 @@ export default function SessionHud() {
         qc.invalidateQueries({ queryKey: ["character-features", evt.pc_id] });
         qc.invalidateQueries({ queryKey: ["inventory", evt.pc_id] });
       }
+      // Plan 37 — combat tracker (a Zustand store, not React Query) needs
+      // an explicit re-hydrate when the backend syncs a combatant's
+      // defeated flag or HP. Without this the HUD shows a stale greyed-out
+      // PC until the DM hard-refreshes the page.
+      if (evt.type === "pc.combat.updated" || evt.type === "session.combat.updated") {
+        if (session?.id) void hydrateStore(session.id);
+      }
     },
-    [qc, adventure?.campaign_id],
+    [qc, adventure?.campaign_id, session?.id, hydrateStore],
   );
   useEventStream("campaign", adventure?.campaign_id, onCampaignStreamEvent);
 
@@ -489,7 +501,6 @@ export default function SessionHud() {
   const persistedCombatants = useInitiativeStore((s) => s.combatants);
   const storeRound = useInitiativeStore((s) => s.round);
   const storeActiveId = useInitiativeStore((s) => s.activeCombatantId);
-  const hydrateStore = useInitiativeStore((s) => s.hydrate);
   const replaceFromRoll = useInitiativeStore((s) => s.replaceFromRoll);
   const patchPersistedCombatant = useInitiativeStore((s) => s.patchCombatant);
   const advanceTurn = useInitiativeStore((s) => s.nextTurn);
