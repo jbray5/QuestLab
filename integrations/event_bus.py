@@ -174,6 +174,28 @@ def publish_session_combat_updated(session_id: Any, campaign_id: Any) -> None:
     event_bus.publish(f"campaign:{campaign_id}", payload)
 
 
+def publish_pc_combat_updated(pc_id: Any, campaign_id: Any) -> None:
+    """Publish a combat-state mutation event scoped to one PC (Plan 00037).
+
+    Fires whenever the ``SessionCombatant`` row backing this PC changes:
+    conditions added/removed, temp_hp, defeated flag, initiative reorder.
+    The player view listens on its ``pc:{pc_id}`` stream and refetches
+    the combat-state slice so the Conditions strip updates live.
+
+    Args:
+        pc_id: UUID of the player character.
+        campaign_id: UUID of the owning campaign (also published so the
+            DM HUD picks it up on the campaign stream).
+    """
+    payload: Event = {
+        "type": "pc.combat.updated",
+        "pc_id": str(pc_id),
+        "campaign_id": str(campaign_id),
+    }
+    event_bus.publish(f"pc:{pc_id}", payload)
+    event_bus.publish(f"campaign:{campaign_id}", payload)
+
+
 def publish_pc_turn_changed(pc_id: Any, active: bool, **extra: Any) -> None:
     """Publish a per-PC turn-state change event (Plan 00028).
 

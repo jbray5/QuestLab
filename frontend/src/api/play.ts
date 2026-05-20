@@ -32,6 +32,12 @@ export interface TurnState {
   active_combatant_name?: string;
 }
 
+export interface CombatState {
+  in_combat: boolean;
+  conditions: string[];
+  defeated: boolean;
+}
+
 export const playApi = {
   get: (pcId: string) => api.get<PlayerCharacter>(`/play/${pcId}`),
   spellcastingStats: (pcId: string) =>
@@ -46,6 +52,7 @@ export const playApi = {
   features: (pcId: string) => api.get<CharacterFeature[]>(`/play/${pcId}/features`),
   inventory: (pcId: string) => api.get<CharacterItem[]>(`/play/${pcId}/inventory`),
   turnState: (pcId: string) => api.get<TurnState>(`/play/${pcId}/turn-state`),
+  combatState: (pcId: string) => api.get<CombatState>(`/play/${pcId}/combat-state`),
 
   applyDamage: (pcId: string, amount: number) =>
     api.post<PlayerCharacter>(`/play/${pcId}/damage`, { amount }),

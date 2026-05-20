@@ -34,7 +34,7 @@ from domain.session import (
     SessionRunbookCreate,
     SessionUpdate,
 )
-from integrations.event_bus import publish_pc_turn_changed
+from integrations.event_bus import publish_pc_combat_updated, publish_pc_turn_changed
 
 MAX_SESSIONS_PER_ADVENTURE = 20
 
@@ -630,11 +630,19 @@ def update_combatant(
             combatant does not belong to the session.
         PermissionError: If the DM does not own the campaign.
     """
-    get_session(db, session_id, dm_email)  # ownership check
+    game_session = get_session(db, session_id, dm_email)  # ownership check
     combatant = SessionCombatantRepo.get_by_id(db, combatant_id)
     if combatant is None or combatant.session_id != session_id:
         raise ValueError(f"Combatant {combatant_id} not found in session {session_id}.")
-    return SessionCombatantRepo.update_one(db, combatant, update)
+    updated = SessionCombatantRepo.update_one(db, combatant, update)
+    # Plan 37 — if this combatant is backed by a PC, fan out a
+    # pc.combat.updated event so the player's phone refetches the
+    # conditions strip + temp HP.
+    if updated.character_id:
+        adventure = AdventureRepo.get_by_id(db, game_session.adventure_id)
+        if adventure is not None:
+            publish_pc_combat_updated(updated.character_id, adventure.campaign_id)
+    return updated
 
 
 def clear_combat_state(db: DBSession, session_id: uuid.UUID, dm_email: str) -> int:

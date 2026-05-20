@@ -1294,8 +1294,9 @@ export default function SessionHud() {
               {combatActive && (
                 <button
                   className="btn btn-primary"
-                  style={{ fontSize: "0.65rem", padding: "0.15rem 0.5rem" }}
+                  style={{ fontSize: "0.85rem", padding: "0.35rem 0.9rem", fontWeight: 700 }}
                   onClick={nextTurn}
+                  title="Advance to the next combatant's turn"
                 >
                   End Turn →
                 </button>

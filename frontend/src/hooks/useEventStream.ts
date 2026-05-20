@@ -71,6 +71,8 @@ export function useEventStream(
       "pc.spells.updated",
       "pc.features.updated",
       "pc.inventory.updated",
+      "pc.combat.updated",
+      "pc.turn.changed",
       "session.combat.updated",
     ];
     types.forEach((t) => es.addEventListener(t, dispatch as EventListener));

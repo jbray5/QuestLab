@@ -105,6 +105,20 @@ def inventory(pc_id: uuid.UUID, db: DB):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
+@router.get("/play/{pc_id}/combat-state")
+def combat_state(pc_id: uuid.UUID, db: DB) -> dict:
+    """Conditions + defeated flag for this PC during active combat (Plan 00037).
+
+    Returns ``{in_combat: bool, conditions: list[str], defeated: bool}``.
+    Used by the PlayerView to render a Conditions strip next to the HP
+    bar so a charmed / prone / poisoned player sees it on their phone.
+    """
+    try:
+        return player_service.combat_state(db, pc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
 @router.get("/play/{pc_id}/turn-state")
 def turn_state(pc_id: uuid.UUID, db: DB) -> dict:
     """Is it this PC's turn in any active session combat? (Plan 00028).

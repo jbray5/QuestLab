@@ -195,6 +195,38 @@ class SessionCombatantRepo:
         return session.exec(stmt).first()
 
     @staticmethod
+    def find_combatant_in_active_combat(
+        session: Session, character_id: uuid.UUID
+    ) -> Optional[tuple[GameSession, SessionCombatant]]:
+        """Find this PC's combatant row in any session whose combat is active.
+
+        Plan 00037 — used by the player view's combat-state projection to
+        surface conditions / temp_hp / defeated while a fight is in
+        progress, regardless of whose turn it is. ``find_active_for_character``
+        only matches when THIS PC is the active combatant; this query
+        matches whenever combat is running and the PC has a row in it.
+
+        Args:
+            session: Active database session.
+            character_id: UUID of the player character.
+
+        Returns:
+            ``(GameSession, SessionCombatant)`` if any active-combat session
+            contains a combatant row for this PC; ``None`` otherwise.
+        """
+        stmt = (
+            select(GameSession, SessionCombatant)
+            .where(SessionCombatant.session_id == GameSession.id)
+            .where(SessionCombatant.character_id == character_id)
+            .where(GameSession.combat_active_combatant_id.is_not(None))
+            .limit(1)
+        )
+        row = session.exec(stmt).first()
+        if row is None:
+            return None
+        return (row[0], row[1])
+
+    @staticmethod
     def find_active_for_character(
         session: Session, character_id: uuid.UUID
     ) -> Optional[tuple[GameSession, SessionCombatant]]:

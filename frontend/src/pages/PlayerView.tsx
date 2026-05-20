@@ -1,8 +1,8 @@
-import { useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { playApi, type TurnState } from "../api/play";
+import { playApi, type CombatState, type TurnState } from "../api/play";
 import type { PlayerCharacter } from "../api/types";
 import InfoTip from "../components/character-sheet/InfoTip";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
@@ -79,6 +79,15 @@ function PlayerSheet({ pcId }: { pcId: string }) {
     refetchOnWindowFocus: true,
   });
 
+  // Plan 37 — active-combat conditions (charmed, prone, ...) so the
+  // player can see what their PC is suffering. Refetched on pc.combat.updated.
+  const { data: combatState } = useQuery({
+    queryKey: ["play-combat-state", pcId],
+    queryFn: () => playApi.combatState(pcId),
+    enabled: !!pc,
+    refetchOnWindowFocus: true,
+  });
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["play-pc", pcId] });
     qc.invalidateQueries({ queryKey: ["play-slots", pcId] });
@@ -95,6 +104,10 @@ function PlayerSheet({ pcId }: { pcId: string }) {
         qc.invalidateQueries({ queryKey: ["play-features", pcId] });
       } else if (evt.type === "pc.inventory.updated") {
         qc.invalidateQueries({ queryKey: ["play-inventory", pcId] });
+      } else if (evt.type === "pc.combat.updated") {
+        // Plan 37 — DM toggled a condition / defeated flag on this PC's
+        // combatant row. Refetch just the conditions strip.
+        qc.invalidateQueries({ queryKey: ["play-combat-state", pcId] });
       } else if (evt.type === "pc.turn.changed") {
         // Plan 28 — write the new turn-state straight into the cache so
         // the banner toggles instantly without a network round-trip.
@@ -142,6 +155,7 @@ function PlayerSheet({ pcId }: { pcId: string }) {
     <div style={pageStyle}>
       <div style={containerStyle}>
         <TurnBanner turnState={turnState} />
+        <ConditionsStrip combatState={combatState} />
         <HeaderBanner pc={pc} spellStats={spellStats ?? null} initMod={initMod} />
 
         <HpZone pc={pc} pcId={pcId} conMod={conMod} onUpdate={invalidate} />
@@ -193,6 +207,60 @@ function PlayerSheet({ pcId }: { pcId: string }) {
 }
 
 // ── Sub-blocks ─────────────────────────────────────────────────────────────
+
+function ConditionsStrip({ combatState }: { combatState: CombatState | undefined }) {
+  // Plan 37 — render only when in active combat AND at least one condition.
+  // Defeated implies hp 0 already; the DeathSavesBlock handles that case.
+  if (!combatState?.in_combat) return null;
+  const conditions = combatState.conditions ?? [];
+  if (conditions.length === 0) return null;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      style={{
+        margin: "0.5rem 0",
+        padding: "0.55rem 0.8rem",
+        background: "rgba(244, 67, 54, 0.12)",
+        border: "1px solid var(--red, #ef5350)",
+        borderRadius: 8,
+        display: "flex",
+        flexWrap: "wrap",
+        gap: "0.4rem",
+        alignItems: "center",
+      }}
+    >
+      <span
+        style={{
+          fontFamily: "Cinzel Decorative, serif",
+          fontSize: "0.7rem",
+          letterSpacing: "0.1em",
+          color: "var(--red, #ef5350)",
+          textTransform: "uppercase",
+        }}
+      >
+        Conditions
+      </span>
+      {conditions.map((c) => (
+        <span
+          key={c}
+          style={{
+            padding: "0.15rem 0.55rem",
+            background: "var(--red, #ef5350)",
+            color: "#fff",
+            borderRadius: 12,
+            fontSize: "0.78rem",
+            fontWeight: 600,
+            letterSpacing: "0.02em",
+            textTransform: "capitalize",
+          }}
+        >
+          {c}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function TurnBanner({ turnState }: { turnState: TurnState | undefined }) {
   if (!turnState?.active) return null;
@@ -276,7 +344,7 @@ function HeaderBanner({
       </div>
 
       <div style={chipRowStyle}>
-        <BigChip label="HP" value={`${pc.hp_current}/${pc.hp_max}`} accent={pc.hp_current === 0 ? "var(--red, #ef5350)" : "var(--gold)"} />
+        <HpChipWithFlash pc={pc} />
         {pc.temp_hp > 0 && <BigChip label="Temp" value={`+${pc.temp_hp}`} accent="var(--green2, #4caf50)" />}
         <BigChip label="AC" value={String(pc.ac)} />
         <BigChip label="Speed" value={`${pc.speed} ft`} />
@@ -292,6 +360,31 @@ function HeaderBanner({
           {spellStats.attack_bonus}
         </div>
       )}
+    </div>
+  );
+}
+
+function HpChipWithFlash({ pc }: { pc: PlayerCharacter }) {
+  // Plan 37 — when hp_current changes (from any source: DM HUD, own button,
+  // SSE-driven refetch), briefly flash the HP chip so the player notices
+  // the silent change. Damage = red, heal = green.
+  const prevHpRef = useRef(pc.hp_current);
+  const [flash, setFlash] = useState<"" | "damage" | "heal">("");
+  useEffect(() => {
+    const prev = prevHpRef.current;
+    const next = pc.hp_current;
+    if (next === prev) return;
+    setFlash(next < prev ? "damage" : "heal");
+    prevHpRef.current = next;
+    const t = setTimeout(() => setFlash(""), 700);
+    return () => clearTimeout(t);
+  }, [pc.hp_current]);
+  const accent = pc.hp_current === 0 ? "var(--red, #ef5350)" : "var(--gold)";
+  const flashClass =
+    flash === "damage" ? "ql-hp-flash-damage" : flash === "heal" ? "ql-hp-flash-heal" : "";
+  return (
+    <div className={flashClass} style={{ borderRadius: 10 }}>
+      <BigChip label="HP" value={`${pc.hp_current}/${pc.hp_max}`} accent={accent} />
     </div>
   );
 }

@@ -129,6 +129,38 @@ def list_inventory(db: Session, pc_id: uuid.UUID):
     return inventory_service.list_for_character(db, pc_id, dm)
 
 
+def combat_state(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
+    """Return the PC's active-combat conditions and temp HP (Plan 00037).
+
+    If any session is currently in active combat and this PC has a
+    ``SessionCombatant`` row in it, returns
+    ``{in_combat: True, conditions, defeated}``. Otherwise returns
+    ``{in_combat: False, conditions: [], defeated: False}``.
+
+    temp_hp is NOT included here — it lives on the PlayerCharacter row and
+    is already exposed via the main GET /play/{pc_id} payload.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the player character.
+
+    Returns:
+        Combat-state dict suitable for JSON serialization.
+    """
+    _get_pc_or_raise(db, pc_id)
+    from db.repos.session_repo import SessionCombatantRepo
+
+    found = SessionCombatantRepo.find_combatant_in_active_combat(db, pc_id)
+    if found is None:
+        return {"in_combat": False, "conditions": [], "defeated": False}
+    _, combatant = found
+    return {
+        "in_combat": True,
+        "conditions": list(combatant.conditions or []),
+        "defeated": bool(combatant.defeated),
+    }
+
+
 def turn_state(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     """Return whether it's currently this PC's turn (Plan 00028).
 
