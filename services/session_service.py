@@ -32,6 +32,7 @@ from domain.session import (
     SessionCreate,
     SessionRunbook,
     SessionRunbookCreate,
+    SessionRunbookUpdate,
     SessionUpdate,
 )
 from integrations.event_bus import (
@@ -317,6 +318,45 @@ def save_runbook(
     """
     get_session(db, session_id, dm_email)  # verify ownership
     return SessionRunbookRepo.create(db, runbook_data)
+
+
+def patch_runbook(
+    db: DBSession,
+    session_id: uuid.UUID,
+    dm_email: str,
+    update: SessionRunbookUpdate,
+) -> SessionRunbook:
+    """Apply a partial update to an existing runbook (Plan 38 inline edit).
+
+    Lets the DM edit any AI-generated field — opening_scene, scenes,
+    npc_dialog, encounter_flows, closing_hooks, xp_awards, loot_awards
+    — without re-generating the whole runbook. Only fields set on the
+    update payload are touched; the rest of the runbook is preserved.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+        update: Partial update payload (any subset of runbook fields).
+
+    Returns:
+        The updated SessionRunbook.
+
+    Raises:
+        ValueError: If the session or runbook does not exist.
+        PermissionError: If the DM does not own the campaign.
+    """
+    get_session(db, session_id, dm_email)  # verify ownership
+    runbook = SessionRunbookRepo.get_by_session(db, session_id)
+    if runbook is None:
+        raise ValueError(f"No runbook saved for session {session_id}.")
+    patch = update.model_dump(exclude_unset=True)
+    for key, value in patch.items():
+        setattr(runbook, key, value)
+    db.add(runbook)
+    db.commit()
+    db.refresh(runbook)
+    return runbook
 
 
 # ---------------------------------------------------------------------------

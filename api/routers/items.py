@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from api.deps import DB, CurrentUser
 from db.repos.character_repo import CharacterRepo
 from db.repos.item_repo import ItemRepo
-from domain.item import ItemRead, ItemUpdate, WeaponAttackPreview
+from domain.item import ItemCreate, ItemRead, ItemUpdate, WeaponAttackPreview
 from services import ai_service, attack_service, item_service
 
 router = APIRouter(tags=["items"])
@@ -132,6 +132,26 @@ def attack_preview(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+
+@router.post("/items", response_model=ItemRead, status_code=status.HTTP_201_CREATED)
+def create_item(body: ItemCreate, db: DB, _user: CurrentUser) -> ItemRead:
+    """Persist a homebrew or campaign-specific item to the shared catalog.
+
+    Any authenticated DM may author. Mirrors the POST /spells pattern for
+    homebrew spells. Used today by campaign-side scripts to seed plot
+    items (the False Moonglass shard etc.) that the loot picker needs.
+
+    Args:
+        body: Validated ItemCreate payload.
+        db: Database session.
+        _user: Authenticated DM.
+
+    Returns:
+        Newly persisted item.
+    """
+    item = item_service.create_item(db, body)
+    return ItemRead.model_validate(item)
 
 
 @router.get("/items/{item_id}", response_model=ItemRead)

@@ -113,6 +113,23 @@ def seed_weapons(db: Session, payloads: list[ItemCreate]) -> int:
     return inserted
 
 
+def create_item(db: Session, payload: ItemCreate) -> Item:
+    """Persist a new item to the shared catalog.
+
+    Used for ad-hoc homebrew or campaign-specific plot items (False
+    Moonglass etc.). Any authenticated DM may write; items are shared
+    across DMs in the current single-tenant model.
+
+    Args:
+        db: Active database session.
+        payload: Validated ItemCreate.
+
+    Returns:
+        Persisted Item.
+    """
+    return ItemRepo.create(db, payload)
+
+
 def get_item(db: Session, item_id: uuid.UUID) -> Item:
     """Fetch a single item by ID or raise ValueError.
 

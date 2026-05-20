@@ -28,6 +28,8 @@ export const sessionsApi = {
     api.get<SessionRunbook | null>(`/sessions/${id}/runbook`),
   generateRunbook: (id: string, notes?: string) =>
     api.post<SessionRunbook>(`/sessions/${id}/runbook`, { notes: notes ?? "" }),
+  patchRunbook: (id: string, update: Partial<SessionRunbook>) =>
+    api.patch<SessionRunbook>(`/sessions/${id}/runbook`, update),
   // ── Persistent combat state (Plan 00015) ────────────────────────────────
   getCombatState: (id: string) =>
     api.get<SessionCombatStateRead>(`/sessions/${id}/combat`),

@@ -22,6 +22,7 @@ import { charactersApi } from "../api/characters";
 import { encountersApi } from "../api/encounters";
 import { npcsApi } from "../api/npcs";
 import TonightsCastDrawer from "../components/tonights-cast/TonightsCastDrawer";
+import EditableRunbookText from "../components/runbook/EditableRunbookText";
 import { monstersApi } from "../api/monsters";
 import { restApi } from "../api/rest";
 import { spellcastingApi } from "../api/spellcasting";
@@ -1263,29 +1264,43 @@ export default function SessionHud() {
                   <div style={{ fontSize: "0.65rem", color: "var(--gold)", fontWeight: 700, marginBottom: "0.3rem", textTransform: "uppercase" }}>
                     Read Aloud
                   </div>
-                  <p style={{ fontSize: "0.9rem", lineHeight: 1.7, fontStyle: "italic" }}>
-                    {currentScene.read_aloud}
-                  </p>
+                  {sessionId && runbook && (
+                    <EditableRunbookText
+                      kind="scene"
+                      sceneIndex={sceneIdx}
+                      field="read_aloud"
+                      sessionId={sessionId}
+                      runbook={runbook}
+                      variant="read_aloud"
+                      fontSize="1.02rem"
+                    />
+                  )}
                 </div>
 
-                {/* DM Notes */}
-                {currentScene.dm_notes && (
-                  <div style={{
-                    background: "rgba(108,71,255,0.07)",
-                    border: "1px solid #5a3a9a",
-                    borderLeft: "4px solid #5a3a9a",
-                    borderRadius: 6,
-                    padding: "0.75rem 1rem",
-                    marginBottom: "1rem",
-                  }}>
-                    <div style={{ fontSize: "0.65rem", color: "#9575cd", fontWeight: 700, marginBottom: "0.3rem", textTransform: "uppercase" }}>
-                      DM Notes
-                    </div>
-                    <p style={{ fontSize: "0.85rem", lineHeight: 1.6 }}>
-                      {currentScene.dm_notes}
-                    </p>
+                {/* DM Notes — always editable so DM can ADD even if Claude left empty */}
+                <div style={{
+                  background: "rgba(108,71,255,0.07)",
+                  border: "1px solid #5a3a9a",
+                  borderLeft: "4px solid #5a3a9a",
+                  borderRadius: 6,
+                  padding: "0.75rem 1rem",
+                  marginBottom: "1rem",
+                }}>
+                  <div style={{ fontSize: "0.65rem", color: "#9575cd", fontWeight: 700, marginBottom: "0.3rem", textTransform: "uppercase" }}>
+                    DM Notes
                   </div>
-                )}
+                  {sessionId && runbook && (
+                    <EditableRunbookText
+                      kind="scene"
+                      sceneIndex={sceneIdx}
+                      field="dm_notes"
+                      sessionId={sessionId}
+                      runbook={runbook}
+                      variant="dm_notes"
+                      fontSize="0.95rem"
+                    />
+                  )}
+                </div>
 
                 {/* Prev / Next */}
                 <div className="flex gap-2" style={{ marginTop: "1rem" }}>

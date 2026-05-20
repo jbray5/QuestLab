@@ -16,6 +16,7 @@ from domain.session import (
     SessionCombatStateWrite,
     SessionCreate,
     SessionRunbook,
+    SessionRunbookUpdate,
     SessionUpdate,
 )
 from services import ai_service, session_service
@@ -258,6 +259,40 @@ def generate_runbook(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Runbook generation failed: {exc}",
         )
+
+
+@router.patch("/sessions/{session_id}/runbook", response_model=SessionRunbook)
+def patch_runbook(
+    session_id: uuid.UUID,
+    body: SessionRunbookUpdate,
+    db: DB,
+    user: CurrentUser,
+) -> SessionRunbook:
+    """Partial-update a saved runbook (Plan 38 inline edit).
+
+    Lets the DM edit individual fields — a scene's read_aloud, an NPC's
+    dialog hooks, closing_hooks, etc. — without re-running the AI.
+    Any field omitted from the payload is left unchanged.
+
+    Args:
+        session_id: UUID of the session.
+        body: Partial update payload.
+        db: Database session.
+        user: Authenticated DM.
+
+    Returns:
+        Updated SessionRunbook.
+
+    Raises:
+        HTTPException 404: If the session or runbook is missing.
+        HTTPException 403: If the DM does not own the campaign.
+    """
+    try:
+        return session_service.patch_runbook(db, session_id, user, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------

@@ -364,6 +364,11 @@ label {
 .ql-sheet-flash-damage { animation: ql-sheet-flash-damage 0.9s ease-out; }
 .ql-sheet-flash-heal   { animation: ql-sheet-flash-heal   0.9s ease-out; }
 
+/* Plan 38 — runbook inline edit: hover-only pencil affordance. */
+.ql-editable-runbook .ql-editable-runbook-pencil { opacity: 0; }
+.ql-editable-runbook:hover .ql-editable-runbook-pencil { opacity: 0.75; }
+.ql-editable-runbook-pencil:hover { opacity: 1 !important; color: var(--gold) !important; border-color: var(--gold) !important; }
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }

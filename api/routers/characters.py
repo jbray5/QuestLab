@@ -345,6 +345,40 @@ def spend_hit_dice_endpoint(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
+@router.post("/characters/{character_id}/restore-hit-dice", response_model=PlayerCharacter)
+def restore_hit_dice_endpoint(
+    character_id: uuid.UUID,
+    body: dict,
+    db: DB,
+    user: CurrentUser,
+) -> PlayerCharacter:
+    """Reverse a hit-die spend (DM-only undo).
+
+    Body: ``{"count": <int>}``. Decrements ``hit_dice_spent`` by count,
+    clamped to 0. Used when a player misclicks Spend HD on their phone
+    and the DM wants to roll it back without giving every player a
+    self-undo button.
+
+    Args:
+        character_id: UUID of the PC.
+        body: JSON with the integer count of HD to restore.
+        db: Database session.
+        user: Authenticated DM.
+
+    Returns:
+        Updated PlayerCharacter.
+
+    Raises:
+        HTTPException 422: If count is non-positive.
+    """
+    try:
+        return character_service.restore_hit_dice(db, character_id, int(body.get("count", 0)), user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
 # ── Plan 00034 — AI portrait generation ────────────────────────────────────
 
 

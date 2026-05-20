@@ -114,6 +114,23 @@ class SessionRunbookCreate(BaseModel):
     loot_awards: Optional[list[Any]] = None
 
 
+class SessionRunbookUpdate(BaseModel):
+    """Partial-update schema for a session runbook (Plan 38 inline edit).
+
+    Every field is optional. Callers PATCH only the fields they edited
+    (e.g. one scene's read_aloud) and the service replaces those fields
+    on the persisted row.
+    """
+
+    opening_scene: Optional[str] = None
+    scenes: Optional[list[dict[str, Any]]] = None
+    npc_dialog: Optional[list[dict[str, Any]]] = None
+    encounter_flows: Optional[list[dict[str, Any]]] = None
+    closing_hooks: Optional[str] = None
+    xp_awards: Optional[dict[str, Any]] = None
+    loot_awards: Optional[list[Any]] = None
+
+
 class SessionRunbookRead(BaseModel):
     """Output schema for reading a session runbook."""
 

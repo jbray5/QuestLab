@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Props {
   characterId: string;
@@ -17,6 +17,27 @@ interface Props {
 export default function PlayerLinkButton({ characterId, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Plan 38/39 P2-2 — anchor the popover to the button via viewport coords
+  // so it can't be clipped by a parent's overflow: hidden (the previous
+  // position: absolute approach got cut off inside the character sheet modal).
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function recompute() {
+      if (!btnRef.current) return;
+      const r = btnRef.current.getBoundingClientRect();
+      setAnchor({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+    }
+    recompute();
+    window.addEventListener("resize", recompute);
+    window.addEventListener("scroll", recompute, true);
+    return () => {
+      window.removeEventListener("resize", recompute);
+      window.removeEventListener("scroll", recompute, true);
+    };
+  }, [open]);
 
   const url = typeof window !== "undefined"
     ? `${window.location.origin}/play/${characterId}`
@@ -36,6 +57,7 @@ export default function PlayerLinkButton({ characterId, compact = false }: Props
   return (
     <span style={{ position: "relative", display: "inline-block" }}>
       <button
+        ref={btnRef}
         onClick={() => setOpen((v) => !v)}
         title="Share this player's view link"
         style={{
@@ -51,20 +73,20 @@ export default function PlayerLinkButton({ characterId, compact = false }: Props
       >
         🔗 {compact ? "" : "Share"}
       </button>
-      {open && (
+      {open && anchor && (
         <>
           <div
             onClick={() => setOpen(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 200 }}
+            style={{ position: "fixed", inset: 0, zIndex: 9600 }}
           />
           <div
             style={{
-              position: "absolute",
-              top: "calc(100% + 4px)",
-              right: 0,
-              zIndex: 201,
+              position: "fixed",
+              top: anchor.top,
+              right: anchor.right,
+              zIndex: 9601,
               width: 320,
-              maxWidth: "90vw",
+              maxWidth: "calc(100vw - 16px)",
               background: "var(--surface, #1f1f1f)",
               border: "1px solid var(--gold)",
               borderRadius: 6,

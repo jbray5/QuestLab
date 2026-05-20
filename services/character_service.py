@@ -839,3 +839,38 @@ def spend_hit_dice(
     session.refresh(character)
     publish_pc_updated(character.id, character.campaign_id)
     return character
+
+
+def restore_hit_dice(
+    session: Session, character_id: uuid.UUID, count: int, dm_email: str
+) -> PlayerCharacter:
+    """Reverse a hit-die spend (DM-only undo path).
+
+    Plan 38/39 — players can spend hit dice from their phone but cannot
+    undo a misclick. This is the DM-side restore: bumps hit_dice_spent
+    DOWN by count, clamped to 0.
+
+    Args:
+        session: Active database session.
+        character_id: UUID of the PC.
+        count: Number of hit dice to restore (must be > 0).
+        dm_email: Email of the DM making the request.
+
+    Returns:
+        Updated PlayerCharacter.
+
+    Raises:
+        ValueError: If count <= 0.
+        PermissionError: If the DM does not own the campaign.
+    """
+    if count <= 0:
+        raise ValueError(f"count must be > 0, got {count}.")
+    character = _get_character_or_raise(session, character_id)
+    campaign = _get_campaign_or_raise(session, character.campaign_id)
+    _assert_campaign_owner(campaign, dm_email)
+    character.hit_dice_spent = max(0, character.hit_dice_spent - count)
+    session.add(character)
+    session.commit()
+    session.refresh(character)
+    publish_pc_updated(character.id, character.campaign_id)
+    return character

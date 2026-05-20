@@ -64,6 +64,16 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
     },
   });
 
+  // Plan 38/39 P2-5 — DM-only restore for a misclicked Spend HD.
+  // Clicking a SPENT pip while !readOnly triggers a confirm + restore.
+  const restore = useMutation({
+    mutationFn: () => charactersApi.restoreHitDice(pc.id, 1),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["character", pc.id] });
+      qc.invalidateQueries({ queryKey: ["characters"] });
+    },
+  });
+
   const value = dieResult === "" ? null : Number(dieResult);
   const valid = value !== null && value >= 1 && value <= dieSize;
   const totalHeal = valid ? Math.max(1, (value as number) + conMod) : null;
@@ -124,24 +134,43 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
       <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
         {Array.from({ length: total }).map((_, i) => {
           const isFilled = i < available;
-          const clickable =
+          const spendClickable =
             !readOnly && isFilled && !flowOpen && !spend.isPending;
+          // DM-only restore: clicking an empty pip while !readOnly
+          // reverses a Spend HD (misclick undo).
+          const restoreClickable =
+            !readOnly && !isFilled && !flowOpen && !restore.isPending;
+          const clickable = spendClickable || restoreClickable;
           return (
             <button
               key={i}
               disabled={!clickable}
-              onClick={() => setFlowOpen(true)}
+              onClick={() => {
+                if (spendClickable) {
+                  setFlowOpen(true);
+                } else if (restoreClickable) {
+                  if (window.confirm("Restore 1 spent Hit Die? (DM override)")) {
+                    restore.mutate();
+                  }
+                }
+              }}
               title={
                 isFilled
                   ? `Spend one Hit Die (roll d${dieSize} + CON ${fmt(conMod)})`
-                  : "Spent"
+                  : readOnly
+                    ? "Spent"
+                    : "Spent — click to restore (DM override)"
               }
               style={{
                 width: 24,
                 height: 24,
                 padding: 0,
                 borderRadius: 4,
-                border: "1px solid var(--gold)",
+                border: isFilled
+                  ? "1px solid var(--gold)"
+                  : restoreClickable
+                    ? "1px dashed var(--gold)"
+                    : "1px solid var(--gold)",
                 background: isFilled ? "var(--gold)" : "transparent",
                 cursor: clickable ? "pointer" : "default",
                 color: "var(--bg, #1a1a1a)",
@@ -149,9 +178,10 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
                 fontWeight: 700,
                 fontFamily: "monospace",
                 lineHeight: 1,
+                opacity: !isFilled && !restoreClickable ? 0.55 : 1,
               }}
             >
-              {isFilled ? `d${dieSize}` : ""}
+              {isFilled ? `d${dieSize}` : restoreClickable ? "↺" : ""}
             </button>
           );
         })}
