@@ -582,10 +582,6 @@ export default function SessionHud() {
   }, [persistedCombatants, acOverrides, partyById]);
 
   const combatActive = combatants.length > 0;
-  const currentTurn = Math.max(
-    0,
-    persistedCombatants.findIndex((c) => c.id === storeActiveId),
-  );
   const round = storeRound;
 
   // Project a persisted SessionCombatant back to the loose Combatant shape
