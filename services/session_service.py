@@ -34,7 +34,11 @@ from domain.session import (
     SessionRunbookCreate,
     SessionUpdate,
 )
-from integrations.event_bus import publish_pc_combat_updated, publish_pc_turn_changed
+from integrations.event_bus import (
+    publish_pc_combat_updated,
+    publish_pc_turn_changed,
+    publish_session_combat_updated,
+)
 
 MAX_SESSIONS_PER_ADVENTURE = 20
 
@@ -661,20 +665,27 @@ def clear_combat_state(db: DBSession, session_id: uuid.UUID, dm_email: str) -> i
         PermissionError: If the DM does not own the campaign.
     """
     game_session = get_session(db, session_id, dm_email)
-    previous_active_id = game_session.combat_active_combatant_id
-    # Plan 28 — capture the prior active PC BEFORE we wipe the combatants.
-    prev_pc_id = None
-    if previous_active_id:
-        prev = SessionCombatantRepo.get_by_id(db, previous_active_id)
-        if prev and prev.character_id:
-            prev_pc_id = prev.character_id
+    # Plan 37 — capture EVERY PC who was a combatant before wiping. Without
+    # this, only the currently-active PC's turn banner clears; any other
+    # PC who had a stale active=True from an earlier round (because their
+    # active=False event was missed mid-combat for any reason) keeps the
+    # "It's your turn!" banner up forever.
+    all_combatants = SessionCombatantRepo.list_for_session(db, session_id)
+    pc_ids_to_clear: list[uuid.UUID] = [
+        c.character_id for c in all_combatants if c.character_id is not None
+    ]
     count = SessionCombatantRepo.clear_for_session(db, session_id)
     game_session.combat_round = 1
     game_session.combat_active_combatant_id = None
     db.add(game_session)
     db.commit()
-    if prev_pc_id:
-        publish_pc_turn_changed(prev_pc_id, active=False)
+    for pc_id in pc_ids_to_clear:
+        publish_pc_turn_changed(pc_id, active=False)
+    # Plan 37 — notify any other HUD tabs / observers that combat is over
+    # so they re-hydrate from the now-empty server state.
+    adventure = AdventureRepo.get_by_id(db, game_session.adventure_id)
+    if adventure is not None:
+        publish_session_combat_updated(session_id, adventure.campaign_id)
     return count
 
 
