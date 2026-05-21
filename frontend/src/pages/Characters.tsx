@@ -372,7 +372,7 @@ export default function Characters() {
 
             <div style={{ marginTop: "0.75rem" }}>
               <ImageUpload
-                currentUrl={c.portrait_url}
+                currentUrl={portraitSrc(c.portrait_url, c.updated_at) ?? null}
                 onUrlChange={(url) => updateImage.mutate({ id: c.id, url })}
                 label="Portrait"
                 size={48}

@@ -47,16 +47,30 @@ def upload(
 ) -> str:
     """Upload bytes to Vercel Blob and return the resulting public URL.
 
+    Vercel appends a random suffix to the filename — so every upload
+    produces a UNIQUE URL. This is deliberate: Vercel Blob serves blobs
+    through a CDN with a one-year ``immutable`` cache-control. If we
+    reused a deterministic path (pc-<uuid>.png) the CDN would keep
+    serving the FIRST image forever even after the bytes were
+    overwritten — which is exactly the "regenerate portrait does
+    nothing" bug. Unique URLs sidestep the CDN cache entirely: each
+    regenerated portrait gets a fresh address, the entity's
+    ``portrait_url`` is updated to point at it, and the immutable cache
+    is now correct because each URL genuinely never changes.
+
+    Trade-off: superseded blobs are orphaned in the store. At ~1.5 MB
+    each on a 1 GB free tier that's hundreds of regens before it
+    matters; add a sweep later if needed.
+
     Args:
-        path: Logical path inside the blob store, e.g.
-            ``"portraits/{uuid}.png"``. Vercel appends a random suffix
-            to the filename for content-addressability unless
-            ``add_random_suffix=false`` is sent.
+        path: Logical path prefix inside the blob store, e.g.
+            ``"portraits/pc-<uuid>.png"``. Vercel inserts a random hash
+            before the extension to make the final URL unique.
         data: Raw bytes to upload (PNG, JPEG, etc.).
         content_type: MIME type to record on the object.
 
     Returns:
-        Absolute public URL of the uploaded object.
+        Absolute public URL of the uploaded object (with random suffix).
 
     Raises:
         PermissionError: If ``BLOB_READ_WRITE_TOKEN`` is not set.
@@ -67,13 +81,9 @@ def upload(
     headers = {
         "authorization": f"Bearer {token}",
         "content-type": content_type,
-        # Defeat Vercel's default random suffix so deterministic paths
-        # (npc-{uuid}.png) don't get a second hash appended.
-        "x-add-random-suffix": "0",
-        # Without this, a PUT to an existing blob is a silent no-op — the
-        # API returns 200 with the existing URL and the bytes never change.
-        # Caused the "regenerate portrait does nothing" bug.
-        "x-allow-overwrite": "1",
+        # x-add-random-suffix defaults to "1" — left at the default so
+        # every upload gets a unique URL. See the docstring for why this
+        # matters (Vercel CDN immutable-cache vs. deterministic paths).
         "x-content-type": content_type,
     }
     try:
@@ -93,13 +103,18 @@ def upload(
 
 
 def portrait_path(entity_kind: str, entity_id: _uuid.UUID | str) -> str:
-    """Build a deterministic blob path for a portrait.
+    """Build the blob path prefix for a portrait.
+
+    The entity kind + id keep the blob recognizable in the store, but
+    Vercel inserts a random hash before the ``.png`` so the final URL is
+    unique per upload (see ``upload`` docstring).
 
     Args:
-        entity_kind: ``"npc"`` or ``"pc"``.
+        entity_kind: ``"npc"``, ``"pc"``, or ``"monster"``.
         entity_id: UUID (or stringified UUID) of the entity.
 
     Returns:
-        Blob path like ``portraits/npc-<uuid>.png``.
+        Blob path prefix like ``portraits/npc-<uuid>.png`` — Vercel
+        appends a random suffix on upload.
     """
     return f"portraits/{entity_kind}-{entity_id}.png"
