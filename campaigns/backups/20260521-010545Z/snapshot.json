@@ -1,0 +1,1089 @@
+{
+  "adventures": [
+    {
+      "adventure": {
+        "act_count": 3,
+        "campaign_id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+        "created_at": "2026-05-18T02:02:37.453999",
+        "id": "ee3d7a70-4a01-4b9b-b026-f5415146b3bc",
+        "location_notes": "Hollowmere \u2014 The Village\nA village of ~120 souls nestled in a green hollow ringed by old oak woods, where the Silverway road from the south crests a low hill and descends into smoke and lantern-glow. The Feywild has always pressed close here; mushrooms grow in fairy-rings overnight, the river runs faintly silver after rain, and elderly villagers leave bowls of milk on their windowsills without thinking about why anymore. The autumn festival, Lantern-Eve, is the village's holy night \u2014 when the shrine's light is brightest and the fey neighbors come to dance among the humans without disguise.\n\nKey Locations\nThe Hearth (tavern \u00b7 party arrives here)\nA two-story timber-and-stone tavern at the village's south edge, marked by a forge-warm hearth whose fire is said to share a flame with the shrine. The bartender is Belva, a thick-armed half-elf whose laugh carries; the bard is whoever's passing through (tonight, a younger lutenist eager to impress). Long benches, low ceiling, mead, roasted pumpkin, autumn pies. Combat use: defensible \u2014 narrow doorways, shutters, second-floor windows for ranged.\n\nThe Lantern Shrine (climax location)\nA circle of seven moss-eaten standing stones at the northern crown of the village, on a low hill the locals call the Pale. At the center: a clear basin of still water and a single hanging lantern fed by no oil and no wick. In silver light: lovely, holy, warm. In darkness after severance: the lantern an empty husk, the basin black, the stones humming wrong. The villagers leave festival garlands here on Lantern-Eve.\n\nThe Chapel Oak (dryad lives here, becomes hostile after severance)\nA massive oak older than the village, growing through a small open-air chapel near the green. Wenneth, the oak's dryad, has been the village's gentle confidante for three generations. She braids festival ribbons into her hair. After severance, she emerges screaming and does not stop until she's killed.\n\nThe Market Green (festival staging \u00b7 combat killbox)\nA grass commons in the village center where Lantern-Eve dancing happens. Surrounded by a low stone wall, three festival lanterns on poles, and a wooden dais. Combat use: open ground, decent for ranged characters, dangerous when corrupted fey can flank from anywhere.\n\nPriestess Yelvyne's House (local Lantern Circle agent \u00b7 Act 2 anchor)\nA small stone cottage two doors from the shrine. Yelvyne is the local steward of the Lantern Shrine \u2014 and the only one in Hollowmere who knows the Lantern Circle by that name. The party can speak with her before the severance if they ask the right questions. She has a journal hidden behind her hearth-stone with notes on three other anchor-points that have failed in the last six months \u2014 the clue trail to Adventure 2.\n\nThe Silverway (road in \u00b7 road out)\nThe packed-earth road south to Aldermarch (the nearest town, a day's ride) and north past the shrine into the woods. The road's stones flicker faintly silver at dusk. Tracking use: the saboteur came in along the Silverway disguised as a festival traveler and will try to leave the same way before dawn.\n\nThe Burrow Row (humble homes \u00b7 innocents to protect)\nA cluster of ten low cottages dug half into the western hill. Children, elderly, festival cooks. Combat use: gives players a clear \"we have to protect these people\" stake during the climax.\n\nMistwood (woods around \u00b7 where dark things come from)\nThe old oak forest surrounding the hollow. Quiet, full of mushroom rings, deer, and (under normal circumstances) a polite population of pixies. After the shrine severs, this is where the older things come from \u2014 shapes that have waited at the wood's edge for an opening.\n\nTerrain\nSeason: late autumn; nights crisp, leaves turning, woodsmoke in the air\nVale: the village sits in a shallow hollow, ringed by low hills and forest; the Pale (the shrine hill) is the highest point\nWater: the Maerin Brook runs through the western edge of the village, faintly silver after rain\nLight: before severance, the village sits in a constant gentle silver-warm glow even at night; after, the night is absolute dark beyond firelight, in a way no one alive has ever seen here\nAtmosphere \u2014 before vs after\nBefore severance\tAfter severance\nLight\tSilver-warm, like a perpetual late-summer dusk\tTotal dark beyond firelight. Stars look wrong.\nSound\tFestival drums, laughter, the soft hum of the shrine\tWenneth's screaming. Things moving in the Mistwood. The wrong octave from familiar voices.\nSmell\tWoodsmoke, pumpkin, mulled wine, autumn leaves\tIron, wet earth, something old and sweet underneath\nThe fey neighbors\tHelpful, curious, openly present at the festival\tEyes black, smiles too wide, calling the players by name in voices they shouldn't know\nThe villagers\tWarm, eager, festive\tTerrified, paralyzed, or worse \u2014 not changed at all, which becomes more horrifying as the night goes on",
+        "npc_roster": [
+          {
+            "description": "Stoop-shouldered woman in faded green-and-gold vestments. A lantern pendant at her throat flickers in time with the shrine. Hands stained with shrine-oil and lichen.",
+            "name": "Priestess Yelvyne",
+            "role": "Steward of the Lantern Shrine"
+          },
+          {
+            "description": "Tall and willow-thin, bark-knot hair, mossy eyes. Smells faintly of rain on warm stone. Stays barefoot even on the tavern's wooden floors. Skin shimmers in shrine-light.",
+            "name": "Wenneth",
+            "role": "Dryad of the Hollowmere copse"
+          },
+          {
+            "description": "Apron always damp. Two pencils stuck in her gray-streaked hair. Missing the top half of one ear \u2014 a story she won't tell. Voice that carries across a crowded room.",
+            "name": "Belva",
+            "role": "Owner-bartender of The Hollow Drum"
+          },
+          {
+            "description": "Slate-gray traveling coat. Gloves he never removes. Eyes the same shade as old ice. Speaks with a precision that makes every word sound chosen. Walks without sound.",
+            "name": "Master Halve",
+            "role": "The recruiter \u2014 calls himself a 'concerned scholar'"
+          }
+        ],
+        "synopsis": "The party arrives in Hollowmere, a quiet woodland village built around the Lantern Shrine \u2014 one of Veilmark's oldest anchor-points to the Feywild. Each has been summoned by a different stranger bearing a folded letter sealed in silver wax. They are to meet at the Hearth, a warm tavern at the village's edge, on the eve of the autumn festival.\n\nWhat they expect: a job offer. What they find: each was recruited under a different pretext, by what may or may not be the same person. The Lantern Circle \u2014 a faction sworn to protect the anchor-shrines \u2014 is here for them, but whoever was supposed to brief them is conspicuously late.\n\nThe shrine is severed that night.\n\nWhen the silver light dies, the fey wedded to Hollowmere turn. The blossom-seller's eyes go black. The dryad of the chapel oak emerges screaming. Older things \u2014 shapes that had waited at the edge of the world \u2014 begin pouring through the now-open dark. The party must hold the Hearth (and the survivors crowding inside it) until first light, decide whether to attempt the shrine's repair or abandon the village to morning, and reckon with the question waiting beneath everything: who knew precisely when and how to sever this one?",
+        "tier": "Tier1",
+        "title": "The Hearth and the Hollow"
+      },
+      "encounters": [
+        {
+          "adventure_id": "ee3d7a70-4a01-4b9b-b026-f5415146b3bc",
+          "description": "Outside the Hearth tavern, the Market Green has become a killing field. Wenneth has corrupted into a 10-foot oak-horror; the Mistwood spills harassing pixies and a Blossom-Seller whose smile never fades. The PCs stand between this and fifteen terrified villagers (Belva, the lutenist, festival-goers) huddled inside the only lit room left in Hollowmere.",
+          "difficulty": "Moderate",
+          "dm_notes": "WENNETH (Dryad statblock, reskinned): She is NOT tactical \u2014 she is in agony. Attacks the nearest target; grapples on Thorn Lash hit. Does NOT chase fleeing PCs \u2014 drawn to the tavern firelight like a moth.\nCOMPASSION TRIGGER: if a PC speaks kindly to her (any compassionate words, no check required), she loses her action for one round \u2014 her face contorts and she mouths \"help me\" before the corruption reasserts. Reward roleplay-first players. She is a VICTIM, not a villain.\n\nBLOSSOM-SELLER (Bandit statblock, reskinned): smart fighter. Uses tavern geometry. If PCs are all outside, slips INTO the tavern and threatens Belva or a child to force a PC to disengage. Fights like she is being puppeted by a cruel intelligence \u2014 efficient, joyless, weeping. (She is.)\n\nCORRUPTED PIXIES (Sprite statblock): pure harassment. Fly 30 ft per turn, stay out of melee, dart in for Needle Finger (treat as Shortbow attack, 1 piercing). Target concentration spellcasters. Die in one hit by design \u2014 make martial PCs feel cool.\n\nMORAL SEEDS:\n- When the first PC drops, Wenneth pulses sad-light and the dying shrine pushes one line into all PCs heads (Sylvan, but everyone hears the meaning): \"We are not the dark. We are what was left.\"\n- Wenneth recognizes the corrupted dryad in herself. If she lives through the fight, she will remember and weep about it for the rest of the campaign. Slow-burn corruption arc begins here.\n\nMASTER HALVE: GONE. He left the tavern the moment the shrine darkened. PCs returning to the Hearth find the loft empty, his cloak draped on the chair, his old coin stacked on Belva's bar. No footprint, no scent.\n\nLOOT: 1\u00d7 sliver of false moonglass on Wenneth (or wherever she falls) \u2014 wrist-sized shard that is COLD even held tight. Plot item.\n\nXP AWARD: 375 base. Suggest +50 narrative bonus if PCs spare Wenneth (compassion trigger used) or if they protect all 15 villagers without casualties.",
+          "id": "9179ba86-421b-420b-8344-497ecf8d86d5",
+          "loot_table_id": null,
+          "monster_roster": [
+            {
+              "ac": 11,
+              "count": 1,
+              "cr": "1",
+              "hp": 22,
+              "monster_id": "26787ea3-747b-4847-8779-d94774ec68bc",
+              "name": "Dryad",
+              "xp": 200
+            },
+            {
+              "ac": 12,
+              "count": 1,
+              "cr": "1/8",
+              "hp": 11,
+              "monster_id": "66aba87f-107d-4061-9823-528d6207f087",
+              "name": "Bandit",
+              "xp": 25
+            },
+            {
+              "ac": 15,
+              "count": 3,
+              "cr": "1/4",
+              "hp": 2,
+              "monster_id": "c3c0e44e-8d91-489d-b8cd-aed3fc1513af",
+              "name": "Sprite",
+              "xp": 50
+            }
+          ],
+          "name": "Hold the Hearth \u2014 Corrupted Fey Assault",
+          "read_aloud_text": "The Market Green is a killing field of silver absence. Wenneth stands at the center, ten feet tall now and still growing, her oak-body cracking and reforming, her mouth open in a sound that isn't a scream anymore. Two corpse-blue lights dart through the broken tavern window \u2014 pixies, but wrong. Behind them, walking calmly through the tavern door as if arriving for a dinner party, is the flower-seller you saw an hour ago. Her eyes are black from lid to lid. She's smiling. Her pruning shears are out. Behind you: fifteen terrified villagers. In front of you: the dark.",
+          "reward_xp": 0,
+          "terrain_notes": "MARKET GREEN (outside the Hearth): Open circle, 60 ft. diameter. Low stone wall (half cover, +2 AC, vault: 5 ft. movement or DC 10 Athletics). Three festival lantern poles (DC 12 STR to topple, creates 10 ft. line of difficult terrain, or improvised weapon 1d8 bludgeoning). Overturned wooden dais (three-quarters cover, +5 AC, fits 2 Medium crouched). Festival garlands on the ground \u2014 DC 12 DEX check to entangle a target for 1 round.\nTHE HEARTH (interior): The only lit room in Hollowmere. Fifteen villagers + Belva inside. PCs are between the dark and them.\nLIGHT: Dim outside (firelight bleed from the Hearth windows). Bright in 10 ft of the doorway. Beyond 30 ft of the tavern = darkness. PCs without darkvision are at disadvantage on attacks past the lantern-pole ring.",
+          "xp_budget": 375
+        }
+      ],
+      "sessions": [
+        {
+          "combat_state": {
+            "active_combatant_id": "df48d712-d698-481c-ae75-1aac6eaadd9c",
+            "combatants": [
+              {
+                "character_id": "9a450e7d-4def-40f9-8be1-dd060db7a93c",
+                "conditions": [],
+                "defeated": false,
+                "dex_score": 10,
+                "hp_current": 11,
+                "hp_max": 11,
+                "id": "df48d712-d698-481c-ae75-1aac6eaadd9c",
+                "initiative_roll": 0,
+                "monster_id": null,
+                "name": "Creed Ashmantle",
+                "session_id": "3ccb1559-7409-42a0-a54e-9b5fd2d6a78c",
+                "sort_index": 0,
+                "type": "pc"
+              },
+              {
+                "character_id": "c29ba294-345c-4e09-ba3e-f913d06136fc",
+                "conditions": [],
+                "defeated": false,
+                "dex_score": 14,
+                "hp_current": 10,
+                "hp_max": 10,
+                "id": "e1ff7791-955c-4a65-b796-0efdc10828b7",
+                "initiative_roll": 0,
+                "monster_id": null,
+                "name": "Nya",
+                "session_id": "3ccb1559-7409-42a0-a54e-9b5fd2d6a78c",
+                "sort_index": 1,
+                "type": "pc"
+              },
+              {
+                "character_id": "2dde41c5-9e39-411f-941b-c48e2bc72ee5",
+                "conditions": [],
+                "defeated": false,
+                "dex_score": 16,
+                "hp_current": 9,
+                "hp_max": 9,
+                "id": "8bd20673-4bd8-4f63-9aa0-9647daa8470d",
+                "initiative_roll": 0,
+                "monster_id": null,
+                "name": "Rogue (TBN)",
+                "session_id": "3ccb1559-7409-42a0-a54e-9b5fd2d6a78c",
+                "sort_index": 2,
+                "type": "pc"
+              },
+              {
+                "character_id": "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+                "conditions": [],
+                "defeated": false,
+                "dex_score": 14,
+                "hp_current": 9,
+                "hp_max": 9,
+                "id": "0fc4097c-11a4-4ad6-a944-d8bd1cccfe7f",
+                "initiative_roll": 0,
+                "monster_id": null,
+                "name": "Warlock (TBN)",
+                "session_id": "3ccb1559-7409-42a0-a54e-9b5fd2d6a78c",
+                "sort_index": 3,
+                "type": "pc"
+              },
+              {
+                "character_id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+                "conditions": [],
+                "defeated": false,
+                "dex_score": 12,
+                "hp_current": 10,
+                "hp_max": 10,
+                "id": "1b048053-478f-45f0-a215-1f79bc16271e",
+                "initiative_roll": 0,
+                "monster_id": null,
+                "name": "Willa Thornwood",
+                "session_id": "3ccb1559-7409-42a0-a54e-9b5fd2d6a78c",
+                "sort_index": 4,
+                "type": "pc"
+              }
+            ],
+            "round": 1,
+            "session_id": "3ccb1559-7409-42a0-a54e-9b5fd2d6a78c"
+          },
+          "runbook": {
+            "closing_hooks": "END THE SESSION on Yelvyne's question: 'Dawn is six hours away. What do we do?' The party has two clear paths: (1) RESEAL THE SHRINE \u2014 escort Yelvyne to the Pale, protect her during a 10-minute ritual, face whatever is gathering in the Mistwood. This saves Hollowmere short-term but may perpetuate whatever harm the shrines are doing to the Feywild. (2) EVACUATE \u2014 abandon the shrine, gather the 120 villagers, and march south down the Silverway in total darkness with corrupted fey hunting the column. This honors Wenneth's dying wish but puts every soul in the village at risk.\n\nDO NOT let them decide tonight. Tell the table: 'You have until next session to discuss what you want to do. Your characters have until dawn.'\n\nADDITIONAL HOOKS FOR SESSION 2:\n- The saboteur's trail leads south along the Silverway. Someone left the shrine hill just before the severance. Yelvyne noticed boot-prints. Pursuit is possible but means splitting attention.\n- The recruiter's room upstairs contains a cipher note. Willa (Sage) or any PC with proficiency in a relevant tool can attempt to crack it between sessions (give them the handout if you want homework) or it becomes a Session 2 investigation beat.\n- Nya's letter used a different name \u2014 the recruiter knows her real identity. Who else knows? This is a slow-burn hook.\n- Creed's oath-mark activated during the severance. House Ashmantle has standing orders related to the anchor-shrines. What are they? He should feel pulled between his party and his liege.\n- The Drow Warlock's patron is still silent. Does the patron come back when the shrine reseals? Or is the silence permanent? What broke the connection \u2014 the severance, or something her patron did deliberately?\n- Yelvyne's journal (if found) documents three other shrine failures. The pattern is unmistakable: someone is systematically severing every anchor-point in Veilmark. Hollowmere is not the first. It will not be the last.",
+            "encounter_flows": [
+              {
+                "encounter_name": "Hold the Hearth \u2014 Corrupted Fey Assault",
+                "round_by_round": [
+                  "Round 1: Two corrupted pixies fly through the broken window (1d4 slashing to each from glass, likely kills neither at 1 HP since they're Tiny and can avoid the edges \u2014 DM call). They dart toward the backline (Nya or Warlock). The Blossom-Seller walks through the front door, pruning shears raised, smiling. Wenneth is OUTSIDE on the Market Green, screaming, 30 ft. from the tavern. She does not approach yet \u2014 she's mid-transformation. PCs act. Belva positions at the kitchen door. Villagers scream. Initiative order resolves.",
+                  "Round 2: Pixies harass casters \u2014 one uses Disorienting Dust on whoever looks most dangerous. Blossom-Seller targets the squishiest PC or moves toward a villager if no PC engages her. Wenneth completes transformation and moves 30 ft. toward the tavern. If no PC has gone outside, she reaches the wall and TEARS a 10 ft. section away (automatic, no roll \u2014 cinematic moment). The tavern is now breached. Cold dark air floods in. A villager faints.",
+                  "Round 3: Wenneth enters melee range of anyone near the breach or steps onto the Market Green if PCs came outside. Thorn Lash against the nearest target. Pixies continue harassing. Blossom-Seller attempts to flank. This is the round where the fight feels most dangerous \u2014 three threats active, multiple fronts.",
+                  "Round 4: Attrition round. Pixies should be dead or nearly dead by now. Blossom-Seller is weakening \u2014 if below 5 HP, she has her moment of clarity ('make it stop'). Wenneth is the remaining threat. If PCs are clustered, she uses Thorn Lash's reach to hit from 10 ft.",
+                  "Round 5+: If Wenneth is still up, she begins weakening \u2014 corruption burning through her. -2 HP per round at the start of her turn. She fights more desperately. Her attacks become wild \u2014 she might hit a festival lantern pole, toppling it (difficult terrain). The fight should resolve by Round 6 at the latest. When she hits 0 HP, the Rooting happens \u2014 see Scene 3 DM notes."
+                ],
+                "tactics": "WENNETH: She's not tactical \u2014 she's in agony. She attacks the nearest target and grapples when possible (Thorn Lash grapple). She does NOT chase fleeing PCs \u2014 she's drawn to the tavern's firelight like a moth. If a PC speaks kindly to her (any compassionate words, no check required), she loses her action for one round \u2014 her face contorts and she mouths 'help me' before the corruption reasserts. Use this to reward roleplay-first players and to seed the moral complexity. She is a VICTIM, not a villain.\n\nBLOSSOM-SELLER: She's the smart fighter. She uses the tavern's geometry \u2014 moves through the door, positions for flanks, targets whoever the PCs leave unguarded. If the PCs are all outside on the green, she slips back INTO the tavern and threatens villagers to force a PC to disengage. She fights like someone being puppeted by a cruel intelligence \u2014 efficient, joyless, weeping.\n\nPIXIES: Pure harassment. They fly 30 ft. per turn, staying out of melee reach, darting in for Needle Finger attacks and darting out. They target concentration spellcasters if any PC is concentrating. They die in one hit \u2014 they exist to make the battlefield feel chaotic and to give martial PCs the satisfaction of swatting them. One uses Disorienting Dust early (Round 1 or 2) on the PC who seems most effective.\n\nADJUSTMENTS FOR DIFFICULTY:\n- Too easy: Add 2 more pixies from the Mistwood in Round 3. Or have Wenneth uproot a lantern pole as an improvised weapon (1d10+3, reach 15 ft.).\n- Too hard: Belva charges Wenneth with the poker, deals 5 damage, and draws Wenneth's attention for one round. A villager throws a chair at a pixie (auto-kill). Wenneth's corruption-burn starts in Round 4 instead of Round 5.\n- A PC drops to 0 HP: The Blossom-Seller hesitates over the fallen PC's body \u2014 she doesn't deliver a killing blow. She looks at her own hands in horror. This gives allies time to heal and plants the 'they're being controlled' seed HARD.",
+                "terrain_notes": "MARKET GREEN (outside): Open circle, 60 ft. diameter. Low stone wall (half cover, +2 AC, can be vaulted with 5 ft. of movement or DC 10 Athletics). Three festival lantern poles (can be toppled: DC 12 STR, creates 10 ft. line of difficult terrain, or used as improvised weapon 1d8 bludgeoning). Overturned wooden dais (three-quarters cover, +5 AC, large enough for two Medium creatures to crouch behind). Festival garlands on the ground \u2014 cosmetic, but a PC could use them for a creative grapple or trip attempt (DM discretion, probably DC 12 DEX check to entangle a target for one round).\n\nTHE HEARTH (inside): Narrow front door (5 ft., one creature at a time \u2014 chokepoint). Broken front window (5 ft., 1d4 slashing to pass through first time). Kitchen door in the back (5 ft., Belva can hold this). Second floor accessible by interior stairs \u2014 ranged PCs can shoot from the upstairs windows with three-quarters cover. Long benches can be overturned for half cover. The HEARTH FIRE: a PC can grab a burning brand as an improvised weapon (1d4 fire damage). Corrupted fey avoid open flame when possible \u2014 they won't willingly move within 5 ft. of a character holding fire. This isn't mechanical resistance, just behavioral \u2014 smart PCs can use it to herd enemies.\n\nLIGHTING: Inside the tavern, the hearth provides bright light 20 ft., dim light 20 ft. beyond. Outside, TOTAL DARKNESS beyond the tavern's light spill. PCs without darkvision are effectively blind on the Market Green unless they bring a torch or light source. The Wood Elf Rogue and Drow Warlock have darkvision \u2014 this is their moment to shine. Literally."
+              }
+            ],
+            "generated_at": "2026-05-18T03:06:55.468945",
+            "id": "4d4dca14-7bc9-4fd6-a88a-370f7e1a295e",
+            "loot_awards": [
+              "No traditional treasure this session \u2014 the tone is survival, not looting. However:\n\n- WENNETH'S HEARTWOOD: After she roots, a PC who examines the dead tree (DC 10 Nature or Perception) finds a single branch that still pulses faintly with green life. This is a Heartwood Shard \u2014 it can be used as a druidic focus, and it hums when brought near functioning anchor-shrines. Willa will want this. If no one takes it, Yelvyne collects it silently.\n\n- BLOSSOM-SELLER'S PRUNING SHEARS: If the Blossom-Seller is killed, her shears can be recovered. They function as two daggers with the Light property. Once per day, a creature holding them can cast Druidcraft (flowers only). A sad, small magic. The Rogue may want these.\n\n- MOONSTONE DUST: If Yelvyne is asked for supplies, she offers each PC a pouch of crushed moonstone (3 doses). When thrown on a corrupted fey creature (ranged attack, 20 ft.), the target takes 1d4 radiant damage and has disadvantage on its next attack. Consumable, useful in Session 2 if the shrine assault happens.\n\n- CIPHER NOTE: Found in the recruiter's room. Not loot per se, but a physical handout. Written in a mix of Sylvan and Common using a substitution cipher. Decoding it (Investigation DC 15, or auto-success with Linguist feat or proficiency in Forgery Kit) reveals a partial message: '\u2026fourth anchor falls on Lantern-Eve. Confirm the fifth: ALDERMARCH. The pattern holds. \u2014V.' This is the campaign's first major clue and the direct hook to Adventure 2.\n\n- XP NOTE: 250 XP base is for surviving the combat encounter (Moderate difficulty for 5 Level 1 PCs). Bonus 100 XP is awarded for exceptional roleplay, creative problem-solving, or protecting all villagers (no civilian casualties). Total possible: 350 XP per PC. Level 2 threshold is 300 XP \u2014 if using XP progression, the party levels up at the end of this session or early in Session 2, which is appropriate for the escalation ahead."
+            ],
+            "model_used": "claude-opus-4-6",
+            "npc_dialog": [
+              {
+                "improv_hooks": [
+                  "If PCs try to go upstairs to check the recruiter's room: Belva hands them the key reluctantly. 'If there's a body up there, you're cleaning it up.' The room has no body \u2014 just signs of hasty departure. See Scene 1 DM notes.",
+                  "If PCs ignore Belva: She inserts herself \u2014 she's loud, warm, and impossible to overlook. She'll bring drinks unprompted and ask where they're from.",
+                  "If PCs ask Belva about the Lantern Circle: She squints. 'Circle of what? I know Yelvyne does some priestly business up at the shrine, if that's what you mean. Woman's been up there since noon, fussing with garlands. Go bother her if you want religious talk \u2014 I pour drinks.'",
+                  "During combat, if PCs forget she exists: She shouts tactical observations. 'The big one can't fit through the door! Keep her OUTSIDE!' She's a combat-aware NPC \u2014 use her to guide new players without puppeteering."
+                ],
+                "lines": [
+                  "Well now, THAT'S a matched set. \u2014 [noticing two PCs with identical silver-wax letters] \u2014 You lot all get the same mysterious invitation, or is this just how adventurers dress for autumn?",
+                  "The Lantern's been burning since before my grandmother's grandmother forgot to be impressed by it. It doesn't flicker. It doesn't dim. It just IS. Like the sun, but polite about it.",
+                  "[After severance, grabbing poker] Everyone AWAY from the windows. NOW. You \u2014 big shoulders \u2014 that door. You \u2014 magic fingers \u2014 if anything comes through that window, make it regret the trip.",
+                  "I survived the Thornwall border and two marriages. I am NOT dying in my own tavern on pumpkin night.",
+                  "[To a panicking villager] SIT. DOWN. Maren, I swear on every god who's listening, if you open the door I will bar it with your husband.",
+                  "[If PCs ask about the missing recruiter] Hooded type. Paid in silver \u2014 real silver, old mint. Took the upstairs room three days ago, asked for tea and quiet. Haven't seen 'em since yesterday morning. Room's still locked. I assumed they were resting. Now I'm assuming something worse."
+                ],
+                "npc_name": "Belva (Bartender, The Hearth)"
+              },
+              {
+                "improv_hooks": [
+                  "If PCs ask Wenneth about the shrine: 'The Lantern is ancient. Older than me, older than the oaks. It binds the Feywild here \u2014 keeps our worlds close, keeps the crossing gentle. Without it\u2026' She trails off and drinks. 'Without it, I don't know. No one alive remembers a time before the shrines.'",
+                  "If PCs ask about the fey neighbors: 'We're here because the light makes it safe. Pixies, sprites, a boggle or two \u2014 we live alongside the village because the shrine holds the boundary thin enough to breathe through but thick enough to keep the old things out. The OLD things. The ones from before the shrines.'",
+                  "If PCs ignore Wenneth: She approaches THEM. She's social, curious, slightly tipsy. She'll comment on unusual weapons, magical auras, or interesting scars.",
+                  "If PCs attack Wenneth during her transformation before she attacks anyone: She takes the hit and looks at them with her blackening eyes. 'Run,' she says, clearly, in her own voice \u2014 then the corruption takes her fully. This should make the players feel AWFUL. Good."
+                ],
+                "lines": [
+                  "[Before severance, laughing] Three hundred years in this valley and humans STILL haven't learned to properly mull wine. You scorch the clove, Belva. Every year. I adore you, but you scorch the clove.",
+                  "[To the Wood Elf Rogue, in Sylvan] Oh \u2014 one of the between-folk! Sit, sit. The wine is worse than it should be but the company is better. I can smell the green on you. Who are your people?",
+                  "[To Creed Ashmantle, playful but pointed] House Ashmantle! Your people used to send envoys to the shrines, you know. Gifts, prayers, the whole ceremony. Then someone did the mathematics and decided the Feywild wasn't a trade partner worth courting. Funny how reverence follows profit, isn't it?",
+                  "[To Willa Thornwood, intrigued] A scholar! Ask me anything, dear. I've been standing in the same spot for three centuries \u2014 I have OPINIONS.",
+                  "[During severance, screaming \u2014 not dialog but guttural, splintering agony. Then, at 0 HP, rooting into the earth, whispering:] The light\u2026 was a cage. You don't know\u2026 what you're protecting."
+                ],
+                "npc_name": "Wenneth (Dryad of the Chapel Oak)"
+              },
+              {
+                "improv_hooks": [
+                  "If PCs visit Yelvyne before severance and search her cottage: DC 14 Investigation finds the journal behind the hearthstone. It documents three other anchor-points failing: Thornwall (3 months ago), Mirecleft (5 months ago), and Dusken Tor (6 months ago). Each failure follows the same pattern \u2014 a festival night, a sudden severance, corrupted fey. Someone is targeting the shrines deliberately. This is the hook for the entire campaign arc.",
+                  "If PCs don't visit Yelvyne before severance: She arrives after combat, bleeding, and delivers the critical info then. Nothing is lost \u2014 it's just less foreshadowed.",
+                  "If PCs ask who sent the letters: 'I don't know. The Circle has agents I've never met \u2014 it's safer that way. Someone above me wanted you here tonight. Whether they wanted you here to stop this or to witness it\u2026 I can't say.'",
+                  "If PCs want to investigate the saboteur NOW: Yelvyne says tracks lead south along the Silverway \u2014 someone left the shrine hill in a hurry just before the severance. But pursuit means leaving the village undefended. This is a hook for Session 2, not tonight."
+                ],
+                "lines": [
+                  "[If visited before the severance, at the shrine] You're the ones the letters summoned? Good. I was told to expect you, though I wasn't told by whom, which is either very secretive or very concerning. The Circle works in layers. I'm a local layer. You, apparently, are being recruited for something deeper.",
+                  "[Before severance, if asked about the Lantern Circle] We are stewards. We tend the anchor-shrines \u2014 the places where the Feywild and this world are stitched together. There are seven in Veilmark. Three have gone dark in the last six months. Hollowmere's is the fourth. Or \u2014 was supposed to be the safest.",
+                  "[After severance, arriving at the Hearth] The shrine is dark. The basin is black. The stones are\u2026 humming. Wrong. I've never heard them hum before \u2014 not in forty years of tending.",
+                  "[Explaining the choice] I can reseal it. Moonstone, silver-thistle, and the last of the blessed water. It will hold for a night, maybe two. But the binding weakens every time. And the dryad's words \u2014 [she pauses] \u2014 I've been hearing whispers like hers from other stewards. That the anchors aren't protection. That they're chains.",
+                  "[If pressed on what she believes] I believe a hundred and twenty people will die tonight if we do nothing. I believe the truth can wait until they're safe. But I've been wrong before, and people I loved paid for it.",
+                  "Dawn is six hours away. What do we do?"
+                ],
+                "npc_name": "Priestess Yelvyne (Lantern Circle Agent)"
+              },
+              {
+                "improv_hooks": [
+                  "If PCs try to restrain her instead of kill her: Possible! Grapple check, then DC 13 WIS (Medicine) or DC 13 Arcana to suppress the corruption temporarily. She collapses sobbing and can be tied up. She remembers nothing useful but survives \u2014 a moral reward.",
+                  "If PCs kill her without hesitation: Yelvyne later says quietly, 'She sold me violets this morning. She had a name. I think it started with L.' Guilt is a valid emotional beat.",
+                  "If PCs ignore her and focus on Wenneth: The Blossom-Seller flanks a caster or goes for a villager. She's smart \u2014 she forces attention."
+                ],
+                "lines": [
+                  "[Entering the tavern, smiling too wide] Good evening, good evening. I brought flowers for the festival. Would anyone like to buy some flowers?",
+                  "[Mid-combat, if a PC lands a solid hit] \u2014 [voice fractures] \u2014 Please \u2014 it's so loud \u2014 make it STOP \u2014",
+                  "[If spoken to instead of attacked, DC 14 Persuasion] I can hear the dark singing. It wants me to open you up and count the red inside. I don't \u2014 I DON'T WANT TO \u2014 [attacks on her next turn regardless, weeping]"
+                ],
+                "npc_name": "Corrupted Blossom-Seller (Fey, name unknown)"
+              },
+              {
+                "improv_hooks": [
+                  "If PCs ask the lutenist to help fight: He has a dagger (he's a musician, not a soldier) and will stab ineffectually at anything that comes near his table. Stat him as a Commoner. He's terrified but brave-adjacent.",
+                  "If PCs protect him, he becomes a recurring minor NPC \u2014 he WILL write that ballad, and it will be hilariously inaccurate but flattering. Session 2 callback potential.",
+                  "If PCs ignore him: He survives under the table and later claims he 'held the eastern flank.' Nobody corrects him."
+                ],
+                "lines": [
+                  "[Before severance, between songs] Thank you, thank you! I'm here all week! \u2014 Well, I'm here all NIGHT, and then I'm leaving at dawn because I have a gig in Aldermarch, but EMOTIONALLY I'm here all week!",
+                  "[When the light dies] \u2026 I don't know a song for this.",
+                  "[During combat, hiding under a table] IF WE SURVIVE THIS I AM WRITING THE GREATEST BALLAD EVER COMPOSED. YOU WILL ALL BE MENTIONED. PROBABLY."
+                ],
+                "npc_name": "The Young Lutenist (comic relief NPC, no name yet)"
+              }
+            ],
+            "opening_scene": "The Silverway crests a low hill and there it is below you \u2014 Hollowmere, cradled in its green hollow like a coal in a cupped palm, woodsmoke and lantern-glow rising through the autumn dark. Somewhere ahead, a drum beats. Somewhere closer, someone is laughing so hard they've started coughing. And at the top of the far hill, pulsing like a second moon, the Lantern Shrine breathes silver light across every rooftop, every leaf, every face turned upward to welcome the night. You were each summoned here by a stranger's letter sealed in silver wax. You expected a job. What you've found, so far, is the best-smelling tavern in the known world and the uncomfortable suspicion that you are not the only one who got an invitation.",
+            "scenes": [
+              {
+                "dm_notes": "GOALS: (1) Introduce all 5 PCs to each other organically. (2) Establish warmth \u2014 make the players love this place before it breaks. (3) Surface the 'same recruiter' mystery. (4) Seed character hooks.\n\nSTRUCTURE: Let the players order drinks, look around, and settle in. Then trigger the Letter Reveal \u2014 have Belva notice two PCs holding identical silver-wax-sealed letters and say 'Well now, that's a matched set.' This should snowball into all five PCs realizing they were recruited by the same person.\n\nCHARACTER HOOK MOMENTS:\n- Nya: When she introduces herself, Belva pauses and says 'Funny \u2014 the letter that came for you used a different name.' (Belva received instructions to expect her. The recruiter knows Nya's real identity.)\n- Creed Ashmantle: Wenneth tilts her head at his sigil and says 'House Ashmantle. Your people used to send envoys to the shrines, before they decided profit was more interesting.' Light, teasing \u2014 but it lands.\n- Willa Thornwood: She recognizes the Lantern Circle sigil worked into the silver wax seal if she examines any letter (DC 10 INT check, auto-success with Sage background). She's read about them. Let her info-dump to the table.\n- Wood Elf Rogue: Wenneth immediately spots him as fey-touched and addresses him in Sylvan, warmly, like a cousin. 'Oh \u2014 one of the between-folk. Sit, sit. The wine is better than it has any right to be.'\n- Drow Warlock: Her patron whispers something when she enters the tavern \u2014 'The light here is old. Older than your pact. Be careful what you promise tonight.' This is flavor; the patron is uneasy near the shrine.\n\nTHE MISSING CONTACT: If PCs ask around, no one has seen anyone matching a 'recruiter' description. Belva says a hooded traveler paid for a private room upstairs three days ago but hasn't been seen since. The room (if investigated) contains: a bedroll that hasn't been slept in, a cold cup of tea, and a single page of notes in cipher. The cipher is unsolvable tonight \u2014 it's a hook for Session 2. The window is open. Whoever was here left in a hurry or was taken.\n\nPRIESTESS YELVYNE: She's not at the tavern \u2014 she's at the shrine preparing the Lantern-Eve blessing. If PCs ask about the shrine or the Lantern Circle, Belva directs them to 'old Yelvyne up the hill.' They can visit her BEFORE the severance if they're proactive. See NPC dialog below.\n\nTIMING: Let this scene breathe for 40-45 minutes. When energy peaks (everyone laughing, invested, comfortable), move to Scene 2. The transition is the shrine light dying.",
+                "estimated_minutes": 45,
+                "read_aloud": "The Hearth is everything a tavern should be on the best night of the year. The ceiling is low and dark with old smoke; the fire in the great stone hearth throws copper light across long benches packed with villagers in their festival finery \u2014 wreaths of autumn leaves, ribbon-braided hair, children with pumpkin-stained fingers. Behind the bar, a thick-armed half-elf woman with a laugh like a barrel rolling downhill is pouring mead with both hands. A young lutenist in the corner is playing something fast and slightly wrong, grinning like he's getting away with a crime. And at the bar, her hair threaded with festival ribbons the color of blood and gold, sits a woman whose skin is faintly bark-brown and whose eyes are the green of new leaves \u2014 Wenneth, the dryad of the Chapel Oak, sipping mulled wine and telling a joke to a man who appears to have forgotten how to breathe. The smell is roasted pumpkin, cinnamon, woodsmoke, and something silver underneath it all \u2014 like rain about to fall. Each of you holds a letter. Each of you is looking for the person who sent it. That person is not here.",
+                "title": "Act 1 \u2014 The Hearth: Letters and Lantern-Eve"
+              },
+              {
+                "dm_notes": "GOALS: (1) Shock the table \u2014 sell the tonal shift from comedy to horror. (2) Give each PC a personal sensory moment. (3) Set up the combat in Scene 3.\n\nPERSONAL MOMENTS (deliver these quickly, one per PC, right after the read-aloud):\n- Wood Elf Rogue: 'Your stomach drops. Vertigo hits you like a punch \u2014 the world tilts sideways for one terrible second and you taste copper. Something that was connected to you has been cut.' (One round of the Poisoned condition, then it passes.)\n- Drow Warlock: 'The voice in your mind \u2014 your patron's voice, the one that's been there since the pact \u2014 goes silent. Not quiet. Silent. Like a door slamming in a hallway that has always been open.' (Patron contact is severed. Her pact magic still works \u2014 the pact is sealed \u2014 but she can't hear her patron. This is terrifying for her.)\n- Nya: 'The sorcery in your blood flares hot. For one heartbeat your hands glow \u2014 not silver, not warm, something else. Something that responds to the absence of the light. You don't know what that means yet.' (Seed for her sorcerous origin connecting to the severances.)\n- Creed Ashmantle: 'Your oath-mark burns. House Ashmantle's sigil on your armor pulses once, gold, as if answering the darkness. Something in your duty just activated.' (His liege has contingencies tied to severance events. Don't explain further.)\n- Willa Thornwood: 'You feel it in your druid's sense like a wound in the earth \u2014 the ley-line that fed the shrine has been cut, not frayed, CUT, with surgical precision. This wasn't entropy. Someone did this on purpose.' (Give her the key intellectual clue: this was sabotage.)\n\nWENNETH'S TRANSFORMATION: She does NOT attack immediately. She screams for a full round \u2014 six seconds of agony \u2014 then her body warps: bark plates over her skin, her fingers become thorned branches, her festival ribbons tear. She lunges for the nearest villager (not a PC). This gives the PCs one round to react before she reaches an innocent.\n\nVILLAGER PANIC: 15 villagers are in the Hearth. They will stampede for the door unless a PC calms them (DC 12 CHA Persuasion or Intimidation). If they flee outside, 1d4 villagers are grabbed by corrupted fey in the dark. This raises the stakes.\n\nBELVA: She doesn't panic. She reaches under the bar and produces a heavy iron poker and a hand-axe. 'Everyone AWAY from the windows. NOW.' She's a veteran \u2014 she fought border skirmishes twenty years ago. She can hold one door if the PCs need her to (use Guard stat block, AC 16, HP 11, +3 to hit, 1d6+1 damage).\n\nTRANSITION TO COMBAT: Wenneth crashes through the tavern's front window (or door) onto the Market Green. Two corrupted pixies buzz in through the broken opening, followed by a corrupted blossom-seller (the fey merchant from the festival) who steps through the door with black eyes and a too-wide smile, carrying a pair of pruning shears like daggers. The fight is ON.\n\nTIMING: This scene should be fast \u2014 10-15 minutes of pure shock, character moments, and setup. Then straight into Scene 3.",
+                "estimated_minutes": 15,
+                "read_aloud": "It happens mid-sentence. Mid-laugh. Mid-song.\n\nThe silver light that has bathed Hollowmere since before anyone alive can remember \u2014 that gentle, warm, impossible glow from the hill \u2014 goes out. Not dims. Not flickers. Goes out, like a hand closing over a candle.\n\nThe Hearth falls silent. Belva's tankard hits the floor. The lutenist's fingers stop on the strings. Outside the windows, the village is darker than any of you have ever seen a place be \u2014 not night-dark but void-dark, the kind of darkness that feels like it has weight.\n\nThen Wenneth screams.\n\nIt is not a human sound. It is not a dryad sound. It is the sound of old wood splitting in a frost, amplified through a throat that was laughing thirty seconds ago. Her eyes roll black \u2014 not closed, black, the green swallowed \u2014 and her hands, which were holding a cup of mulled wine, are suddenly bark and thorn and reaching for the nearest person's face.\n\nOutside, through the windows, you see the festival lanterns on the Market Green die one by one. You hear children crying from Burrow Row. And from the Mistwood \u2014 from the dark tree-line that rings the village like a jaw \u2014 something is moving. Many somethings. Coming downhill.\n\nThe fire in the Hearth is the only light left in Hollowmere. And every soul in this room is looking at you.",
+                "title": "Act 2 \u2014 The Severance: When the Silver Dies"
+              },
+              {
+                "dm_notes": "COMBAT ENCOUNTER: 'Hold the Hearth'\n\nENEMIES:\n1. Wenneth, Corrupted Dryad (use DRYAD stat block, MM p.121, with modifications):\n   - HP: 22 (reduced from full dryad for level appropriateness)\n   - AC: 11 (natural armor, bark-plated)\n   - Speed: 30 ft.\n   - Attacks: Thorn Lash \u2014 +5 to hit, reach 10 ft., 1d8+3 piercing. On hit, target is grappled (escape DC 13).\n   - Bark Shield: As a reaction when hit, reduce damage by 1d4.\n   - IMPORTANT: She does NOT use Fey Charm. She's beyond charm \u2014 she's in agony. Her attacks are desperate, not strategic.\n   - NARRATIVE TELL: She cries while fighting. Festival ribbons still hang from her branches. If a PC says anything kind to her, she hesitates for one round (loses her action). This is the 'is severance evil or natural?' seed.\n\n2. Corrupted Blossom-Seller (use BANDIT stat block, AC 12, HP 11, +3 to hit, 1d6+1 with pruning shears):\n   - She fights intelligently \u2014 targets spellcasters, uses Disengage to reposition.\n   - If reduced to 5 HP or below, she drops the shears, clutches her head, and whispers 'Please \u2014 it's so loud \u2014 make it stop' before the corruption reasserts. This is a moral beat: the fey are suffering, not choosing this.\n\n3. Two Corrupted Pixies (use the following simplified stat block):\n   - HP: 1 each (minions \u2014 one hit kills them)\n   - AC: 15 (tiny, fast)\n   - Speed: 10 ft., fly 30 ft.\n   - Attack: Needle Fingers \u2014 +4 to hit, 1d4 piercing\n   - Special: Disorienting Dust (1/encounter, one pixie only) \u2014 one target within 10 ft. makes DC 10 WIS save or is disoriented (disadvantage on next attack roll). NOT full confusion \u2014 keep it simple for new players.\n   - They buzz around, harass the backline, and die fast. They exist to teach the martial PCs about weapon mastery and give the casters easy targets.\n\nTERRAIN:\n- The Market Green: Open, 60 ft. diameter circle. Low stone wall (half cover, 3 ft. high) around the perimeter. Three festival lantern poles (now dark) can be toppled with DC 12 STR check \u2014 creates difficult terrain in a 10 ft. line. Wooden dais (overturned) provides three-quarters cover if a PC crouches behind it.\n- The Hearth doorway: 5 ft. wide. One PC can hold it as a chokepoint. Belva will hold a second entrance (kitchen door) if asked.\n- Broken window: 5 ft. wide, jagged glass \u2014 any creature moving through takes 1d4 slashing (one time).\n- Fire: The hearth fire can be used \u2014 a PC can grab a burning brand (improvised weapon, 1d4 fire). Corrupted fey recoil from open flame (not mechanically, but narratively \u2014 they avoid fire if possible, giving clever PCs battlefield control).\n\nCOMBAT FLOW:\n- Round 1: Pixies dart in, Blossom-Seller enters. Wenneth is on the green \u2014 she doesn't enter the tavern (too big). PCs must choose: fight inside (safe but Wenneth wrecks the building from outside) or go out to the green (dangerous but takes the fight away from civilians).\n- Round 2: If PCs haven't engaged Wenneth, she tears a section of the tavern wall away (attack against the building, automatic hit, creates a 10 ft. opening). Villagers scream.\n- Round 3+: Wenneth closes to melee. The fight becomes about dropping her before she reaches the civilians.\n- If the fight goes past Round 5: Wenneth is visibly weakening \u2014 the corruption is burning through her. Her HP drops by 2 per round after Round 5. The severance is killing her regardless.\n\nADJUSTMENTS:\n- If PCs are struggling: Belva charges in with her poker and flanks Wenneth, giving advantage. A villager throws a chair at a pixie (auto-hit, kills it).\n- If PCs are stomping: A second wave of two more pixies arrives from the Mistwood. Or Wenneth uproots a festival lantern pole and uses it as a reach weapon (1d10+3).\n\nWENNETH'S DEATH: When she drops to 0 HP, she doesn't collapse \u2014 she roots. Her legs drive into the earth, her arms reach upward, and she becomes a tree. A dead tree, leafless and black, but a tree. The ribbons flutter. She whispers one last thing: 'The light was a cage. You don't know what you're protecting.' Then silence.\n\nAFTER COMBAT \u2014 THE CHOICE:\nPriestess Yelvyne arrives from the shrine hill, limping, bleeding from a cut above her eye. She carries a leather satchel with reagents \u2014 crushed moonstone, silver-thistle, a vial of water from the shrine basin collected before the severance. She says she can perform an emergency binding ritual to reseal the shrine for one more night \u2014 maybe two \u2014 buying time. BUT the seal will be weaker each time. The anchor-point is dying.\n\nWenneth's last words hang in the air. Yelvyne heard them. She hesitates. Then she says: 'She may be right. But if we don't reseal it, everything in those woods comes through by dawn. Every. Thing.'\n\nDo NOT force a decision tonight. Present both sides:\n- RESEAL: Saves the village short-term. Yelvyne says she needs the party to escort her to the shrine and protect her during the 10-minute ritual. But Wenneth's words suggest the shrines themselves are harmful to the Feywild.\n- DON'T RESEAL: Honors Wenneth's dying wish. But the Mistwood threats will overrun Hollowmere by sunrise. The village must evacuate \u2014 120 souls, in the dark, down the Silverway, with things hunting them.\n\nCLIFFHANGER: End the session with Yelvyne looking at the party, satchel open, and asking: 'Dawn is six hours away. What do we do?'\n\nSHORT REST: Assume the party takes a short rest in the 30 minutes after combat while Yelvyne explains the situation. They can spend Hit Dice. Warlock recovers spell slots. Don't belabor the mechanics.\n\nTIMING: Combat 45-60 min. Aftermath + Yelvyne conversation + moral choice presentation 30-45 min. Cliffhanger 5 min.",
+                "estimated_minutes": 105,
+                "read_aloud": "The Market Green is a killing field of silver absence. The festival dais is overturned. The garlands are rotting in real-time, autumn flowers curling black as if months are passing in seconds. Wenneth stands at the center of the green, ten feet tall now and still growing, her oak-body cracking and reforming, her mouth open in a sound that isn't a scream anymore \u2014 it's a frequency, a wrongness, a sound that makes your teeth ache and your shadow lean the wrong way.\n\nTwo lights dart through the broken tavern window \u2014 pixies, but wrong. Their glow is corpse-blue instead of gold, their laughter is backwards, and their tiny hands end in needle-points. Behind them, walking calmly through the tavern door as if arriving for a dinner party, is a figure you saw selling flowers at the festival an hour ago. Her eyes are black from lid to lid. She's smiling. She's holding her pruning shears in a way that suggests she's done with flowers.\n\nBehind you: fifteen terrified villagers, a bartender with a poker, and the only fire left in Hollowmere.\n\nIn front of you: the dark.\n\nWhat do you do?",
+                "title": "Act 3 \u2014 The Longest Night: Hold the Hearth"
+              }
+            ],
+            "session_id": "3ccb1559-7409-42a0-a54e-9b5fd2d6a78c",
+            "xp_awards": {
+              "base_award": 250,
+              "bonus_award": 100
+            }
+          },
+          "session": {
+            "actual_notes": "Test for what happened.\n[2026-05-19 23:44] Gave Immovable Rod to Creed Ashmantle",
+            "adventure_id": "ee3d7a70-4a01-4b9b-b026-f5415146b3bc",
+            "attending_pc_ids": [
+              "9a450e7d-4def-40f9-8be1-dd060db7a93c",
+              "c29ba294-345c-4e09-ba3e-f913d06136fc",
+              "2dde41c5-9e39-411f-941b-c48e2bc72ee5",
+              "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+              "bed58549-6d6d-474e-89f4-a78276d62e67"
+            ],
+            "combat_active_combatant_id": "df48d712-d698-481c-ae75-1aac6eaadd9c",
+            "combat_round": 1,
+            "date_planned": "2026-05-23",
+            "id": "3ccb1559-7409-42a0-a54e-9b5fd2d6a78c",
+            "session_number": 1,
+            "status": "Complete",
+            "title": "Lantern-Eve"
+          }
+        }
+      ]
+    }
+  ],
+  "api_base": "https://questlab-api-9yhe.onrender.com/api",
+  "campaign": {
+    "created_at": "2026-05-18T01:51:06.118366",
+    "description": "For generations, the Feywild and the Material Plane have been bound at sacred anchor-points \u2014 shrines whose silver light keeps the worlds entwined and the dark at bay. Now those bonds are being severed, one shrine at a time. Wherever a shrine goes dark, the kindly fey turn strange and older things flood the void. In Veilmark, a quiet faction has summoned an unlikely band of strangers to a tavern at the edge of one such shrine. Tonight, the light will go out. Tomorrow they must decide whether the bonds are worth saving \u2014 and who, exactly, has been severing them.",
+    "dm_email": "justinray5@outlook.com",
+    "id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+    "name": "The Severance",
+    "setting": "Veilmark",
+    "tone": "Heroic fantasy, comedic, epic",
+    "updated_at": "2026-05-18T01:51:06.118374",
+    "world_notes": null
+  },
+  "campaign_id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+  "captured_at": "2026-05-21T01:05:45.323315Z",
+  "characters": [
+    {
+      "features": [],
+      "inventory": [
+        {
+          "acquired_at": "2026-05-18T02:34:30.312604Z",
+          "attuned": false,
+          "attuned_at": null,
+          "character_id": "9a450e7d-4def-40f9-8be1-dd060db7a93c",
+          "equipped": true,
+          "id": "dacd04eb-ec39-4e8a-adc9-ab85766a22bb",
+          "item_id": "0d395ab9-636c-4864-a928-c01997df6260",
+          "notes": null,
+          "quantity": 1
+        }
+      ],
+      "pc": {
+        "ac": 18,
+        "alignment": "Lawful Neutral",
+        "background": "Noble",
+        "backstory": null,
+        "campaign_id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+        "character_class": "Paladin",
+        "character_name": "Creed Ashmantle",
+        "concentration_on": null,
+        "cp": 0,
+        "created_at": "2026-05-18T02:34:28.137836",
+        "death_save_failures": 0,
+        "death_save_successes": 0,
+        "ep": 0,
+        "equipment": null,
+        "exhaustion": 0,
+        "feats": [
+          "Skilled"
+        ],
+        "gp": 38,
+        "heroic_inspiration": false,
+        "hit_dice_spent": 0,
+        "hp_current": 11,
+        "hp_max": 11,
+        "id": "9a450e7d-4def-40f9-8be1-dd060db7a93c",
+        "level": 1,
+        "notes": "Chain mail + shield = AC 18 (armor + shield not in items catalog \u2014 track manually). Weapon Mastery: Longsword (Sap). Species: Fire breath weapon, Fire resistance, Darkvision.",
+        "player_name": "Cory",
+        "portrait_url": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/portraits/pc-9a450e7d-4def-40f9-8be1-dd060db7a93c.png",
+        "pp": 0,
+        "race": "Dragonborn",
+        "saving_throw_proficiencies": [
+          "WIS",
+          "CHA"
+        ],
+        "score_cha": 14,
+        "score_con": 13,
+        "score_dex": 10,
+        "score_int": 10,
+        "score_str": 16,
+        "score_wis": 12,
+        "skill_proficiencies": {
+          "Athletics": 1,
+          "History": 1,
+          "Intimidation": 1,
+          "Persuasion": 1
+        },
+        "sp": 0,
+        "speed": 30,
+        "spell_slots": null,
+        "spell_slots_used": null,
+        "spells_known": null,
+        "subclass": null,
+        "temp_hp": 0,
+        "updated_at": "2026-05-20T01:35:41.716248"
+      },
+      "spell_slots": {
+        "character_id": "9a450e7d-4def-40f9-8be1-dd060db7a93c",
+        "levels": {}
+      },
+      "spells": [
+        {
+          "added_at": "2026-05-18T02:34:29.424795Z",
+          "character_id": "9a450e7d-4def-40f9-8be1-dd060db7a93c",
+          "id": "1f19755e-3c9a-484a-b77c-5bf27ae4ecd1",
+          "known": true,
+          "prepared": true,
+          "spell_id": "1bd3fe73-ba22-4c5a-9d25-666ccfd434d6"
+        },
+        {
+          "added_at": "2026-05-18T02:34:28.906493Z",
+          "character_id": "9a450e7d-4def-40f9-8be1-dd060db7a93c",
+          "id": "f9c36189-5032-4944-ab68-c975c0d32017",
+          "known": true,
+          "prepared": true,
+          "spell_id": "cbe9409f-13f6-4ead-af25-63803a084d5b"
+        }
+      ]
+    },
+    {
+      "features": [],
+      "inventory": [
+        {
+          "acquired_at": "2026-05-18T02:34:25.092619Z",
+          "attuned": false,
+          "attuned_at": null,
+          "character_id": "c29ba294-345c-4e09-ba3e-f913d06136fc",
+          "equipped": true,
+          "id": "e8095d52-eeca-4e86-9b25-d838282d79e8",
+          "item_id": "c7972908-f29b-4921-b202-8069c3c99ffd",
+          "notes": null,
+          "quantity": 2
+        }
+      ],
+      "pc": {
+        "ac": 12,
+        "alignment": null,
+        "background": "Charlatan",
+        "backstory": "Mother murdered when she was young; raised by an assassin lord. Sorcerer father somewhere in her past. On the run.",
+        "campaign_id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+        "character_class": "Sorcerer",
+        "character_name": "Nya",
+        "concentration_on": null,
+        "cp": 0,
+        "created_at": "2026-05-18T02:34:20.966871",
+        "death_save_failures": 0,
+        "death_save_successes": 0,
+        "ep": 0,
+        "equipment": null,
+        "exhaustion": 0,
+        "feats": [
+          "Skilled",
+          "Tough"
+        ],
+        "gp": 43,
+        "heroic_inspiration": false,
+        "hit_dice_spent": 1,
+        "hp_current": 10,
+        "hp_max": 10,
+        "id": "c29ba294-345c-4e09-ba3e-f913d06136fc",
+        "level": 1,
+        "notes": "Sheet listed saves as DEX+CON; corrected to CON+CHA per Sorcerer 2024 RAW. HP 10 assumes Tough (+2).",
+        "player_name": "Chelsea",
+        "portrait_url": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/portraits/pc-c29ba294-345c-4e09-ba3e-f913d06136fc.png",
+        "pp": 0,
+        "race": "Human",
+        "saving_throw_proficiencies": [
+          "CON",
+          "CHA"
+        ],
+        "score_cha": 16,
+        "score_con": 15,
+        "score_dex": 14,
+        "score_int": 8,
+        "score_str": 10,
+        "score_wis": 12,
+        "skill_proficiencies": {
+          "Deception": 1,
+          "Insight": 1,
+          "Persuasion": 1,
+          "Sleight of Hand": 1
+        },
+        "sp": 0,
+        "speed": 30,
+        "spell_slots": {
+          "1": 2
+        },
+        "spell_slots_used": {
+          "1": 1
+        },
+        "spells_known": null,
+        "subclass": null,
+        "temp_hp": 0,
+        "updated_at": "2026-05-20T01:35:26.524016"
+      },
+      "spell_slots": {
+        "character_id": "c29ba294-345c-4e09-ba3e-f913d06136fc",
+        "levels": {
+          "1": {
+            "max": 2,
+            "remaining": 1,
+            "used": 1
+          }
+        }
+      },
+      "spells": [
+        {
+          "added_at": "2026-05-18T02:34:24.305484Z",
+          "character_id": "c29ba294-345c-4e09-ba3e-f913d06136fc",
+          "id": "0bf023e2-3a49-4bec-b674-ec1546210348",
+          "known": true,
+          "prepared": true,
+          "spell_id": "86e782db-0547-463b-91e4-a5d8fefd8f77"
+        },
+        {
+          "added_at": "2026-05-18T02:34:23.799365Z",
+          "character_id": "c29ba294-345c-4e09-ba3e-f913d06136fc",
+          "id": "a9626d3b-5689-48d3-b7d8-beb96c6ae3d1",
+          "known": true,
+          "prepared": true,
+          "spell_id": "f2bf63c7-6857-4f41-a2a0-88811845c2c6"
+        },
+        {
+          "added_at": "2026-05-18T02:34:23.295543Z",
+          "character_id": "c29ba294-345c-4e09-ba3e-f913d06136fc",
+          "id": "57af29dc-9d4b-48c6-be6e-5583371ce9ef",
+          "known": true,
+          "prepared": true,
+          "spell_id": "38687c61-6f26-4fdf-af21-9cd3863d3aab"
+        },
+        {
+          "added_at": "2026-05-18T02:34:22.739737Z",
+          "character_id": "c29ba294-345c-4e09-ba3e-f913d06136fc",
+          "id": "d122f1a1-cfb6-416c-9551-29ff0745df99",
+          "known": true,
+          "prepared": true,
+          "spell_id": "780a8cc1-9dd4-48a1-9b43-210a11c70e66"
+        },
+        {
+          "added_at": "2026-05-18T02:34:22.228769Z",
+          "character_id": "c29ba294-345c-4e09-ba3e-f913d06136fc",
+          "id": "d43c19fa-223b-49e3-a14d-152970340130",
+          "known": true,
+          "prepared": true,
+          "spell_id": "085d62f1-3653-4362-921d-144c795826ac"
+        },
+        {
+          "added_at": "2026-05-18T02:34:21.730614Z",
+          "character_id": "c29ba294-345c-4e09-ba3e-f913d06136fc",
+          "id": "e633766a-e45d-4b6c-9f5f-2d12079ec8f8",
+          "known": true,
+          "prepared": true,
+          "spell_id": "6b92a0ca-8d47-4b06-9bdb-2c36cf4f9479"
+        }
+      ]
+    },
+    {
+      "features": [],
+      "inventory": [
+        {
+          "acquired_at": "2026-05-18T02:34:27.888491Z",
+          "attuned": false,
+          "attuned_at": null,
+          "character_id": "2dde41c5-9e39-411f-941b-c48e2bc72ee5",
+          "equipped": false,
+          "id": "7ef0a57f-9728-4607-baef-7b2961dea3e3",
+          "item_id": "c7972908-f29b-4921-b202-8069c3c99ffd",
+          "notes": null,
+          "quantity": 2
+        },
+        {
+          "acquired_at": "2026-05-18T02:34:27.135146Z",
+          "attuned": false,
+          "attuned_at": null,
+          "character_id": "2dde41c5-9e39-411f-941b-c48e2bc72ee5",
+          "equipped": true,
+          "id": "cdbf952d-5430-4095-ab7a-bd1f388fa2b6",
+          "item_id": "dc1cdf64-d049-4cb2-982d-efd235f4ba9d",
+          "notes": null,
+          "quantity": 1
+        },
+        {
+          "acquired_at": "2026-05-18T02:34:26.381605Z",
+          "attuned": false,
+          "attuned_at": null,
+          "character_id": "2dde41c5-9e39-411f-941b-c48e2bc72ee5",
+          "equipped": true,
+          "id": "c5c148ca-7658-4b3e-b27a-09024ca5644d",
+          "item_id": "e18016af-85a4-49f9-8190-90ca93cce26a",
+          "notes": null,
+          "quantity": 1
+        }
+      ],
+      "pc": {
+        "ac": 14,
+        "alignment": null,
+        "background": "Wayfarer",
+        "backstory": null,
+        "campaign_id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+        "character_class": "Rogue",
+        "character_name": "Rogue (TBN)",
+        "concentration_on": null,
+        "cp": 0,
+        "created_at": "2026-05-18T02:34:25.348093",
+        "death_save_failures": 0,
+        "death_save_successes": 0,
+        "ep": 0,
+        "equipment": null,
+        "exhaustion": 0,
+        "feats": [
+          "Lucky"
+        ],
+        "gp": 24,
+        "heroic_inspiration": false,
+        "hit_dice_spent": 0,
+        "hp_current": 9,
+        "hp_max": 9,
+        "id": "2dde41c5-9e39-411f-941b-c48e2bc72ee5",
+        "level": 1,
+        "notes": "Expertise: Sleight of Hand, Stealth. Sneak Attack 1d6.",
+        "player_name": "Parker",
+        "portrait_url": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/portraits/pc-2dde41c5-9e39-411f-941b-c48e2bc72ee5.png",
+        "pp": 0,
+        "race": "Elf (Wood)",
+        "saving_throw_proficiencies": [
+          "DEX",
+          "INT"
+        ],
+        "score_cha": 8,
+        "score_con": 13,
+        "score_dex": 16,
+        "score_int": 14,
+        "score_str": 12,
+        "score_wis": 12,
+        "skill_proficiencies": {
+          "Acrobatics": 1,
+          "Insight": 1,
+          "Investigation": 1,
+          "Perception": 1,
+          "Sleight of Hand": 2,
+          "Stealth": 2
+        },
+        "sp": 0,
+        "speed": 35,
+        "spell_slots": null,
+        "spell_slots_used": null,
+        "spells_known": null,
+        "subclass": null,
+        "temp_hp": 0,
+        "updated_at": "2026-05-18T02:42:38.800893"
+      },
+      "spell_slots": {
+        "character_id": "2dde41c5-9e39-411f-941b-c48e2bc72ee5",
+        "levels": {}
+      },
+      "spells": []
+    },
+    {
+      "features": [],
+      "inventory": [
+        {
+          "acquired_at": "2026-05-18T02:34:20.707652Z",
+          "attuned": false,
+          "attuned_at": null,
+          "character_id": "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+          "equipped": false,
+          "id": "bc13e8a8-af6a-4819-8f65-1abc6cbc929a",
+          "item_id": "2af4171d-5ec0-42f6-a4af-eb9846dcbfa5",
+          "notes": null,
+          "quantity": 1
+        },
+        {
+          "acquired_at": "2026-05-18T02:34:19.904138Z",
+          "attuned": false,
+          "attuned_at": null,
+          "character_id": "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+          "equipped": true,
+          "id": "759e05f2-ae88-4232-a9fc-7162ef8073ce",
+          "item_id": "c7972908-f29b-4921-b202-8069c3c99ffd",
+          "notes": null,
+          "quantity": 2
+        }
+      ],
+      "pc": {
+        "ac": 13,
+        "alignment": null,
+        "background": "Wayfarer",
+        "backstory": null,
+        "campaign_id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+        "character_class": "Warlock",
+        "character_name": "Warlock (TBN)",
+        "concentration_on": null,
+        "cp": 0,
+        "created_at": "2026-05-18T02:34:15.757844",
+        "death_save_failures": 0,
+        "death_save_successes": 0,
+        "ep": 0,
+        "equipment": null,
+        "exhaustion": 0,
+        "feats": [
+          "Lucky"
+        ],
+        "gp": 31,
+        "heroic_inspiration": false,
+        "hit_dice_spent": 0,
+        "hp_current": 9,
+        "hp_max": 9,
+        "id": "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+        "level": 1,
+        "notes": "Pact of the Chain at L1 \u2014 in 2024 PHB, Pact of the Chain is an Eldritch Invocation with an L2 prereq. Treat as flavor (Find Familiar is a free Warlock spell anyway) or swap to a real L1 invocation. Cantrips: 3 listed; Warlock L1 has 2 cantrips known.",
+        "player_name": "Jenna",
+        "portrait_url": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/portraits/pc-d21bb4bf-d629-4e8e-9bd0-045bd9067984.png",
+        "pp": 0,
+        "race": "Elf (Drow)",
+        "saving_throw_proficiencies": [
+          "WIS",
+          "CHA"
+        ],
+        "score_cha": 16,
+        "score_con": 13,
+        "score_dex": 14,
+        "score_int": 12,
+        "score_str": 8,
+        "score_wis": 12,
+        "skill_proficiencies": {
+          "Arcana": 1,
+          "Deception": 1,
+          "Insight": 1,
+          "Perception": 1,
+          "Stealth": 1
+        },
+        "sp": 0,
+        "speed": 30,
+        "spell_slots": {
+          "level": 1,
+          "pact": 1
+        },
+        "spell_slots_used": null,
+        "spells_known": null,
+        "subclass": null,
+        "temp_hp": 0,
+        "updated_at": "2026-05-20T01:35:14.060272"
+      },
+      "spell_slots": {
+        "character_id": "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+        "levels": {
+          "1": {
+            "max": 1,
+            "remaining": 1,
+            "used": 0
+          }
+        }
+      },
+      "spells": [
+        {
+          "added_at": "2026-05-18T02:34:19.127704Z",
+          "character_id": "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+          "id": "0c6c32ca-2070-4ea5-aff9-bbc9413ee228",
+          "known": true,
+          "prepared": true,
+          "spell_id": "e8d2e056-ae2a-46c6-9816-1ae77f04ce10"
+        },
+        {
+          "added_at": "2026-05-18T02:34:18.590941Z",
+          "character_id": "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+          "id": "f4da8edb-3d6e-40ce-b943-a156c2f179e2",
+          "known": true,
+          "prepared": true,
+          "spell_id": "098600be-93bb-4195-ac6b-45154e6a989d"
+        },
+        {
+          "added_at": "2026-05-18T02:34:18.074947Z",
+          "character_id": "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+          "id": "8ba37d3d-eead-4613-a824-09204cf61f19",
+          "known": true,
+          "prepared": true,
+          "spell_id": "eac79b24-6687-4130-a7bd-d75a2a7d4b7c"
+        },
+        {
+          "added_at": "2026-05-18T02:34:17.574139Z",
+          "character_id": "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+          "id": "d437364c-1ca6-4e72-bb6c-7ed60f1bafcd",
+          "known": true,
+          "prepared": true,
+          "spell_id": "24c92306-47fa-4329-a8db-521b3382afd5"
+        },
+        {
+          "added_at": "2026-05-18T02:34:17.060863Z",
+          "character_id": "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+          "id": "2e766c14-be68-4c87-8eec-4fe436c0d78d",
+          "known": true,
+          "prepared": true,
+          "spell_id": "085d62f1-3653-4362-921d-144c795826ac"
+        },
+        {
+          "added_at": "2026-05-18T02:34:16.546815Z",
+          "character_id": "d21bb4bf-d629-4e8e-9bd0-045bd9067984",
+          "id": "c27d5525-4f3b-4baf-9aa1-e11dda947fdd",
+          "known": true,
+          "prepared": true,
+          "spell_id": "ae06c1ce-721e-4520-a9ab-85d1768b73c0"
+        }
+      ]
+    },
+    {
+      "features": [],
+      "inventory": [
+        {
+          "acquired_at": "2026-05-18T02:34:36.024356Z",
+          "attuned": false,
+          "attuned_at": null,
+          "character_id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+          "equipped": false,
+          "id": "3e3e1535-fa05-4874-9b08-8b033fa3486b",
+          "item_id": "2af4171d-5ec0-42f6-a4af-eb9846dcbfa5",
+          "notes": null,
+          "quantity": 1
+        },
+        {
+          "acquired_at": "2026-05-18T02:34:35.275780Z",
+          "attuned": false,
+          "attuned_at": null,
+          "character_id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+          "equipped": true,
+          "id": "18184239-8c64-4625-9210-f7c263b59df1",
+          "item_id": "03cf042f-70ff-4022-b6b9-f20711b1a1fc",
+          "notes": null,
+          "quantity": 1
+        }
+      ],
+      "pc": {
+        "ac": 12,
+        "alignment": "Chaotic Neutral",
+        "background": "Sage",
+        "backstory": null,
+        "campaign_id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+        "character_class": "Druid",
+        "character_name": "Willa Thornwood",
+        "concentration_on": null,
+        "cp": 0,
+        "created_at": "2026-05-18T02:34:30.578717",
+        "death_save_failures": 0,
+        "death_save_successes": 0,
+        "ep": 0,
+        "equipment": null,
+        "exhaustion": 0,
+        "feats": [
+          "Magic Initiate"
+        ],
+        "gp": 17,
+        "heroic_inspiration": false,
+        "hit_dice_spent": 0,
+        "hp_current": 10,
+        "hp_max": 10,
+        "id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+        "level": 1,
+        "notes": "Primal Order: Warden. Sage normally grants Magic Initiate (Wizard) \u2014 player took Magic Initiate (Druid) for the bonus Druid cantrip. DM-approved swap. Aasimar: Celestial Resistance (necrotic + radiant), Darkvision, Healing Hands. Leather armor and Druidic Focus tracked manually (not in items catalog).",
+        "player_name": "Hayley",
+        "portrait_url": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/portraits/pc-bed58549-6d6d-474e-89f4-a78276d62e67.png",
+        "pp": 0,
+        "race": "Aasimar",
+        "saving_throw_proficiencies": [
+          "INT",
+          "WIS"
+        ],
+        "score_cha": 10,
+        "score_con": 14,
+        "score_dex": 12,
+        "score_int": 15,
+        "score_str": 8,
+        "score_wis": 16,
+        "skill_proficiencies": {
+          "Arcana": 1,
+          "History": 1,
+          "Nature": 1,
+          "Perception": 1
+        },
+        "sp": 0,
+        "speed": 30,
+        "spell_slots": {
+          "1": 2
+        },
+        "spell_slots_used": null,
+        "spells_known": null,
+        "subclass": null,
+        "temp_hp": 0,
+        "updated_at": "2026-05-18T02:42:14.427067"
+      },
+      "spell_slots": {
+        "character_id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+        "levels": {
+          "1": {
+            "max": 2,
+            "remaining": 2,
+            "used": 0
+          }
+        }
+      },
+      "spells": [
+        {
+          "added_at": "2026-05-18T02:34:34.442598Z",
+          "character_id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+          "id": "9e38e04d-59c3-47b1-baa8-dbd1a29512a1",
+          "known": true,
+          "prepared": true,
+          "spell_id": "2e686586-c7d1-418e-845b-21d84bfa2fe2"
+        },
+        {
+          "added_at": "2026-05-18T02:34:33.950870Z",
+          "character_id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+          "id": "ff4477e6-1494-451e-ab5b-0a5c785b80cb",
+          "known": true,
+          "prepared": true,
+          "spell_id": "a7b85cf2-6361-49a0-9980-c713d9a9fe88"
+        },
+        {
+          "added_at": "2026-05-18T02:34:33.456519Z",
+          "character_id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+          "id": "b6388cf2-7fae-4758-8f77-9478d8bdc4be",
+          "known": true,
+          "prepared": true,
+          "spell_id": "62ff36df-31d4-4871-ab8b-7cacc9edeee4"
+        },
+        {
+          "added_at": "2026-05-18T02:34:32.956726Z",
+          "character_id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+          "id": "2e1c8e82-e676-4afc-9a82-3609077934a1",
+          "known": true,
+          "prepared": true,
+          "spell_id": "b22cb8ef-56ba-49a4-a5e4-bd49bf592043"
+        },
+        {
+          "added_at": "2026-05-18T02:34:32.428360Z",
+          "character_id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+          "id": "bf5ac8a6-0984-4be0-9dd8-729d1871dc5e",
+          "known": true,
+          "prepared": true,
+          "spell_id": "d7f9f935-81f7-456f-b9f4-0f65d3ffc710"
+        },
+        {
+          "added_at": "2026-05-18T02:34:31.911759Z",
+          "character_id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+          "id": "1bceb4f7-66b3-4bbf-af4c-e5de6316df5d",
+          "known": true,
+          "prepared": true,
+          "spell_id": "726a0172-03ed-4282-a00e-1e16ef0aaf83"
+        },
+        {
+          "added_at": "2026-05-18T02:34:31.390243Z",
+          "character_id": "bed58549-6d6d-474e-89f4-a78276d62e67",
+          "id": "4dec625f-28d3-4314-b73c-f670a2b62790",
+          "known": true,
+          "prepared": true,
+          "spell_id": "485db46c-491b-4e46-8711-f294daa491d0"
+        }
+      ]
+    }
+  ],
+  "npcs": [
+    {
+      "age": "50s",
+      "appearance": "Apron always damp. Two pencils stuck in her gray-streaked hair. Missing the top half of one ear \u2014 a story she won't tell. Voice that carries across a crowded room.",
+      "campaign_id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+      "created_at": "2026-05-18T20:54:57.806346Z",
+      "dialog_hooks": [
+        "First round's on me 'cause you look like you've ridden a long way \u2014 second round, you pay double, friend.",
+        "Wenneth? Comes in for cider every fortnight. Says less than a stone but listens like one.",
+        "Aye, I rented the loft. He paid in old coin. The kind that don't tarnish. Don't ask me again."
+      ],
+      "gender": "Female",
+      "id": "f4e76042-2873-4882-970e-b6c24902e0b0",
+      "is_revealed": true,
+      "location": "Hollowmere \u2014 The Hollow Drum tavern",
+      "monster_stat_block_id": null,
+      "motivation": "Keep her tavern open and her people fed. Loves the village like a cranky aunt.",
+      "name": "Belva",
+      "notes": "Human anchor of the session. Drops a tankard the instant the shrine darkens \u2014 use her to seed warmth so the loss has stakes. Only reveals the loft secret if PCs press.\n\n**Accent:** Brassy working-class \u2014 Cockney or Bronx barkeep, pick one. Volume up 20%. Drops her t's ('li'l', 'wha'?'). Calls everyone 'love' or 'duck.' Slams things on the bar to punctuate jokes. When startled, the accent SLIPS one syllable into something else and snaps back \u2014 tell that she's not from here originally.",
+      "personality": "Brassy, kind, nosier than she admits. Remembers what everyone drinks and what they owe.",
+      "portrait_url": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/portraits/npc-f4e76042-2873-4882-970e-b6c24902e0b0.png",
+      "race": "Halfling",
+      "role": "Owner-bartender of The Hollow Drum",
+      "secret": "She rented her loft to the recruiter three nights ago for old coin 'that don't tarnish.' She's starting to regret the silence.",
+      "status": "Alive",
+      "tags": [
+        "session 1",
+        "tavern",
+        "intel"
+      ],
+      "updated_at": "2026-05-19T02:56:38.511852Z"
+    },
+    {
+      "age": "ageless; looks 40-something",
+      "appearance": "Slate-gray traveling coat. Gloves he never removes. Eyes the same shade as old ice. Speaks with a precision that makes every word sound chosen. Walks without sound.",
+      "campaign_id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+      "created_at": "2026-05-18T20:54:59.126190Z",
+      "dialog_hooks": [
+        "You came because I asked. That is the first decision you have made this evening. Notice it.",
+        "Some lights should be put out. Some lights ARE being put out. The question is who decides \u2014 the dying light, or someone who can still see.",
+        "Hollowmere is a small place. A very small place. After tonight, it will be smaller."
+      ],
+      "gender": "Male",
+      "id": "6d2f9591-0073-435d-9f80-dd071ebd964b",
+      "is_revealed": true,
+      "location": "Hollowmere \u2014 The Hollow Drum tavern (loft)",
+      "monster_stat_block_id": null,
+      "motivation": "Identify which PCs will agree to sever shrines when the time comes. He's testing them, not yet recruiting them.",
+      "name": "Master Halve",
+      "notes": "Campaign cipher. Does NOT engage in combat in session 1 \u2014 vanishes before the corrupted fey arrive. Call each PC out by something only they would know (Warlock's patron silence, Rogue's fey kin, Nya's mother, Creed's oath, Willa's reading). Reveals: 0. Suspicions: 100.\n\n**Accent:** Hannibal Lecter calm \u2014 crisp, low-volume, hyper-precise. No regional accent at all. Every consonant clipped. Never raises pitch even on questions. Holds eye contact two beats too long after a sentence ends. Pauses before names ('Wayfair\u2026er. Yes.'). Speak QUIETER than feels natural so they lean in.",
+      "personality": "Polite to the point of menace. Listens longer than he speaks. Treats each PC like a piece on a board he's already won.",
+      "portrait_url": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/portraits/npc-6d2f9591-0073-435d-9f80-dd071ebd964b.png",
+      "race": "Unknown (presents as Human)",
+      "role": "The recruiter \u2014 calls himself a 'concerned scholar'",
+      "secret": "Agent of whatever-is-doing-the-severing. Not the wielder, but he chooses the targets. He recognized something specific in each of the 5 PCs that made them useful.",
+      "status": "Alive",
+      "tags": [
+        "session 1",
+        "antagonist - cipher",
+        "lantern circle - hidden"
+      ],
+      "updated_at": "2026-05-19T02:56:55.576578Z"
+    },
+    {
+      "age": "late 60s",
+      "appearance": "Stoop-shouldered woman in faded green-and-gold vestments. A lantern pendant at her throat flickers in time with the shrine. Hands stained with shrine-oil and lichen.",
+      "campaign_id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+      "created_at": "2026-05-18T20:54:56.379390Z",
+      "dialog_hooks": [
+        "The light is older than Hollowmere. It is older than my grandmother's grandmother's name for it.",
+        "If the shrine goes dark, the village goes with it. Some night, eventually. That is the bargain.",
+        "Wenneth speaks like a fool dressed in branches. Do not listen to her at the cost of the village."
+      ],
+      "gender": "Female",
+      "id": "f47201e0-d837-4895-b2d4-be76e7729cc5",
+      "is_revealed": true,
+      "location": "Hollowmere \u2014 Lantern Shrine grounds",
+      "monster_stat_block_id": null,
+      "motivation": "Preserve the Lantern Shrine and the village's tie to the Feywild \u2014 at any cost.",
+      "name": "Priestess Yelvyne",
+      "notes": "Moral pole \u2014 preserve. Play warm but immovable; not a villain, has real reasons.\n\n**Accent:** Welsh village elder. Slow, deliberate, slight quaver from age; pitch slightly below your natural voice. Long vowels on important words ('the liiight'). One-beat pause before 'Hollowmere' every time.",
+      "personality": "Patient and slow-speaking; her warmth conceals a stubborn certainty. Treats the shrine as if it were a family member, not an artifact.",
+      "portrait_url": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/portraits/npc-f47201e0-d837-4895-b2d4-be76e7729cc5.png",
+      "race": "Human",
+      "role": "Steward of the Lantern Shrine",
+      "secret": "Her predecessor walked into the shrine and never came out. She fears the bargain will eventually come for her too.",
+      "status": "Alive",
+      "tags": [
+        "lantern circle",
+        "session 1",
+        "moral pole - preserve"
+      ],
+      "updated_at": "2026-05-19T02:56:01.436480Z"
+    },
+    {
+      "age": "uncountable; appears mid-30s",
+      "appearance": "Tall and willow-thin, bark-knot hair, mossy eyes. Smells faintly of rain on warm stone. Stays barefoot even on the tavern's wooden floors. Skin shimmers in shrine-light.",
+      "campaign_id": "80b6f517-d124-4fea-9435-8e727f3171a9",
+      "created_at": "2026-05-18T20:54:57.217705Z",
+      "dialog_hooks": [
+        "The bonds do not hold us close. They hold us still. Stillness is not life.",
+        "Yelvyne loves the shrine the way a child loves a sick dog \u2014 by refusing to see it suffer.",
+        "If you ask me to choose: let it go. The Feywild does not need a leash."
+      ],
+      "gender": "Female",
+      "id": "cfc28866-8025-47cd-9bbc-91a09dde0edf",
+      "is_revealed": true,
+      "location": "Hollowmere \u2014 tavern (initially), copse outside village",
+      "monster_stat_block_id": null,
+      "motivation": "End the severance pain in her grove \u2014 even if it means letting the shrine die.",
+      "name": "Wenneth",
+      "notes": "Moral pole \u2014 sever. Visibly wilts the moment the shrine severs in Act 2.\n\n**Accent:** Soft Irish lilt slowed by ~30%. Breathy. Tiny half-second delays mid-sentence ('The bonds do not \u2014 hold us close.'). Never blinks during dialog. Imagine you just realized you have a body.",
+      "personality": "Wry, mournful, casually unsettling. Speaks in present tense even of dead things. Doesn't quite get how humans count days.",
+      "portrait_url": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/portraits/npc-cfc28866-8025-47cd-9bbc-91a09dde0edf.png",
+      "race": "Dryad (Fey)",
+      "role": "Dryad of the Hollowmere copse",
+      "secret": "Her own tree is one of the anchors. She physically feels every severance as a friend ceasing to breathe, and has been hiding the deterioration for months.",
+      "status": "Alive",
+      "tags": [
+        "fey",
+        "lantern circle",
+        "session 1",
+        "moral pole - sever"
+      ],
+      "updated_at": "2026-05-19T02:56:18.631240Z"
+    }
+  ],
+  "schema_version": 1
+}
