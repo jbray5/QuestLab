@@ -175,11 +175,20 @@ def main() -> None:
     label((gap_a + gap_b) / 2, wy + 5, "gap", 10, "#9a9488")
     label(grid_left + GRID_W * 0.79, wy + 20, "vault: 5 ft move or DC 10 Athletics", 10, "#c9a84c")
 
-    # ── The Hearth ──────────────────────────────────────────────────────
+    # ── The Hearth — interior (combat can move inside) ──────────────────
+    # Semi-transparent fill so the hex grid shows through the room — a
+    # fight that spills indoors still has hexes to move on.
     parts.append(
         f'<rect x="{grid_left+10}" y="{hearth_top+10:.0f}" width="{GRID_W-20:.0f}" '
-        f'height="{HEX_V*5-8:.0f}" rx="7" fill="#3a1e0c" stroke="#8a5e2c" stroke-width="3"/>'
+        f'height="{HEX_V*5-8:.0f}" rx="7" fill="#3a1e0c" fill-opacity="0.42" '
+        f'stroke="#8a5e2c" stroke-width="3"/>'
     )
+    int_left = grid_left + 10
+    int_right = grid_right - 10
+    int_top = hearth_top + 10
+    int_bot = hearth_top + HEX_V * 5 + 2
+
+    # Door (in the top wall — opens onto the green)
     door_x = grid_cx
     parts.append(
         f'<rect x="{door_x-26:.0f}" y="{hearth_top+3:.0f}" width="52" height="14" fill="#c9a84c"/>'
@@ -191,11 +200,90 @@ def main() -> None:
             f'<rect x="{wx-22:.0f}" y="{hearth_top+4:.0f}" width="44" height="10" fill="#7da3c9"/>'
         )
         label(wx, hearth_top - 5, "window", 10, "#7da3c9")
-    hc = hearth_top + HEX_V * 2.5
-    label(grid_cx, hc, "T H E   H E A R T H", 24, "#e8dcc0", "bold")
-    label(grid_cx, hc + 24, "15 villagers + Belva inside.", 12, "#d9b98a")
-    label(grid_cx, hc + 41, "Door & windows are the fey entry points —", 12, "#d9b98a")
-    label(grid_cx, hc + 57, "and what the party is protecting.", 12, "#d9b98a")
+
+    # Room title — small, tucked top-left so it doesn't fight the furniture
+    label(int_left + 12, int_top + 22, "THE HEARTH — interior", 14, "#e8dcc0", "bold", "start")
+
+    # Great hearth / fireplace — bottom-centre wall. The only fire left in
+    # Hollowmere; bright light; shove a creature in for fire damage.
+    fh_w = 168
+    fx = grid_cx - fh_w / 2
+    fy = int_bot - 30
+    parts.append(
+        f'<rect x="{fx:.0f}" y="{fy:.0f}" width="{fh_w}" height="30" rx="4" '
+        f'fill="#7a3310" stroke="#b5601e" stroke-width="3"/>'
+    )
+    # flame glow
+    parts.append(
+        f'<ellipse cx="{grid_cx:.0f}" cy="{fy+8:.0f}" rx="{fh_w/2-12:.0f}" ry="22" '
+        f'fill="#e8862e" opacity="0.5"/>'
+    )
+    for off in (-44, 0, 44):
+        parts.append(
+            f'<path d="M{grid_cx+off:.0f},{fy+22:.0f} q-7,-18 0,-30 q7,12 0,30 Z" '
+            f'fill="#f0a838"/>'
+        )
+    label(grid_cx, fy - 8, "GREAT HEARTH — bright light; shove-in 1d10 fire", 11, "#f0a838", "bold")
+
+    # The bar — Belva's counter, left side, an L of solid cover
+    bar_x, bar_y = int_left + 26, int_top + 52
+    parts.append(
+        f'<rect x="{bar_x:.0f}" y="{bar_y:.0f}" width="190" height="26" rx="5" '
+        f'fill="#5a3c1c" stroke="#8a5e2c" stroke-width="2"/>'
+    )
+    parts.append(
+        f'<rect x="{bar_x:.0f}" y="{bar_y:.0f}" width="26" height="92" rx="5" '
+        f'fill="#5a3c1c" stroke="#8a5e2c" stroke-width="2"/>'
+    )
+    label(bar_x + 105, bar_y + 17, "THE BAR", 11, "#e8dcc0", "bold")
+    label(
+        bar_x + 100,
+        bar_y + 116,
+        "Belva fights from here (poker) · 3/4 cover behind it",
+        10,
+        "#c9a84c",
+        "start",
+    )
+
+    # Stairs up to the loft — top-right corner; where Master Halve was
+    st_x, st_y = int_right - 92, int_top + 8
+    for i in range(5):
+        parts.append(
+            f'<rect x="{st_x:.0f}" y="{st_y+i*11:.0f}" width="{80-i*12}" height="9" '
+            f'fill="#6f5a36" stroke="#8a6f44" stroke-width="1"/>'
+        )
+    label(st_x + 40, st_y + 74, "stairs ↑ loft", 10, "#d9c9a8")
+    label(st_x + 40, st_y + 88, "(Halve was up here)", 9, "#9a9488")
+
+    # Villager huddle — back corner, far from the door
+    vh_cx, vh_cy = int_left + 70, int_bot - 66
+    parts.append(
+        f'<ellipse cx="{vh_cx:.0f}" cy="{vh_cy:.0f}" rx="62" ry="40" '
+        f'fill="#7da3c9" opacity="0.18" stroke="#7da3c9" stroke-width="1.5" '
+        f'stroke-dasharray="4 3"/>'
+    )
+    parts.append(
+        f'<text x="{vh_cx:.0f}" y="{vh_cy-2:.0f}" font-size="20" ' f'text-anchor="middle">👥</text>'
+    )
+    label(vh_cx, vh_cy + 22, "15 villagers — PROTECT", 10, "#7da3c9", "bold")
+    label(vh_cx, vh_cy + 35, "Blossom-Seller threatens", 9, "#9a9488")
+    label(vh_cx, vh_cy + 46, "them to force a disengage", 9, "#9a9488")
+
+    # Tables + benches — scatter; overturn for half cover, difficult terrain
+    for tx_frac, ty_off in [(0.56, 60), (0.74, 96), (0.62, 138), (0.86, 70)]:
+        tcx = int_left + (int_right - int_left) * tx_frac
+        tcy = int_top + ty_off
+        parts.append(
+            f'<circle cx="{tcx:.0f}" cy="{tcy:.0f}" r="17" fill="#4a3115" '
+            f'stroke="#7a5226" stroke-width="2"/>'
+        )
+    label(
+        int_left + (int_right - int_left) * 0.71,
+        int_top + 162,
+        "tables — overturn for 1/2 cover (+2 AC) & difficult terrain",
+        10,
+        "#c9a84c",
+    )
 
     # ── Shrine off-map indicator ────────────────────────────────────────
     label(
