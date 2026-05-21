@@ -21,6 +21,17 @@ export default function PlayerView() {
   return <PlayerSheet pcId={pcId} />;
 }
 
+/** Plan 39 — a DM table roll received over the SSE stream. */
+interface DmRoll {
+  id?: number;
+  label: string;
+  detail: string;
+  total: number;
+  crit: boolean;
+  fumble: boolean;
+  roller: string;
+}
+
 const HIT_DIE_BY_CLASS: Record<string, number> = {
   Sorcerer: 6,
   Wizard: 6,
@@ -94,6 +105,9 @@ function PlayerSheet({ pcId }: { pcId: string }) {
     qc.invalidateQueries({ queryKey: ["play-features", pcId] });
   };
 
+  // Plan 39 — live feed of the DM's broadcast "table rolls".
+  const [dmRolls, setDmRolls] = useState<DmRoll[]>([]);
+
   // Plan 26 — live sync via SSE. Refetch the relevant queries when the
   // backend signals this PC changed.
   const onStreamEvent = useCallback(
@@ -108,6 +122,12 @@ function PlayerSheet({ pcId }: { pcId: string }) {
         // Plan 37 — DM toggled a condition / defeated flag on this PC's
         // combatant row. Refetch just the conditions strip.
         qc.invalidateQueries({ queryKey: ["play-combat-state", pcId] });
+      } else if (evt.type === "dice.rolled") {
+        // Plan 39 — DM broadcast a table roll. Prepend to the feed.
+        const roll = (evt as StreamEvent & { roll?: DmRoll }).roll;
+        if (roll) {
+          setDmRolls((prev) => [{ ...roll, id: Date.now() + Math.random() }, ...prev].slice(0, 6));
+        }
       } else if (evt.type === "pc.turn.changed") {
         // Plan 28 — write the new turn-state straight into the cache so
         // the banner toggles instantly without a network round-trip.
@@ -192,6 +212,7 @@ function PlayerSheet({ pcId }: { pcId: string }) {
       <div style={containerStyle}>
         <TurnBanner turnState={turnState} />
         <ConditionsStrip combatState={combatState} />
+        <DmRollsFeed rolls={dmRolls} />
         <HeaderBanner pc={pc} spellStats={spellStats ?? null} initMod={initMod} />
 
         <HpZone pc={pc} pcId={pcId} conMod={conMod} onUpdate={invalidate} />
@@ -247,6 +268,75 @@ function PlayerSheet({ pcId }: { pcId: string }) {
 }
 
 // ── Sub-blocks ─────────────────────────────────────────────────────────────
+
+function DmRollsFeed({ rolls }: { rolls: DmRoll[] }) {
+  // Plan 39 — live feed of the DM's broadcast rolls. Renders nothing
+  // until the first roll arrives; newest on top, capped at 6.
+  if (rolls.length === 0) return null;
+  return (
+    <div
+      style={{
+        margin: "0.5rem 0",
+        padding: "0.5rem 0.7rem",
+        background: "var(--surface2)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+      }}
+    >
+      <div
+        style={{
+          fontSize: "0.62rem",
+          color: "var(--gold)",
+          fontFamily: "Cinzel Decorative, serif",
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+          marginBottom: "0.3rem",
+        }}
+      >
+        🎲 DM's Rolls
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.18rem" }}>
+        {rolls.map((r) => (
+          <div
+            key={r.id}
+            style={{
+              display: "flex",
+              gap: "0.45rem",
+              alignItems: "center",
+              fontSize: "0.78rem",
+            }}
+          >
+            <span style={{ color: "var(--muted)" }}>{r.label}</span>
+            <span
+              style={{
+                color: "var(--muted)",
+                fontSize: "0.66rem",
+                fontFamily: "monospace",
+              }}
+            >
+              {r.detail}
+            </span>
+            <span
+              style={{
+                marginLeft: "auto",
+                fontWeight: 700,
+                fontFamily: "monospace",
+                color: r.crit
+                  ? "var(--green2, #4caf50)"
+                  : r.fumble
+                    ? "var(--red, #ef5350)"
+                    : "var(--gold)",
+              }}
+            >
+              {r.total}
+              {r.crit ? " ✦ CRIT" : r.fumble ? " ✦ FUMBLE" : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 function ConditionsStrip({ combatState }: { combatState: CombatState | undefined }) {
   // Plan 37 — render only when in active combat AND at least one condition.

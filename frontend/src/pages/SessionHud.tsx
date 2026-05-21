@@ -23,6 +23,7 @@ import { encountersApi } from "../api/encounters";
 import { npcsApi } from "../api/npcs";
 import TonightsCastDrawer from "../components/tonights-cast/TonightsCastDrawer";
 import EditableRunbookText from "../components/runbook/EditableRunbookText";
+import TableRollStrip from "../components/dice-tray/TableRollStrip";
 import { monstersApi } from "../api/monsters";
 import { restApi } from "../api/rest";
 import { spellcastingApi } from "../api/spellcasting";
@@ -1354,6 +1355,8 @@ export default function SessionHud() {
           flexDirection: "column",
           overflow: "hidden",
         }}>
+          {/* Plan 39 — public dice roller; broadcasts to player phones */}
+          {sessionId && <TableRollStrip sessionId={sessionId} />}
           <div style={{
             padding: "0.6rem 0.75rem",
             borderBottom: "1px solid var(--border)",

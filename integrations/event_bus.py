@@ -174,6 +174,30 @@ def publish_session_combat_updated(session_id: Any, campaign_id: Any) -> None:
     event_bus.publish(f"campaign:{campaign_id}", payload)
 
 
+def publish_dice_rolled(
+    pc_ids: Any,
+    campaign_id: Any,
+    roll: dict[str, Any],
+) -> None:
+    """Fan a DM "table roll" out to every attending PC + the campaign (Plan 39).
+
+    Players subscribe only to their own ``pc:{pc_id}`` topic, so a public
+    dice roll is published to each attending PC's topic individually
+    rather than to the campaign topic (which would expose other PCs'
+    event traffic). The campaign topic also gets it so the HUD's own
+    log stays in sync across DM tabs.
+
+    Args:
+        pc_ids: Iterable of player-character UUIDs to notify.
+        campaign_id: UUID of the owning campaign.
+        roll: Roll payload — label, detail, total, crit, fumble, roller.
+    """
+    payload: Event = {"type": "dice.rolled", "roll": roll}
+    for pc_id in pc_ids:
+        event_bus.publish(f"pc:{pc_id}", payload)
+    event_bus.publish(f"campaign:{campaign_id}", payload)
+
+
 def publish_pc_combat_updated(pc_id: Any, campaign_id: Any) -> None:
     """Publish a combat-state mutation event scoped to one PC (Plan 00037).
 

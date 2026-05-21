@@ -38,9 +38,10 @@
 
 ## The Party
 
-### 1. Drow Warlock — *Jenna* (PC: TBN)
+### 1. Drow Warlock — *Jenna* (PC: **Sarranthia**)
 
-- **Name:** still pending
+- **Name confirmed:** **Sarranthia.** Last name / nicknames pending
+  from Jenna.
 - **Class:** Warlock 1 · **Race:** Elf (Drow) · **Background:** Wayfarer
 - **Saves:** WIS, CHA · **Feat:** Lucky
 - **Backstory sent:** none yet
@@ -271,7 +272,7 @@
 
 | Player | Pending |
 |---|---|
-| Jenna (Warlock) | Name, backstory, patron flavor |
+| Jenna (Sarranthia) | Last name/nicknames, backstory, patron flavor |
 | Parker (Rogue) | Name + 4 of 5 prompts |
 | Chelsea (Nya) | 5 prompts |
 | Cory (Creed) | Nothing — god confirmed, backstory complete |

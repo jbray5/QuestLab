@@ -30,6 +30,17 @@ export const sessionsApi = {
     api.post<SessionRunbook>(`/sessions/${id}/runbook`, { notes: notes ?? "" }),
   patchRunbook: (id: string, update: Partial<SessionRunbook>) =>
     api.patch<SessionRunbook>(`/sessions/${id}/runbook`, update),
+  broadcastDiceRoll: (
+    id: string,
+    roll: {
+      label: string;
+      detail: string;
+      total: number;
+      crit: boolean;
+      fumble: boolean;
+      roller: string;
+    },
+  ) => api.post<{ delivered_to: number }>(`/sessions/${id}/dice-roll`, roll),
   // ── Persistent combat state (Plan 00015) ────────────────────────────────
   getCombatState: (id: string) =>
     api.get<SessionCombatStateRead>(`/sessions/${id}/combat`),

@@ -8,6 +8,9 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from api.deps import DB, CurrentUser
+from domain.session import (
+    DiceRollBroadcast,
+)
 from domain.session import Session as GameSession
 from domain.session import (
     SessionCombatantRead,
@@ -293,6 +296,41 @@ def patch_runbook(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/sessions/{session_id}/dice-roll")
+def broadcast_dice_roll(
+    session_id: uuid.UUID,
+    body: DiceRollBroadcast,
+    db: DB,
+    user: CurrentUser,
+) -> dict:
+    """Broadcast a DM 'roll for the table' to the attending players (Plan 39).
+
+    Ephemeral — the roll is not persisted. It's fanned out as a live
+    ``dice.rolled`` event to every attending PC's stream so it lands on
+    the player phones.
+
+    Args:
+        session_id: UUID of the session.
+        body: The roll payload (label, detail, total, crit, fumble, roller).
+        db: Database session.
+        user: Authenticated DM.
+
+    Returns:
+        ``{"delivered_to": <int>}`` — how many PCs the roll reached.
+
+    Raises:
+        HTTPException 404: If the session is missing.
+        HTTPException 403: If the DM does not own the campaign.
+    """
+    try:
+        count = session_service.broadcast_dice_roll(db, session_id, user, body.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    return {"delivered_to": count}
 
 
 # ---------------------------------------------------------------------------

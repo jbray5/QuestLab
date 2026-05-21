@@ -36,6 +36,7 @@ from domain.session import (
     SessionUpdate,
 )
 from integrations.event_bus import (
+    publish_dice_rolled,
     publish_pc_combat_updated,
     publish_pc_turn_changed,
     publish_session_combat_updated,
@@ -318,6 +319,45 @@ def save_runbook(
     """
     get_session(db, session_id, dm_email)  # verify ownership
     return SessionRunbookRepo.create(db, runbook_data)
+
+
+def broadcast_dice_roll(
+    db: DBSession,
+    session_id: uuid.UUID,
+    dm_email: str,
+    roll: dict,
+) -> int:
+    """Fan a DM table-roll out to the attending players (Plan 39).
+
+    Ephemeral — the roll is not persisted. Looks up the session's
+    attending PCs and publishes a ``dice.rolled`` event to each one's
+    topic so it lands on the player phones live.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+        roll: Roll payload (label, detail, total, crit, fumble, roller).
+
+    Returns:
+        Number of PCs the roll was published to.
+
+    Raises:
+        ValueError: If the session or adventure is not found.
+        PermissionError: If the DM does not own the campaign.
+    """
+    game_session = get_session(db, session_id, dm_email)  # ownership check
+    adventure = AdventureRepo.get_by_id(db, game_session.adventure_id)
+    if adventure is None:
+        raise ValueError(f"Adventure {game_session.adventure_id} not found.")
+    # Attending PCs if specified, else every PC in the campaign.
+    attending = game_session.attending_pc_ids or []
+    if attending:
+        pc_ids = [uuid.UUID(str(pid)) for pid in attending]
+    else:
+        pc_ids = [pc.id for pc in CharacterRepo.list_by_campaign(db, adventure.campaign_id)]
+    publish_dice_rolled(pc_ids, adventure.campaign_id, roll)
+    return len(pc_ids)
 
 
 def patch_runbook(

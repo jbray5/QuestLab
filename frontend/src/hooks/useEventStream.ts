@@ -74,6 +74,7 @@ export function useEventStream(
       "pc.combat.updated",
       "pc.turn.changed",
       "session.combat.updated",
+      "dice.rolled",
     ];
     types.forEach((t) => es.addEventListener(t, dispatch as EventListener));
 

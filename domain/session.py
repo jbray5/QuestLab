@@ -114,6 +114,21 @@ class SessionRunbookCreate(BaseModel):
     loot_awards: Optional[list[Any]] = None
 
 
+class DiceRollBroadcast(BaseModel):
+    """Input schema for a DM 'roll for the table' broadcast (Plan 39).
+
+    Ephemeral — not persisted. The DM rolls in the HUD; the result is
+    fanned out to the attending players' phones as a live event.
+    """
+
+    label: str = Field(min_length=1, max_length=40)  # e.g. "2d6+3"
+    detail: str = Field(default="", max_length=120)  # e.g. "[4, 5] +3"
+    total: int
+    crit: bool = False
+    fumble: bool = False
+    roller: str = Field(default="DM", max_length=60)
+
+
 class SessionRunbookUpdate(BaseModel):
     """Partial-update schema for a session runbook (Plan 38 inline edit).
 
