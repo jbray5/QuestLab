@@ -8,6 +8,7 @@ import FeaturePanel from "../components/FeaturePanel";
 import ImageUpload from "../components/ImageUpload";
 import InventoryPanel from "../components/InventoryPanel";
 import SpellPanel from "../components/SpellPanel";
+import { portraitSrc } from "../lib/portrait";
 
 function mod(score: number) {
   const m = Math.floor((score - 10) / 2);
@@ -303,7 +304,7 @@ export default function Characters() {
             <div className="flex items-center" style={{ gap: "0.75rem", marginBottom: "0.75rem" }}>
               {c.portrait_url ? (
                 <img
-                  src={c.portrait_url}
+                  src={portraitSrc(c.portrait_url, c.updated_at)}
                   alt={c.character_name}
                   style={{
                     width: 52,

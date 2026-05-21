@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { playApi, type CombatState, type TurnState } from "../api/play";
+import { portraitSrc } from "../lib/portrait";
 import type { PlayerCharacter } from "../api/types";
 import InfoTip from "../components/character-sheet/InfoTip";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
@@ -458,7 +459,7 @@ function HeaderBanner({
     <div style={headerStyle}>
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
         {pc.portrait_url ? (
-          <img src={pc.portrait_url} alt={pc.character_name} style={portraitStyle} />
+          <img src={portraitSrc(pc.portrait_url, pc.updated_at)} alt={pc.character_name} style={portraitStyle} />
         ) : (
           <div style={{ ...portraitStyle, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.6rem" }}>
             🧙
@@ -1204,7 +1205,7 @@ function NpcsBlock({ pcId }: { pcId: string }) {
         >
           {n.portrait_url ? (
             <img
-              src={n.portrait_url}
+              src={portraitSrc(n.portrait_url)}
               alt={n.name}
               style={{
                 width: "100%",

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 
 import type { Npc } from "../../api/npcs";
 import type { RunbookScene } from "../../api/types";
+import { portraitSrc } from "../../lib/portrait";
 
 interface NpcDialog {
   npc_name: string;
@@ -123,7 +124,7 @@ export default function TonightsCastDrawer({
                 <div style={{ display: "flex", gap: "0.55rem", alignItems: "flex-start" }}>
                   {npc.portrait_url ? (
                     <img
-                      src={npc.portrait_url}
+                      src={portraitSrc(npc.portrait_url, npc.updated_at)}
                       alt={npc.name}
                       style={portraitStyle}
                     />

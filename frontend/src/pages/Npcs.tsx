@@ -10,6 +10,7 @@ import {
 } from "../api/npcs";
 import Flourish from "../components/Flourish";
 import NpcModal from "../components/npc/NpcModal";
+import { portraitSrc } from "../lib/portrait";
 
 const STATUSES: NpcStatus[] = ["Alive", "Dead", "Missing", "Imprisoned", "Unknown"];
 
@@ -201,7 +202,7 @@ function NpcCard({ npc, onClick }: { npc: Npc; onClick: () => void }) {
       <div style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem" }}>
         {npc.portrait_url ? (
           <img
-            src={npc.portrait_url}
+            src={portraitSrc(npc.portrait_url, npc.updated_at)}
             alt=""
             style={{
               width: 48,

@@ -15,6 +15,7 @@ import HitDiceTracker from "./HitDiceTracker";
 import InfoTip from "./InfoTip";
 import PlayerLinkButton from "./PlayerLinkButton";
 import PortraitGenerator from "../PortraitGenerator";
+import { portraitSrc } from "../../lib/portrait";
 import RollHelper from "./RollHelper";
 import type { RollContext } from "./RollHelper";
 import SavingThrows from "./SavingThrows";
@@ -167,7 +168,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
           <div className="flex items-center" style={{ gap: "0.75rem" }}>
             {pc.portrait_url ? (
               <img
-                src={pc.portrait_url}
+                src={portraitSrc(pc.portrait_url, pc.updated_at)}
                 alt={pc.character_name}
                 style={{
                   width: 56,
@@ -474,7 +475,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
           {!readOnly && (
             <Section title="🎨 Portrait">
               <PortraitGenerator
-                currentUrl={pc.portrait_url ?? null}
+                currentUrl={portraitSrc(pc.portrait_url, pc.updated_at) ?? null}
                 onGenerate={async (hints) => {
                   const updated = await charactersApi.generatePortrait(
                     characterId,

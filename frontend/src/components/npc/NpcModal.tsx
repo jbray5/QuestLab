@@ -9,6 +9,7 @@ import {
   npcsApi,
 } from "../../api/npcs";
 import PortraitGenerator from "../PortraitGenerator";
+import { portraitSrc } from "../../lib/portrait";
 
 const STATUSES: NpcStatus[] = [
   "Alive",
@@ -102,7 +103,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
           {initial && (
             <Field label="Portrait">
               <PortraitGenerator
-                currentUrl={form.portrait_url ?? null}
+                currentUrl={portraitSrc(form.portrait_url, initial?.updated_at) ?? null}
                 onGenerate={async (hints) => {
                   const updated = await npcsApi.generatePortrait(initial.id, hints);
                   set("portrait_url", updated.portrait_url);
