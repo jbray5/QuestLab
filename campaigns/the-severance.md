@@ -55,10 +55,10 @@
 
 ---
 
-### 2. Wood Elf Rogue — *Parker* (PC: TBN)
+### 2. Wood Elf Rogue — *Parker* (PC: **Thaelen "Thane" Amakiir**)
 
-- **Name:** still pending (suggested: elven name privately, road-name
-  publicly)
+- **Name confirmed:** **Thaelen Amakiir** — goes by **Thane** to everyone
+  except his mother. Surname taken from his father (see DM canon below).
 - **Class:** Rogue 1 · **Race:** Elf (Wood) · **Background:** Wayfarer
 - **Saves:** DEX, INT · **Feat:** Lucky
 - **Expertise:** Sleight of Hand, Stealth
@@ -89,12 +89,17 @@
     and she recognizes the carving.
   - During Halve's recruitment beat: Halve says one word in Sylvan that
     only Parker's father called him. Don't translate it at the table.
+- **Memento confirmed:** a **broken compass** that once belonged to a
+  "former mentor." Mentor's name still pending from Parker. (DM canon
+  below — the compass is NOT broken, and was NOT the mentor's
+  originally. Reveal much later.)
 - **Open (5 questions sent):**
-  - [ ] The name
+  - [x] **The name** — Thaelen "Thane" Amakiir
   - [x] **Father's nature** — confirmed Fey, woven into the big arc
   - [ ] The shoulder-tightening NPC archetype (kept vague is fine)
   - [ ] Whether his fey side "speaks" — if yes, how
-  - [ ] The most meaningful memento — what is it, where is it, story?
+  - [x] **The most meaningful memento** — broken compass from a former
+    mentor (mentor name pending from Parker)
 
 ---
 
@@ -530,3 +535,104 @@ He doesn't know what happened. He's miles away by dawn.
 - If they **took Path C** and something unexpected happened, **he will
   come find them in person.** He has questions. This is the only path
   that makes Halve break his usual remove and engage directly.
+
+---
+
+## Thane (Parker's PC) — DM canon
+
+**Reveal timing:** Almost NONE of this lands in Session 1. Most lands in
+sessions 3-10 across a long campaign of cosmological intrigue.
+
+### His father — *Cael Amakiir*
+
+A Fey being who came through the Feywild bond into Thane's mother's
+forest community ~30 years ago. Took the Wood Elf surname Amakiir on
+arrival.
+
+**Cael was originally one of Halve's recruits** — for an older region's
+severance, ~40 years ago. Cael was meant to be a fey-anchored speaker.
+**At the last moment he defected.** Fled across regions, hid his
+fey-nature, married into the Wood Elf community, fathered Thane.
+
+When Thane was ~5, Halve found Cael. Not violently — just *reminded* him
+the original severance was still pending and his fey-essence was tied
+to the older region regardless. Cael chose neither — walked into the
+woods one autumn morning and left.
+
+**What actually happened:** Cael is alive. Halve found him a second time
+and is *keeping* him — too valuable a half-anchored speaker to waste.
+Cael has been a prisoner-asset somewhere in Veilmark for ~25 years.
+
+**Campaign-arc hook:** finding and freeing (or losing) Cael is a
+potential climax. Don't lock the outcome yet.
+
+### The compass — NOT broken
+
+Cael made it himself. A half-fey craftsman's gift to his wife in the
+year Thane was born. It has two needles:
+
+- **Brass needle** — always points to the nearest active Feywild anchor
+  (shrine, strong oak, place where the planes touch).
+- **Silver needle** — Thane has never seen it move. Buried, dim, almost
+  invisible against the brass. **It points to Cael.** Silver-dim when
+  Cael is hidden or distant; faintly glowing when Cael is near. Goes
+  dark when Cael dies.
+
+For 20 years the brass needle has spun wildly — the original Feywild
+anchor Cael was bonded to was already half-severed; the compass has had
+no clean target, so it twitched and spun. **Thane thinks it's broken.**
+It isn't.
+
+### The mentor
+
+10 years after Cael vanished (Thane ~15), an old road-guide took an
+interest in him. The mentor was **another defector from Halve's
+network** — a former witness who refused his role decades earlier.
+
+The mentor never told Thane the truth about Cael. He taught Thane to
+survive on the road and quietly trained him for things he didn't yet
+need to know. Died when Thane was ~17, old age. Gave Thane the compass
+on his deathbed — the mentor had been holding it for years on Thane's
+mother's behalf.
+
+Mentor's last words (rough — Parker can rewrite when he names the
+mentor):
+
+> *"It pointed toward your father once. Now it spins. Don't ask it where
+> he went — it won't tell you, and you won't like the answer."*
+
+Thane thinks the mentor stole it from some forgotten place. **He does
+not know it was made by his father.** Reveal in session 3-4 at earliest.
+
+### Saturday — the compass beats (subtle, no reveal)
+
+DM-side awareness only. Thane should *not* understand any of this
+tonight. The prop is alive — quietly. Future sessions amplify the
+signal.
+
+| Moment | Compass behavior | At-the-table |
+|---|---|---|
+| Walking into Hollowmere | Brass needle steadies for the first time in 20 years | **Don't mention.** DM-only note. |
+| Halve's cut to Thane (the Sylvan word) | Needle stops spinning and points at Halve for one heartbeat | **Don't mention** unless Parker is roleplaying carefully checking his pocket. If he does, describe one line: *"It's pointing somewhere it's never pointed before. You're not sure where."* No more. |
+| Severance — shrine goes dark (Act 2) | Single pulse of heat in Thane's pocket. The needle slams toward the dying shrine and then **goes utterly still.** No spin. | **This is the only beat we let surface naturally.** If a scene-beat lets you describe pocket-feel, say: *"Something in your pocket — the compass? — feels warm for half a heartbeat, then cold."* Don't elaborate. Don't let Thane investigate during the immediate chaos. |
+| Combat (Act 3) | Compass stays dead. | Don't mention. |
+| Aftermath, **if reseal (Path A)** | Brass needle wakes back up. Spins lazily, the same as it always has. | Optional, only if Parker checks: *"It's spinning again. Same broken compass."* |
+| Aftermath, **if let sever (Path B)** | Brass needle stays dead. Silver needle — which Thane has never noticed — gives **one faint pulse** and goes dark. | **Don't mention at all.** This is a campaign-arc seed for the DM. Cael, somewhere in Veilmark, just felt his son's compass go cold. Pay it off in session 3+. |
+| Aftermath, **if Path C** | DM call based on what happened. | DM call. |
+
+**Sylvan word Halve uses:** suggested **"Aelim"** — Wood-Sylvan for
+"small light" or "found-flame," a parent's tenderness-word for a child.
+Parker can override.
+
+### Defectors from Halve's network — campaign arc
+
+Cael and the mentor were both Halve recruits who defected. **There are
+others.** Scattered across Veilmark, hidden in mortal communities,
+living quiet lives. They form a loose underground that knows what Halve
+does and refuses to participate. Some are old, some are dying, some are
+broken.
+
+**Long-arc seed:** The PCs eventually find this network (Session 6-8
+range). Allies for any of the three Saturday paths. Enemies if the PCs
+side with Halve. A potential power-base for whatever the PCs choose to
+do with the bonds across Veilmark.

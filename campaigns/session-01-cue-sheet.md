@@ -4,7 +4,7 @@
 > which PC and when. Full prose lives in the runbook (HUD); deep
 > backstory lives in `the-severance.md`. This sheet is for **pacing**.
 
-Hollowmere · 3.5 hr · 5 PCs (Warlock, Parker-Rogue, Nya, Creed, Willa)
+Hollowmere · 3.5 hr · 5 PCs (Warlock, Thane, Nya, Creed, Willa)
 
 ---
 
@@ -24,7 +24,7 @@ Hollowmere · 3.5 hr · 5 PCs (Warlock, Parker-Rogue, Nya, Creed, Willa)
 | PC | HP | AC | Init | Saves | Spell DC / Atk |
 |---|---|---|---|---|---|
 | Warlock (Jenna) | 9 | 13 | +2 | WIS, CHA | DC 13 / +5 |
-| Rogue (Parker) | 9 | 14 | +3 | DEX, INT | — |
+| Thane (Parker) | 9 | 14 | +3 | DEX, INT | — |
 | Nya (Chelsea) | 10 | 12 | +2 | CON, CHA | DC 13 / +5 |
 | Creed (Cory) | 11 | 18 | +0 | WIS, CHA | DC 12 / +4 |
 | Willa (Hayley) | 10 | 12 | +1 | INT, WIS | DC 13 / +5 |
@@ -49,8 +49,8 @@ Hollowmere · 3.5 hr · 5 PCs (Warlock, Parker-Rogue, Nya, Creed, Willa)
 - [ ] **Jenna (Warlock):** *"Your patron. She's been speaking to you since you were sixteen, hasn't she? Make a note of her voice tonight. You may want to remember it."*
   → seeds the silence she'll feel in Act 2
 
-- [ ] **Parker (Rogue):** Halve says one Sylvan word — the name Parker's *father* called him. **Don't translate at the table.** Just say the word, let Parker react.
-  → if Parker hasn't told you the word yet: improvise something soft (e.g. *"Aellim"*) and ask Parker afterward what it means to him
+- [ ] **Thane (Parker):** Halve says the word **"Aelim"** — Wood-Sylvan for "small light," what Thane's *father* called him as a child. **Don't translate at the table.** Just say the word, lock eye contact, move on.
+  → 🧭 **COMPASS BEAT (don't mention unless Parker checks):** the compass in Thane's pocket stops spinning for one heartbeat and points at Halve. By the time Thane could check, it's spinning again. If Parker explicitly checks his pocket / asks about the compass, describe ONE line: *"It's pointing somewhere it's never pointed before. You're not sure where."* Nothing more. No reveals tonight.
 
 - [ ] **Chelsea (Nya):** *"Nya Ashwyn."* (beat) *"Forgive me — I should say it properly. Death's Shadow."*
   → if Chelsea picked one name only, use that one
@@ -86,7 +86,8 @@ PCs arrive at the shrine. Yelvyne walks them through it — stone bowl, lantern-
 
 - [ ] **Jenna (Warlock):** her patron's voice goes silent. **Give her a private moment.** *"You have not been alone in your own head since you were sixteen. You are alone now."*
 
-- [ ] **Parker:** the severance hits his body. Nausea, vertigo. Sound of something he doesn't quite remember closing. *Round 1 of combat: disadvantage on first attack/save.* Tell Parker out loud.
+- [ ] **Thane:** the severance hits his body. Nausea, vertigo. Sound of something he doesn't quite remember closing. *Round 1 of combat: disadvantage on first attack/save.* Tell Parker out loud.
+  → 🧭 **COMPASS BEAT (let this surface naturally):** Thane feels his pocket go briefly *warm,* then cold. If a beat allows it, say once: *"Something in your pocket — the compass? — feels warm for half a heartbeat, then cold."* Don't elaborate. Don't let Thane investigate during the chaos. DM-only: the compass needle slammed toward the dying shrine and went still. He'll only see that if he checks much later.
 
 - [ ] **Chelsea (Nya):** she feels **nothing.** She notices that she's noticing. (No one else has had a normal moment in the last 30 seconds.)
 
@@ -131,9 +132,9 @@ Tell players this is possible by having Yelvyne whisper it after Round 1.
 ### Round 3
 
 - [ ] **Yelvyne arrives wounded.** She's been running from the shrine. She fights alongside if anyone is down.
-- [ ] Dying shrine pushes one more line into PCs' heads (specifically aimed at Parker AND the Warlock — they understand it directly):
+- [ ] Dying shrine pushes one more line into PCs' heads (specifically aimed at Thane AND the Warlock — they understand it directly):
   > *"That is Hellbrim. We grew together for two centuries. Do not hate her for what is no longer her."*
-  → This is **Wenneth's** voice mourning **the OTHER dryad** Hellbrim, who corrupted earlier. Use it to deepen the "she's a victim" reframe.
+  → This is **Wenneth's** self-recognition — she's naming what she has just become, not pointing at a separate creature. "We grew together" = shared corruption fate. Hellbrim was Halve's previous failed recruit; her residue is why Wenneth corrupted so completely. (See DM canon doc for full Hellbrim history. *Don't reveal any of this tonight.*)
 
 ### Tactical reminders
 
@@ -169,9 +170,9 @@ Tell players this is possible by having Yelvyne whisper it after Round 1.
 ## CLIFFHANGER · ~15 min
 
 - [ ] Players go to their rooms. Belva offers blankets.
-- [ ] **Parker** (alone in his room or hallway): something he keeps in his pocket — a memento — feels **warm.** It was cold every other night.
+- [ ] **Thane** (alone): he takes out the broken compass — habit, a thing he does at the end of hard days. 🧭 **If the PCs RESEALED:** the needle spins lazily, same as always. *"Same broken compass."* **If they LET IT SEVER:** the needle is dead still — for the first time in his life it isn't spinning. He has no idea what that means. Neither does he learn tonight. *(DM-only: a campaign-arc seed. Do not explain.)*
 - [ ] **Jenna's Warlock** (in the dark): a single word she doesn't recognize, in the voice of her patron, faintly. Then silence again.
-- [ ] Smash to black: dawn light hitting the shrine, which is dark.
+- [ ] Smash to black: dawn light hitting the shrine.
 
 ---
 
