@@ -263,7 +263,7 @@
 | Halve exits | He says: *"There's something at the shrine that wants seeing. Walk over with the Priestess — I'll catch up."* Then he goes upstairs to the loft. |
 | Shrine severs (Act 2) | Trigger the cuts: Warlock dread, Parker physical pull, Wenneth's scream. |
 | Combat starts (Act 3) | Use the encounter row "Hold the Hearth." Wenneth corrupts and IS the dryad. Hellbrim line via dying shrine. |
-| Combat ends | Yelvyne arrives wounded. Wenneth uncorrupts briefly. Master Halve found gone. |
+| Combat ends | Yelvyne arrives wounded. Wenneth roots into a dead, leafless tree as she dies — one last corrupted-lucid line, no clean plea. Master Halve found gone. |
 | Cliffhanger | Moral choice: ritual to reseal vs. let it sever. Defer until dawn. |
 
 ---
@@ -708,3 +708,38 @@ the patron's gender: the "voice" that has carried her far will go quiet
 when the shrine severs. With this canon, that PS now cuts deeper — Halve
 is telling a Drow he knows her single most dangerous secret: a Drow
 bound to the Feywild.
+
+---
+
+## Letter PSes — tracking
+
+Halve's recruitment letters each carry a private postscript: the one
+thing Halve wants that PC to know he sees. Cosmology assumed: the bonds
+are **fey/material only** (a severance cannot touch a divine tie).
+
+- **Sarranthia** — done (see "Saturday PS" above).
+- **Thane** — done (workshopped separately).
+- **Willa — LOCKED:**
+
+  > *P.S. — There are five letters; four are invitations. Yours is the
+  > hinge the night turns on — I built the others around you. Before
+  > dawn, every frightened soul in Hollowmere will try to press their
+  > answer into your hands. But the hands are yours, and so is the
+  > choosing. Let no one — not the priestess, not even your companions —
+  > make it for you.*
+
+  Halve will not push her to reseal *or* sever — his wound is
+  Veilglass-by-force. The PS only ensures the choice is genuinely hers,
+  uncoerced. A variant exists with a sharper seed of doubt ("ask what
+  the light costs") if a more manipulative Halve is wanted.
+
+- **Creed — recommended draft; DM will walk it through with Cory
+  before the session:**
+
+  > *P.S. — Four of these letters went to people the Feywild can hear.
+  > Yours did not — and tonight that is exactly why I need you. The
+  > others are the voices; you are the ground they stand on. When the
+  > night pulls, do not move.*
+
+  Creed is the team's Material-side anchor (no fey-tangle = the stable
+  point). Pairs with the "Hold the Hearth" chokepoint role.

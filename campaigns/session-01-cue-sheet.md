@@ -96,7 +96,7 @@ PCs arrive at the shrine. Yelvyne walks them through it — stone bowl, lantern-
 
 - [ ] **Chelsea (Nya):** she feels **nothing.** She notices that she's noticing. (No one else has had a normal moment in the last 30 seconds.)
 
-- [ ] **Cory:** his Lay-on-Hands pool feels colder than usual. Bahamut is still there — but distant, as if Cory is hearing him through a wall.
+- [ ] **Cory:** he feels the **pull** — a bodily drag toward the dying shrine, as if the air itself is leaning. It does not move him. He is the one fixed point in a room that is tilting. *(DM-only: Creed is the Material-side anchor — a severance can't grip a soul with no fey in it. Don't explain.)*
 
 - [ ] **Hayley (Willa):** the one Lantern Circle fact she remembers **clicks into place** as more than a fact. Ask her if she wants to say it aloud now or hold it.
 
