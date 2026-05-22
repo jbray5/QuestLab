@@ -637,3 +637,74 @@ broken.
 range). Allies for any of the three Saturday paths. Enemies if the PCs
 side with Halve. A potential power-base for whatever the PCs choose to
 do with the bonds across Veilmark.
+
+---
+
+## Sarranthia (Jenna's PC) — DM canon
+
+### The setting fact: the bright world hates the Drow
+
+The fey-blending has made Veilmark **bright** — the shrines pour silver
+light, the world has no true dark. For most peoples that's wondrous.
+For the Drow it's hostile: a dark-adapted people with no shadow to live
+in, physically and socially uncomfortable in the perpetual glow.
+
+Worse — when shrines started going dark, the prejudice found its
+scapegoat. *"Creatures of the dark. Of course the Drow want the light
+gone. Of course they're behind the severances."* Across the campaign,
+frightened towns blame the Drow for the severances. It is a **false
+accusation** — the real severer is a half-fey man named Halve — which
+makes the scapegoating tragic dramatic irony the players (who know the
+truth) will feel keenly.
+
+### The irony at Sarranthia's core
+
+Sarranthia is the one person at the table who **most needs the bonds to
+hold.** Her warlock power flows from a patron *inside the Feywild.*
+Severance cuts that bond — and her magic dies with it. The world
+assumes the Drow wants the dark; the truth is she is defending the
+light harder than anyone, because the light is her lifeline.
+
+She keeps her **patron's identity secret** — not for mystery's sake, but
+survival: a Drow with a *visible* tie to the Feywild, in a world primed
+to blame Drow for Feywild trouble, is a lightning rod.
+
+### How it plays at the table
+
+- **Saturday's moral choice becomes a vise for her.** The session ends
+  on sever-vs-preserve. Sarranthia has a fierce, secret stake in
+  *preserve* — and cannot say why without naming her patron. The most
+  pro-preservation voice in the room is the one who can't explain
+  herself. Pure roleplay tension; costs the DM nothing to set up.
+- **Halve's recruitment is a personal knife.** Halve recruits
+  fey-adjacent people for clean severances. Sarranthia's fey-adjacency
+  *is* a patron severance would kill. He is asking her to help cut the
+  branch she stands on. Canon: **Halve knows, and considers her power
+  acceptable loss** — consistent with his 300-year certainty. When she
+  realizes it, it's a betrayal with her name on it.
+- **Scapegoat danger is world-level, not party-level.** Let the *world*
+  distrust her; keep the other PCs (five first-timers) out of it early.
+
+### Pact origin — PENDING from Jenna
+
+Jenna is deciding *why* Sarranthia entered the pact. Options on the
+table, tilted by the setting:
+- **Protection / political power** (thematically tightest) — *"Being a
+  Drow in the bright world meant being prey. I refused to be prey."*
+  The pact as armor against the prejudice; the cruel irony is it ties
+  her to the very thing the prejudice falsely accuses her of.
+- **Bartering for a life** (most sympathetic, most fey) — Archfey
+  bargains are crooked; she may not fully grasp what she agreed to, or
+  the price isn't done being paid.
+- **Greed / fame** — viable if Jenna wants a real flaw to grow out of;
+  the harder road.
+
+Fold the final answer in here once Jenna responds.
+
+### Saturday PS (already written)
+
+Halve's letter PS, kept verbatim and **ungendered** until Jenna picks
+the patron's gender: the "voice" that has carried her far will go quiet
+when the shrine severs. With this canon, that PS now cuts deeper — Halve
+is telling a Drow he knows her single most dangerous secret: a Drow
+bound to the Feywild.
