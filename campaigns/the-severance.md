@@ -188,7 +188,8 @@
 - **Saves:** INT, WIS · **Feat:** Magic Initiate (Druid)
 - **Alignment:** Chaotic Neutral
 - **Primal Order:** Warden
-- **Backstory sent:** none yet
+- **Backstory:** received from Hayley 2026-05-22 — full reconciliation
+  in "Willa (Hayley's PC) — DM canon" below.
 - **DM-set canon (from earlier prep):**
   - As a Sage, she has read about the Lantern Circle. She volunteers
     *one* prepared fact at the tavern when the topic comes up — DM
@@ -202,8 +203,12 @@
     a critical role — Yelvyne may ask her to lay hands on the dying
     shrine itself. Whether that does anything is up to Hayley's roll.
 - **Open:**
-  - [ ] Full backstory (use prompt template)
-  - [ ] The one Lantern Circle fact she "remembers" volunteering
+  - [x] Full backstory — received, reconciled (see DM-canon section).
+  - [ ] Her Act 1 "fact": pick a source — a compass-vision fragment or
+        sea-lore from Edrik — so she can info-dump without leaning on
+        the Sage-scholar framing.
+  - [ ] Confirm with Hayley: adopted / unknown parents, or birth
+        parents who were coastal Aasimar themselves.
 
 ---
 
@@ -708,6 +713,102 @@ the patron's gender: the "voice" that has carried her far will go quiet
 when the shrine severs. With this canon, that PS now cuts deeper — Halve
 is telling a Drow he knows her single most dangerous secret: a Drow
 bound to the Feywild.
+
+---
+
+## Willa (Hayley's PC) — DM canon
+
+Backstory received from Hayley 2026-05-22. The character she wrote — a
+sea-rogue with an artifact-given gift — does not match the Aasimar
+Druid sheet on its face. We **reconcile rather than rebuild**: keep
+every word of Hayley's fiction, and treat the gaps as reveals Willa
+hasn't earned yet.
+
+### Who she is (Hayley's words, kept)
+
+- From **Blackreef Cove** — smugglers, shipwrecks, hard winters. Her
+  family ran a small tavern. She haunted the docks and the travelers'
+  tales as a kid, then grew into a **harbor runner** — messages, cargo,
+  contraband, ship to ship. Reads people, moves quiet, holds her own
+  in a brawl.
+- Clever, sarcastic, slow to trust. Masks fear with humour. Values
+  freedom above almost everything; despises power used to control
+  others; protects the weak in spite of herself.
+- **Mira** — her younger sister. Matters more than anyone.
+- **Captain Edrik Thorne** — aging sailor; taught her the blade, the
+  sea, and how to stay calm in chaos.
+
+### The reconciliation
+
+- **The dormant spark.** Willa is an Aasimar and does not know it.
+  Likely **adopted** — the Blackreef tavern family raised her; her
+  celestial heritage came from parents she never knew. (Open: adopted /
+  unknown vs. birth parents who were coastal Aasimar. "Adopted, doesn't
+  know" reads cleaner — it explains why the spark stayed hidden. Ask
+  Hayley.)
+- **The compass woke it; it did not grant it.** Hayley's dump says her
+  "stranger abilities" began when she touched the black iron compass.
+  Canon: the compass did not *give* power — it *woke* what was already
+  sleeping in her blood. The whispers and visions are her celestial
+  heritage finally speaking, amplified by a planar instrument. A reveal
+  for Willa to earn, not a correction to hand her.
+- **Sea-Warden Druid.** Her Druid magic is the magic of the coast —
+  tides, storms, the deep, the cruel reef. Primal Order: Warden fits a
+  guardian of hard water. The "forgotten gods / city beneath the sea"
+  of her visions are old *primal* powers of the deep, not eldritch
+  horror.
+- **Rogue, later.** Her dockside skills — stealth, blade, reading
+  people — are real and latent. She may multiclass into Rogue down the
+  line; for Saturday she's Druid 1 and those instincts are colour.
+- **Background.** Sheet says Sage; she's no cloistered scholar. Read
+  her as **self-taught** — a dock kid who has spent every hour since
+  the compass obsessively researching the artifact and the visions.
+  Her Arcana / History are the fruit of that hunt.
+
+### The recruitment truth (DM-only)
+
+The ghost ship and the compass did not find Willa by chance. **The
+recruiter routed the compass to her** — years in advance — knowing
+she'd be drawn toward anchor-points, knowing he'd want her one day.
+Willa believes she *chose* to leave Blackreef and follow the visions.
+She was walked. The same long game Halve ran on Creed. The compass is
+her planar-adjacency — her ticket onto the team, the way Thane's blood
+and Nya's bloodline are theirs.
+
+### Keystone tie
+
+Willa's vessel role (the Lay-of-Lanterns) now rests on two legs: her
+Aasimar blood (celestial insulation) **and** her compass (a planar
+instrument she's already attuned to). Yelvyne's "she recognises the
+Aasimar" beat stands unchanged — the DM simply knows the compass is the
+deeper reason she's here.
+
+### The two compasses — connected
+
+Thane carries a brass compass (his father's; a campaign-arc artifact).
+Willa carries a black iron compass (from the ghost ship). **They are a
+matched set** — instruments of the same lost craft, built to read the
+planes: Thane's leans to the Feywild side, Willa's to the deep/older
+side. The recruiter's network deals in exactly these. Two compasses at
+one table is not coincidence — it's Halve's instruments, reunited
+without their carriers knowing. (How literally they react to each
+other — proximity, the shrine — is open; a beat where both stir at once
+is there to use.)
+
+### The coast — new map canon
+
+- **Blackreef Cove** — a hard smuggler's port, down-coast, reachable
+  past Aldermarch (the day's-ride town on the Silverway). The road out
+  becomes the road to the sea.
+- **The drowned city** of Willa's visions — a shrine-civilisation
+  *older than Veilglass*, older than the Lantern Circle: the deep
+  history of the anchor-shrines and the powers they were first built to
+  bind. A future-adventure destination. **Not** Veilglass itself —
+  Veilglass healed and became ordinary (see Halve's history).
+- A **coastal anchor-point** can be one of the "three other
+  anchor-points failed in the last six months" from Yelvyne's hidden
+  journal — making the road to Blackreef also the clue trail into
+  Adventures 2-3.
 
 ---
 
