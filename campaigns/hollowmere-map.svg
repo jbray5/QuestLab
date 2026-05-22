@@ -1,0 +1,296 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1640" viewBox="0 0 1200 1640">
+  <defs>
+    <radialGradient id="lantern" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffe9a8" stop-opacity="0.95"/>
+      <stop offset="55%" stop-color="#f0c453" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#f0c453" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="hollowfill" cx="50%" cy="40%" r="68%">
+      <stop offset="0%" stop-color="#d9e0b4"/>
+      <stop offset="100%" stop-color="#bfcc92"/>
+    </radialGradient>
+    <clipPath id="hollowclip">
+      <path d="M600 198 C858 206 1046 326 1062 566 C1078 800 1044 1030 1024 1214 C1004 1398 872 1502 600 1506 C328 1502 196 1398 176 1214 C156 1030 122 800 138 566 C154 326 342 206 600 198 Z"/>
+    </clipPath>
+    <style>
+      .blabel{font:600 18px Georgia,'Times New Roman',serif;fill:#2c2417;
+              paint-order:stroke;stroke:#f7f3dc;stroke-width:3.6px;stroke-linejoin:round;}
+      .slabel{font:italic 14px Georgia,serif;fill:#4a4128;
+              paint-order:stroke;stroke:#f7f3dc;stroke-width:3px;stroke-linejoin:round;}
+      .area{font:600 33px Georgia,serif;letter-spacing:8px;}
+      .roadlbl{font:italic 15px Georgia,serif;fill:#efe7c8;
+               paint-order:stroke;stroke:#2a2114;stroke-width:3px;}
+      .bldg{fill:#c4894f;stroke:#4a2f1c;stroke-width:2.2;}
+      .ridge{stroke:#7c4e2c;stroke-width:2;fill:none;stroke-linecap:round;}
+    </style>
+  </defs>
+
+  <!-- ============ MISTWOOD (forest base) ============ -->
+  <rect width="1200" height="1640" fill="#1d3528"/>
+  <g fill-opacity="0.9">
+    <circle cx="60" cy="250" r="26" fill="#2c5440"/>
+    <circle cx="36" cy="360" r="20" fill="#356046"/>
+    <circle cx="92" cy="455" r="24" fill="#234634"/>
+    <circle cx="44" cy="560" r="22" fill="#2c5440"/>
+    <circle cx="100" cy="680" r="26" fill="#356046"/>
+    <circle cx="40" cy="800" r="21" fill="#234634"/>
+    <circle cx="96" cy="930" r="25" fill="#2c5440"/>
+    <circle cx="46" cy="1060" r="22" fill="#356046"/>
+    <circle cx="104" cy="1190" r="24" fill="#234634"/>
+    <circle cx="42" cy="1320" r="23" fill="#2c5440"/>
+    <circle cx="108" cy="1450" r="26" fill="#356046"/>
+    <circle cx="64" cy="1560" r="22" fill="#234634"/>
+    <circle cx="1140" cy="270" r="25" fill="#2c5440"/>
+    <circle cx="1166" cy="380" r="20" fill="#356046"/>
+    <circle cx="1108" cy="480" r="24" fill="#234634"/>
+    <circle cx="1158" cy="600" r="23" fill="#2c5440"/>
+    <circle cx="1104" cy="730" r="26" fill="#356046"/>
+    <circle cx="1162" cy="860" r="21" fill="#234634"/>
+    <circle cx="1106" cy="990" r="25" fill="#2c5440"/>
+    <circle cx="1160" cy="1120" r="22" fill="#356046"/>
+    <circle cx="1102" cy="1250" r="24" fill="#234634"/>
+    <circle cx="1158" cy="1380" r="23" fill="#2c5440"/>
+    <circle cx="1110" cy="1500" r="26" fill="#356046"/>
+    <circle cx="170" cy="180" r="22" fill="#356046"/>
+    <circle cx="300" cy="150" r="26" fill="#2c5440"/>
+    <circle cx="430" cy="172" r="20" fill="#234634"/>
+    <circle cx="560" cy="146" r="23" fill="#356046"/>
+    <circle cx="700" cy="168" r="25" fill="#2c5440"/>
+    <circle cx="840" cy="150" r="21" fill="#234634"/>
+    <circle cx="965" cy="174" r="24" fill="#356046"/>
+    <circle cx="1060" cy="200" r="22" fill="#2c5440"/>
+    <circle cx="150" cy="1580" r="24" fill="#2c5440"/>
+    <circle cx="280" cy="1602" r="22" fill="#356046"/>
+    <circle cx="410" cy="1576" r="26" fill="#234634"/>
+    <circle cx="545" cy="1606" r="21" fill="#2c5440"/>
+    <circle cx="680" cy="1582" r="24" fill="#356046"/>
+    <circle cx="815" cy="1604" r="23" fill="#234634"/>
+    <circle cx="950" cy="1578" r="25" fill="#2c5440"/>
+    <circle cx="1060" cy="1600" r="22" fill="#356046"/>
+  </g>
+
+  <!-- ============ THE HOLLOW (vale) ============ -->
+  <path d="M600 198 C858 206 1046 326 1062 566 C1078 800 1044 1030 1024 1214 C1004 1398 872 1502 600 1506 C328 1502 196 1398 176 1214 C156 1030 122 800 138 566 C154 326 342 206 600 198 Z"
+        fill="url(#hollowfill)" stroke="#8e9b5e" stroke-width="4"/>
+
+  <g clip-path="url(#hollowclip)">
+    <!-- silver glow -->
+    <ellipse cx="600" cy="700" rx="470" ry="660" fill="#eef2da" opacity="0.20"/>
+    <!-- The Pale (raised hill, north) -->
+    <ellipse cx="600" cy="372" rx="320" ry="190" fill="#dde2b8" opacity="0.85"/>
+    <ellipse cx="600" cy="372" rx="320" ry="190" fill="none" stroke="#a6b173" stroke-width="2.5" stroke-dasharray="3 9"/>
+    <ellipse cx="600" cy="384" rx="220" ry="130" fill="none" stroke="#a6b173" stroke-width="2" stroke-dasharray="3 9" opacity="0.7"/>
+    <!-- fairy rings -->
+    <g fill="none" stroke="#aebf80" stroke-width="2.4" stroke-dasharray="2 10">
+      <circle cx="410" cy="640" r="27"/>
+      <circle cx="772" cy="1252" r="23"/>
+      <circle cx="980" cy="1118" r="20"/>
+    </g>
+  </g>
+
+  <!-- ============ MAERIN BROOK ============ -->
+  <path d="M256 210 C240 350 292 470 252 596 C214 716 268 830 232 968 C198 1100 252 1248 220 1382 C202 1474 214 1542 236 1612"
+        fill="none" stroke="#6f9bbb" stroke-width="15" stroke-linecap="round"/>
+  <path d="M256 210 C240 350 292 470 252 596 C214 716 268 830 232 968 C198 1100 252 1248 220 1382 C202 1474 214 1542 236 1612"
+        fill="none" stroke="#bcd9e6" stroke-width="4" stroke-linecap="round" opacity="0.8"/>
+
+  <!-- ============ THE SILVERWAY ============ -->
+  <path d="M560 1616 C600 1486 700 1424 706 1320 C712 1196 690 1052 700 928 C710 808 766 716 800 588 C826 470 786 372 706 312 C654 272 622 220 616 150"
+        fill="none" stroke="#bda478" stroke-width="32" stroke-linecap="round"/>
+  <path d="M560 1616 C600 1486 700 1424 706 1320 C712 1196 690 1052 700 928 C710 808 766 716 800 588 C826 470 786 372 706 312 C654 272 622 220 616 150"
+        fill="none" stroke="#dcc596" stroke-width="6" stroke-linecap="round" stroke-dasharray="2 22"/>
+
+  <!-- lanes (footpaths) -->
+  <g fill="none" stroke="#b2a778" stroke-width="5" stroke-dasharray="4 9" opacity="0.8">
+    <path d="M300 956 Q430 918 470 902 Q540 876 588 884"/>
+    <path d="M588 736 Q592 560 600 452"/>
+    <path d="M462 510 Q520 470 588 452"/>
+  </g>
+
+  <!-- ============ STRUCTURES ============ -->
+
+  <!-- (1) The Lantern Shrine -->
+  <circle cx="600" cy="366" r="52" fill="url(#lantern)"/>
+  <g fill="#9b998c" stroke="#54524a" stroke-width="2">
+    <ellipse cx="600" cy="296" rx="9" ry="16"/>
+    <ellipse cx="654" cy="319" rx="9" ry="16"/>
+    <ellipse cx="670" cy="372" rx="9" ry="16"/>
+    <ellipse cx="638" cy="420" rx="9" ry="16"/>
+    <ellipse cx="562" cy="420" rx="9" ry="16"/>
+    <ellipse cx="530" cy="372" rx="9" ry="16"/>
+    <ellipse cx="546" cy="319" rx="9" ry="16"/>
+  </g>
+  <circle cx="600" cy="366" r="15" fill="#abc6d2" stroke="#6f8a93" stroke-width="2"/>
+  <circle cx="600" cy="366" r="7" fill="#ffe9a0" stroke="#c69a3a" stroke-width="2"/>
+
+  <!-- (2) Priestess Yelvyne's House -->
+  <g>
+    <rect x="436" y="466" width="52" height="40" rx="3" class="bldg"/>
+    <line x1="436" y1="486" x2="488" y2="486" class="ridge"/>
+    <rect x="478" y="452" width="8" height="12" fill="#5b4a3a"/>
+  </g>
+
+  <!-- (3) The Hearth (tavern) -->
+  <g>
+    <rect x="566" y="1298" width="104" height="76" rx="4" fill="#d29a55" stroke="#4a2f1c" stroke-width="3"/>
+    <line x1="566" y1="1336" x2="670" y2="1336" class="ridge"/>
+    <line x1="618" y1="1298" x2="618" y2="1374" stroke="#7c4e2c" stroke-width="2"/>
+    <rect x="654" y="1284" width="10" height="16" fill="#5b4a3a"/>
+    <circle cx="600" cy="1336" r="11" fill="#ffd982" opacity="0.95"/>
+    <circle cx="600" cy="1336" r="20" fill="#ffd982" opacity="0.3"/>
+  </g>
+
+  <!-- (4) The Market Green -->
+  <circle cx="588" cy="884" r="152" fill="#bcd089" opacity="0.92"/>
+  <circle cx="588" cy="884" r="152" fill="none" stroke="#8a8763" stroke-width="6"/>
+  <circle cx="588" cy="884" r="152" fill="none" stroke="#6f6d4e" stroke-width="2"/>
+  <rect x="568" y="900" width="40" height="26" rx="3" fill="#b08a55" stroke="#5b3c22" stroke-width="2"/>
+  <g fill="#8a8763" stroke="#54523c" stroke-width="2">
+    <circle cx="588" cy="736" r="7"/>
+    <circle cx="468" cy="960" r="7"/>
+    <circle cx="708" cy="960" r="7"/>
+  </g>
+
+  <!-- (5) The Chapel Oak + open-air chapel -->
+  <rect x="816" y="788" width="52" height="44" rx="4" fill="none" stroke="#6a5a3a" stroke-width="2.5" stroke-dasharray="6 5"/>
+  <rect x="836" y="784" width="12" height="20" fill="#5b4327"/>
+  <g fill="#3f6b3f" stroke="#2c4d2c" stroke-width="2">
+    <circle cx="842" cy="744" r="34"/>
+    <circle cx="812" cy="762" r="26"/>
+    <circle cx="872" cy="762" r="26"/>
+    <circle cx="842" cy="776" r="24"/>
+  </g>
+
+  <!-- (11) The boneyard -->
+  <rect x="912" y="676" width="74" height="56" rx="3" fill="#b6bd92" stroke="#6a5a3a" stroke-width="2" stroke-dasharray="5 4"/>
+  <g fill="#9a988c" stroke="#54524a" stroke-width="1.5">
+    <rect x="924" y="690" width="11" height="14" rx="4"/>
+    <rect x="946" y="694" width="11" height="14" rx="4"/>
+    <rect x="966" y="690" width="11" height="14" rx="4"/>
+    <rect x="935" y="710" width="11" height="14" rx="4"/>
+    <rect x="957" y="712" width="11" height="14" rx="4"/>
+  </g>
+
+  <!-- (7) Maerin Mill -->
+  <g>
+    <rect x="170" y="682" width="58" height="48" rx="3" class="bldg"/>
+    <line x1="170" y1="706" x2="228" y2="706" class="ridge"/>
+    <circle cx="244" cy="724" r="20" fill="none" stroke="#5b4a3a" stroke-width="3.5"/>
+    <g stroke="#5b4a3a" stroke-width="2.2">
+      <line x1="244" y1="704" x2="244" y2="744"/>
+      <line x1="224" y1="724" x2="264" y2="724"/>
+      <line x1="230" y1="710" x2="258" y2="738"/>
+      <line x1="230" y1="738" x2="258" y2="710"/>
+    </g>
+    <circle cx="244" cy="724" r="4" fill="#5b4a3a"/>
+  </g>
+
+  <!-- (8) The Chandlery -->
+  <g>
+    <rect x="404" y="998" width="56" height="42" rx="3" class="bldg"/>
+    <line x1="404" y1="1019" x2="460" y2="1019" class="ridge"/>
+    <circle cx="432" cy="1019" r="6" fill="#ffd982"/>
+  </g>
+
+  <!-- (9) The Smithy -->
+  <g>
+    <rect x="764" y="1158" width="56" height="44" rx="3" class="bldg"/>
+    <line x1="764" y1="1180" x2="820" y2="1180" class="ridge"/>
+    <circle cx="792" cy="1180" r="8" fill="#e8743a" opacity="0.9"/>
+    <circle cx="792" cy="1180" r="15" fill="#e8743a" opacity="0.28"/>
+  </g>
+
+  <!-- (10) The well -->
+  <circle cx="548" cy="1052" r="13" fill="#abc6d2" stroke="#5b4a3a" stroke-width="3"/>
+  <path d="M536 1042 Q548 1030 560 1042" fill="none" stroke="#5b4a3a" stroke-width="3"/>
+
+  <!-- (6) Burrow Row -->
+  <g fill="#b07a4f" stroke="#3f2818" stroke-width="2">
+    <rect x="184" y="846" width="30" height="24" rx="3"/>
+    <rect x="232" y="858" width="30" height="24" rx="3"/>
+    <rect x="282" y="872" width="30" height="24" rx="3"/>
+    <rect x="172" y="912" width="30" height="24" rx="3" fill="#9c6b44"/>
+    <rect x="222" y="922" width="30" height="24" rx="3"/>
+    <rect x="274" y="936" width="30" height="24" rx="3" fill="#9c6b44"/>
+    <rect x="186" y="982" width="30" height="24" rx="3"/>
+    <rect x="238" y="992" width="30" height="24" rx="3" fill="#9c6b44"/>
+    <rect x="292" y="1004" width="30" height="24" rx="3"/>
+    <rect x="220" y="1056" width="30" height="24" rx="3"/>
+  </g>
+
+  <!-- Lower Lanes — cottages (east) -->
+  <g>
+    <g><rect x="860" y="906" width="46" height="34" rx="3" class="bldg"/><line x1="860" y1="923" x2="906" y2="923" class="ridge"/></g>
+    <g><rect x="924" y="1006" width="46" height="34" rx="3" class="bldg"/><line x1="924" y1="1023" x2="970" y2="1023" class="ridge"/></g>
+    <g><rect x="848" y="1102" width="46" height="34" rx="3" class="bldg"/><line x1="848" y1="1119" x2="894" y2="1119" class="ridge"/></g>
+    <g><rect x="942" y="862" width="46" height="34" rx="3" class="bldg"/><line x1="942" y1="879" x2="988" y2="879" class="ridge"/></g>
+    <g><rect x="884" y="1206" width="46" height="34" rx="3" class="bldg"/><line x1="884" y1="1223" x2="930" y2="1223" class="ridge"/></g>
+    <g><rect x="792" y="984" width="46" height="34" rx="3" class="bldg"/><line x1="792" y1="1001" x2="838" y2="1001" class="ridge"/></g>
+    <g><rect x="430" y="784" width="46" height="34" rx="3" class="bldg"/><line x1="430" y1="801" x2="476" y2="801" class="ridge"/></g>
+    <g><rect x="466" y="1166" width="46" height="34" rx="3" class="bldg"/><line x1="466" y1="1183" x2="512" y2="1183" class="ridge"/></g>
+    <g><rect x="676" y="1036" width="46" height="34" rx="3" class="bldg"/><line x1="676" y1="1053" x2="722" y2="1053" class="ridge"/></g>
+  </g>
+
+  <!-- (12) Crofts & fields -->
+  <g>
+    <rect x="332" y="1372" width="60" height="40" rx="3" fill="#9aa867" opacity="0.55" stroke="#7c8650" stroke-width="2"/>
+    <g><rect x="368" y="1432" width="42" height="30" rx="3" class="bldg"/><line x1="368" y1="1447" x2="410" y2="1447" class="ridge"/></g>
+    <rect x="852" y="1456" width="62" height="42" rx="3" fill="#9aa867" opacity="0.55" stroke="#7c8650" stroke-width="2"/>
+    <g><rect x="800" y="1466" width="42" height="30" rx="3" class="bldg"/><line x1="800" y1="1481" x2="842" y2="1481" class="ridge"/></g>
+    <g><rect x="958" y="1308" width="42" height="30" rx="3" class="bldg"/><line x1="958" y1="1323" x2="1000" y2="1323" class="ridge"/></g>
+    <rect x="930" y="1206" width="58" height="38" rx="3" fill="#9aa867" opacity="0.55" stroke="#7c8650" stroke-width="2"/>
+  </g>
+
+  <!-- ============ AREA LABELS ============ -->
+  <text class="area" x="232" y="430" fill="#e7ecc8" opacity="0.55" transform="rotate(-90 232 430)">THE MISTWOOD</text>
+  <text class="area" x="1010" y="1320" fill="#e7ecc8" opacity="0.5" transform="rotate(-90 1010 1320)">THE MISTWOOD</text>
+  <text class="area" x="600" y="230" fill="#3a3a26" opacity="0.45" text-anchor="middle">THE PALE</text>
+  <text x="888" y="1330" fill="#3a3320" opacity="0.5" text-anchor="middle"
+        style="font:600 23px Georgia,serif;letter-spacing:4px;">THE LOWER LANES</text>
+  <text x="372" y="1212" fill="#3a3a26" opacity="0.30" text-anchor="middle"
+        style="font:600 40px Georgia,serif;letter-spacing:10px;">THE HOLLOW</text>
+
+  <!-- ============ BUILDING LABELS ============ -->
+  <text class="blabel" x="600" y="262" text-anchor="middle">The Lantern Shrine</text>
+  <text class="blabel" x="462" y="532" text-anchor="middle">Priestess Yelvyne's House</text>
+  <text class="blabel" x="618" y="1398" text-anchor="middle">The Hearth — the tavern</text>
+  <text class="blabel" x="588" y="846" text-anchor="middle">The Market Green</text>
+  <text class="slabel" x="588" y="1010" text-anchor="middle">festival dais &amp; lantern-poles</text>
+  <text class="blabel" x="842" y="710" text-anchor="middle">The Chapel Oak</text>
+  <text class="slabel" x="842" y="852" text-anchor="middle">the open-air chapel</text>
+  <text class="slabel" x="949" y="666" text-anchor="middle">the boneyard</text>
+  <text class="blabel" x="208" y="772" text-anchor="middle">Maerin Mill</text>
+  <text class="blabel" x="432" y="1066" text-anchor="middle">The Chandlery</text>
+  <text class="slabel" x="432" y="1084" text-anchor="middle">the lantern-wright</text>
+  <text class="blabel" x="792" y="1226" text-anchor="middle">The Smithy</text>
+  <text class="slabel" x="548" y="1086" text-anchor="middle">the well</text>
+  <text class="blabel" x="248" y="1104" text-anchor="middle">Burrow Row</text>
+  <text class="slabel" x="389" y="1480" text-anchor="middle">croft</text>
+  <text class="slabel" x="821" y="1514" text-anchor="middle">croft</text>
+
+  <!-- ============ ROAD &amp; WATER LABELS ============ -->
+  <text class="roadlbl" x="742" y="1124" text-anchor="middle" transform="rotate(-84 742 1124)">THE SILVERWAY</text>
+  <text class="roadlbl" x="486" y="1602" text-anchor="middle">the Silverway — south, to Aldermarch (a day's ride)</text>
+  <text class="roadlbl" x="640" y="232" text-anchor="start">↑ on, north past the Pale, into the deep Mistwood</text>
+  <text x="250" y="540" fill="#cfe3ec" opacity="0.85" text-anchor="middle"
+        transform="rotate(-80 250 540)"
+        style="font:italic 17px Georgia,serif;paint-order:stroke;stroke:#1d3528;stroke-width:3px;">Maerin Brook</text>
+
+  <!-- ============ HEADER ============ -->
+  <rect x="0" y="0" width="1200" height="128" fill="#16271d"/>
+  <rect x="0" y="124" width="1200" height="4" fill="#c8a24a"/>
+  <text x="600" y="70" text-anchor="middle"
+        style="font:600 52px Georgia,serif;letter-spacing:16px;fill:#f4efd4;">HOLLOWMERE</text>
+  <text x="600" y="104" text-anchor="middle"
+        style="font:italic 19px Georgia,serif;letter-spacing:3px;fill:#c6cfa6;">a village in the green hollow · Veilmark · the eve of Lantern-Eve</text>
+
+  <!-- ============ COMPASS ROSE ============ -->
+  <g transform="translate(1096 232)">
+    <circle r="50" fill="#16271d" stroke="#c8a24a" stroke-width="2.5"/>
+    <path d="M0 -42 L11 -11 L42 0 L11 11 L0 42 L-11 11 L-42 0 L-11 -11 Z"
+          fill="#dcc596" stroke="#8a6f30" stroke-width="1.5"/>
+    <path d="M0 -42 L11 -11 L0 0 L-11 -11 Z" fill="#f4efd4"/>
+    <text x="0" y="-54" text-anchor="middle"
+          style="font:600 18px Georgia,serif;fill:#f4efd4;">N</text>
+  </g>
+</svg>
