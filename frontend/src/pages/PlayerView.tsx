@@ -455,6 +455,11 @@ function HeaderBanner({
   spellStats: { ability: string | null; save_dc: number | null; attack_bonus: number | null } | null;
   initMod: number;
 }) {
+  // Derived 5e values players reference constantly.
+  const profBonus = Math.floor((pc.level - 1) / 4) + 2;
+  const percProf =
+    (pc.skill_proficiencies as Record<string, number> | null | undefined)?.["Perception"] ?? 0;
+  const passivePerception = 10 + mod(pc.score_wis) + profBonus * percProf;
   return (
     <div style={headerStyle}>
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
@@ -480,6 +485,8 @@ function HeaderBanner({
         <BigChip label="AC" value={String(pc.ac)} />
         <BigChip label="Speed" value={`${pc.speed} ft`} />
         <BigChip label="Init" value={fmt(initMod)} />
+        <BigChip label="Prof" value={fmt(profBonus)} />
+        <BigChip label="Pass. Perc" value={String(passivePerception)} />
         {pc.heroic_inspiration && <BigChip label="Insp" value="●" accent="var(--gold)" />}
       </div>
 

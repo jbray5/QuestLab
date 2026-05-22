@@ -154,6 +154,10 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
   const initiativeMod = mod(pc.score_dex);
   const profSet = pc.saving_throw_proficiencies ?? [];
   const skillProfs: Record<string, number> = pc.skill_proficiencies ?? {};
+  // Derived 5e values the sheet was missing.
+  const profBonus = Math.floor((pc.level - 1) / 4) + 2;
+  const passivePerception =
+    10 + mod(pc.score_wis) + profBonus * (skillProfs["Perception"] ?? 0);
 
   return (
     <div
@@ -282,7 +286,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
               gap: "0.5rem",
               marginTop: "0.5rem",
             }}
@@ -327,6 +331,8 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                 })
               }
             />
+            <StatChip label="Prof Bonus" value={fmt(profBonus)} />
+            <StatChip label="Pass. Perc." value={String(passivePerception)} />
           </div>
 
           {/* HP damage / heal controls */}
