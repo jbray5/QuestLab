@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface Props {
   characterId: string;
@@ -13,6 +14,13 @@ interface Props {
  * one-tap "Copy link" action so the DM can text it to a player. Falls
  * back to displaying the URL in a textbox if the clipboard API isn't
  * available (e.g. older browsers / non-secure contexts).
+ *
+ * Plan 39 P3 — the popover is rendered through a portal to document.body.
+ * The character-sheet modal (.ql-modal-in) keeps a retained `transform`
+ * from its `both` fill-mode animation, which turns it into the containing
+ * block for any `position: fixed` descendant AND clips it via the sheet's
+ * `overflow: hidden`. Portalling out of that subtree is the only reliable
+ * escape; the viewport-coordinate anchor below is already correct for it.
  */
 export default function PlayerLinkButton({ characterId, compact = false }: Props) {
   const [open, setOpen] = useState(false);
@@ -73,7 +81,7 @@ export default function PlayerLinkButton({ characterId, compact = false }: Props
       >
         🔗 {compact ? "" : "Share"}
       </button>
-      {open && anchor && (
+      {open && anchor && createPortal(
         <>
           <div
             onClick={() => setOpen(false)}
@@ -147,7 +155,8 @@ export default function PlayerLinkButton({ characterId, compact = false }: Props
               </a>
             </div>
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </span>
   );

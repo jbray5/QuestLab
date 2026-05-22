@@ -6,6 +6,11 @@
 
 Hollowmere · 3.5 hr · 5 PCs (Warlock, Thane, Nya, Creed, Willa)
 
+> ⚠️ **BEFORE PLAY — ask Chelsea (Nya):** she's owed an **8th skill
+> proficiency** (Charlatan + Skilled). 7 are set: Deception, Sleight of
+> Hand, Acrobatics, Stealth, Insight, Perception, Intimidation. Get her
+> pick and add it to QuestLab.
+
 ---
 
 ## NPC Voice Cheats (in case you blank)
