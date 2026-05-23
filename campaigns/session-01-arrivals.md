@@ -511,8 +511,165 @@ The players need to register the silver light before it dies.
 ### Then Halve enters
 
 When the energy peaks — table laughing, someone invested in something
-small — that's your cut. **Full Halve performance lives on his NPC
-card in the HUD.** Five private cuts, in order:
-Sarranthia → Thane → Nya → Creed → Willa → exit.
+small — that's your cut.
+
+**Assume the five PCs are clustered at one table by now** (the Letter
+Reveal pulled them together). Halve approaches the cluster, sets his
+untouched cup on the edge of their table, and addresses them as a
+group. The five cuts are still delivered *to* individual PCs — but
+the others can hear the words. The point is the *gap*: the target
+hears the full weight; the others only catch an oblique sentence and
+can guess. That gap is the threat.
+
+**Opening line (to the table):**
+
+> *"You came because I asked. That is the first decision you have
+> made this evening. Notice it."*
+
+(One-beat hold. He looks around the table — not landing on any one
+face yet.)
+
+**The five cuts** — delivered in order, with one quarter-turn of body
+and eye contact between each. Lines verbatim; full delivery cues on
+Halve's NPC card.
+
+| # | To | Line |
+|---|---|---|
+| 1 | Sarranthia | *"Your patron. She's been speaking to you since you were sixteen, hasn't she? Make a note of her voice tonight. You may want to remember it."* |
+| 2 | Thane | *"Aelim."* |
+| 3 | Nya | *"Nya Ashwyn. Forgive me — I should say it properly. Death's Shadow."* |
+| 4 | Creed | *"[Cleric's name] still asks after you, by the way. He sends his regards. Such as they are."* |
+| 5 | Willa | *"And the bond that was kept in the dark was the bond that lit the world."* |
+
+**Closing line + exit:**
+
+> *"There's something at the shrine that wants seeing. Walk over with
+> the Priestess — I'll catch up."*
+
+Then he climbs to the loft. The door clicks shut. He does not catch
+up.
+
+---
+
+## Halve Q&A — "what's your game?"
+
+If any PC interrupts during the cuts, Halve absorbs the question with
+**one short answer** and continues. If they corner him after, he holds
+two lines, then turns. **He never escalates.**
+
+| If they ask… | Halve says… |
+|---|---|
+| Who are you? | *"A concerned scholar."* (Pressed: *"My name is Halve. The rest is for later."*) |
+| Why are we here? What do you want? | *"Tonight is not for that. Tonight is for the shrine. You will see — and then you will decide."* |
+| What's at the shrine? | *"Something that wants seeing. You will know it when you do."* |
+| How do you know that? | *"I listen."* Or: *"It is my work to know."* |
+| What's your game? | (Two-beat hold.) *"Tonight. The shrine. Walk over with the Priestess."* Turn. |
+| You wrote the letters? | *"I wrote five. You answered five. That is a coincidence I will not insult by calling it one."* |
+| Are you a danger to us? | *"If I were, you would not be standing. I asked you here precisely because I am not."* |
+| What's the coin? | *"An older mint. Belva is quite right — it does not tarnish. The world is full of things that don't tarnish, if you know where to look."* |
+| Take off your gloves. | *"I would rather not."* (No more.) |
+| Are you threatening us? | *"I do not threaten. I observe."* |
+| Will you come to the shrine with us? | *"I will catch up. There is something I must finish here first."* |
+| You're hiding something. | *"I am hiding a great many things. So are you, all of you. We will manage."* |
+| Sit down. | *"I prefer to stand. The night is short."* |
+| What's upstairs? | *"A room. With a bed I haven't used. I have been thinking."* |
+| Show your hand. | *"I do not have one to show. Tonight is about yours."* |
+
+**If a PC swings, draws, or grabs:** see the **Combat Deterrent** on
+Halve's NPC card. The room will go very quiet. Do not roll if you
+can avoid it.
+
+---
+
+## Act 1 dice checks — get them rolling early
+
+Call **2–3 of these per PC** across the hour. The point is **hands on
+dice early** — not difficulty. DCs are deliberately low to moderate;
+save the hard rolls for Act 3.
+
+### Willa (Hayley)
+
+- Sigil on a letter → **INT (History) — AUTO-SUCCESS with Sage.**
+  *"Lantern Circle. You've read about them. Local order, anchor-shrines,
+  very old. Most villagers don't know the name."*
+- Silver light through the window → **DC 14 INT (Arcana).** Success:
+  *"This isn't fey magic the way your books describe. It's older. The
+  references all assume the bond was always like this — but this light
+  has been here longer than the references have."*
+- The old coin, if Belva surfaces it → **DC 13 INT (History).** Success:
+  *"Veilglass. A region renamed and forgotten centuries ago. The coin
+  shouldn't exist in this condition."*
+- On Halve, watching him work → **DC 20 WIS (Insight).** Even on
+  success: *"You can't read him. The harder you look, the less you see.
+  That's a tell of its own."*
+
+### Thane (Parker)
+
+- On entry → **DC 10 WIS (Perception):** the loft door is ajar;
+  someone's been up there. (Reward; easy.)
+- On Belva while she plays it cool → **DC 14 WIS (Insight):** *"She's
+  expecting you. She knew someone was coming through her door
+  tonight; she just didn't know who."*
+- On the lutenist → **DC 12 WIS (Perception):** he plays the same
+  wrong chord every fifteen minutes, almost like a watch tick.
+- Slip toward the loft stairs → **DC 15 DEX (Stealth).** Success: he
+  gets to look. Fail: Belva clocks him. *"Mind yer own, love. That
+  room's took."*
+
+### Creed (Cory)
+
+- On entry → **DC 12 WIS (Perception):** Belva has a hand-axe AND an
+  iron poker stashed under the bar. (Veteran tell.)
+- On Wenneth's House Ashmantle tease → **DC 13 WIS (Insight):** she's
+  teasing kindly, not accusing. Saves him from over-reacting.
+- Quiet prayer over his drink → **no roll.** Bahamut is quiet but
+  present. Lets Cory feel his faith before it's tested.
+- On Halve's cleric line → **DC 14 WIS (Insight):** the cleric is
+  alive. Halve has *seen* him recently.
+
+### Nya (Chelsea)
+
+- Vs. Belva's "different name" line → **DC 13 CHA (Deception)** to
+  lie convincingly. Belva accepts any reasonable lie. Beat the DC:
+  she pretends not to see through it. Miss: she still pretends, with
+  one more knowing glance.
+- To get Belva to talk about the loft tenant → **DC 12 CHA
+  (Persuasion).** Beat it: Belva surfaces the coin (briefly) and the
+  timeline.
+- To get Belva to let her UP → **DC 15 CHA (Persuasion).** She'll say
+  no regardless — but on a success she offers to *"wake him up and
+  ask. He doesn't like to be bothered."*
+- Sleight of Hand on the coin → **DC 12.** Fail: Belva swipes it back.
+  *"Oh no y'don't, love."*
+- On Halve naming her real name → **DC 12 WIS (Insight):** he's not
+  threatening. He's informing.
+
+### Sarranthia (Jenna)
+
+- At entrance, defuse the staring locals → **DC 12 CHA (Persuasion or
+  Intimidation).** Beat: they go back to their drinks. Miss: the
+  silence holds a beat longer.
+- On the room's silence → **DC 12 WIS (Insight):** not hostile, just
+  unfamiliar.
+- A name for the hooded scholar from Belva → **DC 14 CHA
+  (Persuasion).** Belva: *"He didn't give one. Just paid."*
+- On her patron's private warning → **DC 15 INT (Arcana).** Beat:
+  *"The light here IS older than your pact — and your patron has
+  never been afraid of an older light before."*
+
+### Group / open
+
+- If they push their way past Belva to the loft (DC 16 Persuasion, a
+  good Insight + threat, or sheer numbers):
+  - **DC 10 Perception** — the bedroll has not been slept in.
+  - **DC 12 Perception** — the cup of tea is stone cold; he's been
+    awake or absent for hours.
+  - **DC 14 Perception** — the window has been opened recently. Frost
+    on the *inside* of the sill.
+  - **DC 15 Investigation** on the single cipher page on the desk —
+    unintelligible. **Unsolvable tonight** (Session 2 hook).
+- After Halve exits, if a PC follows him up: **DC 15 STR (Athletics)**
+  to force the locked door, **DC 18 DEX (thieves' tools)** to pick.
+  Beat either — the loft is **empty.** Window open. He's gone.
 
 ---
