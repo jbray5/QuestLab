@@ -933,7 +933,18 @@ export default function SessionHud() {
   const sessionLabel = `Session ${session.session_number}${session.title ? `: ${session.title}` : ""}`;
 
   return (
-    <div className="fade-in" style={{ display: "flex", flexDirection: "column", height: "100%", gap: 0 }}>
+    <div
+      className="fade-in"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        gap: 0,
+        // Game-night legibility — visual ~2pt bump across the whole HUD.
+        // (~+17% on a 12pt base; zoom scales text + spacing uniformly.)
+        zoom: 1.17,
+      }}
+    >
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex" style={{
