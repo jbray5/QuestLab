@@ -107,6 +107,52 @@
     <path d="M462 510 Q520 470 588 452"/>
   </g>
 
+  <!-- ============ THE PALE'S WOODED SKIRTS & MISTWOOD ENCROACHMENT ============ -->
+  <!-- The Pale's flanks are wooded; the Mistwood comes down the slopes and
+       reaches the Green's north edge. Battle-map reconciliation: this is the
+       tree-line the corrupted fey emerge from in 'Hold the Hearth'. -->
+  <g fill-opacity="0.95">
+    <!-- wooded southern slope of the Pale (between bare crown and the Green) -->
+    <circle cx="328" cy="478" r="18" fill="#2c5440"/>
+    <circle cx="378" cy="528" r="20" fill="#234634"/>
+    <circle cx="416" cy="572" r="17" fill="#356046"/>
+    <circle cx="456" cy="612" r="19" fill="#2c5440"/>
+    <circle cx="492" cy="652" r="16" fill="#234634"/>
+    <circle cx="532" cy="688" r="18" fill="#356046"/>
+    <circle cx="572" cy="716" r="17" fill="#2c5440"/>
+    <circle cx="608" cy="728" r="18" fill="#234634"/>
+    <circle cx="648" cy="716" r="17" fill="#356046"/>
+    <circle cx="688" cy="688" r="19" fill="#2c5440"/>
+    <circle cx="728" cy="652" r="16" fill="#234634"/>
+    <circle cx="768" cy="612" r="20" fill="#356046"/>
+    <circle cx="808" cy="572" r="18" fill="#2c5440"/>
+    <circle cx="848" cy="528" r="17" fill="#234634"/>
+    <circle cx="892" cy="478" r="19" fill="#356046"/>
+    <!-- a sparser line just below the bare shrine crown -->
+    <circle cx="406" cy="442" r="15" fill="#234634"/>
+    <circle cx="468" cy="478" r="14" fill="#356046"/>
+    <circle cx="734" cy="478" r="14" fill="#234634"/>
+    <circle cx="794" cy="442" r="15" fill="#356046"/>
+    <!-- Chapel Oak grove — the outermost oaks of the Mistwood, the cluster
+         that reaches into the village at the Green's NE -->
+    <circle cx="772" cy="728" r="22" fill="#356046"/>
+    <circle cx="808" cy="708" r="18" fill="#2c5440"/>
+    <circle cx="836" cy="688" r="20" fill="#234634"/>
+    <circle cx="876" cy="676" r="17" fill="#356046"/>
+    <circle cx="900" cy="708" r="19" fill="#2c5440"/>
+    <!-- a few stragglers framing the Green's NW -->
+    <circle cx="362" cy="704" r="16" fill="#2c5440"/>
+    <circle cx="398" cy="744" r="14" fill="#234634"/>
+    <circle cx="440" cy="772" r="13" fill="#356046"/>
+  </g>
+
+  <!-- The Boundary Stones — older work, same lineage as the shrine's seven.
+       Wenneth Tree-Strides from one in Round 2 of Hold the Hearth. -->
+  <g fill="#9b998c" stroke="#54524a" stroke-width="2">
+    <ellipse cx="528" cy="736" rx="9" ry="15"/>
+    <ellipse cx="648" cy="736" rx="9" ry="15"/>
+  </g>
+
   <!-- ============ STRUCTURES ============ -->
 
   <!-- (1) The Lantern Shrine -->
@@ -265,6 +311,8 @@
   <text class="blabel" x="792" y="1226" text-anchor="middle">The Smithy</text>
   <text class="slabel" x="548" y="1086" text-anchor="middle">the well</text>
   <text class="blabel" x="248" y="1104" text-anchor="middle">Burrow Row</text>
+  <text class="slabel" x="412" y="528" text-anchor="middle" transform="rotate(-26 412 528)">the Pale's wooded skirts</text>
+  <text class="slabel" x="588" y="762" text-anchor="middle">the boundary stones — older work</text>
   <text class="slabel" x="389" y="1480" text-anchor="middle">croft</text>
   <text class="slabel" x="821" y="1514" text-anchor="middle">croft</text>
 

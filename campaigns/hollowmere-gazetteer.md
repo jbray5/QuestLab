@@ -144,7 +144,128 @@ the clock.
 
 ---
 
-✦ **Canon snag to settle:** Belva's NPC card calls the tavern "The
-Hollow Drum," but every other document — cue sheet, runbook,
-`the-severance.md` — calls it **The Hearth**. The map and this gazetteer
-use *The Hearth*; fix the NPC card when convenient.
+## Geography reconciliation (with the battle map)
+
+**The Pale is a wooded hill.** Only its bare grass *crown* holds the
+shrine — the flanks are forested, an extension of the Mistwood climbing
+the slopes. So north of the Market Green:
+
+1. The tree-line is *right there* — the Mistwood encroaches on the
+   Green's north edge.
+2. The road and footpath climb through **the Pale's wooded skirts** to
+   reach the bare crown.
+3. The shrine sits in the open at the top.
+
+This is the geography the battle map shows: corrupted fey pour onto the
+Green from the tree-line directly behind it, and the Lantern Shrine is
+visible *far above* on the hill but not reached in that fight. The
+**Chapel Oak** is the outermost oak of that encroachment — the
+Mistwood's village-side outlier, which is why Wenneth has always been
+the village's closest fey neighbour.
+
+**The Boundary Stones (✦).** Two old standing stones sit at the Green's
+north edge, where the village formally meets the wood. Older work; same
+lineage as the shrine's seven — the whole village is dotted with
+stonework, with the Pale the focal site. The villagers think of them as
+ornaments; only Yelvyne knows they were placed deliberately. **Wenneth
+Tree-Strides from one** in Round 2 of *Hold the Hearth* — she can,
+because the stones and her oak are kin.
+
+## Who lives where — peoples, classes, and faiths
+
+Hollowmere is too small for nobility or guilds. Its hierarchy is soft
+and held in everyday courtesy: stewards → tradespeople → farmers → the
+quiet outer crofts → the seasonal travellers. Race is mixed but
+ordinary, and most villagers think of religion as *the light* rather
+than any named order.
+
+### The Pale (north — the steward's hill)
+
+- **Who:** Priestess Yelvyne, alone in her cottage. One or two old
+  families with hereditary ties to the shrine — the eldest is in her
+  eighties and still walks up the Pale at dusk.
+- **Race:** human, with the rare half-elf among the eldest families
+  (an ancestor walked out of the Mistwood once and never quite walked
+  back).
+- **Class:** the village's nearest thing to an aristocracy — *spiritual*,
+  not wealthy. Yelvyne owns her vestments and her cottage. That is all.
+- **Faith:** the shrine-faith proper. They call it *"the light."* Only
+  Yelvyne uses the words *"Lantern Circle."*
+
+### The Lower Lanes (east — the established craft households)
+
+- **Who:** the village's middle layer, generations deep. The
+  **blacksmith**, the **chandler family** (the lantern-wright — the most
+  respected craft in a village named for its light), the cooper, the
+  carter.
+- **Race:** mostly human, a handful of half-elves; the chandler family
+  has a half-elf grandmother whose own mother walked out of the Mistwood
+  one summer. Nobody asks about it.
+- **Class:** comfortable. They've eaten well for generations and they
+  organise the festival.
+- **Faith:** shrine-faith publicly, folk practices privately —
+  milk-bowls on windowsills, the last sheaf left in the field. None of
+  them know the order by name.
+
+### The Green & the Hearth (centre — the public face)
+
+- **Who:** **Belva** at The Hearth. The miller's family at the brook —
+  large, loud, the village's natural gossips. Two or three small
+  residences fronting the Green.
+- **Race:** the most mixed quarter — Belva (Halfling), one Wood Elf
+  woman who runs a small trading stall on market days, mostly human.
+- **Class:** working tradespeople. Belva is, quietly, one of the
+  village's most influential people: she hears everything.
+- **Faith:** indifferent to formal religion. They keep Lantern-Eve as a
+  *festival*, not a rite.
+
+### Burrow Row (west — the humble end)
+
+- **Who:** the festival cooks (three generations of one large family),
+  the road-watchers, the young families with many small children,
+  several elderly widows.
+- **Race:** mostly human, three or four half-elves, one **Wood Elf
+  family** — an older weaver who is the village's quiet contact with
+  the Mistwood pixies (she leaves out milk; her cottage gets swept).
+- **Class:** humble. Most work seasonally for the chandlery or the
+  mill. They eat well in autumn, lean in early spring.
+- **Faith:** the most genuinely fey-touched quarter of the village. The
+  old practices are loudest here because nobody has ever had the
+  comfort to forget them.
+
+### The Crofts (the skirts — the farmers)
+
+- **Who:** three or four smallholding families on the village's outer
+  edges; the outermost croft is half a mile from its nearest neighbour.
+- **Race:** human, exclusively. The land here is harder.
+- **Class:** poor but proud — they own their fields. They eat by their
+  own labour and are slow to take advice from the village centre.
+- **Faith:** a quiet, blunt folk faith. They speak to the Mistwood with
+  respect but no ceremony. Some of them remember names for fey-things
+  their grandparents told them.
+
+### The fey neighbours (no fixed address)
+
+- **Wenneth** — the Chapel Oak's dryad; the village's confidante for
+  three generations.
+- **Pixies** — present at the festival, ordinarily polite, normally
+  ignored.
+- **A few smaller hobs and hearth-spirits** known to specific
+  households (e.g. the chandler family's *"Auntie Wren,"* who fixes
+  their candles in exchange for cream).
+
+### Notable absences — for Saturday
+
+- **No Drow** have been seen in Hollowmere in living memory — that is
+  why the bar pauses when Sarranthia crosses the threshold.
+- **No Aasimar** — Yelvyne's reverence for Willa lands because nobody
+  here has ever met one.
+- **No Dragonborn** — Creed will be the first the village has seen.
+- **No formal temples** to any wider god. Bahamut, the harvest gods —
+  known of, not worshipped here. The shrine is the only altar.
+
+---
+
+✦ *Canon snags — resolved:* Belva's NPC card name-of-tavern is now
+**The Hearth** (PATCHed 2026-05-22). Halve's loft location matched the
+same night.
