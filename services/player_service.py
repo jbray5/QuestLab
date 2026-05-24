@@ -151,7 +151,7 @@ def list_visible_npcs(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
     pc = _get_pc_or_raise(db, pc_id)
     from db.repos.npc_repo import NpcRepo
 
-    npcs = NpcRepo.list_for_campaign(db, pc.campaign_id)
+    npcs = NpcRepo.list_by_campaign(db, pc.campaign_id)
     # Plan 38 P3-3 — DM-controlled visibility. Filter hidden NPCs server
     # side so even a curious player hitting /api/play/{id}/npcs can't see
     # the names/portraits of NPCs the DM hasn't revealed yet.
