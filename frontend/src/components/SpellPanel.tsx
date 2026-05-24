@@ -34,6 +34,10 @@ export default function SpellPanel({
   const [open, setOpen] = useState(defaultOpen);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // Plan 39 — at-the-table spell-detail expansion. Click a spell name to
+  // open its full details (description, range, components, damage, etc.)
+  // inline. One open at a time keeps the list compact.
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
 
   const { data: known = [], isLoading: knownLoading } = useQuery({
     queryKey: ["character-spells", characterId],
@@ -288,69 +292,105 @@ export default function SpellPanel({
                   {knownByLevel[lvl].map((row) => {
                     const s = spellsById[row.spell_id];
                     const name = s?.name ?? row.spell_id.slice(0, 8) + "…";
+                    const expanded = expandedRowId === row.id;
                     return (
                       <div
                         key={row.id}
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.4rem",
-                          padding: "0.3rem 0.5rem",
                           background: "var(--surface2)",
                           border: "1px solid var(--border)",
                           borderRadius: 4,
                           fontSize: "0.8rem",
+                          overflow: "hidden",
                         }}
                       >
-                        <span
-                          style={{ flex: 1, opacity: row.prepared ? 1 : 0.6 }}
-                          title={s?.description ?? ""}
-                        >
-                          {name}
-                        </span>
-                        {lvl > 0 && (
-                          <button
-                            className="btn btn-secondary"
-                            style={{ fontSize: "0.65rem", padding: "0.15rem 0.45rem" }}
-                            onClick={() => expendMutation.mutate(lvl)}
-                            title={`Spend a Lvl ${lvl} slot`}
-                          >
-                            Cast
-                          </button>
-                        )}
-                        <button
-                          className={`btn ${row.prepared ? "btn-primary" : "btn-ghost"}`}
-                          style={{ fontSize: "0.65rem", padding: "0.15rem 0.45rem" }}
-                          onClick={() =>
-                            togglePreparedMutation.mutate({
-                              rowId: row.id,
-                              prepared: !row.prepared,
-                            })
-                          }
-                          title={
-                            row.prepared
-                              ? "Prepared (click to unprepare)"
-                              : "Click to prepare"
-                          }
-                        >
-                          {row.prepared ? "Prepped" : "Prep"}
-                        </button>
-                        <button
-                          className="btn btn-ghost"
+                        <div
                           style={{
-                            fontSize: "0.65rem",
-                            padding: "0.15rem 0.4rem",
-                            opacity: 0.5,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.4rem",
+                            padding: "0.3rem 0.5rem",
                           }}
-                          onClick={() => {
-                            if (window.confirm(`Forget ${name} for ${characterName}?`)) {
-                              forgetMutation.mutate(row.id);
-                            }
-                          }}
-                          title="Forget this spell"
                         >
-                          ✕
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedRowId(expanded ? null : row.id)
+                            }
+                            style={{
+                              flex: 1,
+                              textAlign: "left",
+                              background: "transparent",
+                              border: "none",
+                              color: "inherit",
+                              cursor: "pointer",
+                              padding: 0,
+                              fontSize: "inherit",
+                              fontFamily: "inherit",
+                              opacity: row.prepared ? 1 : 0.6,
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "0.35rem",
+                            }}
+                            title={expanded ? "Hide details" : "Show details"}
+                          >
+                            <span
+                              style={{
+                                color: "var(--muted)",
+                                fontSize: "0.7rem",
+                                width: "0.7rem",
+                                display: "inline-block",
+                              }}
+                            >
+                              {expanded ? "▾" : "▸"}
+                            </span>
+                            <span>{name}</span>
+                          </button>
+                          {lvl > 0 && (
+                            <button
+                              className="btn btn-secondary"
+                              style={{ fontSize: "0.65rem", padding: "0.15rem 0.45rem" }}
+                              onClick={() => expendMutation.mutate(lvl)}
+                              title={`Spend a Lvl ${lvl} slot`}
+                            >
+                              Cast
+                            </button>
+                          )}
+                          <button
+                            className={`btn ${row.prepared ? "btn-primary" : "btn-ghost"}`}
+                            style={{ fontSize: "0.65rem", padding: "0.15rem 0.45rem" }}
+                            onClick={() =>
+                              togglePreparedMutation.mutate({
+                                rowId: row.id,
+                                prepared: !row.prepared,
+                              })
+                            }
+                            title={
+                              row.prepared
+                                ? "Prepared (click to unprepare)"
+                                : "Click to prepare"
+                            }
+                          >
+                            {row.prepared ? "Prepped" : "Prep"}
+                          </button>
+                          <button
+                            className="btn btn-ghost"
+                            style={{
+                              fontSize: "0.65rem",
+                              padding: "0.15rem 0.4rem",
+                              opacity: 0.5,
+                            }}
+                            onClick={() => {
+                              if (window.confirm(`Forget ${name} for ${characterName}?`)) {
+                                forgetMutation.mutate(row.id);
+                              }
+                            }}
+                            title="Forget this spell"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        {expanded && s && <SpellDetails spell={s} />}
                       </div>
                     );
                   })}
@@ -409,6 +449,113 @@ export default function SpellPanel({
               </div>
             )}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Inline spell-details panel — opens when a known-spell row is clicked. */
+function SpellDetails({ spell }: { spell: Spell }) {
+  const components: string[] = [];
+  if (spell.components_v) components.push("V");
+  if (spell.components_s) components.push("S");
+  if (spell.components_m) components.push(`M (${spell.components_m})`);
+  const tags: string[] = [];
+  if (spell.is_ritual) tags.push("Ritual");
+  if (spell.is_concentration) tags.push("Concentration");
+
+  return (
+    <div
+      style={{
+        borderTop: "1px dashed var(--border)",
+        background: "var(--surface, #1a1a1a)",
+        padding: "0.6rem 0.75rem",
+        fontSize: "0.78rem",
+        lineHeight: 1.45,
+        color: "var(--text)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "0.4rem 1rem",
+          marginBottom: "0.5rem",
+          fontSize: "0.72rem",
+          color: "var(--muted)",
+        }}
+      >
+        <span>
+          <strong style={{ color: "var(--gold)" }}>Level:</strong>{" "}
+          {spell.level === 0 ? "Cantrip" : spell.level} · {spell.school}
+        </span>
+        <span>
+          <strong style={{ color: "var(--gold)" }}>Cast:</strong>{" "}
+          {spell.casting_time}
+        </span>
+        <span>
+          <strong style={{ color: "var(--gold)" }}>Range:</strong>{" "}
+          {spell.range}
+        </span>
+        <span>
+          <strong style={{ color: "var(--gold)" }}>Duration:</strong>{" "}
+          {spell.duration}
+        </span>
+        <span>
+          <strong style={{ color: "var(--gold)" }}>Components:</strong>{" "}
+          {components.length > 0 ? components.join(", ") : "—"}
+        </span>
+        {tags.length > 0 && (
+          <span style={{ color: "var(--accent, #d4a73a)" }}>
+            {tags.join(" · ")}
+          </span>
+        )}
+      </div>
+      {(spell.damage_dice || spell.attack_type || spell.save_ability) && (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.4rem 1rem",
+            marginBottom: "0.5rem",
+            fontSize: "0.72rem",
+            color: "var(--muted)",
+          }}
+        >
+          {spell.damage_dice && (
+            <span>
+              <strong style={{ color: "var(--gold)" }}>Damage:</strong>{" "}
+              {spell.damage_dice}
+              {spell.damage_type ? ` ${spell.damage_type}` : ""}
+            </span>
+          )}
+          {spell.attack_type && (
+            <span>
+              <strong style={{ color: "var(--gold)" }}>Attack:</strong>{" "}
+              {spell.attack_type}
+            </span>
+          )}
+          {spell.save_ability && (
+            <span>
+              <strong style={{ color: "var(--gold)" }}>Save:</strong>{" "}
+              {spell.save_ability}
+            </span>
+          )}
+        </div>
+      )}
+      <div style={{ whiteSpace: "pre-wrap" }}>{spell.description}</div>
+      {spell.higher_levels && (
+        <div
+          style={{
+            marginTop: "0.5rem",
+            paddingTop: "0.4rem",
+            borderTop: "1px dotted var(--border)",
+            fontSize: "0.74rem",
+          }}
+        >
+          <strong style={{ color: "var(--gold)" }}>At higher levels:</strong>{" "}
+          <span style={{ whiteSpace: "pre-wrap" }}>{spell.higher_levels}</span>
         </div>
       )}
     </div>
