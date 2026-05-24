@@ -21,22 +21,30 @@ interface Props {
  * block for any `position: fixed` descendant AND clips it via the sheet's
  * `overflow: hidden`. Portalling out of that subtree is the only reliable
  * escape; the viewport-coordinate anchor below is already correct for it.
+ *
+ * Anchor left-to-left (not right-to-right): the Share button sits on the
+ * LEFT side of the sheet header, so anchoring the popover's right edge to
+ * the button's right edge pushed a 320px popover off-screen to the left.
+ * Anchor left = button's left edge, clamped to keep the popover on-screen.
  */
+const POPOVER_W = 320;
+
 export default function PlayerLinkButton({ characterId, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  // Plan 38/39 P2-2 — anchor the popover to the button via viewport coords
-  // so it can't be clipped by a parent's overflow: hidden (the previous
-  // position: absolute approach got cut off inside the character sheet modal).
   const btnRef = useRef<HTMLButtonElement | null>(null);
-  const [anchor, setAnchor] = useState<{ top: number; right: number } | null>(null);
+  const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
     function recompute() {
       if (!btnRef.current) return;
       const r = btnRef.current.getBoundingClientRect();
-      setAnchor({ top: r.bottom + 4, right: Math.max(8, window.innerWidth - r.right) });
+      const maxLeft = Math.max(8, window.innerWidth - 16 - POPOVER_W);
+      setAnchor({
+        top: r.bottom + 4,
+        left: Math.max(8, Math.min(r.left, maxLeft)),
+      });
     }
     recompute();
     window.addEventListener("resize", recompute);
@@ -91,9 +99,9 @@ export default function PlayerLinkButton({ characterId, compact = false }: Props
             style={{
               position: "fixed",
               top: anchor.top,
-              right: anchor.right,
+              left: anchor.left,
               zIndex: 9601,
-              width: 320,
+              width: POPOVER_W,
               maxWidth: "calc(100vw - 16px)",
               background: "var(--surface, #1f1f1f)",
               border: "1px solid var(--gold)",
