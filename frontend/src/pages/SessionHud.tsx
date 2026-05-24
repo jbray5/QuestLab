@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { sessionsApi } from "../api/sessions";
 import { adventuresApi } from "../api/adventures";
@@ -787,7 +787,24 @@ export default function SessionHud() {
   const [dmScreenOpen, setDmScreenOpen] = useState(false);
 
   // ── Character sheet modal (Plan 00022) ────────────────────────────────────
-  const [sheetPcId, setSheetPcId] = useState<string | null>(null);
+  // Plan 39 — persist open-sheet PC to ?sheet=<id> so a browser refresh
+  // mid-session doesn't close the modal.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const sheetPcId = searchParams.get("sheet");
+  const setSheetPcId = useCallback(
+    (id: string | null) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (id) next.set("sheet", id);
+          else next.delete("sheet");
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
   // ── Party rest (Plan 00021) ────────────────────────────────────────────────
   const [restToast, setRestToast] = useState<string | null>(null);
