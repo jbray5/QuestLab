@@ -110,9 +110,46 @@ def slot_state(db: Session, pc_id: uuid.UUID):
 
 
 def list_spells(db: Session, pc_id: uuid.UUID):
-    """List this PC's known/prepared spells."""
+    """List this PC's known/prepared spells, enriched with full spell details.
+
+    Plan 39 — players want to see "what does Searing Smite do?" on their
+    phones, not just the name. Each row is the CharacterSpell join row
+    plus the full Spell description / range / components / damage / etc.
+    """
+    from db.repos.spell_repo import SpellRepo
+
     dm = _dm_email_for(db, pc_id)
-    return spellcasting_service.list_known_for_character(db, pc_id, dm)
+    rows = spellcasting_service.list_known_for_character(db, pc_id, dm)
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        spell = SpellRepo.get_by_id(db, r.spell_id)
+        if spell is None:
+            continue
+        out.append(
+            {
+                "id": str(r.id),
+                "spell_id": str(r.spell_id),
+                "prepared": r.prepared,
+                "name": spell.name,
+                "level": spell.level,
+                "school": spell.school,
+                "casting_time": spell.casting_time,
+                "range": spell.range,
+                "components_v": spell.components_v,
+                "components_s": spell.components_s,
+                "components_m": spell.components_m,
+                "duration": spell.duration,
+                "is_ritual": spell.is_ritual,
+                "is_concentration": spell.is_concentration,
+                "description": spell.description,
+                "higher_levels": spell.higher_levels,
+                "damage_dice": spell.damage_dice,
+                "damage_type": spell.damage_type,
+                "save_ability": spell.save_ability,
+                "attack_type": spell.attack_type,
+            }
+        )
+    return out
 
 
 def list_features(db: Session, pc_id: uuid.UUID):

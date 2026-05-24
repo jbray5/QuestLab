@@ -66,6 +66,16 @@ function PlayerSheet({ pcId }: { pcId: string }) {
     queryFn: () => playApi.spellSlots(pcId),
     enabled: !!pc,
   });
+  // Plan 39 — prepared spells with full details on the player's phone.
+  // Backend enriches each row with the Spell description / range /
+  // components / damage / etc. Cast through `unknown` because the API
+  // client's static type still says CharacterSpell[].
+  const { data: spellList = [] as PlaySpell[] } = useQuery({
+    queryKey: ["play-spells", pcId],
+    queryFn: () =>
+      playApi.spells(pcId) as unknown as Promise<PlaySpell[]>,
+    enabled: !!pc,
+  });
   const { data: features = [] } = useQuery({
     queryKey: ["play-features", pcId],
     queryFn: () => playApi.features(pcId),
@@ -235,6 +245,12 @@ function PlayerSheet({ pcId }: { pcId: string }) {
         {slotState && Object.keys(slotState.levels).length > 0 && (
           <Section title="📖 Spell Slots" defaultOpen>
             <SlotBlock slotState={slotState} pcId={pcId} qc={qc} />
+          </Section>
+        )}
+
+        {spellList.length > 0 && (
+          <Section title="✨ Your Spells" defaultOpen>
+            <SpellsBlock spells={spellList} />
           </Section>
         )}
 
@@ -979,6 +995,274 @@ function SlotBlock({
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Spells (Plan 39 — full spell details on the player's phone) ────────
+
+interface PlaySpell {
+  id: string;
+  spell_id: string;
+  prepared: boolean;
+  name: string;
+  level: number;
+  school: string;
+  casting_time: string;
+  range: string;
+  components_v: boolean;
+  components_s: boolean;
+  components_m: string | null;
+  duration: string;
+  is_ritual: boolean;
+  is_concentration: boolean;
+  description: string;
+  higher_levels: string | null;
+  damage_dice: string | null;
+  damage_type: string | null;
+  save_ability: string | null;
+  attack_type: string | null;
+}
+
+function SpellsBlock({ spells }: { spells: PlaySpell[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Group by level; within a level, prepared first, then alphabetical.
+  const grouped: Record<number, PlaySpell[]> = {};
+  for (const s of spells) {
+    if (!grouped[s.level]) grouped[s.level] = [];
+    grouped[s.level].push(s);
+  }
+  const levels = Object.keys(grouped)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  return (
+    <div>
+      <p
+        className="text-muted text-sm"
+        style={{ margin: "0 0 0.5rem", fontStyle: "italic" }}
+      >
+        Tap any spell to see what it does. Cantrips are always available;
+        spells with levels need a slot to cast.
+      </p>
+      {levels.map((lvl) => (
+        <div key={lvl} style={{ marginTop: "0.5rem" }}>
+          <strong
+            style={{
+              fontSize: "0.75rem",
+              color: "var(--gold)",
+              display: "block",
+              marginBottom: "0.3rem",
+              letterSpacing: "0.05em",
+            }}
+          >
+            {lvl === 0 ? "CANTRIPS" : `LEVEL ${lvl}`}
+          </strong>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.3rem",
+            }}
+          >
+            {grouped[lvl]
+              .slice()
+              .sort(
+                (a, b) =>
+                  Number(b.prepared) - Number(a.prepared) ||
+                  a.name.localeCompare(b.name),
+              )
+              .map((s) => {
+                const expanded = expandedId === s.id;
+                return (
+                  <div
+                    key={s.id}
+                    style={{
+                      background: "var(--surface2)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                      overflow: "hidden",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedId(expanded ? null : s.id)
+                      }
+                      style={{
+                        width: "100%",
+                        textAlign: "left",
+                        background: "transparent",
+                        border: "none",
+                        color: "inherit",
+                        cursor: "pointer",
+                        padding: "0.5rem 0.7rem",
+                        fontSize: "0.95rem",
+                        fontFamily: "inherit",
+                        opacity: lvl === 0 ? 1 : s.prepared ? 1 : 0.55,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.45rem",
+                      }}
+                      title={expanded ? "Hide details" : "Show details"}
+                    >
+                      <span
+                        style={{
+                          color: "var(--muted)",
+                          fontSize: "0.8rem",
+                          width: "0.8rem",
+                          display: "inline-block",
+                        }}
+                      >
+                        {expanded ? "▾" : "▸"}
+                      </span>
+                      <span style={{ flex: 1 }}>{s.name}</span>
+                      {lvl > 0 && !s.prepared && (
+                        <span
+                          style={{
+                            fontSize: "0.65rem",
+                            color: "var(--muted)",
+                            fontStyle: "italic",
+                          }}
+                        >
+                          not prepared
+                        </span>
+                      )}
+                      {s.is_concentration && (
+                        <span
+                          title="Concentration"
+                          style={{
+                            fontSize: "0.7rem",
+                            color: "var(--accent, #d4a73a)",
+                            border: "1px solid currentColor",
+                            borderRadius: 3,
+                            padding: "0 0.2rem",
+                          }}
+                        >
+                          C
+                        </span>
+                      )}
+                      {s.is_ritual && (
+                        <span
+                          title="Ritual"
+                          style={{
+                            fontSize: "0.7rem",
+                            color: "var(--accent, #d4a73a)",
+                            border: "1px solid currentColor",
+                            borderRadius: 3,
+                            padding: "0 0.2rem",
+                          }}
+                        >
+                          R
+                        </span>
+                      )}
+                    </button>
+                    {expanded && <PlayerSpellDetails spell={s} />}
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PlayerSpellDetails({ spell }: { spell: PlaySpell }) {
+  const components: string[] = [];
+  if (spell.components_v) components.push("V");
+  if (spell.components_s) components.push("S");
+  if (spell.components_m) components.push(`M (${spell.components_m})`);
+
+  return (
+    <div
+      style={{
+        borderTop: "1px dashed var(--border)",
+        background: "var(--surface, #1a1a1a)",
+        padding: "0.65rem 0.8rem",
+        fontSize: "0.85rem",
+        lineHeight: 1.5,
+        color: "var(--text)",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "0.3rem 1rem",
+          marginBottom: "0.5rem",
+          fontSize: "0.75rem",
+          color: "var(--muted)",
+        }}
+      >
+        <span>
+          <strong style={{ color: "var(--gold)" }}>Cast:</strong>{" "}
+          {spell.casting_time}
+        </span>
+        <span>
+          <strong style={{ color: "var(--gold)" }}>Range:</strong>{" "}
+          {spell.range}
+        </span>
+        <span>
+          <strong style={{ color: "var(--gold)" }}>Duration:</strong>{" "}
+          {spell.duration}
+        </span>
+        <span>
+          <strong style={{ color: "var(--gold)" }}>Components:</strong>{" "}
+          {components.length > 0 ? components.join(", ") : "—"}
+        </span>
+        <span>
+          <strong style={{ color: "var(--gold)" }}>School:</strong>{" "}
+          {spell.school}
+        </span>
+      </div>
+      {(spell.damage_dice || spell.attack_type || spell.save_ability) && (
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "0.3rem 1rem",
+            marginBottom: "0.5rem",
+            fontSize: "0.75rem",
+            color: "var(--muted)",
+          }}
+        >
+          {spell.damage_dice && (
+            <span>
+              <strong style={{ color: "var(--gold)" }}>Damage:</strong>{" "}
+              {spell.damage_dice}
+              {spell.damage_type ? ` ${spell.damage_type}` : ""}
+            </span>
+          )}
+          {spell.attack_type && (
+            <span>
+              <strong style={{ color: "var(--gold)" }}>Attack:</strong>{" "}
+              {spell.attack_type}
+            </span>
+          )}
+          {spell.save_ability && (
+            <span>
+              <strong style={{ color: "var(--gold)" }}>Save:</strong>{" "}
+              {spell.save_ability}
+            </span>
+          )}
+        </div>
+      )}
+      <div style={{ whiteSpace: "pre-wrap" }}>{spell.description}</div>
+      {spell.higher_levels && (
+        <div
+          style={{
+            marginTop: "0.55rem",
+            paddingTop: "0.45rem",
+            borderTop: "1px dotted var(--border)",
+            fontSize: "0.8rem",
+          }}
+        >
+          <strong style={{ color: "var(--gold)" }}>At higher levels:</strong>{" "}
+          <span style={{ whiteSpace: "pre-wrap" }}>{spell.higher_levels}</span>
+        </div>
+      )}
     </div>
   );
 }
