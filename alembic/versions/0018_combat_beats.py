@@ -51,10 +51,10 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
     )
-    op.create_index("ix_combat_beats_session_id", "combat_beats", ["session_id"])
+    # session_id column is declared with index=True above — SQLAlchemy
+    # auto-creates `ix_combat_beats_session_id`; no explicit create_index.
 
 
 def downgrade() -> None:
     """Drop the combat_beats table."""
-    op.drop_index("ix_combat_beats_session_id", table_name="combat_beats")
     op.drop_table("combat_beats")
