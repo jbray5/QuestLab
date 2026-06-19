@@ -5,12 +5,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type Npc,
   type NpcStatus,
-  NPC_STATUS_COLORS,
   npcsApi,
 } from "../api/npcs";
 import Flourish from "../components/Flourish";
 import NpcModal from "../components/npc/NpcModal";
-import { portraitSrc } from "../lib/portrait";
+import NpcTableFace from "../components/npc/NpcTableFace";
 
 const STATUSES: NpcStatus[] = ["Alive", "Dead", "Missing", "Imprisoned", "Unknown"];
 
@@ -157,7 +156,11 @@ export default function Npcs() {
           }}
         >
           {filtered.map((npc) => (
-            <NpcCard key={npc.id} npc={npc} onClick={() => setEditing(npc)} />
+            <NpcTableFace
+              key={npc.id}
+              npc={npc}
+              onOpenPrep={() => setEditing(npc)}
+            />
           ))}
         </div>
       )}
@@ -178,136 +181,6 @@ export default function Npcs() {
         />
       )}
     </div>
-  );
-}
-
-function NpcCard({ npc, onClick }: { npc: Npc; onClick: () => void }) {
-  const statusColor = NPC_STATUS_COLORS[npc.status];
-  return (
-    <button
-      className="card"
-      onClick={onClick}
-      style={{
-        textAlign: "left",
-        cursor: "pointer",
-        background: "var(--surface)",
-        border: `1px solid var(--border)`,
-        borderLeft: `4px solid ${statusColor}`,
-        padding: "0.85rem 1rem",
-        fontFamily: "inherit",
-        color: "var(--text)",
-        position: "relative",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.6rem" }}>
-        {npc.portrait_url ? (
-          <img
-            src={portraitSrc(npc.portrait_url, npc.updated_at)}
-            alt=""
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 6,
-              objectFit: "cover",
-              border: `1px solid var(--gold)`,
-              flexShrink: 0,
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 6,
-              background: "var(--surface2)",
-              border: "1px dashed var(--border)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1.4rem",
-              flexShrink: 0,
-            }}
-          >
-            👤
-          </div>
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h3
-            style={{
-              margin: 0,
-              fontSize: "1rem",
-              color: "var(--gold)",
-              fontFamily: "Cinzel Decorative, serif",
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {npc.name}
-          </h3>
-          {npc.role && (
-            <p style={{ margin: "0.1rem 0 0", fontSize: "0.78rem", color: "var(--muted)" }}>
-              {npc.role}
-              {npc.race ? ` · ${npc.race}` : ""}
-            </p>
-          )}
-          <p
-            style={{
-              margin: "0.3rem 0 0",
-              fontSize: "0.7rem",
-              color: statusColor,
-              fontWeight: 700,
-              letterSpacing: "0.05em",
-              textTransform: "uppercase",
-            }}
-          >
-            {npc.status}
-            {npc.location ? ` · ${npc.location}` : ""}
-          </p>
-        </div>
-      </div>
-      {(npc.tags?.length ?? 0) > 0 && (
-        <div
-          style={{
-            display: "flex",
-            gap: "0.25rem",
-            flexWrap: "wrap",
-            marginTop: "0.55rem",
-          }}
-        >
-          {(npc.tags ?? []).slice(0, 4).map((t) => (
-            <span
-              key={t}
-              style={{
-                fontSize: "0.6rem",
-                color: "var(--muted)",
-                background: "var(--surface2)",
-                padding: "0.1rem 0.4rem",
-                borderRadius: 8,
-              }}
-            >
-              {t}
-            </span>
-          ))}
-        </div>
-      )}
-      {npc.personality && (
-        <p
-          style={{
-            margin: "0.55rem 0 0",
-            fontSize: "0.78rem",
-            color: "var(--muted)",
-            fontStyle: "italic",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow: "hidden",
-          }}
-        >
-          {npc.personality}
-        </p>
-      )}
-    </button>
   );
 }
 

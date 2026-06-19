@@ -1,48 +1,36 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import type { Npc } from "../../api/npcs";
 import type { RunbookScene } from "../../api/types";
-import { portraitSrc } from "../../lib/portrait";
-
-interface NpcDialog {
-  npc_name: string;
-  lines: string[];
-  improv_hooks?: string[];
-}
+import NpcModal from "../npc/NpcModal";
+import NpcTableFace from "../npc/NpcTableFace";
 
 interface Props {
-  /** Campaign NPCs to render as cards (cards filter by current scene relevance). */
+  /** Campaign NPCs to render as cards. */
   npcs: Npc[];
   /** Currently-displayed runbook scene, used to surface scene-relevant NPCs first. */
   currentScene?: RunbookScene | null;
-  /** Runbook-level NPC dialog rows (one per NPC) for inline dialog hooks. */
-  runbookNpcDialog?: NpcDialog[];
 }
 
 /**
- * Plan 37/38 — "Tonight's Cast" sliding drawer (Plan 39 candidate).
+ * "Tonight's Cast" sliding drawer.
  *
- * Surfaces campaign NPCs at-a-glance during a live session so the DM
- * doesn't have to leave the runbook view to remember an accent cue, a
- * dialog hook, or what an NPC is currently doing in the scene.
+ * Plan 40 — refactored to render each NPC as its **Table face** (the
+ * scannable mid-conversation read). Click any card to open the rich
+ * Prep face (NpcModal) inline. The drawer keeps its scene-awareness:
+ * NPCs mentioned in the current scene float to the top with a ★ badge.
  *
- * Slides in from the right edge of the viewport over the existing
- * three-panel HUD layout. Toggle button is a small fixed-position chip.
- *
- * Each card surfaces: portrait + name + role + accent (parsed from
- * notes) + dialog hooks (from runbook npc_dialog if present, otherwise
- * from the NPC's stored dialog_hooks list).
+ * The old chip layout (portrait + accent parsing + raw dialog_hooks
+ * rendering) is gone — that content lives in the Prep face now.
  */
-export default function TonightsCastDrawer({
-  npcs,
-  currentScene,
-  runbookNpcDialog,
-}: Props) {
+export default function TonightsCastDrawer({ npcs, currentScene }: Props) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Npc | null>(null);
+  const qc = useQueryClient();
 
-  // Detect which NPCs appear in the current scene by name-matching against
-  // read_aloud + dm_notes. Inexact but cheap; surfaces a "★ in this scene"
-  // tag on relevant cards.
+  // Scene-relevance detection: name-match against scene text. Inexact
+  // but cheap; surfaces a ★ badge on relevant cards.
   const sceneText = useMemo(() => {
     if (!currentScene) return "";
     return [
@@ -54,7 +42,6 @@ export default function TonightsCastDrawer({
       .toLowerCase();
   }, [currentScene]);
 
-  // Sort: NPCs mentioned in the current scene first, then by name.
   const sortedNpcs = useMemo(() => {
     const inScene = (npc: Npc) =>
       sceneText.length > 0 && sceneText.includes(npc.name.toLowerCase());
@@ -66,17 +53,8 @@ export default function TonightsCastDrawer({
     });
   }, [npcs, sceneText]);
 
-  const dialogByName = useMemo(() => {
-    const m: Record<string, NpcDialog> = {};
-    for (const d of runbookNpcDialog ?? []) {
-      m[d.npc_name.toLowerCase()] = d;
-    }
-    return m;
-  }, [runbookNpcDialog]);
-
   return (
     <>
-      {/* Toggle button — fixed to right edge of viewport */}
       <button
         onClick={() => setOpen((p) => !p)}
         title={open ? "Hide cast" : "Show tonight's cast"}
@@ -88,7 +66,6 @@ export default function TonightsCastDrawer({
         </span>
       </button>
 
-      {/* Drawer */}
       <aside
         aria-hidden={!open}
         style={{
@@ -97,11 +74,15 @@ export default function TonightsCastDrawer({
         }}
       >
         <header style={headerStyle}>
-          <strong style={{ fontFamily: "Cinzel Decorative, serif", color: "var(--gold)" }}>
+          <strong
+            style={{ fontFamily: "Cinzel Decorative, serif", color: "var(--gold)" }}
+          >
             🎭 Tonight's Cast
           </strong>
           <span style={{ fontSize: "0.65rem", color: "var(--muted)" }}>
-            {currentScene ? `Scene: ${currentScene.title?.slice(0, 30) ?? "—"}` : "No scene"}
+            {currentScene
+              ? `Scene: ${currentScene.title?.slice(0, 30) ?? "—"}`
+              : "No scene"}
           </span>
         </header>
         <div style={listStyle}>
@@ -112,102 +93,48 @@ export default function TonightsCastDrawer({
           )}
           {sortedNpcs.map((npc) => {
             const inScene =
-              sceneText.length > 0 && sceneText.includes(npc.name.toLowerCase());
-            const accent = parseAccent(npc.notes ?? "");
-            const dialog = dialogByName[npc.name.toLowerCase()];
-            const hooks =
-              dialog?.lines && dialog.lines.length > 0
-                ? dialog.lines
-                : (npc.dialog_hooks ?? []);
+              sceneText.length > 0 &&
+              sceneText.includes(npc.name.toLowerCase());
             return (
-              <article key={npc.id} style={cardStyle(inScene)}>
-                <div style={{ display: "flex", gap: "0.55rem", alignItems: "flex-start" }}>
-                  {npc.portrait_url ? (
-                    <img
-                      src={portraitSrc(npc.portrait_url, npc.updated_at)}
-                      alt={npc.name}
-                      style={portraitStyle}
-                    />
-                  ) : (
-                    <div style={{ ...portraitStyle, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.4rem" }}>
-                      👤
-                    </div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexWrap: "wrap" }}>
-                      <strong style={{ color: "var(--gold)", fontSize: "0.85rem", fontFamily: "Cinzel Decorative, serif" }}>
-                        {npc.name}
-                      </strong>
-                      {inScene && (
-                        <span style={inSceneTagStyle} title="Mentioned in the current scene">
-                          ★ in scene
-                        </span>
-                      )}
-                    </div>
-                    {npc.role && (
-                      <p style={{ margin: 0, fontSize: "0.7rem", color: "var(--muted)", fontStyle: "italic" }}>
-                        {npc.role}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                {accent && (
-                  <div style={accentStyle}>
-                    <span style={accentLabelStyle}>Accent</span>
-                    <p style={{ margin: 0, fontSize: "0.72rem", color: "var(--text)", lineHeight: 1.4 }}>
-                      {accent}
-                    </p>
-                  </div>
+              <div key={npc.id} style={{ position: "relative" }}>
+                {inScene && (
+                  <span style={inSceneBadgeStyle} title="Mentioned in the current scene">
+                    ★ in scene
+                  </span>
                 )}
-
-                {hooks.length > 0 && (
-                  <ul style={hooksListStyle}>
-                    {hooks.slice(0, 4).map((h, i) => (
-                      <li key={i} style={hookItemStyle}>
-                        “{h}”
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {dialog?.improv_hooks && dialog.improv_hooks.length > 0 && (
-                  <details style={{ marginTop: "0.4rem", fontSize: "0.7rem", color: "var(--muted)" }}>
-                    <summary style={{ cursor: "pointer", color: "var(--muted)" }}>
-                      Improv hooks ({dialog.improv_hooks.length})
-                    </summary>
-                    <ul style={{ marginTop: "0.3rem", paddingLeft: "1rem" }}>
-                      {dialog.improv_hooks.map((h, i) => (
-                        <li key={i} style={{ marginBottom: "0.2rem" }}>{h}</li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
-              </article>
+                <NpcTableFace
+                  npc={npc}
+                  onOpenPrep={() => setEditing(npc)}
+                  compact
+                />
+              </div>
             );
           })}
         </div>
       </aside>
+
+      {editing && (
+        <NpcModal
+          campaignId={editing.campaign_id}
+          initial={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["npcs", editing.campaign_id] });
+            setEditing(null);
+          }}
+          onDeleted={() => {
+            qc.invalidateQueries({ queryKey: ["npcs", editing.campaign_id] });
+            setEditing(null);
+          }}
+        />
+      )}
     </>
   );
 }
 
-// ── helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * Extract the accent description from an NPC's notes field. We've been
- * embedding it as `**Accent:** <description>` at the end of the notes
- * during the Severance seed; this pulls it back out for prominent display.
- */
-function parseAccent(notes: string): string | null {
-  const match = notes.match(/\*\*Accent:\*\*\s*([\s\S]+?)(?:\n\n|$)/i);
-  if (!match) return null;
-  return match[1].trim().replace(/\s+/g, " ");
-}
-
 // ── styles ──────────────────────────────────────────────────────────────────
 
-const DRAWER_WIDTH = 340;
+const DRAWER_WIDTH = 360;
 
 function toggleStyle(open: boolean): React.CSSProperties {
   return {
@@ -265,66 +192,16 @@ const listStyle: React.CSSProperties = {
   gap: "0.6rem",
 };
 
-function cardStyle(inScene: boolean): React.CSSProperties {
-  return {
-    padding: "0.55rem",
-    borderRadius: 8,
-    background: inScene ? "rgba(201, 168, 76, 0.08)" : "var(--surface2)",
-    border: inScene ? "1px solid var(--gold)" : "1px solid var(--border)",
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.4rem",
-  };
-}
-
-const portraitStyle: React.CSSProperties = {
-  width: 44,
-  height: 44,
-  borderRadius: 6,
-  border: "1px solid var(--gold)",
-  background: "var(--surface)",
-  objectFit: "cover",
-  flexShrink: 0,
-};
-
-const inSceneTagStyle: React.CSSProperties = {
+const inSceneBadgeStyle: React.CSSProperties = {
+  position: "absolute",
+  top: -8,
+  right: 8,
+  zIndex: 1,
   fontSize: "0.55rem",
-  padding: "0.1rem 0.35rem",
+  padding: "0.1rem 0.5rem",
   background: "var(--gold)",
   color: "var(--bg, #1a1a1a)",
-  borderRadius: 8,
+  borderRadius: 10,
   letterSpacing: "0.04em",
   fontWeight: 700,
-};
-
-const accentStyle: React.CSSProperties = {
-  padding: "0.4rem 0.5rem",
-  background: "rgba(0,0,0,0.25)",
-  borderRadius: 4,
-  borderLeft: "2px solid var(--gold)",
-};
-
-const accentLabelStyle: React.CSSProperties = {
-  display: "block",
-  fontSize: "0.55rem",
-  color: "var(--gold)",
-  fontFamily: "Cinzel Decorative, serif",
-  letterSpacing: "0.12em",
-  textTransform: "uppercase",
-  marginBottom: "0.15rem",
-};
-
-const hooksListStyle: React.CSSProperties = {
-  margin: 0,
-  paddingLeft: "1rem",
-  display: "flex",
-  flexDirection: "column",
-  gap: "0.25rem",
-};
-
-const hookItemStyle: React.CSSProperties = {
-  fontSize: "0.72rem",
-  color: "var(--text-secondary, var(--muted))",
-  fontStyle: "italic",
-  lineHeight: 1.4,
 };

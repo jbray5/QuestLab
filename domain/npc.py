@@ -52,6 +52,25 @@ class Npc(SQLModel, table=True):
     # hide an NPC (villain reveal, plot twist, future-session character)
     # until they're ready for players to see the portrait + name.
     is_revealed: bool = Field(default=True)
+    # ── Plan 40 — Table-face fields. Short, scannable counterparts to the
+    #    rich prep-face fields above (appearance / personality / motivation /
+    #    secret / notes). The Prep face above stays untouched; these are
+    #    what the DM glances at mid-scene at arm's length. All nullable so
+    #    existing NPCs don't lose data on migration.
+    quick_who: Optional[str] = Field(default=None, max_length=120)
+    """One-line "who they are." e.g. "Wenneth — dryad innkeeper, dreamy & warm"."""
+    want_now: Optional[str] = Field(default=None, max_length=200)
+    """WANT — what they want right now / in this scene, one line."""
+    knows: Optional[list[str]] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    """KNOWS — 2-3 bullets max. Only what matters at the table."""
+    voice: Optional[str] = Field(default=None, max_length=200)
+    """One verbal or physical tic written so the DM can perform it instantly."""
+    secret_short: Optional[str] = Field(default=None, max_length=200)
+    """SECRET — one-line table-face version of the rich ``secret`` field above."""
+    relationship_pings: Optional[list[str]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    """Optional short flags about relationships to PCs/other NPCs."""
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -80,6 +99,13 @@ class NpcCreate(BaseModel):
     portrait_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = None
     is_revealed: bool = True
+    # Plan 40 — Table-face
+    quick_who: Optional[str] = Field(default=None, max_length=120)
+    want_now: Optional[str] = Field(default=None, max_length=200)
+    knows: Optional[list[str]] = None
+    voice: Optional[str] = Field(default=None, max_length=200)
+    secret_short: Optional[str] = Field(default=None, max_length=200)
+    relationship_pings: Optional[list[str]] = None
 
 
 class NpcRead(BaseModel):
@@ -104,6 +130,13 @@ class NpcRead(BaseModel):
     portrait_url: Optional[str] = None
     notes: Optional[str] = None
     is_revealed: bool = True
+    # Plan 40 — Table-face
+    quick_who: Optional[str] = None
+    want_now: Optional[str] = None
+    knows: Optional[list[str]] = None
+    voice: Optional[str] = None
+    secret_short: Optional[str] = None
+    relationship_pings: Optional[list[str]] = None
     created_at: datetime
     updated_at: datetime
 
@@ -130,6 +163,13 @@ class NpcUpdate(BaseModel):
     portrait_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = None
     is_revealed: Optional[bool] = None
+    # Plan 40 — Table-face
+    quick_who: Optional[str] = Field(default=None, max_length=120)
+    want_now: Optional[str] = Field(default=None, max_length=200)
+    knows: Optional[list[str]] = None
+    voice: Optional[str] = Field(default=None, max_length=200)
+    secret_short: Optional[str] = Field(default=None, max_length=200)
+    relationship_pings: Optional[list[str]] = None
 
 
 class NpcGenerate(BaseModel):

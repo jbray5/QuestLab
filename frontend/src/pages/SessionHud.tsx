@@ -34,6 +34,7 @@ import LootPanel from "../components/LootPanel";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import MonsterStatBlock from "../components/MonsterStatBlock";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
+import CombatBeatsPanel from "../components/combat-beats/CombatBeatsPanel";
 import type {
   Combatant,
   PlayerCharacter,
@@ -1430,6 +1431,20 @@ export default function SessionHud() {
             </div>
           </div>
 
+          {/* Plan 40 Change 3 — state-triggered beats. Banner-on-fire,
+              attach-by-HP / attach-by-round forms, pending list. */}
+          {sessionId && (
+            <CombatBeatsPanel
+              sessionId={sessionId}
+              combatants={persistedCombatants.map((c) => ({
+                id: c.id,
+                name: c.name,
+                hp_current: c.hp_current,
+              }))}
+              round={round}
+            />
+          )}
+
           {/* Load Encounter */}
           {adventureEncounters.length > 0 && (
             <div style={{
@@ -1930,7 +1945,6 @@ export default function SessionHud() {
       <TonightsCastDrawer
         npcs={campaignNpcs}
         currentScene={currentScene}
-        runbookNpcDialog={runbook?.npc_dialog}
       />
     </div>
   );

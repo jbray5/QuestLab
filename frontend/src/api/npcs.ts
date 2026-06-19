@@ -15,6 +15,7 @@ export interface Npc {
   race: string | null;
   gender: string | null;
   age: string | null;
+  // ── Prep face — rich content the DM reads *before* a session.
   appearance: string | null;
   personality: string | null;
   motivation: string | null;
@@ -27,6 +28,13 @@ export interface Npc {
   portrait_url: string | null;
   notes: string | null;
   is_revealed: boolean;
+  // ── Table face — short, scannable lines for at-the-table use (Plan 40).
+  quick_who: string | null;
+  want_now: string | null;
+  knows: string[] | null;
+  voice: string | null;
+  secret_short: string | null;
+  relationship_pings: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +57,13 @@ export interface NpcCreate {
   portrait_url?: string | null;
   notes?: string | null;
   is_revealed?: boolean;
+  // ── Table face — Plan 40.
+  quick_who?: string | null;
+  want_now?: string | null;
+  knows?: string[] | null;
+  voice?: string | null;
+  secret_short?: string | null;
+  relationship_pings?: string[] | null;
 }
 
 export type NpcUpdate = Partial<NpcCreate>;

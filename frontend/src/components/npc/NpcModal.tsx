@@ -41,6 +41,11 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
     (initial?.dialog_hooks ?? []).join("\n"),
   );
   const [tagsText, setTagsText] = useState((initial?.tags ?? []).join(", "));
+  // Plan 40 — Table-face list fields use line-per-entry textareas.
+  const [knowsText, setKnowsText] = useState((initial?.knows ?? []).join("\n"));
+  const [relPingsText, setRelPingsText] = useState(
+    (initial?.relationship_pings ?? []).join("\n"),
+  );
 
   // ESC dismisses
   useEffect(() => {
@@ -61,6 +66,15 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
           .filter(Boolean),
         tags: tagsText
           .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        // Plan 40 — Table-face list fields.
+        knows: knowsText
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        relationship_pings: relPingsText
+          .split("\n")
           .map((s) => s.trim())
           .filter(Boolean),
       };
@@ -99,6 +113,93 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
         </header>
 
         <div style={bodyStyle}>
+          {/* ── TABLE FACE (Plan 40) ─────────────────────────────────────
+              These six fields render at the table. Keep them SHORT — they
+              are meant to be glanced at, not read. The rich Prep-face
+              content below is what you author beforehand. */}
+          <section
+            style={{
+              border: "1px solid var(--gold)",
+              borderRadius: 8,
+              padding: "0.7rem 0.85rem",
+              marginBottom: "1rem",
+              background: "rgba(201, 168, 76, 0.04)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "0.7rem",
+                color: "var(--gold)",
+                letterSpacing: "0.1em",
+                fontWeight: 700,
+                marginBottom: "0.55rem",
+              }}
+            >
+              🎯 TABLE FACE — what you read at arm's length
+            </div>
+            <Field label="Quick who (one line)">
+              <input
+                value={form.quick_who ?? ""}
+                onChange={(e) => set("quick_who", e.target.value || null)}
+                maxLength={120}
+                placeholder='Wenneth — dryad innkeeper, dreamy & warm'
+              />
+            </Field>
+            <Field label="WANT — what they want right now (one line)">
+              <input
+                value={form.want_now ?? ""}
+                onChange={(e) => set("want_now", e.target.value || null)}
+                maxLength={200}
+                placeholder="To know if the party will help her tend the grove tonight."
+              />
+            </Field>
+            <Field label="KNOWS — one bullet per line (cap to 3)">
+              <textarea
+                value={knowsText}
+                onChange={(e) => setKnowsText(e.target.value)}
+                rows={3}
+                placeholder={"Halve rented her loft three nights ago, paid in old coin.\nThe shrine's been yellowing for weeks.\nWenneth has not slept in a season."}
+              />
+            </Field>
+            <Field label="VOICE — one tic, writable so you can perform it">
+              <input
+                value={form.voice ?? ""}
+                onChange={(e) => set("voice", e.target.value || null)}
+                maxLength={200}
+                placeholder={`British, warm — "oooh, s'alright, love"`}
+              />
+            </Field>
+            <Field label="SECRET (table-length, one line)">
+              <input
+                value={form.secret_short ?? ""}
+                onChange={(e) => set("secret_short", e.target.value || null)}
+                maxLength={200}
+                placeholder="She knows the shrine is dying."
+              />
+            </Field>
+            <Field label="Relationship pings (one per line, optional)">
+              <textarea
+                value={relPingsText}
+                onChange={(e) => setRelPingsText(e.target.value)}
+                rows={2}
+                placeholder={"Recognizes Thane's fey-light; calls him Ae'lim.\nFears Halve on sight."}
+              />
+            </Field>
+          </section>
+
+          {/* ── PREP FACE — rich content the DM reads BEFORE a session ── */}
+          <div
+            style={{
+              fontSize: "0.7rem",
+              color: "var(--muted)",
+              letterSpacing: "0.1em",
+              fontWeight: 700,
+              margin: "0.5rem 0 0.6rem",
+            }}
+          >
+            📚 PREP FACE — depth & connections (not for at-table reading)
+          </div>
+
           {/* Portrait + AI generation (only for persisted NPCs) */}
           {initial && (
             <Field label="Portrait">
@@ -336,6 +437,13 @@ function fromInitial(initial: Npc | null): NpcCreate {
     portrait_url: initial.portrait_url,
     notes: initial.notes,
     is_revealed: initial.is_revealed ?? true,
+    // Plan 40 — Table face
+    quick_who: initial.quick_who,
+    want_now: initial.want_now,
+    knows: initial.knows,
+    voice: initial.voice,
+    secret_short: initial.secret_short,
+    relationship_pings: initial.relationship_pings,
   };
 }
 
