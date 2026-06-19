@@ -11,7 +11,6 @@ Create Date: 2026-06-19
 """
 
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import JSONB
 
 from alembic import op
 
@@ -25,10 +24,10 @@ def upgrade() -> None:
     """Add six new nullable Table-face columns to ``npcs``."""
     op.add_column("npcs", sa.Column("quick_who", sa.String(length=120), nullable=True))
     op.add_column("npcs", sa.Column("want_now", sa.String(length=200), nullable=True))
-    op.add_column("npcs", sa.Column("knows", JSONB(), nullable=True))
+    op.add_column("npcs", sa.Column("knows", sa.JSON(), nullable=True))
     op.add_column("npcs", sa.Column("voice", sa.String(length=200), nullable=True))
     op.add_column("npcs", sa.Column("secret_short", sa.String(length=200), nullable=True))
-    op.add_column("npcs", sa.Column("relationship_pings", JSONB(), nullable=True))
+    op.add_column("npcs", sa.Column("relationship_pings", sa.JSON(), nullable=True))
 
 
 def downgrade() -> None:

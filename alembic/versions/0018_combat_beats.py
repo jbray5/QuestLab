@@ -24,17 +24,17 @@ def upgrade() -> None:
     """Create the combat_beats table."""
     op.create_table(
         "combat_beats",
-        sa.Column("id", sa.UUID(), primary_key=True, nullable=False),
+        sa.Column("id", sa.Uuid(), primary_key=True, nullable=False),
         sa.Column(
             "session_id",
-            sa.UUID(),
+            sa.Uuid(),
             sa.ForeignKey("sessions.id", ondelete="CASCADE"),
             nullable=False,
             index=True,
         ),
         sa.Column(
             "combatant_id",
-            sa.UUID(),
+            sa.Uuid(),
             sa.ForeignKey("session_combatants.id", ondelete="CASCADE"),
             nullable=True,
         ),
@@ -51,9 +51,7 @@ def upgrade() -> None:
             server_default=sa.func.now(),
         ),
     )
-    op.create_index(
-        "ix_combat_beats_session_id", "combat_beats", ["session_id"]
-    )
+    op.create_index("ix_combat_beats_session_id", "combat_beats", ["session_id"])
 
 
 def downgrade() -> None:
