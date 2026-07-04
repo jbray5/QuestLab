@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2100" height="1500" viewBox="0 0 2100 1500">
+  <defs>
+    <linearGradient id="floor" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5a4028"/>
+      <stop offset="0.5" stop-color="#4a331f"/>
+      <stop offset="1" stop-color="#3a2718"/>
+    </linearGradient>
+    <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3a3a42"/>
+      <stop offset="1" stop-color="#25252b"/>
+    </linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6b4a2b"/>
+      <stop offset="1" stop-color="#4a3018"/>
+    </linearGradient>
+    <radialGradient id="fire" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffd27a" stop-opacity="0.9"/>
+      <stop offset="0.35" stop-color="#e8843a" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#e8843a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="ambient" cx="0.5" cy="0.45" r="0.75">
+      <stop offset="0" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="0.7" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#0a0806" stop-opacity="0.55"/>
+    </radialGradient>
+    <pattern id="planks" width="300" height="90" patternUnits="userSpaceOnUse">
+      <rect width="300" height="90" fill="url(#floor)"/>
+      <line x1="0" y1="0" x2="300" y2="0" stroke="#2c1d10" stroke-width="3" opacity="0.6"/>
+      <line x1="150" y1="0" x2="150" y2="90" stroke="#2c1d10" stroke-width="2" opacity="0.4"/>
+    </pattern>
+    <pattern id="rugweave" width="40" height="40" patternUnits="userSpaceOnUse">
+      <rect width="40" height="40" fill="#5c1f22"/>
+      <path d="M0 20 L20 0 L40 20 L20 40 Z" fill="none" stroke="#8a2f33" stroke-width="2"/>
+      <circle cx="20" cy="20" r="4" fill="#c9a24a" opacity="0.7"/>
+    </pattern>
+  </defs>
+
+  <!-- Stone shell -->
+  <rect width="2100" height="1500" fill="url(#stone)"/>
+  <!-- Interior wood floor -->
+  <rect x="60" y="60" width="1980" height="1380" fill="url(#planks)"/>
+
+  <!-- Inner wall shadow -->
+  <rect x="60" y="60" width="1980" height="1380" fill="none" stroke="#000000" stroke-width="10" opacity="0.35"/>
+
+  <!-- Door gap (bottom) with threshold -->
+  <rect x="960" y="1428" width="200" height="34" fill="url(#floor)"/>
+  <rect x="960" y="1452" width="200" height="10" fill="#2a1b0e"/>
+
+  <!-- Fireplace (left wall) + glow -->
+  <rect x="60" y="560" width="70" height="300" fill="#2a2a30"/>
+  <rect x="72" y="600" width="46" height="220" fill="#15100c"/>
+  <circle cx="230" cy="710" r="330" fill="url(#fire)"/>
+  <g fill="#ffb24a">
+    <path d="M95 800 q18 -70 40 -30 q6 -46 34 -20 q10 -34 30 8 q-4 60 -52 66 q-40 4 -52 -24 Z" opacity="0.9"/>
+  </g>
+
+  <!-- Bar counter (top-right, L-shaped) -->
+  <rect x="1240" y="80" width="800" height="130" rx="8" fill="url(#wood)" stroke="#2c1d10" stroke-width="4"/>
+  <rect x="1910" y="210" width="130" height="470" rx="8" fill="url(#wood)" stroke="#2c1d10" stroke-width="4"/>
+  <!-- bottles on the back wall -->
+  <g fill="#7fae8a" opacity="0.85">
+    <rect x="1300" y="96" width="18" height="44" rx="4"/>
+    <rect x="1340" y="96" width="18" height="44" rx="4"/>
+    <rect x="1392" y="96" width="18" height="44" rx="4" fill="#b06a4a"/>
+    <rect x="1440" y="96" width="18" height="44" rx="4"/>
+    <rect x="1492" y="96" width="18" height="44" rx="4" fill="#c9a24a"/>
+  </g>
+
+  <!-- Central rug -->
+  <g>
+    <rect x="820" y="560" width="520" height="380" rx="14" fill="url(#rugweave)" stroke="#c9a24a" stroke-width="8" opacity="0.92"/>
+    <rect x="856" y="596" width="448" height="308" rx="8" fill="none" stroke="#c9a24a" stroke-width="3" opacity="0.6"/>
+  </g>
+
+  <!-- Round tables + stools -->
+  <g>
+    <!-- table macro repeated -->
+    <g transform="translate(1080,750)">
+      <circle r="96" fill="url(#wood)" stroke="#2c1d10" stroke-width="5"/>
+      <circle r="60" fill="#5a3d22" opacity="0.6"/>
+      <g fill="#3a2716"><circle cx="0" cy="-135" r="30"/><circle cx="128" cy="-40" r="30"/><circle cx="80" cy="115" r="30"/><circle cx="-80" cy="115" r="30"/><circle cx="-128" cy="-40" r="30"/></g>
+    </g>
+    <g transform="translate(470,380)">
+      <circle r="90" fill="url(#wood)" stroke="#2c1d10" stroke-width="5"/>
+      <circle r="56" fill="#5a3d22" opacity="0.6"/>
+      <g fill="#3a2716"><circle cx="0" cy="-128" r="28"/><circle cx="120" cy="-36" r="28"/><circle cx="74" cy="108" r="28"/><circle cx="-74" cy="108" r="28"/><circle cx="-120" cy="-36" r="28"/></g>
+    </g>
+    <g transform="translate(1660,1080)">
+      <circle r="90" fill="url(#wood)" stroke="#2c1d10" stroke-width="5"/>
+      <circle r="56" fill="#5a3d22" opacity="0.6"/>
+      <g fill="#3a2716"><circle cx="0" cy="-128" r="28"/><circle cx="120" cy="-36" r="28"/><circle cx="74" cy="108" r="28"/><circle cx="-74" cy="108" r="28"/><circle cx="-120" cy="-36" r="28"/></g>
+    </g>
+    <g transform="translate(520,1120)">
+      <circle r="86" fill="url(#wood)" stroke="#2c1d10" stroke-width="5"/>
+      <circle r="52" fill="#5a3d22" opacity="0.6"/>
+      <g fill="#3a2716"><circle cx="0" cy="-124" r="26"/><circle cx="116" cy="-34" r="26"/><circle cx="70" cy="104" r="26"/><circle cx="-70" cy="104" r="26"/><circle cx="-116" cy="-34" r="26"/></g>
+    </g>
+  </g>
+
+  <!-- Barrels + crates (bottom-left cellar corner) -->
+  <g>
+    <circle cx="180" cy="1200" r="52" fill="#6b4a2b" stroke="#2c1d10" stroke-width="5"/>
+    <circle cx="180" cy="1200" r="30" fill="#4a3018"/>
+    <circle cx="290" cy="1280" r="48" fill="#6b4a2b" stroke="#2c1d10" stroke-width="5"/>
+    <circle cx="290" cy="1280" r="28" fill="#4a3018"/>
+    <rect x="150" y="1300" width="96" height="96" rx="6" fill="#5a3d22" stroke="#2c1d10" stroke-width="4"/>
+    <path d="M150 1348 h96 M198 1300 v96" stroke="#2c1d10" stroke-width="3"/>
+  </g>
+
+  <!-- Ambient vignette -->
+  <rect width="2100" height="1500" fill="url(#ambient)"/>
+</svg>
