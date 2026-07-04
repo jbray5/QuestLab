@@ -8,7 +8,9 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from api.deps import DB, CurrentUser
-from domain.session import DiceRollBroadcast
+from domain.session import (
+    DiceRollBroadcast,
+)
 from domain.session import Session as GameSession
 from domain.session import (
     SessionCombatantCreate,

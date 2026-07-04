@@ -16,7 +16,10 @@ msgpack>=1.2.1
 pytest>=8.0
 pytest-cov>=5.0
 black>=24.0
-isort>=5.13
+# Pinned exactly: isort dialects differ across majors, and version drift between
+# the venv, the pre-commit hook, and CI red-lined main (Plan 42 retro). Keep this,
+# .pre-commit-config.yaml's rev, and CI in lockstep when bumping.
+isort==8.0.1
 flake8>=7.0
 interrogate>=1.7
 pip-audit>=2.7

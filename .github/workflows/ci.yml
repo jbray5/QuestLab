@@ -27,8 +27,11 @@ jobs:
       - name: black — format check
         run: black --check --line-length 100 .
 
+      # No flags: pyproject.toml [tool.isort] is the single config source, and the
+      # version is pinned in requirements.txt (flags here once shadowed pyproject
+      # while the version floated — that combination red-lined main, Jul 2026).
       - name: isort — import order check
-        run: isort --check-only --profile black --line-length 100 .
+        run: isort --check-only .
 
       - name: flake8 — lint
         run: flake8 --max-line-length 100 .

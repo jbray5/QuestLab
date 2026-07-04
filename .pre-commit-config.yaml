@@ -16,11 +16,13 @@ repos:
       - id: black
         args: ["--line-length=100"]
 
+  # Keep rev in lockstep with requirements.txt's isort pin — the 5.13.2 hook
+  # rewrote imports into a dialect CI's newer isort rejected (red main, Jul 2026).
+  # No args: pyproject.toml [tool.isort] is the single config source.
   - repo: https://github.com/PyCQA/isort
-    rev: 5.13.2
+    rev: 8.0.1
     hooks:
       - id: isort
-        args: ["--profile=black", "--line-length=100"]
 
   - repo: https://github.com/PyCQA/flake8
     rev: 7.1.0
