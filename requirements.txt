@@ -11,6 +11,8 @@ pydantic>=2.7
 anthropic>=0.28
 openai>=1.50
 python-dotenv>=1.0
+# Security pin — msgpack <1.2.1 has GHSA-6v7p-g79w-8964 (transitive dep). Plan 00041.
+msgpack>=1.2.1
 pytest>=8.0
 pytest-cov>=5.0
 black>=24.0

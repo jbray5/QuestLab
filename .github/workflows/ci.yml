@@ -49,6 +49,38 @@ jobs:
           CURRENT_USER_EMAIL: ci@questlab.test
           AUTH_EMAIL_HEADER: X-MS-CLIENT-PRINCIPAL-NAME
           BOOTSTRAP_ADMIN_EMAILS: ci@questlab.test
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           LOG_LEVEL: WARNING
         run: pytest -q --tb=short
+
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Hard gate: tsc -b && vite build. A type error here is exactly what used
+      # to sail through green CI and fail only as a Vercel production deploy.
+      - name: Build (tsc + vite)
+        run: npm run build
+
+      # eslint has a backlog of ~20 pre-existing errors in legacy components
+      # (set-state-in-effect, purity). The crash-class rules-of-hooks bug is
+      # fixed. Informational until the backlog is cleared, then drop
+      # continue-on-error to make it a hard gate. Plan 41.
+      - name: eslint (informational)
+        run: npx eslint .
+        continue-on-error: true
