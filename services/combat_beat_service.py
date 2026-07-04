@@ -18,18 +18,11 @@ from sqlmodel import Session as DBSession
 
 from db.repos.combat_beat_repo import CombatBeatRepo
 from db.repos.session_repo import SessionRepo
-from domain.combat_beat import (
-    CombatBeat,
-    CombatBeatCreate,
-    CombatBeatTrigger,
-    CombatBeatUpdate,
-)
+from domain.combat_beat import CombatBeat, CombatBeatCreate, CombatBeatTrigger, CombatBeatUpdate
 from services.session_service import _assert_session_owner
 
 
-def _get_beat_or_raise(
-    db: DBSession, beat_id: uuid.UUID, dm_email: str
-) -> CombatBeat:
+def _get_beat_or_raise(db: DBSession, beat_id: uuid.UUID, dm_email: str) -> CombatBeat:
     """Fetch a beat and authorize the caller, or raise.
 
     Args:
@@ -54,9 +47,7 @@ def _get_beat_or_raise(
     return beat
 
 
-def list_for_session(
-    db: DBSession, session_id: uuid.UUID, dm_email: str
-) -> list[CombatBeat]:
+def list_for_session(db: DBSession, session_id: uuid.UUID, dm_email: str) -> list[CombatBeat]:
     """List every beat for a session, ordered by sort_index then created_at.
 
     Args:
@@ -209,9 +200,7 @@ def delete(db: DBSession, beat_id: uuid.UUID, dm_email: str) -> bool:
     return CombatBeatRepo.delete(db, beat)
 
 
-def get(
-    db: DBSession, beat_id: uuid.UUID, dm_email: str
-) -> Optional[CombatBeat]:
+def get(db: DBSession, beat_id: uuid.UUID, dm_email: str) -> Optional[CombatBeat]:
     """Fetch a single beat, with auth.
 
     Args:

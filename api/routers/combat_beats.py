@@ -12,11 +12,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB, CurrentUser
-from domain.combat_beat import (
-    CombatBeatCreate,
-    CombatBeatRead,
-    CombatBeatUpdate,
-)
+from domain.combat_beat import CombatBeatCreate, CombatBeatRead, CombatBeatUpdate
 from services import combat_beat_service
 
 router = APIRouter(tags=["combat-beats"])
@@ -69,9 +65,7 @@ def create_beat(
         beat = combat_beat_service.create(db, session_id, body, user)
         return CombatBeatRead.model_validate(beat)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-        )
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
@@ -163,9 +157,7 @@ def reset_beat(beat_id: uuid.UUID, db: DB, user: CurrentUser) -> CombatBeatRead:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
-@router.delete(
-    "/combat-beats/{beat_id}", status_code=status.HTTP_204_NO_CONTENT
-)
+@router.delete("/combat-beats/{beat_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_beat(beat_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
     """Delete a beat row.
 

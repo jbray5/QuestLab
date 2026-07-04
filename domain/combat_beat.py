@@ -43,9 +43,7 @@ class CombatBeat(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     session_id: uuid.UUID = Field(foreign_key="sessions.id", index=True)
     # Required for hp_lte triggers; null for round_gte (session-scoped).
-    combatant_id: Optional[uuid.UUID] = Field(
-        default=None, foreign_key="session_combatants.id"
-    )
+    combatant_id: Optional[uuid.UUID] = Field(default=None, foreign_key="session_combatants.id")
     trigger_kind: CombatBeatTrigger = Field()
     trigger_value: int = Field(ge=0)
     text: str = Field(min_length=1)
