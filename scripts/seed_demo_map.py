@@ -113,6 +113,8 @@ def _find(items: object, key: str, value: str) -> dict | None:
 
 def main() -> int:
     """Seed the demo and print the shareable Table View URL."""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--api-base", default=DEFAULT_API_BASE)
     ap.add_argument("--dm-email", required=True)
