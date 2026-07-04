@@ -240,3 +240,33 @@ def publish_pc_turn_changed(pc_id: Any, active: bool, **extra: Any) -> None:
     }
     payload.update({k: (str(v) if k.endswith("_id") else v) for k, v in extra.items()})
     event_bus.publish(f"pc:{pc_id}", payload)
+
+
+def publish_table_updated(session_id: Any) -> None:
+    """Notify the Table View that the projected surface changed (Plan 42).
+
+    Published on the ``table:{session_id}`` topic; the full-screen Table View
+    refetches its authoritative projection. No payload beyond the type/session
+    is needed (and deliberately so — the table topic never carries stats).
+
+    Args:
+        session_id: UUID of the session whose table state changed.
+    """
+    event_bus.publish(
+        f"table:{session_id}",
+        {"type": "table.updated", "session_id": str(session_id)},
+    )
+
+
+def publish_table_ping(session_id: Any, x: float, y: float) -> None:
+    """Fan a transient DM "look here" ping to the Table View (Plan 42).
+
+    Args:
+        session_id: UUID of the session.
+        x: Ping x in image-pixel coordinates.
+        y: Ping y in image-pixel coordinates.
+    """
+    event_bus.publish(
+        f"table:{session_id}",
+        {"type": "table.ping", "x": x, "y": y},
+    )

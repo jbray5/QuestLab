@@ -3,6 +3,7 @@
 # Import all SQLModel table=True classes so SQLAlchemy can resolve FK
 # relationships regardless of which module is imported first.
 from domain.adventure import Adventure as Adventure  # noqa: F401
+from domain.battle_map import BattleMap as BattleMap  # noqa: F401
 from domain.campaign import Campaign as Campaign  # noqa: F401
 from domain.character import CharacterFeature as CharacterFeature  # noqa: F401
 from domain.character import CharacterItem as CharacterItem  # noqa: F401
@@ -21,3 +22,4 @@ from domain.npc import Npc as Npc  # noqa: F401
 from domain.session import Session as Session  # noqa: F401
 from domain.session import SessionRunbook as SessionRunbook  # noqa: F401
 from domain.spell import Spell as Spell  # noqa: F401
+from domain.table_state import TableState as TableState  # noqa: F401

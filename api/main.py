@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from api.routers import (
     admin,
     adventures,
+    battle_maps,
     campaigns,
     characters,
     combat_beats,
@@ -36,6 +37,7 @@ from api.routers import (
     spellcasting,
     spells,
     stream,
+    table,
     uploads,
 )
 
@@ -126,6 +128,8 @@ app.include_router(play.router, prefix=_PREFIX)
 app.include_router(stream.router, prefix=_PREFIX)
 app.include_router(npcs.router, prefix=_PREFIX)
 app.include_router(combat_beats.router, prefix=_PREFIX)
+app.include_router(battle_maps.router, prefix=_PREFIX)
+app.include_router(table.router, prefix=_PREFIX)
 
 
 @app.get("/api/health")

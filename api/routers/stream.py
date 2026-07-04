@@ -121,3 +121,28 @@ async def stream_campaign(campaign_id: uuid.UUID):
             "Connection": "keep-alive",
         },
     )
+
+
+@router.get("/stream/table/{session_id}")
+async def stream_table(session_id: uuid.UUID):
+    """SSE stream for the projected Table View (Plan 42).
+
+    Same capability-URL trust model as /play — the session UUID is the implicit
+    secret. Carries only ``table.updated`` / ``table.ping`` events, neither of
+    which contains stats, HP, or DM-only data.
+
+    Args:
+        session_id: UUID of the session.
+
+    Returns:
+        StreamingResponse with ``text/event-stream`` media type.
+    """
+    return StreamingResponse(
+        _stream([f"table:{session_id}"]),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
