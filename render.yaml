@@ -71,6 +71,11 @@ services:
         sync: false
 
 databases:
+  # DRIFT WARNING (Plan 41): the live DB was upgraded to a PAID tier in the
+  # Render dashboard (paid Postgres has no free-tier 90-day deletion). Dashboard
+  # changes do NOT sync back to this blueprint. Set `plan` below to the actual
+  # paid tier before ever re-applying this blueprint, or a re-apply may try to
+  # downgrade the DB. If unsure, do NOT re-apply the blueprint against prod.
   - name: questlab-db
     plan: free
     region: oregon

@@ -32,6 +32,12 @@ venv/
 ENV/
 env/
 
+# ── Campaign backups (prod DB snapshots + player PII — never commit) ──────────
+# The existing campaigns/backups/ snapshot is still tracked; untrack it with
+#   git rm -r --cached campaigns/backups/
+# (Plan 41 — it contains dm_email + player_name from a live export.)
+campaigns/backups/
+
 # ── Database files ─────────────────────────────────────────────────────────────
 data/
 *.duckdb

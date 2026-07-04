@@ -1,0 +1,43 @@
+name: DB Backup
+
+# Automated off-repo backup of the production Postgres (Plan 41).
+#
+# SETUP (one-time): add a repository secret named DATABASE_URL containing the
+# Render **external** connection string (Dashboard → questlab-db → Connections →
+# External Database URL). Without it, this workflow no-ops instead of failing.
+#
+# Backups are uploaded as GitHub Actions artifacts (30-day retention) — never
+# committed to the repo. Download from the run's Artifacts section, or trigger a
+# manual run any time via "Run workflow".
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # daily at 08:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    name: pg_dump → artifact
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dump database (postgres:16 client)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::warning::DATABASE_URL secret not set — skipping backup. Add it in repo Settings → Secrets."
+            exit 0
+          fi
+          ts=$(date -u +%Y%m%dT%H%M%SZ)
+          # Use the postgres:16 image so pg_dump matches the server major version.
+          docker run --rm postgres:16 pg_dump --no-owner --no-privileges "$DATABASE_URL" \
+            | gzip > "questlab-${ts}.sql.gz"
+          echo "Wrote questlab-${ts}.sql.gz ($(du -h questlab-${ts}.sql.gz | cut -f1))"
+
+      - name: Upload backup artifact
+        if: ${{ hashFiles('*.sql.gz') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: questlab-db-backup
+          path: "*.sql.gz"
+          retention-days: 30
