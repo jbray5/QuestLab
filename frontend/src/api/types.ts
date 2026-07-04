@@ -307,6 +307,8 @@ export interface Combatant {
   initiative?: number;
   active?: boolean;
   defeated?: boolean;
+  ac?: number | null;
+  conditions?: string[];
 }
 
 // ── Persistent combat state (Plan 00015) ─────────────────────────────────────
@@ -322,6 +324,7 @@ export interface SessionCombatant {
   hp_max: number;
   type: "pc" | "monster" | "npc" | string;
   defeated: boolean;
+  ac: number | null;
   monster_id: string | null;
   character_id: string | null;
   conditions: string[];
@@ -336,6 +339,7 @@ export interface SessionCombatantCreate {
   hp_max: number;
   type: "pc" | "monster" | "npc" | string;
   defeated?: boolean;
+  ac?: number | null;
   monster_id?: string | null;
   character_id?: string | null;
   conditions?: string[];
@@ -347,6 +351,7 @@ export interface SessionCombatantUpdate {
   hp_current?: number;
   hp_max?: number;
   defeated?: boolean;
+  ac?: number;
   initiative_roll?: number;
   conditions?: string[];
 }
@@ -354,12 +359,14 @@ export interface SessionCombatantUpdate {
 export interface SessionCombatStateRead {
   session_id: string;
   round: number;
+  combat_state: string;
   active_combatant_id: string | null;
   combatants: SessionCombatant[];
 }
 
 export interface SessionCombatStateWrite {
   round?: number;
+  combat_state?: string;
   active_combatant_id?: string | null;
   combatants: SessionCombatantCreate[];
 }

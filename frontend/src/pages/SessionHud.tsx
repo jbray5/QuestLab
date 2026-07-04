@@ -496,7 +496,8 @@ export default function SessionHud() {
   function toggleCondition(pcId: string, c: Condition) {
     setConditions((prev) => {
       const s = new Set(prev[pcId] ?? []);
-      s.has(c) ? s.delete(c) : s.add(c);
+      if (s.has(c)) s.delete(c);
+      else s.add(c);
       return { ...prev, [pcId]: s };
     });
   }
@@ -518,8 +519,10 @@ export default function SessionHud() {
   const patchPersistedCombatant = useInitiativeStore((s) => s.patchCombatant);
   const advanceTurn = useInitiativeStore((s) => s.nextTurn);
   const resetCombat = useInitiativeStore((s) => s.reset);
+  const addPersistedCombatant = useInitiativeStore((s) => s.addCombatant);
+  const removePersistedCombatant = useInitiativeStore((s) => s.removeCombatant);
+  const setPersistedInitiative = useInitiativeStore((s) => s.setInitiative);
 
-  const [acOverrides, setAcOverrides] = useState<Record<string, number>>({});
   // Plan 38 P4-1/9 — link a roster pick (PC or NPC) so addCombatant can
   // attach the character_id for HP sync. Cleared after each add.
   const [pendingCharId, setPendingCharId] = useState<string | null>(null);
@@ -550,7 +553,9 @@ export default function SessionHud() {
   }, [party]);
 
   function acFor(c: SessionCombatant): number {
-    if (acOverrides[c.id] !== undefined) return acOverrides[c.id];
+    // Plan 41 — AC is persisted on the combatant row now. Fall back to the
+    // linked PC's sheet AC, then a sane default for ad-hoc combatants.
+    if (c.ac != null) return c.ac;
     if (c.character_id && partyById[c.character_id]) return partyById[c.character_id].ac;
     return 10;
   }
@@ -580,10 +585,11 @@ export default function SessionHud() {
       };
     })
       // Plan 38 P4-2 — display in initiative-desc order so DM-edited
-      // initiative scores immediately reflect in the rendered list.
+      // initiative scores immediately reflect in the rendered list. The server
+      // reseats sort_index to match, so the turn walk follows this same order.
       .sort((a, b) => b.initiative - a.initiative);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistedCombatants, acOverrides, partyById]);
+  }, [persistedCombatants, partyById]);
 
   const combatActive = combatants.length > 0;
   const round = storeRound;
@@ -600,8 +606,10 @@ export default function SessionHud() {
       type: (c.type as "pc" | "monster" | "npc") ?? "monster",
       initiative: c.initiative_roll,
       defeated: c.defeated,
+      ac: c.ac,
       monster_id: c.monster_id,
       character_id: c.character_id,
+      conditions: c.conditions,
     }));
   }
 
@@ -623,14 +631,15 @@ export default function SessionHud() {
         defeated: false,
         character_id: pc.id,
       }));
-      void replaceFromRoll(sessionId, seeded);
+      // Plan 41 — seed as "idle": a prep roster must never set an active turn
+      // or ping player phones. Combat only goes "running" on Roll Initiative.
+      void replaceFromRoll(sessionId, seeded, "idle");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, party.length, persistedCombatants.length]);
 
   function addCombatant() {
     if (!newCName.trim() || !sessionId) return;
-    const existing = projectExisting();
     const added: Combatant = {
       name: newCName.trim(),
       dex_score: 10,
@@ -639,21 +648,14 @@ export default function SessionHud() {
       type: newCType,
       initiative: newCInit,
       defeated: false,
+      ac: newCAc,
       // Plan 38 P4-1/9 — preserve PC linkback if this row was picked from
       // the roster dropdown, so HP changes mirror onto the PC sheet.
       character_id: pendingCharId,
     };
-    void (async () => {
-      await replaceFromRoll(sessionId, [...existing, added]);
-      // After persistence completes, attribute AC override by name match
-      // (the newly created combatant has a server-assigned id we look up).
-      setTimeout(() => {
-        const fresh = useInitiativeStore
-          .getState()
-          .combatants.find((c) => c.name === added.name && !acOverrides[c.id]);
-        if (fresh) setAcOverrides((p) => ({ ...p, [fresh.id]: newCAc }));
-      }, 0);
-    })();
+    // Plan 41 — incremental add: preserves round/turn/conditions/beats and
+    // carries AC in the payload (no more name-match setTimeout hack).
+    void addPersistedCombatant(added);
     setNewCName("");
     setNewCHp(10);
     setNewCHpMax(10);
@@ -696,44 +698,29 @@ export default function SessionHud() {
     const enc = adventureEncounters.find((e) => e.id === loadEncounterId);
     if (!enc) return;
     const roster: RosterEntry[] = (enc.monster_roster ?? []) as unknown as RosterEntry[];
-    const additions: { combatant: Combatant; ac: number }[] = [];
+    const additions: Combatant[] = [];
     for (const entry of roster) {
       const count = entry.count ?? 1;
       for (let i = 0; i < count; i++) {
         const label = count === 1 ? entry.name : `${entry.name} ${i + 1}`;
         additions.push({
-          combatant: {
-            name: label,
-            dex_score: 10,
-            hp: entry.hp ?? 10,
-            max_hp: entry.hp ?? 10,
-            type: "monster",
-            initiative: 0,
-            defeated: false,
-            monster_id: entry.monster_id ?? null,
-          },
+          name: label,
+          dex_score: 10,
+          hp: entry.hp ?? 10,
+          max_hp: entry.hp ?? 10,
+          type: "monster",
+          initiative: 0,
+          defeated: false,
           ac: entry.ac ?? 10,
+          monster_id: entry.monster_id ?? null,
         });
       }
     }
     if (additions.length === 0) return;
-    const existing = projectExisting();
+    // Plan 41 — add each monster incrementally so loading an encounter
+    // mid-fight preserves the round/turn and existing combatants' beats.
     void (async () => {
-      await replaceFromRoll(sessionId, [...existing, ...additions.map((a) => a.combatant)]);
-      // Attribute AC overrides by name match on the new rows.
-      setTimeout(() => {
-        const fresh = useInitiativeStore.getState().combatants;
-        const updates: Record<string, number> = {};
-        for (const a of additions) {
-          const match = fresh.find(
-            (c) => c.name === a.combatant.name && acOverrides[c.id] === undefined,
-          );
-          if (match) updates[match.id] = a.ac;
-        }
-        if (Object.keys(updates).length > 0) {
-          setAcOverrides((p) => ({ ...p, ...updates }));
-        }
-      }, 0);
+      for (const combatant of additions) await addPersistedCombatant(combatant);
     })();
     setLoadEncounterId("");
   }
@@ -743,7 +730,9 @@ export default function SessionHud() {
     const rolled: Combatant[] = projectExisting()
       .map((c) => ({ ...c, initiative: Math.floor(Math.random() * 20) + 1 + abilityMod(c.dex_score) }))
       .sort((a, b) => (b.initiative ?? 0) - (a.initiative ?? 0));
-    void replaceFromRoll(sessionId, rolled);
+    // Plan 41 — rolling initiative starts the fight: "running" selects the
+    // active combatant and pings the up-first PC.
+    void replaceFromRoll(sessionId, rolled, "running");
   }
 
   function nextTurn() {
@@ -774,12 +763,9 @@ export default function SessionHud() {
 
   function removeCombatant(id: string) {
     if (!sessionId) return;
-    const remaining = projectExisting().filter((_, idx) => persistedCombatants[idx].id !== id);
-    void replaceFromRoll(sessionId, remaining);
-    setAcOverrides((p) => {
-      const { [id]: _drop, ...rest } = p;
-      return rest;
-    });
+    // Plan 41 — incremental remove: preserves round/turn/conditions/beats and
+    // advances the pointer server-side if the removed combatant was active.
+    void removePersistedCombatant(id);
   }
 
   // ── Loot modal ─────────────────────────────────────────────────────────────
@@ -1667,7 +1653,9 @@ export default function SessionHud() {
                             onBlur={(e) => {
                               const v = Number(e.target.value);
                               if (!Number.isFinite(v) || v === c.initiative) return;
-                              void patchPersistedCombatant(c.id, { initiative_roll: v });
+                              // Plan 41 — persists immediately; server reseats
+                              // sort_index so End Turn follows the shown order.
+                              void setPersistedInitiative(c.id, v);
                             }}
                             onKeyDown={(e) => {
                               if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();

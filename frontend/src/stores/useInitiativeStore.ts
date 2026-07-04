@@ -25,6 +25,7 @@ interface InitiativeState {
   combatants: SessionCombatant[];
   round: number;
   activeCombatantId: string | null;
+  combatState: string;
   loading: boolean;
   saving: boolean;
   error: string | null;
@@ -32,11 +33,25 @@ interface InitiativeState {
   /** Load persisted combat state from the backend. Call on session open. */
   hydrate: (sessionId: string) => Promise<void>;
 
-  /** Persist a freshly-rolled combatant list, replacing any prior roster. */
+  /**
+   * Persist a full roster snapshot, replacing any prior roster. Used for the
+   * idle prep seed (combatState "idle" — no turn pings) and rolling initiative
+   * (combatState "running" — pings the active PC). Defaults to "running".
+   */
   replaceFromRoll: (
     sessionId: string,
     rolled: Combatant[],
+    combatState?: "idle" | "running" | "ended",
   ) => Promise<void>;
+
+  /** Add one combatant mid-fight (preserves round/turn/conditions/beats). */
+  addCombatant: (combatant: Combatant) => Promise<void>;
+
+  /** Remove one combatant mid-fight (advances the turn if it was active). */
+  removeCombatant: (combatantId: string) => Promise<void>;
+
+  /** Persist an initiative edit immediately; server reseats the turn order. */
+  setInitiative: (combatantId: string, value: number) => Promise<void>;
 
   /** Patch a single combatant (HP, defeated, conditions, ...). Optimistic. */
   patchCombatant: (
@@ -110,9 +125,10 @@ function toCreatePayload(c: Combatant, sortIndex: number): SessionCombatantCreat
     hp_max: Math.max(1, c.max_hp),
     type,
     defeated: c.defeated ?? false,
+    ac: c.ac ?? null,
     monster_id: c.monster_id ?? null,
     character_id: c.character_id ?? null,
-    conditions: [],
+    conditions: c.conditions ?? [],
   };
 }
 
@@ -121,6 +137,7 @@ export const useInitiativeStore = create<InitiativeState>((set, get) => ({
   combatants: [],
   round: 1,
   activeCombatantId: null,
+  combatState: "idle",
   loading: false,
   saving: false,
   error: null,
@@ -133,6 +150,7 @@ export const useInitiativeStore = create<InitiativeState>((set, get) => ({
         combatants: state.combatants,
         round: state.round,
         activeCombatantId: state.active_combatant_id,
+        combatState: state.combat_state,
         loading: false,
       });
     } catch (err) {
@@ -143,11 +161,12 @@ export const useInitiativeStore = create<InitiativeState>((set, get) => ({
     }
   },
 
-  replaceFromRoll: async (sessionId, rolled) => {
+  replaceFromRoll: async (sessionId, rolled, combatState = "running") => {
     set({ sessionId, saving: true, error: null });
     try {
       const payload = {
         round: 1,
+        combat_state: combatState,
         active_combatant_id: null,
         combatants: rolled.map((c, i) => toCreatePayload(c, i)),
       };
@@ -156,12 +175,77 @@ export const useInitiativeStore = create<InitiativeState>((set, get) => ({
         combatants: state.combatants,
         round: state.round,
         activeCombatantId: state.active_combatant_id,
+        combatState: state.combat_state,
         saving: false,
       });
     } catch (err) {
       set({
         saving: false,
         error: err instanceof Error ? err.message : "Failed to save combat state",
+      });
+    }
+  },
+
+  addCombatant: async (combatant) => {
+    const { sessionId } = get();
+    if (!sessionId) return;
+    set({ saving: true, error: null });
+    try {
+      const state = await sessionsApi.addCombatant(sessionId, toCreatePayload(combatant, 0));
+      set({
+        combatants: state.combatants,
+        round: state.round,
+        activeCombatantId: state.active_combatant_id,
+        combatState: state.combat_state,
+        saving: false,
+      });
+    } catch (err) {
+      set({
+        saving: false,
+        error: err instanceof Error ? err.message : "Failed to add combatant",
+      });
+    }
+  },
+
+  removeCombatant: async (combatantId) => {
+    const { sessionId } = get();
+    if (!sessionId) return;
+    set({ saving: true, error: null });
+    try {
+      const state = await sessionsApi.removeCombatant(sessionId, combatantId);
+      set({
+        combatants: state.combatants,
+        round: state.round,
+        activeCombatantId: state.active_combatant_id,
+        combatState: state.combat_state,
+        saving: false,
+      });
+    } catch (err) {
+      set({
+        saving: false,
+        error: err instanceof Error ? err.message : "Failed to remove combatant",
+      });
+    }
+  },
+
+  setInitiative: async (combatantId, value) => {
+    const { sessionId } = get();
+    if (!sessionId) return;
+    // Optimistic — the HUD re-sorts by initiative immediately; the server
+    // reseats sort_index so the turn walk matches the displayed order.
+    set((s) => ({
+      combatants: s.combatants.map((c) =>
+        c.id === combatantId ? { ...c, initiative_roll: value } : c,
+      ),
+      error: null,
+    }));
+    try {
+      await sessionsApi.patchCombatant(sessionId, combatantId, {
+        initiative_roll: value,
+      });
+    } catch (err) {
+      set({
+        error: err instanceof Error ? err.message : "Failed to set initiative",
       });
     }
   },
@@ -235,6 +319,7 @@ export const useInitiativeStore = create<InitiativeState>((set, get) => ({
         combatants: [],
         round: 1,
         activeCombatantId: null,
+        combatState: "ended",
         saving: false,
       });
     } catch (err) {

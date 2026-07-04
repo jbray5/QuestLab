@@ -48,6 +48,16 @@ function fmt(n: number): string {
  * Closes on ESC, click-outside, or the ✕ button.
  */
 export default function RollHelper({ context, onClose }: Props) {
+  // Guard OUTSIDE the hook-bearing component so hook order is always stable.
+  // Plan 41 — the early return used to sit *between* hooks (useGatedSfx + two
+  // effects ran only when context was non-null), so opening the helper changed
+  // the hook count and crashed the whole HUD with "rendered more hooks than
+  // during the previous render". Splitting the guard fixes it structurally.
+  if (!context) return null;
+  return <RollHelperInner context={context} onClose={onClose} />;
+}
+
+function RollHelperInner({ context, onClose }: { context: RollContext; onClose: () => void }) {
   const [mode, setMode] = useState<RollMode>("normal");
   const [d20a, setD20a] = useState<number | "">("");
   const [d20b, setD20b] = useState<number | "">("");
@@ -55,25 +65,20 @@ export default function RollHelper({ context, onClose }: Props) {
 
   // Reset on context change + focus the input
   useEffect(() => {
-    if (context) {
-      setMode("normal");
-      setD20a("");
-      setD20b("");
-      setTimeout(() => inputRef.current?.focus(), 0);
-    }
+    setMode("normal");
+    setD20a("");
+    setD20b("");
+    setTimeout(() => inputRef.current?.focus(), 0);
   }, [context]);
 
   // ESC dismisses
   useEffect(() => {
-    if (!context) return;
     function handler(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
     }
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [context, onClose]);
-
-  if (!context) return null;
+  }, [onClose]);
 
   const a = d20a === "" ? null : Number(d20a);
   const b = d20b === "" ? null : Number(d20b);

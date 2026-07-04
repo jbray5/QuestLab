@@ -3,6 +3,7 @@ import type {
   Combatant,
   GameSession,
   SessionCombatant,
+  SessionCombatantCreate,
   SessionCombatantUpdate,
   SessionCombatStateRead,
   SessionCombatStateWrite,
@@ -58,6 +59,16 @@ export const sessionsApi = {
     ),
   advanceCombatTurn: (id: string) =>
     api.post<SessionCombatStateRead>(`/sessions/${id}/combat/advance`),
+  // Plan 41 — incremental roster ops that preserve round/turn/conditions/beats.
+  addCombatant: (id: string, payload: SessionCombatantCreate) =>
+    api.post<SessionCombatStateRead>(
+      `/sessions/${id}/combat/combatants`,
+      payload,
+    ),
+  removeCombatant: (id: string, combatantId: string) =>
+    api.delete<SessionCombatStateRead>(
+      `/sessions/${id}/combat/combatants/${combatantId}`,
+    ),
   // ── Item handouts (Plan 00016) ──────────────────────────────────────────
   recordHandout: (id: string, pcId: string, itemId: string) =>
     api.post<GameSession>(`/sessions/${id}/handouts`, {
