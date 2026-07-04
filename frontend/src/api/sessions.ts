@@ -5,6 +5,8 @@ import type {
   SessionCombatant,
   SessionCombatantCreate,
   SessionCombatantUpdate,
+  SessionBrief,
+  SessionBriefUpdate,
   SessionCombatStateRead,
   SessionCombatStateWrite,
   SessionCreate,
@@ -31,6 +33,12 @@ export const sessionsApi = {
     api.post<SessionRunbook>(`/sessions/${id}/runbook`, { notes: notes ?? "" }),
   patchRunbook: (id: string, update: Partial<SessionRunbook>) =>
     api.patch<SessionRunbook>(`/sessions/${id}/runbook`, update),
+  // ── DM brief (Plan 43) ──────────────────────────────────────────────────
+  getBrief: (id: string) => api.get<SessionBrief | null>(`/sessions/${id}/brief`),
+  generateBrief: (id: string, notes?: string) =>
+    api.post<SessionBrief>(`/sessions/${id}/brief`, { notes: notes ?? "" }),
+  updateBrief: (id: string, update: SessionBriefUpdate) =>
+    api.patch<SessionBrief>(`/sessions/${id}/brief`, update),
   broadcastDiceRoll: (
     id: string,
     roll: {

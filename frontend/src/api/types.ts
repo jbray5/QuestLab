@@ -465,6 +465,65 @@ export interface TableProjection {
   defeated_refs: string[];
 }
 
+// ── DM brief (Plan 43) — the glanceable session-2 format ─────────────────────
+
+export interface BriefBeat {
+  title: string;
+  cue: string;
+  kind: string;
+  trigger_kind?: string | null;
+  trigger_value?: number | null;
+  target?: string | null;
+  spotlight_pc?: string | null;
+  dm_note?: string | null;
+}
+
+export interface BriefNpcFace {
+  name: string;
+  quick_who: string;
+  want_now: string;
+  knows: string[];
+  voice: string;
+  secret_short: string;
+}
+
+export interface BriefSpotlight {
+  pc_name: string;
+  flag: string;
+}
+
+export interface BriefRoad {
+  label: string;
+  flavor: string;
+  pull: string;
+}
+
+export interface SessionBrief {
+  id: string;
+  session_id: string;
+  model_used: string;
+  generated_at: string;
+  cold_open: string;
+  premise: string;
+  danger_dial: string;
+  fallback: string | null;
+  beats: BriefBeat[];
+  npc_faces: BriefNpcFace[];
+  spotlight: BriefSpotlight[];
+  roads: BriefRoad[];
+}
+
+export interface SessionBriefUpdate {
+  cold_open?: string;
+  premise?: string;
+  danger_dial?: string;
+  fallback?: string | null;
+  beats?: BriefBeat[];
+  npc_faces?: BriefNpcFace[];
+  spotlight?: BriefSpotlight[];
+  roads?: BriefRoad[];
+}
+
 // ── Spells (Plan 00017 — SRD 5.5e catalog) ───────────────────────────────────
 
 export interface Spell {

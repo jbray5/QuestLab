@@ -27,6 +27,7 @@ import TableRollStrip from "../components/dice-tray/TableRollStrip";
 import { monstersApi } from "../api/monsters";
 import { restApi } from "../api/rest";
 import { spellcastingApi } from "../api/spellcasting";
+import BriefPanel from "../components/brief/BriefPanel";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import DmScreen from "../components/dm-screen/DmScreen";
@@ -1006,6 +1007,7 @@ export default function SessionHud() {
               party={party}
             />
           )}
+          {sessionId && <BriefPanel sessionId={sessionId} />}
           <button
             className="btn btn-secondary"
             style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
