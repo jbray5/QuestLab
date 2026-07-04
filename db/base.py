@@ -180,6 +180,9 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE npcs ADD COLUMN IF NOT EXISTS voice VARCHAR(200)",
         "ALTER TABLE npcs ADD COLUMN IF NOT EXISTS secret_short VARCHAR(200)",
         "ALTER TABLE npcs ADD COLUMN IF NOT EXISTS relationship_pings JSON",
+        # 0019 — combat lifecycle + persistent combatant AC (Plan 41)
+        "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS combat_state VARCHAR(20) DEFAULT 'idle'",
+        "ALTER TABLE session_combatants ADD COLUMN IF NOT EXISTS ac INTEGER",
     ]
     with engine.begin() as conn:
         for stmt in patches:

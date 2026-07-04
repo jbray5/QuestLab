@@ -218,7 +218,7 @@ class SessionCombatantRepo:
             select(GameSession, SessionCombatant)
             .where(SessionCombatant.session_id == GameSession.id)
             .where(SessionCombatant.character_id == character_id)
-            .where(GameSession.combat_active_combatant_id.is_not(None))
+            .where(GameSession.combat_state == "running")
             .limit(1)
         )
         row = session.exec(stmt).first()
@@ -248,6 +248,7 @@ class SessionCombatantRepo:
             select(GameSession, SessionCombatant)
             .where(SessionCombatant.id == GameSession.combat_active_combatant_id)
             .where(SessionCombatant.character_id == character_id)
+            .where(GameSession.combat_state == "running")
             .limit(1)
         )
         row = session.exec(stmt).first()
@@ -314,6 +315,73 @@ class SessionCombatantRepo:
         session.commit()
         session.refresh(combatant)
         return combatant
+
+    @staticmethod
+    def add_one(
+        session: Session,
+        session_id: uuid.UUID,
+        payload: SessionCombatantCreate,
+    ) -> SessionCombatant:
+        """Append a single combatant, preserving every existing row.
+
+        Unlike ``replace_all`` this keeps all current combatants and their
+        ids, so combat_beats attached to them survive. The new row is created
+        with the payload's ``sort_index``; callers typically follow with
+        ``recompute_sort_indexes`` to reseat the whole initiative order.
+
+        Args:
+            session: Active database session.
+            session_id: UUID of the parent game session.
+            payload: New combatant payload.
+
+        Returns:
+            The newly-created SessionCombatant row.
+        """
+        row = SessionCombatant.model_validate({**payload.model_dump(), "session_id": session_id})
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        return row
+
+    @staticmethod
+    def delete_one(session: Session, combatant: SessionCombatant) -> None:
+        """Delete a single combatant row.
+
+        Combat beats attached to this combatant are removed by the database
+        ON DELETE CASCADE — deliberate: removing a combatant removes its
+        beats. Surviving combatants (and their beats) are untouched.
+
+        Args:
+            session: Active database session.
+            combatant: Existing SessionCombatant ORM object.
+        """
+        session.delete(combatant)
+        session.commit()
+
+    @staticmethod
+    def recompute_sort_indexes(session: Session, session_id: uuid.UUID) -> list[SessionCombatant]:
+        """Reseat every combatant's ``sort_index`` to match initiative order.
+
+        Orders by initiative_roll desc, then dex_score desc, then name asc — a
+        deterministic tiebreak — and writes sort_index 0..n-1 so the server's
+        turn order always equals the order the HUD displays. Preserves row ids.
+
+        Args:
+            session: Active database session.
+            session_id: UUID of the parent game session.
+
+        Returns:
+            Combatants in the new sort order.
+        """
+        rows = SessionCombatantRepo.list_for_session(session, session_id)
+        ordered = sorted(rows, key=lambda c: (-c.initiative_roll, -c.dex_score, c.name.lower()))
+        for idx, row in enumerate(ordered):
+            row.sort_index = idx
+            session.add(row)
+        session.commit()
+        for row in ordered:
+            session.refresh(row)
+        return ordered
 
     @staticmethod
     def clear_for_session(session: Session, session_id: uuid.UUID) -> int:

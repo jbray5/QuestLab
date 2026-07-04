@@ -26,6 +26,7 @@ from domain.enums import SessionStatus
 from domain.session import Session as GameSession
 from domain.session import (
     SessionCombatant,
+    SessionCombatantCreate,
     SessionCombatantUpdate,
     SessionCombatStateRead,
     SessionCombatStateWrite,
@@ -43,6 +44,14 @@ from integrations.event_bus import (
 )
 
 MAX_SESSIONS_PER_ADVENTURE = 20
+
+# Combat lifecycle states persisted on Session.combat_state (Plan 41).
+_COMBAT_STATES = {"idle", "running", "ended"}
+
+
+def _normalize_combat_state(value: Optional[str]) -> str:
+    """Coerce an incoming combat_state to a known value, defaulting to 'idle'."""
+    return value if value in _COMBAT_STATES else "idle"
 
 
 def _emit_turn_change(
@@ -434,7 +443,27 @@ def advance_status(db: DBSession, session_id: uuid.UUID, dm_email: str) -> GameS
         raise ValueError(
             f"Session is already {game_session.status.value} and cannot be advanced further."
         )
-    return SessionRepo.update(db, game_session, SessionUpdate(status=next_status))
+    updated = SessionRepo.update(db, game_session, SessionUpdate(status=next_status))
+
+    # Plan 41 — a session that finishes mid-fight (the narratively common case,
+    # e.g. the boss dies and the scene ends) must not leak its turn banner into
+    # the NEXT session. Mark combat ended and drop the active pointer; player
+    # combat/turn lookups filter on combat_state == "running".
+    if next_status == SessionStatus.COMPLETE and updated.combat_state == "running":
+        combatants = SessionCombatantRepo.list_for_session(db, session_id)
+        pc_ids: set[uuid.UUID] = {c.character_id for c in combatants if c.character_id is not None}
+        pc_ids |= {uuid.UUID(str(pid)) for pid in (updated.attending_pc_ids or [])}
+        updated.combat_state = "ended"
+        updated.combat_active_combatant_id = None
+        db.add(updated)
+        db.commit()
+        db.refresh(updated)
+        for pc_id in pc_ids:
+            publish_pc_turn_changed(pc_id, active=False)
+        adventure = AdventureRepo.get_by_id(db, updated.adventure_id)
+        if adventure is not None:
+            publish_session_combat_updated(session_id, adventure.campaign_id)
+    return updated
 
 
 # ---------------------------------------------------------------------------
@@ -622,6 +651,7 @@ def load_combat_state(
         {
             "session_id": session_id,
             "round": game_session.combat_round,
+            "combat_state": game_session.combat_state,
             "active_combatant_id": game_session.combat_active_combatant_id,
             "combatants": combatants,
         }
@@ -653,41 +683,158 @@ def save_combat_state(
     """
     game_session = get_session(db, session_id, dm_email)
     previous_active_id = game_session.combat_active_combatant_id
+    state = _normalize_combat_state(payload.combat_state)
     created = SessionCombatantRepo.replace_all(db, session_id, payload.combatants)
-
-    # Resolve active_combatant_id — if caller passed an id that doesn't
-    # match any new row, fall back to the first combatant (lowest sort_index).
     valid_ids = {row.id for row in created}
-    active_id = payload.active_combatant_id if payload.active_combatant_id in valid_ids else None
-    if active_id is None and created:
-        active_id = created[0].id
+
+    # An active turn only exists while combat is running. A seeded prep roster
+    # (state="idle") must NOT set an active combatant — that is exactly what
+    # fired the false "it's your turn!" banner when End Combat auto-reseeded
+    # the party (Plan 41).
+    if state == "running":
+        active_id = (
+            payload.active_combatant_id if payload.active_combatant_id in valid_ids else None
+        )
+        if active_id is None and created:
+            active_id = created[0].id
+    else:
+        active_id = None
 
     # SessionUpdate doesn't expose combat_* columns, so mutate directly.
     game_session.combat_round = payload.round
+    game_session.combat_state = state
     game_session.combat_active_combatant_id = active_id
     db.add(game_session)
     db.commit()
     db.refresh(game_session)
 
-    # Plan 28 — initiative just (re)rolled. The previous active combatant
-    # ID likely points at a deleted row (replace_all wipes); guard against
-    # that lookup and just emit the new active turn to whoever's up first.
-    _emit_turn_change(
-        db,
-        previous_active_id if previous_active_id in valid_ids else None,
-        active_id,
-        session_id,
-        game_session.combat_round,
-    )
+    if state == "running":
+        # Initiative just (re)rolled. The previous active id likely points at a
+        # row replace_all deleted; guard the lookup and announce the new turn.
+        _emit_turn_change(
+            db,
+            previous_active_id if previous_active_id in valid_ids else None,
+            active_id,
+            session_id,
+            game_session.combat_round,
+        )
+    else:
+        # Idle/ended: ensure no player phone is left showing a turn banner from
+        # a prior fight or a re-seed — clear it for every PC now in the roster.
+        for row in created:
+            if row.character_id:
+                publish_pc_turn_changed(row.character_id, active=False)
 
     return SessionCombatStateRead.model_validate(
         {
             "session_id": session_id,
             "round": game_session.combat_round,
+            "combat_state": game_session.combat_state,
             "active_combatant_id": game_session.combat_active_combatant_id,
             "combatants": created,
         }
     )
+
+
+def add_combatant(
+    db: DBSession,
+    session_id: uuid.UUID,
+    dm_email: str,
+    payload: SessionCombatantCreate,
+) -> SessionCombatStateRead:
+    """Add one combatant to a live tracker without disturbing the fight.
+
+    Unlike the full-snapshot PUT (save_combat_state), this preserves every
+    existing combatant row — their ids, conditions, and attached combat beats —
+    plus the current round and active-turn pointer. Only the roster's
+    sort_index is recomputed so the newcomer lands in initiative order. Used
+    for a late-arriving PC or a mid-fight reinforcement (Plan 41).
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+        payload: New combatant to append.
+
+    Returns:
+        The full combat state after the add.
+
+    Raises:
+        ValueError: If the session does not exist.
+        PermissionError: If the DM does not own the campaign.
+    """
+    game_session = get_session(db, session_id, dm_email)
+    SessionCombatantRepo.add_one(db, session_id, payload)
+    SessionCombatantRepo.recompute_sort_indexes(db, session_id)
+    # Round and active pointer are deliberately left untouched.
+    adventure = AdventureRepo.get_by_id(db, game_session.adventure_id)
+    if adventure is not None:
+        publish_session_combat_updated(session_id, adventure.campaign_id)
+    return load_combat_state(db, session_id, dm_email)
+
+
+def remove_combatant(
+    db: DBSession,
+    session_id: uuid.UUID,
+    combatant_id: uuid.UUID,
+    dm_email: str,
+) -> SessionCombatStateRead:
+    """Remove one combatant from a live tracker without resetting the fight.
+
+    Preserves the round and the other combatants (and their beats). If the
+    removed combatant is the one whose turn it is, the pointer first advances
+    to the next living combatant so the tracker never dangles at a deleted
+    row; any turn banner on the removed PC's phone is cleared (Plan 41).
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        combatant_id: UUID of the combatant to remove.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        The full combat state after the removal.
+
+    Raises:
+        ValueError: If the session or combatant is not found.
+        PermissionError: If the DM does not own the campaign.
+    """
+    game_session = get_session(db, session_id, dm_email)
+    combatant = SessionCombatantRepo.get_by_id(db, combatant_id)
+    if combatant is None or combatant.session_id != session_id:
+        raise ValueError(f"Combatant {combatant_id} not found in session {session_id}.")
+
+    removed_pc_id = combatant.character_id
+    was_active = game_session.combat_active_combatant_id == combatant_id
+
+    # Removing whoever's turn it is: move the pointer to the next living
+    # combatant BEFORE deleting so the active id never points at a dead row.
+    if was_active:
+        ordered = SessionCombatantRepo.list_for_session(db, session_id)
+        successors = [c for c in ordered if c.id != combatant_id and not c.defeated]
+        after = [c for c in successors if c.sort_index > combatant.sort_index]
+        next_active = after[0] if after else (successors[0] if successors else None)
+        game_session.combat_active_combatant_id = next_active.id if next_active else None
+        db.add(game_session)
+        db.commit()
+        if game_session.combat_state == "running":
+            _emit_turn_change(
+                db,
+                combatant_id,
+                game_session.combat_active_combatant_id,
+                session_id,
+                game_session.combat_round,
+            )
+
+    SessionCombatantRepo.delete_one(db, combatant)
+    SessionCombatantRepo.recompute_sort_indexes(db, session_id)
+
+    if removed_pc_id:
+        publish_pc_turn_changed(removed_pc_id, active=False)
+    adventure = AdventureRepo.get_by_id(db, game_session.adventure_id)
+    if adventure is not None:
+        publish_session_combat_updated(session_id, adventure.campaign_id)
+    return load_combat_state(db, session_id, dm_email)
 
 
 def update_combatant(
@@ -719,13 +866,22 @@ def update_combatant(
     if combatant is None or combatant.session_id != session_id:
         raise ValueError(f"Combatant {combatant_id} not found in session {session_id}.")
     updated = SessionCombatantRepo.update_one(db, combatant, update)
-    # Plan 37 — if this combatant is backed by a PC, fan out a
-    # pc.combat.updated event so the player's phone refetches the
-    # conditions strip + temp HP.
-    if updated.character_id:
-        adventure = AdventureRepo.get_by_id(db, game_session.adventure_id)
-        if adventure is not None:
-            publish_pc_combat_updated(updated.character_id, adventure.campaign_id)
+    adventure = AdventureRepo.get_by_id(db, game_session.adventure_id)
+    campaign_id = adventure.campaign_id if adventure is not None else None
+
+    # Plan 41 — an initiative edit changes turn order. Reseat sort_index so the
+    # server's turn walk stays in lockstep with the initiative-desc order the
+    # HUD shows, and tell other HUD tabs to re-sort.
+    if update.initiative_roll is not None:
+        SessionCombatantRepo.recompute_sort_indexes(db, session_id)
+        db.refresh(updated)
+        if campaign_id is not None:
+            publish_session_combat_updated(session_id, campaign_id)
+
+    # Plan 37 — if this combatant is backed by a PC, fan out a pc.combat.updated
+    # event so the player's phone refetches the conditions strip + temp HP.
+    if updated.character_id and campaign_id is not None:
+        publish_pc_combat_updated(updated.character_id, campaign_id)
     return updated
 
 
@@ -764,6 +920,7 @@ def clear_combat_state(db: DBSession, session_id: uuid.UUID, dm_email: str) -> i
     count = SessionCombatantRepo.clear_for_session(db, session_id)
     game_session.combat_round = 1
     game_session.combat_active_combatant_id = None
+    game_session.combat_state = "ended"
     db.add(game_session)
     db.commit()
     for pc_id in pc_ids_to_clear:
@@ -864,15 +1021,30 @@ def advance_combat_turn(
         return load_combat_state(db, session_id, dm_email)
 
     current_id = game_session.combat_active_combatant_id
-    alive_ids = [c.id for c in alive]
-    if current_id not in alive_ids:
-        next_idx = 0
+    # Walk the FULL initiative order (not just the living), so skipping a
+    # just-defeated combatant does not look like a wrap. Only a genuine wrap
+    # past the last combatant advances the round (Plan 41 — fixes the round
+    # jumping to 1-higher when the active combatant died or was removed).
+    n = len(combatants)
+    cur_pos = next((i for i, c in enumerate(combatants) if c.id == current_id), None)
+    if cur_pos is None:
+        # Active combatant is gone from the tracker entirely (removed): advance
+        # to the first living combatant without bumping the round.
+        next_combatant = alive[0]
+        wrapped = False
     else:
-        cur_pos = alive_ids.index(current_id)
-        next_idx = (cur_pos + 1) % len(alive)
-    next_combatant = alive[next_idx]
+        next_combatant = None
+        wrapped = False
+        for step in range(1, n + 1):
+            probe = combatants[(cur_pos + step) % n]
+            if not probe.defeated:
+                next_combatant = probe
+                wrapped = (cur_pos + step) >= n
+                break
+        if next_combatant is None:  # defensive — `alive` is non-empty
+            next_combatant = alive[0]
 
-    new_round = game_session.combat_round + (1 if next_idx == 0 else 0)
+    new_round = game_session.combat_round + (1 if wrapped else 0)
     previous_active_id = current_id
     game_session.combat_round = new_round
     game_session.combat_active_combatant_id = next_combatant.id

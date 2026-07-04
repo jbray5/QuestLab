@@ -30,6 +30,11 @@ class Session(SQLModel, table=True):
     # Combat round state (companions to session_combatants rows)
     combat_round: int = Field(default=1, ge=1)
     combat_active_combatant_id: Optional[uuid.UUID] = Field(default=None)
+    # Combat lifecycle — "idle" (no fight), "running" (initiative rolled),
+    # "ended" (fight over). Explicit so player phones only surface turn/combat
+    # state while a fight is actually running, never from a stale roster
+    # or a freshly-seeded prep tracker (Plan 41).
+    combat_state: str = Field(default="idle", max_length=20)
 
 
 class SessionCreate(BaseModel):
@@ -191,6 +196,10 @@ class SessionCombatant(SQLModel, table=True):
     # "pc" | "monster" | "npc" — kept as a string to avoid a tight enum coupling
     type: str = Field(min_length=1, max_length=20)
     defeated: bool = Field(default=False)
+    # Armor Class — persisted so a mid-combat browser refresh keeps monster/NPC
+    # AC instead of resetting to a default (Plan 41). Optional: PC AC is derived
+    # from the character sheet, and ad-hoc combatants may omit it.
+    ac: Optional[int] = Field(default=None, ge=0, le=40)
     # Linkbacks for stat-block lookups and PC-side updates. Optional because
     # ad-hoc combatants (NPCs improvised mid-session) won't have either.
     monster_id: Optional[uuid.UUID] = Field(default=None)
@@ -210,6 +219,7 @@ class SessionCombatantCreate(BaseModel):
     hp_max: int = Field(ge=1)
     type: str = Field(min_length=1, max_length=20)
     defeated: bool = False
+    ac: Optional[int] = Field(default=None, ge=0, le=40)
     monster_id: Optional[uuid.UUID] = None
     character_id: Optional[uuid.UUID] = None
     conditions: list[str] = Field(default_factory=list)
@@ -228,6 +238,7 @@ class SessionCombatantRead(BaseModel):
     hp_max: int
     type: str
     defeated: bool
+    ac: Optional[int] = None
     monster_id: Optional[uuid.UUID] = None
     character_id: Optional[uuid.UUID] = None
     conditions: list[str] = Field(default_factory=list)
@@ -243,6 +254,7 @@ class SessionCombatantUpdate(BaseModel):
     hp_current: Optional[int] = Field(default=None, ge=0)
     hp_max: Optional[int] = Field(default=None, ge=1)
     defeated: Optional[bool] = None
+    ac: Optional[int] = Field(default=None, ge=0, le=40)
     initiative_roll: Optional[int] = Field(default=None, ge=-10, le=50)
     conditions: Optional[list[str]] = None
 
@@ -252,6 +264,8 @@ class SessionCombatStateRead(BaseModel):
 
     session_id: uuid.UUID
     round: int = Field(ge=1)
+    # "idle" | "running" | "ended" — see Session.combat_state (Plan 41).
+    combat_state: str = "idle"
     active_combatant_id: Optional[uuid.UUID] = None
     combatants: list[SessionCombatantRead] = Field(default_factory=list)
 
@@ -264,5 +278,9 @@ class SessionCombatStateWrite(BaseModel):
     """
 
     round: int = Field(default=1, ge=1)
+    # Caller intent for the lifecycle. "idle" = seed the roster for prep (no
+    # turn pings); "running" = combat started (ping the active PC). Defaults to
+    # "idle" so an omitted value can never fire a false turn banner (Plan 41).
+    combat_state: str = Field(default="idle", max_length=20)
     active_combatant_id: Optional[uuid.UUID] = None
     combatants: list[SessionCombatantCreate] = Field(default_factory=list)

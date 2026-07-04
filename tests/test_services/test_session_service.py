@@ -443,6 +443,7 @@ class TestSaveCombatState:
 
         payload = SessionCombatStateWrite(
             round=1,
+            combat_state="running",
             combatants=[
                 _persist_combatant(0, "Aragorn"),
                 _persist_combatant(1, "Goblin"),
@@ -453,7 +454,7 @@ class TestSaveCombatState:
 
         assert [c.name for c in state.combatants] == ["Aragorn", "Goblin", "Legolas"]
         assert state.round == 1
-        # First combatant auto-selected as active when none specified
+        # Running combat with no explicit active id → first combatant selected
         assert state.active_combatant_id == state.combatants[0].id
 
     def test_replaces_existing_roster_on_reroll(self, duckdb_session: Session):
@@ -496,6 +497,7 @@ class TestSaveCombatState:
             dm,
             SessionCombatStateWrite(
                 round=4,
+                combat_state="running",
                 combatants=[
                     _persist_combatant(0, "A"),
                     _persist_combatant(1, "B"),
@@ -511,6 +513,7 @@ class TestSaveCombatState:
             dm,
             SessionCombatStateWrite(
                 round=4,
+                combat_state="running",
                 active_combatant_id=target_id,
                 combatants=[
                     SessionCombatantCreate(
@@ -637,11 +640,12 @@ class TestAdvanceCombatTurn:
             gs.id,
             dm,
             SessionCombatStateWrite(
+                combat_state="running",
                 combatants=[
                     _persist_combatant(0, "First"),
                     _persist_combatant(1, "Second"),
                     _persist_combatant(2, "Third"),
-                ]
+                ],
             ),
         )
         assert state.active_combatant_id == state.combatants[0].id
@@ -661,10 +665,11 @@ class TestAdvanceCombatTurn:
             gs.id,
             dm,
             SessionCombatStateWrite(
+                combat_state="running",
                 combatants=[
                     _persist_combatant(0, "Alpha"),
                     _persist_combatant(1, "Beta"),
-                ]
+                ],
             ),
         )
 
@@ -686,11 +691,12 @@ class TestAdvanceCombatTurn:
             gs.id,
             dm,
             SessionCombatStateWrite(
+                combat_state="running",
                 combatants=[
                     _persist_combatant(0, "Alpha"),
                     _persist_combatant(1, "Down"),
                     _persist_combatant(2, "Beta"),
-                ]
+                ],
             ),
         )
         # Mark middle combatant defeated

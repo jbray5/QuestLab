@@ -66,11 +66,11 @@ def _setup_session_with_pc(db: Session):
 
 
 def _seed_combat(db, session_id, dm, pc_id, *, active_is_pc: bool = True):
-    """Persist a 2-combatant tracker: the PC + a goblin NPC.
+    """Persist a 2-combatant tracker (combat running): the PC + a goblin NPC.
 
-    save_combat_state picks the lowest-sort_index combatant as active when
-    no active_combatant_id is given, so we control "who goes first" by
-    swapping the sort_index per ``active_is_pc``.
+    With combat_state="running" and no explicit active_combatant_id,
+    save_combat_state picks the lowest-sort_index combatant as active, so we
+    control "who goes first" by swapping the sort_index per ``active_is_pc``.
     """
     pc_sort = 0 if active_is_pc else 1
     npc_sort = 1 if active_is_pc else 0
@@ -95,6 +95,7 @@ def _seed_combat(db, session_id, dm, pc_id, *, active_is_pc: bool = True):
     )
     payload = SessionCombatStateWrite(
         round=1,
+        combat_state="running",
         active_combatant_id=None,
         combatants=[pc_combatant, npc_combatant],
     )

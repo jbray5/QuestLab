@@ -8,11 +8,10 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from api.deps import DB, CurrentUser
-from domain.session import (
-    DiceRollBroadcast,
-)
+from domain.session import DiceRollBroadcast
 from domain.session import Session as GameSession
 from domain.session import (
+    SessionCombatantCreate,
     SessionCombatantRead,
     SessionCombatantUpdate,
     SessionCombatStateRead,
@@ -415,6 +414,65 @@ def patch_combatant(
     """
     try:
         return session_service.update_combatant(db, session_id, combatant_id, user, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post(
+    "/sessions/{session_id}/combat/combatants",
+    response_model=SessionCombatStateRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_combatant(
+    session_id: uuid.UUID,
+    body: SessionCombatantCreate,
+    db: DB,
+    user: CurrentUser,
+) -> SessionCombatStateRead:
+    """Add one combatant mid-fight without resetting round, turn, or conditions.
+
+    Args:
+        session_id: UUID of the parent session.
+        body: New combatant payload.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The full combat state after the add.
+    """
+    try:
+        return session_service.add_combatant(db, session_id, user, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.delete(
+    "/sessions/{session_id}/combat/combatants/{combatant_id}",
+    response_model=SessionCombatStateRead,
+)
+def remove_combatant(
+    session_id: uuid.UUID,
+    combatant_id: uuid.UUID,
+    db: DB,
+    user: CurrentUser,
+) -> SessionCombatStateRead:
+    """Remove one combatant mid-fight without resetting round, turn, or conditions.
+
+    Args:
+        session_id: UUID of the parent session.
+        combatant_id: UUID of the combatant to remove.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The full combat state after the removal.
+    """
+    try:
+        return session_service.remove_combatant(db, session_id, combatant_id, user)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
