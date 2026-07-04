@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { tableApi } from "../../api/table";
 import type { BattleMap, PlayerCharacter, TableStateRead, TableToken } from "../../api/types";
+import { useIsCompact } from "../../hooks/useIsCompact";
 import MapCanvas from "./MapCanvas";
 
 /**
@@ -54,6 +55,7 @@ function TableConsoleModal({
   onClose,
 }: Props & { onClose: () => void }) {
   const qc = useQueryClient();
+  const compact = useIsCompact(720);
   const key = ["table-state", sessionId];
   const [mode, setMode] = useState<CanvasMode>("ping");
   const [titleDraft, setTitleDraft] = useState("");
@@ -180,8 +182,8 @@ function TableConsoleModal({
           width: "min(1180px, 96vw)",
           maxHeight: "92vh",
           display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) 300px",
-          overflow: "hidden",
+          gridTemplateColumns: compact ? "1fr" : "minmax(0, 1fr) 300px",
+          overflow: compact ? "auto" : "hidden",
         }}
         role="dialog"
         aria-label="Table View console"

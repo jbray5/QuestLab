@@ -946,6 +946,7 @@ export default function SessionHud() {
         alignItems: "center", justifyContent: "space-between",
         padding: "0.5rem 1rem", borderBottom: "1px solid var(--border)",
         background: "var(--surface)", flexShrink: 0,
+        flexWrap: "wrap", gap: "0.4rem",
       }}>
         <div className="flex" style={{ alignItems: "center", gap: "0.75rem" }}>
           <span style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--gold)" }}>
@@ -957,7 +958,7 @@ export default function SessionHud() {
             </span>
           )}
         </div>
-        <div className="flex gap-2" style={{ alignItems: "center" }}>
+        <div className="flex gap-2" style={{ alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
           <button
             className="btn btn-secondary"
             style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
@@ -1055,8 +1056,8 @@ export default function SessionHud() {
         </div>
       )}
 
-      {/* ── Three-panel body ────────────────────────────────────────────── */}
-      <div style={{
+      {/* ── Three-panel body (CSS stacks + scrolls it below 820px) ─────────── */}
+      <div className="ql-hud-body" style={{
         display: "grid",
         gridTemplateColumns: "280px 1fr 320px",
         flex: 1,

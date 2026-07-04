@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { tableApi } from "../api/table";
 import type { BattleMap, FogRegion } from "../api/types";
+import { useIsCompact } from "../hooks/useIsCompact";
 
 /**
  * BattleMaps — the campaign's battle-map library + fog-region editor (Plan 42).
@@ -217,6 +218,7 @@ function MapEditor({
   onSaved: () => void;
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const compact = useIsCompact(720);
   const [name, setName] = useState(map.name);
   const [grid, setGrid] = useState<string>(map.grid_size ? String(map.grid_size) : "");
   const [regions, setRegions] = useState<FogRegion[]>(map.regions ?? []);
@@ -292,7 +294,13 @@ function MapEditor({
   }, [dragStart, dragNow]);
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 280px", gap: "1.2rem" }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: compact ? "1fr" : "minmax(0, 1fr) 280px",
+        gap: "1.2rem",
+      }}
+    >
       <div>
         <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.6rem", flexWrap: "wrap" }}>
           <button className="btn btn-ghost" onClick={onBack}>← Library</button>
