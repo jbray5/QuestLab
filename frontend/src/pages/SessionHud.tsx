@@ -31,6 +31,7 @@ import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import DmScreen from "../components/dm-screen/DmScreen";
 import LootPanel from "../components/LootPanel";
+import TableConsole from "../components/table/TableConsole";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import MonsterStatBlock from "../components/MonsterStatBlock";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
@@ -998,6 +999,13 @@ export default function SessionHud() {
           >
             📖 DM Screen
           </button>
+          {sessionId && adventure && (
+            <TableConsole
+              sessionId={sessionId}
+              campaignId={adventure.campaign_id}
+              party={party}
+            />
+          )}
           <button
             className="btn btn-secondary"
             style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}

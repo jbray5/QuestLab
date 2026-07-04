@@ -371,6 +371,100 @@ export interface SessionCombatStateWrite {
   combatants: SessionCombatantCreate[];
 }
 
+// ── Table View / battle maps (Plan 42) ───────────────────────────────────────
+
+export interface FogRegion {
+  id: string;
+  name: string;
+  points: number[][];
+}
+
+export interface BattleMap {
+  id: string;
+  campaign_id: string;
+  name: string;
+  image_url: string;
+  width: number;
+  height: number;
+  grid_size: number | null;
+  regions: FogRegion[];
+}
+
+export interface BattleMapCreate {
+  name: string;
+  image_url: string;
+  width: number;
+  height: number;
+  grid_size?: number | null;
+  regions?: FogRegion[];
+}
+
+export interface BattleMapUpdate {
+  name?: string;
+  grid_size?: number | null;
+  regions?: FogRegion[];
+}
+
+export interface BrushReveal {
+  x: number;
+  y: number;
+  r: number;
+}
+
+export interface TableToken {
+  id: string;
+  kind: "pc" | "monster" | "custom";
+  ref_id?: string | null;
+  label: string;
+  image_url?: string | null;
+  x: number;
+  y: number;
+  size: number;
+  color?: string | null;
+}
+
+export interface TableStateRead {
+  session_id: string;
+  active_map_id: string | null;
+  fog_on: boolean;
+  revealed_region_ids: string[];
+  brush_reveals: BrushReveal[];
+  tokens: TableToken[];
+  darkness: number;
+  title: string;
+}
+
+export interface TableStateUpdate {
+  active_map_id?: string | null;
+  fog_on?: boolean;
+  revealed_region_ids?: string[];
+  brush_reveals?: BrushReveal[];
+  tokens?: TableToken[];
+  darkness?: number;
+  title?: string;
+}
+
+export interface TableMapSummary {
+  id: string;
+  image_url: string;
+  width: number;
+  height: number;
+  grid_size: number | null;
+}
+
+export interface TableProjection {
+  session_id: string;
+  map: TableMapSummary | null;
+  fog_on: boolean;
+  revealed_regions: number[][][];
+  brush_reveals: BrushReveal[];
+  tokens: TableToken[];
+  darkness: number;
+  title: string;
+  active_token_ref: string | null;
+  defeated_refs: string[];
+}
+
 // ── Spells (Plan 00017 — SRD 5.5e catalog) ───────────────────────────────────
 
 export interface Spell {

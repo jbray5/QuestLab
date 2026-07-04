@@ -26,6 +26,8 @@ const Npcs          = lazy(() => import("./pages/Npcs"));
 const PlayerView    = lazy(() => import("./pages/PlayerView"));
 const Spells        = lazy(() => import("./pages/Spells"));
 const Weapons       = lazy(() => import("./pages/Weapons"));
+const BattleMaps    = lazy(() => import("./pages/BattleMaps"));
+const TableView     = lazy(() => import("./pages/TableView"));
 
 function PageLoader() {
   return (
@@ -66,6 +68,9 @@ export default function App() {
       {/* Plan 25 — Player view: standalone route with no DM chrome */}
       <Route path="/play/:pcId" element={lazyRoute(<PlayerView />)} />
 
+      {/* Plan 42 — Table View: full-screen projected battle map, no DM chrome */}
+      <Route path="/table/:sessionId" element={lazyRoute(<TableView />)} />
+
       {/* Plan 35 — Landing / sign-in: standalone, no DM chrome */}
       <Route path="/welcome" element={<Welcome />} />
 
@@ -91,6 +96,10 @@ export default function App() {
         <Route
           path="adventures/:adventureId/maps"
           element={lazyRoute(<MapBuilder />)}
+        />
+        <Route
+          path="campaigns/:campaignId/battle-maps"
+          element={lazyRoute(<BattleMaps />)}
         />
         <Route
           path="adventures/:adventureId/sessions"

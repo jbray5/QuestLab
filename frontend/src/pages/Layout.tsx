@@ -104,6 +104,12 @@ export default function Layout() {
             >
               👤 NPCs
             </button>
+            <button
+              className="nav-item"
+              onClick={() => navigate(`/campaigns/${activeCampaign.id}/battle-maps`)}
+            >
+              🗺️ Battle Maps
+            </button>
           </>
         )}
 
