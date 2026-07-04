@@ -30,7 +30,9 @@ from db.repos.session_repo import SessionRepo
 from domain.enums import AdventureTier, MapNodeType
 from domain.map import MapEdge, MapNode
 from domain.session import SessionRunbookCreate
-from integrations.claude_client import complete, complete_json
+from domain.session_brief import Beat, NpcFace, Road, SessionBriefCreate, Spotlight
+from integrations import claude_client
+from integrations.claude_client import complete, complete_json, complete_structured
 from services import map_service
 
 _MODEL = "claude-opus-4-6"
@@ -38,6 +40,19 @@ _MODEL = "claude-opus-4-6"
 # ---------------------------------------------------------------------------
 # Internal Pydantic schemas — shape of Claude's JSON output
 # ---------------------------------------------------------------------------
+
+
+class _BriefOutput(BaseModel):
+    """Structured output for a generated glanceable DM brief (Plan 43)."""
+
+    cold_open: str
+    premise: str
+    danger_dial: str
+    fallback: str = ""
+    beats: list[Beat] = []
+    npc_faces: list[NpcFace] = []
+    spotlight: list[Spotlight] = []
+    roads: list[Road] = []
 
 
 class _Scene(BaseModel):
@@ -296,6 +311,141 @@ Make read-aloud text atmospheric and suited to the {campaign.tone} tone."""
         closing_hooks=result.closing_hooks,
         xp_awards=dict(result.xp_awards),
         loot_awards=[result.loot_notes] if result.loot_notes else None,
+    )
+
+
+def generate_dm_brief(
+    db: DBSession,
+    session_id: uuid.UUID,
+    dm_email: str,
+    extra_notes: Optional[str] = None,
+) -> SessionBriefCreate:
+    """Generate a glanceable DM brief for a session (Plan 43).
+
+    The session-2-winning format: a short cold open, glanceable beats with
+    machine triggers, NPC play-faces, per-PC spotlight cues, a danger dial, and
+    optional open-ending roads. Explicitly NOT a read-aloud runbook — the inverse
+    of ``generate_session_runbook``.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+        extra_notes: Optional DM planning notes to weave in.
+
+    Returns:
+        A SessionBriefCreate ready to persist.
+
+    Raises:
+        ValueError: If the session, adventure, or campaign is not found.
+        PermissionError: If the DM does not own the campaign.
+    """
+    game_session = SessionRepo.get_by_id(db, session_id)
+    if game_session is None:
+        raise ValueError("Session not found.")
+    adventure = AdventureRepo.get_by_id(db, game_session.adventure_id)
+    if adventure is None:
+        raise ValueError("Adventure not found.")
+    campaign = CampaignRepo.get_by_id(db, adventure.campaign_id)
+    if campaign is None:
+        raise ValueError("Campaign not found.")
+    if campaign.dm_email != dm_email.strip().lower():
+        raise PermissionError("You do not have permission to access this session.")
+
+    pc_ids = [uuid.UUID(str(pid)) for pid in (game_session.attending_pc_ids or [])]
+    all_pcs = CharacterRepo.list_by_campaign(db, campaign.id)
+    attending_pcs = [pc for pc in all_pcs if pc.id in pc_ids] if pc_ids else all_pcs[:5]
+    pc_lines = (
+        "\n".join(
+            f"  - {pc.character_name} ({pc.player_name}), {pc.character_class.value} {pc.level}"
+            + (f" — {pc.backstory[:100]}" if pc.backstory else "")
+            for pc in attending_pcs
+        )
+        or "  No PCs specified"
+    )
+
+    npcs = adventure.npc_roster or []
+    npc_lines = (
+        "\n".join(
+            f"  - {n.get('name')} ({n.get('role', 'NPC')}): {n.get('description', '')}"
+            for n in npcs
+        )
+        or "  None listed"
+    )
+
+    notes_block = f"\n## DM Planning Notes (weave these in)\n{extra_notes}" if extra_notes else ""
+
+    system = f"""You are an expert D&D 5e (2024 rules) Dungeon Master's assistant. You write \
+GLANCEABLE session briefs — the OPPOSITE of a script. The DM reads NOTHING here aloud except \
+the single short cold open; everything else is a cue they GLANCE at, then look up and talk to \
+the table. Terse, high-signal, playable at a glance.
+
+Principles you always follow:
+- HP is a story dial: combat numbers are targets, not sacred — land the beat, not the math.
+- Beats fire on TRIGGERS, not a fixed script: hp_lte (a combatant drops below N HP), \
+round_gte (from round N onward), on_defeated (a named foe dies), first_pc_down, or manual.
+- NPC play-faces tell the DM how to PLAY the NPC live (quick_who, want_now, knows, voice, a \
+one-line secret) — never a wall of backstory.
+- Spotlight each attending PC with one thing to say out loud to that player.
+- The danger dial keeps it scary without a TPK, and names the built-in mercy.
+- NO read-aloud walls anywhere except the one cold open.
+
+## Campaign
+- Name: {campaign.name}
+- Setting: {campaign.setting}
+- Tone: {campaign.tone}
+- World notes: {campaign.world_notes or 'None'}
+
+## Adventure: {adventure.title}
+- Synopsis: {adventure.synopsis or 'Not provided'}
+- Location notes: {adventure.location_notes or 'None'}
+
+## Session {game_session.session_number}: {game_session.title}
+
+### Attending PCs
+{pc_lines}
+
+### NPCs in play
+{npc_lines}
+{notes_block}
+"""
+
+    user = f"""Write the DM brief for Session {game_session.session_number}: \
+"{game_session.title}".
+
+- cold_open: ONE short read-aloud to open the scene — under 40 seconds spoken. The only \
+thing read aloud.
+- premise: the design spine in 1-2 sentences (what this session is really about).
+- beats: 4-8 glanceable beats. Each is a short CUE (not read aloud) with a title, a kind \
+(rp | combat | reveal | clock), and — where it fits — a machine trigger (trigger_kind + \
+trigger_value + target) so the app can fire it. Aim beats at specific PCs via spotlight_pc \
+where natural. Put private guidance in dm_note.
+- npc_faces: a play-face for each key NPC in play (quick_who, want_now, knows, voice, \
+secret_short). Invent faces fitting the {campaign.tone} tone if an NPC lacks detail.
+- spotlight: exactly one flag per attending PC — a moment to hand that player by name.
+- danger_dial: 2-4 sentences on how scary to run it, how to avoid a TPK, and the built-in \
+mercy.
+- roads: if the session ends open ('what now?'), 2-3 tempting directions (label, flavor, and \
+the PC thread each pulls on). If it is not open-ended, leave roads empty.
+- fallback: one line — the paper / no-tech fallback for running this at the table.
+
+Match the {campaign.tone} tone. Keep every field glanceable. No read-aloud except cold_open."""
+
+    result: _BriefOutput = complete_structured(
+        system=system, user=user, schema=_BriefOutput, max_tokens=16000
+    )
+
+    return SessionBriefCreate(
+        session_id=session_id,
+        model_used=claude_client.DEFAULT_MODEL,
+        cold_open=result.cold_open,
+        premise=result.premise,
+        danger_dial=result.danger_dial,
+        fallback=result.fallback or None,
+        beats=result.beats,
+        npc_faces=result.npc_faces,
+        spotlight=result.spotlight,
+        roads=result.roads,
     )
 
 

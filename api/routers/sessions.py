@@ -2,7 +2,7 @@
 
 import json
 import uuid
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -23,7 +23,8 @@ from domain.session import (
     SessionRunbookUpdate,
     SessionUpdate,
 )
-from services import ai_service, session_service
+from domain.session_brief import SessionBriefRead, SessionBriefUpdate
+from services import ai_service, session_brief_service, session_service
 
 router = APIRouter(tags=["sessions"])
 
@@ -516,6 +517,88 @@ def advance_combat_turn(session_id: uuid.UUID, db: DB, user: CurrentUser) -> Ses
         return session_service.advance_combat_turn(db, session_id, user)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+# ── DM brief (Plan 43 — the glanceable session-2 format) ────────────────────────
+
+
+class BriefGenerateBody(BaseModel):
+    """Optional planning notes to weave into a generated brief."""
+
+    notes: str = ""
+
+
+@router.get("/sessions/{session_id}/brief", response_model=Optional[SessionBriefRead])
+def get_brief(session_id: uuid.UUID, db: DB, user: CurrentUser) -> Optional[SessionBriefRead]:
+    """Return the session's glanceable DM brief, or null if none exists yet.
+
+    Args:
+        session_id: UUID of the session.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The SessionBriefRead, or None.
+    """
+    try:
+        brief = session_brief_service.get_brief(db, session_id, user)
+        return SessionBriefRead.model_validate(brief) if brief is not None else None
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post(
+    "/sessions/{session_id}/brief",
+    response_model=SessionBriefRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def generate_brief(
+    session_id: uuid.UUID, body: BriefGenerateBody, db: DB, user: CurrentUser
+) -> SessionBriefRead:
+    """Generate (or regenerate) the session's glanceable DM brief.
+
+    Args:
+        session_id: UUID of the session.
+        body: Optional planning notes.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The persisted SessionBriefRead.
+    """
+    try:
+        brief = session_brief_service.generate_brief(db, session_id, user, notes=body.notes or None)
+        return SessionBriefRead.model_validate(brief)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.patch("/sessions/{session_id}/brief", response_model=SessionBriefRead)
+def update_brief(
+    session_id: uuid.UUID, body: SessionBriefUpdate, db: DB, user: CurrentUser
+) -> SessionBriefRead:
+    """Apply inline edits to the session's brief.
+
+    Args:
+        session_id: UUID of the session.
+        body: Partial update payload.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The updated SessionBriefRead.
+    """
+    try:
+        brief = session_brief_service.update_brief(db, session_id, user, body)
+        return SessionBriefRead.model_validate(brief)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 

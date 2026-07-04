@@ -21,5 +21,6 @@ from domain.monster import MonsterStatBlock as MonsterStatBlock  # noqa: F401
 from domain.npc import Npc as Npc  # noqa: F401
 from domain.session import Session as Session  # noqa: F401
 from domain.session import SessionRunbook as SessionRunbook  # noqa: F401
+from domain.session_brief import SessionBrief as SessionBrief  # noqa: F401
 from domain.spell import Spell as Spell  # noqa: F401
 from domain.table_state import TableState as TableState  # noqa: F401

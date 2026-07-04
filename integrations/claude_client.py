@@ -12,7 +12,10 @@ from typing import Any
 import anthropic
 from pydantic import BaseModel
 
-_DEFAULT_MODEL = "claude-opus-4-6"
+# Model selection is centralized here (Plan 43). Override with ANTHROPIC_MODEL.
+# Default is the current Opus tier, which also supports structured outputs.
+DEFAULT_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8")
+_DEFAULT_MODEL = DEFAULT_MODEL  # alias kept for existing helper signatures
 
 
 def _get_client() -> anthropic.Anthropic:
@@ -118,6 +121,53 @@ def complete_json(
         # Drop first and last lines (``` ... ```)
         raw = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
     return schema.model_validate(json.loads(raw))
+
+
+def complete_structured(
+    system: str,
+    user: str,
+    schema: type[BaseModel],
+    model: str = DEFAULT_MODEL,
+    max_tokens: int = 16000,
+) -> Any:
+    """Call Claude with structured outputs; return a validated model instance.
+
+    Uses the SDK's ``messages.parse()`` (an ``output_config`` json_schema
+    constraint applied server-side), which guarantees schema-valid JSON and
+    eliminates the fence-stripping / JSONDecodeError failure class that
+    ``complete_json`` guards against by hand. Requires a model that supports
+    structured outputs — the default ``claude-opus-4-8`` does.
+
+    Args:
+        system: System prompt.
+        user: User message.
+        schema: Pydantic BaseModel subclass defining the expected shape.
+        model: Claude model ID.
+        max_tokens: Maximum output tokens.
+
+    Returns:
+        Validated instance of ``schema``.
+
+    Raises:
+        PermissionError: If ANTHROPIC_API_KEY is missing.
+        RuntimeError: If the response is truncated at max_tokens.
+        anthropic.APIError: On API-level failures.
+        pydantic.ValidationError: If the parsed output fails validation.
+    """
+    client = _get_client()
+    response = client.messages.parse(
+        model=model,
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+        output_format=schema,
+    )
+    if response.stop_reason == "max_tokens":
+        raise RuntimeError(
+            f"Claude response truncated at max_tokens={max_tokens}; "
+            "structured output is incomplete. Bump max_tokens and retry."
+        )
+    return response.parsed_output
 
 
 def stream_complete(
