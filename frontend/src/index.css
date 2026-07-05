@@ -636,6 +636,16 @@ html, body { max-width: 100%; overflow-x: hidden; }
   }
 }
 
+/* Desktop-first `.flex` rows clip their action buttons off the right edge on a
+   phone (horizontal page scroll is disabled). Let flex rows wrap instead — this
+   reflows every list-page header and row-action cluster (Adventures, Sessions,
+   Characters, NPCs, Monsters, …) in one stroke, since they all share `.flex`. */
+@media (max-width: 820px) {
+  .flex {
+    flex-wrap: wrap;
+  }
+}
+
 /* Reduced motion preference — disable the showier bits. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
