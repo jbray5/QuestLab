@@ -11,6 +11,7 @@
 - **Their screen:** Table View link for the session. Suggested scene: the town map (or the tavern interior), **darkness dial at 0** — it's *dawn*, the brightest the world has looked all campaign. That brightness IS the story beat.
 - **Title card at open:** `HOLLOWMERE — THE MORNING AFTER`
 - **You:** webcam on their second device / picture-in-picture. Phones = character sheets, as usual.
+- **Music (until the ambience feature ships):** queue a gentle tavern-morning loop on room speakers / Discord — cut it cold when the memorial question lands.
 - **Ping the tree** on the green the first time someone looks at it. Say nothing while you do it.
 
 ---
@@ -26,8 +27,25 @@ Then put the sticks down and just be Hollowmere for a while.
 ## ① THE VICTORY LAP — *don't undercut it; they earned it*
 
 - Free breakfast. Shy villagers leaving thanks they're too awkward to say out loud.
-- **Kids reenacting the battle with sticks** — one insists on playing "the tree lady." Let the table catch that and decide how to feel.
+- **Kids reenacting the battle with sticks** — one insists on playing "the tree lady." Let the table catch that and decide how to feel. *(A second kid is method-acting the tree itself and has refused to move all morning.)*
+- **FEN, the lutenist** *(finally name him — he never stopped playing, not once)* is composing **"The Hearth Held"** and every verse is wrong: Creed felled *a hundred* pixies, Thane is "the Whisper of the West" (wrong direction), Willa "rode in on a storm-gull" (uncomfortably close), Sarranthia "sang the tree to sleep" — and Nya, to her visible horror, is **"the Gentle Shadow."** He wants Creed to **duet the chorus.** *(Cory plays lute. Bait him.)*
+- **The tree-naming sheet** — the village is split between *"Wenneth's Rest"* and *"the Battle Oak."* Someone has written **"Murder Tree."** Belva is quietly running odds.
+- **Halve's room** — Belva claims the contents as *"owed rent."* He left it courteously spotless; all that remains is a fine pair of gloves, which she auctions off the bar.
 - **BELVA:** *"Ate through me stores, saved me town — call it even, loves."*
+
+---
+
+## ①B THE DIVVY — spoils & thanks *(run it over breakfast — Session 2's loot, paid diegetically)*
+
+| Who | Gets | The beat |
+|---|---|---|
+| **Party pool** | **2× Potion of Healing** | From Yelvyne, brewed in shrine-light: *"the least the morning owes you."* |
+| **Party pool** | **A pouch of pixie dust** *(1 use)* | Swept off the green. Sprinkled on a creature it **glows silver** — next attack against it has advantage. Also superb for pranks. |
+| **THANE** | **A silver-veined acorn**, faintly warm | He *finds* it at the tree's roots — memento instinct; nobody gives it to him. 🔒 It's Wenneth's **bud-seed**: if a severance is ever *reversed*, planted, she could return. Never say this. 🔒 |
+| **CREED** | **Fen's spare lute string** — *"off me own girl. For luck."* | Plus the standing duet invitation. Recurring bit. |
+| **SARRANTHIA** | **A child's carved lantern-charm**, left at her seat unsigned | She glowed on that green and the town saw. **BELVA, low:** *"Whatever they say down the road about your kind, love — not here. Not ever."* |
+| **WILLA** | **Petal's flower** — the one in her basket that never wilted | Handed over wordlessly. It keeps a faint silver sheen at night. |
+| **NYA** | **Nothing — on purpose** | She gets Mira's tears, the kids demanding "Death's Shadow" sign a stick, and the ballad's worst epithet. Being *loved* is the one thing she has no defense against. |
 
 ---
 
@@ -76,6 +94,7 @@ Yelvyne + breakfast-table rumors sketch where her sisters lie. Don't pitch — *
 
 - **Their pick tells you what to build for Session 4. Player agency does your prep triage.**
 - **If they deadlock:** Yelvyne mentions the sisters trade letters — any road eventually reaches another. Pick the one with the most table energy and go.
+- **Branch sketches:** `session-04-roads-sketch.md` — each road's sister, set-piece, and anchor-clue are pre-sketched. Their pick tells you which one to build into a full sheet.
 - **Projector:** when they choose, title-card the road (`SOUTH — THE SILVERWAY`) as the button on the session.
 
 ---
