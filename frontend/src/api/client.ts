@@ -2,7 +2,19 @@
 //   - Local dev: "/api" — Vite proxies to localhost:8000 (see vite.config.ts)
 //   - Production: set VITE_API_BASE_URL to the deployed backend origin, e.g.
 //     "https://questlab-api.onrender.com/api"
-const BASE = import.meta.env.VITE_API_BASE_URL || "/api";
+//   - Vercel PREVIEW deployments don't inherit Production-scoped env vars,
+//     so on *.vercel.app hosts we fall back to the deployed API directly —
+//     branch previews just work with zero dashboard config.
+export function apiBase(): string {
+  const env = import.meta.env.VITE_API_BASE_URL;
+  if (env) return env;
+  if (typeof window !== "undefined" && window.location.hostname.endsWith(".vercel.app")) {
+    return "https://questlab-api-9yhe.onrender.com/api";
+  }
+  return "/api";
+}
+
+const BASE = apiBase();
 
 /** Read DM identity from localStorage (set on first load from a meta tag or env). */
 function getAuthHeader(): Record<string, string> {

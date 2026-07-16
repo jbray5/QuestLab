@@ -101,6 +101,10 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_ORIGINS,
+    # Vercel preview deployments get a unique subdomain per push — allow the
+    # whole *.vercel.app pattern so branch previews can talk to the API.
+    # (Not a security boundary here: auth is the explicit identity header.)
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
+import { apiBase } from "../api/client";
 import { tableApi } from "../api/table";
 import MapCanvas from "../components/table/MapCanvas";
 
@@ -32,7 +33,7 @@ export default function TableView() {
 
   useEffect(() => {
     if (!sessionId) return;
-    const base = import.meta.env.VITE_API_BASE_URL || "/api";
+    const base = apiBase();
     const es = new EventSource(`${base}/stream/table/${sessionId}`);
     const onUpdate = () => {
       void refetchRef.current();
