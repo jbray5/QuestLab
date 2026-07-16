@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { sessionsApi } from "../../api/sessions";
 import { tableApi } from "../../api/table";
 import type { BattleMap, PlayerCharacter, TableStateRead, TableToken } from "../../api/types";
 import { useIsCompact } from "../../hooks/useIsCompact";
@@ -71,6 +72,10 @@ function TableConsoleModal({
     queryKey: ["battle-maps", campaignId],
     queryFn: () => tableApi.listMaps(campaignId),
   });
+  const { data: combat } = useQuery({
+    queryKey: ["board-combat", sessionId],
+    queryFn: () => sessionsApi.getCombatState(sessionId),
+  });
 
   const activeMap: BattleMap | null = maps.find((m) => m.id === state?.active_map_id) ?? null;
 
@@ -125,6 +130,24 @@ function TableConsoleModal({
       size: 1,
     };
     patchNow({ tokens: [...state.tokens, t] });
+  }
+  function addFoesFromCombat() {
+    if (!activeMap || !state || !combat) return;
+    const existingRefs = new Set(state.tokens.map((t) => t.ref_id).filter(Boolean));
+    // ref_id = SessionCombatant.id so HP bars + turn glow track monsters too (Plan 44).
+    const fresh: TableToken[] = combat.combatants
+      .filter((c) => !c.character_id && !existingRefs.has(c.id))
+      .map((c, i) => ({
+        id: `foe-${c.id}`,
+        kind: "monster" as const,
+        ref_id: c.id,
+        label: c.name,
+        image_url: null,
+        x: activeMap.width * (0.3 + 0.1 * (i % 5)),
+        y: activeMap.height * (0.22 + 0.12 * Math.floor(i / 5)),
+        size: 1,
+      }));
+    if (fresh.length) patchNow({ tokens: [...state.tokens, ...fresh] });
   }
   function removeToken(id: string) {
     if (!state) return;
@@ -350,6 +373,15 @@ function TableConsoleModal({
               </button>
               <button className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => addToken("monster")} disabled={!activeMap}>
                 + Foe
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: "0.7rem" }}
+                onClick={addFoesFromCombat}
+                disabled={!activeMap || !combat?.combatants?.length}
+                title="One token per non-PC combatant, linked for HP + turn glow"
+              >
+                + Foes (combat)
               </button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 6, maxHeight: 160, overflowY: "auto" }}>

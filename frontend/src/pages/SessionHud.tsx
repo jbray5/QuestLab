@@ -1008,6 +1008,14 @@ export default function SessionHud() {
               party={party}
             />
           )}
+          <Link
+            to={`/sessions/${sessionId}/board`}
+            className="btn btn-secondary"
+            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+            title="Open the 3D tabletop (Plan 44) — screen-share this one"
+          >
+            🎲 3D Board
+          </Link>
           {sessionId && <BriefPanel sessionId={sessionId} />}
           <button
             className="btn btn-secondary"

@@ -8,7 +8,7 @@
 
 import { useEffect, useRef } from "react";
 
-export type StreamScope = "pc" | "campaign";
+export type StreamScope = "pc" | "campaign" | "table";
 
 export interface StreamEvent {
   type: string;
