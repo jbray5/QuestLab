@@ -216,11 +216,12 @@ def _build_monster_prompt(monster: MonsterStatBlock, style_hints: Optional[str])
 
 
 _FIGURE_STYLE = (
-    "Full-body fantasy tabletop miniature standee, standing pose facing the "
-    "viewer, entire figure in frame with feet visible, crisp silhouette, "
-    "painterly heroic-fantasy style, dramatic soft studio light, transparent "
-    "background. The figure only — no base, no floor, no shadow, no text, "
-    "no frame, no border."
+    "2D game character sprite asset, full body, standing pose, entire figure "
+    "in frame with feet visible, painterly heroic-fantasy style. The figure "
+    "is the ONLY thing in the image, isolated on a fully transparent "
+    "background: no backdrop, no scenery, no gradient, no outline, no white "
+    "edge, no glow, no shadow, no floor, no text. (The board applies an "
+    "alpha-curve clean-up pass client-side, so residual halo is tolerated.)"
 )
 
 

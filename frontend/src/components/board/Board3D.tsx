@@ -7,7 +7,13 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import type { BattleMap, SessionCombatant, TableToken } from "../../api/types";
 import { BackdropDome, LightRig, Weather } from "./atmosphere";
-import { cardTint, getVignetteTexture, mixHex, type WeatherKind } from "./boardTheme";
+import {
+  cardTint,
+  getVignetteTexture,
+  mixHex,
+  processFigureImage,
+  type WeatherKind,
+} from "./boardTheme";
 
 /**
  * Board3D — the 3D tabletop scene (Plans 44 + 45).
@@ -141,8 +147,12 @@ function buildGrid(map: BattleMap, unit: number, kind: GridKind): Float32Array {
   return new Float32Array(pts);
 }
 
-/** Load a texture with CORS-safe settings; null while loading, error flag on failure. */
-function useBoardTexture(url: string | null | undefined): {
+/** Load a texture with CORS-safe settings; null while loading, error flag on failure.
+ * With figureProcess, runs the minifig alpha-curve/auto-crop clean-up pass. */
+function useBoardTexture(
+  url: string | null | undefined,
+  figureProcess = false,
+): {
   tex: THREE.Texture | null;
   error: boolean;
 } {
@@ -163,7 +173,12 @@ function useBoardTexture(url: string | null | undefined): {
       (t) => {
         if (!alive) return;
         t.colorSpace = THREE.SRGBColorSpace;
-        setLoaded({ url, tex: t, error: false });
+        let final: THREE.Texture = t;
+        if (figureProcess && t.image instanceof HTMLImageElement) {
+          const processed = processFigureImage(t.image);
+          if (processed) final = processed;
+        }
+        setLoaded({ url, tex: final, error: false });
       },
       undefined,
       () => {
@@ -173,7 +188,7 @@ function useBoardTexture(url: string | null | undefined): {
     return () => {
       alive = false;
     };
-  }, [url]);
+  }, [url, figureProcess]);
   const current = url && loaded?.url === url ? loaded : null;
   return { tex: current?.tex ?? null, error: current?.error ?? false };
 }
@@ -293,7 +308,7 @@ function Standee({
   const flashMat = useRef<THREE.MeshBasicMaterial>(null);
   const cardGroup = useRef<THREE.Group>(null);
   const torchLight = useRef<THREE.PointLight>(null);
-  const { tex } = useBoardTexture(token.image_url);
+  const { tex } = useBoardTexture(token.image_url, token.style === "figure");
   const phase = useMemo(() => phaseOf(token.id), [token.id]);
 
   const isTorch = token.kind === "light";
