@@ -44,10 +44,10 @@ export function LightRig({ fit, darkness }: { fit: number; darkness: number }) {
     <>
       {/* Floors keep the map readable even at full darkness — the dial sets
           mood, not blindness. Day (darkness 0) is genuinely bright. */}
-      <ambientLight color={ambient} intensity={1.05 - 0.63 * darkness} />
+      <ambientLight color={ambient} intensity={1.2 - 0.78 * darkness} />
       <directionalLight
         color={key}
-        intensity={1.3 - 0.87 * darkness}
+        intensity={1.45 - 1.02 * darkness}
         position={[fit * 0.25, fit * 0.7, fit * 0.3]}
       />
     </>

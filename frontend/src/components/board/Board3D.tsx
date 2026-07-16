@@ -221,6 +221,15 @@ function useBoardTexture(
   return { tex: current?.tex ?? null, error: current?.error ?? false };
 }
 
+/** Global exposure rides the day-night dial: midday is genuinely bright. */
+function Exposure({ darkness }: { darkness: number }) {
+  useFrame(({ gl }) => {
+    const target = 1.4 - 0.6 * darkness;
+    if (gl.toneMappingExposure !== target) gl.toneMappingExposure = target;
+  });
+  return null;
+}
+
 /** Camera rig: orbit + T/Y presets, follow-the-turn chase, ambient drift. */
 function CameraRig({
   mapW,
@@ -787,10 +796,10 @@ function BoardScene(props: Board3DProps) {
     onSelect(selectedId === t.id ? null : t.id);
   };
 
-  // Midday: fog light and far away. Night: dark and close. The fey world is
-  // bright at darkness 0; the dial is the whole day-night cycle.
+  // Midday: bright daylight HAZE, far away — the void should read as sunny
+  // air, not space. Night: dark fog, close. The dial is the day-night cycle.
   const fogColor = useMemo(
-    () => mixHex("#33333f", "#07070d", darkness),
+    () => mixHex("#8f96ad", "#07070d", darkness),
     [darkness],
   );
 
@@ -798,8 +807,9 @@ function BoardScene(props: Board3DProps) {
     <>
       <fog
         attach="fog"
-        args={[fogColor, fit * (2.3 - 0.8 * darkness), fit * (4.6 - 1.2 * darkness)]}
+        args={[fogColor, fit * (2.5 - 1.0 * darkness), fit * (4.8 - 1.4 * darkness)]}
       />
+      <Exposure darkness={darkness} />
       <LightRig fit={fit} darkness={darkness} />
       {domeTex && <BackdropDome tex={domeTex} fit={fit} darkness={darkness} />}
       <CameraRig
@@ -813,10 +823,11 @@ function BoardScene(props: Board3DProps) {
         }
       />
 
-      {/* under-plane so orbiting never shows void */}
+      {/* under-plane so orbiting never shows void — sunlit ground haze by
+          day, near-black by night */}
       <mesh rotation-x={-Math.PI / 2} position-y={-unit * 0.56}>
         <planeGeometry args={[fit * 8, fit * 8]} />
-        <meshLambertMaterial color="#07070c" />
+        <meshLambertMaterial color={mixHex("#3d4150", "#07070c", darkness)} />
       </mesh>
       {/* board slab */}
       <mesh position-y={-unit * 0.26}>
@@ -845,7 +856,7 @@ function BoardScene(props: Board3DProps) {
         <meshBasicMaterial
           map={vignette}
           transparent
-          opacity={0.25 + 0.75 * darkness}
+          opacity={0.12 + 0.88 * darkness}
           depthWrite={false}
         />
       </mesh>
