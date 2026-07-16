@@ -47,6 +47,8 @@ class PlayerCharacter(SQLModel, table=True):
     ac: int = Field(ge=1, le=30)
     speed: int = Field(ge=0)
     portrait_url: Optional[str] = Field(default=None, max_length=500)
+    # Full-body transparent minifig standee for the 3D board (Plan 45).
+    figure_url: Optional[str] = Field(default=None, max_length=500)
     backstory: Optional[str] = None
     notes: Optional[str] = None
     # JSON columns for complex fields
@@ -173,6 +175,7 @@ class PlayerCharacterRead(BaseModel):
     backstory: Optional[str] = None
     notes: Optional[str] = None
     portrait_url: Optional[str] = None
+    figure_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -228,6 +231,7 @@ class PlayerCharacterUpdate(BaseModel):
     backstory: Optional[str] = None
     notes: Optional[str] = None
     portrait_url: Optional[str] = None
+    figure_url: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------

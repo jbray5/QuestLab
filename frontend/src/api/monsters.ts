@@ -23,4 +23,8 @@ export const monstersApi = {
     api.post<Monster>(`/monsters/${id}/portrait`, {
       style_hints: styleHints ?? null,
     }),
+  generateFigure: (id: string, styleHints?: string) =>
+    api.post<Monster>(`/monsters/${id}/figure`, {
+      style_hints: styleHints ?? null,
+    }),
 };

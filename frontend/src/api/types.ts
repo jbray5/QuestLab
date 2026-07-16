@@ -64,6 +64,7 @@ export interface PlayerCharacter {
   backstory: string | null;
   notes: string | null;
   portrait_url: string | null;
+  figure_url: string | null;
   // Plan 00023 — combat state
   temp_hp: number;
   heroic_inspiration: boolean;
@@ -281,6 +282,7 @@ export interface Monster {
   is_custom: boolean;
   created_by_email: string | null;
   image_url: string | null;
+  figure_url: string | null;
 }
 
 export interface RosterEntry {
@@ -423,6 +425,7 @@ export interface TableToken {
   y: number;
   size: number;
   color?: string | null;
+  style?: "card" | "figure" | null;
 }
 
 export interface TableStateRead {

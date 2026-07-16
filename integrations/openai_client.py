@@ -43,6 +43,7 @@ def generate_image(
     size: Literal["1024x1024", "1024x1536", "1536x1024"] = "1024x1024",
     quality: Literal["low", "medium", "high"] = "medium",
     model: str = _DEFAULT_IMAGE_MODEL,
+    background: Literal["transparent", "opaque", "auto"] | None = None,
 ) -> bytes:
     """Generate one PNG image from a text prompt.
 
@@ -54,6 +55,9 @@ def generate_image(
             landscape variants are also valid for ``gpt-image-1``.
         quality: ``"low"`` ~ $0.011, ``"medium"`` ~ $0.04, ``"high"`` ~ $0.17.
         model: Image model id. Defaults to ``gpt-image-1``.
+        background: ``"transparent"`` yields an alpha-channel PNG cut-out
+            (gpt-image-1 only; used for minifig standees, Plan 45). ``None``
+            omits the parameter for full backward compatibility.
 
     Returns:
         Raw PNG bytes, ready to upload to storage.
@@ -63,14 +67,11 @@ def generate_image(
         RuntimeError: If the API returns no images or no decodable data.
     """
     client = _get_client()
+    kwargs: dict = {"model": model, "prompt": prompt, "size": size, "quality": quality, "n": 1}
+    if background is not None:
+        kwargs["background"] = background
     try:
-        response = client.images.generate(
-            model=model,
-            prompt=prompt,
-            size=size,
-            quality=quality,
-            n=1,
-        )
+        response = client.images.generate(**kwargs)
     except openai.OpenAIError as exc:
         # Surface a clean error message so the router can return a
         # proper 502 (and CORS headers get attached). Without this catch

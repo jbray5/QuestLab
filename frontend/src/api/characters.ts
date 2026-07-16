@@ -40,4 +40,8 @@ export const charactersApi = {
     api.post<PlayerCharacter>(`/characters/${id}/portrait`, {
       style_hints: styleHints ?? null,
     }),
+  generateFigure: (id: string, styleHints?: string) =>
+    api.post<PlayerCharacter>(`/characters/${id}/figure`, {
+      style_hints: styleHints ?? null,
+    }),
 };

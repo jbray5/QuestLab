@@ -7,7 +7,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import type { BattleMap, SessionCombatant, TableToken } from "../../api/types";
 import { BackdropDome, LightRig, Weather } from "./atmosphere";
-import { cardTint, getVignetteTexture, type WeatherKind } from "./boardTheme";
+import { cardTint, getVignetteTexture, mixHex, type WeatherKind } from "./boardTheme";
 
 /**
  * Board3D — the 3D tabletop scene (Plans 44 + 45).
@@ -300,6 +300,10 @@ function Standee({
   const r = unit * (token.size || 1) * 0.42;
   const cardW = unit * (token.size || 1) * 0.95;
   const cardH = unit * (token.size || 1) * 1.15;
+  // Minifig cut-outs (transparent PNGs) render taller and frameless.
+  const isFigure = token.style === "figure" && !!tex;
+  const bodyW = isFigure ? unit * (token.size || 1) * 1.05 : cardW;
+  const bodyH = isFigure ? unit * (token.size || 1) * 1.55 : cardH;
   const baseColor = tokenColor(token);
   const tint = cardTint(darkness);
   const defeated = combatant?.defeated ?? false;
@@ -359,7 +363,7 @@ function Standee({
       const targetTip = defeated ? 1.15 : 0;
       const cur = cardGroup.current.rotation.z;
       cardGroup.current.rotation.z = cur + (targetTip - cur) * Math.min(1, state.clock.getDelta() * 60 * 0.06 + 0.06);
-      const targetSink = defeated ? -cardH * 0.22 : 0;
+      const targetSink = defeated ? -bodyH * 0.22 : 0;
       cardGroup.current.position.y += (targetSink + bob - cardGroup.current.position.y) * 0.15;
     }
 
@@ -434,31 +438,63 @@ function Standee({
           <meshBasicMaterial color="#ffd76a" transparent opacity={0.8} depthWrite={false} />
         </mesh>
       )}
-      {/* the standee card (inner group takes bob + defeat tip) */}
-      <Billboard position={[0, unit * 0.09 + cardH / 2, 0]}>
+      {/* the standee body (inner group takes bob + defeat tip) */}
+      <Billboard position={[0, unit * 0.09 + bodyH / 2, 0]}>
         <group ref={cardGroup}>
-          <mesh>
-            <planeGeometry args={[cardW * 1.06, cardH * 1.06]} />
-            <meshBasicMaterial color={defeated ? "#4a4a52" : baseColor} />
-          </mesh>
-          <mesh position-z={unit * 0.01}>
-            <planeGeometry args={[cardW, cardH]} />
-            {tex ? (
-              <meshBasicMaterial
-                map={tex}
-                color={defeated ? "#666" : tint}
-                transparent
-                opacity={defeated ? 0.55 : 1}
-              />
-            ) : (
-              <meshBasicMaterial color={defeated ? "#3a3a42" : "#1c1c26"} />
-            )}
-          </mesh>
-          {/* hit flash overlay */}
-          <mesh position-z={unit * 0.02}>
-            <planeGeometry args={[cardW, cardH]} />
-            <meshBasicMaterial ref={flashMat} color="#ffffff" transparent opacity={0} depthWrite={false} />
-          </mesh>
+          {isFigure ? (
+            <>
+              <mesh>
+                <planeGeometry args={[bodyW, bodyH]} />
+                <meshBasicMaterial
+                  map={tex}
+                  color={defeated ? "#666" : tint}
+                  transparent
+                  alphaTest={0.25}
+                  opacity={defeated ? 0.55 : 1}
+                />
+              </mesh>
+              {/* hit flash — additive, masked by the figure's own alpha */}
+              <mesh position-z={unit * 0.015}>
+                <planeGeometry args={[bodyW, bodyH]} />
+                <meshBasicMaterial
+                  ref={flashMat}
+                  map={tex}
+                  color="#ffffff"
+                  transparent
+                  opacity={0}
+                  depthWrite={false}
+                  blending={THREE.AdditiveBlending}
+                />
+              </mesh>
+            </>
+          ) : (
+            <>
+              <mesh>
+                <planeGeometry args={[cardW * 1.06, cardH * 1.06]} />
+                <meshBasicMaterial color={defeated ? "#4a4a52" : baseColor} />
+              </mesh>
+              <mesh position-z={unit * 0.01}>
+                <planeGeometry args={[cardW, cardH]} />
+                {tex ? (
+                  <meshBasicMaterial
+                    map={tex}
+                    color={defeated ? "#666" : tint}
+                    transparent
+                    opacity={defeated ? 0.55 : 1}
+                  />
+                ) : (
+                  <meshBasicMaterial
+                    color={defeated ? "#3a3a42" : mixHex("#1c1c26", baseColor, 0.35)}
+                  />
+                )}
+              </mesh>
+              {/* hit flash overlay */}
+              <mesh position-z={unit * 0.02}>
+                <planeGeometry args={[cardW, cardH]} />
+                <meshBasicMaterial ref={flashMat} color="#ffffff" transparent opacity={0} depthWrite={false} />
+              </mesh>
+            </>
+          )}
           {!tex && (
             <Html center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
               <div
@@ -478,9 +514,9 @@ function Standee({
       </Billboard>
       {/* nameplate + HP bar */}
       <Html
-        position={[0, unit * 0.09 + cardH + unit * 0.28, 0]}
+        position={[0, unit * 0.09 + bodyH + unit * 0.28, 0]}
         center
-        distanceFactor={unit * 8}
+        distanceFactor={unit * 11}
         zIndexRange={[30, 0]}
         style={{ pointerEvents: "none" }}
       >
@@ -650,7 +686,12 @@ function BoardScene(props: Board3DProps) {
           <bufferGeometry>
             <bufferAttribute attach="attributes-position" args={[gridPositions, 3]} />
           </bufferGeometry>
-          <lineBasicMaterial color="#ffffff" transparent opacity={0.14} depthWrite={false} />
+          <lineBasicMaterial
+            color="#ffffff"
+            transparent
+            opacity={0.14 * (1 - darkness * 0.6)}
+            depthWrite={false}
+          />
         </lineSegments>
       )}
       <Weather kind={weather} mapW={map.width} mapH={map.height} unit={unit} />

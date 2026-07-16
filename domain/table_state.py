@@ -59,6 +59,8 @@ class Token(BaseModel):
     y: float = 0.0
     size: float = PydField(default=1.0, ge=0.25, le=10.0)  # in grid squares
     color: Optional[str] = PydField(default=None, max_length=20)
+    # "card" (default portrait card) | "figure" (transparent minifig cut-out).
+    style: Optional[str] = PydField(default=None, max_length=12)
 
 
 class TableStateUpdate(BaseModel):

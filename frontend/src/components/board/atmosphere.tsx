@@ -2,7 +2,7 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
-import type { WeatherKind } from "./boardTheme";
+import { getHorizonTexture, type WeatherKind } from "./boardTheme";
 
 /**
  * atmosphere — the immersion layer for the 3D board (Plan 45 Tier 1+2).
@@ -41,10 +41,12 @@ export function LightRig({ fit, darkness }: { fit: number; darkness: number }) {
   const key = useMemo(() => DAY_KEY.clone().lerp(NIGHT_KEY, darkness), [darkness]);
   return (
     <>
-      <ambientLight color={ambient} intensity={0.9 - 0.62 * darkness} />
+      {/* Floors keep the map readable even at full darkness — the dial sets
+          mood, not blindness. */}
+      <ambientLight color={ambient} intensity={0.9 - 0.48 * darkness} />
       <directionalLight
         color={key}
-        intensity={1.15 - 0.9 * darkness}
+        intensity={1.15 - 0.72 * darkness}
         position={[fit * 0.25, fit * 0.7, fit * 0.3]}
       />
     </>
@@ -173,16 +175,34 @@ interface DomeProps {
   darkness: number;
 }
 
-/** Inverted sphere carrying the AI-generated panorama; fog-immune. */
+/** Inverted sphere carrying the AI-generated panorama; fog-immune.
+ *
+ * The dome is kept dimmer than the board (the board is the star) and a
+ * horizon gradient band blends its base into the dark under-world so the
+ * seam between sky and table disappears.
+ */
 export function BackdropDome({ tex, fit, darkness }: DomeProps) {
   const tint = useMemo(
-    () => new THREE.Color("#ffffff").lerp(new THREE.Color("#4d5a86"), darkness * 0.8),
+    () => new THREE.Color("#e2e2ea").lerp(new THREE.Color("#232a45"), Math.min(1, 0.15 + darkness * 0.85)),
     [darkness],
   );
+  const horizon = useMemo(() => getHorizonTexture(), []);
   return (
-    <mesh scale={[-1, 1, 1]} rotation-y={Math.PI}>
-      <sphereGeometry args={[fit * 2.55, 48, 32]} />
-      <meshBasicMaterial map={tex} side={THREE.BackSide} fog={false} color={tint} />
-    </mesh>
+    <group>
+      <mesh scale={[-1, 1, 1]} rotation-y={Math.PI}>
+        <sphereGeometry args={[fit * 2.55, 48, 32]} />
+        <meshBasicMaterial map={tex} side={THREE.BackSide} fog={false} color={tint} />
+      </mesh>
+      <mesh position-y={fit * 0.1}>
+        <cylinderGeometry args={[fit * 2.45, fit * 2.45, fit * 0.6, 48, 1, true]} />
+        <meshBasicMaterial
+          map={horizon}
+          side={THREE.BackSide}
+          transparent
+          fog={false}
+          depthWrite={false}
+        />
+      </mesh>
+    </group>
   );
 }

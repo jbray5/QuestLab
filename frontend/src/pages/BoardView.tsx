@@ -4,6 +4,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
+import { monstersApi } from "../api/monsters";
 import { sessionsApi } from "../api/sessions";
 import { tableApi } from "../api/table";
 import type { BattleMap, SessionCombatant, TableStateRead, TableToken } from "../api/types";
@@ -175,7 +176,8 @@ export default function BoardView() {
         kind: "pc" as const,
         ref_id: pc.id,
         label: pc.character_name,
-        image_url: pc.portrait_url ?? null,
+        image_url: pc.figure_url ?? pc.portrait_url ?? null,
+        style: pc.figure_url ? ("figure" as const) : null,
         x: activeMap.width * (0.3 + 0.1 * i),
         y: activeMap.height * 0.75,
         size: 1,
@@ -183,22 +185,78 @@ export default function BoardView() {
     if (fresh.length) patchTokens([...state.tokens, ...fresh]);
   }
 
-  function addFoesFromCombat() {
+  async function addFoesFromCombat() {
     if (!activeMap || !state || !combat) return;
     const existing = new Set(state.tokens.map((t) => t.ref_id).filter(Boolean));
-    const fresh: TableToken[] = combat.combatants
-      .filter((c) => !c.character_id && !existing.has(c.id))
-      .map((c, i) => ({
+    const foes = combat.combatants.filter((c) => !c.character_id && !existing.has(c.id));
+    // Resolve each distinct monster once for figure/portrait art.
+    const monsterIds = [...new Set(foes.map((c) => c.monster_id).filter((m): m is string => !!m))];
+    const art = new Map<string, { figure_url: string | null; image_url: string | null }>();
+    await Promise.all(
+      monsterIds.map(async (mid) => {
+        try {
+          const m = await monstersApi.get(mid);
+          art.set(mid, { figure_url: m.figure_url, image_url: m.image_url });
+        } catch {
+          // Art is optional — token falls back to the initial disc.
+        }
+      }),
+    );
+    const fresh: TableToken[] = foes.map((c, i) => {
+      const a = c.monster_id ? art.get(c.monster_id) : undefined;
+      return {
         id: `foe-${c.id}`,
         kind: "monster" as const,
         ref_id: c.id,
         label: c.name,
-        image_url: null,
+        image_url: a?.figure_url ?? a?.image_url ?? null,
+        style: a?.figure_url ? ("figure" as const) : null,
         x: activeMap.width * (0.3 + 0.1 * (i % 5)),
         y: activeMap.height * (0.22 + 0.12 * Math.floor(i / 5)),
         size: 1,
-      }));
+      };
+    });
     if (fresh.length) patchTokens([...state.tokens, ...fresh]);
+  }
+
+  const [figureBusy, setFigureBusy] = useState(false);
+
+  async function generateMinifig() {
+    if (!selectedToken || !state) return;
+    setFigureBusy(true);
+    try {
+      let figureUrl: string | null = null;
+      let matches: (t: TableToken) => boolean = () => false;
+      if (selectedToken.kind === "pc" && selectedToken.ref_id) {
+        const pc = await charactersApi.generateFigure(selectedToken.ref_id);
+        figureUrl = pc.figure_url;
+        matches = (t) => t.ref_id === selectedToken.ref_id;
+        void qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+      } else if (selectedToken.kind === "monster" && selectedToken.ref_id) {
+        const comb = combatantByRef.get(selectedToken.ref_id);
+        if (!comb?.monster_id) throw new Error("Token has no monster stat block linked.");
+        const m = await monstersApi.generateFigure(comb.monster_id);
+        figureUrl = m.figure_url;
+        // Every token whose combatant shares this stat block gets the figure.
+        matches = (t) => {
+          const c = t.ref_id ? combatantByRef.get(t.ref_id) : undefined;
+          return c?.monster_id === comb.monster_id;
+        };
+      } else {
+        throw new Error("Select a party or combat-linked foe token first.");
+      }
+      if (figureUrl) {
+        patchTokens(
+          state.tokens.map((t) =>
+            matches(t) ? { ...t, image_url: figureUrl, style: "figure" as const } : t,
+          ),
+        );
+      }
+    } catch (err) {
+      window.alert(`Minifig generation failed: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      setFigureBusy(false);
+    }
   }
 
   function addTorch() {
@@ -487,11 +545,25 @@ export default function BoardView() {
             <button className="btn btn-ghost" style={{ fontSize: "0.72rem" }} onClick={addPartyTokens} disabled={!activeMap}>
               + Party
             </button>
-            <button className="btn btn-ghost" style={{ fontSize: "0.72rem" }} onClick={addFoesFromCombat} disabled={!activeMap || !combat?.combatants?.length}>
+            <button className="btn btn-ghost" style={{ fontSize: "0.72rem" }} onClick={() => void addFoesFromCombat()} disabled={!activeMap || !combat?.combatants?.length}>
               + Foes (from combat)
             </button>
             <button className="btn btn-ghost" style={{ fontSize: "0.72rem" }} onClick={addTorch} disabled={!activeMap} title="A movable point light — select + Del to remove">
               + Torch
+            </button>
+            <button
+              className="btn"
+              style={{ fontSize: "0.72rem" }}
+              onClick={() => void generateMinifig()}
+              disabled={
+                figureBusy ||
+                !selectedToken ||
+                selectedToken.kind === "light" ||
+                selectedToken.kind === "custom"
+              }
+              title="AI-generate a full-body standee for the selected token's character/monster (~30s)"
+            >
+              {figureBusy ? "🧍 Generating…" : "🧍 Minifig"}
             </button>
           </div>
           <BoardTracker sessionId={sessionId!} combat={combat} />

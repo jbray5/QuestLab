@@ -185,6 +185,9 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE session_combatants ADD COLUMN IF NOT EXISTS ac INTEGER",
         # 0022 — AI board backdrop (Plan 45)
         "ALTER TABLE battle_maps ADD COLUMN IF NOT EXISTS backdrop_url VARCHAR(1000)",
+        # 0023 — minifig standees (Plan 45)
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS figure_url VARCHAR(500)",
+        "ALTER TABLE monster_stat_blocks ADD COLUMN IF NOT EXISTS figure_url VARCHAR(500)",
     ]
     with engine.begin() as conn:
         for stmt in patches:

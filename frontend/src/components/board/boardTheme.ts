@@ -21,6 +21,11 @@ export function cardTint(darkness: number): string {
   return `#${new THREE.Color("#ffffff").lerp(new THREE.Color("#93a2d6"), darkness * 0.8).getHexString()}`;
 }
 
+/** Mix two hex colors (t = 0 → a, t = 1 → b). */
+export function mixHex(a: string, b: string, t: number): string {
+  return `#${new THREE.Color(a).lerp(new THREE.Color(b), t).getHexString()}`;
+}
+
 let vignetteTexture: THREE.CanvasTexture | null = null;
 
 /** Lazy singleton: radial edge-fade texture (transparent center, dark rim). */
@@ -40,4 +45,24 @@ export function getVignetteTexture(): THREE.CanvasTexture {
   g.fillRect(0, 0, 512, 512);
   vignetteTexture = new THREE.CanvasTexture(c);
   return vignetteTexture;
+}
+
+let horizonTexture: THREE.CanvasTexture | null = null;
+
+/** Lazy singleton: vertical gradient (opaque dark at bottom → clear at top)
+ * used to blend the backdrop dome into the dark under-world. */
+export function getHorizonTexture(): THREE.CanvasTexture {
+  if (horizonTexture) return horizonTexture;
+  const c = document.createElement("canvas");
+  c.width = 4;
+  c.height = 256;
+  const g = c.getContext("2d")!;
+  const grad = g.createLinearGradient(0, 256, 0, 0);
+  grad.addColorStop(0, "rgba(7,7,13,1)");
+  grad.addColorStop(0.55, "rgba(7,7,13,0.85)");
+  grad.addColorStop(1, "rgba(7,7,13,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 4, 256);
+  horizonTexture = new THREE.CanvasTexture(c);
+  return horizonTexture;
 }

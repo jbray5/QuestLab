@@ -96,6 +96,50 @@ def update_monster(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
+@router.post("/monsters/{monster_id}/figure", response_model=MonsterStatBlockRead)
+def generate_monster_figure_endpoint(
+    monster_id: uuid.UUID,
+    body: dict,
+    db: DB,
+    user: CurrentUser,
+) -> MonsterStatBlockRead:
+    """Generate a transparent full-body minifig standee for a monster (Plan 45).
+
+    Body: ``{"style_hints": "optional extra style"}``. Calls OpenAI
+    ``gpt-image-1`` with a transparent background; the cut-out URL is saved
+    to ``figure_url`` for the 3D board.
+
+    Args:
+        monster_id: UUID of the monster.
+        body: JSON with optional ``style_hints``.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Updated MonsterStatBlockRead with ``figure_url`` set.
+    """
+    from services import portrait_service
+
+    try:
+        return portrait_service.generate_monster_figure(
+            db, monster_id, user, style_hints=(body.get("style_hints") or None)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Figure generation failed: {exc}",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Figure generation failed: {type(exc).__name__}: {exc}",
+        )
+
+
 @router.post("/monsters/{monster_id}/portrait", response_model=MonsterStatBlockRead)
 def generate_monster_portrait_endpoint(
     monster_id: uuid.UUID,

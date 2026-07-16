@@ -215,6 +215,119 @@ def _build_monster_prompt(monster: MonsterStatBlock, style_hints: Optional[str])
     return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
 
 
+_FIGURE_STYLE = (
+    "Full-body fantasy tabletop miniature standee, standing pose facing the "
+    "viewer, entire figure in frame with feet visible, crisp silhouette, "
+    "painterly heroic-fantasy style, dramatic soft studio light, transparent "
+    "background. The figure only — no base, no floor, no shadow, no text, "
+    "no frame, no border."
+)
+
+
+def _build_pc_figure_prompt(pc: PlayerCharacter, style_hints: Optional[str]) -> str:
+    """Build a full-body minifig prompt from a PC's identity fields.
+
+    Args:
+        pc: The player character.
+        style_hints: Optional extra prompt text.
+
+    Returns:
+        The full prompt for the transparent standee image.
+    """
+    cls = (
+        pc.character_class.value
+        if hasattr(pc.character_class, "value")
+        else str(pc.character_class)
+    )
+    bits: list[str] = [f"{pc.character_name}, a {pc.race} {cls}, level {pc.level} adventurer"]
+    if style_hints:
+        bits.append(style_hints.strip())
+    bits.append(_FIGURE_STYLE)
+    return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
+
+
+def generate_pc_figure(
+    session: Session,
+    character_id: uuid.UUID,
+    dm_email: str,
+    style_hints: Optional[str] = None,
+) -> PlayerCharacterRead:
+    """Generate a transparent full-body minifig for a PC (Plan 45).
+
+    Args:
+        session: Active database session.
+        character_id: UUID of the PC.
+        dm_email: Email of the requesting DM.
+        style_hints: Optional extra prompt text.
+
+    Returns:
+        Updated PlayerCharacterRead with ``figure_url`` set.
+
+    Raises:
+        ValueError: If the PC is not found.
+        PermissionError: If the DM does not own the campaign or keys are missing.
+        RuntimeError: If the upstream API calls fail.
+    """
+    pc = _assert_pc_owner(session, character_id, dm_email)
+    prompt = _build_pc_figure_prompt(pc, style_hints)
+    png_bytes = generate_image(prompt, size="1024x1536", background="transparent")
+    url = blob_storage.upload(path=f"figures/pc-{pc.id}.png", data=png_bytes)
+    updated = CharacterRepo.update(session, pc, PlayerCharacterUpdate(figure_url=url))
+    return PlayerCharacterRead.model_validate(updated)
+
+
+def _build_monster_figure_prompt(monster: MonsterStatBlock, style_hints: Optional[str]) -> str:
+    """Build a full-body minifig prompt from a monster's identity fields.
+
+    Args:
+        monster: The monster stat block.
+        style_hints: Optional extra prompt text.
+
+    Returns:
+        The full prompt for the transparent standee image.
+    """
+    size = monster.size.value if hasattr(monster.size, "value") else str(monster.size)
+    ctype = (
+        monster.creature_type.value
+        if hasattr(monster.creature_type, "value")
+        else str(monster.creature_type)
+    )
+    bits: list[str] = [f"{monster.name}, a {size} {ctype}"]
+    if style_hints:
+        bits.append(style_hints.strip())
+    bits.append(_FIGURE_STYLE)
+    return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
+
+
+def generate_monster_figure(
+    session: Session,
+    monster_id: uuid.UUID,
+    dm_email: str,
+    style_hints: Optional[str] = None,
+) -> MonsterStatBlock:
+    """Generate a transparent full-body minifig for a monster (Plan 45).
+
+    Args:
+        session: Active database session.
+        monster_id: UUID of the monster.
+        dm_email: Email of the requesting DM.
+        style_hints: Optional extra prompt text.
+
+    Returns:
+        Updated ``MonsterStatBlock`` row with ``figure_url`` set.
+
+    Raises:
+        ValueError: If the monster is not found.
+        PermissionError: If env keys are missing.
+        RuntimeError: If the upstream API calls fail.
+    """
+    monster = _assert_monster_managed(session, monster_id, dm_email)
+    prompt = _build_monster_figure_prompt(monster, style_hints)
+    png_bytes = generate_image(prompt, size="1024x1536", background="transparent")
+    url = blob_storage.upload(path=f"figures/monster-{monster.id}.png", data=png_bytes)
+    return MonsterRepo.update(session, monster, MonsterStatBlockUpdate(figure_url=url))
+
+
 def _assert_monster_managed(
     session: Session, monster_id: uuid.UUID, dm_email: str
 ) -> MonsterStatBlock:

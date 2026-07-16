@@ -382,6 +382,47 @@ def restore_hit_dice_endpoint(
 # ── Plan 00034 — AI portrait generation ────────────────────────────────────
 
 
+@router.post("/characters/{character_id}/figure", response_model=PlayerCharacter)
+def generate_pc_figure(
+    character_id: uuid.UUID, body: dict, db: DB, user: CurrentUser
+) -> PlayerCharacter:
+    """Generate a transparent full-body minifig standee for a PC (Plan 45).
+
+    Body: ``{"style_hints": "optional extra style"}``. Calls OpenAI
+    ``gpt-image-1`` with a transparent background and uploads the cut-out to
+    Vercel Blob; the URL is saved to ``figure_url`` for the 3D board.
+
+    Args:
+        character_id: UUID of the PC.
+        body: JSON with optional ``style_hints``.
+        db: Database session.
+        user: Authenticated DM.
+
+    Returns:
+        Updated PlayerCharacter with figure_url set.
+    """
+    from services import portrait_service
+
+    try:
+        return portrait_service.generate_pc_figure(
+            db, character_id, user, style_hints=(body.get("style_hints") or None)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Figure generation failed: {exc}",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Figure generation failed: {type(exc).__name__}: {exc}",
+        )
+
+
 @router.post("/characters/{character_id}/portrait", response_model=PlayerCharacter)
 def generate_pc_portrait(
     character_id: uuid.UUID, body: dict, db: DB, user: CurrentUser
