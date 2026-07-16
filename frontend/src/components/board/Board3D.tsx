@@ -799,15 +799,23 @@ function PingRing({ x, y = 0, z, unit }: { x: number; y?: number; z: number; uni
   );
 }
 
-// ── PROTOTYPE — feat/board-talespire, Plan 46 milestone 1 ───────────────────
-// Hardcoded upright prop cut-outs on the Waystone Midday map, to judge the
-// TaleSpire-diorama look before building the ground/prop separation pipeline.
-// NOT for merge as-is: positions and sprite URLs are hand-placed.
+// ── PROTOTYPE — feat/board-talespire, Plan 46 milestone 2 ───────────────────
+// Ground/prop separation: the board texture is a GROUND LAYER (the map
+// repainted with tall features removed via gpt-image-1 edit) and the tall
+// features return as upright cut-outs at footprints found by diffing the
+// original against the ground layer. Positions below came from that diff
+// (hand-polished: edge forests split into several trees; the two mossy
+// stones re-classed — moss defeats the green-vs-gray color heuristic).
+// NOT for merge as-is: URLs and layout are baked for the Midday map only.
 const PROTO_MAP_ID = "29553f9a-ef05-4bf2-830a-ebc679fcf88b";
+const PROTO_GROUND =
+  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/14ee2ba6-ad8c-4240-9f80-8de5ffe48d5a-vCE1gLVz8oc2kjKy4zmBqtkguD5OMp.png";
 const PROTO_STONE =
-  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/73d038d5-455a-4423-b22c-6a4812455a5b-reEbJ5nwA5RoY7YaUbqcF0tcbwPX7q.png";
-const PROTO_OAK =
+  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/53a39b2b-66c3-44b5-ac68-dfeed4854874-ZkNobofQW8iGI260PB3lIi8iyu3Dp1.png";
+const PROTO_OAK_A =
   "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/9fdfa2dd-895c-4c3d-90ff-ec46c57809d0-8XuxxfELX6DR1pOB49boi3UvnjZH4N.png";
+const PROTO_OAK_B =
+  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/ce453d27-963d-4a12-a93a-973a3054e3b4-YUYU5Yk4NuPFPXAnCUQDq3gTCQEVcY.png";
 
 interface ProtoProp {
   x: number;
@@ -817,13 +825,26 @@ interface ProtoProp {
 }
 
 const PROTO_PROPS: ProtoProp[] = [
-  { x: 656, y: 300, url: PROTO_STONE, h: 1.9 },
-  { x: 795, y: 655, url: PROTO_STONE, h: 1.5 },
-  { x: 200, y: 140, url: PROTO_OAK, h: 3.4 },
-  { x: 700, y: 85, url: PROTO_OAK, h: 3.1 },
-  { x: 1330, y: 150, url: PROTO_OAK, h: 3.6 },
-  { x: 350, y: 920, url: PROTO_OAK, h: 3.2 },
-  { x: 1460, y: 620, url: PROTO_OAK, h: 2.9 },
+  // the waystones
+  { x: 665, y: 315, url: PROTO_STONE, h: 1.9 },
+  { x: 800, y: 665, url: PROTO_STONE, h: 1.5 },
+  // west treeline (split from the mega-blob at diff centroid 216,561)
+  { x: 110, y: 150, url: PROTO_OAK_A, h: 3.6 },
+  { x: 60, y: 460, url: PROTO_OAK_B, h: 3.2 },
+  { x: 215, y: 570, url: PROTO_OAK_A, h: 3.8 },
+  { x: 140, y: 860, url: PROTO_OAK_B, h: 3.3 },
+  { x: 360, y: 950, url: PROTO_OAK_A, h: 3.1 },
+  // north
+  { x: 700, y: 85, url: PROTO_OAK_B, h: 3.2 },
+  { x: 1310, y: 140, url: PROTO_OAK_A, h: 3.7 },
+  { x: 1450, y: 60, url: PROTO_OAK_B, h: 3.0 },
+  // east treeline
+  { x: 1440, y: 360, url: PROTO_OAK_B, h: 3.4 },
+  { x: 1465, y: 630, url: PROTO_OAK_A, h: 3.0 },
+  { x: 1350, y: 905, url: PROTO_OAK_B, h: 3.3 },
+  // south
+  { x: 860, y: 980, url: PROTO_OAK_A, h: 3.0 },
+  { x: 1140, y: 950, url: PROTO_OAK_B, h: 3.2 },
 ];
 
 /** One upright prop cut-out standing on the board (prototype). */
@@ -894,7 +915,10 @@ function BoardScene(props: Board3DProps) {
 
   const unit = unitFor(map);
   const fit = Math.max(map.width, map.height) * 1.05;
-  const { tex, error } = useBoardTexture(map.image_url);
+  // Prototype: the Midday map renders its GROUND LAYER; tall features come
+  // back as upright props below.
+  const boardImage = map.id === PROTO_MAP_ID ? PROTO_GROUND : map.image_url;
+  const { tex, error } = useBoardTexture(boardImage);
   const { tex: domeTex } = useBoardTexture(map.backdrop_url);
   const { heightAt, active: terrainActive } = useHeightField(
     map.heightmap_url,
