@@ -121,6 +121,16 @@ export default function BoardView() {
   const [backdropBusy, setBackdropBusy] = useState(false);
   const torchSeq = useRef(0);
 
+  const darkTimer = useRef<number | undefined>(undefined);
+  function setDarknessLive(v: number) {
+    applyLocal({ darkness: v });
+    window.clearTimeout(darkTimer.current);
+    darkTimer.current = window.setTimeout(
+      () => void tableApi.updateState(sessionId!, { darkness: v }),
+      180,
+    );
+  }
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [attackArmed, setAttackArmed] = useState(false);
   const [pendingAttack, setPendingAttack] = useState<{ attackerId: string; targetId: string } | null>(null);
@@ -196,10 +206,39 @@ export default function BoardView() {
     }
   }
 
+  function addLooseFoe() {
+    if (!activeMap || !state) return;
+    const name = window.prompt("Foe name (also used for its minifig):", "Wolf");
+    if (!name) return;
+    torchSeq.current += 1;
+    const t: TableToken = {
+      id: `loose-${torchSeq.current}-${state.tokens.length}`,
+      kind: "monster",
+      ref_id: null,
+      label: name.slice(0, 60),
+      image_url: null,
+      x: activeMap.width * 0.5,
+      y: activeMap.height * 0.3,
+      size: 1,
+    };
+    patchTokens([...state.tokens, t]);
+  }
+
   async function addFoesFromCombat() {
-    if (!activeMap || !state || !combat) return;
+    if (!activeMap || !state) return;
+    if (!combat?.combatants?.length) {
+      window.alert(
+        "This session has no combat roster yet. Build it and start combat from the " +
+          "Session HUD — or use '+ Foe' here for a quick unlinked enemy.",
+      );
+      return;
+    }
     const existing = new Set(state.tokens.map((t) => t.ref_id).filter(Boolean));
     const foes = combat.combatants.filter((c) => !c.character_id && !existing.has(c.id));
+    if (foes.length === 0) {
+      window.alert("All combat foes are already on the board.");
+      return;
+    }
     // Resolve each distinct monster once for figure/portrait art.
     const monsterIds = [...new Set(foes.map((c) => c.monster_id).filter((m): m is string => !!m))];
     const art = new Map<string, { figure_url: string | null; image_url: string | null }>();
@@ -399,6 +438,22 @@ export default function BoardView() {
             </button>
           ))}
         </div>
+        <label
+          style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", color: "var(--muted)" }}
+          title="Day–night dial: 0% = fey midday, 100% = deep night (torch time)"
+        >
+          {(state?.darkness ?? 0) > 0.5 ? "🌙" : "☀️"}
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.02}
+            value={state?.darkness ?? 0}
+            onChange={(e) => setDarknessLive(Number(e.target.value))}
+            style={{ width: 90 }}
+          />
+          {Math.round((state?.darkness ?? 0) * 100)}%
+        </label>
         <select value={weather} onChange={(e) => setWeather(e.target.value as WeatherKind)} style={{ fontSize: "0.75rem" }} title="Weather">
           {WEATHER_KINDS.map((w) => (
             <option key={w.value} value={w.value}>
@@ -569,8 +624,17 @@ export default function BoardView() {
             <button
               className="btn btn-ghost"
               style={{ fontSize: "0.72rem" }}
+              onClick={addLooseFoe}
+              disabled={!activeMap}
+              title="Quick unlinked enemy — name it, then 🧍 Minifig it. No combat roster needed."
+            >
+              + Foe
+            </button>
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: "0.72rem" }}
               onClick={() => void addFoesFromCombat()}
-              disabled={!activeMap || !combat?.combatants?.length}
+              disabled={!activeMap}
               title={
                 combat?.combatants?.length
                   ? "One token per non-PC combatant, linked for HP + turn glow"
