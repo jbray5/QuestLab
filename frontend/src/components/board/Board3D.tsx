@@ -5,7 +5,7 @@ import { DepthOfField, EffectComposer, Vignette } from "@react-three/postprocess
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
-import type { BattleMap, SessionCombatant, TableToken } from "../../api/types";
+import type { SessionCombatant, TableToken } from "../../api/types";
 import { BackdropDome, LightRig, Weather } from "./atmosphere";
 import {
   cardTint,
@@ -27,11 +27,28 @@ import {
 
 export type GridKind = "hex" | "square" | "off";
 
+/** The map fields the board actually needs — satisfied by both BattleMap
+ * (DM board) and the player-safe TableMapSummary (3D Table View). */
+export interface BoardMapLike {
+  id: string;
+  image_url: string;
+  width: number;
+  height: number;
+  grid_size: number | null;
+  backdrop_url?: string | null;
+}
+
 export interface StrikeFx {
   seq: number;
   attackerId: string;
   targetId: string;
   amount: number | "miss";
+}
+
+export interface BoardPing {
+  id: string;
+  x: number;
+  y: number;
 }
 
 interface GlideAnim {
@@ -49,7 +66,7 @@ interface StrikeAnim extends StrikeFx {
 }
 
 interface Board3DProps {
-  map: BattleMap;
+  map: BoardMapLike;
   tokens: TableToken[];
   combatantByRef: Map<string, SessionCombatant>;
   activeRef: string | null;
@@ -64,6 +81,17 @@ interface Board3DProps {
   onSelect: (id: string | null) => void;
   onMoveCommit: (id: string, x: number, y: number) => void;
   onPickTarget: (attackerId: string, targetId: string) => void;
+  /** Spectator mode (3D Table View): no selection, no movement, no attacks. */
+  readOnly?: boolean;
+  /** Defeated token refs from the player-safe projection (no combat data). */
+  defeatedRefs?: string[];
+  /** Transient "look here" pings, in image pixels. */
+  pings?: BoardPing[];
+  fogOn?: boolean;
+  revealedRegions?: number[][][];
+  brushReveals?: { x: number; y: number; r: number }[];
+  /** 0.3ish for the DM (see-through), 0.9+ for the player view. */
+  fogOpacity?: number;
 }
 
 const SQRT3 = Math.sqrt(3);
@@ -79,7 +107,7 @@ function tokenColor(t: TableToken): string {
 }
 
 /** Pixels-per-cell for this map (MapCanvas uses the same fallback). */
-function unitFor(map: BattleMap): number {
+function unitFor(map: BoardMapLike): number {
   return map.grid_size && map.grid_size > 0
     ? map.grid_size
     : Math.round(Math.min(map.width, map.height) / 20);
@@ -116,7 +144,7 @@ function snapPoint(px: number, py: number, unit: number, kind: GridKind): [numbe
 }
 
 /** Build the grid overlay as line-segment positions in world coords. */
-function buildGrid(map: BattleMap, unit: number, kind: GridKind): Float32Array {
+function buildGrid(map: BoardMapLike, unit: number, kind: GridKind): Float32Array {
   const pts: number[] = [];
   const w = map.width;
   const h = map.height;
@@ -273,6 +301,7 @@ function CameraRig({
 interface StandeeProps {
   token: TableToken;
   combatant: SessionCombatant | null;
+  defeated: boolean;
   unit: number;
   mapW: number;
   mapH: number;
@@ -290,6 +319,7 @@ interface StandeeProps {
 function Standee({
   token,
   combatant,
+  defeated,
   unit,
   mapW,
   mapH,
@@ -321,10 +351,11 @@ function Standee({
   const bodyH = isFigure ? unit * (token.size || 1) * 1.55 : cardH;
   const baseColor = tokenColor(token);
   const tint = cardTint(darkness);
-  const defeated = combatant?.defeated ?? false;
   const hpPct = combatant ? Math.max(0, Math.min(1, combatant.hp_current / combatant.hp_max)) : null;
+  const spawned = useRef(false);
+  const scratch = useRef(new THREE.Vector3());
 
-  useFrame((state) => {
+  useFrame((state, dt) => {
     const now = state.clock.elapsedTime;
     let px = token.x;
     let py = token.y;
@@ -356,7 +387,19 @@ function Standee({
       }
     }
 
-    if (group.current) group.current.position.set(px - mapW / 2, 0, py - mapH / 2);
+    if (group.current) {
+      // Local animations set the position directly; remote updates (SSE on
+      // the 3D Table View, or another device moving a token) glide smoothly.
+      const locallyAnimating =
+        (g && g.id === token.id && !g.done) || (s && s.attackerId === token.id && !!strikeTarget);
+      scratch.current.set(px - mapW / 2, 0, py - mapH / 2);
+      if (!spawned.current || locallyAnimating) {
+        group.current.position.copy(scratch.current);
+        spawned.current = true;
+      } else {
+        group.current.position.lerp(scratch.current, Math.min(1, dt * 9));
+      }
+    }
 
     if (flashMat.current) {
       let opacity = 0;
@@ -377,7 +420,7 @@ function Standee({
       const bob = defeated ? 0 : Math.sin(now * 1.6 + phase) * unit * 0.02;
       const targetTip = defeated ? 1.15 : 0;
       const cur = cardGroup.current.rotation.z;
-      cardGroup.current.rotation.z = cur + (targetTip - cur) * Math.min(1, state.clock.getDelta() * 60 * 0.06 + 0.06);
+      cardGroup.current.rotation.z = cur + (targetTip - cur) * Math.min(1, dt * 5 + 0.02);
       const targetSink = defeated ? -bodyH * 0.22 : 0;
       cardGroup.current.position.y += (targetSink + bob - cardGroup.current.position.y) * 0.15;
     }
@@ -579,6 +622,83 @@ function Standee({
   );
 }
 
+/** Unrevealed-area fog: a dark plate over the map with holes cut for
+ * revealed regions and brush circles (player-safe by construction — the
+ * projection only ever contains revealed geometry). */
+function FogOverlay({
+  mapW,
+  mapH,
+  unit,
+  revealed,
+  brushes,
+  opacity,
+}: {
+  mapW: number;
+  mapH: number;
+  unit: number;
+  revealed: number[][][];
+  brushes: { x: number; y: number; r: number }[];
+  opacity: number;
+}) {
+  const geom = useMemo(() => {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.lineTo(mapW, 0);
+    shape.lineTo(mapW, mapH);
+    shape.lineTo(0, mapH);
+    shape.closePath();
+    for (const poly of revealed) {
+      if (!poly || poly.length < 3) continue;
+      const hole = new THREE.Path();
+      hole.moveTo(poly[0][0], poly[0][1]);
+      for (let i = 1; i < poly.length; i += 1) hole.lineTo(poly[i][0], poly[i][1]);
+      hole.closePath();
+      shape.holes.push(hole);
+    }
+    for (const b of brushes) {
+      const hole = new THREE.Path();
+      hole.absarc(b.x, b.y, b.r, 0, Math.PI * 2, false);
+      shape.holes.push(hole);
+    }
+    return new THREE.ShapeGeometry(shape);
+  }, [mapW, mapH, revealed, brushes]);
+  return (
+    <mesh
+      geometry={geom}
+      rotation-x={Math.PI / 2}
+      position={[-mapW / 2, unit * 0.048, -mapH / 2]}
+      renderOrder={5}
+    >
+      <meshBasicMaterial
+        color="#04040a"
+        transparent
+        opacity={opacity}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
+/** One expanding "look here" ping ring. */
+function PingRing({ x, z, unit }: { x: number; z: number; unit: number }) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const start = useRef<number | null>(null);
+  useFrame((state) => {
+    if (!mesh.current) return;
+    if (start.current === null) start.current = state.clock.elapsedTime;
+    const t = Math.min(1, (state.clock.elapsedTime - start.current) / 1.2);
+    mesh.current.scale.setScalar(0.3 + t * 2.8);
+    (mesh.current.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - t);
+  });
+  return (
+    <mesh ref={mesh} rotation-x={-Math.PI / 2} position={[x, unit * 0.12, z]} renderOrder={6}>
+      <ringGeometry args={[unit * 0.5, unit * 0.64, 48]} />
+      <meshBasicMaterial color="#ffd76a" transparent opacity={0.9} depthWrite={false} />
+    </mesh>
+  );
+}
+
 /** The r3f scene — atmosphere, slab, grid, standees. */
 function BoardScene(props: Board3DProps) {
   const {
@@ -597,7 +717,16 @@ function BoardScene(props: Board3DProps) {
     onSelect,
     onMoveCommit,
     onPickTarget,
+    readOnly = false,
+    defeatedRefs,
+    pings,
+    fogOn = false,
+    revealedRegions,
+    brushReveals,
+    fogOpacity = 0.35,
   } = props;
+
+  const defeatedSet = useMemo(() => new Set(defeatedRefs ?? []), [defeatedRefs]);
 
   const unit = unitFor(map);
   const fit = Math.max(map.width, map.height) * 1.05;
@@ -626,7 +755,7 @@ function BoardScene(props: Board3DProps) {
   }, [tokens, activeRef]);
 
   const handleGround = (e: ThreeEvent<MouseEvent>) => {
-    if (e.delta > 5) return;
+    if (readOnly || e.delta > 5) return;
     e.stopPropagation();
     if (!selectedId) return;
     const token = tokens.find((t) => t.id === selectedId);
@@ -646,7 +775,7 @@ function BoardScene(props: Board3DProps) {
   };
 
   const handleTokenClick = (t: TableToken) => (e: ThreeEvent<MouseEvent>) => {
-    if (e.delta > 5) return;
+    if (readOnly || e.delta > 5) return;
     e.stopPropagation();
     if (selectedId && selectedId !== t.id) {
       const sel = tokens.find((x) => x.id === selectedId);
@@ -733,6 +862,19 @@ function BoardScene(props: Board3DProps) {
           />
         </lineSegments>
       )}
+      {fogOn && (
+        <FogOverlay
+          mapW={map.width}
+          mapH={map.height}
+          unit={unit}
+          revealed={revealedRegions ?? []}
+          brushes={brushReveals ?? []}
+          opacity={fogOpacity}
+        />
+      )}
+      {(pings ?? []).map((p) => (
+        <PingRing key={p.id} x={p.x - map.width / 2} z={p.y - map.height / 2} unit={unit} />
+      ))}
       <Weather kind={weather} mapW={map.width} mapH={map.height} unit={unit} />
       {error && (
         <Html center position={[0, unit, 0]}>
@@ -755,6 +897,7 @@ function BoardScene(props: Board3DProps) {
             key={t.id}
             token={t}
             combatant={combatant}
+            defeated={combatant?.defeated ?? defeatedSet.has(ref)}
             unit={unit}
             mapW={map.width}
             mapH={map.height}

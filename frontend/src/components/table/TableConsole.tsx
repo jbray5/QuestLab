@@ -279,8 +279,17 @@ function TableConsoleModal({
           <a href={tableUrl} target="_blank" rel="noreferrer" className="btn" style={{ textAlign: "center" }}>
             Open Table View ↗
           </a>
+          <a
+            href={`${tableUrl}/3d`}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-ghost"
+            style={{ textAlign: "center", fontSize: "0.8rem" }}
+          >
+            Open 3D Table View ↗
+          </a>
           <div style={{ fontSize: "0.66rem", color: "var(--muted)", marginTop: -4 }}>
-            Share this on the players&rsquo; screen / projector.
+            Share either on the players&rsquo; screen / projector — the 3D one is the pretty one.
           </div>
 
           <label style={{ fontSize: "0.72rem", color: "var(--muted)" }}>

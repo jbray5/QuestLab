@@ -29,6 +29,7 @@ const Weapons       = lazy(() => import("./pages/Weapons"));
 const BattleMaps    = lazy(() => import("./pages/BattleMaps"));
 const TableView     = lazy(() => import("./pages/TableView"));
 const BoardView     = lazy(() => import("./pages/BoardView"));
+const Table3DView   = lazy(() => import("./pages/Table3DView"));
 
 function PageLoader() {
   return (
@@ -71,7 +72,9 @@ export default function App() {
 
       {/* Plan 42 — Table View: full-screen projected battle map, no DM chrome */}
       <Route path="/table/:sessionId" element={lazyRoute(<TableView />)} />
-      {/* DM 3D tabletop (Plan 44) — full-screen, screen-shared by the DM */}
+      {/* Players' 3D table (Plan 45) — read-only capability URL, no auth */}
+      <Route path="/table/:sessionId/3d" element={lazyRoute(<Table3DView />)} />
+      {/* DM 3D tabletop (Plan 44) — full-screen, DM-driven */}
       <Route path="/sessions/:sessionId/board" element={lazyRoute(<BoardView />)} />
 
       {/* Plan 35 — Landing / sign-in: standalone, no DM chrome */}

@@ -83,12 +83,31 @@ export default function BoardView() {
     enabled: !!campaignId,
   });
 
-  useEventStream("table", sessionId, () => {
+  const [boardPings, setBoardPings] = useState<{ id: string; x: number; y: number }[]>([]);
+  const pingSeq = useRef(0);
+
+  useEventStream("table", sessionId, (event) => {
+    if (event.type === "table.ping") {
+      const p = event as typeof event & { x?: number; y?: number };
+      if (typeof p.x !== "number" || typeof p.y !== "number") return;
+      pingSeq.current += 1;
+      const id = `ping-${pingSeq.current}`;
+      const ping = { id, x: p.x, y: p.y };
+      setBoardPings((cur) => [...cur, ping]);
+      window.setTimeout(() => setBoardPings((cur) => cur.filter((q) => q.id !== id)), 1500);
+      return;
+    }
     void qc.invalidateQueries({ queryKey: stateKey });
     void qc.invalidateQueries({ queryKey: ["board-combat", sessionId] });
   });
 
   const activeMap: BattleMap | null = maps.find((m) => m.id === state?.active_map_id) ?? null;
+
+  const revealedRegionPoints = useMemo(() => {
+    if (!activeMap) return [];
+    const ids = new Set(state?.revealed_region_ids ?? []);
+    return activeMap.regions.filter((r) => ids.has(r.id)).map((r) => r.points);
+  }, [activeMap, state?.revealed_region_ids]);
 
   const party = useMemo(() => {
     const attending = new Set(session?.attending_pc_ids ?? []);
@@ -486,6 +505,16 @@ export default function BoardView() {
         >
           🌌 Backdrop
         </button>
+        <a
+          href={`${window.location.origin}/table/${sessionId}/3d`}
+          target="_blank"
+          rel="noreferrer"
+          className="btn btn-ghost"
+          style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
+          title="The players' live 3D view — share THIS link instead of screen-sharing"
+        >
+          📺 3D Table ↗
+        </a>
         <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "var(--muted)" }}>
           T top · Y tilt · A arm attack · Del remove · Esc deselect
         </span>
@@ -508,6 +537,11 @@ export default function BoardView() {
               weather={weather}
               cinema={cinema}
               followTurn={followTurn}
+              fogOn={state?.fog_on ?? false}
+              revealedRegions={revealedRegionPoints}
+              brushReveals={state?.brush_reveals ?? []}
+              fogOpacity={0.32}
+              pings={boardPings}
               onSelect={(id) => {
                 setSelectedId(id);
                 if (!id) setAttackArmed(false);
