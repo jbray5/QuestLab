@@ -8,6 +8,8 @@
 
 import { useEffect, useRef } from "react";
 
+import { apiBase } from "../api/client";
+
 export type StreamScope = "pc" | "campaign" | "table";
 
 export interface StreamEvent {
@@ -47,7 +49,7 @@ export function useEventStream(
   useEffect(() => {
     if (!enabled || !id) return;
 
-    const base = import.meta.env.VITE_API_BASE_URL || "/api";
+    const base = apiBase();
     const url = `${base}/stream/${scope}/${id}`;
 
     const es = new EventSource(url);
