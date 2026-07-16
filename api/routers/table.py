@@ -11,7 +11,13 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
 from api.deps import DB, CurrentUser
-from domain.table_state import TableProjection, TableStateRead, TableStateUpdate
+from domain.table_state import (
+    TableProjection,
+    TableStateRead,
+    TableStateUpdate,
+    TokenFigureRequest,
+    TokenFigureResponse,
+)
 from services import table_service
 
 router = APIRouter(tags=["table"])
@@ -65,6 +71,41 @@ def update_table(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/sessions/{session_id}/table/figure", response_model=TokenFigureResponse)
+def generate_token_figure(
+    session_id: uuid.UUID, body: TokenFigureRequest, db: DB, user: CurrentUser
+) -> TokenFigureResponse:
+    """Generate a minifig cut-out for an unlinked token (Plan 45).
+
+    For tokens with no character/monster behind them: generates a
+    transparent standee straight from the token label and returns the
+    blob URL — the board writes it onto the token itself.
+
+    Args:
+        session_id: UUID of the session.
+        body: Token label + optional style hints.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The generated cut-out's URL.
+    """
+    try:
+        url = table_service.generate_token_figure(
+            db, session_id, user, body.name, style_hints=body.style_hints
+        )
+        return TokenFigureResponse(url=url)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Figure generation failed: {exc}",
+        )
 
 
 @router.post("/sessions/{session_id}/table/ping", status_code=status.HTTP_204_NO_CONTENT)

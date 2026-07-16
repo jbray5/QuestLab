@@ -47,6 +47,11 @@ export const tableApi = {
     api.patch<TableStateRead>(`/sessions/${sessionId}/table`, data),
   ping: (sessionId: string, x: number, y: number) =>
     api.post<void>(`/sessions/${sessionId}/table/ping`, { x, y }),
+  generateTokenFigure: (sessionId: string, name: string, styleHints?: string) =>
+    api.post<{ url: string }>(`/sessions/${sessionId}/table/figure`, {
+      name,
+      style_hints: styleHints ?? null,
+    }),
 
   // Player-safe projection (projector)
   getProjection: (sessionId: string) =>

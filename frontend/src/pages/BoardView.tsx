@@ -168,6 +168,13 @@ export default function BoardView() {
 
   function addPartyTokens() {
     if (!activeMap || !state) return;
+    if (party.length === 0) {
+      window.alert(
+        "This campaign has no player characters yet, so there's no party to add. " +
+          "(Existing tokens still work — select one and hit 🧍 Minifig.)",
+      );
+      return;
+    }
     const existing = new Set(state.tokens.map((t) => t.ref_id).filter(Boolean));
     const fresh: TableToken[] = party
       .filter((pc) => !existing.has(pc.id))
@@ -182,7 +189,11 @@ export default function BoardView() {
         y: activeMap.height * 0.75,
         size: 1,
       }));
-    if (fresh.length) patchTokens([...state.tokens, ...fresh]);
+    if (fresh.length) {
+      patchTokens([...state.tokens, ...fresh]);
+    } else {
+      window.alert(`All ${party.length} party member(s) are already on the board.`);
+    }
   }
 
   async function addFoesFromCombat() {
@@ -227,23 +238,33 @@ export default function BoardView() {
     try {
       let figureUrl: string | null = null;
       let matches: (t: TableToken) => boolean = () => false;
+      const linkedMonsterId =
+        selectedToken.kind === "monster" && selectedToken.ref_id
+          ? combatantByRef.get(selectedToken.ref_id)?.monster_id
+          : null;
       if (selectedToken.kind === "pc" && selectedToken.ref_id) {
+        // Entity-backed: store on the PC so every future session reuses it.
         const pc = await charactersApi.generateFigure(selectedToken.ref_id);
         figureUrl = pc.figure_url;
         matches = (t) => t.ref_id === selectedToken.ref_id;
         void qc.invalidateQueries({ queryKey: ["characters", campaignId] });
-      } else if (selectedToken.kind === "monster" && selectedToken.ref_id) {
-        const comb = combatantByRef.get(selectedToken.ref_id);
-        if (!comb?.monster_id) throw new Error("Token has no monster stat block linked.");
-        const m = await monstersApi.generateFigure(comb.monster_id);
+      } else if (linkedMonsterId) {
+        // Entity-backed: every token whose combatant shares this stat block.
+        const m = await monstersApi.generateFigure(linkedMonsterId);
         figureUrl = m.figure_url;
-        // Every token whose combatant shares this stat block gets the figure.
         matches = (t) => {
           const c = t.ref_id ? combatantByRef.get(t.ref_id) : undefined;
-          return c?.monster_id === comb.monster_id;
+          return c?.monster_id === linkedMonsterId;
         };
       } else {
-        throw new Error("Select a party or combat-linked foe token first.");
+        // Unlinked token (demo boards, ad-hoc markers): generate from the
+        // label and write onto this token only.
+        const res = await tableApi.generateTokenFigure(
+          sessionId!,
+          selectedToken.label || "mysterious fantasy creature",
+        );
+        figureUrl = res.url;
+        matches = (t) => t.id === selectedToken.id;
       }
       if (figureUrl) {
         patchTokens(
@@ -545,7 +566,17 @@ export default function BoardView() {
             <button className="btn btn-ghost" style={{ fontSize: "0.72rem" }} onClick={addPartyTokens} disabled={!activeMap}>
               + Party
             </button>
-            <button className="btn btn-ghost" style={{ fontSize: "0.72rem" }} onClick={() => void addFoesFromCombat()} disabled={!activeMap || !combat?.combatants?.length}>
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: "0.72rem" }}
+              onClick={() => void addFoesFromCombat()}
+              disabled={!activeMap || !combat?.combatants?.length}
+              title={
+                combat?.combatants?.length
+                  ? "One token per non-PC combatant, linked for HP + turn glow"
+                  : "Build the roster and start combat from the Session HUD first"
+              }
+            >
               + Foes (from combat)
             </button>
             <button className="btn btn-ghost" style={{ fontSize: "0.72rem" }} onClick={addTorch} disabled={!activeMap} title="A movable point light — select + Del to remove">
@@ -555,13 +586,8 @@ export default function BoardView() {
               className="btn"
               style={{ fontSize: "0.72rem" }}
               onClick={() => void generateMinifig()}
-              disabled={
-                figureBusy ||
-                !selectedToken ||
-                selectedToken.kind === "light" ||
-                selectedToken.kind === "custom"
-              }
-              title="AI-generate a full-body standee for the selected token's character/monster (~30s)"
+              disabled={figureBusy || !selectedToken || selectedToken.kind === "light"}
+              title="AI-generate a full-body standee for the selected token (~30s). Linked tokens store it on the character/monster; unlinked ones generate from the label."
             >
               {figureBusy ? "🧍 Generating…" : "🧍 Minifig"}
             </button>

@@ -10,6 +10,7 @@ Two audiences:
 """
 
 import uuid
+from typing import Optional
 
 from sqlmodel import Session as DBSession
 
@@ -17,8 +18,44 @@ from db.repos.battle_map_repo import BattleMapRepo
 from db.repos.session_repo import SessionCombatantRepo, SessionRepo
 from db.repos.table_state_repo import TableStateRepo
 from domain.table_state import TableMap, TableProjection, TableStateRead, TableStateUpdate, Token
+from integrations import blob_storage
 from integrations.event_bus import publish_table_ping, publish_table_updated
-from services import session_service
+from integrations.openai_client import generate_image
+from services import portrait_service, session_service
+
+
+def generate_token_figure(
+    db: DBSession,
+    session_id: uuid.UUID,
+    dm_email: str,
+    name: str,
+    style_hints: Optional[str] = None,
+) -> str:
+    """Generate a minifig cut-out for an unlinked token (Plan 45).
+
+    Tokens with no character/monster behind them (demo boards, ad-hoc
+    markers) still deserve standees — this generates straight from the
+    token's label and returns the blob URL without touching any entity.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session (ownership anchor).
+        dm_email: Email of the requesting DM.
+        name: The token label / subject to depict.
+        style_hints: Optional extra prompt text.
+
+    Returns:
+        The uploaded cut-out's public URL.
+
+    Raises:
+        ValueError: If the session does not exist.
+        PermissionError: If the DM does not own the campaign.
+        RuntimeError: If image generation or the upload fails.
+    """
+    session_service.get_session(db, session_id, dm_email)  # ownership check
+    prompt = portrait_service.build_figure_prompt(name, style_hints)
+    png_bytes = generate_image(prompt, size="1024x1536", background="transparent")
+    return blob_storage.upload(path=f"figures/token-{uuid.uuid4().hex[:12]}.png", data=png_bytes)
 
 
 def get_table_state(db: DBSession, session_id: uuid.UUID, dm_email: str) -> TableStateRead:

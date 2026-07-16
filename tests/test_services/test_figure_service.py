@@ -11,10 +11,12 @@ from sqlmodel import Session
 
 import services.campaign_service as camp_svc
 import services.character_service as char_svc
+import services.table_service as table_svc
 from db.repos.monster_repo import MonsterRepo
 from domain.enums import CharacterClass, CreatureSize, CreatureType
 from domain.monster import MonsterStatBlockCreate
 from services import portrait_service
+from tests.test_services.test_table_service import _campaign_and_session
 
 
 def _dm() -> str:
@@ -140,3 +142,47 @@ class TestMonsterFigure:
         _patch_image_and_blob(monkeypatch)
         with pytest.raises(ValueError):
             portrait_service.generate_monster_figure(duckdb_session, uuid.uuid4(), _dm())
+
+
+def _patch_table_figure(monkeypatch, *, png_bytes: bytes = b"\x89PNGFAKE"):
+    """Stub generate_image on table_service (it imports the name) + blob upload."""
+    captured: dict = {}
+
+    def fake_generate_image(prompt: str, **kwargs):
+        captured["prompt"] = prompt
+        captured["image_kwargs"] = kwargs
+        return png_bytes
+
+    def fake_upload(*, path: str, data: bytes, content_type: str = "image/png"):
+        captured["upload_path"] = path
+        return f"https://fake.blob/{path}"
+
+    from integrations import blob_storage as _blob
+
+    monkeypatch.setattr(table_svc, "generate_image", fake_generate_image)
+    monkeypatch.setattr(_blob, "upload", fake_upload)
+    return captured
+
+
+class TestTokenFigure:
+    """generate_token_figure — free-form standees for unlinked tokens."""
+
+    def test_happy_path_returns_url(self, duckdb_session: Session, monkeypatch):
+        """Label lands in the prompt; a blob URL comes back; no entity touched."""
+        dm = _dm()
+        _, _, gs = _campaign_and_session(duckdb_session, dm)
+        captured = _patch_table_figure(monkeypatch)
+
+        url = table_svc.generate_token_figure(duckdb_session, gs.id, dm, "Bandit")
+
+        assert url.startswith("https://fake.blob/figures/token-")
+        assert "Bandit" in captured["prompt"]
+        assert captured["image_kwargs"].get("background") == "transparent"
+
+    def test_non_owner_forbidden(self, duckdb_session: Session, monkeypatch):
+        """Only the session's owning DM can generate token figures."""
+        _, _, gs = _campaign_and_session(duckdb_session, _dm())
+        _patch_table_figure(monkeypatch)
+
+        with pytest.raises(PermissionError):
+            table_svc.generate_token_figure(duckdb_session, gs.id, _dm(), "Bandit")

@@ -225,6 +225,26 @@ _FIGURE_STYLE = (
 )
 
 
+def build_figure_prompt(subject: str, style_hints: Optional[str] = None) -> str:
+    """Compose a minifig prompt for an arbitrary subject (Plan 45).
+
+    Shared by the PC/monster figure generators and the free-form token
+    figure endpoint (tokens with no linked entity, e.g. demo boards).
+
+    Args:
+        subject: Who/what the figure depicts (name + short description).
+        style_hints: Optional extra prompt text.
+
+    Returns:
+        The full prompt for the transparent standee image.
+    """
+    bits: list[str] = [subject]
+    if style_hints:
+        bits.append(style_hints.strip())
+    bits.append(_FIGURE_STYLE)
+    return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
+
+
 def _build_pc_figure_prompt(pc: PlayerCharacter, style_hints: Optional[str]) -> str:
     """Build a full-body minifig prompt from a PC's identity fields.
 
@@ -240,11 +260,9 @@ def _build_pc_figure_prompt(pc: PlayerCharacter, style_hints: Optional[str]) -> 
         if hasattr(pc.character_class, "value")
         else str(pc.character_class)
     )
-    bits: list[str] = [f"{pc.character_name}, a {pc.race} {cls}, level {pc.level} adventurer"]
-    if style_hints:
-        bits.append(style_hints.strip())
-    bits.append(_FIGURE_STYLE)
-    return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
+    return build_figure_prompt(
+        f"{pc.character_name}, a {pc.race} {cls}, level {pc.level} adventurer", style_hints
+    )
 
 
 def generate_pc_figure(
@@ -293,11 +311,7 @@ def _build_monster_figure_prompt(monster: MonsterStatBlock, style_hints: Optiona
         if hasattr(monster.creature_type, "value")
         else str(monster.creature_type)
     )
-    bits: list[str] = [f"{monster.name}, a {size} {ctype}"]
-    if style_hints:
-        bits.append(style_hints.strip())
-    bits.append(_FIGURE_STYLE)
-    return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
+    return build_figure_prompt(f"{monster.name}, a {size} {ctype}", style_hints)
 
 
 def generate_monster_figure(

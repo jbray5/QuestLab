@@ -65,8 +65,19 @@ here is light, atmosphere, and camera language — not geometry:
 - [x] 10. Gates: pytest 606, black/isort/flake8/interrogate clean, tsc -b
       clean, eslint 0 new (react-refresh fix via boardTheme.ts), vite
       build clean.
+- [x] 11. Polish pass from the live screenshot review: night lighting
+      floors, dome dimmed vs board + horizon gradient band, nameplates
+      +40%, faction-tinted fallback cards, grid fades with darkness.
+- [x] 12. Minifig standees: figure_url on PCs+monsters (migration 0023),
+      transparent gpt-image-1 cut-outs via /figure endpoints, Token
+      style='figure' frameless rendering, 🧍 button (monsters share one
+      figure per stat block), party/foes auto-use stored figures.
+- [x] 13. Halo clean-up: client-side alpha curve (≤110→0, ramp to 230) +
+      auto-crop, validated offline on a real Driven Wolf. SRD Wolf's
+      figure seeded to prod (verified — 0023 auto-migrated on deploy).
 - [ ] STRETCH (post-Saturday): Tier 3 — elevation regions, walls + LoS,
-      3D props.
+      3D props. Also parked: "hologram" render style as an alternate
+      token look.
 - [ ] Friday drill: verify backdrop generation against prod (needs
       OPENAI_API_KEY + BLOB_READ_WRITE_TOKEN on Render) + DoF perf on the
       projector; run `alembic upgrade head` lands 0022 on deploy.
