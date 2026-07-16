@@ -799,6 +799,69 @@ function PingRing({ x, y = 0, z, unit }: { x: number; y?: number; z: number; uni
   );
 }
 
+// ── PROTOTYPE — feat/board-talespire, Plan 46 milestone 1 ───────────────────
+// Hardcoded upright prop cut-outs on the Waystone Midday map, to judge the
+// TaleSpire-diorama look before building the ground/prop separation pipeline.
+// NOT for merge as-is: positions and sprite URLs are hand-placed.
+const PROTO_MAP_ID = "29553f9a-ef05-4bf2-830a-ebc679fcf88b";
+const PROTO_STONE =
+  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/73d038d5-455a-4423-b22c-6a4812455a5b-reEbJ5nwA5RoY7YaUbqcF0tcbwPX7q.png";
+const PROTO_OAK =
+  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/9fdfa2dd-895c-4c3d-90ff-ec46c57809d0-8XuxxfELX6DR1pOB49boi3UvnjZH4N.png";
+
+interface ProtoProp {
+  x: number;
+  y: number;
+  url: string;
+  h: number; // height in grid units
+}
+
+const PROTO_PROPS: ProtoProp[] = [
+  { x: 656, y: 300, url: PROTO_STONE, h: 1.9 },
+  { x: 795, y: 655, url: PROTO_STONE, h: 1.5 },
+  { x: 200, y: 140, url: PROTO_OAK, h: 3.4 },
+  { x: 700, y: 85, url: PROTO_OAK, h: 3.1 },
+  { x: 1330, y: 150, url: PROTO_OAK, h: 3.6 },
+  { x: 350, y: 920, url: PROTO_OAK, h: 3.2 },
+  { x: 1460, y: 620, url: PROTO_OAK, h: 2.9 },
+];
+
+/** One upright prop cut-out standing on the board (prototype). */
+function PropSprite({
+  prop,
+  unit,
+  mapW,
+  mapH,
+  darkness,
+}: {
+  prop: ProtoProp;
+  unit: number;
+  mapW: number;
+  mapH: number;
+  darkness: number;
+}) {
+  const { tex } = useBoardTexture(prop.url, true);
+  const tint = cardTint(darkness);
+  if (!tex) return null;
+  const h = unit * prop.h;
+  const w = h * (2 / 3);
+  return (
+    <group position={[prop.x - mapW / 2, 0, prop.y - mapH / 2]}>
+      {/* contact shadow */}
+      <mesh rotation-x={-Math.PI / 2} position-y={unit * 0.035}>
+        <circleGeometry args={[w * 0.32, 24]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.3} depthWrite={false} />
+      </mesh>
+      <Billboard position={[0, h / 2, 0]}>
+        <mesh>
+          <planeGeometry args={[w, h]} />
+          <meshBasicMaterial map={tex} color={tint} transparent alphaTest={0.25} />
+        </mesh>
+      </Billboard>
+    </group>
+  );
+}
+
 /** The r3f scene — atmosphere, slab, grid, standees. */
 function BoardScene(props: Board3DProps) {
   const {
@@ -1092,6 +1155,17 @@ function BoardScene(props: Board3DProps) {
           />
         );
       })}
+      {map.id === PROTO_MAP_ID &&
+        PROTO_PROPS.map((p, i) => (
+          <PropSprite
+            key={`proto-${i}`}
+            prop={p}
+            unit={unit}
+            mapW={map.width}
+            mapH={map.height}
+            darkness={darkness}
+          />
+        ))}
       {cinema && (
         <EffectComposer>
           <DepthOfField focusDistance={0.12} focalLength={0.08} bokehScale={2.2} />
