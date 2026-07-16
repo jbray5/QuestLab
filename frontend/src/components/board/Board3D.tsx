@@ -916,6 +916,46 @@ function BoardScene(props: Board3DProps) {
     [darkness],
   );
 
+  // Blend the board into the horizon: average the map's border pixels and
+  // paint the surrounding ground plane with it, so the world continues in
+  // the board's own palette (meadow stays meadow) and fades into the haze.
+  const edgeGround = useMemo(() => {
+    if (!tex || !(tex.image instanceof HTMLImageElement)) return null;
+    try {
+      const c = document.createElement("canvas");
+      const W = 64;
+      const H = 43;
+      c.width = W;
+      c.height = H;
+      const g = c.getContext("2d")!;
+      g.drawImage(tex.image, 0, 0, W, H);
+      const d = g.getImageData(0, 0, W, H).data;
+      let r = 0;
+      let gr = 0;
+      let b = 0;
+      let n = 0;
+      for (let y = 0; y < H; y += 1) {
+        for (let x = 0; x < W; x += 1) {
+          if (x > 1 && x < W - 2 && y > 1 && y < H - 2) continue;
+          const i = (y * W + x) * 4;
+          r += d[i];
+          gr += d[i + 1];
+          b += d[i + 2];
+          n += 1;
+        }
+      }
+      // Compensate for the surrounding plane being unlit vs the lit board.
+      const col = new THREE.Color(r / n / 255, gr / n / 255, b / n / 255).multiplyScalar(1.28);
+      return `#${col.getHexString()}`;
+    } catch {
+      return null;
+    }
+  }, [tex]);
+  const groundColor = useMemo(
+    () => mixHex(edgeGround ?? fogColor, "#07070c", darkness * 0.92),
+    [edgeGround, fogColor, darkness],
+  );
+
   return (
     <>
       <fog
@@ -936,15 +976,16 @@ function BoardScene(props: Board3DProps) {
         }
       />
 
-      {/* under-plane so orbiting never shows void. It wears the FOG COLOR
-          exactly, so it vanishes into the haze — aerial perspective instead
-          of a gray plate. */}
-      <mesh rotation-x={-Math.PI / 2} position-y={-unit * 0.56}>
+      {/* the world beyond the board: an infinite ground plane at board level
+          wearing the map's own edge color — no cliff, no gray plate. Distance
+          fog fades it into the sky haze. */}
+      <mesh rotation-x={-Math.PI / 2} position-y={-unit * 0.06}>
         <planeGeometry args={[fit * 8, fit * 8]} />
-        <meshBasicMaterial color={fogColor} />
+        <meshBasicMaterial color={groundColor} />
       </mesh>
-      {/* board slab */}
-      <mesh position-y={-unit * 0.26}>
+      {/* board slab — now fully below the ground plane; kept as the dark
+          core visible only if a heightmap ever lifts the sheet */}
+      <mesh position-y={-unit * 0.33}>
         <boxGeometry args={[map.width + unit * 0.35, unit * 0.5, map.height + unit * 0.35]} />
         <meshLambertMaterial color="#191527" />
       </mesh>
