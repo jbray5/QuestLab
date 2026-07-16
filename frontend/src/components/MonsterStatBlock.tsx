@@ -149,6 +149,7 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
               size={90}
             />
             <MonsterPortraitButton monsterId={monster.id} />
+            <MonsterFigureButton monsterId={monster.id} hasFigure={!!monster.figure_url} />
           </div>
           <div>
             <h2
@@ -328,6 +329,49 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
           </span>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * "🧍 Minifig" button — generates the transparent full-body standee the 3D
+ * board uses (Plan 45). Stored on the stat block, so every token of this
+ * monster in every session wears it.
+ */
+function MonsterFigureButton({ monsterId, hasFigure }: { monsterId: string; hasFigure: boolean }) {
+  const qc = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+
+  const gen = useMutation({
+    mutationFn: () => monstersApi.generateFigure(monsterId),
+    onSuccess: () => {
+      setError(null);
+      qc.invalidateQueries({ queryKey: ["monsters"] });
+      qc.invalidateQueries({ queryKey: ["monster", monsterId] });
+    },
+    onError: (e) => setError((e as Error)?.message ?? "Generation failed"),
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+      <button
+        onClick={() => gen.mutate()}
+        disabled={gen.isPending}
+        className="btn btn-ghost"
+        style={{ fontSize: "0.7rem", padding: "0.25rem 0.55rem", whiteSpace: "nowrap" }}
+        title={
+          hasFigure
+            ? "Regenerate the 3D-board standee for this monster (~30s)"
+            : "Generate the 3D-board standee for this monster (~30s)"
+        }
+      >
+        {gen.isPending ? "🧍 Sculpting…" : hasFigure ? "🧍 Minifig ✓" : "🧍 Minifig"}
+      </button>
+      {error && (
+        <div style={{ fontSize: "0.62rem", color: "var(--danger, #ef5350)", maxWidth: 130 }}>
+          {error}
+        </div>
+      )}
     </div>
   );
 }

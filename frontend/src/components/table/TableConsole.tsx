@@ -119,11 +119,17 @@ function TableConsoleModal({
 
   function addToken(kind: "monster" | "custom") {
     if (!activeMap || !state) return;
+    let label = "Marker";
+    if (kind === "monster") {
+      const name = window.prompt("Foe name (the 3D board's 🧍 Minifig uses it):", "Wolf");
+      if (!name) return;
+      label = name.slice(0, 60);
+    }
     const t: TableToken = {
       id: genId(kind),
       kind,
       ref_id: null,
-      label: kind === "monster" ? "Foe" : "Marker",
+      label,
       image_url: null,
       x: activeMap.width * 0.5,
       y: activeMap.height * 0.4,
