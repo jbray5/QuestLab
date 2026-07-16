@@ -453,11 +453,14 @@ function Standee({
           <meshBasicMaterial color="#ffd76a" transparent opacity={0.8} depthWrite={false} />
         </mesh>
       )}
-      {/* the standee body (inner group takes bob + defeat tip) */}
+      {/* the standee body (inner group takes bob + defeat tip). The two
+          variants carry distinct keys so React never reuses a material
+          across the card/figure swap — reuse left the shader compiled
+          without USE_MAP and the figure rendered flat white. */}
       <Billboard position={[0, unit * 0.09 + bodyH / 2, 0]}>
         <group ref={cardGroup}>
           {isFigure ? (
-            <>
+            <group key={`figure-${tex.uuid}`}>
               <mesh>
                 <planeGeometry args={[bodyW, bodyH]} />
                 <meshBasicMaterial
@@ -481,9 +484,9 @@ function Standee({
                   blending={THREE.AdditiveBlending}
                 />
               </mesh>
-            </>
+            </group>
           ) : (
-            <>
+            <group key="card">
               <mesh>
                 <planeGeometry args={[cardW * 1.06, cardH * 1.06]} />
                 <meshBasicMaterial color={defeated ? "#4a4a52" : baseColor} />
@@ -492,6 +495,7 @@ function Standee({
                 <planeGeometry args={[cardW, cardH]} />
                 {tex ? (
                   <meshBasicMaterial
+                    key={`photo-${tex.uuid}`}
                     map={tex}
                     color={defeated ? "#666" : tint}
                     transparent
@@ -499,6 +503,7 @@ function Standee({
                   />
                 ) : (
                   <meshBasicMaterial
+                    key="flat"
                     color={defeated ? "#3a3a42" : mixHex("#1c1c26", baseColor, 0.35)}
                   />
                 )}
@@ -508,7 +513,7 @@ function Standee({
                 <planeGeometry args={[cardW, cardH]} />
                 <meshBasicMaterial ref={flashMat} color="#ffffff" transparent opacity={0} depthWrite={false} />
               </mesh>
-            </>
+            </group>
           )}
           {!tex && (
             <Html center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
@@ -653,9 +658,19 @@ function BoardScene(props: Board3DProps) {
     onSelect(selectedId === t.id ? null : t.id);
   };
 
+  // Midday: fog light and far away. Night: dark and close. The fey world is
+  // bright at darkness 0; the dial is the whole day-night cycle.
+  const fogColor = useMemo(
+    () => mixHex("#33333f", "#07070d", darkness),
+    [darkness],
+  );
+
   return (
     <>
-      <fog attach="fog" args={["#07070d", fit * 1.5, fit * 3.4]} />
+      <fog
+        attach="fog"
+        args={[fogColor, fit * (2.3 - 0.8 * darkness), fit * (4.6 - 1.2 * darkness)]}
+      />
       <LightRig fit={fit} darkness={darkness} />
       {domeTex && <BackdropDome tex={domeTex} fit={fit} darkness={darkness} />}
       <CameraRig
@@ -679,7 +694,7 @@ function BoardScene(props: Board3DProps) {
         <boxGeometry args={[map.width + unit * 0.35, unit * 0.5, map.height + unit * 0.35]} />
         <meshLambertMaterial color="#191527" />
       </mesh>
-      {/* the map itself */}
+      {/* the map itself (material keyed on the texture — see Standee note) */}
       <mesh
         rotation-x={-Math.PI / 2}
         onClick={handleGround}
@@ -689,12 +704,21 @@ function BoardScene(props: Board3DProps) {
         }}
       >
         <planeGeometry args={[map.width, map.height]} />
-        <meshLambertMaterial map={tex ?? undefined} color={tex ? "#ffffff" : error ? "#2a2433" : "#111119"} />
+        <meshLambertMaterial
+          key={tex ? `map-${tex.uuid}` : "map-flat"}
+          map={tex ?? undefined}
+          color={tex ? "#ffffff" : error ? "#2a2433" : "#111119"}
+        />
       </mesh>
-      {/* edge fade */}
+      {/* edge fade — mostly a night effect; barely-there at fey midday */}
       <mesh rotation-x={-Math.PI / 2} position-y={unit * 0.055} renderOrder={4}>
         <planeGeometry args={[map.width * 1.6, map.height * 1.6]} />
-        <meshBasicMaterial map={vignette} transparent depthWrite={false} />
+        <meshBasicMaterial
+          map={vignette}
+          transparent
+          opacity={0.25 + 0.75 * darkness}
+          depthWrite={false}
+        />
       </mesh>
       {gridPositions && gridPositions.length > 0 && (
         <lineSegments>

@@ -27,9 +27,10 @@ function mulberry32(seed: number): () => number {
 
 // ── Lighting ─────────────────────────────────────────────────────────────────
 
-const DAY_AMBIENT = new THREE.Color("#fff4e0");
+// Day is FEY MIDDAY — bright, silver-warm, a world lit from everywhere.
+const DAY_AMBIENT = new THREE.Color("#fff8ea");
 const NIGHT_AMBIENT = new THREE.Color("#39466f");
-const DAY_KEY = new THREE.Color("#ffe9c4");
+const DAY_KEY = new THREE.Color("#fff3d6");
 const NIGHT_KEY = new THREE.Color("#8fa3ff");
 
 /** Ambient + key light whose color/intensity follow the darkness dial. */
@@ -42,11 +43,11 @@ export function LightRig({ fit, darkness }: { fit: number; darkness: number }) {
   return (
     <>
       {/* Floors keep the map readable even at full darkness — the dial sets
-          mood, not blindness. */}
-      <ambientLight color={ambient} intensity={0.9 - 0.48 * darkness} />
+          mood, not blindness. Day (darkness 0) is genuinely bright. */}
+      <ambientLight color={ambient} intensity={1.05 - 0.63 * darkness} />
       <directionalLight
         color={key}
-        intensity={1.15 - 0.72 * darkness}
+        intensity={1.3 - 0.87 * darkness}
         position={[fit * 0.25, fit * 0.7, fit * 0.3]}
       />
     </>
@@ -182,8 +183,10 @@ interface DomeProps {
  * seam between sky and table disappears.
  */
 export function BackdropDome({ tex, fit, darkness }: DomeProps) {
+  // Full brightness at midday (it's the sky); heavy dim at night so the
+  // torch-lit board stays the star.
   const tint = useMemo(
-    () => new THREE.Color("#e2e2ea").lerp(new THREE.Color("#232a45"), Math.min(1, 0.15 + darkness * 0.85)),
+    () => new THREE.Color("#f4f4f9").lerp(new THREE.Color("#232a45"), darkness * 0.9),
     [darkness],
   );
   const horizon = useMemo(() => getHorizonTexture(), []);
