@@ -105,6 +105,54 @@ class TestGenerateBackdrop:
         with pytest.raises(ValueError):
             map_svc.generate_backdrop(duckdb_session, uuid.uuid4(), dm)
 
+    def test_terrain_happy_path(self, duckdb_session: Session, monkeypatch):
+        """generate_heightmap downloads the source, edits it, persists the URL."""
+        dm = _dm()
+        campaign, _, _ = _campaign_and_session(duckdb_session, dm)
+        battle_map = _make_map(duckdb_session, campaign.id, dm)
+        captured: dict = {}
+
+        def fake_download(url: str, **kwargs):
+            captured["download_url"] = url
+            return b"\x89SRCPNG"
+
+        def fake_edit_image(prompt: str, image_bytes: bytes, **kwargs):
+            captured["edit_prompt"] = prompt
+            captured["edit_source"] = image_bytes
+            captured["edit_kwargs"] = kwargs
+            return b"\x89HEIGHTPNG"
+
+        def fake_upload(*, path: str, data: bytes, content_type: str = "image/png"):
+            captured["upload_path"] = path
+            captured["upload_bytes"] = data
+            return f"https://fake.blob/{path}"
+
+        from integrations import blob_storage as _blob
+
+        monkeypatch.setattr(_blob, "download", fake_download)
+        monkeypatch.setattr(_blob, "upload", fake_upload)
+        monkeypatch.setattr(map_svc, "edit_image", fake_edit_image)
+
+        updated = map_svc.generate_heightmap(duckdb_session, battle_map.id, dm)
+
+        assert (
+            updated.heightmap_url == f"https://fake.blob/heightmaps/battlemap-{battle_map.id}.png"
+        )
+        assert captured["download_url"] == battle_map.image_url
+        assert captured["edit_source"] == b"\x89SRCPNG"
+        assert "HEIGHT MAP" in captured["edit_prompt"]
+        assert captured["upload_bytes"] == b"\x89HEIGHTPNG"
+
+    def test_terrain_non_owner_forbidden(self, duckdb_session: Session, monkeypatch):
+        """A different DM cannot generate terrain on someone else's map."""
+        dm = _dm()
+        campaign, _, _ = _campaign_and_session(duckdb_session, dm)
+        battle_map = _make_map(duckdb_session, campaign.id, dm)
+        monkeypatch.setattr(map_svc, "edit_image", lambda *a, **k: b"x")
+
+        with pytest.raises(PermissionError):
+            map_svc.generate_heightmap(duckdb_session, battle_map.id, _dm())
+
     def test_projection_carries_backdrop(self, duckdb_session: Session, monkeypatch):
         """The player-safe projection resolves backdrop_url on the active map."""
         dm = _dm()

@@ -36,6 +36,7 @@ export interface BoardMapLike {
   height: number;
   grid_size: number | null;
   backdrop_url?: string | null;
+  heightmap_url?: string | null;
 }
 
 export interface StrikeFx {
@@ -92,6 +93,8 @@ interface Board3DProps {
   brushReveals?: { x: number; y: number; r: number }[];
   /** 0.3ish for the DM (see-through), 0.9+ for the player view. */
   fogOpacity?: number;
+  /** Terrain relief multiplier (0 = flat, 1 = default, 2 = dramatic). */
+  relief?: number;
 }
 
 const SQRT3 = Math.sqrt(3);
@@ -143,14 +146,27 @@ function snapPoint(px: number, py: number, unit: number, kind: GridKind): [numbe
   return [px, py];
 }
 
-/** Build the grid overlay as line-segment positions in world coords. */
-function buildGrid(map: BoardMapLike, unit: number, kind: GridKind): Float32Array {
+/** Build the grid overlay as line-segment positions in world coords; the
+ * optional sampler drapes the lines over displaced terrain. */
+function buildGrid(
+  map: BoardMapLike,
+  unit: number,
+  kind: GridKind,
+  heightAt?: (px: number, py: number) => number,
+): Float32Array {
   const pts: number[] = [];
   const w = map.width;
   const h = map.height;
   const y = unit * 0.03;
   const push = (x1: number, z1: number, x2: number, z2: number) => {
-    pts.push(x1 - w / 2, y, z1 - h / 2, x2 - w / 2, y, z2 - h / 2);
+    pts.push(
+      x1 - w / 2,
+      y + (heightAt?.(x1, z1) ?? 0),
+      z1 - h / 2,
+      x2 - w / 2,
+      y + (heightAt?.(x2, z2) ?? 0),
+      z2 - h / 2,
+    );
   };
   if (kind === "square") {
     for (let x = 0; x <= w; x += unit) push(x, 0, x, h);
@@ -219,6 +235,59 @@ function useBoardTexture(
   }, [url, figureProcess]);
   const current = url && loaded?.url === url ? loaded : null;
   return { tex: current?.tex ?? null, error: current?.error ?? false };
+}
+
+const HF_W = 192;
+const HF_H = 128;
+
+/** Load the AI heightmap into a coarse luminance grid and expose a sampler
+ * (image pixels in, world height out). Plan 45 Tier 3 auto-terrain. */
+function useHeightField(
+  url: string | null | undefined,
+  mapW: number,
+  mapH: number,
+  reliefPx: number,
+): { heightAt: (px: number, py: number) => number; active: boolean } {
+  const [field, setField] = useState<{ url: string; data: Float32Array } | null>(null);
+  useEffect(() => {
+    if (!url) return undefined;
+    let alive = true;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (!alive) return;
+      try {
+        const c = document.createElement("canvas");
+        c.width = HF_W;
+        c.height = HF_H;
+        const g = c.getContext("2d")!;
+        g.drawImage(img, 0, 0, HF_W, HF_H);
+        const px = g.getImageData(0, 0, HF_W, HF_H).data;
+        const data = new Float32Array(HF_W * HF_H);
+        for (let i = 0; i < data.length; i += 1) {
+          data[i] = (px[i * 4] * 0.299 + px[i * 4 + 1] * 0.587 + px[i * 4 + 2] * 0.114) / 255;
+        }
+        setField({ url, data });
+      } catch {
+        // Tainted canvas or decode failure — terrain quietly stays flat.
+      }
+    };
+    img.src = url;
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  const data = url && field?.url === url ? field.data : null;
+  const heightAt = useCallback(
+    (px: number, py: number): number => {
+      if (!data || reliefPx <= 0) return 0;
+      const u = Math.min(HF_W - 1, Math.max(0, Math.round((px / mapW) * (HF_W - 1))));
+      const v = Math.min(HF_H - 1, Math.max(0, Math.round((py / mapH) * (HF_H - 1))));
+      return data[v * HF_W + u] * reliefPx;
+    },
+    [data, reliefPx, mapW, mapH],
+  );
+  return { heightAt, active: !!data && reliefPx > 0 };
 }
 
 /** Global exposure rides the day-night dial: midday is genuinely bright. */
@@ -317,6 +386,7 @@ interface StandeeProps {
   darkness: number;
   isSelected: boolean;
   isActive: boolean;
+  heightAt: (px: number, py: number) => number;
   glideRef: RefObject<GlideAnim | null>;
   strikeRef: RefObject<StrikeAnim | null>;
   strikeTarget: { x: number; y: number } | null;
@@ -335,6 +405,7 @@ function Standee({
   darkness,
   isSelected,
   isActive,
+  heightAt,
   glideRef,
   strikeRef,
   strikeTarget,
@@ -401,7 +472,7 @@ function Standee({
       // the 3D Table View, or another device moving a token) glide smoothly.
       const locallyAnimating =
         (g && g.id === token.id && !g.done) || (s && s.attackerId === token.id && !!strikeTarget);
-      scratch.current.set(px - mapW / 2, 0, py - mapH / 2);
+      scratch.current.set(px - mapW / 2, heightAt(px, py), py - mapH / 2);
       if (!spawned.current || locallyAnimating) {
         group.current.position.copy(scratch.current);
         spawned.current = true;
@@ -690,7 +761,7 @@ function FogOverlay({
 }
 
 /** One expanding "look here" ping ring. */
-function PingRing({ x, z, unit }: { x: number; z: number; unit: number }) {
+function PingRing({ x, y = 0, z, unit }: { x: number; y?: number; z: number; unit: number }) {
   const mesh = useRef<THREE.Mesh>(null);
   const start = useRef<number | null>(null);
   useFrame((state) => {
@@ -701,7 +772,7 @@ function PingRing({ x, z, unit }: { x: number; z: number; unit: number }) {
     (mesh.current.material as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - t);
   });
   return (
-    <mesh ref={mesh} rotation-x={-Math.PI / 2} position={[x, unit * 0.12, z]} renderOrder={6}>
+    <mesh ref={mesh} rotation-x={-Math.PI / 2} position={[x, unit * 0.12 + y, z]} renderOrder={6}>
       <ringGeometry args={[unit * 0.5, unit * 0.64, 48]} />
       <meshBasicMaterial color="#ffd76a" transparent opacity={0.9} depthWrite={false} />
     </mesh>
@@ -733,6 +804,7 @@ function BoardScene(props: Board3DProps) {
     revealedRegions,
     brushReveals,
     fogOpacity = 0.35,
+    relief = 1,
   } = props;
 
   const defeatedSet = useMemo(() => new Set(defeatedRefs ?? []), [defeatedRefs]);
@@ -741,9 +813,30 @@ function BoardScene(props: Board3DProps) {
   const fit = Math.max(map.width, map.height) * 1.05;
   const { tex, error } = useBoardTexture(map.image_url);
   const { tex: domeTex } = useBoardTexture(map.backdrop_url);
+  const { heightAt, active: terrainActive } = useHeightField(
+    map.heightmap_url,
+    map.width,
+    map.height,
+    unit * 1.4 * relief,
+  );
   const vignette = useMemo(() => getVignetteTexture(), []);
   const glideRef = useRef<GlideAnim | null>(null);
   const strikeRef = useRef<StrikeAnim | null>(null);
+
+  // Displaced ground: the map plane sculpted by the AI heightmap. The map
+  // texture drapes over it, so painted stones and trees rise as themselves.
+  const terrainGeom = useMemo(() => {
+    if (!terrainActive) return null;
+    const geo = new THREE.PlaneGeometry(map.width, map.height, 160, 106);
+    const pos = geo.getAttribute("position") as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i += 1) {
+      const px = pos.getX(i) + map.width / 2;
+      const py = map.height / 2 - pos.getY(i);
+      pos.setZ(i, heightAt(px, py));
+    }
+    geo.computeVertexNormals();
+    return geo;
+  }, [terrainActive, heightAt, map.width, map.height]);
 
   useEffect(() => {
     if (strike && strikeRef.current?.seq !== strike.seq) {
@@ -752,8 +845,8 @@ function BoardScene(props: Board3DProps) {
   }, [strike]);
 
   const gridPositions = useMemo(
-    () => (gridKind === "off" ? null : buildGrid(map, unit, gridKind)),
-    [map, unit, gridKind],
+    () => (gridKind === "off" ? null : buildGrid(map, unit, gridKind, terrainActive ? heightAt : undefined)),
+    [map, unit, gridKind, terrainActive, heightAt],
   );
 
   const strikeTargetToken = strike ? tokens.find((t) => t.id === strike.targetId) : undefined;
@@ -835,8 +928,10 @@ function BoardScene(props: Board3DProps) {
         <boxGeometry args={[map.width + unit * 0.35, unit * 0.5, map.height + unit * 0.35]} />
         <meshLambertMaterial color="#191527" />
       </mesh>
-      {/* the map itself (material keyed on the texture — see Standee note) */}
+      {/* the map itself — flat plane, or terrain sculpted from the AI
+          heightmap (material keyed on the texture — see Standee note) */}
       <mesh
+        geometry={terrainGeom ?? undefined}
         rotation-x={-Math.PI / 2}
         onClick={handleGround}
         onContextMenu={(e) => {
@@ -844,9 +939,9 @@ function BoardScene(props: Board3DProps) {
           onSelect(null);
         }}
       >
-        <planeGeometry args={[map.width, map.height]} />
+        {!terrainGeom && <planeGeometry args={[map.width, map.height]} />}
         <meshLambertMaterial
-          key={tex ? `map-${tex.uuid}` : "map-flat"}
+          key={`${tex ? `map-${tex.uuid}` : "map-flat"}-${terrainGeom ? "terrain" : "plane"}`}
           map={tex ?? undefined}
           color={tex ? "#ffffff" : error ? "#2a2433" : "#111119"}
         />
@@ -885,7 +980,13 @@ function BoardScene(props: Board3DProps) {
         />
       )}
       {(pings ?? []).map((p) => (
-        <PingRing key={p.id} x={p.x - map.width / 2} z={p.y - map.height / 2} unit={unit} />
+        <PingRing
+          key={p.id}
+          x={p.x - map.width / 2}
+          y={heightAt(p.x, p.y)}
+          z={p.y - map.height / 2}
+          unit={unit}
+        />
       ))}
       <Weather kind={weather} mapW={map.width} mapH={map.height} unit={unit} />
       {error && (
@@ -916,6 +1017,7 @@ function BoardScene(props: Board3DProps) {
             darkness={darkness}
             isSelected={selectedId === t.id}
             isActive={activeRef !== null && ref === activeRef}
+            heightAt={heightAt}
             glideRef={glideRef}
             strikeRef={strikeRef}
             strikeTarget={

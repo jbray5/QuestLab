@@ -40,6 +40,9 @@ class BattleMap(SQLModel, table=True):
     regions: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
     # AI-generated 360° panorama wrapped around the 3D board (Plan 45).
     backdrop_url: Optional[str] = Field(default=None, max_length=1000)
+    # AI-generated grayscale height map — the 3D board displaces its terrain
+    # from it (black = ground, white = tall features). Plan 45 Tier 3.
+    heightmap_url: Optional[str] = Field(default=None, max_length=1000)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -69,6 +72,7 @@ class BattleMapUpdate(BaseModel):
     grid_size: Optional[int] = PydField(default=None, ge=8, le=1000)
     regions: Optional[list[FogRegion]] = None
     backdrop_url: Optional[str] = PydField(default=None, max_length=1000)
+    heightmap_url: Optional[str] = PydField(default=None, max_length=1000)
 
 
 class BattleMapRead(BaseModel):
@@ -83,5 +87,6 @@ class BattleMapRead(BaseModel):
     grid_size: Optional[int] = None
     regions: list[dict[str, Any]] = PydField(default_factory=list)
     backdrop_url: Optional[str] = None
+    heightmap_url: Optional[str] = None
 
     model_config = {"from_attributes": True}

@@ -173,6 +173,7 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
                     height=battle_map.height,
                     grid_size=battle_map.grid_size,
                     backdrop_url=battle_map.backdrop_url,
+                    heightmap_url=battle_map.heightmap_url,
                 )
                 revealed_ids = set(state.revealed_region_ids or [])
                 for region in battle_map.regions or []:

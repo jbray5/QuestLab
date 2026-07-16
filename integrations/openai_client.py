@@ -80,9 +80,65 @@ def generate_image(
         # misleading CORS error instead of the real cause.
         raise RuntimeError(f"OpenAI image API error: {exc}") from exc
 
-    if not response.data:
+    return _response_bytes(response)
+
+
+def edit_image(
+    prompt: str,
+    image_bytes: bytes,
+    *,
+    size: Literal["1024x1024", "1024x1536", "1536x1024"] = "1536x1024",
+    quality: Literal["low", "medium", "high"] = "medium",
+    model: str = _DEFAULT_IMAGE_MODEL,
+) -> bytes:
+    """Transform an input image with gpt-image-1 (Plan 45 auto-terrain).
+
+    Args:
+        prompt: What to do to the image (e.g. "convert to a grayscale
+            height map of the same scene").
+        image_bytes: The source PNG/JPEG bytes.
+        size: Output resolution.
+        quality: Generation quality tier.
+        model: Image model id. Defaults to ``gpt-image-1``.
+
+    Returns:
+        Raw PNG bytes of the transformed image.
+
+    Raises:
+        PermissionError: If ``OPENAI_API_KEY`` is unset.
+        RuntimeError: If the API call fails or returns no decodable data.
+    """
+    client = _get_client()
+    try:
+        response = client.images.edit(
+            model=model,
+            image=("source.png", image_bytes, "image/png"),
+            prompt=prompt,
+            size=size,
+            quality=quality,
+            n=1,
+        )
+    except openai.OpenAIError as exc:
+        raise RuntimeError(f"OpenAI image edit API error: {exc}") from exc
+    return _response_bytes(response)
+
+
+def _response_bytes(response: object) -> bytes:
+    """Extract PNG bytes from an images API response (b64 or URL fallback).
+
+    Args:
+        response: The OpenAI images API response object.
+
+    Returns:
+        Raw image bytes.
+
+    Raises:
+        RuntimeError: If the response carries no decodable image.
+    """
+    data = getattr(response, "data", None)
+    if not data:
         raise RuntimeError("OpenAI image API returned no data.")
-    item = response.data[0]
+    item = data[0]
     if getattr(item, "b64_json", None):
         return base64.b64decode(item.b64_json)
     # Fallback — older models may return a URL instead.

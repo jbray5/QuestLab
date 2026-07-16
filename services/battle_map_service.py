@@ -14,7 +14,7 @@ from db.repos.campaign_repo import CampaignRepo
 from db.repos.table_state_repo import TableStateRepo
 from domain.battle_map import BattleMap, BattleMapCreate, BattleMapUpdate
 from integrations import blob_storage
-from integrations.openai_client import generate_image
+from integrations.openai_client import edit_image, generate_image
 from services import campaign_service
 
 # Plan 45 — the 3D board wraps this image on an inverted sphere; the horizon
@@ -164,6 +164,45 @@ def generate_backdrop(
     png_bytes = generate_image(prompt, size="1536x1024", quality="medium")
     url = blob_storage.upload(path=f"backdrops/battlemap-{battle_map.id}.png", data=png_bytes)
     return BattleMapRepo.update(db, battle_map, BattleMapUpdate(backdrop_url=url))
+
+
+_HEIGHTMAP_PROMPT = (
+    "Convert this top-down fantasy battle map into a grayscale HEIGHT MAP of "
+    "the exact same scene at the exact same framing and scale — every feature "
+    "stays in exactly the same position. Pure black = flat walkable ground "
+    "(roads, paths, grass, dirt, water). Dark gray = low features (bushes, "
+    "rubble, small rocks). Mid gray = boulders, standing stones, statues, low "
+    "walls. Light gray to white = the tallest features (large trees and tree "
+    "canopies, buildings, cliffs). Smooth soft gradients between levels, no "
+    "hard outlines, no text, grayscale only, no color."
+)
+
+
+def generate_heightmap(db: DBSession, map_id: uuid.UUID, dm_email: str) -> BattleMap:
+    """Auto-generate 3D terrain for a map (Plan 45 Tier 3, owner only).
+
+    Feeds the map image back through ``gpt-image-1``'s edit API asking for a
+    grayscale elevation map of the same scene; the 3D board displaces its
+    geometry from the result. Fully automatic — no authored regions.
+
+    Args:
+        db: Active database session.
+        map_id: UUID of the battle map.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        The updated BattleMap with heightmap_url set.
+
+    Raises:
+        ValueError: If the map or its campaign does not exist.
+        PermissionError: If the DM does not own the campaign.
+        RuntimeError: If the download, generation, or upload fails.
+    """
+    battle_map = _get_owned_map(db, map_id, dm_email)
+    source = blob_storage.download(battle_map.image_url)
+    png_bytes = edit_image(_HEIGHTMAP_PROMPT, source, size="1536x1024")
+    url = blob_storage.upload(path=f"heightmaps/battlemap-{battle_map.id}.png", data=png_bytes)
+    return BattleMapRepo.update(db, battle_map, BattleMapUpdate(heightmap_url=url))
 
 
 def delete_map(db: DBSession, map_id: uuid.UUID, dm_email: str) -> bool:

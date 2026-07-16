@@ -188,6 +188,8 @@ def patch_duckdb_schema() -> None:
         # 0023 — minifig standees (Plan 45)
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS figure_url VARCHAR(500)",
         "ALTER TABLE monster_stat_blocks ADD COLUMN IF NOT EXISTS figure_url VARCHAR(500)",
+        # 0024 — AI auto-terrain heightmap (Plan 45 Tier 3)
+        "ALTER TABLE battle_maps ADD COLUMN IF NOT EXISTS heightmap_url VARCHAR(1000)",
     ]
     with engine.begin() as conn:
         for stmt in patches:

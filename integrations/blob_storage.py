@@ -102,6 +102,27 @@ def upload(
     return str(blob_url)
 
 
+def download(url: str, *, timeout: float = 60.0) -> bytes:
+    """Fetch a stored public image (e.g. a battle map) as raw bytes.
+
+    Args:
+        url: The public blob URL.
+        timeout: Request timeout in seconds.
+
+    Returns:
+        The response body bytes.
+
+    Raises:
+        RuntimeError: If the fetch fails.
+    """
+    try:
+        resp = httpx.get(url, timeout=timeout, follow_redirects=True)
+        resp.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise RuntimeError(f"Image download failed: {exc}") from exc
+    return resp.content
+
+
 def portrait_path(entity_kind: str, entity_id: _uuid.UUID | str) -> str:
     """Build the blob path prefix for a portrait.
 

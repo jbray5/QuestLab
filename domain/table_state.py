@@ -100,6 +100,7 @@ class TableMap(BaseModel):
     height: int
     grid_size: Optional[int] = None
     backdrop_url: Optional[str] = None
+    heightmap_url: Optional[str] = None
 
 
 class TableProjection(BaseModel):

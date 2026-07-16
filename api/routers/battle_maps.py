@@ -117,6 +117,31 @@ def generate_battle_map_backdrop(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
 
 
+@router.post("/battle-maps/{map_id}/terrain", response_model=BattleMapRead)
+def generate_battle_map_terrain(map_id: uuid.UUID, db: DB, user: CurrentUser) -> BattleMapRead:
+    """Auto-generate 3D terrain (a heightmap) for the map (Plan 45 Tier 3).
+
+    Runs the map image through ``gpt-image-1``'s edit API to produce a
+    grayscale elevation map; the 3D board displaces its geometry from it.
+
+    Args:
+        map_id: UUID of the battle map.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The updated BattleMap with heightmap_url set.
+    """
+    try:
+        return BattleMapRead.model_validate(battle_map_service.generate_heightmap(db, map_id, user))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+
 @router.delete("/battle-maps/{map_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_battle_map(map_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
     """Delete a map from the library.

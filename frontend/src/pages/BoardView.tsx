@@ -138,6 +138,8 @@ export default function BoardView() {
   const [backdropOpen, setBackdropOpen] = useState(false);
   const [backdropHints, setBackdropHints] = useState("");
   const [backdropBusy, setBackdropBusy] = useState(false);
+  const [terrainBusy, setTerrainBusy] = useState(false);
+  const [relief, setRelief] = useState(1);
   const torchSeq = useRef(0);
 
   const darkTimer = useRef<number | undefined>(undefined);
@@ -374,6 +376,20 @@ export default function BoardView() {
     await qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
   }
 
+  async function generateTerrain() {
+    if (!activeMap) return;
+    setTerrainBusy(true);
+    try {
+      await tableApi.generateTerrain(activeMap.id);
+      await qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
+      setRelief(1);
+    } catch (err) {
+      window.alert(`Terrain generation failed: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      setTerrainBusy(false);
+    }
+  }
+
   function fireStrike(fx: Omit<StrikeFx, "seq">) {
     seq.current += 1;
     setStrike({ ...fx, seq: seq.current });
@@ -505,6 +521,32 @@ export default function BoardView() {
         >
           🌌 Backdrop
         </button>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
+          onClick={() => void generateTerrain()}
+          disabled={!activeMap || terrainBusy}
+          title="AI auto-terrain: gpt-image-1 paints a heightmap from the map art; the board sculpts itself from it (~30-60s)"
+        >
+          {terrainBusy ? "⛰ Sculpting…" : activeMap?.heightmap_url ? "⛰ Terrain ↻" : "⛰ Terrain"}
+        </button>
+        {activeMap?.heightmap_url && (
+          <label
+            style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.72rem", color: "var(--muted)" }}
+            title="Relief height — 0 is flat (the revert switch)"
+          >
+            ⛰
+            <input
+              type="range"
+              min={0}
+              max={2}
+              step={0.1}
+              value={relief}
+              onChange={(e) => setRelief(Number(e.target.value))}
+              style={{ width: 70 }}
+            />
+          </label>
+        )}
         <a
           href={`${window.location.origin}/table/${sessionId}/3d`}
           target="_blank"
@@ -542,6 +584,7 @@ export default function BoardView() {
               brushReveals={state?.brush_reveals ?? []}
               fogOpacity={0.32}
               pings={boardPings}
+              relief={relief}
               onSelect={(id) => {
                 setSelectedId(id);
                 if (!id) setAttackArmed(false);

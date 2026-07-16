@@ -391,6 +391,7 @@ export interface BattleMap {
   grid_size: number | null;
   regions: FogRegion[];
   backdrop_url: string | null;
+  heightmap_url: string | null;
 }
 
 export interface BattleMapCreate {
@@ -407,6 +408,7 @@ export interface BattleMapUpdate {
   grid_size?: number | null;
   regions?: FogRegion[];
   backdrop_url?: string | null;
+  heightmap_url?: string | null;
 }
 
 export interface BrushReveal {
@@ -456,6 +458,7 @@ export interface TableMapSummary {
   height: number;
   grid_size: number | null;
   backdrop_url: string | null;
+  heightmap_url: string | null;
 }
 
 export interface TableProjection {
