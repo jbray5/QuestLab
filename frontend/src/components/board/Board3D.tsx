@@ -267,6 +267,15 @@ function useHeightField(
         for (let i = 0; i < data.length; i += 1) {
           data[i] = (px[i * 4] * 0.299 + px[i * 4 + 1] * 0.587 + px[i * 4 + 2] * 0.114) / 255;
         }
+        // AI heightmaps come back tonally compressed (mid-gray ground).
+        // Stretch the 5th..97th percentile to 0..1 to restore full relief.
+        const sorted = Float32Array.from(data).sort();
+        const lo = sorted[Math.floor(sorted.length * 0.05)];
+        const hi = sorted[Math.floor(sorted.length * 0.97)];
+        const span = Math.max(0.05, hi - lo);
+        for (let i = 0; i < data.length; i += 1) {
+          data[i] = Math.min(1, Math.max(0, (data[i] - lo) / span));
+        }
         setField({ url, data });
       } catch {
         // Tainted canvas or decode failure — terrain quietly stays flat.
