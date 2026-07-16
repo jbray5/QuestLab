@@ -94,7 +94,9 @@ export function processFigureImage(img: HTMLImageElement): THREE.CanvasTexture |
     minX = Math.max(0, minX - pad);
     minY = Math.max(0, minY - pad);
     maxX = Math.min(w, maxX + pad);
-    maxY = Math.min(h, maxY + pad);
+    // NO bottom pad — content is bottom-anchored, so padding below the feet
+    // made every cutout hover above its base (the "floating trees" bug).
+    maxY = Math.min(h, maxY + 1);
     const bw = maxX - minX;
     const bh = maxY - minY;
     const outH = 1024;
