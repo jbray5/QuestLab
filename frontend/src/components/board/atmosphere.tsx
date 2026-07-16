@@ -196,12 +196,15 @@ export function BackdropDome({ tex, fit, darkness }: DomeProps) {
         <sphereGeometry args={[fit * 2.55, 48, 32]} />
         <meshBasicMaterial map={tex} side={THREE.BackSide} fog={false} color={tint} />
       </mesh>
+      {/* The horizon blend band is a NIGHT device — at fey midday it fades
+          out so the sunny panorama meets the haze cleanly. */}
       <mesh position-y={fit * 0.1}>
         <cylinderGeometry args={[fit * 2.45, fit * 2.45, fit * 0.6, 48, 1, true]} />
         <meshBasicMaterial
           map={horizon}
           side={THREE.BackSide}
           transparent
+          opacity={0.15 + 0.85 * darkness}
           fog={false}
           depthWrite={false}
         />

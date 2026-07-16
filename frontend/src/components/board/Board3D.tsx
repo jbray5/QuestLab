@@ -823,11 +823,12 @@ function BoardScene(props: Board3DProps) {
         }
       />
 
-      {/* under-plane so orbiting never shows void — sunlit ground haze by
-          day, near-black by night */}
+      {/* under-plane so orbiting never shows void. It wears the FOG COLOR
+          exactly, so it vanishes into the haze — aerial perspective instead
+          of a gray plate. */}
       <mesh rotation-x={-Math.PI / 2} position-y={-unit * 0.56}>
         <planeGeometry args={[fit * 8, fit * 8]} />
-        <meshLambertMaterial color={mixHex("#3d4150", "#07070c", darkness)} />
+        <meshBasicMaterial color={fogColor} />
       </mesh>
       {/* board slab */}
       <mesh position-y={-unit * 0.26}>
