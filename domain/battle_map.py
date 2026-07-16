@@ -66,9 +66,12 @@ class BattleMapCreate(BaseModel):
 
 
 class BattleMapUpdate(BaseModel):
-    """Partial update for a battle map (rename, regrid, edit fog regions, backdrop)."""
+    """Partial update for a battle map (rename, regrid, fog regions, art swaps)."""
 
     name: Optional[str] = PydField(default=None, min_length=1, max_length=120)
+    # Re-point the map art (e.g. an orthographic regeneration) without losing
+    # the row — sessions, tokens, and backdrop stay attached.
+    image_url: Optional[str] = PydField(default=None, min_length=1, max_length=1000)
     grid_size: Optional[int] = PydField(default=None, ge=8, le=1000)
     regions: Optional[list[FogRegion]] = None
     backdrop_url: Optional[str] = PydField(default=None, max_length=1000)

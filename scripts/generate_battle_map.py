@@ -37,12 +37,15 @@ AUTH_HEADER = "X-MS-CLIENT-PRINCIPAL-NAME"
 WIDTH, HEIGHT = 1536, 1024  # gpt-image-1 landscape
 
 _MAP_STYLE = (
-    "Top-down orthographic fantasy battle map for a tabletop RPG, viewed "
-    "directly from above like a miniature diorama. Painterly, high-detail "
-    "environment art, muted cinematic palette, soft directional light with "
-    "gentle long shadows. Terrain fills the entire frame edge to edge. "
-    "STRICTLY NO grid lines, NO text, NO labels, NO characters or creatures, "
-    "NO UI elements, NO borders."
+    "STRICT ORTHOGRAPHIC TOP-DOWN fantasy battle map for a tabletop RPG: the "
+    "camera looks straight down at 90 degrees — zero perspective, no tilt, no "
+    "horizon. Every object is seen exactly from above: tree canopies are "
+    "round leaf clusters from directly overhead (no trunks, no side foliage), "
+    "standing stones and walls show ONLY their top cross-section, no side "
+    "faces of anything anywhere. Painterly, high-detail environment art, "
+    "soft even light with small contact shadows. Terrain fills the entire "
+    "frame edge to edge. STRICTLY NO grid lines, NO text, NO labels, NO "
+    "characters or creatures, NO UI elements, NO borders."
 )
 
 

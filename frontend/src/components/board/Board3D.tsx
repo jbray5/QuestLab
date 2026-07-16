@@ -276,6 +276,17 @@ function useHeightField(
         for (let i = 0; i < data.length; i += 1) {
           data[i] = Math.min(1, Math.max(0, (data[i] - lo) / span));
         }
+        // Sharpen soft lumps into crisp features, and fade heights to zero
+        // near the border so the terrain sheet seats onto the slab.
+        const margin = 0.055;
+        for (let i = 0; i < data.length; i += 1) {
+          const u = i % HF_W;
+          const v = (i - u) / HF_W;
+          const fx = Math.min(1, Math.min(u, HF_W - 1 - u) / (HF_W * margin));
+          const fy = Math.min(1, Math.min(v, HF_H - 1 - v) / (HF_H * margin));
+          const f = Math.min(fx, fy);
+          data[i] = Math.pow(data[i], 1.6) * f * f * (3 - 2 * f);
+        }
         setField({ url, data });
       } catch {
         // Tainted canvas or decode failure — terrain quietly stays flat.

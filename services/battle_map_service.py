@@ -169,7 +169,9 @@ def generate_backdrop(
 _HEIGHTMAP_PROMPT = (
     "Convert this top-down fantasy battle map into a grayscale HEIGHT MAP of "
     "the exact same scene at the exact same framing and scale — every feature "
-    "stays in exactly the same position. Pure black = flat walkable ground "
+    "stays in exactly the same position. The source is orthographic top-down: "
+    "each feature's painted footprint is exactly its height silhouette. "
+    "Pure black = flat walkable ground "
     "(roads, paths, grass, dirt, water). Dark gray = low features (bushes, "
     "rubble, small rocks). Mid gray = boulders, standing stones, statues, low "
     "walls. Light gray to white = the tallest features (large trees and tree "

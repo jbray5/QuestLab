@@ -75,9 +75,16 @@ here is light, atmosphere, and camera language — not geometry:
 - [x] 13. Halo clean-up: client-side alpha curve (≤110→0, ramp to 230) +
       auto-crop, validated offline on a real Driven Wolf. SRD Wolf's
       figure seeded to prod (verified — 0023 auto-migrated on deploy).
-- [ ] STRETCH (post-Saturday): Tier 3 — elevation regions, walls + LoS,
-      3D props. Also parked: "hologram" render style as an alternate
-      token look.
+- [x] STRETCH DELIVERED EARLY — Tier 3 as AUTO-terrain (owner's call:
+      "I want the automatic version"): gpt-image-1 edit API paints a
+      grayscale heightmap from the map art (migration 0024
+      battle_maps.heightmap_url, POST /battle-maps/{id}/terrain);
+      the board displaces a 160x106 plane from it (percentile-
+      normalized), tokens/grid/pings ride the height field, ⛰ button +
+      relief slider (0 = flat = revert). Waystone Midday heightmap
+      validated + attached in prod. Authored elevation regions, walls +
+      LoS, and 3D props remain future options; "hologram" token style
+      parked.
 - [ ] Friday drill: verify backdrop generation against prod (needs
       OPENAI_API_KEY + BLOB_READ_WRITE_TOKEN on Render) + DoF perf on the
       projector; run `alembic upgrade head` lands 0022 on deploy.
