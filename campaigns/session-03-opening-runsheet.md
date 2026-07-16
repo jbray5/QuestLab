@@ -11,12 +11,16 @@ end on a wrongness that shouldn't exist.**
 
 ## 🎥 SETUP (projector, in-person or remote)
 
-- **Their screen:** Table View for the session — town map (or tavern interior),
-  **darkness dial at 0** — it's *dawn*, the brightest the world has looked all
-  campaign. That brightness IS the story beat.
+- **Their screen:** the **3D Table View** link (`/table/<session>/3d`) — or the 2D
+  Table View as fallback. You drive from the 3D Board.
+- **Boards are staged in this order** (all live in the library, all with backdrops):
+  | Act | Board | Dial |
+  |---|---|---|
+  | 1–2 | **Hollowmere Green** (dead tree center — already the active map) | ☀ 0% |
+  | 3 road + wolves | **The Waystone Road — Midday** | ☀ 0–20% |
+  | 3 camp + stag | **The Waystone Road** (the dusk original) | 🌙 60–80% + a 🔥 torch at the fire ring |
 - **Title card at open:** `HOLLOWMERE — THE MORNING AFTER`
-- **3D tabletop:** if Friday's go/no-go is GO, the wolves fight (Act 3) runs on the
-  3D board. If NO-GO, 2D tokens — no drama.
+- **The dial does the storytelling:** 0% at breakfast, creep it up through Act 3.
 - **Music (until ambience mode exists):** gentle tavern-morning loop on speakers /
   Discord — cut it cold when the memorial question lands.
 - **Ping the tree** on the green the first time someone looks at it. Say nothing.
@@ -153,8 +157,10 @@ woods, ribs showing, looking over their shoulders.
 - **3–4 wolves** · AC 13 · HP 11 · **Bite +4** (2d4+2 piercing) · **Pack Tactics**
   (advantage if an ally is within 5 ft of the target) · **flee at half strength**
   (when half the pack is down, the rest break).
-- Encounter in the app: **"Driven Wolves."** If the 3D tabletop is GO, this is its
-  debut.
+- Encounter in the app: **"Driven Wolves"** (the wolves already wear their minifig).
+- **If the table is fast or wants more:** **"The Second Wave (contingency)"** is
+  staged — 5 more wolves, more panicked. HOT for level 2; drop to 3–4 if anyone's
+  low.
 - **The tell, after:** the wolves weren't hunting the party. They were *running
   from something.* Say nothing more.
 
@@ -171,6 +177,11 @@ Whoever botched a waystone word is still not able to say it.
 > move. It does not blink. It watches.
 
 **HARD STOP. End the session on the silence.**
+
+> **Board flow for the stag:** as you start the camp beat, on the 3D board press
+> **+ Foe → name it "Corrupted Stag" → 🧍 Minifig** (~30s — it generates while you
+> read). Park the token at the treeline just past the firelight. Do NOT put it in
+> the combat tracker — it is not a fight.
 
 > **DM-only:** Hollowmere's shrine is RELIT. There is **no severed shrine out
 > here.** Corruption should not exist where they're standing — that's the wrongness.
