@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Billboard, Html, OrbitControls } from "@react-three/drei";
+import { DepthOfField, EffectComposer, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import type { BattleMap, SessionCombatant, TableToken } from "../../api/types";
+import { BackdropDome, LightRig, Weather } from "./atmosphere";
+import { cardTint, getVignetteTexture, type WeatherKind } from "./boardTheme";
 
 /**
- * Board3D — the 3D tabletop scene (Plan 44).
+ * Board3D — the 3D tabletop scene (Plans 44 + 45).
  *
- * The active battle map becomes a textured ground plane (world units = image
- * pixels, image top-left → world (-W/2, 0, -H/2)); tokens become billboarded
- * standees on colored base discs. Movement glides, attacks lunge, the active
- * combatant pulses. All state lives in TableState.tokens — the same store the
- * 2D console PATCHes — so 2D and 3D never disagree.
+ * The active battle map becomes a textured slab in a lit, weathered scene
+ * (world units = image pixels, image top-left → world (-W/2, 0, -H/2));
+ * tokens become billboarded standees, `kind: "light"` tokens become torches.
+ * All persisted state lives in TableState.tokens — the same store the 2D
+ * console PATCHes — so 2D and 3D never disagree.
  */
 
 export type GridKind = "hex" | "square" | "off";
@@ -48,6 +51,10 @@ interface Board3DProps {
   selectedId: string | null;
   attackArmed: boolean;
   strike: StrikeFx | null;
+  darkness: number;
+  weather: WeatherKind;
+  cinema: boolean;
+  followTurn: boolean;
   onSelect: (id: string | null) => void;
   onMoveCommit: (id: string, x: number, y: number) => void;
   onPickTarget: (attackerId: string, targetId: string) => void;
@@ -70,6 +77,13 @@ function unitFor(map: BattleMap): number {
   return map.grid_size && map.grid_size > 0
     ? map.grid_size
     : Math.round(Math.min(map.width, map.height) / 20);
+}
+
+/** Stable per-token animation phase derived from its id. */
+function phaseOf(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) % 997;
+  return (h / 997) * Math.PI * 2;
 }
 
 /** Snap an image-pixel point to the center of its hex/square cell. */
@@ -164,9 +178,20 @@ function useBoardTexture(url: string | null | undefined): {
   return { tex: current?.tex ?? null, error: current?.error ?? false };
 }
 
-/** Camera rig: orbit/pan/zoom + T (top-down) / Y (~35° tilt) presets. */
-function CameraRig({ mapW, mapH }: { mapW: number; mapH: number }) {
+/** Camera rig: orbit + T/Y presets, follow-the-turn chase, ambient drift. */
+function CameraRig({
+  mapW,
+  mapH,
+  drift,
+  follow,
+}: {
+  mapW: number;
+  mapH: number;
+  drift: boolean;
+  follow: { x: number; z: number; k: string } | null;
+}) {
   const controls = useRef<OrbitControlsImpl>(null);
+  const goal = useRef<THREE.Vector3 | null>(null);
   const { camera } = useThree();
   const fit = Math.max(mapW, mapH) * 1.05;
 
@@ -199,6 +224,24 @@ function CameraRig({ mapW, mapH }: { mapW: number; mapH: number }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [apply]);
 
+  const followKey = follow?.k ?? null;
+  const followX = follow?.x ?? 0;
+  const followZ = follow?.z ?? 0;
+  useEffect(() => {
+    if (followKey !== null) goal.current = new THREE.Vector3(followX, 0, followZ);
+  }, [followKey, followX, followZ]);
+
+  useFrame((_, dt) => {
+    const c = controls.current;
+    if (!c) return;
+    if (goal.current) {
+      c.target.lerp(goal.current, Math.min(1, dt * 2.4));
+      if (c.target.distanceTo(goal.current) < fit * 0.004) goal.current = null;
+    }
+    if (drift) c.setAzimuthalAngle(c.getAzimuthalAngle() + dt * 0.025);
+    c.update();
+  });
+
   return (
     <OrbitControls
       ref={controls}
@@ -218,6 +261,7 @@ interface StandeeProps {
   unit: number;
   mapW: number;
   mapH: number;
+  darkness: number;
   isSelected: boolean;
   isActive: boolean;
   glideRef: RefObject<GlideAnim | null>;
@@ -234,6 +278,7 @@ function Standee({
   unit,
   mapW,
   mapH,
+  darkness,
   isSelected,
   isActive,
   glideRef,
@@ -246,12 +291,17 @@ function Standee({
   const group = useRef<THREE.Group>(null);
   const ring = useRef<THREE.Mesh>(null);
   const flashMat = useRef<THREE.MeshBasicMaterial>(null);
+  const cardGroup = useRef<THREE.Group>(null);
+  const torchLight = useRef<THREE.PointLight>(null);
   const { tex } = useBoardTexture(token.image_url);
+  const phase = useMemo(() => phaseOf(token.id), [token.id]);
 
-  const r = (unit * (token.size || 1)) * 0.42;
+  const isTorch = token.kind === "light";
+  const r = unit * (token.size || 1) * 0.42;
   const cardW = unit * (token.size || 1) * 0.95;
   const cardH = unit * (token.size || 1) * 1.15;
   const baseColor = tokenColor(token);
+  const tint = cardTint(darkness);
   const defeated = combatant?.defeated ?? false;
   const hpPct = combatant ? Math.max(0, Math.min(1, combatant.hp_current / combatant.hp_max)) : null;
 
@@ -298,15 +348,65 @@ function Standee({
       flashMat.current.opacity = opacity;
     }
 
-    if (ring.current) {
-      if (isActive) {
-        const k = 1 + 0.07 * Math.sin(now * 4.2);
-        ring.current.scale.setScalar(k);
-      } else {
-        ring.current.scale.setScalar(1);
-      }
+    if (ring.current && isActive) {
+      const k = 1 + 0.07 * Math.sin(now * 4.2);
+      ring.current.scale.setScalar(k);
+    }
+
+    if (cardGroup.current) {
+      // Idle bob + defeat tip-over, both eased in the frame loop.
+      const bob = defeated ? 0 : Math.sin(now * 1.6 + phase) * unit * 0.02;
+      const targetTip = defeated ? 1.15 : 0;
+      const cur = cardGroup.current.rotation.z;
+      cardGroup.current.rotation.z = cur + (targetTip - cur) * Math.min(1, state.clock.getDelta() * 60 * 0.06 + 0.06);
+      const targetSink = defeated ? -cardH * 0.22 : 0;
+      cardGroup.current.position.y += (targetSink + bob - cardGroup.current.position.y) * 0.15;
+    }
+
+    if (torchLight.current) {
+      torchLight.current.intensity =
+        2.1 + 0.55 * Math.sin(now * 11 + phase) + 0.3 * Math.sin(now * 23 + phase * 2);
     }
   });
+
+  if (isTorch) {
+    return (
+      <group ref={group} onClick={onClick}>
+        <mesh position-y={unit * 0.03}>
+          <cylinderGeometry args={[r * 0.35, r * 0.45, unit * 0.06, 20]} />
+          <meshLambertMaterial color="#2b2118" />
+        </mesh>
+        {isSelected && (
+          <mesh rotation-x={-Math.PI / 2} position-y={unit * 0.1}>
+            <ringGeometry args={[r * 0.8, r, 40]} />
+            <meshBasicMaterial color="#7fd4ff" transparent opacity={0.95} depthWrite={false} />
+          </mesh>
+        )}
+        <mesh position-y={unit * 0.5}>
+          <sphereGeometry args={[unit * 0.09, 12, 12]} />
+          <meshBasicMaterial color="#ffd27a" />
+        </mesh>
+        <mesh position-y={unit * 0.5}>
+          <sphereGeometry args={[unit * 0.17, 12, 12]} />
+          <meshBasicMaterial
+            color="#ff8a35"
+            transparent
+            opacity={0.35}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+          />
+        </mesh>
+        <pointLight
+          ref={torchLight}
+          position-y={unit * 0.62}
+          color="#ff9d45"
+          distance={unit * 7.5}
+          decay={1.4}
+          intensity={2.1}
+        />
+      </group>
+    );
+  }
 
   return (
     <group ref={group} onClick={onClick}>
@@ -318,7 +418,7 @@ function Standee({
       {/* base disc */}
       <mesh position-y={unit * 0.045}>
         <cylinderGeometry args={[r, r * 1.06, unit * 0.07, 40]} />
-        <meshBasicMaterial color={defeated ? "#4a4a52" : baseColor} />
+        <meshLambertMaterial color={defeated ? "#4a4a52" : baseColor} />
       </mesh>
       {/* selection ring */}
       {isSelected && (
@@ -334,45 +434,47 @@ function Standee({
           <meshBasicMaterial color="#ffd76a" transparent opacity={0.8} depthWrite={false} />
         </mesh>
       )}
-      {/* the standee card */}
+      {/* the standee card (inner group takes bob + defeat tip) */}
       <Billboard position={[0, unit * 0.09 + cardH / 2, 0]}>
-        <mesh>
-          <planeGeometry args={[cardW * 1.06, cardH * 1.06]} />
-          <meshBasicMaterial color={defeated ? "#4a4a52" : baseColor} />
-        </mesh>
-        <mesh position-z={unit * 0.01}>
-          <planeGeometry args={[cardW, cardH]} />
-          {tex ? (
-            <meshBasicMaterial
-              map={tex}
-              color={defeated ? "#666" : "#ffffff"}
-              transparent
-              opacity={defeated ? 0.55 : 1}
-            />
-          ) : (
-            <meshBasicMaterial color={defeated ? "#3a3a42" : "#1c1c26"} />
+        <group ref={cardGroup}>
+          <mesh>
+            <planeGeometry args={[cardW * 1.06, cardH * 1.06]} />
+            <meshBasicMaterial color={defeated ? "#4a4a52" : baseColor} />
+          </mesh>
+          <mesh position-z={unit * 0.01}>
+            <planeGeometry args={[cardW, cardH]} />
+            {tex ? (
+              <meshBasicMaterial
+                map={tex}
+                color={defeated ? "#666" : tint}
+                transparent
+                opacity={defeated ? 0.55 : 1}
+              />
+            ) : (
+              <meshBasicMaterial color={defeated ? "#3a3a42" : "#1c1c26"} />
+            )}
+          </mesh>
+          {/* hit flash overlay */}
+          <mesh position-z={unit * 0.02}>
+            <planeGeometry args={[cardW, cardH]} />
+            <meshBasicMaterial ref={flashMat} color="#ffffff" transparent opacity={0} depthWrite={false} />
+          </mesh>
+          {!tex && (
+            <Html center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
+              <div
+                style={{
+                  fontFamily: "Cinzel, serif",
+                  fontWeight: 700,
+                  fontSize: 26,
+                  color: defeated ? "#777" : baseColor,
+                  textShadow: "0 1px 4px #000",
+                }}
+              >
+                {(token.label || "?").slice(0, 1).toUpperCase()}
+              </div>
+            </Html>
           )}
-        </mesh>
-        {/* hit flash overlay */}
-        <mesh position-z={unit * 0.02}>
-          <planeGeometry args={[cardW, cardH]} />
-          <meshBasicMaterial ref={flashMat} color="#ffffff" transparent opacity={0} depthWrite={false} />
-        </mesh>
-        {!tex && (
-          <Html center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
-            <div
-              style={{
-                fontFamily: "Cinzel, serif",
-                fontWeight: 700,
-                fontSize: 26,
-                color: defeated ? "#777" : baseColor,
-                textShadow: "0 1px 4px #000",
-              }}
-            >
-              {(token.label || "?").slice(0, 1).toUpperCase()}
-            </div>
-          </Html>
-        )}
+        </group>
       </Billboard>
       {/* nameplate + HP bar */}
       <Html
@@ -421,7 +523,7 @@ function Standee({
   );
 }
 
-/** The r3f scene — ground plane, grid, standees. */
+/** The r3f scene — atmosphere, slab, grid, standees. */
 function BoardScene(props: Board3DProps) {
   const {
     map,
@@ -432,13 +534,20 @@ function BoardScene(props: Board3DProps) {
     selectedId,
     attackArmed,
     strike,
+    darkness,
+    weather,
+    cinema,
+    followTurn,
     onSelect,
     onMoveCommit,
     onPickTarget,
   } = props;
 
   const unit = unitFor(map);
+  const fit = Math.max(map.width, map.height) * 1.05;
   const { tex, error } = useBoardTexture(map.image_url);
+  const { tex: domeTex } = useBoardTexture(map.backdrop_url);
+  const vignette = useMemo(() => getVignetteTexture(), []);
   const glideRef = useRef<GlideAnim | null>(null);
   const strikeRef = useRef<StrikeAnim | null>(null);
 
@@ -454,6 +563,11 @@ function BoardScene(props: Board3DProps) {
   );
 
   const strikeTargetToken = strike ? tokens.find((t) => t.id === strike.targetId) : undefined;
+
+  const activeToken = useMemo(() => {
+    if (!activeRef) return null;
+    return tokens.find((t) => (t.ref_id ?? t.id) === activeRef) ?? null;
+  }, [tokens, activeRef]);
 
   const handleGround = (e: ThreeEvent<MouseEvent>) => {
     if (e.delta > 5) return;
@@ -480,7 +594,7 @@ function BoardScene(props: Board3DProps) {
     e.stopPropagation();
     if (selectedId && selectedId !== t.id) {
       const sel = tokens.find((x) => x.id === selectedId);
-      if (sel && (attackArmed || sel.kind !== t.kind)) {
+      if (sel && sel.kind !== "light" && t.kind !== "light" && (attackArmed || sel.kind !== t.kind)) {
         onPickTarget(selectedId, t.id);
         return;
       }
@@ -490,7 +604,31 @@ function BoardScene(props: Board3DProps) {
 
   return (
     <>
-      <CameraRig mapW={map.width} mapH={map.height} />
+      <fog attach="fog" args={["#07070d", fit * 1.5, fit * 3.4]} />
+      <LightRig fit={fit} darkness={darkness} />
+      {domeTex && <BackdropDome tex={domeTex} fit={fit} darkness={darkness} />}
+      <CameraRig
+        mapW={map.width}
+        mapH={map.height}
+        drift={cinema}
+        follow={
+          followTurn && activeToken
+            ? { x: activeToken.x - map.width / 2, z: activeToken.y - map.height / 2, k: activeToken.id }
+            : null
+        }
+      />
+
+      {/* under-plane so orbiting never shows void */}
+      <mesh rotation-x={-Math.PI / 2} position-y={-unit * 0.56}>
+        <planeGeometry args={[fit * 8, fit * 8]} />
+        <meshLambertMaterial color="#07070c" />
+      </mesh>
+      {/* board slab */}
+      <mesh position-y={-unit * 0.26}>
+        <boxGeometry args={[map.width + unit * 0.35, unit * 0.5, map.height + unit * 0.35]} />
+        <meshLambertMaterial color="#191527" />
+      </mesh>
+      {/* the map itself */}
       <mesh
         rotation-x={-Math.PI / 2}
         onClick={handleGround}
@@ -500,7 +638,12 @@ function BoardScene(props: Board3DProps) {
         }}
       >
         <planeGeometry args={[map.width, map.height]} />
-        <meshBasicMaterial map={tex ?? undefined} color={tex ? "#ffffff" : error ? "#2a2433" : "#111119"} />
+        <meshLambertMaterial map={tex ?? undefined} color={tex ? "#ffffff" : error ? "#2a2433" : "#111119"} />
+      </mesh>
+      {/* edge fade */}
+      <mesh rotation-x={-Math.PI / 2} position-y={unit * 0.055} renderOrder={4}>
+        <planeGeometry args={[map.width * 1.6, map.height * 1.6]} />
+        <meshBasicMaterial map={vignette} transparent depthWrite={false} />
       </mesh>
       {gridPositions && gridPositions.length > 0 && (
         <lineSegments>
@@ -510,6 +653,7 @@ function BoardScene(props: Board3DProps) {
           <lineBasicMaterial color="#ffffff" transparent opacity={0.14} depthWrite={false} />
         </lineSegments>
       )}
+      <Weather kind={weather} mapW={map.width} mapH={map.height} unit={unit} />
       {error && (
         <Html center position={[0, unit, 0]}>
           <div style={{ color: "#e0a83c", background: "rgba(0,0,0,0.7)", padding: "6px 12px", borderRadius: 8, fontSize: 13, whiteSpace: "nowrap" }}>
@@ -534,6 +678,7 @@ function BoardScene(props: Board3DProps) {
             unit={unit}
             mapW={map.width}
             mapH={map.height}
+            darkness={darkness}
             isSelected={selectedId === t.id}
             isActive={activeRef !== null && ref === activeRef}
             glideRef={glideRef}
@@ -549,6 +694,12 @@ function BoardScene(props: Board3DProps) {
           />
         );
       })}
+      {cinema && (
+        <EffectComposer>
+          <DepthOfField focusDistance={0.12} focalLength={0.08} bokehScale={2.2} />
+          <Vignette eskil={false} offset={0.18} darkness={0.7} />
+        </EffectComposer>
+      )}
     </>
   );
 }

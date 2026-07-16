@@ -84,6 +84,39 @@ def update_battle_map(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
+@router.post("/battle-maps/{map_id}/backdrop", response_model=BattleMapRead)
+def generate_battle_map_backdrop(
+    map_id: uuid.UUID, body: dict, db: DB, user: CurrentUser
+) -> BattleMapRead:
+    """Generate an AI 360° backdrop for the map and persist its URL (Plan 45).
+
+    Body: ``{"style_hints": "optional scene description"}``. Calls OpenAI
+    ``gpt-image-1`` in wide landscape and uploads the result to Vercel Blob;
+    the 3D board wraps it around the scene as a skybox dome.
+
+    Args:
+        map_id: UUID of the battle map.
+        body: JSON with optional ``style_hints``.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The updated BattleMap with backdrop_url set.
+    """
+    try:
+        return BattleMapRead.model_validate(
+            battle_map_service.generate_backdrop(
+                db, map_id, user, style_hints=(body.get("style_hints") or None)
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+
 @router.delete("/battle-maps/{map_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_battle_map(map_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
     """Delete a map from the library.

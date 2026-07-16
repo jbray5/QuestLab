@@ -84,6 +84,7 @@ class TableMap(BaseModel):
     width: int
     height: int
     grid_size: Optional[int] = None
+    backdrop_url: Optional[str] = None
 
 
 class TableProjection(BaseModel):

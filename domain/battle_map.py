@@ -38,6 +38,8 @@ class BattleMap(SQLModel, table=True):
     # JSON list of fog regions: [{id, name, points: [[x,y], ...]}]. Points are
     # image-pixel coords. Authored at prep time; revealed live per-session.
     regions: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # AI-generated 360° panorama wrapped around the 3D board (Plan 45).
+    backdrop_url: Optional[str] = Field(default=None, max_length=1000)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -61,11 +63,12 @@ class BattleMapCreate(BaseModel):
 
 
 class BattleMapUpdate(BaseModel):
-    """Partial update for a battle map (rename, regrid, edit fog regions)."""
+    """Partial update for a battle map (rename, regrid, edit fog regions, backdrop)."""
 
     name: Optional[str] = PydField(default=None, min_length=1, max_length=120)
     grid_size: Optional[int] = PydField(default=None, ge=8, le=1000)
     regions: Optional[list[FogRegion]] = None
+    backdrop_url: Optional[str] = PydField(default=None, max_length=1000)
 
 
 class BattleMapRead(BaseModel):
@@ -79,5 +82,6 @@ class BattleMapRead(BaseModel):
     height: int
     grid_size: Optional[int] = None
     regions: list[dict[str, Any]] = PydField(default_factory=list)
+    backdrop_url: Optional[str] = None
 
     model_config = {"from_attributes": True}

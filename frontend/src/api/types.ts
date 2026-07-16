@@ -388,6 +388,7 @@ export interface BattleMap {
   height: number;
   grid_size: number | null;
   regions: FogRegion[];
+  backdrop_url: string | null;
 }
 
 export interface BattleMapCreate {
@@ -403,6 +404,7 @@ export interface BattleMapUpdate {
   name?: string;
   grid_size?: number | null;
   regions?: FogRegion[];
+  backdrop_url?: string | null;
 }
 
 export interface BrushReveal {
@@ -413,7 +415,7 @@ export interface BrushReveal {
 
 export interface TableToken {
   id: string;
-  kind: "pc" | "monster" | "custom";
+  kind: "pc" | "monster" | "custom" | "light";
   ref_id?: string | null;
   label: string;
   image_url?: string | null;
@@ -450,6 +452,7 @@ export interface TableMapSummary {
   width: number;
   height: number;
   grid_size: number | null;
+  backdrop_url: string | null;
 }
 
 export interface TableProjection {

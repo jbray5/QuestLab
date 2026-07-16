@@ -8,6 +8,7 @@ import { sessionsApi } from "../api/sessions";
 import { tableApi } from "../api/table";
 import type { BattleMap, SessionCombatant, TableStateRead, TableToken } from "../api/types";
 import Board3D, { type GridKind, type StrikeFx } from "../components/board/Board3D";
+import { WEATHER_KINDS, type WeatherKind } from "../components/board/boardTheme";
 import BoardTracker from "../components/board/BoardTracker";
 import { useEventStream } from "../hooks/useEventStream";
 
@@ -111,6 +112,14 @@ export default function BoardView() {
   const [gridKind, setGridKind] = useState<GridKind | null>(null);
   const effectiveGrid: GridKind = gridKind ?? (activeMap?.grid_size ? "hex" : "off");
 
+  const [weather, setWeather] = useState<WeatherKind>("none");
+  const [cinema, setCinema] = useState(false);
+  const [followTurn, setFollowTurn] = useState(true);
+  const [backdropOpen, setBackdropOpen] = useState(false);
+  const [backdropHints, setBackdropHints] = useState("");
+  const [backdropBusy, setBackdropBusy] = useState(false);
+  const torchSeq = useRef(0);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [attackArmed, setAttackArmed] = useState(false);
   const [pendingAttack, setPendingAttack] = useState<{ attackerId: string; targetId: string } | null>(null);
@@ -129,10 +138,20 @@ export default function BoardView() {
         setPendingAttack(null);
       }
       if ((e.key === "a" || e.key === "A") && selectedId) setAttackArmed((v) => !v);
+      if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+        const tokens = (qc.getQueryData<TableStateRead>(stateKey)?.tokens ?? []).filter(
+          (t) => t.id !== selectedId,
+        );
+        applyLocal({ tokens });
+        void tableApi.updateState(sessionId!, { tokens });
+        setSelectedId(null);
+        setAttackArmed(false);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stateKey/applyLocal are stable per session
+  }, [selectedId, sessionId, qc]);
 
   function applyLocal(partial: Partial<TableStateRead>) {
     qc.setQueryData<TableStateRead>(stateKey, (prev) => (prev ? { ...prev, ...partial } : prev));
@@ -180,6 +199,42 @@ export default function BoardView() {
         size: 1,
       }));
     if (fresh.length) patchTokens([...state.tokens, ...fresh]);
+  }
+
+  function addTorch() {
+    if (!activeMap || !state) return;
+    torchSeq.current += 1;
+    const t = {
+      id: `light-${torchSeq.current}-${state.tokens.length}`,
+      kind: "light" as const,
+      ref_id: null,
+      label: "Torch",
+      image_url: null,
+      x: activeMap.width * 0.5,
+      y: activeMap.height * 0.5,
+      size: 1,
+    };
+    patchTokens([...state.tokens, t]);
+  }
+
+  async function generateBackdrop() {
+    if (!activeMap) return;
+    setBackdropBusy(true);
+    try {
+      await tableApi.generateBackdrop(activeMap.id, backdropHints || undefined);
+      await qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
+      setBackdropOpen(false);
+    } catch (err) {
+      window.alert(`Backdrop generation failed: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      setBackdropBusy(false);
+    }
+  }
+
+  async function removeBackdrop() {
+    if (!activeMap) return;
+    await tableApi.updateMap(activeMap.id, { backdrop_url: null });
+    await qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
   }
 
   function fireStrike(fx: Omit<StrikeFx, "seq">) {
@@ -265,8 +320,40 @@ export default function BoardView() {
             </button>
           ))}
         </div>
+        <select value={weather} onChange={(e) => setWeather(e.target.value as WeatherKind)} style={{ fontSize: "0.75rem" }} title="Weather">
+          {WEATHER_KINDS.map((w) => (
+            <option key={w.value} value={w.value}>
+              ☁ {w.label}
+            </option>
+          ))}
+        </select>
+        <button
+          className={cinema ? "btn" : "btn btn-ghost"}
+          style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
+          onClick={() => setCinema((v) => !v)}
+          title="Depth-of-field + vignette + slow drift (leave off if the projector struggles)"
+        >
+          🎞 Cinema
+        </button>
+        <button
+          className={followTurn ? "btn" : "btn btn-ghost"}
+          style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
+          onClick={() => setFollowTurn((v) => !v)}
+          title="Camera glides to the active combatant on turn change"
+        >
+          🎯 Follow
+        </button>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
+          onClick={() => setBackdropOpen((v) => !v)}
+          disabled={!activeMap}
+          title="AI-generate a 360° horizon around the board"
+        >
+          🌌 Backdrop
+        </button>
         <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "var(--muted)" }}>
-          T top · Y tilt · click token → click ground to move · A arm attack · Esc deselect
+          T top · Y tilt · A arm attack · Del remove · Esc deselect
         </span>
       </header>
 
@@ -283,6 +370,10 @@ export default function BoardView() {
               selectedId={selectedId}
               attackArmed={attackArmed}
               strike={strike}
+              darkness={state?.darkness ?? 0}
+              weather={weather}
+              cinema={cinema}
+              followTurn={followTurn}
               onSelect={(id) => {
                 setSelectedId(id);
                 if (!id) setAttackArmed(false);
@@ -306,7 +397,39 @@ export default function BoardView() {
           {selectedToken && (
             <div style={{ position: "absolute", left: 12, bottom: 12, background: "rgba(6,6,12,0.8)", border: "1px solid var(--border)", borderRadius: 8, padding: "0.3rem 0.7rem", fontSize: "0.75rem", color: "var(--text)" }}>
               Selected: <strong>{selectedToken.label}</strong>
-              {attackArmed ? " — ⚔ ARMED: click a target" : " — click ground to move, A to attack"}
+              {attackArmed ? " — ⚔ ARMED: click a target" : " — click ground to move, A to attack, Del to remove"}
+            </div>
+          )}
+
+          {/* backdrop generator */}
+          {backdropOpen && activeMap && (
+            <div style={{ position: "absolute", top: 12, right: 12, background: "var(--surface, #16161c)", border: "1px solid var(--border)", borderRadius: 12, padding: "0.8rem 1rem", display: "flex", flexDirection: "column", gap: "0.6rem", width: 300 }}>
+              <strong style={{ fontFamily: "Cinzel, serif", color: "var(--gold)", fontSize: "0.85rem" }}>
+                🌌 Backdrop for {activeMap.name}
+              </strong>
+              <textarea
+                value={backdropHints}
+                onChange={(e) => setBackdropHints(e.target.value)}
+                placeholder="Scene hints — e.g. 'forest road at dusk, silver light on the horizon behind'"
+                rows={3}
+                style={{ fontSize: "0.75rem", resize: "vertical" }}
+              />
+              <div style={{ display: "flex", gap: 6 }}>
+                <button className="btn" style={{ fontSize: "0.75rem" }} onClick={() => void generateBackdrop()} disabled={backdropBusy}>
+                  {backdropBusy ? "Generating…" : activeMap.backdrop_url ? "Regenerate" : "Generate"}
+                </button>
+                {activeMap.backdrop_url && (
+                  <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }} onClick={() => void removeBackdrop()} disabled={backdropBusy}>
+                    Remove
+                  </button>
+                )}
+                <button className="btn btn-ghost" style={{ fontSize: "0.75rem", marginLeft: "auto" }} onClick={() => setBackdropOpen(false)}>
+                  ✕
+                </button>
+              </div>
+              <div style={{ fontSize: "0.65rem", color: "var(--muted)" }}>
+                One OpenAI image per generate (~20–60s). The horizon appears at low camera angles (Y).
+              </div>
             </div>
           )}
 
@@ -366,6 +489,9 @@ export default function BoardView() {
             </button>
             <button className="btn btn-ghost" style={{ fontSize: "0.72rem" }} onClick={addFoesFromCombat} disabled={!activeMap || !combat?.combatants?.length}>
               + Foes (from combat)
+            </button>
+            <button className="btn btn-ghost" style={{ fontSize: "0.72rem" }} onClick={addTorch} disabled={!activeMap} title="A movable point light — select + Del to remove">
+              + Torch
             </button>
           </div>
           <BoardTracker sessionId={sessionId!} combat={combat} />
