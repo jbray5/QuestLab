@@ -1,111 +1,194 @@
-# SESSION 3 — "THE MORNING AFTER" — OPENING RUN-SHEET
+# SESSION 3 — "THE MORNING AFTER & THE ROAD OUT" — RUN-SHEET
 
-*Glanceable. This is an RP morning — a menu of cues, not a sequence. If they linger an hour at the memorial question, that's the session working. Grab a cue, look up, talk to the table.*
+*Glanceable. Three acts. Act 1 is a menu of cues, not a sequence — if they linger an
+hour at the memorial question, that's the session working. Acts 2–3 have a direction.
+**Hard stop at the stag.***
 
-**DESIGN SPINE: let them have the win → complicate it quietly → hand them a road.**
+**DESIGN SPINE: let them have the win → complicate it quietly → hand them a road →
+end on a wrongness that shouldn't exist.**
 
 ---
 
-## 🎥 REMOTE SETUP (this one's on a projector)
+## 🎥 SETUP (projector, in-person or remote)
 
-- **Their screen:** Table View link for the session. Suggested scene: the town map (or the tavern interior), **darkness dial at 0** — it's *dawn*, the brightest the world has looked all campaign. That brightness IS the story beat.
+- **Their screen:** Table View for the session — town map (or tavern interior),
+  **darkness dial at 0** — it's *dawn*, the brightest the world has looked all
+  campaign. That brightness IS the story beat.
 - **Title card at open:** `HOLLOWMERE — THE MORNING AFTER`
-- **You:** webcam on their second device / picture-in-picture. Phones = character sheets, as usual.
-- **Music (until the ambience feature ships):** queue a gentle tavern-morning loop on room speakers / Discord — cut it cold when the memorial question lands.
-- **Ping the tree** on the green the first time someone looks at it. Say nothing while you do it.
+- **3D tabletop:** if Friday's go/no-go is GO, the wolves fight (Act 3) runs on the
+  3D board. If NO-GO, 2D tokens — no drama.
+- **Music (until ambience mode exists):** gentle tavern-morning loop on speakers /
+  Discord — cut it cold when the memorial question lands.
+- **Ping the tree** on the green the first time someone looks at it. Say nothing.
 
 ---
 
-## 🎬 COLD OPEN (the one deliberate read-aloud — keep it under 40 seconds)
+# ACT 1 — THE MORNING AFTER
 
-> Dawn. The silver light is back — soft, ordinary, *daylight* — like it never left. The Hearth's broken wall is patched with festival banners. Belva's cooking; you can smell it from the green. The lutenist is playing something gentle in the wreckage — *"never stopped, y'know. Not once."* And out on the green, where nothing stood two days ago: **the tree.**
+## 🎬 COLD OPEN (the one deliberate read-aloud — under 40 seconds)
+
+> Dawn. The silver light is back — soft, ordinary, *daylight* — like it never left.
+> The Hearth's broken wall is patched with festival banners. Belva's cooking; you can
+> smell it from the green. The lutenist is playing something gentle in the wreckage —
+> *"never stopped, y'know. Not once."* And out on the green, where nothing stood two
+> days ago: **the tree.**
 
 Then put the sticks down and just be Hollowmere for a while.
-
----
 
 ## ① THE VICTORY LAP — *don't undercut it; they earned it*
 
 - Free breakfast. Shy villagers leaving thanks they're too awkward to say out loud.
-- **Kids reenacting the battle with sticks** — one insists on playing "the tree lady." Let the table catch that and decide how to feel. *(A second kid is method-acting the tree itself and has refused to move all morning.)*
-- **FEN, the lutenist** *(finally name him — he never stopped playing, not once)* is composing **"The Hearth Held"** and every verse is wrong: Creed felled *a hundred* pixies, Thane is "the Whisper of the West" (wrong direction), Willa "rode in on a storm-gull" (uncomfortably close), Sarranthia "sang the tree to sleep" — and Nya, to her visible horror, is **"the Gentle Shadow."** He wants Creed to **duet the chorus.** *(Cory plays lute. Bait him.)*
-- **The tree-naming sheet** — the village is split between *"Wenneth's Rest"* and *"the Battle Oak."* Someone has written **"Murder Tree."** Belva is quietly running odds.
-- **Halve's room** — Belva claims the contents as *"owed rent."* He left it courteously spotless; all that remains is a fine pair of gloves, which she auctions off the bar.
+- **Kids reenacting the battle with sticks** — one insists on playing "the tree
+  lady." *(A second kid is method-acting the tree itself and has refused to move all
+  morning.)*
+- **THE LUTENIST** *(never name him — that's the bit)* is composing a ballad of the
+  battle and every verse is wrong: Creed felled *a hundred* foes, Willa "rode in on
+  a storm-gull" (uncomfortably close), Thane's charmed arrow becomes "a trick shot
+  to save the paladin's life" — and Nya, to her visible horror, is **"the Gentle
+  Shadow."** He wants Creed to **duet the chorus.** *(Cory plays lute. Bait him.)*
+- **The tree-naming sheet** — the village is split between *"Wenneth's Rest"* and
+  *"the Battle Oak."* Someone has written **"Murder Tree."** Belva is quietly
+  running odds.
+- **Halve's room** — Belva claims the contents as *"owed rent."* He left it
+  courteously spotless; all that remains is a fine pair of gloves, which she
+  auctions off the bar.
 - **BELVA:** *"Ate through me stores, saved me town — call it even, loves."*
+- **Optional soft rumor** (only if a lull needs filling): someone asks, low, if
+  it's true the Drow woman was *taken*. **Belva shuts it down flat.** Drop it there.
 
----
-
-## ①B THE DIVVY — spoils & thanks *(run it over breakfast — Session 2's loot, paid diegetically)*
+## ①B THE DIVVY — *Session 2's loot, paid diegetically over breakfast*
 
 | Who | Gets | The beat |
 |---|---|---|
 | **Party pool** | **2× Potion of Healing** | From Yelvyne, brewed in shrine-light: *"the least the morning owes you."* |
-| **Party pool** | **A pouch of pixie dust** *(1 use)* | Swept off the green. Sprinkled on a creature it **glows silver** — next attack against it has advantage. Also superb for pranks. |
-| **THANE** | **A silver-veined acorn**, faintly warm | He *finds* it at the tree's roots — memento instinct; nobody gives it to him. 🔒 It's Wenneth's **bud-seed**: if a severance is ever *reversed*, planted, she could return. Never say this. 🔒 |
-| **CREED** | **Fen's spare lute string** — *"off me own girl. For luck."* | Plus the standing duet invitation. Recurring bit. |
-| **SARRANTHIA** | **A child's carved lantern-charm**, left at her seat unsigned | She glowed on that green and the town saw. **BELVA, low:** *"Whatever they say down the road about your kind, love — not here. Not ever."* |
-| **WILLA** | **Petal's flower** — the one in her basket that never wilted | Handed over wordlessly. It keeps a faint silver sheen at night. |
-| **NYA** | **Nothing — on purpose** | She gets Mira's tears, the kids demanding "Death's Shadow" sign a stick, and the ballad's worst epithet. Being *loved* is the one thing she has no defense against. |
-
----
+| **THANE** | **A silver-veined acorn**, faintly warm | He *finds* it at the tree's roots — memento instinct; nobody gives it to him. *(What it can grow into: undecided. It's a prop with a future, not a promise.)* |
+| **CREED** | **The lutenist's spare lute string** — *"off me own girl. For luck."* | Plus the standing duet invitation. Recurring bit. |
+| **WILLA** | **Petal's flower** — the last one she ever cut | Handed over wordlessly. Petal won't carry shears anymore. |
+| **NYA** | **Nothing — on purpose** | She gets Mira's tears, kids demanding "Death's Shadow" sign a stick, and the ballad's worst epithet. Being *loved* is the one thing she has no defense against. |
 
 ## ② THE COUNTERWEIGHTS — *drop two or three, gently. Everything else stays genuinely normal.*
 
 **🪦 The memorial question** *(strongest beat — lead with it or save it for a lull)*
-Belva, quiet, off to the side: *"Should we do something for her? A marker? You knew what she was, at the end. What would she want?"*
-> **⚠️ SOFT TRAP (DM-only):** what Wenneth wanted was **the light off**. This hands the party how she's remembered — do they tell the town her truth, or soften it? **Pure roleplay. Do not resolve it for them.** Reopens the wound with zero new lore.
+Belva, quiet, off to the side: *"Should we carve something for her? A marker? You
+knew what she was, at the end. What would she want?"*
+> **⚠️ SOFT TRAP (DM-only):** what Wenneth wanted was **the light off** — and they
+> relit it over her dying wish. This hands the party how she's remembered. **Pure
+> roleplay. Do not resolve it for them.**
 
-**🌸 Petal** *(awake, hands wrapped, hollow)*
-Mira thanking them through tears — **especially Nya**, which stings. Petal's one flat line, delivered without looking at anyone:
+**🌸 Petal** *(awake, hands wrapped — the burn scars are permanent, and Nya knows
+whose fire it was)*
+Mira thanking them through tears — **especially Nya**, which stings. Petal's one
+flat line, delivered without looking at anyone:
 > *"There's a tree on the green. There wasn't a tree."*
 
 **🧚 The seed of wrongness** *(say NOTHING about it)*
-The sprite **will not cross into the shrine's light.** It waits at the edge, wings still. Fully deniable — maybe it's just skittish. This is *"the light was a cage"* made visible. If nobody notices, fine — it'll still be true next session.
-
----
+The **Tinker-sprite will not cross into the shrine's light.** It waits at the edge,
+wings still. Fully deniable — maybe it's just skittish. If nobody notices, fine —
+it'll still be true next session.
 
 ## ③ LEVEL-2 VIGNETTES — *diegetic, one tiny morning moment each, ~2 min total*
 
-- **CREED (Cory):** dawn prayer; the new smite feels like **Bahamut's quiet answer**. *(Remind Cory he's got Inspiration banked.)*
-- **THANE (Parker):** moves fey-quick before he thinks — and the **compass twitches once, toward the road.**
-- **NYA (Chelsea):** metamagic sparking off her fingers — while the **cipher hums cold** in her pack.
-- **WILLA (Hayley):** first Wild Shape — **something from home, a gull** — and the sprite absolutely loses its mind. Levity beat; let it run.
+- **CREED (Cory):** dawn prayer; the new smite feels like **Bahamut's quiet
+  answer.** *(Remind Cory he has Inspiration banked.)*
+- **THANE (Parker):** moves fey-quick before he thinks — and the **compass twitches
+  once, toward the road.**
+- **NYA (Chelsea):** metamagic sparking off her fingers — while the **cipher hums
+  cold** in her pack.
+- **WILLA (Hayley):** first Wild Shape — **something from home, a gull** — and the
+  Tinker-sprite absolutely loses its mind. Levity beat; let it run.
 
 ---
 
-## ④ YELVYNE ANSWERS "WHAT NOW" — *at the shrine, tending the relit lantern*
+# ACT 2 — THREE ROADS *(breakfast rumors + Yelvyne — the table picks)*
 
-Grateful and unresolved:
+**Yelvyne first** — at the shrine, tending the relit lantern. Grateful, unresolved:
 > *"We bought back the morning. I couldn't tell you the price yet."*
 
-Then the practical thread: **the cipher.** Not her field — **but her sisters can read it.**
+Then the cipher: ancient magic, **not her field.** But — *"my sisters, scattered
+near the other lights, could read it."*
+> **DM-only:** cipher key = **AELIM**. Conjuration aura = tracking link to Halve;
+> abjuration = anti-translation ward. Decoding breaks the ward first, then the
+> tracking link. Detect Magic gets the auras, never the meaning.
+
+**Then the rumors, over breakfast — flavor, then shut up and let them argue:**
+
+| Road | The rumor | The pull |
+|---|---|---|
+| **SOUTH — the Silverway** | Aldermarch, then the city. A carter swears **a hooded man paid passage south with coin that doesn't tarnish.** | Thane's compass twitched that way; the Halve thread |
+| **WEST — the coast** | Blackreef way. Fisherfolk say **the tide has been singing.** | Willa's home waters |
+| **THE WANDERING MARKET** | **Appeared three villages over. Gone by Thursday.** Nobody agrees where it is now. | Curiosity bait; Nya's kind of wrong |
+
+- **Their pick is your Session 4 prep. Player agency does the prep triage.**
+- **If they deadlock:** Yelvyne mentions her sisters trade letters — any road
+  eventually reaches another light. Take the road with the most table energy.
+- **Projector:** when they choose, title-card the road (`SOUTH — THE SILVERWAY`).
 
 ---
 
-## 🛣 THE ENDING — THREE ROADS *(the table picks; their pick is your Session 4 prep)*
+# ACT 3 — THE ROAD OUT
 
-Yelvyne + breakfast-table rumors sketch where her sisters lie. Don't pitch — *flavor*, then shut up and let them argue.
+## 🗿 THE WAYSTONE *(at the fork, an hour out of Hollowmere)*
 
-| Road | Flavor | The pull |
-|---|---|---|
-| **South — down the Silverway** | Toward the city. **Halve walked this road.** | Thane's compass; the Halve thread |
-| **West — to the coast** | Fisherfolk say **the tide's been singing.** | Willa's home waters |
-| **The wandering market** | Was three villages over *last week*. Nobody agrees where it is now. | Curiosity bait; Nya's kind of wrong |
+An old three-faced stone at the parting of the ways, moss-bearded, older than the
+road. Each face bears a riddle. **Solving a face:** the stone grants a **true
+5-second glimpse** down that face's road, and the road is **kind** (fair weather,
+dry camps). **Botching a guess:** the road turns **hard** (mud, cold, short
+tempers) — and the guesser **cannot say the botched word until sundown.** *(Play it
+for comedy AND eeriness. Both are true.)*
 
-- **Their pick tells you what to build for Session 4. Player agency does your prep triage.**
-- **If they deadlock:** Yelvyne mentions the sisters trade letters — any road eventually reaches another. Pick the one with the most table energy and go.
-- **Branch sketches:** `session-04-roads-sketch.md` — each road's sister, set-piece, and anchor-clue are pre-sketched. Their pick tells you which one to build into a full sheet.
-- **Projector:** when they choose, title-card the road (`SOUTH — THE SILVERWAY`) as the button on the session.
+| Face | Riddle (read aloud) | Answer | The glimpse if solved |
+|---|---|---|---|
+| **NAME** *(south)* | *"The dead still answer to it. The living give it away with both hands. Yours was yours before you could refuse it."* | a name | A rain-dark road; a hooded man at a toll-gate paying with a coin that does not tarnish. He does not turn around. |
+| **TIDE** *(west)* | *"I kneel to no king, yet retreat twice a day. I take what strays too close and return what was given up for lost."* | the tide | A grey harbor under cliffs; the water pulling back too far, too long; beneath the hush of it — a note held like a voice. |
+| **PROMISE** *(market)* | *"Lighter than breath when made, heavier than iron when broken. The only coin that spends twice."* | a promise | Lantern-light between wagons that aren't quite wagons; a bottle of silver light on a shelf; a handshake whose words hang in the air like smoke. |
+
+*(Each face winks at a road. They don't have to solve any of them. The stone doesn't
+care. It has time.)*
+
+## 🐺 DRIVEN WOLVES *(optional — run it if the table wants a fight or the energy dips)*
+
+Wolves on the road — **acting wrong.** Not hunting: *driven*, out of the deeper
+woods, ribs showing, looking over their shoulders.
+
+- **3–4 wolves** · AC 13 · HP 11 · **Bite +4** (2d4+2 piercing) · **Pack Tactics**
+  (advantage if an ally is within 5 ft of the target) · **flee at half strength**
+  (when half the pack is down, the rest break).
+- Encounter in the app: **"Driven Wolves."** If the 3D tabletop is GO, this is its
+  debut.
+- **The tell, after:** the wolves weren't hunting the party. They were *running
+  from something.* Say nothing more.
+
+## 🏕 CAMP *(breathe — one beat per PC if the table wants it, then the knife)*
+
+First camp away from Hollowmere. The silver glow of home just visible behind them.
+Whoever botched a waystone word is still not able to say it.
+
+## 🦌 THE CLIFFHANGER — THE CORRUPTED STAG *(read-aloud, then HARD STOP)*
+
+> At the treeline, past the fire's reach, something is standing very still. A stag —
+> you know it's a stag the way you know a drawing is a face. Plates of **bark** grow
+> where its hide should be. Its eyes are **black**, wet, unblinking. It does not
+> move. It does not blink. It watches.
+
+**HARD STOP. End the session on the silence.**
+
+> **DM-only:** Hollowmere's shrine is RELIT. There is **no severed shrine out
+> here.** Corruption should not exist where they're standing — that's the wrongness.
+> What the stag is, and what it wants: decided later, not tonight.
 
 ---
 
 ## 🎭 TONE GUARDRAILS
 
-- The morning is **real**. The warmth is not a fake-out; the wrongness is one sprite and one unresolved priestess line. Resist adding more.
-- Bookend humor lives in the kids, Belva, and the gull. The middle (memorial, Petal) plays straight.
-
----
+- The morning is **real**. The warmth is not a fake-out; the wrongness in Act 1 is
+  one sprite and one unresolved priestess line. Resist adding more.
+- Humor lives in the kids, Belva, the lutenist, and the gull. The middle (memorial,
+  Petal) plays straight. The stag plays *dead* straight.
+- Level-2 party. The wolves are dangerous enough; the stag is not a fight — it's a
+  promise.
 
 ## 🛟 FALLBACK
 
-This scene needs zero tech — it runs off this sheet alone. The Table View is garnish here; the real test of the map rig is whatever the chosen road leads to. **Print this anyway.**
+Act 1 needs zero tech — it runs off this sheet alone. If the 3D tabletop isn't
+stable Friday night, the wolves run on the 2D map and nobody at the table will know
+what they missed. **Print this sheet anyway.**

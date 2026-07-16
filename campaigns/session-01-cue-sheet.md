@@ -1,4 +1,8 @@
-# Session 1 · Lantern-Eve — At-the-Table Cue Sheet
+# Session 1 · Lantern-Eve — At-the-Table Cue Sheet — 🗄 HISTORICAL (played 2026-05-23)
+
+> **Superseded.** What actually happened is logged in `the-severance.md`
+> → Session Log. Some ideas in here (the Hellbrim line, "vessel"
+> language, the Lay-of-Lanterns) were later CUT — see `parking-lot.md`.
 
 > Print this or keep on phone. Two pages. Cues for what to drop on
 > which PC and when. Full prose lives in the runbook (HUD); deep

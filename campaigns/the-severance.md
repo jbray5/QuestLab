@@ -10,13 +10,18 @@
 
 - **Campaign:** The Severance
 - **Continent / region:** Veilmark
-- **Adventure 1:** The Hearth and the Hollow
+- **Adventure 1:** The Hearth and the Hollow — *complete (Sessions 1–2)*
 - **Session 1:** Lantern-Eve · Saturday 2026-05-23
+- **Session 2:** "Hold the Hearth" · played — see the **Session Log** below
+- **Session 3:** "The Morning After & the Road Out" · Saturday 2026-07-18
 - **Campaign UUID:** `80b6f517-d124-4fea-9435-8e727f3171a9`
-- **Premise:** A powerful being is severing the shrines that anchor the
-  Feywild to the Material Plane. The party is recruited to investigate
+- **Premise:** Someone is severing the shrines that anchor the
+  Feywild to the Material Plane. The party was recruited to investigate
   why — and to face the moral question of whether the bonds *should*
   be saved or whether severance is mercy for a dying Feywild.
+- **Canon policy (2026-07-15):** *commit only what play requires; name
+  things when they walk on screen.* Shelved ideas live in
+  `parking-lot.md` and are **not** canon.
 
 ---
 
@@ -24,13 +29,13 @@
 
 1. **Missing fathers.** Parker's father is Fey and arc-relevant.
    Chelsea's Nya never knew her father — possibly the source of her
-   sorcery. If Jenna leans the same way for her Warlock, this becomes
-   the central campaign refrain: *who gave us what we can do, and where
-   did they go.*
+   sorcery. The campaign refrain: *who gave us what we can do, and
+   where did they go.*
 2. **Bonds vs. severance.** Every NPC sits somewhere on this axis.
    Yelvyne (preserve), Wenneth (sever — mercy), Halve (sever — agenda),
    Belva (no opinion, just wants her village whole).
-3. **What burns must be tended.** The Lantern Circle's creed. Echoes in
+3. **What burns must be tended.** The creed of Yelvyne's order (the
+   order itself is unnamed for now). Echoes in
    Bahamut paladins (Cory's tempered-blade-not-gilded-idol read on
    faith). Echoes in Wenneth's tree dying slowly while she hides it.
 
@@ -38,7 +43,15 @@
 
 ## The Party
 
-### 1. Drow Warlock — *Jenna* (PC: **Sarranthia**)
+> **Status after Session 2:** four active PCs, all **level 2**.
+> **Sarranthia (Jenna) has EXITED the party** — the cipher passed to
+> Nya on her way out. An arrest thread exists as an OPTIONAL hook only
+> (one soft rumor in town; Belva shuts it down). Door stays open.
+> **Creed has Inspiration banked.** **Willa** gained a companion: the
+> **Tinker-sprite** (see NPC extras). Entries below keep their original
+> Session-1 prep text as historical record.
+
+### 1. Drow Warlock — *Jenna* (PC: **Sarranthia**) — ⚠️ EXITED after Session 2
 
 - **Name confirmed:** **Sarranthia.** Last name / nicknames pending
   from Jenna.
@@ -230,18 +243,36 @@
   on the chair, old coin stacked on Belva's bar. No body, no scent.
 - **Suspicion at session end: 100. Reveals: 0.**
 
-### Wenneth (Dryad)
+### Wenneth (Dryad) — DEAD (Session 2)
 
-- The corrupted Dryad in Saturday's combat is **Hellbrim** — a friend
-  of Wenneth's. Wenneth recognizes her. Read in Wenneth's voice in the
-  PCs' heads during combat:
-  > *"That is Hellbrim. We grew together for two centuries. Do not
-  > hate her for what is no longer her."*
-- Wenneth's slow-burn corruption arc begins Session 1. She wilts when
-  the shrine severs. Each subsequent session she changes physically
-  unless the PCs find a way to halt it.
-- **Hidden tie-in to Parker:** Wenneth may have known Parker's father.
-  Don't reveal Session 1. Hold for Session 3 or later.
+- Corrupted at the Snap; fought the party on the Market Green; **died
+  rooting straight into the ground where she fell.** A twisted, dead,
+  leafless tree now stands on the green — permanent landmark.
+- Last words: *"The light was a cage. You don't know what you're
+  protecting."*
+- Why she turned: **the severance unmade her.** (The old
+  Hellbrim-seeded-corruption idea is CUT — see `parking-lot.md`.)
+- "May have known Parker's father" is held loosely in the parking lot.
+
+### Petal, the blossom-seller — ALIVE, changed (Session 2)
+
+- Downed non-lethally by Nya; carries **permanent burn scars.**
+- Awake, hollow, changed. **Won't carry shears.** The village's living
+  testimony. Session 3 line, flat: *"There's a tree on the green.
+  There wasn't a tree."*
+
+### The Tinker-sprite — Willa's companion (Session 2)
+
+- The sprite Nya spared at ~4× lethal damage; mercy lifted its
+  corruption. It **imprinted on Willa** — a tiny blue fey companion.
+- **It will not cross into the shrine's light.** Waits at the edge,
+  wings still. Say nothing about it; it's the quiet tell.
+
+### The Lutenist — recurring gag NPC (unnamed — that's the bit)
+
+- **Played through the entire Session 2 battle without stopping.**
+- Card: *wants* an audience · *voice* undeterrable theatrical tenor ·
+  *secret* none. That's the joke.
 
 ### Belva
 
@@ -259,7 +290,7 @@
 
 ---
 
-## Saturday cue card (the one I'll keep on my phone)
+## Session 1 cue card — HISTORICAL (played 2026-05-23)
 
 | Moment | What to do |
 |---|---|
@@ -345,6 +376,10 @@ He's not lying. He's also not provably right. The campaign's central
 tension is that his thesis MIGHT be true — and the PCs will never get a
 clean answer.
 
+**Kept deliberately OPEN (2026-07-15):** whether he's right, whether
+he's rationalizing, or whether **something speaks through him.** He is
+gone from Hollowmere and recruits from afar. Do not pin him down.
+
 ### Why he chose these five PCs
 
 Halve selects targets based on **fey-adjacency.** A clean severance
@@ -357,35 +392,22 @@ by the Feywild while it withdraws.
   Parker's father was an earlier recruit of his.
 - **Nya (Chelsea).** Her sorcery comes from a fey-touched paternal line.
   Halve suspects but hasn't confirmed.
-- **Creed (Cory).** The corrupt Bahamutan cleric Creed exposed was
-  secretly extending bonds for personal gain. **Halve identified him
-  decades ago and tipped Creed's investigation.** Creed thinks he
-  uncovered it himself.
-- **Willa (Hayley).** Aasimar. Celestial-blooded. She can negotiate with
-  the Feywild without being corrupted by it. **The keystone of his team.**
+- **Creed (Cory).** No fey-tie at all — the Material-side anchor the
+  others stand on. (The old "Halve tipped Creed's investigation" idea
+  is CUT — Creed found the corruption himself.)
+- **Willa (Hayley).** Aasimar. Celestial-blooded — an **unusual
+  resonance with the light.** (No keystone/vessel framing — see
+  `parking-lot.md`.)
 
-### Hellbrim
+### The "wrong hand" (OPEN — Hellbrim is CUT)
 
-**NOT on the field Saturday.** The combat Dryad is Wenneth, not
-Hellbrim.
+**Hellbrim is cut entirely** (see `parking-lot.md`). Wenneth turned
+because **the severance unmade her** — nothing pre-seeded her.
 
-Hellbrim was Halve's previous recruit, ~20 years ago, in a different
-region. A fey woman who volunteered as the "negotiator" during a
-severance attempt. It went wrong. She came back corrupted. She's
-wandered between regions ever since, drawn to active Feywild bonds.
-
-**She passed through Hollowmere months ago** and seeded the corruption
-in Wenneth's grove — that's why the Chapel Oak has been yellowing all
-year. Hellbrim is the reason the severance hits Hollowmere so hard, so
-fast — Wenneth was already half-corrupted when the bond snapped.
-
-The Saturday combat line *"That is Hellbrim. We grew together for two
-centuries. Do not hate her for what is no longer her"* is **Wenneth's
-self-recognition** — she's naming what she has just become, not pointing
-at a separate creature. "We grew together" means shared corruption fate.
-
-Hellbrim herself is alive somewhere. Future-session antagonist —
-wandering corruption-spreader, much harder to fight than Wenneth.
+What remains committed: the cipher, once decoded, hints at **an
+unnamed "wrong hand"** — identity undecided. It may become the second
+severancer (see Arc 2), or something new. Don't decide until play
+requires it.
 
 ### Halve's Saturday behavior, decoded
 
@@ -395,7 +417,7 @@ wandering corruption-spreader, much harder to fight than Wenneth.
 | Enters the Hearth, performs five cuts | This is **calibration.** He's confirming each PC has the fey-tie he believed. If any failed, he'd walk away and try in 20 years. |
 | Exits with *"I'll catch up"* | He never intends to. He goes to Belva's loft. |
 | Performs the ritual in the loft | He holds his **Veilglass anchor token** (the second piece of his soul, in physical form) and *listens.* Through the PCs' resonance at the shrine, he asks the Feywild to withdraw. |
-| Disappears before combat | He cannot face Hellbrim's victims again. He calls it "thresholds." It's cowardice. He won't admit it. |
+| Disappears before combat | He does not stay to watch what severance strands. He calls it "thresholds." It's cowardice. He won't admit it. |
 | Leaves coin on Belva's bar | Paying for what he took. Also: severing his account with Belva — he doesn't expect to return. |
 
 ---
@@ -431,19 +453,20 @@ That requires three things working together:
 | Phase | When | What happens |
 |---|---|---|
 | **Snap** | Lantern-Eve, ~9-10 PM | Halve's ritual asks the Feywild to withdraw. The Feywild signals consent by extinguishing the shrine-flame. From the PCs' perspective: light goes out, Belva drops her tankard, Wenneth screams. **The bond is closing, not closed.** |
-| **Retraction window** | ~10 PM until dawn | The Feywild pulls back slowly. The bond is ancient and tangled; untangling takes hours. **The bond can still be re-asserted from the mortal side during this window.** Corrupted fey appear — their fey-essence couldn't retract because Hellbrim's residue had damaged it. They're stranded mid-pull. |
+| **Retraction window** | ~10 PM until dawn | The Feywild pulls back slowly. The bond is ancient and tangled; untangling takes hours. **The bond can still be re-asserted from the mortal side during this window.** Corrupted fey appear — essence too old, too rooted, or too entangled to retract. The severance unmakes them mid-pull. |
 | **Dawn lock** | Sunrise | Withdrawal completes. The bond is permanently gone. No counter-ritual works after this point. |
 
 ### Why Wenneth turns
 
-Halve's ritual pulls **healthy** fey-essence home. Corrupted essence is
-too broken to retract — it stays behind, severed from its source
-mid-rot. **Stranded fey-essence becomes corrupted creatures.**
+Halve's ritual pulls **retractable** fey-essence home. What cannot
+retract — essence too old, too deeply rooted in the place it loves —
+stays behind, severed from its source. **The severance unmakes it, and
+what is unmade becomes a corrupted creature.**
 
 So most of Hollowmere's fey (the unseen, the deep-grove) went home
-safely. Wenneth, the Blossom-Seller, the Chapel Oak pixies were too
-infected by Hellbrim's prior touch to retract. They turn instantly
-because there's nothing left on the Feywild side to anchor them.
+safely. Wenneth — three generations woven into this village — and the
+blossom-seller's small glamour could not let go in time. **The
+severance unmade them. Nothing pre-seeded it.**
 
 From Halve's view: he saved ~70% of the local fey from corruption that
 would have eventually consumed all of them. From Yelvyne's view: he
@@ -452,26 +475,27 @@ coherent. Neither is provably right.**
 
 ---
 
-## Yelvyne's Lay-of-Lanterns — the counter-ritual
+## The counter-ritual — SUPERSEDED BY PLAY (see Session Log)
 
-An old Lantern Circle rite, kept for exactly this scenario: an
-unauthorized severance. Yelvyne has never performed it. She learned it
-from her predecessor and never expected to need it. She's terrified
-she'll fumble.
+Yelvyne knew an old rite of her order for exactly this scenario and was
+terrified she'd fumble it. **What actually happened in Session 2 was
+simpler and stranger:** the party circled around Willa, hands held, the
+Tinker-sprite orbiting — a portal opened, collapsed, and erupted into
+the silver-light fountain. **The shrine RELIT.**
 
-The ritual needs:
-1. **The shrine itself** (intact, just dark)
-2. **A vessel** — someone celestial- or fey-blooded who can amplify the
-   call across both planes. **Willa (Aasimar) is the natural vessel.**
-3. **The PCs' knowing consent.** Unlike Halve's ritual where they
-   participated unwittingly, this time they have to **agree out loud.**
-
-If successful, the Feywild **reverses its withdrawal** and pours back
-through the bond. The shrine relights at dawn.
+Why Willa? She has an **unusual resonance with the light.** That is the
+entire committed explanation. (The vessel/prophecy framing is CUT —
+see `parking-lot.md`.)
 
 ---
 
-## The three paths — Saturday's moral choice
+## The three paths — RESOLVED IN SESSION 2 (kept for reference)
+
+> **What they chose:** the party **relit the shrine** — closest to
+> Path A, executed as their own improvised act, with the stated logic
+> *"we can re-sever it later if needed."* **Live moral debt:** they
+> overrode the victim's dying wish, and they believe severance is
+> reversible. Neither belief has been tested.
 
 ### Path A — Reseal (Yelvyne's offer)
 
@@ -528,9 +552,10 @@ thrust if the PCs find their way to it.
 
 ---
 
-## Halve after Saturday
+## Halve after Session 2
 
-He doesn't know what happened. He's miles away by dawn.
+He doesn't know what happened. He was miles away by dawn. **The party
+relit — so the "resealed" branch below is now the operative one.**
 
 - If the PCs **resealed**, Halve senses the bond still humming after a
   few days. He grimaces, drinks something, accepts the team failed his
@@ -549,28 +574,17 @@ He doesn't know what happened. He's miles away by dawn.
 **Reveal timing:** Almost NONE of this lands in Session 1. Most lands in
 sessions 3-10 across a long campaign of cosmological intrigue.
 
-### His father — *Cael Amakiir*
+### His father — *Cael Amakiir* (fate OPEN)
 
 A Fey being who came through the Feywild bond into Thane's mother's
 forest community ~30 years ago. Took the Wood Elf surname Amakiir on
-arrival.
+arrival. Made the compass. Walked into the woods one autumn morning
+when Thane was ~5 and never came back.
 
-**Cael was originally one of Halve's recruits** — for an older region's
-severance, ~40 years ago. Cael was meant to be a fey-anchored speaker.
-**At the last moment he defected.** Fled across regions, hid his
-fey-nature, married into the Wood Elf community, fathered Thane.
-
-When Thane was ~5, Halve found Cael. Not violently — just *reminded* him
-the original severance was still pending and his fey-essence was tied
-to the older region regardless. Cael chose neither — walked into the
-woods one autumn morning and left.
-
-**What actually happened:** Cael is alive. Halve found him a second time
-and is *keeping* him — too valuable a half-anchored speaker to waste.
-Cael has been a prisoner-asset somewhere in Veilmark for ~25 years.
-
-**Campaign-arc hook:** finding and freeing (or losing) Cael is a
-potential climax. Don't lock the outcome yet.
+**Committed:** Cael is *somehow* connected to the severances — the
+long-arc payoff. **Everything else is OPEN.** (The old
+recruit/defector/captive-asset backstory is CUT — see `parking-lot.md`.
+Decide what happened to Cael when the story actually reaches him.)
 
 ### The compass — NOT broken
 
@@ -580,9 +594,8 @@ year Thane was born. It has two needles:
 - **Brass needle** — always points to the nearest active Feywild anchor
   (shrine, strong oak, place where the planes touch).
 - **Silver needle** — Thane has never seen it move. Buried, dim, almost
-  invisible against the brass. **It points to Cael.** Silver-dim when
-  Cael is hidden or distant; faintly glowing when Cael is near. Goes
-  dark when Cael dies.
+  invisible against the brass. *(HELD LOOSELY: the it-points-to-Cael
+  idea is in the parking lot — commit only when the reveal is near.)*
 
 For 20 years the brass needle has spun wildly — the original Feywild
 anchor Cael was bonded to was already half-severed; the compass has had
@@ -592,13 +605,12 @@ It isn't.
 ### The mentor
 
 10 years after Cael vanished (Thane ~15), an old road-guide took an
-interest in him. The mentor was **another defector from Halve's
-network** — a former witness who refused his role decades earlier.
+interest in him. (The mentor-as-network-defector idea is CUT — until
+play says otherwise, he was exactly what he seemed: an old road-guide.)
 
-The mentor never told Thane the truth about Cael. He taught Thane to
-survive on the road and quietly trained him for things he didn't yet
-need to know. Died when Thane was ~17, old age. Gave Thane the compass
-on his deathbed — the mentor had been holding it for years on Thane's
+The mentor never told Thane anything about Cael. He taught Thane to
+survive on the road. Died when Thane was ~17, old age. Gave Thane the
+compass on his deathbed — he had been holding it for years on Thane's
 mother's behalf.
 
 Mentor's last words (rough — Parker can rewrite when he names the
@@ -610,7 +622,7 @@ mentor):
 Thane thinks the mentor stole it from some forgotten place. **He does
 not know it was made by his father.** Reveal in session 3-4 at earliest.
 
-### Saturday — the compass beats (subtle, no reveal)
+### Session 1 compass beats — HISTORICAL (the reseal branch fired: brass needle spins lazily again)
 
 DM-side awareness only. Thane should *not* understand any of this
 tonight. The prop is alive — quietly. Future sessions amplify the
@@ -630,22 +642,20 @@ signal.
 "small light" or "found-flame," a parent's tenderness-word for a child.
 Parker can override.
 
-### Defectors from Halve's network — campaign arc
+### Defectors' network — CUT (see parking-lot.md)
 
-Cael and the mentor were both Halve recruits who defected. **There are
-others.** Scattered across Veilmark, hidden in mortal communities,
-living quiet lives. They form a loose underground that knows what Halve
-does and refuses to participate. Some are old, some are dying, some are
-broken.
-
-**Long-arc seed:** The PCs eventually find this network (Session 6-8
-range). Allies for any of the three Saturday paths. Enemies if the PCs
-side with Halve. A potential power-base for whatever the PCs choose to
-do with the bonds across Veilmark.
+The defectors-underground idea went to the parking lot with the rest
+of the Cael-captive cluster.
 
 ---
 
-## Sarranthia (Jenna's PC) — DM canon
+## Sarranthia (Jenna's PC) — DM canon — ⚠️ EXITED after Session 2
+
+> Jenna left the table; Sarranthia exited the story. The **cipher
+> passed to Nya.** The arrest thread is an OPTIONAL soft rumor only
+> (Belva shuts it down) — not committed. Everything below is retained
+> as background; the **Drow-blame** world current stays background
+> color, uncommitted, while she's gone.
 
 ### The setting fact: the bright world hates the Drow
 
@@ -765,35 +775,25 @@ hasn't earned yet.
   the compass obsessively researching the artifact and the visions.
   Her Arcana / History are the fruit of that hunt.
 
-### The recruitment truth (DM-only)
+### The recruitment truth — CUT (see parking-lot.md)
 
-The ghost ship and the compass did not find Willa by chance. **The
-recruiter routed the compass to her** — years in advance — knowing
-she'd be drawn toward anchor-points, knowing he'd want her one day.
-Willa believes she *chose* to leave Blackreef and follow the visions.
-She was walked. The same long game Halve ran on Creed. The compass is
-her planar-adjacency — her ticket onto the team, the way Thane's blood
-and Nya's bloodline are theirs.
+The "Halve routed the compass to her / she was walked here" idea is
+CUT. Canon: the black iron compass came off a ghost ship. That is all
+anyone — including the DM — currently knows.
 
-### Keystone tie
+### Resonance (softened from "keystone")
 
-Willa's vessel role (the Lay-of-Lanterns) now rests on two legs: her
-Aasimar blood (celestial insulation) **and** her compass (a planar
-instrument she's already attuned to). Yelvyne's "she recognises the
-Aasimar" beat stands unchanged — the DM simply knows the compass is the
-deeper reason she's here.
+Willa has an **unusual resonance with the light** — demonstrated, not
+explained, by the Session 2 relighting. No vessel/chosen-one framing.
+Yelvyne's quiet reverence for her stands.
 
 ### The two compasses — connected
 
 Thane carries a brass compass (his father's; a campaign-arc artifact).
-Willa carries a black iron compass (from the ghost ship). **They are a
-matched set** — instruments of the same lost craft, built to read the
-planes: Thane's leans to the Feywild side, Willa's to the deep/older
-side. The recruiter's network deals in exactly these. Two compasses at
-one table is not coincidence — it's Halve's instruments, reunited
-without their carriers knowing. (How literally they react to each
-other — proximity, the shrine — is open; a beat where both stir at once
-is there to use.)
+Willa carries a black iron compass (from the ghost ship). *(HELD
+LOOSELY: the matched-set-of-one-lost-craft idea is in the parking lot;
+the Halve's-instruments-reunited version is CUT.)* A beat where both
+stir at once is there to use — without explaining it.
 
 ### The coast — new map canon
 
@@ -801,14 +801,12 @@ is there to use.)
   past Aldermarch (the day's-ride town on the Silverway). The road out
   becomes the road to the sea.
 - **The drowned city** of Willa's visions — a shrine-civilisation
-  *older than Veilglass*, older than the Lantern Circle: the deep
-  history of the anchor-shrines and the powers they were first built to
-  bind. A future-adventure destination. **Not** Veilglass itself —
-  Veilglass healed and became ordinary (see Halve's history).
-- A **coastal anchor-point** can be one of the "three other
-  anchor-points failed in the last six months" from Yelvyne's hidden
-  journal — making the road to Blackreef also the clue trail into
-  Adventures 2-3.
+  *older than Veilglass*, older than any keeper-order now walking: the
+  deep history of the anchor-shrines and the powers they were first
+  built to bind. A future-adventure destination. **Not** Veilglass
+  itself — Veilglass healed and became ordinary (see Halve's history).
+- (The "Yelvyne's journal / three failed anchors" clue-trail is CUT —
+  the west road's pull is simply that **the tide has been singing.**)
 
 ---
 
@@ -844,3 +842,98 @@ are **fey/material only** (a severance cannot touch a divine tie).
 
   Creed is the team's Material-side anchor (no fey-tangle = the stable
   point). Pairs with the "Hold the Hearth" chokepoint role.
+
+---
+
+# SESSION LOG — what actually happened
+
+## Session 1 — Lantern-Eve (2026-05-23)
+
+Arrivals at The Hearth; Halve's five letters and five cuts; he slips to
+the loft, performs the ritual, and vanishes. The shrine severs — the
+light goes out, Wenneth screams and turns. (Prep docs:
+`session-01-arrivals.md`, `session-01-cue-sheet.md` — historical.)
+
+## Session 2 — "Hold the Hearth" (played; canon locked 2026-07-15)
+
+- **Sarranthia (Jenna) exited.** The **cipher passed to Nya.** Arrest
+  thread: OPTIONAL hook only — one soft rumor in town, Belva shuts it
+  down. Not committed.
+- The battle on the Market Green: **Wenneth charmed Thane into shooting
+  Creed** — Thane experienced a Feywild vision and believed he was
+  shooting Wenneth. Creed dropped to half HP. **Willa arrived round 2**
+  and landed the clutch heals. **Nya downed the blossom-seller
+  non-lethally** (canon: **permanent burn scars**) and **spared a
+  sprite** at ~4× lethal damage.
+- **Mercy lifted the corruption:** Petal lives (hollow, changed, won't
+  carry shears); the sprite lives — **imprinted on Willa** (the
+  **Tinker-sprite**, tiny blue fey companion).
+- **Wenneth died rooting straight into the ground where she fell** — a
+  twisted dead tree now stands on the green, permanent landmark. Last
+  words: *"The light was a cage. You don't know what you're
+  protecting."*
+- **The party RELIT the shrine** — circled around Willa, hands held,
+  sprite orbiting; a portal opened, collapsed, and erupted into the
+  silver-light fountain. Town restored. Their stated logic: *"we can
+  re-sever it later if needed."* **Live moral debt:** they overrode
+  the victim's dying wish, and they believe severance is reversible.
+- **Pixies: gone from Hollowmere forever.** The lutenist played through
+  the entire battle without stopping.
+- Yelvyne on the cipher: ancient magic, not her field — *"my sisters,
+  scattered near the other lights, could read it."*
+- Party leveled to **2**. **Creed has Inspiration banked.**
+
+---
+
+# The Weaver (DM-only — replaces the old "Vow-Maker" draft)
+
+- **"The Weaver"** is a pseudonym used in-world. **True name and true
+  nature: unknown** — deliberately, including to the DM.
+- Committed facts, and ONLY these: she **merged the planes via pact**;
+  **her essence is the weave**; **the shrines anchor it**; **she is
+  fading.**
+- Everything else about her: uncommitted (`parking-lot.md`).
+
+---
+
+# The cipher (DM-only mechanics)
+
+- Player-facing: ancient magic, not Yelvyne's field; her **sisters near
+  the other lights** could read it.
+- **Key: AELIM** (the Sylvan tenderness-word — see Thane's section).
+- **Conjuration aura** = a **tracking link back to Halve.**
+- **Abjuration aura** = an **anti-translation ward.**
+- **Decoding breaks the ward first, then the tracking link.**
+- Content hints at **an unnamed "wrong hand"** — identity undecided.
+- Detect Magic reads the two auras, not the meaning.
+
+---
+
+# ARC 2 — "Other Lights" (Sessions 3–7, levels 2→4) — forward canon, kept loose
+
+1. **Leaving** (S3): the morning after → the three roads → the road out.
+2. **A weird standalone destination** — whichever road they picked.
+3. **The cipher decode — midpoint reveal:** there are **TWO
+   severancers.** The other is **clumsy** — leaves *"wounds that will
+   not close."*
+4. **A badly-severed town** (unnamed until visited) — what the clumsy
+   hand leaves behind.
+5. **A race to a live shrine.**
+6. **Arc-out: a letter from Halve.**
+
+## The Wandering Market (if the third road is chosen)
+
+- A fey bazaar never in the same place twice. Governed by **the Peace**
+  (no violence on market ground).
+- **Promises are currency.**
+- A **scrivener** who reads old work for prices — e.g. *the memory of
+  the relighting night*, or *a favor owed.*
+- A **bottled shrine-light** curio, somewhere on a shelf.
+- Exit rule: **the road out of the Market is never the road you came
+  in on.**
+
+## Long-game seed (DM-only — do NOT surface yet)
+
+The **Shadowfell** was the plane left out of the Weaver's merge.
+Botched severances may tear through to it — the clumsy hand's *"wounds
+that will not close"* as leak points. Saved for a later arc.

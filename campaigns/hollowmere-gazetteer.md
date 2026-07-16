@@ -6,6 +6,14 @@
 > `the-severance.md`. Entries marked ✦ are new — safe to flesh out or
 > overwrite.
 
+> **⚡ STATE AFTER SESSION 2 (2026-07-15):** the shrine was severed on
+> Lantern-Eve and **RELIT by the party** — the silver light is back. A
+> **twisted dead tree** stands on the Market Green where Wenneth died
+> (permanent). The Chapel Oak stands empty and quiet. **Pixies are gone
+> from Hollowmere forever** (milk-bowls go untouched now). Petal lives —
+> changed, burn-scarred, won't carry shears. Descriptions below are the
+> village as originally keyed; read them through this filter.
+
 ## At a glance
 
 - **~120 souls.** A woodland village in a shallow green hollow, ringed
@@ -77,9 +85,9 @@ crofts, and is the children's summer place.
    empty husk, the basin black, and the stones hum *wrong*.
 2. **Priestess Yelvyne's House.** A small stone cottage a short way down
    the Pale from the shrine — the steward lives close to her charge.
-   Behind a loose hearth-stone she keeps a journal: notes on three
-   *other* anchor-points that have failed in the last six months. (The
-   clue trail into Adventures 2–3.)
+   Letters from her sisters, scattered near the other lights, sit in a
+   drift on her writing desk. (The old "hidden journal / three failed
+   anchor-points" idea is CUT — see `parking-lot.md`.)
 3. **The Hearth — the tavern.** Two-storey timber-and-stone at the
    village's south edge, the first building travellers reach. Its
    forge-warm hearth is said to share a flame with the shrine. Belva
@@ -190,7 +198,8 @@ than any named order.
 - **Class:** the village's nearest thing to an aristocracy — *spiritual*,
   not wealthy. Yelvyne owns her vestments and her cottage. That is all.
 - **Faith:** the shrine-faith proper. They call it *"the light."* Only
-  Yelvyne uses the words *"Lantern Circle."*
+  Yelvyne speaks of an order at all — *"my sisters, scattered near the
+  other lights"* — and she has never given it a name.
 
 ### The Lower Lanes (east — the established craft households)
 

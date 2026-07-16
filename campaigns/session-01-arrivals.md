@@ -1,4 +1,8 @@
-# Session 1 — Arrivals at The Hearth
+# Session 1 — Arrivals at The Hearth — 🗄 HISTORICAL (played 2026-05-23)
+
+> **Superseded.** What actually happened is logged in `the-severance.md`
+> → Session Log. Lore referenced here may since have been CUT — see
+> `parking-lot.md`.
 
 > The first hour of the night. Designed to give five brand-new players a
 > 3–4 minute entrance scene each, introduce the room organically, then

@@ -1,4 +1,8 @@
-# SESSION 2 — "HOLD THE HEARTH" — COMBAT RUN-SHEET
+# SESSION 2 — "HOLD THE HEARTH" — COMBAT RUN-SHEET — 🗄 HISTORICAL (played)
+
+> **Superseded.** What actually happened (Sarranthia's exit, the charmed
+> arrow, the mercies, the relighting) is logged in `the-severance.md` →
+> Session Log.
 
 *Glanceable. Don't read this aloud. Grab a cue, look up, talk to the table.*
 

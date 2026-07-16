@@ -2,7 +2,8 @@
 
 > **What this is:** a self-contained handoff so a new Claude conversation can help
 > me develop the story without the repo. Distilled from `the-severance.md` (the full
-> bible), `hollowmere-gazetteer.md`, and the session run sheets.
+> bible), `hollowmere-gazetteer.md`, and the session run sheets. **Synced 2026-07-15**
+> after Session 2 and the lore diet.
 >
 > **How to use it:** paste the whole file into a new chat, then tell it which thread
 > I want to work on (menu at the bottom).
@@ -10,6 +11,10 @@
 > **⚠️ DM-ONLY. Contains spoilers the players must not see** — the backstage truth is
 > fenced in `🔒` blocks. Everything outside those blocks is either public or safely
 > table-facing.
+>
+> **Canon policy:** *commit only what play requires; name things when they walk on
+> screen.* Shelved ideas live in `parking-lot.md` and are NOT canon. Do not
+> re-introduce them casually.
 
 ---
 
@@ -22,216 +27,196 @@ was recruited to investigate *why* — and the real question underneath is a mor
 mortal world it bleeds into?** There is no clean answer, by design.
 
 Tone: **heroic fantasy, comedic on the edges, epic in the middle.** Warmth is real;
-the horror is precise, not constant. Party is level 2, five first-time-ish players, a
-live in-person→now-remote game.
+the horror is precise, not constant. Four level-2 PCs, first-time-ish players, a
+live game (in-person or remote, projector either way).
 
-🔒 **The truth the players don't have:** the "recruiter," **Master Halve**, *is* the
-severer. He's a ~300-year-old half-Fey man who believes the bond is a parasite and
-negotiated severance is the only cure. He may even be right — the campaign never
-proves it either way. He recruits **fey-adjacent** mortals as unwitting "witnesses"
-whose presence lets the Feywild consent to withdraw. 🔒
+🔒 **The truth the players don't have:** the "recruiter," **Master Halve**, *is* a
+severer. He believes the bond is a parasite and negotiated severance is the only
+cure. **Deliberately open:** whether he's right, rationalizing, or something speaks
+*through* him. He's gone from Hollowmere and recruits from afar. He recruits
+**fey-adjacent** mortals as unwitting "witnesses" whose presence lets the Feywild
+consent to withdraw. 🔒
+
+🔒 **The Weaver:** the being who merged the planes via pact. "The Weaver" is an
+in-world pseudonym; her true name and nature are unknown (even to me). Committed
+facts, only these: she merged the planes via pact · her essence IS the weave · the
+shrines anchor it · **she is fading.** 🔒
 
 ---
 
 ## The world (what matters going forward)
 
-- **Hollowmere** — the starting village (~120 souls) in a green hollow where the
-  Feywild presses close. Silver light glows even at midnight; fairy-rings appear
-  overnight. The holy night is **Lantern-Eve**. **One road in, one road out: the
-  Silverway.** The shrine (the **Lantern Shrine**, on the hill called **the Pale**)
-  is the town's anchor; Wenneth's **Chapel Oak** was a secondary one.
+- **Hollowmere** — the starting village (~120 souls) where the Feywild presses
+  close. The shrine (the **Lantern Shrine**, on the hill called **the Pale**) is the
+  town's anchor; it was severed on Lantern-Eve and **RELIT by the party** in Session
+  2. A **twisted dead tree** now stands on the Market Green where Wenneth died —
+  permanent landmark. Pixies: gone from Hollowmere forever.
 - **The Silverway (south)** — the only road, running south toward **Aldermarch** (a
-  day's-ride town) and on to **the city**. 🔒 This is the road Halve walked out on. 🔒
-- **Blackreef Cove (west/down-coast)** — a hard smuggler's port past Aldermarch;
-  **Willa's home**. Beyond it, in Willa's visions, a **drowned city** — a shrine
-  civilization *older than the Lantern Circle*, the deep origin of the anchor-shrines.
-- **The wandering market** — a market that's never in the same place twice.
-- 🔒 **Veilglass** — the dead region where Halve's origin-severance happened 300 years
-  ago. It healed and became *ordinary*. It is **not** the drowned city. 🔒
+  day's-ride town) and on to **the city.**
+- **The coast (west)** — Blackreef way; **Willa's home waters.** Fisherfolk say
+  *the tide has been singing.* In Willa's visions: a **drowned city**, a shrine
+  civilization older than any keeper-order now walking.
+- **The Wandering Market** — a fey bazaar never in the same place twice. 🔒 Governed
+  by **the Peace** (no violence on market ground); **promises are currency**; a
+  scrivener reads old work for prices (a memory, a favor owed); a bottled
+  shrine-light curio; the road out is never the road you came in on. 🔒
+- **Other lights, out there** — Yelvyne's unnamed order has *"sisters, scattered
+  near the other lights."* Regions and sisters get named **when visited**, not
+  before.
+- 🔒 **Veilglass** — the dead region where the first deliberate severance happened
+  ~300 years ago (Halve's origin-wound). It healed and became *ordinary*. Not the
+  drowned city. 🔒
 
 **How the bond works (compressed):** the bond is metaphysical; each region has a
 *physical anchor* (the shrine is the *handle*, not the bond). It can't be cut by
-force — only by **negotiation**: a half-anchored *speaker* (Halve), *witnesses* with
+force — only by **negotiation**: a half-anchored *speaker*, *witnesses* with
 fey-adjacency (the PCs), and a *focal object* (the shrine). Severance runs in three
-phases — **Snap** (light goes out, consent given), a **retraction window** until dawn
-(reversible from the mortal side), and **dawn lock** (permanent). 🔒 Healthy fey
-retract safely; **corrupted** fey are too broken to pull home and get stranded as
-monsters — which is why Wenneth and the others turned. 🔒
+phases — **Snap** (light goes out), a **retraction window** until dawn (reversible
+from the mortal side), and **dawn lock** (permanent). 🔒 Fey essence too old or too
+rooted to retract is **unmade by the severance** and left behind as a corrupted
+creature — that's why Wenneth turned. Nothing pre-seeded her. 🔒
 
 ---
 
-## The party (5 PCs)
+## The party (4 active PCs, all level 2)
 
-**1. Sarranthia** — *Jenna* · Drow **Warlock** 1 (patron **inside the Feywild**).
-Quiet dread: her patron's voice went **silent at the Snap.** 🔒 She is the one who
-*most needs the bonds to hold* — severance kills her magic — yet the world is starting
-to blame **the Drow** for the severances (false; it's Halve). The most
-pro-preservation voice at the table can't say why without exposing herself. Halve
-knows her secret and counts her power **acceptable loss.** 🔒 *Open:* last name, why
-she took the pact, patron flavor/gender, backstory.
+**Sarranthia** — *Jenna* · Drow Warlock — **EXITED after Session 2.** The cipher
+passed to Nya. An arrest rumor exists as an OPTIONAL soft hook only (Belva shuts it
+down). Door stays open.
 
-**2. Thaelen "Thane" Amakiir** — *Parker* · Wood Elf **Rogue** 1. Quiet, observant,
+**1. Thaelen "Thane" Amakiir** — *Parker* · Wood Elf **Rogue** 2. Quiet, observant,
 loyal-once-earned; collects a memento from every place he's been. Carries a **brass
-compass** he thinks is broken (it spins). 🔒 He's **half-Fey.** His father **Cael
-Amakiir** was a Fey being — a former Halve recruit who **defected**, married in,
-fathered Thane, then vanished when Thane was ~5. Truth: Cael is **alive, held as a
-captive "asset" by Halve** somewhere in Veilmark. The compass isn't broken — brass
-needle points to the nearest Feywild anchor; a **hidden silver needle points to
-Cael.** Wenneth's dying lucid line was aimed at Thane ("**Ae'lim**," his father's
-Sylvan tenderness-word). Reveal the compass truth S3–4+. 🔒
+compass** he thinks is broken (it spins). In Session 2, Wenneth **charmed him into
+shooting Creed** (he saw a Feywild vision and believed he was shooting her). 🔒 He's
+**half-Fey.** His father **Cael Amakiir** was a Fey being who made the compass and
+walked into the woods when Thane was ~5. Cael is *somehow* connected to the
+severances — everything else about his fate is OPEN. The brass needle points to the
+nearest Feywild anchor. 🔒
 
-**3. Nya Ashwyn / "Death's Shadow"** — *Chelsea* · Human **Sorcerer** 1. Mother
-(Ashwyn) murdered young; father unknown; raised by an **assassins' guild** she's now
-fleeing. 🔒 Her sorcery comes from the **unknown (likely Draconic) father** — missing
--father motif #2. 🔒 **She holds the cipher** (see threads) and has been picking at it
-with Detect Magic.  *Open:* sorcerous origin, the specific reason she fled, what
-"Death's Shadow" meant, her mother's fate.
+**2. Nya Ashwyn / "Death's Shadow"** — *Chelsea* · Human **Sorcerer** 2. Raised by
+an assassins' guild she's now fleeing. **Holds the cipher.** In Session 2 she downed
+the blossom-seller **non-lethally** (permanent burn scars) and **spared the sprite**
+— both mercies paid off. 🔒 Her sorcery likely comes from her unknown father —
+missing-father motif #2. 🔒 *Open:* origin, why she fled, her mother's fate.
 
-**4. Creed Ashmantle** — *Cory* · Dragonborn **Paladin** of **Bahamut** 1. Rose young
-in a radiant temple, **exposed corruption in the high clergy, was branded heretic and
-cast out** — "bound by oath, not institution." Liege is **House Ashmantle**, which
-sent him to Hollowmere and has its own quiet interest in the severances. Plays lute.
-🔒 The cleric he exposed was secretly *extending* bonds for personal gain — and
-**Halve tipped that investigation.** Creed thinks he found it himself. Creed is the
-team's **Material-side anchor** (no fey-tie = the stable ground the others stand on).
-🔒 Backstory complete; nothing pending.
+**3. Creed Ashmantle** — *Cory* · Dragonborn **Paladin** of Bahamut 2. Exposed
+corruption in his high clergy, was branded heretic and cast out — "bound by oath,
+not institution." House Ashmantle sent him to Hollowmere; the House has its own
+quiet interest. Plays lute. Took a charmed arrow from Thane in Session 2 (half HP);
+holds no grudge worth speaking — or does he. **Has Inspiration banked.** 🔒 He found
+the clergy corruption himself. He is the team's Material-side anchor (no fey-tie). 🔒
 
-**5. Willa Thornwood** — *Hayley* · **Aasimar** **Druid** 1 (**doesn't know she's
-Aasimar**). A Blackreef dock kid / harbor runner — reads as a Sage but is really
-self-taught. Sister **Mira** matters most; mentor **Captain Edrik Thorne**. Carries a
-**black iron compass** from a ghost ship. 🔒 The compass didn't *grant* power — it
-**woke** the celestial spark already in her blood. The recruiter **routed that compass
-to her years in advance**; she was *walked* here believing she chose. She's **the
-keystone** — the vessel who made the reseal ritual work. Her compass and Thane's are a
-**matched set** of the same lost plane-reading craft. 🔒 *Open:* adopted vs. birth
-Aasimar parents.
+**4. Willa Thornwood** — *Hayley* · **Aasimar Druid** 2 (**doesn't know she's
+Aasimar**). Blackreef dock kid, self-taught, sister **Mira** matters most; mentor
+**Captain Edrik Thorne**. Carries a **black iron compass** from a ghost ship — that
+is all anyone knows about it. Arrived mid-battle in Session 2 and landed the clutch
+heals; the party's relighting **circled around her.** Now shadowed by the
+**Tinker-sprite.** 🔒 She has an **unusual resonance with the light** — demonstrated,
+never explained. No chosen-one language. 🔒
 
-**Braiding motif:** *missing fathers* (Thane's Cael, Nya's unknown sire, maybe
-Sarranthia's patron) → "who gave us what we can do, and where did they go."
+**Braiding motif:** *missing fathers* — "who gave us what we can do, and where did
+they go."
 
 ---
 
 ## Key NPCs
 
-- **Master Halve** — the courtly "recruiter." 🔒 The severer (see the pitch). Left
-  before the S2 fight and was gone by dawn; **since the party resealed, he senses the
-  bond still humming, marks the team as having *failed his test*, and will circle back
-  in a few months with a colder approach.** He runs a scattered network — and there
-  are **defectors** from it hiding across Veilmark (Cael was one; Thane's late mentor
-  was another). 🔒
+- **Master Halve** — the courtly "recruiter," vanished before the battle. 🔒 A
+  severer (see the pitch — kept deliberately open). Since the party relit, he'll
+  sense the bond still humming, mark the test failed, and circle back in a few
+  months, colder. 🔒
 - **Wenneth** — the Chapel Oak's dryad, the village's confidante for three
-  generations. Corrupted at the Snap, **died in session 2, and rooted into the dead
-  tree now standing permanently on the green.** Last words: *"The light was a cage.
-  You don't know what you're protecting."* 🔒 Pre-seeded corrupt months earlier by
-  Hellbrim; may have known Cael. Could *bud* if a severance is ever reversed. 🔒
-- **Priestess Yelvyne** — Lantern Circle steward; performed the reseal with Willa.
-  *"We bought back the morning. I couldn't tell you the price yet."* Keeps a hidden
-  journal: **three other anchor-points have failed in the last six months** (the
-  clue-trail into Adventures 2–3). Has **"sisters"** (other Lantern priestesses)
-  scattered along the roads.
+  generations. Corrupted at the Snap, **died in Session 2 rooting into the ground
+  where she fell** — the dead tree on the green. Last words: *"The light was a
+  cage. You don't know what you're protecting."*
+- **Priestess Yelvyne** — warm shrine steward, out of her depth on the cipher:
+  ancient magic, not her field — *"my sisters, scattered near the other lights,
+  could read it."* Her order is unnamed for now.
 - **Belva** — Halfling keeper of **The Hearth**; warm, wry, hears everything. A
   scarred ear she won't explain.
-- **Petal** (Mira's daughter) — the corrupted flower-seller the party **saved** (KO'd,
-  not killed). Remembers nothing past the light dimming; quiet now, the village's
-  living testimony. S3 line, flat: *"There's a tree on the green. There wasn't a tree."*
-- **The sprite** — a small fey presence that **will not cross into the shrine's
-  light.** Says nothing; means everything.
-- 🔒 **Hellbrim** — a corrupted dryad, Halve's *previous* recruit (~20 yrs ago) gone
-  wrong. Seeded Wenneth's corruption and is **still wandering, uncaught** — a future
-  antagonist, far harder than Wenneth. 🔒
+- **Petal** (the blossom-seller) — saved by Nya's mercy; alive, hollow, changed,
+  **permanent burn scars, won't carry shears.** S3 line, flat: *"There's a tree on
+  the green. There wasn't a tree."*
+- **The Tinker-sprite** — tiny blue fey, spared by Nya at ~4× lethal, **imprinted on
+  Willa.** It **will not cross into the shrine's light.** Says nothing; means
+  everything.
+- **The Lutenist** — unnamed (that's the bit). Played through the entire battle
+  without stopping. Wants an audience; undeterrable theatrical tenor; no secret —
+  that's the joke.
+
+🔒 **The cipher (DM-only):** key = **AELIM**. Two auras: conjuration = a tracking
+link back to Halve; abjuration = an anti-translation ward. Decoding breaks the ward
+first, then the tracking link. Its content hints at an unnamed **"wrong hand"** —
+identity undecided. 🔒
 
 ---
 
 ## The story so far
 
-- **Session 1 (Lantern-Eve).** The party gathered at The Hearth. Halve delivered five
-  letters — one private "cut" per PC, each naming a thing only that PC knew — then
-  excused himself "to the shrine," slipped up to the loft, and 🔒 performed his
-  severance ritual using the PCs as unwitting witnesses. 🔒 The shrine **severed**:
-  the light went out, and **Wenneth screamed and turned.** Halve vanished.
-- **Session 2 ("Hold the Hearth").** Combat on the Market Green. **Willa arrived up
-  the road** mid-fight and carved her way in. The party fought corrupted Wenneth, the
-  flower-seller (Petal), and shrieking pixies. They **saved Petal.** Wenneth had a
-  single lucid breath aimed at Thane, then **died and rooted into the tree on the
-  green.** After the fight came the choice: **reseal or let it sever.**
-- **The choice they made: RESEAL (Path A).** Yelvyne's *Lay-of-Lanterns* succeeded
-  with Willa as the vessel. At dawn the **silver light is back.** 🔒 The cost is real
-  but unnamed: the corrupted fey stay corrupted, the bond comes back *tainted*, and a
-  worse crisis is deferred, not solved. Halve marks the test as failed. 🔒
+- **Session 1 (Lantern-Eve).** The party gathered at The Hearth. Halve delivered
+  five letters — one private "cut" per PC — then slipped to the loft, 🔒 performed
+  his severance ritual using the PCs as unwitting witnesses, 🔒 and vanished. The
+  shrine severed; Wenneth screamed and turned.
+- **Session 2 ("Hold the Hearth").** Battle on the Market Green. Wenneth charmed
+  Thane into shooting Creed (half HP). Willa arrived round 2, clutch heals. Nya
+  downed Petal non-lethally and spared the sprite — **mercy lifted the corruption**
+  for both. Wenneth died and rooted. Then, instead of any priestly rite, **the party
+  relit the shrine themselves** — circled around Willa, hands held, sprite orbiting;
+  a portal opened, collapsed, and erupted into the silver-light fountain. Stated
+  logic: *"we can re-sever it later if needed."*
+- **The live moral debt:** they overrode the victim's dying wish, and they believe
+  severance is reversible. Neither belief has been tested.
 
-**Right now = the opening of Session 3, "The Morning After."** Dawn, ordinary
-daylight, victory-lap warmth — Belva cooking, kids reenacting the battle, a tree on
-the green that wasn't there two days ago.
+**Right now = Session 3, "The Morning After & the Road Out"** (Saturday 2026-07-18).
 
 ---
 
-## Session 3 — "The Morning After" (mostly built)
+## Session 3 — three acts (full runsheet: `session-03-opening-runsheet.md`)
 
-A slow RP morning: **let them have the win → complicate it quietly → hand them a
-road.** The quiet wrongness is deliberately small — **the sprite won't enter the
-light**, and **Yelvyne can't name the price.** A memorial question (what would Wenneth
-have wanted? — 🔒 *the light off* 🔒) is pure roleplay, left unresolved. Small live
-threads surface: Thane's **compass twitches toward the road**, Nya's **cipher hums
-cold**, Willa's first **Wild Shape (a gull)**.
+1. **The morning after** — victory-lap texture, the divvy (small gifts; Nya gets
+   none on purpose), the memorial question (*what does the town carve for
+   Wenneth?* — 🔒 what she wanted was the light OFF 🔒), the Petal beat, the
+   sprite-won't-cross-the-light tell, level-2 vignettes.
+2. **Three roads** — delivered as breakfast rumors + Yelvyne's sisters:
+   **SOUTH** (Silverway → Aldermarch → the city; a hooded man paid passage with
+   untarnishing coin) · **WEST** (the coast, Blackreef way; the tide has been
+   singing) · **THE WANDERING MARKET** (appeared three villages over, gone by
+   Thursday).
+3. **The road out** — the **Waystone** at the fork (three riddle faces: name /
+   tide / promise), optional **Driven Wolves** fight, camp, and the cliffhanger:
+   **the corrupted stag** — bark-plated, black-eyed, unblinking, where no severed
+   shrine should be. Hard stop.
 
-**It ends on THREE ROADS — the table's pick becomes my Session 4 prep:**
+---
 
-| Road | Flavor | The pull |
-|---|---|---|
-| **South — the Silverway** | toward the city; 🔒 Halve walked this way 🔒 | Thane's compass; the Halve thread |
-| **West — the coast** | fisherfolk say *the tide's been singing* | Willa's home waters; the drowned city |
-| **The wandering market** | three villages over *last week* — nobody agrees where | curiosity bait; "Nya's kind of wrong" |
+## Arc 2 — "Other Lights" (S3–7, levels 2→4) — kept loose
 
-Each road leads toward one of **Yelvyne's sisters** and, eventually, toward the **three
-failed anchor-points** in her journal.
+Leaving → a weird standalone destination (their road) → **the cipher decode
+(midpoint reveal: 🔒 TWO severancers; the other is clumsy, leaves "wounds that will
+not close" 🔒)** → a badly-severed town (unnamed until visited) → a race to a live
+shrine → arc-out letter from Halve.
+
+🔒 **Long-game seed (do not surface):** the **Shadowfell** was left out of the
+Weaver's merge. Botched severances may tear through to it — "wounds that will not
+close" as leak points. Later arc. 🔒
 
 ---
 
 ## Live threads — the development menu
 
-Pick one (or ask the chat to help me prioritize):
+1. **Session 4** — build the branch the table picked at the Three Roads.
+2. **The reseal's price** — decide the concrete cost of the relighting (Yelvyne:
+   *"I couldn't tell you the price yet"*).
+3. **The cipher decode scene** — the sister who reads it, the ward, the tracking
+   link breaking, the "wrong hand" hint.
+4. **Halve's return** — colder approach after a failed test.
+5. **Player-side hooks** — Nya's origin + guild; Willa's parentage; whether
+   Thane's fey side "speaks."
+6. **The corrupted stag** — what it is, what it wants, why it exists near a relit
+   shrine.
 
-1. **Session 4, all three branches.** Sketch the arc waiting down *each* road so I'm
-   ready whichever they pick — antagonist, set-piece, the sister they meet, the anchor
-   -point clue.
-2. **The cipher.** What does Halve's ciphered page actually *say*, what does decoding
-   it reveal, and how does it braid into the three failed anchors?
-3. **Cael's arc.** Where is Thane's father held, how does the rescue thread build, and
-   when/how does the compass truth surface (and the silver needle).
-4. **Halve's return.** His "colder approach" after a failed test — timing, tactics, and
-   the first time the party realizes the recruiter and the severer are one man.
-5. **Hellbrim.** Reintroducing the still-loose corruptor as a recurring threat.
-6. **The drowned city / Willa's visions.** The deep, older-than-Veilglass history the
-   West road opens.
-7. **The reseal's price.** *Decide* what resealing actually cost — the concrete,
-   payable consequence Yelvyne can't yet name.
-8. **Player-side hooks.** Flesh out the pending PC pieces (Sarranthia's pact + name,
-   Nya's origin + guild, Willa's parentage) into scenes that pay them off.
-
-**Guardrails:** keep the reseal ambiguous (no clean "right choice"); Halve is sincere,
-not a cackling villain; the missing-fathers motif is the spine; horror is precise, not
-constant. Level 2 party — keep stakes personal before they go cosmic.
-
----
-
-## Addendum — development canon (added 2026-07-15, pre-Session 3)
-
-- **Table status:** nobody at the table suspects Halve of anything — he's still "the
-  recruiter who vanished." Session 2 loot was never divvied; it happens diegetically at the
-  top of S3 (see the run-sheet's Divvy table — Thane finds the 🔒 bud-seed acorn 🔒; Nya
-  deliberately gets no object, because being loved is the thing she can't defend against).
-- **The lutenist is now FEN** — the comic engine (the all-wrong ballad *"The Hearth Held,"*
-  the standing Creed duet bit).
-- **The three failed anchors are named:** **Thornmere** (south, past Aldermarch),
-  **Sallow Ness** (west coast, past Gullwash), **Farrowfield** (the market's last camp) —
-  one per road.
-- **The cipher is canon:** non-magical (Detect Magic gets nothing — a beat, not a dead end);
-  written in **Lantern-Circle liturgical shorthand** 🔒 so Halve has Circle history 🔒.
-  Decoded, it's his **torn itinerary** — three names struck through, Hollowmere annotated
-  *"witnessed — contested,"* the margin mantra *"Not cut. Agreed. It must be agreed,"* and a
-  five-stroke tally 🔒 the witnesses 🔒.
-- **Yelvyne's sisters are named:** **Sefra** (Aldermarch, fast decode), **Maren** (Gullwash,
-  tends the Sallow Ness ruin), **Quill** (lapsed, trades in the wandering market; decodes for
-  one untold truth).
-- **Session 4 branch sketches** live in `session-04-roads-sketch.md` — ride, set-piece,
-  sister, anchor-clue, spotlights, and map shopping list per road.
+**Guardrails:** the relighting stays morally ambiguous (no clean "right choice");
+Halve is sincere, never cackling; missing fathers are the spine; horror is precise,
+not constant; humor lives in the kids, Belva, the lutenist, and the gull. Level-2
+party — stakes stay personal before they go cosmic. **And the canon policy: commit
+only what play requires.**
