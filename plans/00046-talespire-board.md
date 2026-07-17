@@ -1,7 +1,7 @@
 # Plan 00046 — TaleSpire-Style Board (branch: feat/board-talespire)
 
 ## Status
-[x] Not started  [ ] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
 
 **Branch:** `feat/board-talespire` — experimental; `main` stays Saturday-stable.
 **Created:** 2026-07-16, after the heightmap-terrain experiment was reverted on
@@ -75,6 +75,28 @@ stand as true vertical elements you can orbit, tokens walk *between* them.
 - Soundboard: synthesized 🐺 howl / ⛈ thunder / 🎻 sting on all devices.
 - 📏 measure ruler (cells + feet); overcast light tint for rain/snow.
 - Terrain slider removed (owner call — flat board + props).
+
+## Shipped 2026-07-17 — wave 3, "living skies" (prod @ 680bc54)
+- Procedural sky dome: bucketed day↔night gradient with a real sun and
+  moon that arc with the darkness slider; lightning flash rides the ⛈
+  stinger (light + thunder land together on every screen).
+- Flyers: seeded birds by day, bats by night (hidden in rain/snow).
+- Bloom joined the Cinema post stack (torches/sun glow).
+- Heightmap terrain fully excised from the render path (`ZERO_HEIGHT`,
+  no `useHeightField`), `tableApi.generateTerrain` removed, and every
+  prod map's `heightmap_url` nulled. Backend endpoint kept dormant.
+
+## Wave 3 paradigm slice — branch only (feat/board-talespire @ b96e611)
+- **POSSESS MODE**: double-click any figure (or select + 👁 Possess) and
+  the camera snaps to its shoulder — eye-level inside the diorama, orbit
+  constrained to a head-turn (polar/zoom clamps), target glued to the
+  figure's head so it tracks movement. Esc / exit chip returns to the
+  table. DM board + players' 3D Table View (players can possess too —
+  "see through your character's eyes").
+- **ScenicBand**: a 360° treeline ring (BackSide cylinder, ×3 repeat,
+  blob-hosted strip) between board edge and sky on dioramified maps, so
+  eye-level views get layered depth instead of bare dome.
+- Judge on the Vercel preview; merge decision after Saturday.
 
 ## First milestones
 - [ ] 1. Prototype: hardcoded prop list on the Waystone Midday map —
