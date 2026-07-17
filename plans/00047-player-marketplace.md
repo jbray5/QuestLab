@@ -1,7 +1,14 @@
 # Plan 00047 — Player Marketplace ("explore the town shops")
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
+
+**Shipped 2026-07-17 (a6321ba).** Prod seeded for Session 3: The Gilded
+Burr (12 items, keeper Pib Thistlewhistle) · Bramble & Crust (10, Muddwyn
+Bramblecrust) · The Bent Nail (10, Dunna Copperbraid) — all with banner
+art + item art. ⚠ Player-link domain: see the warning in
+docs/deployment.md — `questlab.vercel.app` is NOT our app; get the real
+public domain from Vercel → project `quest` → Settings → Domains.
 
 **Created:** 2026-07-17 (owner ask: "a full marketplace for the players with a
 storefront full of images of items and prices they can explore in town").

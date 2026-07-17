@@ -116,7 +116,16 @@ Note the trailing `/api`. The frontend prepends this to every path.
 ### 3. Deploy
 
 Hit **Deploy**. Vercel builds and ships in ~2 min. You get a URL like
-`https://questlab.vercel.app`.
+`https://<project>-<scope>.vercel.app`.
+
+> ⚠ **The live project is named `quest` (scope `justins-projects-16b34fc4`).**
+> `questlab.vercel.app` is NOT ours — it belongs to an unrelated
+> "Quest Labs" product; never share links on that domain. The public
+> production domain is whatever Vercel → project **quest** → Settings →
+> Domains lists. Per-deployment `quest-<hash>-…vercel.app` URLs sit behind
+> Vercel SSO (Deployment Protection) and will show players a login wall —
+> share only the public domain, and verify capability links (`/table/...`,
+> `/market/...`) from a logged-out phone.
 
 ### 4. Wire CORS
 
@@ -124,10 +133,12 @@ Copy the Vercel URL and paste it into Render → **questlab-api →
 Environment → CORS_ORIGINS**:
 
 ```
-https://questlab.vercel.app
+https://<your-real-vercel-domain>
 ```
 
-No trailing slash. Multiple origins are comma-separated. Save, then
+No trailing slash. Multiple origins are comma-separated. (The API also
+allows any `https://*.vercel.app` origin via regex for branch previews.)
+Save, then
 **Manual Deploy → Deploy latest commit** so the API trusts the new origin.
 
 ### 5. First-load identity

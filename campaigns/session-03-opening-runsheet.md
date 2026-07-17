@@ -33,9 +33,15 @@ end on a wrongness that shouldn't exist.**
 - **🏪 THE MARKET (new):** if they shop in Hollowmere before the road, drop the
   town-market link in the chat — players browse stalls with art + prices on
   their phones while you keep narrating:
-  `https://questlab.vercel.app/market/80b6f517-d124-4fea-9435-8e727f3171a9`
-  Three shops are stocked (The Gilded Burr — fey curiosities · Bramble &
-  Crust — pies/provisions, comic gold · The Bent Nail — arms & mending).
+  `<YOUR-APP-DOMAIN>/market/80b6f517-d124-4fea-9435-8e727f3171a9`
+  ⚠ **Get the real domain from Vercel → project "quest" → Settings → Domains**
+  — `questlab.vercel.app` in older notes is SOMEONE ELSE'S SITE, and the
+  per-deploy URLs are behind Vercel SSO (players' phones would hit a login
+  wall). Verify the market link from a phone BEFORE Saturday; if it demands a
+  Vercel login, turn off Deployment Protection for production or add a domain.
+  Three shops are stocked (The Gilded Burr — fey curiosities, keeper Pib
+  Thistlewhistle · Bramble & Crust — pies/provisions, Muddwyn, comic gold ·
+  The Bent Nail — arms & mending, Dunna Copperbraid).
   Great divvy-scene hook: let whoever gets loot gold spend it immediately.
   Manage/edit prices: app → campaign → 🏪 Shops.
 
