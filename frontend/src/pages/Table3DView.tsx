@@ -93,6 +93,7 @@ export default function Table3DView() {
   const [pings, setPings] = useState<BoardPing[]>([]);
   const pingSeq = useRef(0);
   const stingerRef = useRef<(kind: string) => void>(() => undefined);
+  const [stormSeq, setStormSeq] = useState(0);
 
   useEventStream("table", sessionId, (event: StreamEvent) => {
     if (event.type === "table.updated") {
@@ -102,6 +103,7 @@ export default function Table3DView() {
       if (typeof p.x !== "number" || typeof p.y !== "number") return;
       if (p.kind === "howl" || p.kind === "thunder" || p.kind === "sting") {
         stingerRef.current(p.kind);
+        if (p.kind === "thunder") setStormSeq((s) => s + 1);
         return;
       }
       pingSeq.current += 1;
@@ -162,6 +164,7 @@ export default function Table3DView() {
           brushReveals={proj.brush_reveals}
           fogOpacity={0.94}
           pings={pings}
+          stormFlash={stormSeq}
           introKey={map.id}
           onSelect={noop}
           onMoveCommit={noop}

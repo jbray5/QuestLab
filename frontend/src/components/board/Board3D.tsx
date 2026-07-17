@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { Billboard, Html, OrbitControls } from "@react-three/drei";
-import { DepthOfField, EffectComposer, Vignette } from "@react-three/postprocessing";
+import { Bloom, DepthOfField, EffectComposer, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import type { SessionCombatant, TableToken } from "../../api/types";
-import { BackdropDome, LightRig, Starfield, Weather } from "./atmosphere";
+import { BackdropDome, Flyers, LightRig, ProceduralSky, Starfield, Weather } from "./atmosphere";
 import {
   cardTint,
   getVignetteTexture,
@@ -102,8 +102,8 @@ interface Board3DProps {
   brushReveals?: { x: number; y: number; r: number }[];
   /** 0.3ish for the DM (see-through), 0.9+ for the player view. */
   fogOpacity?: number;
-  /** Terrain relief multiplier (0 = flat, 1 = default, 2 = dramatic). */
-  relief?: number;
+  /** Increment to fire a lightning flash (rides the ⛈ thunder stinger). */
+  stormFlash?: number;
   /** When set (e.g. to the map id), plays a cinematic sweep from the sky
    * down to the table on mount / whenever the key changes. */
   introKey?: string | null;
@@ -256,77 +256,31 @@ function useBoardTexture(
   return { tex: current?.tex ?? null, error: current?.error ?? false };
 }
 
-const HF_W = 192;
-const HF_H = 128;
+/** Terrain sculpting is retired (owner call: flat board + upright props).
+ * Everything that used to sample the height field gets a flat zero. */
+const ZERO_HEIGHT: (px: number, py: number) => number = () => 0;
 
-/** Load the AI heightmap into a coarse luminance grid and expose a sampler
- * (image pixels in, world height out). Plan 45 Tier 3 auto-terrain. */
-function useHeightField(
-  url: string | null | undefined,
-  mapW: number,
-  mapH: number,
-  reliefPx: number,
-): { heightAt: (px: number, py: number) => number; active: boolean } {
-  const [field, setField] = useState<{ url: string; data: Float32Array } | null>(null);
+/** Storm flash: a full-scene lightning strike, triggered by the DM's ⛈
+ * stinger so light and thunder land together on every screen. */
+function Lightning({ seq }: { seq?: number }) {
+  const light = useRef<THREE.AmbientLight>(null);
+  const flash = useRef<{ seq: number; start: number | null }>({ seq: -1, start: null });
   useEffect(() => {
-    if (!url) return undefined;
-    let alive = true;
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      if (!alive) return;
-      try {
-        const c = document.createElement("canvas");
-        c.width = HF_W;
-        c.height = HF_H;
-        const g = c.getContext("2d")!;
-        g.drawImage(img, 0, 0, HF_W, HF_H);
-        const px = g.getImageData(0, 0, HF_W, HF_H).data;
-        const data = new Float32Array(HF_W * HF_H);
-        for (let i = 0; i < data.length; i += 1) {
-          data[i] = (px[i * 4] * 0.299 + px[i * 4 + 1] * 0.587 + px[i * 4 + 2] * 0.114) / 255;
-        }
-        // AI heightmaps come back tonally compressed (mid-gray ground).
-        // Stretch the 5th..97th percentile to 0..1 to restore full relief.
-        const sorted = Float32Array.from(data).sort();
-        const lo = sorted[Math.floor(sorted.length * 0.05)];
-        const hi = sorted[Math.floor(sorted.length * 0.97)];
-        const span = Math.max(0.05, hi - lo);
-        for (let i = 0; i < data.length; i += 1) {
-          data[i] = Math.min(1, Math.max(0, (data[i] - lo) / span));
-        }
-        // Sharpen soft lumps into crisp features, and fade heights to zero
-        // near the border so the terrain sheet seats onto the slab.
-        const margin = 0.055;
-        for (let i = 0; i < data.length; i += 1) {
-          const u = i % HF_W;
-          const v = (i - u) / HF_W;
-          const fx = Math.min(1, Math.min(u, HF_W - 1 - u) / (HF_W * margin));
-          const fy = Math.min(1, Math.min(v, HF_H - 1 - v) / (HF_H * margin));
-          const f = Math.min(fx, fy);
-          data[i] = Math.pow(data[i], 1.6) * f * f * (3 - 2 * f);
-        }
-        setField({ url, data });
-      } catch {
-        // Tainted canvas or decode failure — terrain quietly stays flat.
-      }
-    };
-    img.src = url;
-    return () => {
-      alive = false;
-    };
-  }, [url]);
-  const data = url && field?.url === url ? field.data : null;
-  const heightAt = useCallback(
-    (px: number, py: number): number => {
-      if (!data || reliefPx <= 0) return 0;
-      const u = Math.min(HF_W - 1, Math.max(0, Math.round((px / mapW) * (HF_W - 1))));
-      const v = Math.min(HF_H - 1, Math.max(0, Math.round((py / mapH) * (HF_H - 1))));
-      return data[v * HF_W + u] * reliefPx;
-    },
-    [data, reliefPx, mapW, mapH],
-  );
-  return { heightAt, active: !!data && reliefPx > 0 };
+    if (typeof seq === "number" && seq > 0) flash.current = { seq, start: null };
+  }, [seq]);
+  useFrame((state) => {
+    if (!light.current) return;
+    let intensity = 0;
+    if (flash.current.seq >= 0) {
+      if (flash.current.start === null) flash.current.start = state.clock.elapsedTime;
+      const t = state.clock.elapsedTime - flash.current.start;
+      if (t < 0.12) intensity = 6 * (1 - t / 0.12);
+      else if (t > 0.22 && t < 0.46) intensity = 3.2 * (1 - (t - 0.22) / 0.24);
+      else if (t > 1.4) flash.current = { seq: -1, start: null };
+    }
+    light.current.intensity = intensity;
+  });
+  return <ambientLight ref={light} color="#e6edff" intensity={0} />;
 }
 
 /** Global exposure rides the day-night dial: midday is genuinely bright. */
@@ -1108,7 +1062,6 @@ function BoardScene(props: Board3DProps) {
     revealedRegions,
     brushReveals,
     fogOpacity = 0.35,
-    relief = 1,
   } = props;
 
   const defeatedSet = useMemo(() => new Set(defeatedRefs ?? []), [defeatedRefs]);
@@ -1122,30 +1075,10 @@ function BoardScene(props: Board3DProps) {
   const boardProps = map.props?.length ? map.props : protoScene?.props;
   const { tex, error } = useBoardTexture(boardImage);
   const { tex: domeTex } = useBoardTexture(map.backdrop_url);
-  const { heightAt, active: terrainActive } = useHeightField(
-    map.heightmap_url,
-    map.width,
-    map.height,
-    unit * 1.4 * relief,
-  );
+  const heightAt = ZERO_HEIGHT;
   const vignette = useMemo(() => getVignetteTexture(), []);
   const glideRef = useRef<GlideAnim | null>(null);
   const strikeRef = useRef<StrikeAnim | null>(null);
-
-  // Displaced ground: the map plane sculpted by the AI heightmap. The map
-  // texture drapes over it, so painted stones and trees rise as themselves.
-  const terrainGeom = useMemo(() => {
-    if (!terrainActive) return null;
-    const geo = new THREE.PlaneGeometry(map.width, map.height, 160, 106);
-    const pos = geo.getAttribute("position") as THREE.BufferAttribute;
-    for (let i = 0; i < pos.count; i += 1) {
-      const px = pos.getX(i) + map.width / 2;
-      const py = map.height / 2 - pos.getY(i);
-      pos.setZ(i, heightAt(px, py));
-    }
-    geo.computeVertexNormals();
-    return geo;
-  }, [terrainActive, heightAt, map.width, map.height]);
 
   useEffect(() => {
     if (strike && strikeRef.current?.seq !== strike.seq) {
@@ -1154,8 +1087,8 @@ function BoardScene(props: Board3DProps) {
   }, [strike]);
 
   const gridPositions = useMemo(
-    () => (gridKind === "off" ? null : buildGrid(map, unit, gridKind, terrainActive ? heightAt : undefined)),
-    [map, unit, gridKind, terrainActive, heightAt],
+    () => (gridKind === "off" ? null : buildGrid(map, unit, gridKind)),
+    [map, unit, gridKind],
   );
 
   const strikeTargetToken = strike ? tokens.find((t) => t.id === strike.targetId) : undefined;
@@ -1269,8 +1202,14 @@ function BoardScene(props: Board3DProps) {
       />
       <Exposure darkness={darkness} />
       <LightRig fit={fit} darkness={darkness} weather={weather} />
+      <Lightning seq={props.stormFlash} />
       <Starfield fit={fit} darkness={darkness} />
-      {domeTex && <BackdropDome tex={domeTex} fit={fit} darkness={darkness} />}
+      <Flyers fit={fit} darkness={darkness} weather={weather} />
+      {domeTex ? (
+        <BackdropDome tex={domeTex} fit={fit} darkness={darkness} />
+      ) : (
+        <ProceduralSky fit={fit} darkness={darkness} />
+      )}
       <CameraRig
         mapW={map.width}
         mapH={map.height}
@@ -1296,10 +1235,9 @@ function BoardScene(props: Board3DProps) {
         <boxGeometry args={[map.width + unit * 0.35, unit * 0.5, map.height + unit * 0.35]} />
         <meshLambertMaterial color="#191527" />
       </mesh>
-      {/* the map itself — flat plane, or terrain sculpted from the AI
-          heightmap (material keyed on the texture — see Standee note) */}
+      {/* the map itself — always flat; verticality comes from the props
+          (material keyed on the texture — see Standee note) */}
       <mesh
-        geometry={terrainGeom ?? undefined}
         rotation-x={-Math.PI / 2}
         onClick={handleGround}
         onContextMenu={(e) => {
@@ -1307,9 +1245,9 @@ function BoardScene(props: Board3DProps) {
           onSelect(null);
         }}
       >
-        {!terrainGeom && <planeGeometry args={[map.width, map.height]} />}
+        <planeGeometry args={[map.width, map.height]} />
         <meshLambertMaterial
-          key={`${tex ? `map-${tex.uuid}` : "map-flat"}-${terrainGeom ? "terrain" : "plane"}`}
+          key={tex ? `map-${tex.uuid}` : "map-flat"}
           map={tex ?? undefined}
           color={tex ? "#ffffff" : error ? "#2a2433" : "#111119"}
         />
@@ -1487,6 +1425,7 @@ function BoardScene(props: Board3DProps) {
       {cinema && (
         <EffectComposer>
           <DepthOfField focusDistance={0.12} focalLength={0.08} bokehScale={2.2} />
+          <Bloom intensity={0.5} luminanceThreshold={0.72} mipmapBlur />
           <Vignette eskil={false} offset={0.18} darkness={0.7} />
         </EffectComposer>
       )}

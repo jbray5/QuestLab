@@ -94,6 +94,7 @@ export default function BoardView() {
   >([]);
   const pingSeq = useRef(0);
   const stingerRef = useRef<(kind: string) => void>(() => undefined);
+  const [stormSeq, setStormSeq] = useState(0);
 
   useEventStream("table", sessionId, (event) => {
     if (event.type === "table.ping") {
@@ -101,6 +102,7 @@ export default function BoardView() {
       if (typeof p.x !== "number" || typeof p.y !== "number") return;
       if (p.kind === "howl" || p.kind === "thunder" || p.kind === "sting") {
         stingerRef.current(p.kind);
+        if (p.kind === "thunder") setStormSeq((s) => s + 1);
         return;
       }
       // The DM's own hit broadcasts skip the board — the native strike
@@ -788,6 +790,7 @@ export default function BoardView() {
               brushReveals={state?.brush_reveals ?? []}
               fogOpacity={0.32}
               pings={boardPings}
+              stormFlash={stormSeq}
               castMode={!!fxMode}
               onCast={castFx}
               measureMode={measuring}

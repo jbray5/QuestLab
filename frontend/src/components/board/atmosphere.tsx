@@ -222,6 +222,153 @@ export function Starfield({ fit, darkness }: { fit: number; darkness: number }) 
   );
 }
 
+// ── Procedural sky (no-backdrop maps get a real day-night sky) ──────────────
+
+const skyTexCache = new Map<number, THREE.CanvasTexture>();
+
+function skyTexture(bucket: number): THREE.CanvasTexture {
+  const cached = skyTexCache.get(bucket);
+  if (cached) return cached;
+  const d = bucket / 20;
+  const c = document.createElement("canvas");
+  c.width = 4;
+  c.height = 256;
+  const g = c.getContext("2d")!;
+  const top = new THREE.Color("#7fb8f7").lerp(new THREE.Color("#070b24"), d);
+  const horizon = new THREE.Color("#f2ead8").lerp(new THREE.Color("#141a30"), d);
+  // Dusk warmth: a bell around mid-darkness tints the horizon amber.
+  const dusk = Math.max(0, 1 - Math.abs(d - 0.5) * 4);
+  horizon.lerp(new THREE.Color("#e8955c"), dusk * 0.55);
+  const grad = g.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0, `#${top.getHexString()}`);
+  grad.addColorStop(0.62, `#${top.clone().lerp(horizon, 0.55).getHexString()}`);
+  grad.addColorStop(1, `#${horizon.getHexString()}`);
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(c);
+  skyTexCache.set(bucket, tex);
+  return tex;
+}
+
+/** Gradient sky dome + a sun/moon riding the darkness dial. Used when the
+ * map has no AI backdrop, so no scene ever opens onto void. */
+export function ProceduralSky({ fit, darkness }: { fit: number; darkness: number }) {
+  const bucket = Math.round(darkness * 20);
+  const tex = useMemo(() => skyTexture(bucket), [bucket]);
+  const sunEl = ((1 - darkness) * 55 - 6) * (Math.PI / 180);
+  const moonEl = (darkness * 48 - 4) * (Math.PI / 180);
+  const r = fit * 2.3;
+  return (
+    <group>
+      <mesh scale={[-1, 1, 1]}>
+        <sphereGeometry args={[fit * 2.56, 32, 24]} />
+        <meshBasicMaterial map={tex} side={THREE.BackSide} fog={false} />
+      </mesh>
+      {darkness < 0.72 && (
+        <mesh position={[r * 0.5, Math.max(fit * 0.05, r * Math.sin(sunEl)), -r * 0.75]}>
+          <circleGeometry args={[fit * 0.085, 24]} />
+          <meshBasicMaterial
+            color="#fff3c2"
+            transparent
+            opacity={Math.min(1, (0.72 - darkness) * 3)}
+            fog={false}
+          />
+        </mesh>
+      )}
+      {darkness > 0.35 && (
+        <mesh position={[-r * 0.55, Math.max(fit * 0.08, r * Math.sin(moonEl)), -r * 0.7]}>
+          <circleGeometry args={[fit * 0.05, 24]} />
+          <meshBasicMaterial
+            color="#e6ecff"
+            transparent
+            opacity={Math.min(0.95, (darkness - 0.35) * 2.4)}
+            fog={false}
+          />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+// ── Ambient flyers: birds by day, bats by night ─────────────────────────────
+
+let birdTex: THREE.CanvasTexture | null = null;
+
+function getBirdTexture(): THREE.CanvasTexture {
+  if (birdTex) return birdTex;
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 32;
+  const g = c.getContext("2d")!;
+  g.strokeStyle = "#15151c";
+  g.lineWidth = 5;
+  g.lineCap = "round";
+  g.beginPath();
+  g.moveTo(4, 26);
+  g.quadraticCurveTo(20, 4, 32, 20);
+  g.quadraticCurveTo(44, 4, 60, 26);
+  g.stroke();
+  birdTex = new THREE.CanvasTexture(c);
+  return birdTex;
+}
+
+/** A loose flock drifting across the sky — birds in daylight, bats after
+ * dusk, grounded by rain. Barely noticeable; completely alive. */
+export function Flyers({ fit, darkness, weather }: { fit: number; darkness: number; weather: string }) {
+  const group = useRef<THREE.Group>(null);
+  const tex = useMemo(() => getBirdTexture(), []);
+  const seeds = useMemo(() => {
+    const rnd = mulberry32(4242);
+    return Array.from({ length: 6 }, () => ({
+      phase: rnd() * Math.PI * 2,
+      radius: fit * (0.5 + rnd() * 0.7),
+      height: fit * (0.28 + rnd() * 0.22),
+      speed: 0.016 + rnd() * 0.014,
+      flap: 4 + rnd() * 3,
+      size: fit * (0.012 + rnd() * 0.008),
+    }));
+  }, [fit]);
+  const active = weather !== "rain" && weather !== "snow";
+  const night = darkness > 0.55;
+
+  useFrame((state) => {
+    const g = group.current;
+    if (!g) return;
+    const t = state.clock.elapsedTime;
+    g.children.forEach((child, i) => {
+      const s = seeds[i];
+      if (!s) return;
+      const a = s.phase + t * s.speed * (night ? 2.1 : 1);
+      child.position.set(
+        Math.cos(a) * s.radius,
+        s.height + Math.sin(t * 0.7 + s.phase) * fit * 0.02 + (night ? Math.sin(t * 5 + i) * fit * 0.012 : 0),
+        Math.sin(a) * s.radius,
+      );
+      child.scale.set(s.size * (night ? 0.55 : 1), s.size * (0.6 + 0.4 * Math.abs(Math.sin(t * s.flap))) * (night ? 0.55 : 1), 1);
+      child.rotation.y = -a;
+    });
+  });
+
+  if (!active) return null;
+  return (
+    <group ref={group}>
+      {seeds.map((_, i) => (
+        <mesh key={i}>
+          <planeGeometry args={[2, 1]} />
+          <meshBasicMaterial
+            map={tex}
+            transparent
+            alphaTest={0.2}
+            side={THREE.DoubleSide}
+            color={night ? "#0c0c12" : "#20222c"}
+            fog={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 // ── Backdrop dome (Tier 2) ───────────────────────────────────────────────────
 
 interface DomeProps {
