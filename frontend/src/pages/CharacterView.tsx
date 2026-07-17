@@ -164,43 +164,50 @@ function Doll({ pcId, model, busy }: { pcId: string; model: string | null; busy:
   const qc = useQueryClient();
   const gearKey = ["forge-gear", pcId];
   const { data: gear = [] } = useQuery({ queryKey: gearKey, queryFn: () => playApi.gear(pcId) });
-  const equipMut = useMutation({
-    mutationFn: ({ id, on }: { id: string; on: boolean }) => playApi.setEquipped(pcId, id, on),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: gearKey }),
+  const setEquipped = (id: string, on: boolean) => playApi.setEquipped(pcId, id, on);
+  const refetch = () => qc.invalidateQueries({ queryKey: gearKey });
+
+  const equipMut = useMutation({ mutationFn: (id: string) => setEquipped(id, false), onSuccess: refetch });
+  // Equip with a swap: one item per slot. If the target slot is already
+  // filled, unequip the occupant first so nothing is left double-equipped.
+  const swapMut = useMutation({
+    mutationFn: async (g: GearRow) => {
+      const occupant = gear.find((x) => x.slot === g.slot && x.equipped && x.character_item_id !== g.character_item_id);
+      if (occupant) await setEquipped(occupant.character_item_id, false);
+      await setEquipped(g.character_item_id, true);
+    },
+    onSuccess: refetch,
   });
 
-  const equippedInSlot = (key: string) => gear.find((g) => g.slot === key && g.equipped);
-  const pack = gear.filter((g) => !g.equipped);
-  const selectedSlots = new Set(pack.filter((g) => g.slot).map((g) => g.slot));
+  // The item shown in each slot cell (first equipped item mapped there).
+  const slotItem = (key: string) => gear.find((g) => g.slot === key && g.equipped);
+  const shown = new Set(
+    [...LEFT_SLOTS, ...RIGHT_SLOTS].map((d) => slotItem(d.key)?.character_item_id).filter(Boolean),
+  );
+  // Pack = everything not currently occupying a slot cell. Overflow-equipped
+  // items (e.g. a second weapon) land here flagged "equipped" so they stay
+  // visible and toggleable instead of vanishing.
+  const pack = gear.filter((g) => !shown.has(g.character_item_id));
+  const wantSlots = new Set(pack.filter((g) => g.slot && !g.equipped).map((g) => g.slot));
+
+  const renderSlot = (def: { key: string; label: string; icon: string }) => (
+    <Slot
+      key={def.key}
+      def={def}
+      item={slotItem(def.key)}
+      hint={wantSlots.has(def.key) && !slotItem(def.key)}
+      onUnequip={(id) => equipMut.mutate(id)}
+    />
+  );
 
   return (
     <div>
       <div className="doll">
-        <div className="slot-col">
-          {LEFT_SLOTS.map((def) => (
-            <Slot
-              key={def.key}
-              def={def}
-              item={equippedInSlot(def.key)}
-              hint={selectedSlots.has(def.key) && !equippedInSlot(def.key)}
-              onUnequip={(id) => equipMut.mutate({ id, on: false })}
-            />
-          ))}
-        </div>
+        <div className="slot-col">{LEFT_SLOTS.map(renderSlot)}</div>
         <div className={busy ? "model busy" : "model"}>
           {model ? <img src={model} alt="Your character" /> : <span className="ph">🧍</span>}
         </div>
-        <div className="slot-col">
-          {RIGHT_SLOTS.map((def) => (
-            <Slot
-              key={def.key}
-              def={def}
-              item={equippedInSlot(def.key)}
-              hint={selectedSlots.has(def.key) && !equippedInSlot(def.key)}
-              onUnequip={(id) => equipMut.mutate({ id, on: false })}
-            />
-          ))}
-        </div>
+        <div className="slot-col">{RIGHT_SLOTS.map(renderSlot)}</div>
       </div>
 
       <h2 className="forge-h2">🎒 Pack</h2>
@@ -212,16 +219,21 @@ function Doll({ pcId, model, busy }: { pcId: string; model: string | null; busy:
         <div className="pack">
           {pack.map((g) => {
             const canEquip = !!g.slot;
+            const title = g.equipped
+              ? `${g.name} — equipped (tap to stow)`
+              : canEquip
+                ? `Tap to equip → ${g.slot?.replace("_", " ")}`
+                : `${g.name} — carried in your pack`;
             return (
               <div
                 key={g.character_item_id}
-                className={`pack-item ${canEquip ? "eq" : "carried"}`}
-                title={
-                  canEquip
-                    ? `Tap to equip → ${g.slot?.replace("_", " ")}`
-                    : `${g.name} — carried in your pack`
+                className={`pack-item ${g.equipped || canEquip ? "eq" : "carried"}`}
+                title={title}
+                onClick={() =>
+                  g.equipped
+                    ? equipMut.mutate(g.character_item_id)
+                    : canEquip && swapMut.mutate(g)
                 }
-                onClick={() => canEquip && equipMut.mutate({ id: g.character_item_id, on: true })}
               >
                 <div className="pack-img">
                   {g.image_url ? <img src={g.image_url} alt={g.name} loading="lazy" /> : typeEmoji(g.item_type)}
@@ -232,7 +244,7 @@ function Doll({ pcId, model, busy }: { pcId: string; model: string | null; busy:
                     {g.quantity > 1 ? ` ×${g.quantity}` : ""}
                   </div>
                   <div className="pack-meta" style={{ color: RARITY_COLORS[g.rarity] ?? "#9a9aac" }}>
-                    {canEquip ? g.slot?.replace("_", " ") : "carried"}
+                    {g.equipped ? "⚔ equipped" : canEquip ? g.slot?.replace("_", " ") : "carried"}
                     {g.rarity !== "Common" ? ` · ${g.rarity.replace("VeryRare", "Very Rare")}` : ""}
                   </div>
                 </div>
