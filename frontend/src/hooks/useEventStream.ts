@@ -52,8 +52,6 @@ export function useEventStream(
     const base = apiBase();
     const url = `${base}/stream/${scope}/${id}`;
 
-    const es = new EventSource(url);
-
     const dispatch = (e: MessageEvent) => {
       try {
         const data = JSON.parse(e.data) as StreamEvent;
@@ -65,8 +63,9 @@ export function useEventStream(
     };
 
     // SSE delivers events under the event name set on the server side.
-    // Subscribe to the known types AND the default "message" event so we
-    // don't miss anything sent without an explicit name.
+    // EventSource only fires listeners registered for that EXACT name, so
+    // every server-side event type must appear here (plus the default
+    // "message" for anything sent unnamed).
     const types = [
       "message",
       "pc.updated",
@@ -77,14 +76,34 @@ export function useEventStream(
       "pc.turn.changed",
       "session.combat.updated",
       "dice.rolled",
+      "table.updated",
+      "table.ping",
     ];
-    types.forEach((t) => es.addEventListener(t, dispatch as EventListener));
+
+    // The browser retries transient drops itself, but a non-200 response
+    // (Render deploy / cold start) closes the EventSource permanently —
+    // without this, an open tab stays deaf until a manual refresh.
+    let es: EventSource | null = null;
+    let retryTimer: number | null = null;
+    let disposed = false;
+
+    const connect = () => {
+      if (disposed) return;
+      const source = new EventSource(url);
+      es = source;
+      types.forEach((t) => source.addEventListener(t, dispatch as EventListener));
+      source.onerror = () => {
+        if (disposed || source.readyState !== EventSource.CLOSED) return;
+        source.close();
+        retryTimer = window.setTimeout(connect, 4000);
+      };
+    };
+    connect();
 
     return () => {
-      types.forEach((t) =>
-        es.removeEventListener(t, dispatch as EventListener),
-      );
-      es.close();
+      disposed = true;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+      es?.close();
     };
   }, [scope, id, enabled]);
 }
