@@ -36,6 +36,7 @@ Forbidden in player scope (DM only):
 
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Any
 
@@ -375,9 +376,104 @@ _HERO_COOLDOWN_SECONDS = 90
 # Player-editable appearance length cap.
 _APPEARANCE_MAX = 1500
 
+# Keyword → equipment slot, checked most-specific first. A row that matches
+# nothing is a non-slot carried item (potion, scroll, provisions) and shows
+# in the pack only. Drives the Diablo-style paper-doll (Plan 48 revision).
+_SLOT_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
+    ("off_hand", ("shield",)),
+    ("ring", ("ring", "signet", "band")),
+    ("neck", ("amulet", "necklace", "pendant", "periapt", "medallion", "torc", "brooch")),
+    ("head", ("helm", "helmet", "hat", "cap", "circlet", "crown", "hood", "coif", "mask")),
+    ("feet", ("boot", "greave", "sabaton", "shoe", "sandal", "slipper")),
+    ("hands", ("glove", "gauntlet", "bracer", "vambrace", "mitt")),
+    ("back", ("cloak", "cape", "mantle", "shawl", "wrap")),
+    (
+        "body",
+        (
+            "armor",
+            "armour",
+            "mail",
+            "plate",
+            "breastplate",
+            "cuirass",
+            "leather",
+            "hide",
+            "robe",
+            "vestment",
+            "tunic",
+            "chestpiece",
+        ),
+    ),
+    (
+        "main_hand",
+        (
+            "sword",
+            "axe",
+            "bow",
+            "dagger",
+            "mace",
+            "spear",
+            "staff",
+            "wand",
+            "hammer",
+            "flail",
+            "glaive",
+            "halberd",
+            "rapier",
+            "scimitar",
+            "club",
+            "sling",
+            "crossbow",
+            "whip",
+            "javelin",
+            "trident",
+            "blade",
+            "quarterstaff",
+            "morningstar",
+            "pike",
+            "lance",
+            "warhammer",
+            "greatsword",
+            "longsword",
+            "shortsword",
+            "handaxe",
+            "greataxe",
+            "maul",
+            "sickle",
+        ),
+    ),
+]
+
+
+def _equip_slot(item_type: str, name: str) -> str | None:
+    """Map an item to a paper-doll slot, or None if it isn't slotted gear.
+
+    Matches keywords against word *prefixes* (so "boots" hits "boot" but
+    "adventuring" does not hit "ring") rather than raw substrings.
+
+    Args:
+        item_type: The catalog item_type ("Weapon", "Armor", "Ring"...).
+        name: The item name (carries most of the signal for gear).
+
+    Returns:
+        A slot key (head/body/hands/feet/back/main_hand/off_hand/neck/ring)
+        or None for carried, non-equippable items.
+    """
+    tokens = re.findall(r"[a-z]+", f"{item_type} {name}".lower())
+    for slot, words in _SLOT_KEYWORDS:
+        if any(tok.startswith(w) for tok in tokens for w in words):
+            return slot
+    # A weapon/armor type that dodged the keyword lists still gets a home.
+    t = item_type.lower()
+    if "weapon" in t:
+        return "main_hand"
+    if "armor" in t or "armour" in t:
+        return "body"
+    return None
+
 
 def list_gear(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
-    """Inventory rows joined with catalog item details for the Forge UI.
+    """Inventory rows joined with catalog item details for the character screen.
 
     Args:
         db: Active database session.
@@ -385,7 +481,8 @@ def list_gear(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
 
     Returns:
         One dict per inventory row: ids, name/type/rarity/image from the
-        catalog, quantity/equipped/attuned from the row.
+        catalog, quantity/equipped/attuned from the row, plus the derived
+        paper-doll ``slot`` (None for carried, non-equippable items).
     """
     from db.repos.item_repo import ItemRepo
     from services import inventory_service
@@ -409,6 +506,7 @@ def list_gear(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
                 "quantity": row.quantity,
                 "equipped": row.equipped,
                 "attuned": row.attuned,
+                "slot": _equip_slot(item.item_type, item.name),
             }
         )
     return gear
@@ -492,7 +590,6 @@ def forge_hero(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
         if elapsed < _HERO_COOLDOWN_SECONDS:
             wait = int(_HERO_COOLDOWN_SECONDS - elapsed)
             raise ValueError(f"The forge is still glowing — try again in {wait}s.")
-    equipped = [g["name"] for g in list_gear(db, pc_id) if g["equipped"]]
-    url = portrait_service.generate_pc_hero(db, pc, equipped)
+    url = portrait_service.generate_pc_hero(db, pc)
     publish_pc_updated(pc.id, pc.campaign_id)
     return {"hero_url": url}

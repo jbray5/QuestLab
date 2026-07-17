@@ -107,4 +107,6 @@ export interface GearRow {
   quantity: number;
   equipped: boolean;
   attuned: boolean;
+  /** Paper-doll slot, or null for carried, non-equippable items. */
+  slot: string | null;
 }

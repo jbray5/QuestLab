@@ -409,12 +409,16 @@ def generate_monster_portrait(
 # ---------------------------------------------------------------------------
 
 
-def _build_hero_prompt(pc: PlayerCharacter, equipped: list[str]) -> str:
-    """Build the full-body hero prompt from identity + appearance + gear.
+def _build_hero_prompt(pc: PlayerCharacter) -> str:
+    """Build the character-model prompt from identity + appearance only.
+
+    Deliberately excludes equipped gear: the model is a *persistent* likeness
+    of who the character is (Plan 48 revision — gear is shown in equipment
+    slots on the screen, not baked into the render, so equipping a sword
+    never re-rolls the character's face).
 
     Args:
         pc: The player character row.
-        equipped: Display names of currently equipped items.
 
     Returns:
         The image prompt string.
@@ -424,32 +428,27 @@ def _build_hero_prompt(pc: PlayerCharacter, equipped: list[str]) -> str:
         if hasattr(pc.character_class, "value")
         else str(pc.character_class)
     )
-    bits: list[str] = [
-        f"Full-body character portrait of {pc.character_name}, "
-        f"a level {pc.level} {pc.race} {klass}"
-    ]
+    bits: list[str] = [f"Full-body character model of {pc.character_name}, a {pc.race} {klass}"]
     if pc.subclass:
         bits.append(f"({pc.subclass})")
     if pc.appearance:
         bits.append(pc.appearance.strip()[:1200])
-    if equipped:
-        bits.append("Currently equipped and visibly worn or carried: " + ", ".join(equipped[:12]))
     bits.append(
-        "Heroic RPG character-screen render in the style of a AAA fantasy video game: "
-        "standing full-length pose, head to boots in frame, three-quarter view, "
-        "dramatic rim lighting, painterly detail, dark smoky studio backdrop with "
-        "a faint ground shadow. No text, no watermark, no border"
+        "Video-game character-select model: one figure standing straight and "
+        "facing forward, full body from head to boots in frame, symmetrical "
+        "neutral pose, painterly fantasy detail, clean die-cut cutout on a fully "
+        "transparent background, no scenery, no ground, no shadow. "
+        "No text, no watermark, no border"
     )
     return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
 
 
-def generate_pc_hero(session: Session, pc: PlayerCharacter, equipped: list[str]) -> str:
-    """Generate + persist the hero render for a PC (auth handled by caller).
+def generate_pc_hero(session: Session, pc: PlayerCharacter) -> str:
+    """Generate + persist the character model render (auth handled by caller).
 
     Args:
         session: Active database session.
         pc: The player character row (already ownership-checked upstream).
-        equipped: Display names of currently equipped items.
 
     Returns:
         The uploaded image URL.
@@ -458,8 +457,8 @@ def generate_pc_hero(session: Session, pc: PlayerCharacter, equipped: list[str])
         PermissionError: If OPENAI/BLOB env vars are missing.
         RuntimeError: If the upstream API calls fail.
     """
-    prompt = _build_hero_prompt(pc, equipped)
-    png_bytes = generate_image(prompt, size="1024x1536", quality="medium")
+    prompt = _build_hero_prompt(pc)
+    png_bytes = generate_image(prompt, size="1024x1536", background="transparent")
     url = blob_storage.upload(path=f"heroes/pc-{pc.id}.png", data=png_bytes)
     # Naive UTC on purpose: DuckDB round-trips tz-aware values through local
     # time (breaking the cooldown math), while naive UTC reads back verbatim;

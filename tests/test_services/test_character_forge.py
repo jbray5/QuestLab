@@ -49,7 +49,7 @@ class TestGearAndAppearance:
     """Gear join, player equip scoping, appearance notes."""
 
     def test_list_gear_joins_item_details(self, duckdb_session: Session):
-        """Gear rows carry the catalog name/type/rarity."""
+        """Gear rows carry the catalog name/type/rarity and derived slot."""
         dm = _dm()
         c = _campaign(duckdb_session, dm)
         pc = _pc(duckdb_session, c.id, dm)
@@ -61,6 +61,7 @@ class TestGearAndAppearance:
         assert gear[0]["name"] == "Moonblade"
         assert gear[0]["item_type"] == "Weapon"
         assert gear[0]["equipped"] is False
+        assert gear[0]["slot"] == "main_hand"
 
     def test_player_equips_own_row(self, duckdb_session: Session):
         """Equipping via the player scope flips the flag."""
@@ -101,13 +102,17 @@ class TestGearAndAppearance:
 class TestForgeHero:
     """Hero generation: prompt content, persistence, cooldown."""
 
-    def test_forge_builds_prompt_from_identity_and_gear(self, duckdb_session: Session, monkeypatch):
-        """Prompt carries name, race/class, appearance, and equipped items only."""
+    def test_forge_model_is_appearance_only_not_gear(self, duckdb_session: Session, monkeypatch):
+        """The model prompt carries identity + appearance but NOT equipped gear.
+
+        The persistent-model revision: equipping a sword must never change the
+        character render (gear lives in slots), so equipped item names stay out
+        of the prompt.
+        """
         dm = _dm()
         c = _campaign(duckdb_session, dm)
         pc = _pc(duckdb_session, c.id, dm)
         _give_item(duckdb_session, pc.id, dm, name="Moonblade", equipped=True)
-        _give_item(duckdb_session, pc.id, dm, name="Bedroll", equipped=False)
         play_svc.set_appearance(duckdb_session, pc.id, "Storm-grey eyes, ash-blonde braid")
         captured = _patch_hero_gen(monkeypatch)
 
@@ -116,11 +121,23 @@ class TestForgeHero:
         assert result["hero_url"] == f"https://fake.blob/heroes/pc-{pc.id}.png"
         assert "Hero" in captured["prompt"]
         assert "Storm-grey eyes" in captured["prompt"]
-        assert "Moonblade" in captured["prompt"]
-        assert "Bedroll" not in captured["prompt"]
+        assert "Moonblade" not in captured["prompt"]
         assert captured["kwargs"].get("size") == "1024x1536"
+        assert captured["kwargs"].get("background") == "transparent"
         refreshed = play_svc.get_character(duckdb_session, pc.id)
         assert refreshed.hero_url == result["hero_url"]
+
+    def test_gear_slot_derivation(self, duckdb_session: Session):
+        """Names map to the expected paper-doll slots; consumables get None."""
+        assert play_svc._equip_slot("Weapon", "Longsword") == "main_hand"
+        assert play_svc._equip_slot("Armor", "Wooden Shield, Reinforced") == "off_hand"
+        assert play_svc._equip_slot("Armor", "Chain Mail") == "body"
+        assert play_svc._equip_slot("Wondrous Item", "Cloak of Billowing") == "back"
+        assert play_svc._equip_slot("Ring", "Ring of Protection") == "ring"
+        assert play_svc._equip_slot("Wondrous Item", "Amulet of Health") == "neck"
+        assert play_svc._equip_slot("Adventuring Gear", "Leather Boots") == "feet"
+        assert play_svc._equip_slot("Potion", "Potion of Healing") is None
+        assert play_svc._equip_slot("Provisions", "Bramblecrust Loaf") is None
 
     def test_forge_cooldown_blocks_rapid_regen(self, duckdb_session: Session, monkeypatch):
         """A second forge inside the window raises with the wait message."""

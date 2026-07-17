@@ -14,14 +14,27 @@ and new weapons… like a Diablo IV character view, or BG3. Then they could
 do some customization on how the character looks and form a bond with the
 character they've created."
 
-## Concept
+## Concept (revised 2026-07-17 per owner)
 A full-screen character page at `/play/:pcId/character` (same capability
-URL as the player view, linked from it). The player sees a tall painterly
-full-body render of their character ("the hero portrait"), equips and
-unequips gear from their actual inventory, writes their own appearance
-notes, and hits **✨ Forge** — the portrait regenerates wearing what they
-equipped, looking how they described. The bond loop: equip → describe →
-forge → admire → repeat.
+URL as the player view, linked from it), styled as a **Diablo-style
+paper-doll**: a *persistent* character model in the centre flanked by
+equipment slots (head/body/hands/feet · main-hand/off-hand/cloak/neck/ring)
+that fill **instantly** with item art as the player equips gear. The model
+is a stable likeness that does **not** regenerate on equip — a separate,
+optional "✨ Regenerate model" button repaints it (appearance + identity
+only, never gear) when the player wants to change how their character looks.
+
+> **Owner correction (the pivot):** the first cut regenerated the whole AI
+> image on every forge and folded equipped gear into the prompt. Owner:
+> "Idk about regenerating an ai image each time. I meant more of a static
+> 'model' of the player that doesn't change when you add a sword. Like
+> Diablo." So: gear → slots (instant, no AI); model → appearance-only,
+> transparent cutout, regenerated only on explicit request.
+
+Slot derivation is deterministic (`player_service._equip_slot`, token-prefix
+keyword match on item type+name; consumables map to None and stay in the
+pack). The hero render is now `background="transparent"` so the model reads
+as a game "model" standing on the screen's pedestal glow.
 
 ## What already exists (leveraged, not rebuilt)
 - `character_items.equipped` / `attuned` flags (Plan 10) — the paper-doll
