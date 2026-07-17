@@ -55,6 +55,16 @@ stand as true vertical elements you can orbit, tokens walk *between* them.
   at merge time. If the branch runs long, spin a true dev stack (second
   Render service + dev Postgres) — decision deferred.
 
+## Shipped 2026-07-16 late (owner: "GO NUTS") — merged to prod
+- Diorama scenes to production (Green + Midday, per-map scene table).
+- Synced weather (migration 0025) — players' views render the DM's sky.
+- Procedural WebAudio ambience (wind/birds/crickets/rain/fire crackle),
+  zero assets, on the DM board + players' 3D view.
+- Cinematic intro sweep on the players' view; ⚔ turn banner lower-third.
+- Night starfield; prop wind-sway; token sizing hotkeys [ ].
+- SCENES presets bar — one-click map+darkness+weather+title changes
+  (localStorage per session); Saturday is four buttons.
+
 ## First milestones
 - [ ] 1. Prototype: hardcoded prop list on the Waystone Midday map —
       billboard cut-out sprites for the two stones + a few trees; judge the
