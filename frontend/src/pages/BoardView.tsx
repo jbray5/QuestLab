@@ -8,9 +8,15 @@ import { monstersApi } from "../api/monsters";
 import { sessionsApi } from "../api/sessions";
 import { tableApi } from "../api/table";
 import type { BattleMap, SessionCombatant, TableStateRead, TableToken } from "../api/types";
+import { useAmbience } from "../components/board/ambience";
 import Board3D, { type GridKind, type StrikeFx } from "../components/board/Board3D";
 import { WEATHER_KINDS, type WeatherKind } from "../components/board/boardTheme";
 import BoardTracker from "../components/board/BoardTracker";
+import {
+  loadScenePresets,
+  saveScenePresets,
+  type ScenePreset,
+} from "../components/board/scenePresets";
 import { useEventStream } from "../hooks/useEventStream";
 
 /**
@@ -132,7 +138,12 @@ export default function BoardView() {
   const [gridKind, setGridKind] = useState<GridKind | null>(null);
   const effectiveGrid: GridKind = gridKind ?? (activeMap?.grid_size ? "hex" : "off");
 
-  const [weather, setWeather] = useState<WeatherKind>("none");
+  // Weather is SYNCED table state (Plan 46) — the players' views render it.
+  const weather = ((state?.weather ?? "none") as WeatherKind) || "none";
+  function setWeather(v: WeatherKind) {
+    applyLocal({ weather: v === "none" ? null : v });
+    void tableApi.updateState(sessionId!, { weather: v === "none" ? null : v });
+  }
   const [cinema, setCinema] = useState(false);
   const [followTurn, setFollowTurn] = useState(true);
   const [backdropOpen, setBackdropOpen] = useState(false);
@@ -140,6 +151,9 @@ export default function BoardView() {
   const [backdropBusy, setBackdropBusy] = useState(false);
   const [terrainBusy, setTerrainBusy] = useState(false);
   const [relief, setRelief] = useState(1);
+  const [soundOn, setSoundOn] = useState(false);
+  const [soundVol, setSoundVol] = useState(0.7);
+  const [presets, setPresets] = useState<ScenePreset[]>(() => loadScenePresets(sessionId ?? ""));
   const torchSeq = useRef(0);
 
   const darkTimer = useRef<number | undefined>(undefined);
@@ -170,6 +184,16 @@ export default function BoardView() {
         setPendingAttack(null);
       }
       if ((e.key === "a" || e.key === "A") && selectedId) setAttackArmed((v) => !v);
+      if ((e.key === "[" || e.key === "]") && selectedId) {
+        const delta = e.key === "]" ? 0.25 : -0.25;
+        const tokens = (qc.getQueryData<TableStateRead>(stateKey)?.tokens ?? []).map((t) =>
+          t.id === selectedId
+            ? { ...t, size: Math.min(3, Math.max(0.5, (t.size || 1) + delta)) }
+            : t,
+        );
+        applyLocal({ tokens });
+        void tableApi.updateState(sessionId!, { tokens });
+      }
       if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
         const tokens = (qc.getQueryData<TableStateRead>(stateKey)?.tokens ?? []).filter(
           (t) => t.id !== selectedId,
@@ -424,6 +448,48 @@ export default function BoardView() {
   const targetToken = pendingAttack ? state?.tokens.find((t) => t.id === pendingAttack.targetId) : null;
   const selectedToken = selectedId ? state?.tokens.find((t) => t.id === selectedId) : null;
 
+  const torchCount = useMemo(
+    () => (state?.tokens ?? []).filter((t) => t.kind === "light").length,
+    [state?.tokens],
+  );
+  useAmbience(soundOn, soundVol, {
+    darkness: state?.darkness ?? 0,
+    weather,
+    torches: torchCount,
+  });
+
+  function applyPreset(p: ScenePreset) {
+    const patch = {
+      active_map_id: p.mapId,
+      darkness: p.darkness,
+      weather: p.weather,
+      title: p.title ?? "",
+    };
+    applyLocal(patch);
+    void tableApi.updateState(sessionId!, patch);
+  }
+
+  function saveCurrentScene() {
+    const name = window.prompt("Scene name:", activeMap?.name ?? "Scene");
+    if (!name) return;
+    const preset: ScenePreset = {
+      name: name.slice(0, 24),
+      mapId: state?.active_map_id ?? null,
+      darkness: state?.darkness ?? 0,
+      weather: state?.weather ?? null,
+      title: state?.title || undefined,
+    };
+    const next = [...presets.filter((x) => x.name !== preset.name), preset];
+    setPresets(next);
+    saveScenePresets(sessionId!, next);
+  }
+
+  function removePreset(name: string) {
+    const next = presets.filter((x) => x.name !== name);
+    setPresets(next);
+    saveScenePresets(sessionId!, next);
+  }
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "#06060b", display: "flex", flexDirection: "column" }}>
       <style>{FLOAT_CSS}</style>
@@ -557,10 +623,68 @@ export default function BoardView() {
         >
           📺 3D Table ↗
         </a>
+        <button
+          className={soundOn ? "btn" : "btn btn-ghost"}
+          style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
+          onClick={() => setSoundOn((v) => !v)}
+          title="Procedural ambience: wind, birdsong by day, crickets by night, rain, fire crackle near torches"
+        >
+          {soundOn ? "🔊" : "🔇"}
+        </button>
+        {soundOn && (
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.05}
+            value={soundVol}
+            onChange={(e) => setSoundVol(Number(e.target.value))}
+            style={{ width: 60 }}
+            title="Ambience volume"
+          />
+        )}
         <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "var(--muted)" }}>
-          T top · Y tilt · A arm attack · Del remove · Esc deselect
+          T top · Y tilt · A attack · [ ] size · Del remove · Esc deselect
         </span>
       </header>
+
+      {/* scene presets — the session as one-click cinema */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "0.25rem 0.9rem",
+          borderBottom: "1px solid var(--border)",
+          background: "var(--surface, #0d0d13)",
+          flexWrap: "wrap",
+        }}
+      >
+        <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>SCENES</span>
+        {presets.map((p) => (
+          <button
+            key={p.name}
+            className="btn btn-ghost"
+            style={{ fontSize: "0.72rem", padding: "0.12rem 0.55rem" }}
+            onClick={() => applyPreset(p)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              removePreset(p.name);
+            }}
+            title={`map + ${Math.round(p.darkness * 100)}% dark + ${p.weather ?? "clear"}${p.title ? ` + "${p.title}"` : ""} — right-click to delete`}
+          >
+            {p.darkness > 0.5 ? "🌙" : "☀️"} {p.name}
+          </button>
+        ))}
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: "0.72rem", padding: "0.12rem 0.55rem", color: "var(--gold)" }}
+          onClick={saveCurrentScene}
+          title="Save the current map + darkness + weather + title as a one-click scene"
+        >
+          💾 Save scene
+        </button>
+      </div>
 
       {/* body */}
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>

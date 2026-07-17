@@ -6,7 +6,7 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import type { SessionCombatant, TableToken } from "../../api/types";
-import { BackdropDome, LightRig, Weather } from "./atmosphere";
+import { BackdropDome, LightRig, Starfield, Weather } from "./atmosphere";
 import {
   cardTint,
   getVignetteTexture,
@@ -95,6 +95,9 @@ interface Board3DProps {
   fogOpacity?: number;
   /** Terrain relief multiplier (0 = flat, 1 = default, 2 = dramatic). */
   relief?: number;
+  /** When set (e.g. to the map id), plays a cinematic sweep from the sky
+   * down to the table on mount / whenever the key changes. */
+  introKey?: string | null;
 }
 
 const SQRT3 = Math.sqrt(3);
@@ -319,22 +322,30 @@ function Exposure({ darkness }: { darkness: number }) {
   return null;
 }
 
-/** Camera rig: orbit + T/Y presets, follow-the-turn chase, ambient drift. */
+/** Camera rig: orbit + T/Y presets, follow-the-turn chase, ambient drift,
+ * and an optional cinematic intro sweep from the sky to the table. */
 function CameraRig({
   mapW,
   mapH,
   drift,
   follow,
+  introKey,
 }: {
   mapW: number;
   mapH: number;
   drift: boolean;
   follow: { x: number; z: number; k: string } | null;
+  introKey?: string | null;
 }) {
   const controls = useRef<OrbitControlsImpl>(null);
   const goal = useRef<THREE.Vector3 | null>(null);
+  const intro = useRef<{ key: string | null; start: number | null }>({ key: null, start: null });
   const { camera } = useThree();
   const fit = Math.max(mapW, mapH) * 1.05;
+
+  useEffect(() => {
+    if (introKey) intro.current = { key: introKey, start: null };
+  }, [introKey]);
 
   const apply = useCallback(
     (mode: "top" | "tilt") => {
@@ -372,9 +383,26 @@ function CameraRig({
     if (followKey !== null) goal.current = new THREE.Vector3(followX, 0, followZ);
   }, [followKey, followX, followZ]);
 
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     const c = controls.current;
     if (!c) return;
+    // Cinematic intro: sweep from high above the horizon down to the tilt
+    // view. Player-view magic; any user input after it ends orbits freely.
+    if (intro.current.key) {
+      if (intro.current.start === null) intro.current.start = state.clock.elapsedTime;
+      const t = Math.min(1, (state.clock.elapsedTime - intro.current.start) / 3.4);
+      const e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      const el = (35 * Math.PI) / 180;
+      const fy = fit * 2.0;
+      const fz = fit * 2.6;
+      const ty = fit * Math.sin(el);
+      const tz = fit * Math.cos(el) * 0.85;
+      camera.position.set(0, fy + (ty - fy) * e, fz + (tz - fz) * e);
+      c.target.set(0, 0, 0);
+      c.update();
+      if (t >= 1) intro.current.key = null;
+      return;
+    }
     if (goal.current) {
       c.target.lerp(goal.current, Math.min(1, dt * 2.4));
       if (c.target.distanceTo(goal.current) < fit * 0.004) goal.current = null;
@@ -899,6 +927,15 @@ function PropSprite({
 }) {
   const { tex } = useBoardTexture(prop.url, true);
   const tint = cardTint(darkness);
+  const sway = useRef<THREE.Group>(null);
+  const phase = useMemo(() => phaseOf(`${prop.x}:${prop.y}`), [prop.x, prop.y]);
+  useFrame((state) => {
+    if (!sway.current) return;
+    const t = state.clock.elapsedTime;
+    // Gentle wind: barely-there lean + breathing. Enough to feel alive.
+    sway.current.rotation.z = Math.sin(t * 0.7 + phase) * 0.012;
+    sway.current.scale.y = 1 + Math.sin(t * 0.9 + phase * 2) * 0.004;
+  });
   if (!tex) return null;
   const h = unit * prop.h;
   const w = h * (2 / 3);
@@ -910,10 +947,12 @@ function PropSprite({
         <meshBasicMaterial color="#000000" transparent opacity={0.3} depthWrite={false} />
       </mesh>
       <Billboard position={[0, h / 2, 0]}>
-        <mesh>
-          <planeGeometry args={[w, h]} />
-          <meshBasicMaterial map={tex} color={tint} transparent alphaTest={0.25} />
-        </mesh>
+        <group ref={sway}>
+          <mesh>
+            <planeGeometry args={[w, h]} />
+            <meshBasicMaterial map={tex} color={tint} transparent alphaTest={0.25} />
+          </mesh>
+        </group>
       </Billboard>
     </group>
   );
@@ -1088,10 +1127,12 @@ function BoardScene(props: Board3DProps) {
       />
       <Exposure darkness={darkness} />
       <LightRig fit={fit} darkness={darkness} />
+      <Starfield fit={fit} darkness={darkness} />
       {domeTex && <BackdropDome tex={domeTex} fit={fit} darkness={darkness} />}
       <CameraRig
         mapW={map.width}
         mapH={map.height}
+        introKey={props.introKey}
         drift={cinema}
         follow={
           followTurn && activeToken

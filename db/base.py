@@ -190,6 +190,8 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE monster_stat_blocks ADD COLUMN IF NOT EXISTS figure_url VARCHAR(500)",
         # 0024 — AI auto-terrain heightmap (Plan 45 Tier 3)
         "ALTER TABLE battle_maps ADD COLUMN IF NOT EXISTS heightmap_url VARCHAR(1000)",
+        # 0025 — synced table weather (Plan 46)
+        "ALTER TABLE table_states ADD COLUMN IF NOT EXISTS weather VARCHAR(12)",
     ]
     with engine.begin() as conn:
         for stmt in patches:

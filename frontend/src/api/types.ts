@@ -439,6 +439,7 @@ export interface TableStateRead {
   tokens: TableToken[];
   darkness: number;
   title: string;
+  weather: string | null;
 }
 
 export interface TableStateUpdate {
@@ -449,6 +450,7 @@ export interface TableStateUpdate {
   tokens?: TableToken[];
   darkness?: number;
   title?: string;
+  weather?: string | null;
 }
 
 export interface TableMapSummary {
@@ -470,6 +472,7 @@ export interface TableProjection {
   tokens: TableToken[];
   darkness: number;
   title: string;
+  weather: string | null;
   active_token_ref: string | null;
   defeated_refs: string[];
 }

@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
@@ -9,6 +9,8 @@ import Board3D, {
   type BoardPing,
   type GridKind,
 } from "../components/board/Board3D";
+import type { WeatherKind } from "../components/board/boardTheme";
+import { useAmbience } from "../components/board/ambience";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 
 /**
@@ -57,6 +59,24 @@ const TITLE_CSS = `
   82%  { opacity: 1; }
   100% { opacity: 0; }
 }
+.t3d-turn {
+  position: absolute;
+  bottom: 7%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: Cinzel, serif;
+  font-size: clamp(1.1rem, 2.4vw, 1.7rem);
+  letter-spacing: 0.1em;
+  color: #f0e6c8;
+  text-shadow: 0 2px 12px #000;
+  animation: t3d-turn-in 0.7s ease;
+  pointer-events: none;
+}
+@keyframes t3d-turn-in {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
 `;
 
 export default function Table3DView() {
@@ -89,8 +109,26 @@ export default function Table3DView() {
 
   const [gridKind, setGridKind] = useState<GridKind | null>(null);
   const [cinema, setCinema] = useState(false);
+  const [soundOn, setSoundOn] = useState(false);
   const map = proj?.map ?? null;
   const effectiveGrid: GridKind = gridKind ?? (map?.grid_size ? "hex" : "off");
+
+  const torchCount = useMemo(
+    () => (proj?.tokens ?? []).filter((t) => t.kind === "light").length,
+    [proj?.tokens],
+  );
+  useAmbience(soundOn, 0.7, {
+    darkness: proj?.darkness ?? 0,
+    weather: proj?.weather ?? "none",
+    torches: torchCount,
+  });
+
+  // Turn banner — the player-facing "whose turn" lower-third.
+  const activeLabel = useMemo(() => {
+    if (!proj?.active_token_ref) return null;
+    const token = proj.tokens.find((t) => (t.ref_id ?? t.id) === proj.active_token_ref);
+    return token?.label ?? null;
+  }, [proj]);
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#020208" }}>
@@ -107,7 +145,7 @@ export default function Table3DView() {
           attackArmed={false}
           strike={null}
           darkness={proj.darkness}
-          weather="none"
+          weather={((proj.weather ?? "none") as WeatherKind) || "none"}
           cinema={cinema}
           followTurn
           readOnly
@@ -116,6 +154,7 @@ export default function Table3DView() {
           brushReveals={proj.brush_reveals}
           fogOpacity={0.94}
           pings={pings}
+          introKey={map.id}
           onSelect={noop}
           onMoveCommit={noop}
           onPickTarget={noop}
@@ -141,7 +180,19 @@ export default function Table3DView() {
           {proj.title}
         </div>
       )}
+      {activeLabel && (
+        <div key={activeLabel} className="t3d-turn">
+          ⚔ {activeLabel}&rsquo;s turn
+        </div>
+      )}
       <div style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 6, opacity: 0.75 }}>
+        <button
+          onClick={() => setSoundOn((v) => !v)}
+          style={chipStyle(soundOn)}
+          title="Ambience — wind, birds, crickets, rain, fire (synced to the DM's scene)"
+        >
+          {soundOn ? "🔊" : "🔇"}
+        </button>
         {(["hex", "square", "off"] as const).map((k) => (
           <button
             key={k}

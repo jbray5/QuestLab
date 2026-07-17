@@ -42,6 +42,9 @@ class TableState(SQLModel, table=True):
     darkness: float = Field(default=0.0, ge=0.0, le=1.0)
     # Ephemeral scene title card text ("" = none).
     title: str = Field(default="", max_length=120)
+    # Synced weather preset for the 3D views (Plan 46): none|embers|
+    # fireflies|rain|snow|dust. None = clear.
+    weather: Optional[str] = Field(default=None, max_length=12)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -76,6 +79,7 @@ class TableStateUpdate(BaseModel):
     tokens: Optional[list[Token]] = None
     darkness: Optional[float] = PydField(default=None, ge=0.0, le=1.0)
     title: Optional[str] = PydField(default=None, max_length=120)
+    weather: Optional[str] = PydField(default=None, max_length=12)
 
 
 class TokenFigureRequest(BaseModel):
@@ -116,6 +120,7 @@ class TableProjection(BaseModel):
     tokens: list[Token] = PydField(default_factory=list)
     darkness: float = 0.0
     title: str = ""
+    weather: Optional[str] = None
     # Turn glow: ref_id of the active combatant's token, plus defeated tokens
     # to dim. Resolved from the running combat state; no HP ever crosses.
     active_token_ref: Optional[str] = None
@@ -133,6 +138,7 @@ class TableStateRead(BaseModel):
     tokens: list[dict[str, Any]] = PydField(default_factory=list)
     darkness: float = 0.0
     title: str = ""
+    weather: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

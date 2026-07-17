@@ -156,12 +156,14 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     brush_reveals: list[dict[str, float]] = []
     darkness = 0.0
     title = ""
+    weather: str | None = None
 
     if state is not None:
         fog_on = state.fog_on
         brush_reveals = [dict(b) for b in (state.brush_reveals or [])]
         darkness = state.darkness
         title = state.title
+        weather = state.weather
         tokens = [Token.model_validate(t) for t in (state.tokens or [])]
         if state.active_map_id is not None:
             battle_map = BattleMapRepo.get_by_id(db, state.active_map_id)
@@ -202,6 +204,7 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
         tokens=tokens,
         darkness=darkness,
         title=title,
+        weather=weather,
         active_token_ref=active_ref,
         defeated_refs=defeated_refs,
     )

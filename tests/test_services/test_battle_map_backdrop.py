@@ -153,6 +153,20 @@ class TestGenerateBackdrop:
         with pytest.raises(PermissionError):
             map_svc.generate_heightmap(duckdb_session, battle_map.id, _dm())
 
+    def test_weather_syncs_to_projection(self, duckdb_session: Session):
+        """DM-set weather lands in the player-safe projection (Plan 46)."""
+        dm = _dm()
+        _, _, gs = _campaign_and_session(duckdb_session, dm)
+        table_svc.update_table_state(duckdb_session, gs.id, dm, TableStateUpdate(weather="rain"))
+
+        projection = table_svc.get_projection(duckdb_session, gs.id)
+
+        assert projection.weather == "rain"
+        cleared = table_svc.update_table_state(
+            duckdb_session, gs.id, dm, TableStateUpdate(weather=None)
+        )
+        assert cleared.weather is None
+
     def test_projection_carries_backdrop(self, duckdb_session: Session, monkeypatch):
         """The player-safe projection resolves backdrop_url on the active map."""
         dm = _dm()

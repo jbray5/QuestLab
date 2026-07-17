@@ -21,8 +21,14 @@ end on a wrongness that shouldn't exist.**
   | 3 camp + stag | **The Waystone Road** (the dusk original) | 🌙 60–80% + a 🔥 torch at the fire ring |
 - **Title card at open:** `HOLLOWMERE — THE MORNING AFTER`
 - **The dial does the storytelling:** 0% at breakfast, creep it up through Act 3.
-- **Music (until ambience mode exists):** gentle tavern-morning loop on speakers /
-  Discord — cut it cold when the memorial question lands.
+- **PRE-GAME (2 min): save the four scenes** on the 3D board's SCENES bar —
+  set each up once (map + darkness + weather + title), hit 💾: *Morning Green*
+  (Green, ☀0%, clear) · *The Road* (Midday, ☀10%) · *Camp* (dusk Waystone,
+  🌙70%, torch placed) · *THE STAG* (same, 🌙80%). Saturday = four clicks.
+- **Ambience is built in now:** 🔊 on the board and on the players' 3D view —
+  procedural birdsong by day, crickets by night, rain, fire crackle near
+  torches. Weather is synced to the players. (Players tap 🔊 once on their
+  device — browsers require a gesture for sound.)
 - **Ping the tree** on the green the first time someone looks at it. Say nothing.
 
 ---

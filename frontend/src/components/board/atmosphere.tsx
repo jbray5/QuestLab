@@ -168,6 +168,44 @@ export function Weather({ kind, mapW, mapH, unit }: WeatherProps) {
   );
 }
 
+// ── Night sky ────────────────────────────────────────────────────────────────
+
+/** Stars fade in as the darkness dial crosses dusk. */
+export function Starfield({ fit, darkness }: { fit: number; darkness: number }) {
+  const positions = useMemo(() => {
+    const rnd = mulberry32(99);
+    const n = 420;
+    const pos = new Float32Array(n * 3);
+    for (let i = 0; i < n; i += 1) {
+      const az = rnd() * Math.PI * 2;
+      const el = 0.12 + rnd() * 1.35;
+      const r = fit * 2.35;
+      pos[i * 3] = r * Math.cos(el) * Math.cos(az);
+      pos[i * 3 + 1] = r * Math.sin(el);
+      pos[i * 3 + 2] = r * Math.cos(el) * Math.sin(az);
+    }
+    return pos;
+  }, [fit]);
+  const opacity = Math.min(0.9, Math.max(0, (darkness - 0.45) * 1.7));
+  if (opacity <= 0) return null;
+  return (
+    <points frustumCulled={false}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial
+        color="#cdd8ff"
+        size={fit * 0.006}
+        transparent
+        opacity={opacity}
+        depthWrite={false}
+        sizeAttenuation
+        fog={false}
+      />
+    </points>
+  );
+}
+
 // ── Backdrop dome (Tier 2) ───────────────────────────────────────────────────
 
 interface DomeProps {
