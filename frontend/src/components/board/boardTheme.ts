@@ -89,6 +89,22 @@ export function processFigureImage(img: HTMLImageElement): THREE.CanvasTexture |
       }
     }
     if (maxX <= minX || maxY <= minY) return null;
+    // Anchor to the CENTER-BOTTOM of the content: side-hanging foliage or
+    // gear dips below the trunk/feet line, and bottom-anchoring the full
+    // bbox floats the whole cutout. Find the lowest solid pixel in the
+    // central half and crop there — stray edges clip into the grass.
+    const cx0 = Math.floor(w * 0.25);
+    const cx1 = Math.ceil(w * 0.75);
+    let centralBottom = -1;
+    for (let y = h - 1; y >= minY && centralBottom < 0; y -= 1) {
+      for (let x = cx0; x < cx1; x += 1) {
+        if (px[(y * w + x) * 4 + 3] > 64) {
+          centralBottom = y;
+          break;
+        }
+      }
+    }
+    if (centralBottom > minY) maxY = Math.min(maxY, centralBottom + 2);
     g.putImageData(data, 0, 0);
     const pad = Math.round(Math.max(maxX - minX, maxY - minY) * 0.04);
     minX = Math.max(0, minX - pad);
