@@ -1027,3 +1027,90 @@ Return JSON in this exact shape (no surrounding prose):
         system=system, user=user, schema=_MonsterSuggestionsOutput
     )
     return result.model_dump()
+
+
+# ---------------------------------------------------------------------------
+# Shop stocking (Plan 47)
+# ---------------------------------------------------------------------------
+
+
+class _ShopStockItem(BaseModel):
+    """One invented shop item from Claude."""
+
+    name: str
+    item_type: str
+    rarity: str = "Common"
+    description: str = ""
+    price_gp: float = 0
+    stock: Optional[int] = None
+    pitch: str = ""
+
+
+class _ShopStockOutput(BaseModel):
+    """Structured output for a stocked shop."""
+
+    keeper: str
+    blurb: str
+    location: str = ""
+    items: list[_ShopStockItem] = []
+
+
+def generate_shop_stock(
+    campaign_name: str,
+    campaign_setting: str,
+    campaign_tone: str,
+    shop_name: str,
+    concept: Optional[str],
+    count: int,
+) -> _ShopStockOutput:
+    """Invent a shopkeeper, blurb, and priced inventory for one shop (Plan 47).
+
+    Prices follow 5e conventions (2024 PHB anchors) so the DM can run the
+    till without re-balancing: mundane gear at book price, consumables 25-300
+    gp by tier, uncommon magic in the low hundreds. Fractions of a gp encode
+    silver/copper (0.5 = 5 sp).
+
+    Args:
+        campaign_name: Campaign title for flavor grounding.
+        campaign_setting: Campaign setting summary.
+        campaign_tone: Campaign tone descriptor.
+        shop_name: The shop being stocked.
+        concept: Optional DM concept prompt ("fey curiosities, festival week").
+        count: How many items to invent.
+
+    Returns:
+        Validated _ShopStockOutput with keeper, blurb, and items.
+    """
+    system = (
+        "You are an expert D&D 5e (2024 rules) worldbuilder stocking a shop "
+        "players will browse on their phones. Invent a memorable shopkeeper "
+        "and inventory that fits the campaign's setting and tone. Prices are "
+        "in gold pieces and MUST follow 5e price conventions: mundane "
+        "adventuring gear at book price (fractions of a gp encode silver — "
+        "0.5 means 5 sp), potions of healing ~50 gp, uncommon magic items "
+        "100-500 gp, rare 500-5000 gp. Most stock should be affordable at "
+        "low tiers; one or two aspirational display pieces are welcome. "
+        "Pitches are the keeper's one-line sales patter, in their voice."
+    )
+    concept_block = f"\n### DM concept\n{concept}\n" if concept else ""
+    user = f"""Stock the shop below with exactly {count} items.
+
+### Campaign
+- Name: {campaign_name}
+- Setting: {campaign_setting}
+- Tone: {campaign_tone}
+
+### Shop
+{shop_name}
+{concept_block}
+Rules:
+- item_type is a short category ("Weapon", "Potion", "Wondrous Item", "Adventuring Gear", "Trinket", "Provisions"...).
+- rarity is one of: Common, Uncommon, Rare, VeryRare, Legendary, Artifact. Mundane goods are Common.
+- description covers what it does at the table (mechanics-light, evocative).
+- stock is a small integer for scarce/special goods, or null for everyday stock.
+- Mix everyday goods with a few finds that reward browsing."""  # noqa: E501
+
+    result: _ShopStockOutput = complete_structured(
+        system=system, user=user, schema=_ShopStockOutput
+    )
+    return result

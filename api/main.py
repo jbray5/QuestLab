@@ -34,6 +34,7 @@ from api.routers import (
     play,
     rest,
     sessions,
+    shops,
     spellcasting,
     spells,
     stream,
@@ -134,6 +135,7 @@ app.include_router(npcs.router, prefix=_PREFIX)
 app.include_router(combat_beats.router, prefix=_PREFIX)
 app.include_router(battle_maps.router, prefix=_PREFIX)
 app.include_router(table.router, prefix=_PREFIX)
+app.include_router(shops.router, prefix=_PREFIX)
 
 
 @app.get("/api/health")

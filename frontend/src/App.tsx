@@ -30,6 +30,9 @@ const BattleMaps    = lazy(() => import("./pages/BattleMaps"));
 const TableView     = lazy(() => import("./pages/TableView"));
 const BoardView     = lazy(() => import("./pages/BoardView"));
 const Table3DView   = lazy(() => import("./pages/Table3DView"));
+const Shops         = lazy(() => import("./pages/Shops"));
+const MarketView    = lazy(() => import("./pages/MarketView"));
+const StorefrontView = lazy(() => import("./pages/StorefrontView"));
 
 function PageLoader() {
   return (
@@ -77,6 +80,10 @@ export default function App() {
       {/* DM 3D tabletop (Plan 44) — full-screen, DM-driven */}
       <Route path="/sessions/:sessionId/board" element={lazyRoute(<BoardView />)} />
 
+      {/* Plan 47 — player marketplace: capability URLs, no auth, no DM chrome */}
+      <Route path="/market/:campaignId" element={lazyRoute(<MarketView />)} />
+      <Route path="/shop/:shopId" element={lazyRoute(<StorefrontView />)} />
+
       {/* Plan 35 — Landing / sign-in: standalone, no DM chrome */}
       <Route path="/welcome" element={<Welcome />} />
 
@@ -106,6 +113,10 @@ export default function App() {
         <Route
           path="campaigns/:campaignId/battle-maps"
           element={lazyRoute(<BattleMaps />)}
+        />
+        <Route
+          path="campaigns/:campaignId/shops"
+          element={lazyRoute(<Shops />)}
         />
         <Route
           path="adventures/:adventureId/sessions"
