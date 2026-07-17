@@ -44,6 +44,14 @@ end on a wrongness that shouldn't exist.**
   The Bent Nail — arms & mending, Dunna Copperbraid).
   Great divvy-scene hook: let whoever gets loot gold spend it immediately.
   Manage/edit prices: app → campaign → 🏪 Shops.
+- **🛡 CHARACTER FORGE (new):** in each player's existing `/play/<id>` sheet
+  there's now a **🛡 YOUR CHARACTER** button → a full-screen BG3-style
+  character screen. They equip their gear, write how their character looks,
+  and hit **✨ Forge** to repaint a full-body hero portrait wearing it.
+  Each PC already has a seeded appearance + starting hero render, so it's
+  not empty on open. No new links — it's built into the sheet they already
+  have. Nice quiet-moment / downtime activity; pairs with the market (buy a
+  cloak → equip it → forge). 90s cooldown between forges per character.
 
 ---
 
