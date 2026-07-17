@@ -179,6 +179,7 @@ export default function BoardView() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [attackArmed, setAttackArmed] = useState(false);
   const [fxMode, setFxMode] = useState<string | null>(null);
+  const [possessId, setPossessId] = useState<string | null>(null);
   const [measuring, setMeasuring] = useState(false);
   const [measurePts, setMeasurePts] = useState<{ x: number; y: number }[]>([]);
   const [pendingAttack, setPendingAttack] = useState<{ attackerId: string; targetId: string } | null>(null);
@@ -198,6 +199,7 @@ export default function BoardView() {
         setFxMode(null);
         setMeasuring(false);
         setMeasurePts([]);
+        setPossessId(null);
       }
       if (e.key === "m" || e.key === "M") {
         setMeasuring((v) => !v);
@@ -791,6 +793,8 @@ export default function BoardView() {
               fogOpacity={0.32}
               pings={boardPings}
               stormFlash={stormSeq}
+              possessId={possessId}
+              onPossess={(id) => setPossessId(id)}
               castMode={!!fxMode}
               onCast={castFx}
               measureMode={measuring}
@@ -816,10 +820,32 @@ export default function BoardView() {
             </div>
           )}
 
-          {selectedToken && (
-            <div style={{ position: "absolute", left: 12, bottom: 12, background: "rgba(6,6,12,0.8)", border: "1px solid var(--border)", borderRadius: 8, padding: "0.3rem 0.7rem", fontSize: "0.75rem", color: "var(--text)" }}>
-              Selected: <strong>{selectedToken.label}</strong>
-              {attackArmed ? " — ⚔ ARMED: click a target" : " — click ground to move, A to attack, Del to remove"}
+          {possessId && (
+            <button
+              className="btn"
+              style={{ position: "absolute", top: 12, left: 12, fontSize: "0.78rem" }}
+              onClick={() => setPossessId(null)}
+              title="Back to the table view (Esc)"
+            >
+              👁 Possessing — exit (Esc)
+            </button>
+          )}
+          {selectedToken && !possessId && (
+            <div style={{ position: "absolute", left: 12, bottom: 12, display: "flex", gap: 8, alignItems: "center", background: "rgba(6,6,12,0.8)", border: "1px solid var(--border)", borderRadius: 8, padding: "0.3rem 0.7rem", fontSize: "0.75rem", color: "var(--text)" }}>
+              <span>
+                Selected: <strong>{selectedToken.label}</strong>
+                {attackArmed ? " — ⚔ ARMED: click a target" : " — click ground to move, A to attack, Del to remove"}
+              </span>
+              {selectedToken.kind !== "light" && (
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: "0.72rem", padding: "0 0.5rem" }}
+                  onClick={() => setPossessId(selectedToken.id)}
+                  title="Drop the camera to this figure's shoulder (or double-click any figure)"
+                >
+                  👁 Possess
+                </button>
+              )}
             </div>
           )}
 

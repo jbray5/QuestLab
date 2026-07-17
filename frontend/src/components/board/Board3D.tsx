@@ -104,6 +104,10 @@ interface Board3DProps {
   fogOpacity?: number;
   /** Increment to fire a lightning flash (rides the ⛈ thunder stinger). */
   stormFlash?: number;
+  /** PARADIGM (branch): possess a token — the camera drops to its shoulder
+   * and you stand inside the diorama. Double-click any figure. */
+  possessId?: string | null;
+  onPossess?: (tokenId: string) => void;
   /** When set (e.g. to the map id), plays a cinematic sweep from the sky
    * down to the table on mount / whenever the key changes. */
   introKey?: string | null;
@@ -256,6 +260,38 @@ function useBoardTexture(
   return { tex: current?.tex ?? null, error: current?.error ?? false };
 }
 
+const SCENIC_TREELINE =
+  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/e6d5b9ed-edaa-45f7-a59c-df20aa0bf0ec-7yPghJrUoPgTLA0s6HPJwR0DDdAv2k.png";
+
+/** PARADIGM (branch): a ring of distant treeline between the board and the
+ * sky, so possess-mode eye-level views see layered depth, not just dome. */
+function ScenicBand({ fit, darkness }: { fit: number; darkness: number }) {
+  const { tex } = useBoardTexture(SCENIC_TREELINE);
+  const band = useMemo(() => {
+    if (!tex) return null;
+    const t = tex.clone();
+    t.wrapS = THREE.RepeatWrapping;
+    t.repeat.set(3, 1);
+    t.needsUpdate = true;
+    return t;
+  }, [tex]);
+  const tint = cardTint(darkness);
+  if (!band) return null;
+  return (
+    <mesh position-y={fit * 0.135} scale={[-1, 1, 1]}>
+      <cylinderGeometry args={[fit * 1.35, fit * 1.35, fit * 0.3, 64, 1, true]} />
+      <meshBasicMaterial
+        key={band.uuid}
+        map={band}
+        side={THREE.BackSide}
+        transparent
+        alphaTest={0.15}
+        color={tint}
+      />
+    </mesh>
+  );
+}
+
 /** Terrain sculpting is retired (owner call: flat board + upright props).
  * Everything that used to sample the height field gets a flat zero. */
 const ZERO_HEIGHT: (px: number, py: number) => number = () => 0;
@@ -297,19 +333,25 @@ function Exposure({ darkness }: { darkness: number }) {
 function CameraRig({
   mapW,
   mapH,
+  unit,
   drift,
   follow,
   introKey,
+  possess,
 }: {
   mapW: number;
   mapH: number;
+  unit: number;
   drift: boolean;
   follow: { x: number; z: number; k: string } | null;
   introKey?: string | null;
+  possess: { x: number; z: number; headY: number; k: string } | null;
 }) {
   const controls = useRef<OrbitControlsImpl>(null);
   const goal = useRef<THREE.Vector3 | null>(null);
   const intro = useRef<{ key: string | null; start: number | null }>({ key: null, start: null });
+  const prevPossess = useRef<string | null>(null);
+  const headVec = useRef(new THREE.Vector3());
   const { camera } = useThree();
   const fit = Math.max(mapW, mapH) * 1.05;
 
@@ -353,9 +395,34 @@ function CameraRig({
     if (followKey !== null) goal.current = new THREE.Vector3(followX, 0, followZ);
   }, [followKey, followX, followZ]);
 
+  // Possess enter/exit: snap in behind the figure at head height; hand the
+  // table view back on exit.
+  useEffect(() => {
+    const key = possess?.k ?? null;
+    if (possess && key !== prevPossess.current) {
+      const az = Math.atan2(camera.position.x - possess.x, camera.position.z - possess.z);
+      camera.position.set(
+        possess.x + Math.sin(az) * unit * 2.1,
+        possess.headY + unit * 0.55,
+        possess.z + Math.cos(az) * unit * 2.1,
+      );
+      controls.current?.target.set(possess.x, possess.headY, possess.z);
+      controls.current?.update();
+    }
+    if (!key && prevPossess.current) apply("tilt");
+    prevPossess.current = key;
+  }, [possess, apply, camera, unit]);
+
   useFrame((state, dt) => {
     const c = controls.current;
     if (!c) return;
+    // Possess wins over everything: the target glues to the figure's head.
+    if (possess) {
+      headVec.current.set(possess.x, possess.headY, possess.z);
+      c.target.lerp(headVec.current, Math.min(1, dt * 6));
+      c.update();
+      return;
+    }
     // Cinematic intro: sweep from high above the horizon down to the tilt
     // view. Player-view magic; any user input after it ends orbits freely.
     if (intro.current.key) {
@@ -387,9 +454,9 @@ function CameraRig({
       makeDefault
       enableDamping
       dampingFactor={0.12}
-      maxPolarAngle={Math.PI / 2 - 0.06}
-      minDistance={fit * 0.12}
-      maxDistance={fit * 2.4}
+      maxPolarAngle={possess ? Math.PI * 0.62 : Math.PI / 2 - 0.06}
+      minDistance={possess ? unit * 0.9 : fit * 0.12}
+      maxDistance={possess ? unit * 7 : fit * 2.4}
     />
   );
 }
@@ -411,6 +478,7 @@ interface StandeeProps {
   floatingText: string | null;
   onMoveCommit: (id: string, x: number, y: number) => void;
   onClick: (e: ThreeEvent<MouseEvent>) => void;
+  onPossess?: () => void;
 }
 
 function Standee({
@@ -430,6 +498,7 @@ function Standee({
   floatingText,
   onMoveCommit,
   onClick,
+  onPossess,
 }: StandeeProps) {
   const group = useRef<THREE.Group>(null);
   const ring = useRef<THREE.Mesh>(null);
@@ -569,7 +638,14 @@ function Standee({
   }
 
   return (
-    <group ref={group} onClick={onClick}>
+    <group
+      ref={group}
+      onClick={onClick}
+      onDoubleClick={(e) => {
+        e.stopPropagation();
+        onPossess?.();
+      }}
+    >
       {/* fake shadow */}
       <mesh rotation-x={-Math.PI / 2} position-y={unit * 0.02}>
         <circleGeometry args={[r * 1.18, 32]} />
@@ -1098,6 +1174,18 @@ function BoardScene(props: Board3DProps) {
     return tokens.find((t) => (t.ref_id ?? t.id) === activeRef) ?? null;
   }, [tokens, activeRef]);
 
+  const possessedToken = props.possessId
+    ? (tokens.find((t) => t.id === props.possessId) ?? null)
+    : null;
+  const possess = possessedToken
+    ? {
+        x: possessedToken.x - map.width / 2,
+        z: possessedToken.y - map.height / 2,
+        headY: unit * 1.0 * (possessedToken.size || 1),
+        k: possessedToken.id,
+      }
+    : null;
+
   const handleGround = (e: ThreeEvent<MouseEvent>) => {
     if (readOnly || e.delta > 5) return;
     e.stopPropagation();
@@ -1210,10 +1298,13 @@ function BoardScene(props: Board3DProps) {
       ) : (
         <ProceduralSky fit={fit} darkness={darkness} />
       )}
+      {boardProps && boardProps.length > 0 && <ScenicBand fit={fit} darkness={darkness} />}
       <CameraRig
         mapW={map.width}
         mapH={map.height}
+        unit={unit}
         introKey={props.introKey}
+        possess={possess}
         drift={cinema}
         follow={
           followTurn && activeToken
@@ -1409,6 +1500,11 @@ function BoardScene(props: Board3DProps) {
             floatingText={showDamage}
             onMoveCommit={onMoveCommit}
             onClick={handleTokenClick(t)}
+            onPossess={
+              t.kind !== "light" && props.onPossess
+                ? () => props.onPossess?.(t.id)
+                : undefined
+            }
           />
         );
       })}

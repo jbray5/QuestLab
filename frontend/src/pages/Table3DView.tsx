@@ -117,6 +117,15 @@ export default function Table3DView() {
   const [gridKind, setGridKind] = useState<GridKind | null>(null);
   const [cinema, setCinema] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
+  const [possessId, setPossessId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPossessId(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const map = proj?.map ?? null;
   const effectiveGrid: GridKind = gridKind ?? (map?.grid_size ? "hex" : "off");
 
@@ -166,6 +175,8 @@ export default function Table3DView() {
           pings={pings}
           stormFlash={stormSeq}
           introKey={map.id}
+          possessId={possessId}
+          onPossess={(id) => setPossessId(id)}
           onSelect={noop}
           onMoveCommit={noop}
           onPickTarget={noop}
@@ -195,6 +206,15 @@ export default function Table3DView() {
         <div key={activeLabel} className="t3d-turn">
           ⚔ {activeLabel}&rsquo;s turn
         </div>
+      )}
+      {possessId && (
+        <button
+          onClick={() => setPossessId(null)}
+          style={{ ...chipStyle(true), position: "absolute", top: 10, left: 12 }}
+          title="Back to the table (Esc)"
+        >
+          👁 exit
+        </button>
       )}
       <div style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 6, opacity: 0.75 }}>
         <button
