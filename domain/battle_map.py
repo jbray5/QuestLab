@@ -43,6 +43,11 @@ class BattleMap(SQLModel, table=True):
     # AI-generated grayscale height map — the 3D board displaces its terrain
     # from it (black = ground, white = tall features). Plan 45 Tier 3.
     heightmap_url: Optional[str] = Field(default=None, max_length=1000)
+    # Productized diorama (Plan 46): the map repainted with tall features
+    # removed, plus the upright prop sprites that replace them —
+    # [{x, y, kind, url, h}] in image pixels / grid-unit heights.
+    ground_url: Optional[str] = Field(default=None, max_length=1000)
+    props: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -76,6 +81,8 @@ class BattleMapUpdate(BaseModel):
     regions: Optional[list[FogRegion]] = None
     backdrop_url: Optional[str] = PydField(default=None, max_length=1000)
     heightmap_url: Optional[str] = PydField(default=None, max_length=1000)
+    ground_url: Optional[str] = PydField(default=None, max_length=1000)
+    props: Optional[list[dict[str, Any]]] = None
 
 
 class BattleMapRead(BaseModel):
@@ -91,5 +98,7 @@ class BattleMapRead(BaseModel):
     regions: list[dict[str, Any]] = PydField(default_factory=list)
     backdrop_url: Optional[str] = None
     heightmap_url: Optional[str] = None
+    ground_url: Optional[str] = None
+    props: Optional[list[dict[str, Any]]] = None
 
     model_config = {"from_attributes": True}

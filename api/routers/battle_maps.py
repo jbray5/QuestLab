@@ -117,6 +117,32 @@ def generate_battle_map_backdrop(
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
 
 
+@router.post("/battle-maps/{map_id}/props", response_model=BattleMapRead)
+def generate_battle_map_props(map_id: uuid.UUID, db: DB, user: CurrentUser) -> BattleMapRead:
+    """Dioramify the map: AI ground layer + auto-placed upright props (Plan 46).
+
+    Removes tall features from the painted map via gpt-image-1's edit API,
+    finds their footprints by diffing, and places upright sprite props.
+    Takes 1–3 minutes; the board renders the result automatically.
+
+    Args:
+        map_id: UUID of the battle map.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The updated BattleMap with ground_url + props set.
+    """
+    try:
+        return BattleMapRead.model_validate(battle_map_service.generate_props(db, map_id, user))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+
 @router.post("/battle-maps/{map_id}/terrain", response_model=BattleMapRead)
 def generate_battle_map_terrain(map_id: uuid.UUID, db: DB, user: CurrentUser) -> BattleMapRead:
     """Auto-generate 3D terrain (a heightmap) for the map (Plan 45 Tier 3).

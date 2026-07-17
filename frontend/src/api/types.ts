@@ -392,6 +392,16 @@ export interface BattleMap {
   regions: FogRegion[];
   backdrop_url: string | null;
   heightmap_url: string | null;
+  ground_url: string | null;
+  props: MapProp[] | null;
+}
+
+export interface MapProp {
+  x: number;
+  y: number;
+  kind: string;
+  url: string;
+  h: number;
 }
 
 export interface BattleMapCreate {
@@ -461,6 +471,8 @@ export interface TableMapSummary {
   grid_size: number | null;
   backdrop_url: string | null;
   heightmap_url: string | null;
+  ground_url: string | null;
+  props: MapProp[] | null;
 }
 
 export interface TableProjection {

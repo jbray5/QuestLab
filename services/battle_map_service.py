@@ -13,7 +13,7 @@ from db.repos.battle_map_repo import BattleMapRepo
 from db.repos.campaign_repo import CampaignRepo
 from db.repos.table_state_repo import TableStateRepo
 from domain.battle_map import BattleMap, BattleMapCreate, BattleMapUpdate
-from integrations import blob_storage
+from integrations import blob_storage, image_tools
 from integrations.openai_client import edit_image, generate_image
 from services import campaign_service
 
@@ -205,6 +205,86 @@ def generate_heightmap(db: DBSession, map_id: uuid.UUID, dm_email: str) -> Battl
     png_bytes = edit_image(_HEIGHTMAP_PROMPT, source, size="1536x1024")
     url = blob_storage.upload(path=f"heightmaps/battlemap-{battle_map.id}.png", data=png_bytes)
     return BattleMapRepo.update(db, battle_map, BattleMapUpdate(heightmap_url=url))
+
+
+_GROUND_PROMPT = (
+    "Repaint this exact scene with every living tree, tree canopy, dead tree, "
+    "and standing stone completely removed. Where they stood, continue the "
+    "ground naturally — grass, flowers, dirt, road — flowing through "
+    "uninterrupted. KEEP everything else exactly as it is: buildings, walls, "
+    "paths, fire rings, wells, market stalls, small rocks and boulders, "
+    "furniture. Same framing, same scale, same painterly style, same "
+    "lighting, orthographic top-down."
+)
+
+# Shared prop sprite library (generated once, reused across maps).
+_SPRITES = {
+    "tree": [
+        "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/9fdfa2dd-895c-4c3d-90ff-ec46c57809d0-8XuxxfELX6DR1pOB49boi3UvnjZH4N.png",  # noqa: E501
+        "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/ce453d27-963d-4a12-a93a-973a3054e3b4-YUYU5Yk4NuPFPXAnCUQDq3gTCQEVcY.png",  # noqa: E501
+    ],
+    "stone": [
+        "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/53a39b2b-66c3-44b5-ac68-dfeed4854874-ZkNobofQW8iGI260PB3lIi8iyu3Dp1.png",  # noqa: E501
+    ],
+}
+
+
+def generate_props(db: DBSession, map_id: uuid.UUID, dm_email: str) -> BattleMap:
+    """Dioramify a map: AI ground layer + auto-placed upright props (Plan 46).
+
+    Pipeline: repaint the map with tall features removed (gpt-image-1 edit),
+    diff the original against it to find every footprint, classify each as
+    tree/stone by the original's color, and place sprites from the shared
+    library. The board renders the ground layer with the props standing on
+    it — the TaleSpire look, one click, any map.
+
+    Args:
+        db: Active database session.
+        map_id: UUID of the battle map.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        The updated BattleMap with ground_url + props set.
+
+    Raises:
+        ValueError: If the map or its campaign does not exist.
+        PermissionError: If the DM does not own the campaign.
+        RuntimeError: If the download, generation, or upload fails.
+    """
+    battle_map = _get_owned_map(db, map_id, dm_email)
+    source = blob_storage.download(battle_map.image_url)
+    ground_png = edit_image(_GROUND_PROMPT, source, size="1536x1024")
+    ground_url = blob_storage.upload(path=f"grounds/battlemap-{battle_map.id}.png", data=ground_png)
+    try:
+        feet = image_tools.diff_footprints(source, ground_png)
+    except ValueError as exc:
+        raise RuntimeError(f"Footprint diff failed: {exc}") from exc
+
+    props: list[dict] = []
+    tree_i = 0
+    for f in feet[:28]:  # sanity cap per map
+        kind = str(f["kind"])
+        size_px = int(f["size_px"])
+        if kind == "tree":
+            url = _SPRITES["tree"][tree_i % len(_SPRITES["tree"])]
+            tree_i += 1
+            h = max(2.4, min(3.8, 2.4 + size_px / 300))
+            base_y = int(f["y"]) + size_px // 4  # canopy centroid → trunk base
+        else:
+            url = _SPRITES["stone"][0]
+            h = max(1.2, min(2.0, 1.2 + size_px / 160))
+            base_y = int(f["y"]) + size_px // 6
+        props.append(
+            {
+                "x": int(f["x"]),
+                "y": min(battle_map.height - 4, base_y),
+                "kind": kind,
+                "url": url,
+                "h": round(h, 2),
+            }
+        )
+
+    return BattleMapRepo.update(db, battle_map, BattleMapUpdate(ground_url=ground_url, props=props))
 
 
 def delete_map(db: DBSession, map_id: uuid.UUID, dm_email: str) -> bool:

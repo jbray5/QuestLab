@@ -38,6 +38,7 @@ export const tableApi = {
   generateBackdrop: (mapId: string, styleHints?: string) =>
     api.post<BattleMap>(`/battle-maps/${mapId}/backdrop`, { style_hints: styleHints ?? "" }),
   generateTerrain: (mapId: string) => api.post<BattleMap>(`/battle-maps/${mapId}/terrain`, {}),
+  generateProps: (mapId: string) => api.post<BattleMap>(`/battle-maps/${mapId}/props`, {}),
   deleteMap: (mapId: string) => api.delete(`/battle-maps/${mapId}`),
   uploadMap,
 

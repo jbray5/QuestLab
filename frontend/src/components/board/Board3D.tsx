@@ -37,6 +37,8 @@ export interface BoardMapLike {
   grid_size: number | null;
   backdrop_url?: string | null;
   heightmap_url?: string | null;
+  ground_url?: string | null;
+  props?: { x: number; y: number; url: string; h: number }[] | null;
 }
 
 export interface StrikeFx {
@@ -1113,10 +1115,11 @@ function BoardScene(props: Board3DProps) {
 
   const unit = unitFor(map);
   const fit = Math.max(map.width, map.height) * 1.05;
-  // Prototype: scenes with a baked ground layer render it; tall features
-  // come back as upright props below.
+  // Diorama: DB-driven ground layer + props (🌲 Dioramify) wins; the two
+  // hand-baked prototype scenes remain as fallback until re-generated.
   const protoScene = PROTO_SCENES[map.id];
-  const boardImage = protoScene?.ground ?? map.image_url;
+  const boardImage = map.ground_url ?? protoScene?.ground ?? map.image_url;
+  const boardProps = map.props?.length ? map.props : protoScene?.props;
   const { tex, error } = useBoardTexture(boardImage);
   const { tex: domeTex } = useBoardTexture(map.backdrop_url);
   const { heightAt, active: terrainActive } = useHeightField(
@@ -1471,9 +1474,9 @@ function BoardScene(props: Board3DProps) {
           />
         );
       })}
-      {protoScene?.props.map((p, i) => (
+      {boardProps?.map((p, i) => (
         <PropSprite
-          key={`proto-${i}`}
+          key={`prop-${i}-${p.x}-${p.y}`}
           prop={p}
           unit={unit}
           mapW={map.width}

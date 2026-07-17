@@ -192,6 +192,9 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE battle_maps ADD COLUMN IF NOT EXISTS heightmap_url VARCHAR(1000)",
         # 0025 — synced table weather (Plan 46)
         "ALTER TABLE table_states ADD COLUMN IF NOT EXISTS weather VARCHAR(12)",
+        # 0026 — productized diorama: ground layer + upright props (Plan 46)
+        "ALTER TABLE battle_maps ADD COLUMN IF NOT EXISTS ground_url VARCHAR(1000)",
+        "ALTER TABLE battle_maps ADD COLUMN IF NOT EXISTS props JSON",
     ]
     with engine.begin() as conn:
         for stmt in patches:

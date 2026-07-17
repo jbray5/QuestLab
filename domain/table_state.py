@@ -105,6 +105,8 @@ class TableMap(BaseModel):
     grid_size: Optional[int] = None
     backdrop_url: Optional[str] = None
     heightmap_url: Optional[str] = None
+    ground_url: Optional[str] = None
+    props: Optional[list] = None
 
 
 class TableProjection(BaseModel):

@@ -479,6 +479,21 @@ export default function BoardView() {
     setMeasurePts((prev) => (prev.length >= 2 ? [{ x, y }] : [...prev, { x, y }]));
   }
 
+  const [dioramaBusy, setDioramaBusy] = useState(false);
+
+  async function dioramify() {
+    if (!activeMap) return;
+    setDioramaBusy(true);
+    try {
+      await tableApi.generateProps(activeMap.id);
+      await qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
+    } catch (err) {
+      window.alert(`Dioramify failed: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      setDioramaBusy(false);
+    }
+  }
+
   function fireStinger(kind: string) {
     void tableApi.ping(
       sessionId!,
@@ -616,6 +631,15 @@ export default function BoardView() {
           title="AI-generate a 360° horizon around the board"
         >
           🌌 Backdrop
+        </button>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
+          onClick={() => void dioramify()}
+          disabled={!activeMap || dioramaBusy}
+          title="Dioramify: AI removes the map's trees/stones from the paint and re-plants them as upright props (1-3 min). Works on ANY map."
+        >
+          {dioramaBusy ? "🌲 Growing…" : activeMap?.props?.length ? "🌲 Diorama ↻" : "🌲 Dioramify"}
         </button>
         <a
           href={`${window.location.origin}/table/${sessionId}/3d`}
