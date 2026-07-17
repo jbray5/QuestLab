@@ -65,6 +65,17 @@ stand as true vertical elements you can orbit, tokens walk *between* them.
 - SCENES presets bar — one-click map+darkness+weather+title changes
   (localStorage per session); Saturday is four buttons.
 
+## Shipped 2026-07-17 — wave 2, "the director's console" (prod @ 16d4fe2)
+- 🌲 DIORAMIFY productized: image_tools (pure-python codec + footprint
+  diff, treeline splitting, unit-tested), migration 0026
+  (ground_url + props), POST /battle-maps/{id}/props, DB dioramas render
+  on the board AND the players' view. Any map, one click, 1–3 min.
+- FX broadcast channel: CAST palette (fire/frost/heal/arcane/ping) —
+  bursts erupt on every screen; damage numbers broadcast to players.
+- Soundboard: synthesized 🐺 howl / ⛈ thunder / 🎻 sting on all devices.
+- 📏 measure ruler (cells + feet); overcast light tint for rain/snow.
+- Terrain slider removed (owner call — flat board + props).
+
 ## First milestones
 - [ ] 1. Prototype: hardcoded prop list on the Waystone Midday map —
       billboard cut-out sprites for the two stones + a few trees; judge the
