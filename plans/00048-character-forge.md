@@ -1,7 +1,12 @@
 # Plan 00048 — Character Forge (the player's BG3-style character view)
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
+
+**Shipped 2026-07-17 (ed851a2).** Migration 0028 applied on Render deploy;
+party hero renders seeded for Saturday (Creed / Nya / Thane / Willa —
+Sarranthia exited S2). Players reach it from their sheet's 🛡 YOUR
+CHARACTER button.
 
 **Created:** 2026-07-17. Owner ask: "expand what the player view has to
 offer… see their full character and dynamically equip things like clothes
