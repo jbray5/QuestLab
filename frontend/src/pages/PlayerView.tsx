@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { playApi, type CombatState, type TurnState } from "../api/play";
@@ -492,6 +492,23 @@ function HeaderBanner({
             Lv {pc.level} {pc.character_class}
             {pc.subclass ? ` (${pc.subclass})` : ""} · {pc.race}
           </p>
+          <Link
+            to={`/play/${pc.id}/character`}
+            style={{
+              display: "inline-block",
+              marginTop: 2,
+              fontSize: "0.72rem",
+              letterSpacing: "0.06em",
+              color: "var(--gold)",
+              textDecoration: "none",
+              border: "1px solid var(--gold)",
+              borderRadius: 7,
+              padding: "1px 8px",
+              opacity: 0.9,
+            }}
+          >
+            🛡 YOUR CHARACTER
+          </Link>
         </div>
       </div>
 

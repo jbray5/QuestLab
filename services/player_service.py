@@ -25,10 +25,11 @@ Player write scope:
 - Class feature use spend
 - Inspiration toggle, concentration drop, exhaustion adjust, currency
   set (via PATCH /state)
+- Equip / unequip own gear, appearance notes, hero-render forge (Plan 48)
 
 Forbidden in player scope (DM only):
 - Create / delete / edit identity of any PC
-- Equip / unequip / attune (DM-managed in this iteration)
+- Attune (DM-managed)
 - Spell knowledge changes (DM-managed)
 - Anything touching other PCs or campaigns
 """
@@ -361,3 +362,137 @@ def patch_state(db: Session, pc_id: uuid.UUID, fields: dict[str, Any]) -> Player
     update = PlayerCharacterUpdate.model_validate(fields)
     character_service.update_character(db, pc_id, dm, update)
     return _get_pc_or_raise(db, pc_id)
+
+
+# ---------------------------------------------------------------------------
+# Plan 00048 — Character Forge: gear, appearance, and the hero render
+# ---------------------------------------------------------------------------
+
+# Minimum seconds between player-triggered hero generations (paid API call
+# behind a capability URL — the cooldown is the abuse guard).
+_HERO_COOLDOWN_SECONDS = 90
+
+# Player-editable appearance length cap.
+_APPEARANCE_MAX = 1500
+
+
+def list_gear(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
+    """Inventory rows joined with catalog item details for the Forge UI.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC.
+
+    Returns:
+        One dict per inventory row: ids, name/type/rarity/image from the
+        catalog, quantity/equipped/attuned from the row.
+    """
+    from db.repos.item_repo import ItemRepo
+    from services import inventory_service
+
+    dm = _dm_email_for(db, pc_id)
+    gear: list[dict[str, Any]] = []
+    for row in inventory_service.list_for_character(db, pc_id, dm):
+        item = ItemRepo.get_by_id(db, row.item_id)
+        if item is None:
+            continue
+        gear.append(
+            {
+                "character_item_id": str(row.id),
+                "item_id": str(item.id),
+                "name": item.name,
+                "item_type": item.item_type,
+                "rarity": item.rarity.value if hasattr(item.rarity, "value") else item.rarity,
+                "description": item.description,
+                "image_url": item.image_url,
+                "is_magic": item.is_magic,
+                "quantity": row.quantity,
+                "equipped": row.equipped,
+                "attuned": row.attuned,
+            }
+        )
+    return gear
+
+
+def set_appearance(db: Session, pc_id: uuid.UUID, appearance: str) -> PlayerCharacter:
+    """Save the player's own appearance notes (Forge customization).
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC.
+        appearance: Free-text look description (capped at 1500 chars).
+
+    Returns:
+        The refreshed PC row.
+    """
+    from domain.character import PlayerCharacterUpdate
+
+    _get_pc_or_raise(db, pc_id)
+    dm = _dm_email_for(db, pc_id)
+    text = appearance.strip()[:_APPEARANCE_MAX]
+    character_service.update_character(db, pc_id, dm, PlayerCharacterUpdate(appearance=text))
+    return _get_pc_or_raise(db, pc_id)
+
+
+def set_equipped(db: Session, pc_id: uuid.UUID, character_item_id: uuid.UUID, equipped: bool):
+    """Player equip/unequip — only rows belonging to this PC.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC (capability scope).
+        character_item_id: UUID of the inventory row.
+        equipped: New equipped state.
+
+    Returns:
+        The updated inventory row.
+
+    Raises:
+        ValueError: If the row doesn't exist.
+        PermissionError: If the row belongs to a different character.
+    """
+    from db.repos.character_item_repo import CharacterItemRepo
+    from services import inventory_service
+
+    _get_pc_or_raise(db, pc_id)
+    row = CharacterItemRepo.get_by_id(db, character_item_id)
+    if row is None:
+        raise ValueError(f"Inventory row {character_item_id} not found.")
+    if row.character_id != pc_id:
+        raise PermissionError("That item belongs to a different character.")
+    dm = _dm_email_for(db, pc_id)
+    return inventory_service.set_equipped(db, character_item_id, equipped, dm)
+
+
+def forge_hero(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
+    """Generate the full-body hero render for this PC (cooldown-guarded).
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC.
+
+    Returns:
+        ``{"hero_url": <url>}``.
+
+    Raises:
+        ValueError: If the PC is not found, or the forge is still cooling
+            down (message carries the seconds remaining).
+        PermissionError / RuntimeError: Propagated from generation.
+    """
+    from datetime import datetime, timezone
+
+    from integrations.event_bus import publish_pc_updated
+    from services import portrait_service
+
+    pc = _get_pc_or_raise(db, pc_id)
+    if pc.hero_generated_at is not None:
+        last = pc.hero_generated_at
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        elapsed = (datetime.now(timezone.utc) - last).total_seconds()
+        if elapsed < _HERO_COOLDOWN_SECONDS:
+            wait = int(_HERO_COOLDOWN_SECONDS - elapsed)
+            raise ValueError(f"The forge is still glowing — try again in {wait}s.")
+    equipped = [g["name"] for g in list_gear(db, pc_id) if g["equipped"]]
+    url = portrait_service.generate_pc_hero(db, pc, equipped)
+    publish_pc_updated(pc.id, pc.campaign_id)
+    return {"hero_url": url}

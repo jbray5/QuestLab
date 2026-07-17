@@ -195,6 +195,10 @@ def patch_duckdb_schema() -> None:
         # 0026 — productized diorama: ground layer + upright props (Plan 46)
         "ALTER TABLE battle_maps ADD COLUMN IF NOT EXISTS ground_url VARCHAR(1000)",
         "ALTER TABLE battle_maps ADD COLUMN IF NOT EXISTS props JSON",
+        # 0028 — Character Forge: appearance + hero render (Plan 48)
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS appearance VARCHAR",
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS hero_url VARCHAR(500)",
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS hero_generated_at TIMESTAMP",
     ]
     with engine.begin() as conn:
         for stmt in patches:

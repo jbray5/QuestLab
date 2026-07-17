@@ -230,3 +230,90 @@ def patch_state(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+# ── Character Forge (Plan 48) ─────────────────────────────────────────────────
+
+
+@router.get("/play/{pc_id}/gear")
+def list_gear(pc_id: uuid.UUID, db: DB) -> list[dict]:
+    """Inventory joined with item details for the Forge equipment list.
+
+    Args:
+        pc_id: UUID of the player character.
+        db: Database session.
+
+    Returns:
+        Gear rows with name/type/rarity/image + equipped state.
+    """
+    try:
+        return player_service.list_gear(db, pc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.patch("/play/{pc_id}/appearance", response_model=PlayerCharacter)
+def set_appearance(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
+    """Save the player's appearance notes.
+
+    Args:
+        pc_id: UUID of the player character.
+        body: ``{"appearance": "<text>"}``.
+        db: Database session.
+
+    Returns:
+        The refreshed PC.
+    """
+    try:
+        return player_service.set_appearance(db, pc_id, str(body.get("appearance", "")))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/gear/{character_item_id}/equip")
+def set_equipped(pc_id: uuid.UUID, character_item_id: uuid.UUID, body: dict, db: DB):
+    """Equip or unequip one of this PC's own inventory rows.
+
+    Args:
+        pc_id: UUID of the player character.
+        character_item_id: UUID of the inventory row.
+        body: ``{"equipped": true|false}``.
+        db: Database session.
+
+    Returns:
+        The updated inventory row.
+    """
+    try:
+        return player_service.set_equipped(
+            db, pc_id, character_item_id, bool(body.get("equipped", True))
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/hero")
+def forge_hero(pc_id: uuid.UUID, db: DB) -> dict:
+    """Generate the full-body hero render (90s cooldown).
+
+    Args:
+        pc_id: UUID of the player character.
+        db: Database session.
+
+    Returns:
+        ``{"hero_url": <url>}``.
+    """
+    try:
+        return player_service.forge_hero(db, pc_id)
+    except ValueError as exc:
+        # The cooldown message is a throttle, not a missing resource.
+        if "forge is still glowing" in str(exc):
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Hero generation failed: {exc}"
+        )

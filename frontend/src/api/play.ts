@@ -84,4 +84,27 @@ export const playApi = {
     ),
   patchState: (pcId: string, patch: PlayerStatePatch) =>
     api.patch<PlayerCharacter>(`/play/${pcId}/state`, patch),
+
+  // Plan 48 — Character Forge
+  gear: (pcId: string) => api.get<GearRow[]>(`/play/${pcId}/gear`),
+  setAppearance: (pcId: string, appearance: string) =>
+    api.patch<PlayerCharacter>(`/play/${pcId}/appearance`, { appearance }),
+  setEquipped: (pcId: string, characterItemId: string, equipped: boolean) =>
+    api.post<GearRow>(`/play/${pcId}/gear/${characterItemId}/equip`, { equipped }),
+  forgeHero: (pcId: string) => api.post<{ hero_url: string }>(`/play/${pcId}/hero`),
 };
+
+/** One Forge equipment row — inventory joined with catalog item details. */
+export interface GearRow {
+  character_item_id: string;
+  item_id: string;
+  name: string;
+  item_type: string;
+  rarity: string;
+  description: string | null;
+  image_url: string | null;
+  is_magic: boolean;
+  quantity: number;
+  equipped: boolean;
+  attuned: boolean;
+}

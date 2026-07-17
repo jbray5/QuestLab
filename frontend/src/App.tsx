@@ -33,6 +33,7 @@ const Table3DView   = lazy(() => import("./pages/Table3DView"));
 const Shops         = lazy(() => import("./pages/Shops"));
 const MarketView    = lazy(() => import("./pages/MarketView"));
 const StorefrontView = lazy(() => import("./pages/StorefrontView"));
+const CharacterView = lazy(() => import("./pages/CharacterView"));
 
 function PageLoader() {
   return (
@@ -72,6 +73,8 @@ export default function App() {
     <Routes>
       {/* Plan 25 — Player view: standalone route with no DM chrome */}
       <Route path="/play/:pcId" element={lazyRoute(<PlayerView />)} />
+      {/* Plan 48 — Character Forge: the player's full-body character screen */}
+      <Route path="/play/:pcId/character" element={lazyRoute(<CharacterView />)} />
 
       {/* Plan 42 — Table View: full-screen projected battle map, no DM chrome */}
       <Route path="/table/:sessionId" element={lazyRoute(<TableView />)} />

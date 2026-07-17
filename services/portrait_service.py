@@ -14,6 +14,7 @@ NPC services).
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlmodel import Session
@@ -403,8 +404,78 @@ def generate_monster_portrait(
     return MonsterRepo.update(session, monster, MonsterStatBlockUpdate(image_url=url))
 
 
+# ---------------------------------------------------------------------------
+# Plan 00048 — Character Forge: the player's full-body hero render
+# ---------------------------------------------------------------------------
+
+
+def _build_hero_prompt(pc: PlayerCharacter, equipped: list[str]) -> str:
+    """Build the full-body hero prompt from identity + appearance + gear.
+
+    Args:
+        pc: The player character row.
+        equipped: Display names of currently equipped items.
+
+    Returns:
+        The image prompt string.
+    """
+    klass = (
+        pc.character_class.value
+        if hasattr(pc.character_class, "value")
+        else str(pc.character_class)
+    )
+    bits: list[str] = [
+        f"Full-body character portrait of {pc.character_name}, "
+        f"a level {pc.level} {pc.race} {klass}"
+    ]
+    if pc.subclass:
+        bits.append(f"({pc.subclass})")
+    if pc.appearance:
+        bits.append(pc.appearance.strip()[:1200])
+    if equipped:
+        bits.append("Currently equipped and visibly worn or carried: " + ", ".join(equipped[:12]))
+    bits.append(
+        "Heroic RPG character-screen render in the style of a AAA fantasy video game: "
+        "standing full-length pose, head to boots in frame, three-quarter view, "
+        "dramatic rim lighting, painterly detail, dark smoky studio backdrop with "
+        "a faint ground shadow. No text, no watermark, no border"
+    )
+    return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
+
+
+def generate_pc_hero(session: Session, pc: PlayerCharacter, equipped: list[str]) -> str:
+    """Generate + persist the hero render for a PC (auth handled by caller).
+
+    Args:
+        session: Active database session.
+        pc: The player character row (already ownership-checked upstream).
+        equipped: Display names of currently equipped items.
+
+    Returns:
+        The uploaded image URL.
+
+    Raises:
+        PermissionError: If OPENAI/BLOB env vars are missing.
+        RuntimeError: If the upstream API calls fail.
+    """
+    prompt = _build_hero_prompt(pc, equipped)
+    png_bytes = generate_image(prompt, size="1024x1536", quality="medium")
+    url = blob_storage.upload(path=f"heroes/pc-{pc.id}.png", data=png_bytes)
+    # Naive UTC on purpose: DuckDB round-trips tz-aware values through local
+    # time (breaking the cooldown math), while naive UTC reads back verbatim;
+    # Postgres (session tz = UTC on Render) interprets it as UTC either way.
+    stamp = datetime.now(timezone.utc).replace(tzinfo=None)
+    CharacterRepo.update(
+        session,
+        pc,
+        PlayerCharacterUpdate(hero_url=url, hero_generated_at=stamp),
+    )
+    return url
+
+
 __all__ = [
     "generate_pc_portrait",
     "generate_npc_portrait",
     "generate_monster_portrait",
+    "generate_pc_hero",
 ]

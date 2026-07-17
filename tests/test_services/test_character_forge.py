@@ -1,0 +1,156 @@
+"""Plan 48 tests — the Character Forge (player gear/appearance/hero).
+
+Image + blob calls are monkeypatched on portrait_service; everything else
+(ownership scoping, cooldown, gear join) runs for real on DuckDB.
+"""
+
+from datetime import datetime, timezone
+
+import pytest
+from sqlmodel import Session
+
+import services.inventory_service as inv_svc
+import services.item_service as item_svc
+import services.player_service as play_svc
+import services.portrait_service as portrait_svc
+from domain.character import CharacterItemCreate
+from domain.enums import ItemRarity
+from domain.item import ItemCreate
+from tests.test_services.test_player_service import _campaign, _dm, _pc
+
+
+def _give_item(db, pc_id, dm, name="Longsword", equipped=False):
+    """Create a catalog item and put it in the PC's inventory."""
+    item = item_svc.create_item(
+        db, ItemCreate(name=name, rarity=ItemRarity.COMMON, item_type="Weapon", value_gp=15)
+    )
+    return inv_svc.add_item(db, pc_id, CharacterItemCreate(item_id=item.id, equipped=equipped), dm)
+
+
+def _patch_hero_gen(monkeypatch):
+    """Stub the image + blob calls; capture the prompt."""
+    captured: dict = {}
+
+    def fake_generate_image(prompt, **kwargs):
+        captured["prompt"] = prompt
+        captured["kwargs"] = kwargs
+        return b"\x89PNGFAKE"
+
+    monkeypatch.setattr(portrait_svc, "generate_image", fake_generate_image)
+    monkeypatch.setattr(
+        portrait_svc.blob_storage,
+        "upload",
+        lambda *, path, data, content_type="image/png": f"https://fake.blob/{path}",
+    )
+    return captured
+
+
+class TestGearAndAppearance:
+    """Gear join, player equip scoping, appearance notes."""
+
+    def test_list_gear_joins_item_details(self, duckdb_session: Session):
+        """Gear rows carry the catalog name/type/rarity."""
+        dm = _dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm)
+        _give_item(duckdb_session, pc.id, dm, name="Moonblade")
+
+        gear = play_svc.list_gear(duckdb_session, pc.id)
+
+        assert len(gear) == 1
+        assert gear[0]["name"] == "Moonblade"
+        assert gear[0]["item_type"] == "Weapon"
+        assert gear[0]["equipped"] is False
+
+    def test_player_equips_own_row(self, duckdb_session: Session):
+        """Equipping via the player scope flips the flag."""
+        dm = _dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm)
+        row = _give_item(duckdb_session, pc.id, dm)
+
+        updated = play_svc.set_equipped(duckdb_session, pc.id, row.id, True)
+
+        assert updated.equipped is True
+        assert play_svc.list_gear(duckdb_session, pc.id)[0]["equipped"] is True
+
+    def test_player_cannot_equip_another_pcs_row(self, duckdb_session: Session):
+        """A row belonging to a different PC in the same campaign is denied."""
+        dm = _dm()
+        c = _campaign(duckdb_session, dm)
+        pc_a = _pc(duckdb_session, c.id, dm)
+        pc_b = _pc(duckdb_session, c.id, dm)
+        row_b = _give_item(duckdb_session, pc_b.id, dm)
+
+        with pytest.raises(PermissionError):
+            play_svc.set_equipped(duckdb_session, pc_a.id, row_b.id, True)
+
+    def test_appearance_saved_and_capped(self, duckdb_session: Session):
+        """Appearance persists and is truncated to the cap."""
+        dm = _dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm)
+
+        updated = play_svc.set_appearance(duckdb_session, pc.id, "  Storm-grey eyes. " + "x" * 2000)
+
+        assert updated.appearance is not None
+        assert updated.appearance.startswith("Storm-grey eyes.")
+        assert len(updated.appearance) <= 1500
+
+
+class TestForgeHero:
+    """Hero generation: prompt content, persistence, cooldown."""
+
+    def test_forge_builds_prompt_from_identity_and_gear(self, duckdb_session: Session, monkeypatch):
+        """Prompt carries name, race/class, appearance, and equipped items only."""
+        dm = _dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm)
+        _give_item(duckdb_session, pc.id, dm, name="Moonblade", equipped=True)
+        _give_item(duckdb_session, pc.id, dm, name="Bedroll", equipped=False)
+        play_svc.set_appearance(duckdb_session, pc.id, "Storm-grey eyes, ash-blonde braid")
+        captured = _patch_hero_gen(monkeypatch)
+
+        result = play_svc.forge_hero(duckdb_session, pc.id)
+
+        assert result["hero_url"] == f"https://fake.blob/heroes/pc-{pc.id}.png"
+        assert "Hero" in captured["prompt"]
+        assert "Storm-grey eyes" in captured["prompt"]
+        assert "Moonblade" in captured["prompt"]
+        assert "Bedroll" not in captured["prompt"]
+        assert captured["kwargs"].get("size") == "1024x1536"
+        refreshed = play_svc.get_character(duckdb_session, pc.id)
+        assert refreshed.hero_url == result["hero_url"]
+
+    def test_forge_cooldown_blocks_rapid_regen(self, duckdb_session: Session, monkeypatch):
+        """A second forge inside the window raises with the wait message."""
+        dm = _dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm)
+        _patch_hero_gen(monkeypatch)
+
+        play_svc.forge_hero(duckdb_session, pc.id)
+
+        with pytest.raises(ValueError, match="forge is still glowing"):
+            play_svc.forge_hero(duckdb_session, pc.id)
+
+    def test_forge_allowed_after_cooldown(self, duckdb_session: Session, monkeypatch):
+        """A stale hero_generated_at lets the forge run again."""
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import PlayerCharacterUpdate
+
+        dm = _dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm)
+        _patch_hero_gen(monkeypatch)
+        play_svc.forge_hero(duckdb_session, pc.id)
+        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
+        CharacterRepo.update(
+            duckdb_session,
+            row,
+            PlayerCharacterUpdate(hero_generated_at=datetime(2020, 1, 1, tzinfo=timezone.utc)),
+        )
+
+        result = play_svc.forge_hero(duckdb_session, pc.id)
+
+        assert result["hero_url"].startswith("https://fake.blob/heroes/")
