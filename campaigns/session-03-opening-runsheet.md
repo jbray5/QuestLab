@@ -30,6 +30,14 @@ end on a wrongness that shouldn't exist.**
   torches. Weather is synced to the players. (Players tap 🔊 once on their
   device — browsers require a gesture for sound.)
 - **Ping the tree** on the green the first time someone looks at it. Say nothing.
+- **🏪 THE MARKET (new):** if they shop in Hollowmere before the road, drop the
+  town-market link in the chat — players browse stalls with art + prices on
+  their phones while you keep narrating:
+  `https://questlab.vercel.app/market/80b6f517-d124-4fea-9435-8e727f3171a9`
+  Three shops are stocked (The Gilded Burr — fey curiosities · Bramble &
+  Crust — pies/provisions, comic gold · The Bent Nail — arms & mending).
+  Great divvy-scene hook: let whoever gets loot gold spend it immediately.
+  Manage/edit prices: app → campaign → 🏪 Shops.
 
 ---
 
