@@ -118,18 +118,28 @@ def update_table_state(
     return TableStateRead.model_validate(state)
 
 
-def ping(db: DBSession, session_id: uuid.UUID, dm_email: str, x: float, y: float) -> None:
-    """Broadcast a transient "look here" ping to the Table View (owner only).
+def ping(
+    db: DBSession,
+    session_id: uuid.UUID,
+    dm_email: str,
+    x: float,
+    y: float,
+    kind: Optional[str] = None,
+    amount: Optional[int] = None,
+) -> None:
+    """Broadcast a transient ping or FX event to the table (owner only).
 
     Args:
         db: Active database session.
         session_id: UUID of the game session.
         dm_email: Email of the requesting DM.
-        x: Ping x in image-pixel coords.
-        y: Ping y in image-pixel coords.
+        x: X in image-pixel coords.
+        y: Y in image-pixel coords.
+        kind: Optional FX kind (fire/frost/heal/arcane/hit/howl/thunder/sting).
+        amount: Optional damage number for 'hit'.
     """
     session_service.get_session(db, session_id, dm_email)  # ownership check
-    publish_table_ping(session_id, x, y)
+    publish_table_ping(session_id, x, y, kind=kind, amount=amount)
 
 
 def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:

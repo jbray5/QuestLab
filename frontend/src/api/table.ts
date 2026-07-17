@@ -46,8 +46,13 @@ export const tableApi = {
     api.get<TableStateRead>(`/sessions/${sessionId}/table`),
   updateState: (sessionId: string, data: TableStateUpdate) =>
     api.patch<TableStateRead>(`/sessions/${sessionId}/table`, data),
-  ping: (sessionId: string, x: number, y: number) =>
-    api.post<void>(`/sessions/${sessionId}/table/ping`, { x, y }),
+  ping: (sessionId: string, x: number, y: number, kind?: string, amount?: number) =>
+    api.post<void>(`/sessions/${sessionId}/table/ping`, {
+      x,
+      y,
+      kind: kind ?? null,
+      amount: amount ?? null,
+    }),
   generateTokenFigure: (sessionId: string, name: string, styleHints?: string) =>
     api.post<{ url: string }>(`/sessions/${sessionId}/table/figure`, {
       name,

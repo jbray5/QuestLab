@@ -33,21 +33,37 @@ const NIGHT_AMBIENT = new THREE.Color("#39466f");
 const DAY_KEY = new THREE.Color("#fff3d6");
 const NIGHT_KEY = new THREE.Color("#8fa3ff");
 
-/** Ambient + key light whose color/intensity follow the darkness dial. */
-export function LightRig({ fit, darkness }: { fit: number; darkness: number }) {
-  const ambient = useMemo(
-    () => DAY_AMBIENT.clone().lerp(NIGHT_AMBIENT, darkness),
-    [darkness],
-  );
-  const key = useMemo(() => DAY_KEY.clone().lerp(NIGHT_KEY, darkness), [darkness]);
+/** Ambient + key light following the darkness dial; precipitation cools and
+ * dims the day like real overcast. */
+export function LightRig({
+  fit,
+  darkness,
+  weather = "none",
+}: {
+  fit: number;
+  darkness: number;
+  weather?: string;
+}) {
+  const overcast = weather === "rain" || weather === "snow";
+  const ambient = useMemo(() => {
+    const c = DAY_AMBIENT.clone().lerp(NIGHT_AMBIENT, darkness);
+    if (overcast) c.lerp(new THREE.Color("#aab4c8"), 0.35);
+    return c;
+  }, [darkness, overcast]);
+  const key = useMemo(() => {
+    const c = DAY_KEY.clone().lerp(NIGHT_KEY, darkness);
+    if (overcast) c.lerp(new THREE.Color("#b8c2d6"), 0.4);
+    return c;
+  }, [darkness, overcast]);
+  const dim = overcast ? 0.86 : 1;
   return (
     <>
       {/* Floors keep the map readable even at full darkness — the dial sets
           mood, not blindness. Day (darkness 0) is genuinely bright. */}
-      <ambientLight color={ambient} intensity={1.2 - 0.78 * darkness} />
+      <ambientLight color={ambient} intensity={(1.2 - 0.78 * darkness) * dim} />
       <directionalLight
         color={key}
-        intensity={1.45 - 1.02 * darkness}
+        intensity={(1.45 - 1.02 * darkness) * dim}
         position={[fit * 0.25, fit * 0.7, fit * 0.3]}
       />
     </>

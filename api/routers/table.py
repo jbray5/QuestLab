@@ -24,10 +24,12 @@ router = APIRouter(tags=["table"])
 
 
 class PingBody(BaseModel):
-    """A DM 'look here' ping in image-pixel coordinates."""
+    """A DM ping/FX broadcast in image-pixel coordinates (Plans 42/46)."""
 
     x: float
     y: float
+    kind: str | None = None
+    amount: int | None = None
 
 
 @router.get("/sessions/{session_id}/table", response_model=TableStateRead)
@@ -119,7 +121,7 @@ def ping_table(session_id: uuid.UUID, body: PingBody, db: DB, user: CurrentUser)
         user: Authenticated DM email.
     """
     try:
-        table_service.ping(db, session_id, user, body.x, body.y)
+        table_service.ping(db, session_id, user, body.x, body.y, kind=body.kind, amount=body.amount)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:

@@ -50,7 +50,14 @@ export interface BoardPing {
   id: string;
   x: number;
   y: number;
+  /** FX kind: fire | frost | heal | arcane | hit — undefined = plain ping. */
+  kind?: string | null;
+  /** Damage number shown with 'hit'. */
+  amount?: number | null;
 }
+
+/** FX kinds that render as particle bursts (stingers are audio-only). */
+export const VISUAL_FX = new Set(["fire", "frost", "heal", "arcane", "hit"]);
 
 interface GlideAnim {
   id: string;
@@ -98,6 +105,13 @@ interface Board3DProps {
   /** When set (e.g. to the map id), plays a cinematic sweep from the sky
    * down to the table on mount / whenever the key changes. */
   introKey?: string | null;
+  /** DM cast mode: clicks broadcast FX instead of moving tokens. */
+  castMode?: boolean;
+  onCast?: (x: number, y: number) => void;
+  /** DM measure mode: clicks set ruler points instead of moving tokens. */
+  measureMode?: boolean;
+  onMeasure?: (x: number, y: number) => void;
+  measurePts?: { x: number; y: number }[];
 }
 
 const SQRT3 = Math.sqrt(3);
@@ -808,6 +822,110 @@ function FogOverlay({
   );
 }
 
+const FX_STYLES: Record<string, { color: string; up: number; out: number; n: number }> = {
+  fire: { color: "#ff8a3c", up: 1.5, out: 1.9, n: 60 },
+  frost: { color: "#9fd8ff", up: 0.6, out: 1.7, n: 52 },
+  heal: { color: "#7cfc9b", up: 2.3, out: 0.7, n: 46 },
+  arcane: { color: "#c78bff", up: 1.2, out: 1.4, n: 56 },
+  hit: { color: "#ff5c4a", up: 1.1, out: 1.0, n: 32 },
+};
+
+/** One-shot particle burst for broadcast FX (fireball lands on EVERY screen). */
+function FxBurst({
+  x,
+  y,
+  z,
+  kind,
+  amount,
+  unit,
+}: {
+  x: number;
+  y: number;
+  z: number;
+  kind: string;
+  amount?: number | null;
+  unit: number;
+}) {
+  const style = FX_STYLES[kind] ?? FX_STYLES.arcane;
+  const { positions, dirs } = useMemo(() => {
+    // Deterministic per-burst scatter (no Math.random in render).
+    let seed = Math.abs(Math.round(x * 31 + z * 17 + kind.length * 101)) + 7;
+    const rnd = () => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return seed / 4294967296;
+    };
+    const n = style.n;
+    const pos = new Float32Array(n * 3);
+    const dir = new Float32Array(n * 3);
+    for (let i = 0; i < n; i += 1) {
+      const az = rnd() * Math.PI * 2;
+      const r = 0.25 + rnd() * 0.75;
+      dir[i * 3] = Math.cos(az) * r * style.out;
+      dir[i * 3 + 1] = (0.4 + rnd() * 0.8) * style.up;
+      dir[i * 3 + 2] = Math.sin(az) * r * style.out;
+    }
+    return { positions: pos, dirs: dir };
+  }, [x, z, kind, style]);
+  const geom = useRef<THREE.BufferGeometry>(null);
+  const mat = useRef<THREE.PointsMaterial>(null);
+  const start = useRef<number | null>(null);
+
+  useFrame((state) => {
+    const attr = geom.current?.getAttribute("position") as THREE.BufferAttribute | undefined;
+    if (!attr || !mat.current) return;
+    if (start.current === null) start.current = state.clock.elapsedTime;
+    const t = Math.min(1, (state.clock.elapsedTime - start.current) / 1.1);
+    const e = 1 - Math.pow(1 - t, 2);
+    const arr = attr.array as Float32Array;
+    for (let i = 0; i < style.n; i += 1) {
+      arr[i * 3] = dirs[i * 3] * e * unit * 1.6;
+      arr[i * 3 + 1] = Math.max(
+        0,
+        dirs[i * 3 + 1] * e * unit * 1.6 - t * t * unit * (style.up > 1.5 ? 0.2 : 1.1),
+      );
+      arr[i * 3 + 2] = dirs[i * 3 + 2] * e * unit * 1.6;
+    }
+    attr.needsUpdate = true;
+    mat.current.opacity = 0.95 * (1 - t);
+  });
+
+  return (
+    <group position={[x, y + unit * 0.15, z]}>
+      <points frustumCulled={false}>
+        <bufferGeometry ref={geom}>
+          <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        </bufferGeometry>
+        <pointsMaterial
+          ref={mat}
+          color={style.color}
+          size={unit * 0.09}
+          transparent
+          opacity={0.95}
+          depthWrite={false}
+          sizeAttenuation
+          blending={THREE.AdditiveBlending}
+        />
+      </points>
+      {typeof amount === "number" && (
+        <Html center position={[0, unit * 0.9, 0]} zIndexRange={[40, 0]} style={{ pointerEvents: "none" }}>
+          <div
+            style={{
+              fontFamily: "Cinzel, serif",
+              fontSize: 34,
+              fontWeight: 800,
+              color: kind === "heal" ? "#7cfc9b" : "#ff6b57",
+              textShadow: "0 2px 8px rgba(0,0,0,0.9)",
+              animation: "board-dmg-rise 1.4s ease-out forwards",
+            }}
+          >
+            {kind === "heal" ? `+${amount}` : `−${amount}`}
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
 /** One expanding "look here" ping ring. */
 function PingRing({ x, y = 0, z, unit }: { x: number; y?: number; z: number; unit: number }) {
   const mesh = useRef<THREE.Mesh>(null);
@@ -979,6 +1097,11 @@ function BoardScene(props: Board3DProps) {
     readOnly = false,
     defeatedRefs,
     pings,
+    castMode = false,
+    onCast,
+    measureMode = false,
+    onMeasure,
+    measurePts,
     fogOn = false,
     revealedRegions,
     brushReveals,
@@ -1042,11 +1165,19 @@ function BoardScene(props: Board3DProps) {
   const handleGround = (e: ThreeEvent<MouseEvent>) => {
     if (readOnly || e.delta > 5) return;
     e.stopPropagation();
+    const px = Math.max(0, Math.min(map.width, e.point.x + map.width / 2));
+    const py = Math.max(0, Math.min(map.height, e.point.z + map.height / 2));
+    if (castMode) {
+      onCast?.(px, py);
+      return;
+    }
+    if (measureMode) {
+      onMeasure?.(px, py);
+      return;
+    }
     if (!selectedId) return;
     const token = tokens.find((t) => t.id === selectedId);
     if (!token) return;
-    const px = Math.max(0, Math.min(map.width, e.point.x + map.width / 2));
-    const py = Math.max(0, Math.min(map.height, e.point.z + map.height / 2));
     const [sx, sy] = snapPoint(px, py, unit, gridKind);
     glideRef.current = {
       id: token.id,
@@ -1062,6 +1193,14 @@ function BoardScene(props: Board3DProps) {
   const handleTokenClick = (t: TableToken) => (e: ThreeEvent<MouseEvent>) => {
     if (readOnly || e.delta > 5) return;
     e.stopPropagation();
+    if (castMode) {
+      onCast?.(t.x, t.y);
+      return;
+    }
+    if (measureMode) {
+      onMeasure?.(t.x, t.y);
+      return;
+    }
     if (selectedId && selectedId !== t.id) {
       const sel = tokens.find((x) => x.id === selectedId);
       if (sel && sel.kind !== "light" && t.kind !== "light" && (attackArmed || sel.kind !== t.kind)) {
@@ -1126,7 +1265,7 @@ function BoardScene(props: Board3DProps) {
         args={[fogColor, fit * (2.5 - 1.0 * darkness), fit * (4.8 - 1.4 * darkness)]}
       />
       <Exposure darkness={darkness} />
-      <LightRig fit={fit} darkness={darkness} />
+      <LightRig fit={fit} darkness={darkness} weather={weather} />
       <Starfield fit={fit} darkness={darkness} />
       {domeTex && <BackdropDome tex={domeTex} fit={fit} darkness={darkness} />}
       <CameraRig
@@ -1205,15 +1344,90 @@ function BoardScene(props: Board3DProps) {
           opacity={fogOpacity}
         />
       )}
-      {(pings ?? []).map((p) => (
-        <PingRing
-          key={p.id}
-          x={p.x - map.width / 2}
-          y={heightAt(p.x, p.y)}
-          z={p.y - map.height / 2}
-          unit={unit}
-        />
-      ))}
+      {(pings ?? []).map((p) =>
+        p.kind && VISUAL_FX.has(p.kind) ? (
+          <FxBurst
+            key={p.id}
+            x={p.x - map.width / 2}
+            y={heightAt(p.x, p.y)}
+            z={p.y - map.height / 2}
+            kind={p.kind}
+            amount={p.amount}
+            unit={unit}
+          />
+        ) : !p.kind ? (
+          <PingRing
+            key={p.id}
+            x={p.x - map.width / 2}
+            y={heightAt(p.x, p.y)}
+            z={p.y - map.height / 2}
+            unit={unit}
+          />
+        ) : null,
+      )}
+      {measurePts && measurePts.length === 2 && (
+        <group>
+          <line>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                args={[
+                  new Float32Array([
+                    measurePts[0].x - map.width / 2,
+                    unit * 0.14,
+                    measurePts[0].y - map.height / 2,
+                    measurePts[1].x - map.width / 2,
+                    unit * 0.14,
+                    measurePts[1].y - map.height / 2,
+                  ]),
+                  3,
+                ]}
+              />
+            </bufferGeometry>
+            <lineBasicMaterial color="#ffd76a" transparent opacity={0.9} depthWrite={false} />
+          </line>
+          <Html
+            center
+            position={[
+              (measurePts[0].x + measurePts[1].x) / 2 - map.width / 2,
+              unit * 0.6,
+              (measurePts[0].y + measurePts[1].y) / 2 - map.height / 2,
+            ]}
+            zIndexRange={[35, 0]}
+            style={{ pointerEvents: "none" }}
+          >
+            <div
+              style={{
+                background: "rgba(6,6,12,0.85)",
+                border: "1px solid #ffd76a",
+                borderRadius: 6,
+                padding: "2px 10px",
+                fontSize: 14,
+                fontWeight: 700,
+                color: "#ffd76a",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {(
+                Math.hypot(
+                  measurePts[1].x - measurePts[0].x,
+                  measurePts[1].y - measurePts[0].y,
+                ) / unit
+              ).toFixed(1)}{" "}
+              cells ·{" "}
+              {Math.round(
+                (Math.hypot(
+                  measurePts[1].x - measurePts[0].x,
+                  measurePts[1].y - measurePts[0].y,
+                ) /
+                  unit) *
+                  5,
+              )}{" "}
+              ft
+            </div>
+          </Html>
+        </group>
+      )}
       <Weather kind={weather} mapW={map.width} mapH={map.height} unit={unit} />
       {error && (
         <Html center position={[0, unit, 0]}>

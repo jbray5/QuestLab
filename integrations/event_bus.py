@@ -258,15 +258,29 @@ def publish_table_updated(session_id: Any) -> None:
     )
 
 
-def publish_table_ping(session_id: Any, x: float, y: float) -> None:
-    """Fan a transient DM "look here" ping to the Table View (Plan 42).
+def publish_table_ping(
+    session_id: Any,
+    x: float,
+    y: float,
+    kind: str | None = None,
+    amount: int | None = None,
+) -> None:
+    """Fan a transient DM ping/FX event to every table surface (Plans 42/46).
+
+    Without a kind this is the classic "look here" ping. With a kind it is a
+    broadcast effect: spell bursts (fire/frost/heal/arcane), hit markers
+    (with a damage amount), or soundboard stingers (howl/thunder/sting).
 
     Args:
         session_id: UUID of the session.
-        x: Ping x in image-pixel coordinates.
-        y: Ping y in image-pixel coordinates.
+        x: X in image-pixel coordinates.
+        y: Y in image-pixel coordinates.
+        kind: Optional effect kind; None = plain ping.
+        amount: Optional number shown with 'hit' effects.
     """
-    event_bus.publish(
-        f"table:{session_id}",
-        {"type": "table.ping", "x": x, "y": y},
-    )
+    payload: dict[str, Any] = {"type": "table.ping", "x": x, "y": y}
+    if kind:
+        payload["kind"] = kind
+    if amount is not None:
+        payload["amount"] = amount
+    event_bus.publish(f"table:{session_id}", payload)

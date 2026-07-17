@@ -89,18 +89,28 @@ export default function BoardView() {
     enabled: !!campaignId,
   });
 
-  const [boardPings, setBoardPings] = useState<{ id: string; x: number; y: number }[]>([]);
+  const [boardPings, setBoardPings] = useState<
+    { id: string; x: number; y: number; kind?: string | null; amount?: number | null }[]
+  >([]);
   const pingSeq = useRef(0);
+  const stingerRef = useRef<(kind: string) => void>(() => undefined);
 
   useEventStream("table", sessionId, (event) => {
     if (event.type === "table.ping") {
-      const p = event as typeof event & { x?: number; y?: number };
+      const p = event as typeof event & { x?: number; y?: number; kind?: string; amount?: number };
       if (typeof p.x !== "number" || typeof p.y !== "number") return;
+      if (p.kind === "howl" || p.kind === "thunder" || p.kind === "sting") {
+        stingerRef.current(p.kind);
+        return;
+      }
+      // The DM's own hit broadcasts skip the board — the native strike
+      // animation already shows there; players get the burst + number.
+      if (p.kind === "hit") return;
       pingSeq.current += 1;
       const id = `ping-${pingSeq.current}`;
-      const ping = { id, x: p.x, y: p.y };
+      const ping = { id, x: p.x, y: p.y, kind: p.kind ?? null, amount: p.amount ?? null };
       setBoardPings((cur) => [...cur, ping]);
-      window.setTimeout(() => setBoardPings((cur) => cur.filter((q) => q.id !== id)), 1500);
+      window.setTimeout(() => setBoardPings((cur) => cur.filter((q) => q.id !== id)), 1600);
       return;
     }
     void qc.invalidateQueries({ queryKey: stateKey });
@@ -149,8 +159,6 @@ export default function BoardView() {
   const [backdropOpen, setBackdropOpen] = useState(false);
   const [backdropHints, setBackdropHints] = useState("");
   const [backdropBusy, setBackdropBusy] = useState(false);
-  const [terrainBusy, setTerrainBusy] = useState(false);
-  const [relief, setRelief] = useState(1);
   const [soundOn, setSoundOn] = useState(false);
   const [soundVol, setSoundVol] = useState(0.7);
   const [presets, setPresets] = useState<ScenePreset[]>(() => loadScenePresets(sessionId ?? ""));
@@ -168,6 +176,9 @@ export default function BoardView() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [attackArmed, setAttackArmed] = useState(false);
+  const [fxMode, setFxMode] = useState<string | null>(null);
+  const [measuring, setMeasuring] = useState(false);
+  const [measurePts, setMeasurePts] = useState<{ x: number; y: number }[]>([]);
   const [pendingAttack, setPendingAttack] = useState<{ attackerId: string; targetId: string } | null>(null);
   const [dmgDraft, setDmgDraft] = useState("");
   const [strike, setStrike] = useState<StrikeFx | null>(null);
@@ -182,6 +193,14 @@ export default function BoardView() {
         setSelectedId(null);
         setAttackArmed(false);
         setPendingAttack(null);
+        setFxMode(null);
+        setMeasuring(false);
+        setMeasurePts([]);
+      }
+      if (e.key === "m" || e.key === "M") {
+        setMeasuring((v) => !v);
+        setMeasurePts([]);
+        setFxMode(null);
       }
       if ((e.key === "a" || e.key === "A") && selectedId) setAttackArmed((v) => !v);
       if ((e.key === "[" || e.key === "]") && selectedId) {
@@ -400,20 +419,6 @@ export default function BoardView() {
     await qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
   }
 
-  async function generateTerrain() {
-    if (!activeMap) return;
-    setTerrainBusy(true);
-    try {
-      await tableApi.generateTerrain(activeMap.id);
-      await qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
-      setRelief(1);
-    } catch (err) {
-      window.alert(`Terrain generation failed: ${err instanceof Error ? err.message : err}`);
-    } finally {
-      setTerrainBusy(false);
-    }
-  }
-
   function fireStrike(fx: Omit<StrikeFx, "seq">) {
     seq.current += 1;
     setStrike({ ...fx, seq: seq.current });
@@ -434,6 +439,10 @@ export default function BoardView() {
     if (amount <= 0) return;
     fireStrike({ attackerId, targetId, amount });
     const target = state?.tokens.find((t) => t.id === targetId);
+    if (target) {
+      // Broadcast the hit — burst + damage number on every player device.
+      void tableApi.ping(sessionId!, target.x, target.y, "hit", amount);
+    }
     const comb = target?.ref_id ? combatantByRef.get(target.ref_id) : null;
     if (comb) {
       const hp = Math.max(0, comb.hp_current - amount);
@@ -452,11 +461,32 @@ export default function BoardView() {
     () => (state?.tokens ?? []).filter((t) => t.kind === "light").length,
     [state?.tokens],
   );
-  useAmbience(soundOn, soundVol, {
+  const stinger = useAmbience(soundOn, soundVol, {
     darkness: state?.darkness ?? 0,
     weather,
     torches: torchCount,
   });
+  useEffect(() => {
+    stingerRef.current = stinger;
+  }, [stinger]);
+
+  function castFx(x: number, y: number) {
+    if (!fxMode) return;
+    void tableApi.ping(sessionId!, x, y, fxMode === "ping" ? undefined : fxMode);
+  }
+
+  function measurePoint(x: number, y: number) {
+    setMeasurePts((prev) => (prev.length >= 2 ? [{ x, y }] : [...prev, { x, y }]));
+  }
+
+  function fireStinger(kind: string) {
+    void tableApi.ping(
+      sessionId!,
+      (activeMap?.width ?? 0) / 2,
+      (activeMap?.height ?? 0) / 2,
+      kind,
+    );
+  }
 
   function applyPreset(p: ScenePreset) {
     const patch = {
@@ -587,32 +617,6 @@ export default function BoardView() {
         >
           🌌 Backdrop
         </button>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
-          onClick={() => void generateTerrain()}
-          disabled={!activeMap || terrainBusy}
-          title="AI auto-terrain: gpt-image-1 paints a heightmap from the map art; the board sculpts itself from it (~30-60s)"
-        >
-          {terrainBusy ? "⛰ Sculpting…" : activeMap?.heightmap_url ? "⛰ Terrain ↻" : "⛰ Terrain"}
-        </button>
-        {activeMap?.heightmap_url && (
-          <label
-            style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.72rem", color: "var(--muted)" }}
-            title="Relief height — 0 is flat (the revert switch)"
-          >
-            ⛰
-            <input
-              type="range"
-              min={0}
-              max={2}
-              step={0.1}
-              value={relief}
-              onChange={(e) => setRelief(Number(e.target.value))}
-              style={{ width: 70 }}
-            />
-          </label>
-        )}
         <a
           href={`${window.location.origin}/table/${sessionId}/3d`}
           target="_blank"
@@ -684,6 +688,58 @@ export default function BoardView() {
         >
           💾 Save scene
         </button>
+
+        <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 4px" }} />
+        <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>CAST</span>
+        {[
+          ["ping", "◎", "Look-here ping"],
+          ["fire", "🔥", "Fire burst"],
+          ["frost", "❄️", "Frost burst"],
+          ["heal", "✨", "Healing sparkle"],
+          ["arcane", "💜", "Arcane burst"],
+        ].map(([mode, icon, tip]) => (
+          <button
+            key={mode}
+            className={fxMode === mode ? "btn" : "btn btn-ghost"}
+            style={{ fontSize: "0.72rem", padding: "0.12rem 0.45rem" }}
+            onClick={() => {
+              setFxMode((cur) => (cur === mode ? null : mode));
+              setMeasuring(false);
+            }}
+            title={`${tip} — click the board to cast on every screen (Esc to stop)`}
+          >
+            {icon}
+          </button>
+        ))}
+        <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 4px" }} />
+        <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>STING</span>
+        {[
+          ["howl", "🐺", "Wolf howl on every device with sound on"],
+          ["thunder", "⛈️", "Thunder roll"],
+          ["sting", "🎻", "Dramatic sting"],
+        ].map(([kind, icon, tip]) => (
+          <button
+            key={kind}
+            className="btn btn-ghost"
+            style={{ fontSize: "0.72rem", padding: "0.12rem 0.45rem" }}
+            onClick={() => fireStinger(kind)}
+            title={tip}
+          >
+            {icon}
+          </button>
+        ))}
+        <button
+          className={measuring ? "btn" : "btn btn-ghost"}
+          style={{ fontSize: "0.72rem", padding: "0.12rem 0.55rem", marginLeft: 4 }}
+          onClick={() => {
+            setMeasuring((v) => !v);
+            setMeasurePts([]);
+            setFxMode(null);
+          }}
+          title="Measure (M): click two points — distance in cells and feet"
+        >
+          📏
+        </button>
       </div>
 
       {/* body */}
@@ -708,7 +764,11 @@ export default function BoardView() {
               brushReveals={state?.brush_reveals ?? []}
               fogOpacity={0.32}
               pings={boardPings}
-              relief={relief}
+              castMode={!!fxMode}
+              onCast={castFx}
+              measureMode={measuring}
+              onMeasure={measurePoint}
+              measurePts={measurePts}
               onSelect={(id) => {
                 setSelectedId(id);
                 if (!id) setAttackArmed(false);

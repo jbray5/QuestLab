@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 /**
  * ambience — procedural WebAudio soundscape for the 3D views (Plan 46).
@@ -145,6 +145,91 @@ export class AmbienceEngine {
     this.setLayer("fire", torches > 0 || weather === "embers" ? 0.05 : 0);
   }
 
+  /** DM soundboard one-shots, broadcast over the FX channel (Plan 46). */
+  stinger(kind: string): void {
+    const ctx = this.ctx;
+    const master = this.master;
+    if (!ctx || !master) return;
+    const t = ctx.currentTime;
+    if (kind === "howl") {
+      // A wolf: two detuned sines gliding up then down, with slow vibrato.
+      for (const detune of [0, 6]) {
+        const osc = ctx.createOscillator();
+        osc.detune.value = detune;
+        osc.frequency.setValueAtTime(310, t);
+        osc.frequency.exponentialRampToValueAtTime(720, t + 0.7);
+        osc.frequency.exponentialRampToValueAtTime(560, t + 1.5);
+        osc.frequency.exponentialRampToValueAtTime(330, t + 2.3);
+        const vib = ctx.createOscillator();
+        vib.frequency.value = 5.2;
+        const vibGain = ctx.createGain();
+        vibGain.gain.value = 9;
+        vib.connect(vibGain).connect(osc.frequency);
+        const lp = ctx.createBiquadFilter();
+        lp.type = "lowpass";
+        lp.frequency.value = 1400;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0, t);
+        g.gain.linearRampToValueAtTime(0.09, t + 0.35);
+        g.gain.setValueAtTime(0.09, t + 1.6);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 2.5);
+        osc.connect(lp).connect(g).connect(master);
+        osc.start(t);
+        vib.start(t);
+        osc.stop(t + 2.6);
+        vib.stop(t + 2.6);
+      }
+    } else if (kind === "thunder") {
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer(ctx, 3);
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.setValueAtTime(220, t);
+      lp.frequency.exponentialRampToValueAtTime(70, t + 2.6);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.5, t + 0.09);
+      g.gain.exponentialRampToValueAtTime(0.12, t + 0.9);
+      g.gain.exponentialRampToValueAtTime(0.28, t + 1.3);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
+      src.connect(lp).connect(g).connect(master);
+      src.start(t);
+    } else if (kind === "sting") {
+      // A dramatic low hit: detuned saws + a noise thump.
+      for (const [freq, detune] of [
+        [82.4, 0],
+        [82.4, -12],
+        [164.8, 7],
+      ] as const) {
+        const osc = ctx.createOscillator();
+        osc.type = "sawtooth";
+        osc.frequency.value = freq;
+        osc.detune.value = detune;
+        osc.frequency.exponentialRampToValueAtTime(freq * 0.94, t + 1.4);
+        const lp = ctx.createBiquadFilter();
+        lp.type = "lowpass";
+        lp.frequency.setValueAtTime(900, t);
+        lp.frequency.exponentialRampToValueAtTime(180, t + 1.4);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.09, t);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+        osc.connect(lp).connect(g).connect(master);
+        osc.start(t);
+        osc.stop(t + 1.6);
+      }
+      const thump = ctx.createBufferSource();
+      thump.buffer = noiseBuffer(ctx, 0.25);
+      const tlp = ctx.createBiquadFilter();
+      tlp.type = "lowpass";
+      tlp.frequency.value = 160;
+      const tg = ctx.createGain();
+      tg.gain.setValueAtTime(0.4, t);
+      tg.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+      thump.connect(tlp).connect(tg).connect(master);
+      thump.start(t);
+    }
+  }
+
   /** Probabilistic one-shot events, scheduled against the audio clock. */
   private tick(): void {
     const ctx = this.ctx;
@@ -206,8 +291,13 @@ export class AmbienceEngine {
   }
 }
 
-/** Mount/unmount + retune the ambience engine from component state. */
-export function useAmbience(enabled: boolean, volume: number, params: AmbienceParams): void {
+/** Mount/unmount + retune the ambience engine from component state.
+ * Returns a stinger trigger for broadcast soundboard events. */
+export function useAmbience(
+  enabled: boolean,
+  volume: number,
+  params: AmbienceParams,
+): (kind: string) => void {
   const engine = useRef<AmbienceEngine | null>(null);
 
   useEffect(() => {
@@ -229,4 +319,8 @@ export function useAmbience(enabled: boolean, volume: number, params: AmbiencePa
   useEffect(() => {
     engine.current?.update({ darkness, weather, torches });
   }, [darkness, weather, torches, enabled]);
+
+  return useCallback((kind: string) => {
+    engine.current?.stinger(kind);
+  }, []);
 }

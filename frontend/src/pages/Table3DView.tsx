@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
@@ -92,18 +92,23 @@ export default function Table3DView() {
 
   const [pings, setPings] = useState<BoardPing[]>([]);
   const pingSeq = useRef(0);
+  const stingerRef = useRef<(kind: string) => void>(() => undefined);
 
   useEventStream("table", sessionId, (event: StreamEvent) => {
     if (event.type === "table.updated") {
       void qc.invalidateQueries({ queryKey: projKey });
     } else if (event.type === "table.ping") {
-      const p = event as StreamEvent & { x?: number; y?: number };
+      const p = event as StreamEvent & { x?: number; y?: number; kind?: string; amount?: number };
       if (typeof p.x !== "number" || typeof p.y !== "number") return;
+      if (p.kind === "howl" || p.kind === "thunder" || p.kind === "sting") {
+        stingerRef.current(p.kind);
+        return;
+      }
       pingSeq.current += 1;
       const id = `ping-${pingSeq.current}`;
-      const ping: BoardPing = { id, x: p.x, y: p.y };
+      const ping: BoardPing = { id, x: p.x, y: p.y, kind: p.kind ?? null, amount: p.amount ?? null };
       setPings((cur) => [...cur, ping]);
-      window.setTimeout(() => setPings((cur) => cur.filter((q) => q.id !== id)), 1500);
+      window.setTimeout(() => setPings((cur) => cur.filter((q) => q.id !== id)), 1700);
     }
   });
 
@@ -117,11 +122,14 @@ export default function Table3DView() {
     () => (proj?.tokens ?? []).filter((t) => t.kind === "light").length,
     [proj?.tokens],
   );
-  useAmbience(soundOn, 0.7, {
+  const stinger = useAmbience(soundOn, 0.7, {
     darkness: proj?.darkness ?? 0,
     weather: proj?.weather ?? "none",
     torches: torchCount,
   });
+  useEffect(() => {
+    stingerRef.current = stinger;
+  }, [stinger]);
 
   // Turn banner — the player-facing "whose turn" lower-third.
   const activeLabel = useMemo(() => {
