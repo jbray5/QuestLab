@@ -50,7 +50,21 @@ end on a wrongness that shouldn't exist.**
   Session ties: the **Silvered Shortsword** (Bent Nail) bites the Driven Wolves
   / fey stag; the **Laughing Mask** (cursed) is comedy gold for the lutenist.
   Great divvy-scene hook: let whoever gets loot gold spend it immediately.
+  **Pricing is tiered to their purses** (17–43 gp each): cheap staples they can
+  buy now, +1 gear (240–260 gp) as a real save-up upgrade, and aspirational
+  pieces (Dwarven Plate, Dragonbone Warhammer) they can only *see* exist. The
+  Bent Nail's **+1 Shortsword / +1 Leather / Cloak of the Roadwarden** are the
+  meaningful stretch buys; dangle the **Dragonbone Warhammer** at Creed.
   Manage/edit prices: app → campaign → 🏪 Shops.
+- **🕯️ THE BETWEEN-MARKET (HIDDEN fey pop-up) — spring it when the moment's
+  right.** A secret shop (the Tallyman) that's OFF the player market. Reveal it
+  by sharing its direct link: app → 🏪 Shops → The Between-Market → 🔗 player
+  link. **Costs are faerie promises, not gold** (a year of your voice, your
+  true name, the person you love best). Curses woven throughout; some items are
+  genuinely wonderful. The whole key — every price's real bite — is in the DM
+  key's "THE BETWEEN-MARKET" section. Best used as an eerie interlude or a
+  desperate-choice moment, not casual shopping. The Tallyman never lies and
+  always collects.
 - **🛡 CHARACTER FORGE (new):** in each player's existing `/play/<id>` sheet
   there's now a **🛡 YOUR CHARACTER** button → a full-screen BG3-style
   character screen. They equip their gear, write how their character looks,

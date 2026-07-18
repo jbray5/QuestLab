@@ -93,6 +93,59 @@ Player link (all shops): `<APP-DOMAIN>/market/80b6f517-d124-4fea-9435-8e727f3171
 
 ---
 
+---
+
+## 🕯️ THE BETWEEN-MARKET — The Tallyman (HIDDEN fey pop-up)
+
+**Not on the player market.** It's a hidden shop — reveal it by sharing the
+direct link (app → 🏪 Shops → The Between-Market → 🔗 player link) when the
+pop-up appears in play. **Costs are faerie promises, not gold.** Every price is
+a real hook you can collect later; several items are cursed. Players see only
+the alluring cards + the strange price. Let them bargain; the bite comes later.
+
+**How to run a fey bargain:** the price is paid the moment they agree. Track it.
+The Tallyman always keeps his word to the letter — and never in the spirit.
+Cursed items break with *remove curse*; fey debts are collected in fiction (he
+knocks), not by dice.
+
+| Item | Cost | The truth (DM) |
+|---|---|---|
+| **Vial of Borrowed Years** | a year of their singing voice | Heals to full **once**. Curse: they visibly age ~5 years; voice goes rough/quiet for a year (disadvantage on Performance & vocal Persuasion). |
+| **The Never-Empty Purse** | one true secret | Always holds 1 gp. Curse: the coins are fey gold — they turn to leaves/acorns at the next dawn *after* they're spent, and merchants remember. Debt & reputation trouble. |
+| **Cloak of the Unseen** | the colour of their eyes | *Genuinely great:* invisibility 1/day (as the spell, 1 min). Minor mark: eyes turn fey-grey. No curse. |
+| **The Honest Blade** | the last kind lie they'll tell | +0 dagger; goes cold near a spoken lie within 20 ft (a living detect-lies). Minor: they become physically unable to tell a kind untruth ("no, it's lovely") — can sting socially. |
+| **Boots of the Wandering Path** | their shadow till the next full moon | Ignore travel exhaustion, never tire on a road. Curse: each **night** travel, DC 12 Wis or the boots walk them ~1 mile off-route toward something fey. |
+| **Coin of the Coming-Back** | the last word they'll ever speak | *Amazing:* once ever, undo the last ~6 seconds (reroll/redo one action, rewind one turn). Curse hook: the final word of their life is pre-spent — narratively claimed for a future death scene. |
+| **Mask of a Hundred Faces** | their name for a year and a day | *Great:* look like any humanoid, 1 hr, 1/day. Curse: for a year, others forget their real name (must be reminded); the Tallyman *owns* the name and can be summoned by it. |
+| **Thornheart Locket** | their first laugh come spring | *Great, no catch:* immune to charmed & frightened while worn. Cost is pure melancholy (they simply can't laugh at the first spring joy). |
+| **The Debt-Marked Ring** | a favour, called in when he chooses | *Wish-adjacent, badly cursed:* one deeply-wanted thing happens — via the worst reasonable interpretation (monkey's-paw). And he WILL collect the favour at the worst time. Big plot lever. |
+| **Bag of Fond Memories** | a memory of his choosing | *Great & whimsical:* 1/day pull out a small mundane item ≤5 gp you "remember" owning. Cost: he takes one real memory (a face, a name, a place) — DM picks, seed later grief. |
+| **Sweetwater Flask** | the taste of their favourite food forever | Heals 1d4 + calms 1/day. Curse: all other food tastes of ash to them henceforth (roleplay; occasional disadvantage on eating-based social scenes). |
+| **Nightmare Jar** | one night's sleep they'll never get back | Throw to force a foe DC 13 Wis or *frightened* 1 min + 2d6 psychic. Cost: they lose one long rest's benefit, permanently docked (start next session with a level of exhaustion). |
+| **The Fair-Bargain Scroll** | three drops of blood + one good lie | *Powerful:* rewrites one deal/contract's terms in their favour, once. The lie they tell to sign it becomes *true* in a small, inconvenient way (DM's mischief). |
+| **Everbloom Sprig** | the scent of their childhood home | *Lovely, no catch:* undying flower, heal 1d4 each dawn. They simply can never again smell home (a quiet, permanent loss). |
+| **Whistle of the Hunt** | their true name, whispered once | Summon a terrible fey favour once (DM adjudicates — a hunt, a rescue, a slaughter). Curse: the Tallyman/Hunt now hold their true name — commands, scrying, summons. Very dangerous. |
+| **The Patchwork Heart** | the person they love best | Raises one dead — but the cost is another loved one (the fey take a life for a life, their choice or the buyer's). The shelf's top prize; almost never worth it. **This is a whole story arc, not a purchase.** |
+
+**Tone:** the Tallyman is warm, unhurried, and never lies. He wants them to buy.
+The best moments are the ones where a player *knows* it's a bad deal and does it
+anyway. Don't stop them. Write down every promise.
+
+---
+
+## 🆕 New town stock (quick DM notes)
+- **Gilded Burr aspirationals** (A Door That Isn't There 900 · The Weeping Crown
+  1500 · Mirror of the Second Face 4000) — *look-don't-buy* world flavor; the
+  Mirror shows a person's hidden self (great NPC/plot prop if they ever afford it).
+  Everlost Compass points to what the holder most wants (fun, unreliable).
+- **Bramble & Crust**: Potion of Animal Friendship (Willa bait), Salt of Warding
+  (a safe camp), Elixir of the Long Road (fast travel). Bottomless Flagon /
+  Cauldron of Plenty = aspirational.
+- **Bent Nail stretch upgrades** (the point of "expensive to THEM"): **+1
+  Shortsword 240**, **+1 Leather Armor 260**, **Cloak of the Roadwarden 200**,
+  **Studded Leather 45** (cheap real upgrade). Aspirational: **Dwarven Plate
+  2000**, **Dragonbone Warhammer 3500** (dangle at Creed).
+
 ## Running notes
 - **Loot bias (DM style):** steer the good finds toward the less bought-in
   players — not Nya. The cursed comedy items land best on whoever leans in.
