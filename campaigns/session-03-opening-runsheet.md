@@ -39,9 +39,16 @@ end on a wrongness that shouldn't exist.**
   per-deploy URLs are behind Vercel SSO (players' phones would hit a login
   wall). Verify the market link from a phone BEFORE Saturday; if it demands a
   Vercel login, turn off Deployment Protection for production or add a domain.
-  Three shops are stocked (The Gilded Burr — fey curiosities, keeper Pib
-  Thistlewhistle · Bramble & Crust — pies/provisions, Muddwyn, comic gold ·
-  The Bent Nail — arms & mending, Dunna Copperbraid).
+  Three shops, purpose-built stock (The Gilded Burr — fey curiosities +
+  MYSTERIES + CURSES, keeper Pib Thistlewhistle · Bramble & Crust — potions &
+  useful eats, Muddwyn, comic gold · The Bent Nail — practical magic arms &
+  mending, Dunna Copperbraid). Level-2 magic, gamble items, and three cursed
+  fey pieces.
+  📕 **DM KEY: `campaigns/hollowmere-market-key.md`** — the true effects behind
+  every mysterious/cursed item + exact mechanics + roll tables. Players see
+  only the alluring non-spoiler cards; you hold the truth. Read it before play.
+  Session ties: the **Silvered Shortsword** (Bent Nail) bites the Driven Wolves
+  / fey stag; the **Laughing Mask** (cursed) is comedy gold for the lutenist.
   Great divvy-scene hook: let whoever gets loot gold spend it immediately.
   Manage/edit prices: app → campaign → 🏪 Shops.
 - **🛡 CHARACTER FORGE (new):** in each player's existing `/play/<id>` sheet
