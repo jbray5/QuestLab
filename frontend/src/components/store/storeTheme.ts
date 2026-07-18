@@ -88,6 +88,26 @@ export const STORE_CSS = `
 .store-stock { font-size: 0.72rem; color: #c98a5a; }
 .store-back { color: #b3a789; text-decoration: none; font-size: 0.85rem; }
 .store-back:hover { color: #f0e6c8; }
+.store-purse {
+  display: inline-block; margin-top: 0.6rem; padding: 5px 14px; border-radius: 999px;
+  background: rgba(224,192,77,0.1); border: 1px solid rgba(224,192,77,0.4);
+  color: #e0c04d; font-size: 0.9rem;
+}
+.store-buy {
+  margin-top: 7px; padding: 7px 0; width: 100%; border-radius: 9px; cursor: pointer;
+  font-family: Cinzel, Georgia, serif; font-size: 0.86rem; letter-spacing: 0.05em;
+  color: #1c1508; background: linear-gradient(180deg, #e8c95c, #c9a136);
+  border: 1px solid #f0e0a0;
+}
+.store-buy:disabled { opacity: 0.45; cursor: default; }
+.store-note { margin-top: 6px; font-size: 0.72rem; color: #8f8672; font-style: italic; }
+.store-note.err { color: #d4776a; }
+.store-toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: rgba(20,16,30,0.95); border: 1px solid #d6af36; color: #f0e6c8;
+  border-radius: 12px; padding: 10px 22px; font-size: 0.95rem; z-index: 50;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+}
 .market-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 18px; margin-top: 1.4rem;

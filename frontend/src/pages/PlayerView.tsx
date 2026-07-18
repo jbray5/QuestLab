@@ -492,23 +492,41 @@ function HeaderBanner({
             Lv {pc.level} {pc.character_class}
             {pc.subclass ? ` (${pc.subclass})` : ""} · {pc.race}
           </p>
-          <Link
-            to={`/play/${pc.id}/character`}
-            style={{
-              display: "inline-block",
-              marginTop: 2,
-              fontSize: "0.72rem",
-              letterSpacing: "0.06em",
-              color: "var(--gold)",
-              textDecoration: "none",
-              border: "1px solid var(--gold)",
-              borderRadius: 7,
-              padding: "1px 8px",
-              opacity: 0.9,
-            }}
-          >
-            🛡 YOUR CHARACTER
-          </Link>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
+            <Link
+              to={`/play/${pc.id}/character`}
+              style={{
+                display: "inline-block",
+                fontSize: "0.72rem",
+                letterSpacing: "0.06em",
+                color: "var(--gold)",
+                textDecoration: "none",
+                border: "1px solid var(--gold)",
+                borderRadius: 7,
+                padding: "1px 8px",
+                opacity: 0.9,
+              }}
+            >
+              🛡 YOUR CHARACTER
+            </Link>
+            <Link
+              to={`/market/${pc.campaign_id}?pc=${pc.id}`}
+              style={{
+                display: "inline-block",
+                fontSize: "0.72rem",
+                letterSpacing: "0.06em",
+                color: "var(--gold)",
+                textDecoration: "none",
+                border: "1px solid var(--gold)",
+                borderRadius: 7,
+                padding: "1px 8px",
+                opacity: 0.9,
+              }}
+              title="Browse the town market and buy with your coin"
+            >
+              🏪 MARKET
+            </Link>
+          </div>
         </div>
       </div>
 

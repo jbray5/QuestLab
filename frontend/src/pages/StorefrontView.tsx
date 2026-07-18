@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { playApi } from "../api/play";
 import { formatPrice, shopsApi, type StorefrontItem } from "../api/shops";
 import { RARITY_COLORS, STORE_CSS, typeEmoji } from "../components/store/storeTheme";
 
@@ -10,11 +11,53 @@ import { RARITY_COLORS, STORE_CSS, typeEmoji } from "../components/store/storeTh
  *
  * A capability URL like the Table View: no login, no DM data. Banner hero,
  * the keeper's patter, and a browsable card grid of priced wares.
+ *
+ * Plan 50: opened with ?pc=<pcId> (from the player's own sheet), the shop
+ * becomes transactional — a purse chip and Buy buttons that spend the PC's
+ * coin and drop the item into their pack. The bare link stays browse-only,
+ * so it is always safe to screen-share.
  */
 
-function ItemCard({ item }: { item: StorefrontItem }) {
+/** Player purse rendered the way a keeper counts it. */
+function purseLabel(p: { pp: number; gp: number; ep: number; sp: number; cp: number }): string {
+  const bits: string[] = [];
+  if (p.pp) bits.push(`${p.pp} pp`);
+  bits.push(`${p.gp} gp`);
+  if (p.ep) bits.push(`${p.ep} ep`);
+  if (p.sp) bits.push(`${p.sp} sp`);
+  if (p.cp) bits.push(`${p.cp} cp`);
+  return bits.join(" ");
+}
+
+function ItemCard({
+  item,
+  pcId,
+  purseCp,
+  onBought,
+}: {
+  item: StorefrontItem;
+  pcId: string | null;
+  purseCp: number | null;
+  onBought: (msg: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const rarityColor = RARITY_COLORS[item.rarity] ?? RARITY_COLORS.Common;
+
+  const buyMut = useMutation({
+    mutationFn: () => playApi.buy(pcId as string, item.shop_item_id),
+    onSuccess: (receipt) => {
+      setError(null);
+      onBought(`${receipt.item_name} — added to your pack`);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const soldOut = typeof item.stock === "number" && item.stock === 0;
+  const priceCp = Math.round(item.price_gp * 100);
+  const canAfford = purseCp === null || purseCp >= priceCp;
+  const buyable = !!pcId && !item.cost_text && !soldOut;
+
   return (
     <div className="store-card">
       <div className="store-card-img">
@@ -42,7 +85,10 @@ function ItemCard({ item }: { item: StorefrontItem }) {
           </div>
         )}
         <div className="store-foot">
-          <span className="store-price" style={item.cost_text ? { fontStyle: "italic", fontSize: "0.85rem" } : undefined}>
+          <span
+            className="store-price"
+            style={item.cost_text ? { fontStyle: "italic", fontSize: "0.85rem" } : undefined}
+          >
             {item.cost_text ? item.cost_text : formatPrice(item.price_gp)}
           </span>
           {typeof item.stock === "number" && (
@@ -51,6 +97,19 @@ function ItemCard({ item }: { item: StorefrontItem }) {
             </span>
           )}
         </div>
+        {buyable && (
+          <button
+            className="store-buy"
+            disabled={buyMut.isPending || !canAfford}
+            onClick={() => buyMut.mutate()}
+          >
+            {buyMut.isPending ? "counting coin…" : canAfford ? "🪙 Buy" : "not enough coin"}
+          </button>
+        )}
+        {pcId && item.cost_text && (
+          <div className="store-note">The keeper takes no coin — bargain at the table.</div>
+        )}
+        {error && <div className="store-note err">{error}</div>}
       </div>
     </div>
   );
@@ -58,12 +117,33 @@ function ItemCard({ item }: { item: StorefrontItem }) {
 
 export default function StorefrontView() {
   const { shopId } = useParams<{ shopId: string }>();
+  const [params] = useSearchParams();
+  const pcId = params.get("pc");
+  const qc = useQueryClient();
+
   const { data: shop } = useQuery({
     queryKey: ["storefront", shopId],
     queryFn: () => shopsApi.storefront(shopId as string),
     enabled: !!shopId,
     refetchInterval: 30000,
   });
+  const { data: pc } = useQuery({
+    queryKey: ["storefront-pc", pcId],
+    queryFn: () => playApi.get(pcId as string),
+    enabled: !!pcId,
+  });
+
+  const [toast, setToast] = useState<string | null>(null);
+  const onBought = (msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 2600);
+    void qc.invalidateQueries({ queryKey: ["storefront", shopId] });
+    void qc.invalidateQueries({ queryKey: ["storefront-pc", pcId] });
+  };
+
+  const purseCp = pc
+    ? pc.pp * 1000 + pc.gp * 100 + pc.ep * 50 + pc.sp * 10 + pc.cp
+    : null;
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | null>(null);
@@ -98,6 +178,8 @@ export default function StorefrontView() {
     );
   }
 
+  const marketPath = `/market/${shop.campaign_id}${pcId ? `?pc=${pcId}` : ""}`;
+
   return (
     <div className="store-root">
       <style>{STORE_CSS}</style>
@@ -114,6 +196,11 @@ export default function StorefrontView() {
           {shop.location ?? ""}
         </div>
         {shop.blurb && <p className="store-blurb">{shop.blurb}</p>}
+        {pc && (
+          <div className="store-purse">
+            🪙 {pc.character_name}&rsquo;s purse: <strong>{purseLabel(pc)}</strong>
+          </div>
+        )}
         <div style={{ margin: "0.9rem 0 0.4rem" }}>
           <input
             className="store-search"
@@ -143,7 +230,13 @@ export default function StorefrontView() {
         )}
         <div className="store-grid">
           {visible.map((item) => (
-            <ItemCard key={item.shop_item_id} item={item} />
+            <ItemCard
+              key={item.shop_item_id}
+              item={item}
+              pcId={pcId}
+              purseCp={purseCp}
+              onBought={onBought}
+            />
           ))}
         </div>
         {visible.length === 0 && (
@@ -152,11 +245,12 @@ export default function StorefrontView() {
           </p>
         )}
         <p style={{ marginTop: "2.2rem" }}>
-          <Link className="store-back" to={`/market/${shop.campaign_id}`}>
+          <Link className="store-back" to={marketPath}>
             ← back to the town market
           </Link>
         </p>
       </div>
+      {toast && <div className="store-toast">✓ {toast}</div>}
     </div>
   );
 }

@@ -93,7 +93,22 @@ export const playApi = {
     api.post<GearRow>(`/play/${pcId}/gear/${characterItemId}/equip`, { equipped }),
   forgeHero: (pcId: string) => api.post<{ hero_url: string }>(`/play/${pcId}/hero`),
   dressModel: (pcId: string) => api.post<{ loadout_url: string }>(`/play/${pcId}/loadout`),
+  // Plan 50 — buy a shop item with coin from this PC's purse
+  buy: (pcId: string, shopItemId: string) =>
+    api.post<PurchaseReceipt>(`/play/${pcId}/buy`, { shop_item_id: shopItemId }),
 };
+
+/** Receipt from a coin purchase — the new purse + what was bought (Plan 50). */
+export interface PurchaseReceipt {
+  item_name: string;
+  price_gp: number;
+  stock: number | null;
+  pp: number;
+  gp: number;
+  ep: number;
+  sp: number;
+  cp: number;
+}
 
 /** One Forge equipment row — inventory joined with catalog item details. */
 export interface GearRow {

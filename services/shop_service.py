@@ -20,6 +20,7 @@ from domain.item import Item, ItemCreate, ItemUpdate
 from domain.shop import (
     MarketRead,
     MarketShop,
+    PurchaseReceipt,
     Shop,
     ShopCreate,
     ShopItem,
@@ -508,3 +509,121 @@ def get_market(db: DBSession, campaign_id: uuid.UUID) -> MarketRead:
         if not s.hidden
     ]
     return MarketRead(campaign_id=campaign.id, campaign_name=campaign.name, shops=shops)
+
+
+# ---------------------------------------------------------------------------
+# Plan 50 — transactional market: players buy with coin from their phone
+# ---------------------------------------------------------------------------
+
+# Copper value of each purse denomination (5e standard).
+_COPPER_PER = {"pp": 1000, "gp": 100, "ep": 50, "sp": 10, "cp": 1}
+
+
+def _purse_copper(pc) -> int:
+    """Total purse value in copper pieces.
+
+    Args:
+        pc: The PlayerCharacter row.
+
+    Returns:
+        Combined value of pp/gp/ep/sp/cp in copper.
+    """
+    return sum(getattr(pc, coin, 0) * rate for coin, rate in _COPPER_PER.items())
+
+
+def _redenominate(total_cp: int) -> dict[str, int]:
+    """Split a copper total back into purse fields.
+
+    Value-exact but normalizing: change comes back as gp/sp/cp (electrum and
+    platinum are folded into gold). Documented trade-off — predictable purses
+    beat clever change-making at the table.
+
+    Args:
+        total_cp: The purse's new total value in copper.
+
+    Returns:
+        Field dict for a PlayerCharacterUpdate (pp/ep zeroed).
+    """
+    gp, rem = divmod(total_cp, 100)
+    sp, cp = divmod(rem, 10)
+    return {"pp": 0, "gp": gp, "ep": 0, "sp": sp, "cp": cp}
+
+
+def purchase(db: DBSession, pc_id: uuid.UUID, shop_item_id: uuid.UUID) -> PurchaseReceipt:
+    """A player buys one stocked item with coin (Plan 50).
+
+    Capability trust: the caller holds the PC's UUID (their sheet link), so
+    no DM auth — the checks are business rules: same campaign, priced in
+    coin (fey-bargain items refuse gold), in stock, and affordable. Payment
+    deducts from the PC purse; the item quantity-merges into their inventory.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the buying player character.
+        shop_item_id: UUID of the shop_items row being bought.
+
+    Returns:
+        A PurchaseReceipt with the new purse and remaining stock.
+
+    Raises:
+        ValueError: Unknown PC/row/item, sold out, coin-refusing item, or
+            insufficient funds (message carries the shortfall).
+        PermissionError: If the shop is not in the PC's campaign.
+    """
+    from db.repos.character_repo import CharacterRepo
+    from domain.character import CharacterItemCreate, PlayerCharacterUpdate
+    from integrations.event_bus import publish_pc_updated
+    from services import inventory_service
+
+    pc = CharacterRepo.get_by_id(db, pc_id)
+    if pc is None:
+        raise ValueError(f"Character {pc_id} not found.")
+    row = ShopItemRepo.get_by_id(db, shop_item_id)
+    if row is None:
+        raise ValueError(f"Shop item {shop_item_id} not found.")
+    shop = ShopRepo.get_by_id(db, row.shop_id)
+    if shop is None or shop.campaign_id != pc.campaign_id:
+        raise PermissionError("That stall doesn't trade with strangers from other lands.")
+    item = ItemRepo.get_by_id(db, row.item_id)
+    if item is None:
+        raise ValueError(f"Item {row.item_id} not found.")
+
+    if row.cost_text:
+        raise ValueError(
+            "The keeper waves your coin away — this one has a different price. Ask at the table."
+        )
+    if row.stock is not None and row.stock <= 0:
+        raise ValueError(f"{item.name} is sold out.")
+
+    price_cp = round(row.price_gp * 100)
+    purse_cp = _purse_copper(pc)
+    if purse_cp < price_cp:
+        short = (price_cp - purse_cp) / 100
+        raise ValueError(f"Not enough coin — you're {short:g} gp short for {item.name}.")
+
+    # Pay: deduct value-exactly, purse re-denominated as gp/sp/cp.
+    CharacterRepo.update(db, pc, PlayerCharacterUpdate(**_redenominate(purse_cp - price_cp)))
+
+    # Take one off the shelf (counted stock only).
+    if row.stock is not None:
+        row.stock -= 1
+        ShopItemRepo.save(db, row)
+
+    # Into the pack — quantity-merges and emits pc.inventory.updated. The
+    # campaign owner's email satisfies inventory_service's DM authz.
+    campaign = CampaignRepo.get_by_id(db, pc.campaign_id)
+    inventory_service.add_item(db, pc.id, CharacterItemCreate(item_id=item.id), campaign.dm_email)
+    publish_pc_updated(pc.id, pc.campaign_id)
+    logger.info("Purchase: %s bought %s for %.2f gp", pc.id, item.name, row.price_gp)
+
+    refreshed = CharacterRepo.get_by_id(db, pc_id)
+    return PurchaseReceipt(
+        item_name=item.name,
+        price_gp=row.price_gp,
+        stock=row.stock,
+        pp=refreshed.pp,
+        gp=refreshed.gp,
+        ep=refreshed.ep,
+        sp=refreshed.sp,
+        cp=refreshed.cp,
+    )

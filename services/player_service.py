@@ -640,3 +640,23 @@ def dress_model(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     url = portrait_service.generate_pc_loadout(db, pc, equipped)
     publish_pc_updated(pc.id, pc.campaign_id)
     return {"loadout_url": url}
+
+
+def buy_item(db: Session, pc_id: uuid.UUID, shop_item_id: uuid.UUID):
+    """Buy a stocked shop item with this PC's coin (Plan 50).
+
+    Thin player-scope dispatch — the marketplace rules (campaign match,
+    coin-vs-bargain, stock, purse math) live in shop_service.purchase.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the buying PC.
+        shop_item_id: UUID of the shop_items row.
+
+    Returns:
+        The PurchaseReceipt.
+    """
+    from services import shop_service
+
+    _get_pc_or_raise(db, pc_id)
+    return shop_service.purchase(db, pc_id, shop_item_id)

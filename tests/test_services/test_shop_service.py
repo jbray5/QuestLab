@@ -345,3 +345,170 @@ class TestProjectionsAndArt:
         updated = shop_svc.generate_banner(duckdb_session, shop.id, dm)
 
         assert updated.banner_url == f"https://fake.blob/shops/shop-{shop.id}.png"
+
+
+class TestPurchase:
+    """Plan 50 — players buying with coin from their phone."""
+
+    def _pc_with_gold(self, db, campaign_id, dm, gp=50, sp=0):
+        """A minimal PC in the campaign with a set purse."""
+        import services.character_service as char_svc
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import PlayerCharacterUpdate
+        from domain.enums import CharacterClass
+
+        pc = char_svc.create_character(
+            db,
+            campaign_id=campaign_id,
+            dm_email=dm,
+            player_name="P",
+            character_name="Buyer",
+            race="Human",
+            character_class=CharacterClass.ROGUE,
+            level=2,
+            score_str=10,
+            score_dex=14,
+            score_con=12,
+            score_int=10,
+            score_wis=10,
+            score_cha=10,
+            hp_max=15,
+            hp_current=15,
+            ac=13,
+            speed=30,
+        )
+        row = CharacterRepo.get_by_id(db, pc.id)
+        CharacterRepo.update(db, row, PlayerCharacterUpdate(gp=gp, sp=sp))
+        return pc
+
+    def test_happy_path_deducts_and_delivers(self, duckdb_session: Session):
+        """Coin leaves the purse, stock drops, item lands in the pack."""
+        import services.player_service as play_svc
+
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        shop = _shop(duckdb_session, campaign.id, dm)
+        card = shop_svc.add_item(
+            duckdb_session,
+            shop.id,
+            dm,
+            ShopItemAdd(name="Everbright Lantern", price_gp=25, stock=3),
+        )
+        pc = self._pc_with_gold(duckdb_session, campaign.id, dm, gp=50)
+
+        receipt = shop_svc.purchase(duckdb_session, pc.id, card.shop_item_id)
+
+        assert receipt.item_name == "Everbright Lantern"
+        assert receipt.gp == 25 and receipt.sp == 0 and receipt.cp == 0
+        assert receipt.stock == 2
+        gear = play_svc.list_gear(duckdb_session, pc.id)
+        assert any(g["name"] == "Everbright Lantern" for g in gear)
+
+    def test_fractional_price_makes_change(self, duckdb_session: Session):
+        """A 0.5 gp item paid from 1 gp leaves 5 sp."""
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        shop = _shop(duckdb_session, campaign.id, dm)
+        card = shop_svc.add_item(
+            duckdb_session, shop.id, dm, ShopItemAdd(name="Plum Jam", price_gp=0.5)
+        )
+        pc = self._pc_with_gold(duckdb_session, campaign.id, dm, gp=1)
+
+        receipt = shop_svc.purchase(duckdb_session, pc.id, card.shop_item_id)
+
+        assert (receipt.gp, receipt.sp, receipt.cp) == (0, 5, 0)
+
+    def test_insufficient_funds_changes_nothing(self, duckdb_session: Session):
+        """A short purse errors with the shortfall; no coin or stock moves."""
+        from db.repos.character_repo import CharacterRepo
+
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        shop = _shop(duckdb_session, campaign.id, dm)
+        card = shop_svc.add_item(
+            duckdb_session, shop.id, dm, ShopItemAdd(name="Greatsword", price_gp=50, stock=1)
+        )
+        pc = self._pc_with_gold(duckdb_session, campaign.id, dm, gp=10)
+
+        with pytest.raises(ValueError, match="40 gp short"):
+            shop_svc.purchase(duckdb_session, pc.id, card.shop_item_id)
+
+        assert CharacterRepo.get_by_id(duckdb_session, pc.id).gp == 10
+        storefront = shop_svc.get_storefront(duckdb_session, shop.id)
+        assert storefront.items[0].stock == 1
+
+    def test_sold_out_refuses(self, duckdb_session: Session):
+        """Zero stock cannot be bought."""
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        shop = _shop(duckdb_session, campaign.id, dm)
+        card = shop_svc.add_item(
+            duckdb_session, shop.id, dm, ShopItemAdd(name="Rare Bloom", price_gp=5, stock=0)
+        )
+        pc = self._pc_with_gold(duckdb_session, campaign.id, dm)
+
+        with pytest.raises(ValueError, match="sold out"):
+            shop_svc.purchase(duckdb_session, pc.id, card.shop_item_id)
+
+    def test_barter_items_refuse_coin(self, duckdb_session: Session):
+        """cost_text (fey bargain) items cannot be bought with gold."""
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        shop = _shop(duckdb_session, campaign.id, dm)
+        card = shop_svc.add_item(
+            duckdb_session,
+            shop.id,
+            dm,
+            ShopItemAdd(name="Debt-Marked Ring", price_gp=0, cost_text="a favour, called in later"),
+        )
+        pc = self._pc_with_gold(duckdb_session, campaign.id, dm)
+
+        with pytest.raises(ValueError, match="different price"):
+            shop_svc.purchase(duckdb_session, pc.id, card.shop_item_id)
+
+    def test_cross_campaign_pc_denied(self, duckdb_session: Session):
+        """A PC from another campaign cannot buy here."""
+        dm = _dm()
+        campaign_a = _campaign(duckdb_session, dm)
+        campaign_b = _campaign(duckdb_session, dm)
+        shop = _shop(duckdb_session, campaign_a.id, dm)
+        card = shop_svc.add_item(
+            duckdb_session, shop.id, dm, ShopItemAdd(name="Lantern", price_gp=5)
+        )
+        outsider = self._pc_with_gold(duckdb_session, campaign_b.id, dm)
+
+        with pytest.raises(PermissionError):
+            shop_svc.purchase(duckdb_session, outsider.id, card.shop_item_id)
+
+    def test_unlimited_stock_stays_unlimited(self, duckdb_session: Session):
+        """stock=None never decrements."""
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        shop = _shop(duckdb_session, campaign.id, dm)
+        card = shop_svc.add_item(
+            duckdb_session, shop.id, dm, ShopItemAdd(name="Rations", price_gp=1)
+        )
+        pc = self._pc_with_gold(duckdb_session, campaign.id, dm)
+
+        receipt = shop_svc.purchase(duckdb_session, pc.id, card.shop_item_id)
+
+        assert receipt.stock is None
+
+    def test_repeat_purchase_merges_quantity(self, duckdb_session: Session):
+        """Buying the same item twice stacks quantity in the pack."""
+        import services.player_service as play_svc
+
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        shop = _shop(duckdb_session, campaign.id, dm)
+        card = shop_svc.add_item(
+            duckdb_session, shop.id, dm, ShopItemAdd(name="Torch Bundle", price_gp=1)
+        )
+        pc = self._pc_with_gold(duckdb_session, campaign.id, dm, gp=10)
+
+        shop_svc.purchase(duckdb_session, pc.id, card.shop_item_id)
+        shop_svc.purchase(duckdb_session, pc.id, card.shop_item_id)
+
+        gear = play_svc.list_gear(duckdb_session, pc.id)
+        row = next(g for g in gear if g["name"] == "Torch Bundle")
+        assert row["quantity"] == 2

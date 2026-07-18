@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
 import { shopsApi } from "../api/shops";
@@ -13,6 +13,9 @@ import { STORE_CSS } from "../components/store/storeTheme";
 
 export default function MarketView() {
   const { campaignId } = useParams<{ campaignId: string }>();
+  const [params] = useSearchParams();
+  // Plan 50 — a pc param makes the storefronts transactional for that PC.
+  const pcSuffix = params.get("pc") ? `?pc=${params.get("pc")}` : "";
   const { data: market } = useQuery({
     queryKey: ["market", campaignId],
     queryFn: () => shopsApi.market(campaignId as string),
@@ -34,7 +37,7 @@ export default function MarketView() {
         </p>
         <div className="market-grid">
           {(market?.shops ?? []).map((shop) => (
-            <Link key={shop.id} className="market-card" to={`/shop/${shop.id}`}>
+            <Link key={shop.id} className="market-card" to={`/shop/${shop.id}${pcSuffix}`}>
               <div className="market-card-img">
                 {shop.banner_url ? (
                   <img src={shop.banner_url} alt={shop.name} loading="lazy" />

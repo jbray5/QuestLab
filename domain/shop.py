@@ -178,3 +178,24 @@ class MarketRead(BaseModel):
     campaign_id: uuid.UUID
     campaign_name: str
     shops: list[MarketShop] = PField(default_factory=list)
+
+
+class PurchaseRequest(BaseModel):
+    """A player buying one stocked item with coin (Plan 50)."""
+
+    shop_item_id: uuid.UUID
+
+
+class PurchaseReceipt(BaseModel):
+    """Result of a coin purchase — what was bought and the new purse."""
+
+    item_name: str
+    price_gp: float
+    # Remaining stock on the shelf (None = plenty).
+    stock: Optional[int] = None
+    # The buyer's purse after payment.
+    pp: int = 0
+    gp: int = 0
+    ep: int = 0
+    sp: int = 0
+    cp: int = 0

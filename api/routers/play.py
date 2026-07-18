@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB
 from domain.character import PlayerCharacter
+from domain.shop import PurchaseReceipt, PurchaseRequest
 from services import player_service
 
 router = APIRouter(tags=["play"])
@@ -342,3 +343,28 @@ def dress_model(pc_id: uuid.UUID, db: DB) -> dict:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Loadout render failed: {exc}"
         )
+
+
+@router.post("/play/{pc_id}/buy")
+def buy_item(pc_id: uuid.UUID, body: PurchaseRequest, db: DB) -> PurchaseReceipt:
+    """Buy one stocked item with coin; deducts the purse, fills the pack.
+
+    Args:
+        pc_id: UUID of the buying player character.
+        body: The shop_items row being bought.
+        db: Database session.
+
+    Returns:
+        A PurchaseReceipt (item, price, remaining stock, new purse).
+    """
+    try:
+        return player_service.buy_item(db, pc_id, body.shop_item_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except ValueError as exc:
+        msg = str(exc)
+        # Business refusals (sold out / short on coin / barter-only) are 409s,
+        # not 404s — the resource exists, the sale just can't happen.
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
