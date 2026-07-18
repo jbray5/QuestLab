@@ -65,9 +65,24 @@ as a game "model" standing on the screen's pedestal glow.
 - SSE: equips publish `pc.inventory.updated`, forge publishes `pc.updated`
   so the DM's sheet and other tabs refresh live.
 
+## Gear on the model (added 2026-07-17 per owner)
+Owner: "I do want the gear to appear on the model." Reconciled with the
+"don't reroll each time" rule via **image-to-image**: a deliberate "⚔ Render
+me wearing this" button (`POST /play/{id}/loadout`, `generate_pc_loadout`)
+edits the *base* model (fed as the source image) to wear the equipped
+loadout, preserving face/build/colours. Result on `loadout_url`, shown in
+the centre ahead of `hero_url`. Regenerating the base clears the stale
+dressed render. `edit_image` gained a transparent-background option.
+Prompt is pinned to add ONLY listed items and keep the existing outfit
+(a caster with just a dagger keeps her coat, no invented plate).
+
+Known limitation: gpt-image-1 edit still embellishes slightly (e.g. adds a
+small wooden shield that isn't equipped). Acceptable; prompt-only control
+can't fully suppress it. Verified renders 2026-07-17: Creed (Dragonborn,
+longsword in hand), Nya (fair-skinned sorcerer, coat + dagger), Willa
+(aasimar druid greens + scimitar), Thane (wood-elf rogue).
+
 ## Non-goals (this pass)
-- No slot-typed paper-doll grid (head/chest/hands) — a flat equipped list
-  drives the prompt; slot art can layer on later.
-- No image-to-image identity lock — identity continuity comes from the
-  appearance text; regenerations may drift and that's part of the fun.
+- No slot-typed layered sprite art — gear-on-body is the AI edit, not
+  rigged per-slot overlays.
 - Possess-mode close-up standee fix — parked per owner (Plan 46 note).
