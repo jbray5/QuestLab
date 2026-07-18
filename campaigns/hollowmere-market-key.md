@@ -9,7 +9,9 @@ he won't name** ("it's got opinions — no refunds"). So this key only holds
 what's genuinely hidden: gamble roll-tables and curse specifics. Everything
 else, the card is the truth. Party is **level 2** (4 PCs).
 
-Player link (all shops): `<APP-DOMAIN>/market/80b6f517-d124-4fea-9435-8e727f3171a9`
+Player link (all shops): `https://quest-lab-tau.vercel.app/market/80b6f517-d124-4fea-9435-8e727f3171a9`
+(Domain confirmed working logged-out, 2026-07-18. Players buy from THEIR
+sheet's 🏪 MARKET button, not this bare link — the bare link is browse-only.)
 
 ---
 

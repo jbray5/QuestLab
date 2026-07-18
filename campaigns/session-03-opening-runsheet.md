@@ -30,15 +30,23 @@ end on a wrongness that shouldn't exist.**
   torches. Weather is synced to the players. (Players tap 🔊 once on their
   device — browsers require a gesture for sound.)
 - **Ping the tree** on the green the first time someone looks at it. Say nothing.
-- **🏪 THE MARKET (new):** if they shop in Hollowmere before the road, drop the
-  town-market link in the chat — players browse stalls with art + prices on
-  their phones while you keep narrating:
-  `<YOUR-APP-DOMAIN>/market/80b6f517-d124-4fea-9435-8e727f3171a9`
-  ⚠ **Get the real domain from Vercel → project "quest" → Settings → Domains**
-  — `questlab.vercel.app` in older notes is SOMEONE ELSE'S SITE, and the
-  per-deploy URLs are behind Vercel SSO (players' phones would hit a login
-  wall). Verify the market link from a phone BEFORE Saturday; if it demands a
-  Vercel login, turn off Deployment Protection for production or add a domain.
+- **🔗 THE DOMAIN (confirmed 2026-07-18):** `https://quest-lab-tau.vercel.app`
+  — verified publicly reachable, no login wall, all player routes 200.
+  (`questlab.vercel.app` in any older note is someone else's site.)
+  **READY-TO-PASTE LINKS:**
+  | What | Link |
+  |---|---|
+  | Players' 3D table (share screen or link) | `https://quest-lab-tau.vercel.app/table/fb8657f6-565f-4d49-97d7-82bef98b4ac8/3d` |
+  | Town market (browse-only, projector-safe) | `https://quest-lab-tau.vercel.app/market/80b6f517-d124-4fea-9435-8e727f3171a9` |
+  | Creed's sheet (buy/forge from here) | `https://quest-lab-tau.vercel.app/play/9a450e7d-4def-40f9-8be1-dd060db7a93c` |
+  | Nya's sheet | `https://quest-lab-tau.vercel.app/play/c29ba294-345c-4e09-ba3e-f913d06136fc` |
+  | Thane's sheet | `https://quest-lab-tau.vercel.app/play/2dde41c5-9e39-411f-941b-c48e2bc72ee5` |
+  | Willa's sheet | `https://quest-lab-tau.vercel.app/play/bed58549-6d6d-474e-89f4-a78276d62e67` |
+  | 🕯 Between-Market (DM-revealed only!) | `https://quest-lab-tau.vercel.app/shop/d41ec939-04ab-4917-8e5e-b383aad01da3` |
+  Players buy/sell/pool from THEIR sheet's 🏪 MARKET button (it carries their
+  identity); the bare market link has no buy buttons.
+- **🏪 THE MARKET:** if they shop in Hollowmere before the road, they've got
+  it on their phones while you keep narrating.
   Three shops, purpose-built stock (The Gilded Burr — fey curiosities +
   MYSTERIES + CURSES, keeper Pib Thistlewhistle · Bramble & Crust — potions &
   useful eats, Muddwyn, comic gold · The Bent Nail — practical magic arms &
