@@ -102,6 +102,24 @@ export const STORE_CSS = `
 .store-buy:disabled { opacity: 0.45; cursor: default; }
 .store-note { margin-top: 6px; font-size: 0.72rem; color: #8f8672; font-style: italic; }
 .store-note.err { color: #d4776a; }
+.trade-bar { margin-top: 0.7rem; }
+.trade-panel {
+  margin-top: 8px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(28,23,42,0.6); border: 1px solid rgba(240,230,200,0.14);
+}
+.trade-sell-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  width: 100%; padding: 7px 10px; margin-bottom: 5px; border-radius: 9px;
+  background: rgba(240,230,200,0.05); border: 1px solid rgba(240,230,200,0.16);
+  color: #e6ddc8; font-family: inherit; font-size: 0.88rem; cursor: pointer; text-align: left;
+}
+.trade-sell-row:hover { border-color: rgba(214,175,54,0.5); }
+.trade-sell-row:disabled { opacity: 0.5; cursor: default; }
+.trade-input {
+  background: rgba(240,230,200,0.07); border: 1px solid rgba(240,230,200,0.22);
+  color: #e6ddc8; border-radius: 9px; padding: 7px 10px; font-size: 0.9rem;
+  font-family: inherit;
+}
 .store-toast {
   position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
   background: rgba(20,16,30,0.95); border: 1px solid #d6af36; color: #f0e6c8;

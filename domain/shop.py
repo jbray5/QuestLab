@@ -199,3 +199,42 @@ class PurchaseReceipt(BaseModel):
     ep: int = 0
     sp: int = 0
     cp: int = 0
+
+
+class SellRequest(BaseModel):
+    """A player selling one unit of an inventory row to a vendor (Plan 51)."""
+
+    character_item_id: uuid.UUID
+
+
+class SellReceipt(BaseModel):
+    """Result of a vendor sale — what was sold and the new purse."""
+
+    item_name: str
+    amount_gp: float
+    # Units of this item still in the pack after the sale.
+    quantity_left: int = 0
+    pp: int = 0
+    gp: int = 0
+    ep: int = 0
+    sp: int = 0
+    cp: int = 0
+
+
+class GiveRequest(BaseModel):
+    """A player passing coin to a party member (Plan 51 pooling)."""
+
+    to_pc_id: uuid.UUID
+    amount_gp: float = PField(gt=0)
+
+
+class TransferReceipt(BaseModel):
+    """Result of a coin transfer — who got it and the sender's new purse."""
+
+    to_name: str
+    amount_gp: float
+    pp: int = 0
+    gp: int = 0
+    ep: int = 0
+    sp: int = 0
+    cp: int = 0

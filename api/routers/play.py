@@ -17,7 +17,14 @@ from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB
 from domain.character import PlayerCharacter
-from domain.shop import PurchaseReceipt, PurchaseRequest
+from domain.shop import (
+    GiveRequest,
+    PurchaseReceipt,
+    PurchaseRequest,
+    SellReceipt,
+    SellRequest,
+    TransferReceipt,
+)
 from services import player_service
 
 router = APIRouter(tags=["play"])
@@ -365,6 +372,69 @@ def buy_item(pc_id: uuid.UUID, body: PurchaseRequest, db: DB) -> PurchaseReceipt
         msg = str(exc)
         # Business refusals (sold out / short on coin / barter-only) are 409s,
         # not 404s — the resource exists, the sale just can't happen.
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
+
+
+@router.post("/play/{pc_id}/sell")
+def sell_item(pc_id: uuid.UUID, body: SellRequest, db: DB) -> SellReceipt:
+    """Sell one unit of an inventory row to a vendor; credits the purse.
+
+    Args:
+        pc_id: UUID of the selling player character.
+        body: The character_items row being sold.
+        db: Database session.
+
+    Returns:
+        A SellReceipt (item, coin gained, quantity left, new purse).
+    """
+    try:
+        return player_service.sell_item(db, pc_id, body.character_item_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except ValueError as exc:
+        msg = str(exc)
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
+
+
+@router.get("/play/{pc_id}/party")
+def list_party(pc_id: uuid.UUID, db: DB) -> list[dict]:
+    """Names + ids of campaign-mates (for the pool-coin dropdown).
+
+    Args:
+        pc_id: UUID of the requesting player character.
+        db: Database session.
+
+    Returns:
+        [{"id", "character_name"}] for the rest of the party.
+    """
+    try:
+        return player_service.list_party(db, pc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/give")
+def give_coin(pc_id: uuid.UUID, body: GiveRequest, db: DB) -> TransferReceipt:
+    """Pass coin to a party member (pooling for group purchases).
+
+    Args:
+        pc_id: UUID of the giving player character.
+        body: Recipient + amount in gp.
+        db: Database session.
+
+    Returns:
+        A TransferReceipt (recipient, amount, sender's new purse).
+    """
+    try:
+        return player_service.give_coin(db, pc_id, body.to_pc_id, body.amount_gp)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except ValueError as exc:
+        msg = str(exc)
         if "not found" in msg.lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)

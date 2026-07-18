@@ -537,3 +537,153 @@ class TestDeleteCascade:
 
         assert CharacterRepo.get_by_id(duckdb_session, pc.id) is None
         assert CharacterItemRepo.list_for_character(duckdb_session, pc.id) == []
+
+
+class TestSellAndPool:
+    """Plan 51 — selling to vendors and pooling coin."""
+
+    def _pc(self, db, campaign_id, dm, gp=10):
+        """Reuse the purchase-test PC factory."""
+        return TestPurchase()._pc_with_gold(db, campaign_id, dm, gp=gp)
+
+    def _give_lantern(self, db, campaign_id, dm, pc_id, value_gp=10, qty=1, equipped=False):
+        """Put a catalog item straight into the PC's pack."""
+        import services.inventory_service as inv_svc
+        import services.item_service as item_svc
+        from domain.character import CharacterItemCreate
+        from domain.item import ItemCreate
+
+        item = item_svc.create_item(
+            db,
+            ItemCreate(
+                name=f"Sellable {uuid.uuid4().hex[:6]}",
+                rarity=ItemRarity.COMMON,
+                item_type="Adventuring Gear",
+                value_gp=value_gp,
+            ),
+        )
+        return inv_svc.add_item(
+            db, pc_id, CharacterItemCreate(item_id=item.id, quantity=qty, equipped=equipped), dm
+        )
+
+    def test_sell_credits_half_value(self, duckdb_session: Session):
+        """A 10 gp item sells for 5 gp; the row disappears at zero."""
+        import services.player_service as play_svc
+
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        pc = self._pc(duckdb_session, campaign.id, dm, gp=0)
+        row = self._give_lantern(duckdb_session, campaign.id, dm, pc.id, value_gp=10)
+
+        receipt = shop_svc.sell(duckdb_session, pc.id, row.id)
+
+        assert receipt.amount_gp == 5
+        assert receipt.gp == 5 and receipt.quantity_left == 0
+        assert all(
+            g["character_item_id"] != str(row.id) for g in play_svc.list_gear(duckdb_session, pc.id)
+        )
+
+    def test_sell_decrements_stacks(self, duckdb_session: Session):
+        """Selling from a stack of 3 leaves 2."""
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        pc = self._pc(duckdb_session, campaign.id, dm, gp=0)
+        row = self._give_lantern(duckdb_session, campaign.id, dm, pc.id, value_gp=1, qty=3)
+
+        receipt = shop_svc.sell(duckdb_session, pc.id, row.id)
+
+        assert receipt.quantity_left == 2
+        assert (receipt.gp, receipt.sp) == (0, 5)  # half of 1 gp = 5 sp
+
+    def test_sell_refuses_equipped_and_worthless_and_quest(self, duckdb_session: Session):
+        """Equipped, zero-value, and quest items are refused."""
+        import services.inventory_service as inv_svc
+        import services.item_service as item_svc
+        from domain.character import CharacterItemCreate
+        from domain.item import ItemCreate
+
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        pc = self._pc(duckdb_session, campaign.id, dm)
+        equipped = self._give_lantern(duckdb_session, campaign.id, dm, pc.id, equipped=True)
+        with pytest.raises(ValueError, match="Unequip"):
+            shop_svc.sell(duckdb_session, pc.id, equipped.id)
+
+        worthless = self._give_lantern(duckdb_session, campaign.id, dm, pc.id, value_gp=0)
+        with pytest.raises(ValueError, match="No vendor"):
+            shop_svc.sell(duckdb_session, pc.id, worthless.id)
+
+        quest_item = item_svc.create_item(
+            duckdb_session,
+            ItemCreate(
+                name="Ciphered Page", rarity=ItemRarity.COMMON, item_type="Quest item", value_gp=100
+            ),
+        )
+        qrow = inv_svc.add_item(
+            duckdb_session, pc.id, CharacterItemCreate(item_id=quest_item.id), dm
+        )
+        with pytest.raises(ValueError, match="No vendor"):
+            shop_svc.sell(duckdb_session, pc.id, qrow.id)
+
+    def test_sell_other_pcs_row_denied(self, duckdb_session: Session):
+        """You cannot sell a party-mate's gear."""
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        pc_a = self._pc(duckdb_session, campaign.id, dm)
+        pc_b = self._pc(duckdb_session, campaign.id, dm)
+        row_b = self._give_lantern(duckdb_session, campaign.id, dm, pc_b.id)
+
+        with pytest.raises(PermissionError):
+            shop_svc.sell(duckdb_session, pc_a.id, row_b.id)
+
+    def test_give_moves_coin_with_change(self, duckdb_session: Session):
+        """2.5 gp moves exactly; both purses re-denominate."""
+        import services.player_service as play_svc
+        from db.repos.character_repo import CharacterRepo
+
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        giver = self._pc(duckdb_session, campaign.id, dm, gp=10)
+        taker = self._pc(duckdb_session, campaign.id, dm, gp=0)
+
+        receipt = play_svc.give_coin(duckdb_session, giver.id, taker.id, 2.5)
+
+        assert receipt.to_name == "Buyer"
+        assert (receipt.gp, receipt.sp) == (7, 5)
+        got = CharacterRepo.get_by_id(duckdb_session, taker.id)
+        assert (got.gp, got.sp) == (2, 5)
+
+    def test_give_guards(self, duckdb_session: Session):
+        """Self, cross-campaign, and over-purse transfers are refused."""
+        import services.player_service as play_svc
+
+        dm = _dm()
+        campaign_a = _campaign(duckdb_session, dm)
+        campaign_b = _campaign(duckdb_session, dm)
+        giver = self._pc(duckdb_session, campaign_a.id, dm, gp=5)
+        outsider = self._pc(duckdb_session, campaign_b.id, dm)
+
+        with pytest.raises(ValueError, match="already have"):
+            play_svc.give_coin(duckdb_session, giver.id, giver.id, 1)
+        with pytest.raises(PermissionError):
+            play_svc.give_coin(duckdb_session, giver.id, outsider.id, 1)
+        # over-purse against a valid partymate
+        taker = self._pc(duckdb_session, campaign_a.id, dm)
+        with pytest.raises(ValueError, match="short"):
+            play_svc.give_coin(duckdb_session, giver.id, taker.id, 100)
+
+    def test_party_lists_campaign_mates_only(self, duckdb_session: Session):
+        """The pooling dropdown sees the party, not other campaigns."""
+        import services.player_service as play_svc
+
+        dm = _dm()
+        campaign_a = _campaign(duckdb_session, dm)
+        campaign_b = _campaign(duckdb_session, dm)
+        me = self._pc(duckdb_session, campaign_a.id, dm)
+        mate = self._pc(duckdb_session, campaign_a.id, dm)
+        self._pc(duckdb_session, campaign_b.id, dm)
+
+        party = play_svc.list_party(duckdb_session, me.id)
+
+        ids = {p["id"] for p in party}
+        assert ids == {str(mate.id)}

@@ -21,6 +21,7 @@ from domain.shop import (
     MarketRead,
     MarketShop,
     PurchaseReceipt,
+    SellReceipt,
     Shop,
     ShopCreate,
     ShopItem,
@@ -621,6 +622,94 @@ def purchase(db: DBSession, pc_id: uuid.UUID, shop_item_id: uuid.UUID) -> Purcha
         item_name=item.name,
         price_gp=row.price_gp,
         stock=row.stock,
+        pp=refreshed.pp,
+        gp=refreshed.gp,
+        ep=refreshed.ep,
+        sp=refreshed.sp,
+        cp=refreshed.cp,
+    )
+
+
+def sell_price_gp(item: Item) -> Optional[float]:
+    """What a vendor pays for one unit — half catalog value (Plan 51).
+
+    Args:
+        item: The catalog item.
+
+    Returns:
+        The sale price in gp, or None if vendors won't buy it (worthless
+        or a quest item).
+    """
+    if item.value_gp <= 0 or "quest" in item.item_type.lower():
+        return None
+    return item.value_gp / 2
+
+
+def sell(db: DBSession, pc_id: uuid.UUID, character_item_id: uuid.UUID) -> SellReceipt:
+    """A player sells one unit of an inventory row to a vendor (Plan 51).
+
+    Half catalog value, copper-exact credit. One unit per call; the row's
+    quantity decrements and the row is removed at zero. Equipped items are
+    refused so nobody fat-fingers away their sword.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the selling player character.
+        character_item_id: UUID of the character_items row.
+
+    Raises:
+        ValueError: Unknown PC/row/item, equipped, or the vendor won't
+            buy it.
+        PermissionError: If the row belongs to a different character.
+
+    Returns:
+        A SellReceipt with the credited purse.
+    """
+    from db.repos.character_item_repo import CharacterItemRepo
+    from db.repos.character_repo import CharacterRepo
+    from domain.character import CharacterItemUpdate, PlayerCharacterUpdate
+    from integrations.event_bus import publish_pc_updated
+
+    pc = CharacterRepo.get_by_id(db, pc_id)
+    if pc is None:
+        raise ValueError(f"Character {pc_id} not found.")
+    row = CharacterItemRepo.get_by_id(db, character_item_id)
+    if row is None:
+        raise ValueError(f"Inventory row {character_item_id} not found.")
+    if row.character_id != pc_id:
+        raise PermissionError("That item belongs to a different character.")
+    item = ItemRepo.get_by_id(db, row.item_id)
+    if item is None:
+        raise ValueError(f"Item {row.item_id} not found.")
+    if row.equipped:
+        raise ValueError(f"Unequip {item.name} before selling it.")
+    price = sell_price_gp(item)
+    if price is None:
+        raise ValueError(f"No vendor will buy {item.name}.")
+
+    # Credit the purse, copper-exact.
+    CharacterRepo.update(
+        db,
+        pc,
+        PlayerCharacterUpdate(**_redenominate(_purse_copper(pc) + round(price * 100))),
+    )
+
+    # One unit leaves the pack.
+    if row.quantity > 1:
+        updated = CharacterItemRepo.update(db, row, CharacterItemUpdate(quantity=row.quantity - 1))
+        left = updated.quantity
+    else:
+        CharacterItemRepo.delete(db, row)
+        left = 0
+    publish_pc_updated(pc.id, pc.campaign_id, kind="pc.inventory.updated")
+    publish_pc_updated(pc.id, pc.campaign_id)
+    logger.info("Sale: %s sold %s for %.2f gp", pc.id, item.name, price)
+
+    refreshed = CharacterRepo.get_by_id(db, pc_id)
+    return SellReceipt(
+        item_name=item.name,
+        amount_gp=price,
+        quantity_left=left,
         pp=refreshed.pp,
         gp=refreshed.gp,
         ep=refreshed.ep,

@@ -486,6 +486,7 @@ def list_gear(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
     """
     from db.repos.item_repo import ItemRepo
     from services import inventory_service
+    from services.shop_service import sell_price_gp
 
     dm = _dm_email_for(db, pc_id)
     gear: list[dict[str, Any]] = []
@@ -507,6 +508,8 @@ def list_gear(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
                 "equipped": row.equipped,
                 "attuned": row.attuned,
                 "slot": _equip_slot(item.item_type, item.name),
+                # What a vendor pays per unit (None = won't buy) — Plan 51.
+                "sell_gp": sell_price_gp(item),
             }
         )
     return gear
@@ -660,3 +663,100 @@ def buy_item(db: Session, pc_id: uuid.UUID, shop_item_id: uuid.UUID):
 
     _get_pc_or_raise(db, pc_id)
     return shop_service.purchase(db, pc_id, shop_item_id)
+
+
+def sell_item(db: Session, pc_id: uuid.UUID, character_item_id: uuid.UUID):
+    """Sell one unit of an inventory row to a vendor (Plan 51).
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the selling PC.
+        character_item_id: UUID of the character_items row.
+
+    Returns:
+        The SellReceipt.
+    """
+    from services import shop_service
+
+    _get_pc_or_raise(db, pc_id)
+    return shop_service.sell(db, pc_id, character_item_id)
+
+
+def list_party(db: Session, pc_id: uuid.UUID) -> list[dict[str, str]]:
+    """Names + ids of the PC's campaign-mates (Plan 51 pooling dropdown).
+
+    Names only — no stats, no purses; the capability is the caller's own
+    pc id.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the requesting PC.
+
+    Returns:
+        [{"id", "character_name"}] for every other PC in the campaign.
+    """
+    pc = _get_pc_or_raise(db, pc_id)
+    return [
+        {"id": str(other.id), "character_name": other.character_name}
+        for other in CharacterRepo.list_by_campaign(db, pc.campaign_id)
+        if other.id != pc.id
+    ]
+
+
+def give_coin(db: Session, pc_id: uuid.UUID, to_pc_id: uuid.UUID, amount_gp: float):
+    """Pass coin to a party member (Plan 51 pooling).
+
+    Copper-exact both sides; both purses re-denominated gp/sp/cp; both
+    sheets refresh over SSE. This is how the party pools for a big buy:
+    everyone gives to the designated buyer, the buyer buys.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the giving PC.
+        to_pc_id: UUID of the receiving PC (same campaign).
+        amount_gp: Amount in gold (fractions allowed: 0.5 = 5 sp).
+
+    Returns:
+        A TransferReceipt with the sender's new purse.
+
+    Raises:
+        ValueError: Bad amount, self-transfer, or insufficient coin.
+        PermissionError: If the recipient is in a different campaign.
+    """
+    from domain.character import PlayerCharacterUpdate
+    from domain.shop import TransferReceipt
+    from integrations.event_bus import publish_pc_updated
+    from services.shop_service import _purse_copper, _redenominate
+
+    if amount_gp <= 0:
+        raise ValueError("Give at least a copper.")
+    pc = _get_pc_or_raise(db, pc_id)
+    if to_pc_id == pc_id:
+        raise ValueError("You already have that coin.")
+    to_pc = CharacterRepo.get_by_id(db, to_pc_id)
+    if to_pc is None or to_pc.campaign_id != pc.campaign_id:
+        raise PermissionError("You can only share coin with your own party.")
+
+    amount_cp = round(amount_gp * 100)
+    purse_cp = _purse_copper(pc)
+    if purse_cp < amount_cp:
+        short = (amount_cp - purse_cp) / 100
+        raise ValueError(f"Not enough coin — you're {short:g} gp short.")
+
+    CharacterRepo.update(db, pc, PlayerCharacterUpdate(**_redenominate(purse_cp - amount_cp)))
+    CharacterRepo.update(
+        db, to_pc, PlayerCharacterUpdate(**_redenominate(_purse_copper(to_pc) + amount_cp))
+    )
+    publish_pc_updated(pc.id, pc.campaign_id)
+    publish_pc_updated(to_pc.id, to_pc.campaign_id)
+
+    refreshed = _get_pc_or_raise(db, pc_id)
+    return TransferReceipt(
+        to_name=to_pc.character_name,
+        amount_gp=amount_gp,
+        pp=refreshed.pp,
+        gp=refreshed.gp,
+        ep=refreshed.ep,
+        sp=refreshed.sp,
+        cp=refreshed.cp,
+    )

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { playApi } from "../api/play";
+import { playApi, type GearRow } from "../api/play";
 import { formatPrice, shopsApi, type StorefrontItem } from "../api/shops";
 import { RARITY_COLORS, STORE_CSS, typeEmoji } from "../components/store/storeTheme";
 
@@ -27,6 +27,126 @@ function purseLabel(p: { pp: number; gp: number; ep: number; sp: number; cp: num
   if (p.sp) bits.push(`${p.sp} sp`);
   if (p.cp) bits.push(`${p.cp} cp`);
   return bits.join(" ");
+}
+
+/** Sell-from-your-pack + pool-coin strip, shown only in ?pc mode (Plan 51). */
+function TradeBar({ pcId, onDone }: { pcId: string; onDone: (msg: string) => void }) {
+  const [mode, setMode] = useState<"none" | "sell" | "pool">("none");
+  const [error, setError] = useState<string | null>(null);
+  const [toId, setToId] = useState("");
+  const [amount, setAmount] = useState("");
+
+  const { data: gear = [] } = useQuery({
+    queryKey: ["trade-gear", pcId],
+    queryFn: () => playApi.gear(pcId),
+    enabled: mode === "sell",
+  });
+  const { data: party = [] } = useQuery({
+    queryKey: ["trade-party", pcId],
+    queryFn: () => playApi.party(pcId),
+    enabled: mode === "pool",
+  });
+
+  const sellMut = useMutation({
+    mutationFn: (g: GearRow) => playApi.sell(pcId, g.character_item_id),
+    onSuccess: (r) => {
+      setError(null);
+      onDone(`Sold ${r.item_name} for ${formatPrice(r.amount_gp)}`);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+  const giveMut = useMutation({
+    mutationFn: () => playApi.give(pcId, toId, Number(amount)),
+    onSuccess: (r) => {
+      setError(null);
+      setAmount("");
+      onDone(`Gave ${formatPrice(r.amount_gp)} to ${r.to_name}`);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const sellable = gear.filter((g) => g.sell_gp !== null && !g.equipped);
+
+  return (
+    <div className="trade-bar">
+      <div className="store-chips" style={{ margin: 0 }}>
+        <button
+          className={mode === "sell" ? "store-chip on" : "store-chip"}
+          onClick={() => setMode((m) => (m === "sell" ? "none" : "sell"))}
+        >
+          💰 Sell from your pack
+        </button>
+        <button
+          className={mode === "pool" ? "store-chip on" : "store-chip"}
+          onClick={() => setMode((m) => (m === "pool" ? "none" : "pool"))}
+        >
+          🤝 Pool coin
+        </button>
+      </div>
+      {mode === "sell" && (
+        <div className="trade-panel">
+          {sellable.length === 0 ? (
+            <span className="store-note">
+              Nothing the keeper will buy — equipped gear must be unequipped first, and some
+              things (quest items) are not for sale.
+            </span>
+          ) : (
+            sellable.map((g) => (
+              <button
+                key={g.character_item_id}
+                className="trade-sell-row"
+                disabled={sellMut.isPending}
+                onClick={() => sellMut.mutate(g)}
+                title={`The keeper pays ${formatPrice(g.sell_gp as number)} (half value)`}
+              >
+                <span>
+                  {g.name}
+                  {g.quantity > 1 ? ` ×${g.quantity}` : ""}
+                </span>
+                <span className="store-price" style={{ fontSize: "0.85rem" }}>
+                  sell {formatPrice(g.sell_gp as number)}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+      {mode === "pool" && (
+        <div className="trade-panel">
+          <span className="store-note" style={{ fontStyle: "normal" }}>
+            Pitch in for a group buy — send coin to whoever's buying.
+          </span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+            <select className="trade-input" value={toId} onChange={(e) => setToId(e.target.value)}>
+              <option value="">to whom…</option>
+              {party.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.character_name}
+                </option>
+              ))}
+            </select>
+            <input
+              className="trade-input"
+              style={{ width: 90 }}
+              placeholder="gp"
+              inputMode="decimal"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            <button
+              className="store-buy"
+              style={{ width: "auto", marginTop: 0, padding: "7px 18px" }}
+              disabled={giveMut.isPending || !toId || !(Number(amount) > 0)}
+              onClick={() => giveMut.mutate()}
+            >
+              {giveMut.isPending ? "sending…" : "send"}
+            </button>
+          </div>
+        </div>
+      )}
+      {error && <div className="store-note err">{error}</div>}
+    </div>
+  );
 }
 
 function ItemCard({
@@ -139,6 +259,7 @@ export default function StorefrontView() {
     window.setTimeout(() => setToast(null), 2600);
     void qc.invalidateQueries({ queryKey: ["storefront", shopId] });
     void qc.invalidateQueries({ queryKey: ["storefront-pc", pcId] });
+    void qc.invalidateQueries({ queryKey: ["trade-gear", pcId] });
   };
 
   const purseCp = pc
@@ -201,6 +322,7 @@ export default function StorefrontView() {
             🪙 {pc.character_name}&rsquo;s purse: <strong>{purseLabel(pc)}</strong>
           </div>
         )}
+        {pcId && <TradeBar pcId={pcId} onDone={onBought} />}
         <div style={{ margin: "0.9rem 0 0.4rem" }}>
           <input
             className="store-search"

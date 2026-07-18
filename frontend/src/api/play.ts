@@ -96,7 +96,42 @@ export const playApi = {
   // Plan 50 — buy a shop item with coin from this PC's purse
   buy: (pcId: string, shopItemId: string) =>
     api.post<PurchaseReceipt>(`/play/${pcId}/buy`, { shop_item_id: shopItemId }),
+  // Plan 51 — sell to vendors + pool coin with the party
+  sell: (pcId: string, characterItemId: string) =>
+    api.post<SellReceipt>(`/play/${pcId}/sell`, { character_item_id: characterItemId }),
+  party: (pcId: string) => api.get<PartyMate[]>(`/play/${pcId}/party`),
+  give: (pcId: string, toPcId: string, amountGp: number) =>
+    api.post<TransferReceipt>(`/play/${pcId}/give`, { to_pc_id: toPcId, amount_gp: amountGp }),
 };
+
+/** Receipt from a vendor sale (Plan 51). */
+export interface SellReceipt {
+  item_name: string;
+  amount_gp: number;
+  quantity_left: number;
+  pp: number;
+  gp: number;
+  ep: number;
+  sp: number;
+  cp: number;
+}
+
+/** A campaign-mate for the pool-coin dropdown (Plan 51). */
+export interface PartyMate {
+  id: string;
+  character_name: string;
+}
+
+/** Receipt from a coin transfer (Plan 51). */
+export interface TransferReceipt {
+  to_name: string;
+  amount_gp: number;
+  pp: number;
+  gp: number;
+  ep: number;
+  sp: number;
+  cp: number;
+}
 
 /** Receipt from a coin purchase — the new purse + what was bought (Plan 50). */
 export interface PurchaseReceipt {
@@ -125,4 +160,6 @@ export interface GearRow {
   attuned: boolean;
   /** Paper-doll slot, or null for carried, non-equippable items. */
   slot: string | null;
+  /** What a vendor pays per unit, or null if unsellable (Plan 51). */
+  sell_gp: number | null;
 }
