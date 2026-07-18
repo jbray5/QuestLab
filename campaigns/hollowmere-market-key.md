@@ -1,8 +1,13 @@
 # HOLLOWMERE MARKET — DM KEY (players never see this)
 
-The player storefronts show only alluring, non-spoiler descriptions. This is
-the truth behind the mysterious and cursed stock, plus exact mechanics for the
-magic items. Party is **level 2** (4 PCs). Prices are already on the cards.
+**The philosophy (owner rule, 2026-07-18):** town shops sell things **as
+advertised** — every card states its real mechanics, and players can trust
+them. Mystery is a *fey* specialty, and mysterious items are **openly sold as
+gambles** ("Pib genuinely doesn't know what's in this one"). Cursed items
+advertise their real benefit and the vendor **openly admits there's a catch
+he won't name** ("it's got opinions — no refunds"). So this key only holds
+what's genuinely hidden: gamble roll-tables and curse specifics. Everything
+else, the card is the truth. Party is **level 2** (4 PCs).
 
 Player link (all shops): `<APP-DOMAIN>/market/80b6f517-d124-4fea-9435-8e727f3171a9`
 
@@ -26,7 +31,8 @@ Player link (all shops): `<APP-DOMAIN>/market/80b6f517-d124-4fea-9435-8e727f3171
   then it goes dull and ordinary.
 - **Fey-Touched Preserves** (sold at Bramble & Crust, but fey-made) — see there.
 
-### CURSED — looks great, has a bite (curse hidden until it bites)
+### CURSED — benefit is real and advertised; the card openly winks at a
+### catch; only the SPECIFICS below are hidden
 - **Ring of the Open Hand** (150 gp) — *worn.* Truth: the wearer cannot hold
   onto coin. Whenever they could spend, tip, gift, or gamble gold, DC 13 Wis
   save or they do so generously (overpay, tip lavishly, hand a coin to a

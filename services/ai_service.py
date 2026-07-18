@@ -1106,7 +1106,11 @@ def generate_shop_stock(
 Rules:
 - item_type is a short category ("Weapon", "Potion", "Wondrous Item", "Adventuring Gear", "Trinket", "Provisions"...).
 - rarity is one of: Common, Uncommon, Rare, VeryRare, Legendary, Artifact. Mundane goods are Common.
-- description covers what it does at the table (mechanics-light, evocative).
+- description states EXACTLY what the item does, mechanics included (e.g. "1/day:
+  advantage on one Persuasion check", "regain 2d4+2 HP"). Items are as advertised —
+  players must be able to trust the card. If the vendor genuinely doesn't know what
+  an item does, the description says so openly ("no idea what it does — might be
+  cursed, might be great") instead of hinting coyly.
 - stock is a small integer for scarce/special goods, or null for everyday stock.
 - Mix everyday goods with a few finds that reward browsing."""  # noqa: E501
 
