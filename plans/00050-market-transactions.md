@@ -1,7 +1,13 @@
 # Plan 00050 — Transactional Market (buy from your phone)
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
+
+**Shipped 2026-07-17 (d6a1ae2 + 76b905d).** E2E-verified in prod on a
+scratch campaign (created → bought → asserted purse 10 gp − 3.5 gp =
+6 gp 5 sp, stock 2→1, item in pack, 409s for barter/broke → deleted).
+The E2E also surfaced a latent bug — PCs with inventory/spells/features
+were undeletable (FK, no cascade) — fixed in CharacterRepo.delete.
 
 **Created:** 2026-07-17 (owner: "make the market transactional — pick what
 they want, spend coin from their account, deduct it, place the item in

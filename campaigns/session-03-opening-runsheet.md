@@ -65,6 +65,14 @@ end on a wrongness that shouldn't exist.**
   key's "THE BETWEEN-MARKET" section. Best used as an eerie interlude or a
   desperate-choice moment, not casual shopping. The Tallyman never lies and
   always collects.
+- **🪙 THE MARKET IS TRANSACTIONAL (new):** players open 🏪 MARKET from
+  their own sheet (the button carries their identity) and get a purse chip
+  + Buy buttons — one tap spends their real coin and drops the item in
+  their pack (sheet + Character Forge update live). Sold-out and
+  can't-afford are enforced; **fey-priced items refuse coin** ("bargain at
+  the table") so Between-Market deals stay yours to run. The bare market
+  link (no ?pc=) is browse-only — safe on the projector. You reverse any
+  mistaken buy by editing their gold + removing the item (DM sheet).
 - **🛡 CHARACTER FORGE (new):** in each player's existing `/play/<id>` sheet
   there's now a **🛡 YOUR CHARACTER** button → a full-screen BG3-style
   character screen. They equip their gear, write how their character looks,
