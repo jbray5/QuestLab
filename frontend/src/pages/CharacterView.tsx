@@ -288,6 +288,19 @@ export default function CharacterView() {
     },
   });
 
+  // "Render me wearing this" — the identity-preserving image-to-image that
+  // paints the equipped gear onto the persistent model.
+  const dressMut = useMutation({
+    mutationFn: () => playApi.dressModel(pcId as string),
+    onSuccess: () => {
+      setForgeError(null);
+      void qc.invalidateQueries({ queryKey: pcKey });
+    },
+    onError: (err: Error) => setForgeError(err.message),
+  });
+
+  // "New base look" — regenerates the base identity from the description
+  // (clears any dressed render server-side).
   const forgeMut = useMutation({
     mutationFn: async () => {
       if (draft !== null && draft !== (pc?.appearance ?? "")) {
@@ -301,6 +314,7 @@ export default function CharacterView() {
     },
     onError: (err: Error) => setForgeError(err.message),
   });
+  const busy = dressMut.isPending || forgeMut.isPending;
 
   if (!pc) {
     return (
@@ -313,9 +327,10 @@ export default function CharacterView() {
     );
   }
 
-  // The model is a stable likeness: prefer the forged hero, then the board
-  // standee, then the portrait. It never changes when gear is equipped.
-  const model = pc.hero_url || pc.figure_url || pc.portrait_url || null;
+  // Show the dressed render if the player has made one, else the base model
+  // (board standee / portrait as last resorts). The dressed render only
+  // changes when they deliberately press "Render me wearing this".
+  const model = pc.loadout_url || pc.hero_url || pc.figure_url || pc.portrait_url || null;
 
   return (
     <div className="forge-root">
@@ -327,12 +342,25 @@ export default function CharacterView() {
           {pc.subclass ? ` · ${pc.subclass}` : ""} — played by {pc.player_name}
         </div>
 
-        <Doll pcId={pcId as string} model={model} busy={forgeMut.isPending} />
+        <Doll pcId={pcId as string} model={model} busy={busy} />
+
+        <div className="forge-row" style={{ marginTop: 12 }}>
+          <button className="forge-btn" disabled={busy} onClick={() => dressMut.mutate()}>
+            {dressMut.isPending ? "⚒ Dressing…" : "⚔ Render me wearing this"}
+          </button>
+          <span className="forge-note">
+            {forgeError
+              ? forgeError
+              : dressMut.isPending
+                ? "Painting your gear onto your model — about half a minute."
+                : "Equip your loadout in the slots, then paint it onto your character (keeps your face)."}
+          </span>
+        </div>
 
         <h2 className="forge-h2">✍ How your character looks</h2>
         <textarea
           className="forge-textarea"
-          placeholder="Hair, eyes, build, scars, bearing… this describes your character, not their gear. Equipment shows in the slots above."
+          placeholder="Hair, eyes, skin, build, scars, bearing… this describes who your character IS. Gear is handled by the slots and the render button above."
           value={draft ?? ""}
           onChange={(e) => setDraft(e.target.value)}
           maxLength={1500}
@@ -345,15 +373,11 @@ export default function CharacterView() {
           >
             {saved ? "✓ saved" : "Save description"}
           </button>
-          <button className="forge-btn" disabled={forgeMut.isPending} onClick={() => forgeMut.mutate()}>
-            {forgeMut.isPending ? "⚒ Painting…" : "✨ Regenerate model"}
+          <button className="forge-save" disabled={busy} onClick={() => forgeMut.mutate()}>
+            {forgeMut.isPending ? "⚒ Repainting…" : "🎭 New base look"}
           </button>
           <span className="forge-note">
-            {forgeError
-              ? forgeError
-              : forgeMut.isPending
-                ? "Repainting your character — about half a minute."
-                : "Only changes how your character looks — your gear stays where it is."}
+            Rebuilds the character from your description (then re-render your gear).
           </span>
         </div>
 

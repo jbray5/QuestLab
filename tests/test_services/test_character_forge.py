@@ -45,6 +45,26 @@ def _patch_hero_gen(monkeypatch):
     return captured
 
 
+def _patch_loadout_gen(monkeypatch):
+    """Stub download + edit_image + upload for the dressed-render path."""
+    captured: dict = {}
+
+    def fake_edit_image(prompt, image_bytes, **kwargs):
+        captured["prompt"] = prompt
+        captured["source"] = image_bytes
+        captured["kwargs"] = kwargs
+        return b"\x89DRESSED"
+
+    monkeypatch.setattr(portrait_svc, "edit_image", fake_edit_image)
+    monkeypatch.setattr(portrait_svc.blob_storage, "download", lambda url, **k: b"\x89BASE")
+    monkeypatch.setattr(
+        portrait_svc.blob_storage,
+        "upload",
+        lambda *, path, data, content_type="image/png": f"https://fake.blob/{path}",
+    )
+    return captured
+
+
 class TestGearAndAppearance:
     """Gear join, player equip scoping, appearance notes."""
 
@@ -171,3 +191,74 @@ class TestForgeHero:
         result = play_svc.forge_hero(duckdb_session, pc.id)
 
         assert result["hero_url"].startswith("https://fake.blob/heroes/")
+
+
+class TestDressModel:
+    """The image-to-image 'gear on the model' render."""
+
+    def _base_pc(self, db, monkeypatch, *, stale=True):
+        """A PC with a base model already forged (cooldown cleared)."""
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import PlayerCharacterUpdate
+
+        dm = _dm()
+        c = _campaign(db, dm)
+        pc = _pc(db, c.id, dm)
+        _patch_hero_gen(monkeypatch)
+        play_svc.forge_hero(db, pc.id)
+        if stale:
+            row = CharacterRepo.get_by_id(db, pc.id)
+            CharacterRepo.update(
+                db,
+                row,
+                PlayerCharacterUpdate(hero_generated_at=datetime(2020, 1, 1, tzinfo=timezone.utc)),
+            )
+        return dm, pc
+
+    def test_dress_edits_base_and_lists_equipped(self, duckdb_session: Session, monkeypatch):
+        """Dressing edits the base image with the equipped gear, keeps identity."""
+        dm, pc = self._base_pc(duckdb_session, monkeypatch)
+        _give_item(duckdb_session, pc.id, dm, name="Moonblade", equipped=True)
+        _give_item(duckdb_session, pc.id, dm, name="Bedroll", equipped=False)
+        captured = _patch_loadout_gen(monkeypatch)
+
+        result = play_svc.dress_model(duckdb_session, pc.id)
+
+        assert result["loadout_url"] == f"https://fake.blob/heroes/pc-{pc.id}-loadout.png"
+        assert captured["source"] == b"\x89BASE"  # base render fed to image-to-image
+        assert "Moonblade" in captured["prompt"]
+        assert "Bedroll" not in captured["prompt"]
+        assert "same character" in captured["prompt"].lower()
+        assert captured["kwargs"].get("background") == "transparent"
+        refreshed = play_svc.get_character(duckdb_session, pc.id)
+        assert refreshed.loadout_url == result["loadout_url"]
+
+    def test_regen_base_clears_loadout(self, duckdb_session: Session, monkeypatch):
+        """Regenerating the base identity drops the stale dressed render."""
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import PlayerCharacterUpdate
+
+        dm, pc = self._base_pc(duckdb_session, monkeypatch)
+        _patch_loadout_gen(monkeypatch)
+        play_svc.dress_model(duckdb_session, pc.id)
+        assert play_svc.get_character(duckdb_session, pc.id).loadout_url is not None
+        # Clear the cooldown, then regenerate the base identity.
+        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
+        CharacterRepo.update(
+            duckdb_session,
+            row,
+            PlayerCharacterUpdate(hero_generated_at=datetime(2020, 1, 1, tzinfo=timezone.utc)),
+        )
+        _patch_hero_gen(monkeypatch)
+
+        play_svc.forge_hero(duckdb_session, pc.id)
+
+        assert play_svc.get_character(duckdb_session, pc.id).loadout_url is None
+
+    def test_dress_cooldown_guarded(self, duckdb_session: Session, monkeypatch):
+        """A dress inside the cooldown window is rejected."""
+        dm, pc = self._base_pc(duckdb_session, monkeypatch, stale=False)
+        _patch_loadout_gen(monkeypatch)
+
+        with pytest.raises(ValueError, match="forge is still glowing"):
+            play_svc.dress_model(duckdb_session, pc.id)

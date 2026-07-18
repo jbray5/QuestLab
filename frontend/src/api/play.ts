@@ -92,6 +92,7 @@ export const playApi = {
   setEquipped: (pcId: string, characterItemId: string, equipped: boolean) =>
     api.post<GearRow>(`/play/${pcId}/gear/${characterItemId}/equip`, { equipped }),
   forgeHero: (pcId: string) => api.post<{ hero_url: string }>(`/play/${pcId}/hero`),
+  dressModel: (pcId: string) => api.post<{ loadout_url: string }>(`/play/${pcId}/loadout`),
 };
 
 /** One Forge equipment row — inventory joined with catalog item details. */

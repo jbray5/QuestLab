@@ -295,7 +295,7 @@ def set_equipped(pc_id: uuid.UUID, character_item_id: uuid.UUID, body: dict, db:
 
 @router.post("/play/{pc_id}/hero")
 def forge_hero(pc_id: uuid.UUID, db: DB) -> dict:
-    """Generate the full-body hero render (90s cooldown).
+    """Generate the base character model (appearance-only, 90s cooldown).
 
     Args:
         pc_id: UUID of the player character.
@@ -316,4 +316,29 @@ def forge_hero(pc_id: uuid.UUID, db: DB) -> dict:
     except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Hero generation failed: {exc}"
+        )
+
+
+@router.post("/play/{pc_id}/loadout")
+def dress_model(pc_id: uuid.UUID, db: DB) -> dict:
+    """Render the character wearing their equipped gear (90s cooldown).
+
+    Args:
+        pc_id: UUID of the player character.
+        db: Database session.
+
+    Returns:
+        ``{"loadout_url": <url>}``.
+    """
+    try:
+        return player_service.dress_model(db, pc_id)
+    except ValueError as exc:
+        if "forge is still glowing" in str(exc):
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Loadout render failed: {exc}"
         )

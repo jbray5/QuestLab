@@ -199,6 +199,8 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS appearance VARCHAR",
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS hero_url VARCHAR(500)",
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS hero_generated_at TIMESTAMP",
+        # 0029 — dressed-model (loadout) render (Plan 48)
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS loadout_url VARCHAR(500)",
     ]
     with engine.begin() as conn:
         for stmt in patches:

@@ -90,6 +90,7 @@ def edit_image(
     size: Literal["1024x1024", "1024x1536", "1536x1024"] = "1536x1024",
     quality: Literal["low", "medium", "high"] = "medium",
     model: str = _DEFAULT_IMAGE_MODEL,
+    background: Literal["transparent", "opaque", "auto"] | None = None,
 ) -> bytes:
     """Transform an input image with gpt-image-1 (Plan 45 auto-terrain).
 
@@ -109,15 +110,18 @@ def edit_image(
         RuntimeError: If the API call fails or returns no decodable data.
     """
     client = _get_client()
+    edit_kwargs: dict = {
+        "model": model,
+        "image": ("source.png", image_bytes, "image/png"),
+        "prompt": prompt,
+        "size": size,
+        "quality": quality,
+        "n": 1,
+    }
+    if background is not None:
+        edit_kwargs["background"] = background
     try:
-        response = client.images.edit(
-            model=model,
-            image=("source.png", image_bytes, "image/png"),
-            prompt=prompt,
-            size=size,
-            quality=quality,
-            n=1,
-        )
+        response = client.images.edit(**edit_kwargs)
     except openai.OpenAIError as exc:
         raise RuntimeError(f"OpenAI image edit API error: {exc}") from exc
     return _response_bytes(response)

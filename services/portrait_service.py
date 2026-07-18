@@ -27,7 +27,7 @@ from domain.character import PlayerCharacter, PlayerCharacterRead, PlayerCharact
 from domain.monster import MonsterStatBlock, MonsterStatBlockUpdate
 from domain.npc import Npc, NpcRead, NpcUpdate
 from integrations import blob_storage
-from integrations.openai_client import generate_image
+from integrations.openai_client import edit_image, generate_image
 
 # Tone-by-default — keeps prompts grounded in the QuestLab aesthetic.
 _DEFAULT_STYLE = (
@@ -464,10 +464,79 @@ def generate_pc_hero(session: Session, pc: PlayerCharacter) -> str:
     # time (breaking the cooldown math), while naive UTC reads back verbatim;
     # Postgres (session tz = UTC on Render) interprets it as UTC either way.
     stamp = datetime.now(timezone.utc).replace(tzinfo=None)
+    # A fresh base identity invalidates the old dressed render, so clear it.
     CharacterRepo.update(
         session,
         pc,
-        PlayerCharacterUpdate(hero_url=url, hero_generated_at=stamp),
+        PlayerCharacterUpdate(hero_url=url, loadout_url=None, hero_generated_at=stamp),
+    )
+    return url
+
+
+def _build_loadout_prompt(pc: PlayerCharacter, equipped: list[str]) -> str:
+    """Prompt for dressing the base model in its equipped gear (image-to-image).
+
+    The base render is passed as the source image, so this asks the model to
+    keep that exact character and only change what they wear/wield — that is
+    how equipping shows on the body without turning the PC into a different
+    person.
+
+    Args:
+        pc: The player character row.
+        equipped: Display names of currently equipped items.
+
+    Returns:
+        The edit prompt string.
+    """
+    klass = (
+        pc.character_class.value
+        if hasattr(pc.character_class, "value")
+        else str(pc.character_class)
+    )
+    gear = ", ".join(equipped[:12]) if equipped else "simple traveling clothes"
+    return (
+        f"This is {pc.character_name}, a {pc.race} {klass}. Keep the exact same "
+        "character — same face, skin, build, hair and colours — and the same "
+        "standing full-body pose. Only re-dress them so they are now visibly "
+        f"wearing and wielding their equipped gear: {gear}. Weapons held in hand, "
+        "armour and clothing worn on the body. Full body head to boots, clean "
+        "die-cut cutout on a fully transparent background, no scenery, no shadow, "
+        "painterly video-game character model. No text, no watermark, no border."
+    )
+
+
+def generate_pc_loadout(session: Session, pc: PlayerCharacter, equipped: list[str]) -> str:
+    """Dress the base model in its equipped gear via image-to-image (Plan 48).
+
+    Downloads the base character render (hero → figure → portrait), edits it to
+    wear the equipped loadout while preserving identity, and persists the
+    result on ``loadout_url``.
+
+    Args:
+        session: Active database session.
+        pc: The player character row (ownership-checked upstream).
+        equipped: Display names of currently equipped items.
+
+    Returns:
+        The uploaded dressed-render URL.
+
+    Raises:
+        ValueError: If the PC has no base render to dress.
+        PermissionError: If OPENAI/BLOB env vars are missing.
+        RuntimeError: If the upstream API calls fail.
+    """
+    base_url = pc.hero_url or pc.figure_url or pc.portrait_url
+    if not base_url:
+        raise ValueError("Generate a character model first, then dress it.")
+    base_bytes = blob_storage.download(base_url)
+    prompt = _build_loadout_prompt(pc, equipped)
+    png_bytes = edit_image(prompt, base_bytes, size="1024x1536", background="transparent")
+    url = blob_storage.upload(path=f"heroes/pc-{pc.id}-loadout.png", data=png_bytes)
+    stamp = datetime.now(timezone.utc).replace(tzinfo=None)
+    CharacterRepo.update(
+        session,
+        pc,
+        PlayerCharacterUpdate(loadout_url=url, hero_generated_at=stamp),
     )
     return url
 
@@ -477,4 +546,5 @@ __all__ = [
     "generate_npc_portrait",
     "generate_monster_portrait",
     "generate_pc_hero",
+    "generate_pc_loadout",
 ]

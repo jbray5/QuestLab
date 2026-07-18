@@ -68,6 +68,7 @@ export interface PlayerCharacter {
   // Plan 00048 — Character Forge
   appearance?: string | null;
   hero_url?: string | null;
+  loadout_url?: string | null;
   // Plan 00023 — combat state
   temp_hp: number;
   heroic_inspiration: boolean;

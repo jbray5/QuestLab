@@ -54,6 +54,9 @@ class PlayerCharacter(SQLModel, table=True):
     # cooldown anchor (player-triggered paid generation).
     appearance: Optional[str] = None
     hero_url: Optional[str] = Field(default=None, max_length=500)
+    # The "dressed" render: the base model painted wearing the equipped
+    # loadout (image-to-image from hero_url, so identity is preserved).
+    loadout_url: Optional[str] = Field(default=None, max_length=500)
     hero_generated_at: Optional[datetime] = Field(default=None)
     backstory: Optional[str] = None
     notes: Optional[str] = None
@@ -185,6 +188,7 @@ class PlayerCharacterRead(BaseModel):
     # Plan 00048 — Character Forge
     appearance: Optional[str] = None
     hero_url: Optional[str] = None
+    loadout_url: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -245,6 +249,7 @@ class PlayerCharacterUpdate(BaseModel):
     # alongside hero_url to anchor the forge cooldown)
     appearance: Optional[str] = None
     hero_url: Optional[str] = None
+    loadout_url: Optional[str] = None
     hero_generated_at: Optional[datetime] = None
 
 

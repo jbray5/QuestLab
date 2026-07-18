@@ -576,20 +576,67 @@ def forge_hero(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
             down (message carries the seconds remaining).
         PermissionError / RuntimeError: Propagated from generation.
     """
-    from datetime import datetime, timezone
-
     from integrations.event_bus import publish_pc_updated
     from services import portrait_service
 
     pc = _get_pc_or_raise(db, pc_id)
-    if pc.hero_generated_at is not None:
-        last = pc.hero_generated_at
-        if last.tzinfo is None:
-            last = last.replace(tzinfo=timezone.utc)
-        elapsed = (datetime.now(timezone.utc) - last).total_seconds()
-        if elapsed < _HERO_COOLDOWN_SECONDS:
-            wait = int(_HERO_COOLDOWN_SECONDS - elapsed)
-            raise ValueError(f"The forge is still glowing — try again in {wait}s.")
+    _check_forge_cooldown(pc)
     url = portrait_service.generate_pc_hero(db, pc)
     publish_pc_updated(pc.id, pc.campaign_id)
     return {"hero_url": url}
+
+
+def _check_forge_cooldown(pc: PlayerCharacter) -> None:
+    """Raise ValueError if the shared image-forge cooldown hasn't elapsed.
+
+    Args:
+        pc: The player character row.
+
+    Raises:
+        ValueError: If the forge is still cooling down (message carries the
+            seconds remaining).
+    """
+    from datetime import datetime, timezone
+
+    if pc.hero_generated_at is None:
+        return
+    last = pc.hero_generated_at
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    elapsed = (datetime.now(timezone.utc) - last).total_seconds()
+    if elapsed < _HERO_COOLDOWN_SECONDS:
+        wait = int(_HERO_COOLDOWN_SECONDS - elapsed)
+        raise ValueError(f"The forge is still glowing — try again in {wait}s.")
+
+
+def dress_model(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
+    """Render the character wearing their equipped gear (image-to-image).
+
+    Preserves the base model's identity (same face/build) and only changes
+    what the character wears/wields — this is the "gear on the model" action,
+    triggered deliberately, not on every equip. Cooldown-guarded.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC.
+
+    Returns:
+        ``{"loadout_url": <url>}``.
+
+    Raises:
+        ValueError: PC not found, no base model yet, or cooling down.
+        PermissionError / RuntimeError: Propagated from generation.
+    """
+    from integrations.event_bus import publish_pc_updated
+    from services import portrait_service
+
+    pc = _get_pc_or_raise(db, pc_id)
+    _check_forge_cooldown(pc)
+    # Ensure a base identity exists to dress; make one if the PC has nothing.
+    if not (pc.hero_url or pc.figure_url or pc.portrait_url):
+        portrait_service.generate_pc_hero(db, pc)
+        pc = _get_pc_or_raise(db, pc_id)
+    equipped = [g["name"] for g in list_gear(db, pc_id) if g["equipped"]]
+    url = portrait_service.generate_pc_loadout(db, pc, equipped)
+    publish_pc_updated(pc.id, pc.campaign_id)
+    return {"loadout_url": url}
