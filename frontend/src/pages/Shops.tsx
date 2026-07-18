@@ -167,6 +167,14 @@ function ShopCard({ shop, onChanged }: { shop: ShopRead; onChanged: () => void }
       )}
       <div className="flex" style={{ alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
         <h3 style={{ margin: "0.3rem 0" }}>{shop.name}</h3>
+        {shop.hidden && (
+          <span
+            style={{ fontSize: "0.7rem", color: "#c98adf", border: "1px solid #7a4a99", borderRadius: 6, padding: "0 6px" }}
+            title="Hidden from the player market — reveal by sharing this shop's direct link"
+          >
+            🔒 hidden
+          </span>
+        )}
         <span style={{ color: "var(--text-dim)", fontSize: "0.8rem" }}>
           {shop.keeper ? `${shop.keeper} · ` : ""}
           {shop.item_count} items
@@ -256,6 +264,17 @@ function ShopCard({ shop, onChanged }: { shop: ShopRead; onChanged: () => void }
         >
           👁 preview
         </a>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: "0.75rem" }}
+          title={shop.hidden ? "Reveal on the player market" : "Hide from the player market (reveal via direct link)"}
+          onClick={async () => {
+            await shopsApi.update(shop.id, { hidden: !shop.hidden });
+            onChanged();
+          }}
+        >
+          {shop.hidden ? "🔓 reveal" : "🔒 hide"}
+        </button>
         <button
           className="btn btn-ghost"
           style={{ fontSize: "0.75rem" }}

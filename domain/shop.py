@@ -32,6 +32,9 @@ class Shop(SQLModel, table=True):
     # Where in town it sits ("The Green, east row").
     location: Optional[str] = Field(default=None, max_length=200)
     banner_url: Optional[str] = Field(default=None, max_length=1000)
+    # Hidden shops (e.g. a secret fey market) never appear on the player
+    # market page — the DM reveals them by sharing the direct storefront link.
+    hidden: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -50,6 +53,9 @@ class ShopItem(SQLModel, table=True):
     stock: Optional[int] = Field(default=None, ge=0)
     # The keeper's one-line sales patter — player-facing.
     pitch: Optional[str] = Field(default=None, max_length=500)
+    # A non-gold cost ("one true secret", "a year of your voice"). When set,
+    # it is shown in place of the gold price — for barter/fey markets.
+    cost_text: Optional[str] = Field(default=None, max_length=200)
     sort_order: int = Field(default=0)
 
 
@@ -60,6 +66,7 @@ class ShopCreate(BaseModel):
     keeper: Optional[str] = None
     blurb: Optional[str] = None
     location: Optional[str] = None
+    hidden: bool = False
 
 
 class ShopUpdate(BaseModel):
@@ -70,6 +77,7 @@ class ShopUpdate(BaseModel):
     blurb: Optional[str] = None
     location: Optional[str] = None
     banner_url: Optional[str] = None
+    hidden: Optional[bool] = None
 
 
 class ShopItemAdd(BaseModel):
@@ -85,14 +93,16 @@ class ShopItemAdd(BaseModel):
     price_gp: float = PField(default=0, ge=0)
     stock: Optional[int] = None
     pitch: Optional[str] = None
+    cost_text: Optional[str] = None
 
 
 class ShopItemUpdate(BaseModel):
-    """Partial update for a stocked item (price / stock / pitch)."""
+    """Partial update for a stocked item (price / stock / pitch / cost)."""
 
     price_gp: Optional[float] = PField(default=None, ge=0)
     stock: Optional[int] = None
     pitch: Optional[str] = None
+    cost_text: Optional[str] = None
     sort_order: Optional[int] = None
 
 
@@ -113,6 +123,7 @@ class ShopRead(BaseModel):
     blurb: Optional[str] = None
     location: Optional[str] = None
     banner_url: Optional[str] = None
+    hidden: bool = False
     item_count: int = 0
 
     model_config = {"from_attributes": True}
@@ -133,6 +144,7 @@ class StorefrontItem(BaseModel):
     price_gp: float = 0
     stock: Optional[int] = None
     pitch: Optional[str] = None
+    cost_text: Optional[str] = None
 
 
 class StorefrontRead(BaseModel):

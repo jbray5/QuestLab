@@ -42,7 +42,9 @@ function ItemCard({ item }: { item: StorefrontItem }) {
           </div>
         )}
         <div className="store-foot">
-          <span className="store-price">{formatPrice(item.price_gp)}</span>
+          <span className="store-price" style={item.cost_text ? { fontStyle: "italic", fontSize: "0.85rem" } : undefined}>
+            {item.cost_text ? item.cost_text : formatPrice(item.price_gp)}
+          </span>
           {typeof item.stock === "number" && (
             <span className="store-stock">
               {item.stock === 0 ? "sold out" : `only ${item.stock} left`}

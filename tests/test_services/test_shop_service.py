@@ -250,6 +250,55 @@ class TestProjectionsAndArt:
         assert len(market.shops) == 1
         assert market.shops[0].item_count == 1
 
+    def test_hidden_shop_excluded_from_market_only(self, duckdb_session: Session):
+        """A hidden shop is off the player market but reachable by direct link."""
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        _shop(duckdb_session, campaign.id, dm, name="Open Store")
+        secret = shop_svc.create_shop(
+            duckdb_session, campaign.id, dm, ShopCreate(name="Fey Market", hidden=True)
+        )
+
+        market = shop_svc.get_market(duckdb_session, campaign.id)
+        assert [s.name for s in market.shops] == ["Open Store"]  # secret hidden
+
+        # DM manager still sees it, and the direct storefront still resolves.
+        dm_names = {s.name for s in shop_svc.list_shops(duckdb_session, campaign.id, dm)}
+        assert "Fey Market" in dm_names
+        assert shop_svc.get_storefront(duckdb_session, secret.id).name == "Fey Market"
+
+    def test_unhiding_reveals_on_market(self, duckdb_session: Session):
+        """Flipping hidden off brings the shop onto the market."""
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        secret = shop_svc.create_shop(
+            duckdb_session, campaign.id, dm, ShopCreate(name="Fey Market", hidden=True)
+        )
+        assert shop_svc.get_market(duckdb_session, campaign.id).shops == []
+
+        shop_svc.update_shop(duckdb_session, secret.id, dm, ShopUpdate(hidden=False))
+
+        assert [s.name for s in shop_svc.get_market(duckdb_session, campaign.id).shops] == [
+            "Fey Market"
+        ]
+
+    def test_cost_text_shows_on_storefront(self, duckdb_session: Session):
+        """A non-gold cost rides through to the storefront card."""
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        shop = _shop(duckdb_session, campaign.id, dm)
+        shop_svc.add_item(
+            duckdb_session,
+            shop.id,
+            dm,
+            ShopItemAdd(name="A Kept Secret", price_gp=0, cost_text="one true secret"),
+        )
+
+        card = shop_svc.get_storefront(duckdb_session, shop.id).items[0]
+
+        assert card.cost_text == "one true secret"
+        assert card.price_gp == 0
+
     def test_item_image_saves_on_catalog_item(self, duckdb_session: Session, monkeypatch):
         """Generated art uploads and lands on the shared catalog item."""
         dm = _dm()

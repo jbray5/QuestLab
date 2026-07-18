@@ -201,6 +201,9 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS hero_generated_at TIMESTAMP",
         # 0029 — dressed-model (loadout) render (Plan 48)
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS loadout_url VARCHAR(500)",
+        # 0030 — hidden shops + non-gold costs (Plan 47)
+        "ALTER TABLE shops ADD COLUMN IF NOT EXISTS hidden BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS cost_text VARCHAR(200)",
     ]
     with engine.begin() as conn:
         for stmt in patches:

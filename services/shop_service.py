@@ -165,6 +165,7 @@ def _storefront_item(row: ShopItem, item: Item) -> StorefrontItem:
         price_gp=row.price_gp,
         stock=row.stock,
         pitch=row.pitch,
+        cost_text=row.cost_text,
     )
 
 
@@ -234,6 +235,7 @@ def add_item(db: DBSession, shop_id: uuid.UUID, dm_email: str, data: ShopItemAdd
         price_gp=data.price_gp or float(item.value_gp),
         stock=data.stock,
         pitch=data.pitch,
+        cost_text=data.cost_text,
         sort_order=order,
     )
     return _storefront_item(ShopItemRepo.create(db, row), item)
@@ -490,6 +492,8 @@ def get_market(db: DBSession, campaign_id: uuid.UUID) -> MarketRead:
     campaign = CampaignRepo.get_by_id(db, campaign_id)
     if campaign is None:
         raise ValueError(f"Campaign {campaign_id} not found.")
+    # Hidden shops (secret fey markets, etc.) never surface here — the DM
+    # reveals them by sharing the direct storefront link.
     shops = [
         MarketShop(
             id=s.id,
@@ -501,5 +505,6 @@ def get_market(db: DBSession, campaign_id: uuid.UUID) -> MarketRead:
             item_count=ShopItemRepo.count_for_shop(db, s.id),
         )
         for s in ShopRepo.list_for_campaign(db, campaign_id)
+        if not s.hidden
     ]
     return MarketRead(campaign_id=campaign.id, campaign_name=campaign.name, shops=shops)

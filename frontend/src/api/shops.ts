@@ -12,6 +12,7 @@ export interface ShopRead {
   blurb?: string | null;
   location?: string | null;
   banner_url?: string | null;
+  hidden?: boolean;
   item_count: number;
 }
 
@@ -28,6 +29,7 @@ export interface StorefrontItem {
   price_gp: number;
   stock?: number | null;
   pitch?: string | null;
+  cost_text?: string | null;
 }
 
 export interface StorefrontRead {
@@ -90,9 +92,9 @@ export function formatPrice(gp: number): string {
 export const shopsApi = {
   // DM management
   list: (campaignId: string) => api.get<ShopRead[]>(`/campaigns/${campaignId}/shops`),
-  create: (campaignId: string, data: { name: string; keeper?: string; blurb?: string; location?: string }) =>
+  create: (campaignId: string, data: { name: string; keeper?: string; blurb?: string; location?: string; hidden?: boolean }) =>
     api.post<ShopRead>(`/campaigns/${campaignId}/shops`, data),
-  update: (shopId: string, data: Partial<Pick<ShopRead, "name" | "keeper" | "blurb" | "location">>) =>
+  update: (shopId: string, data: Partial<Pick<ShopRead, "name" | "keeper" | "blurb" | "location" | "hidden">>) =>
     api.patch<ShopRead>(`/shops/${shopId}`, data),
   remove: (shopId: string) => api.delete<void>(`/shops/${shopId}`),
   stock: (shopId: string, concept: string | undefined, count: number) =>
