@@ -1,7 +1,12 @@
 # Plan 00051 — Sell to Vendors + Pool Coin
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
+
+**Shipped 2026-07-18 (b0b1746).** E2E-verified in prod on a scratch
+campaign: buy 10 gp → sell back +5 gp (half value) → party list →
+give 7.5 gp (sender 7 gp 5 sp, recipient 7 gp 5 sp) → campaign delete
+204 (cascade fix confirmed live). Scratch fully cleaned.
 
 **Created:** 2026-07-18 (owner: "make a sell option where they can sell
 their items to vendors for gold... and a way to pool their gold for a

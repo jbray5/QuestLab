@@ -73,6 +73,10 @@ end on a wrongness that shouldn't exist.**
   the table") so Between-Market deals stay yours to run. The bare market
   link (no ?pc=) is browse-only — safe on the projector. You reverse any
   mistaken buy by editing their gold + removing the item (DM sheet).
+  Also in any storefront: **💰 Sell from your pack** (vendors pay half
+  value; equipped gear and quest items refused — the Ciphered Page can't
+  be fat-fingered away) and **🤝 Pool coin** (send gp to a party member —
+  "all pitch in, Creed buys the shield" works exactly like that).
 - **🛡 CHARACTER FORGE (new):** in each player's existing `/play/<id>` sheet
   there's now a **🛡 YOUR CHARACTER** button → a full-screen BG3-style
   character screen. They equip their gear, write how their character looks,
