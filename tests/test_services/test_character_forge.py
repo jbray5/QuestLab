@@ -228,7 +228,7 @@ class TestDressModel:
         assert captured["source"] == b"\x89BASE"  # base render fed to image-to-image
         assert "Moonblade" in captured["prompt"]
         assert "Bedroll" not in captured["prompt"]
-        assert "same character" in captured["prompt"].lower()
+        assert "identical face" in captured["prompt"].lower()
         assert captured["kwargs"].get("background") == "transparent"
         refreshed = play_svc.get_character(duckdb_session, pc.id)
         assert refreshed.loadout_url == result["loadout_url"]

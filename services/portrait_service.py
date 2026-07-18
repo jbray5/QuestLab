@@ -493,15 +493,25 @@ def _build_loadout_prompt(pc: PlayerCharacter, equipped: list[str]) -> str:
         if hasattr(pc.character_class, "value")
         else str(pc.character_class)
     )
-    gear = ", ".join(equipped[:12]) if equipped else "simple traveling clothes"
+    if not equipped:
+        return (
+            f"This is {pc.character_name}, a {pc.race} {klass}. Reproduce this exact "
+            "character from the source image — identical face, skin tone, hair, body, "
+            "outfit and pose. Full body head to boots, clean die-cut cutout on a fully "
+            "transparent background, no scenery, no shadow. No text, no watermark."
+        )
+    gear = ", ".join(equipped[:12])
     return (
-        f"This is {pc.character_name}, a {pc.race} {klass}. Keep the exact same "
-        "character — same face, skin, build, hair and colours — and the same "
-        "standing full-body pose. Only re-dress them so they are now visibly "
-        f"wearing and wielding their equipped gear: {gear}. Weapons held in hand, "
-        "armour and clothing worn on the body. Full body head to boots, clean "
-        "die-cut cutout on a fully transparent background, no scenery, no shadow, "
-        "painterly video-game character model. No text, no watermark, no border."
+        f"This is {pc.character_name}, a {pc.race} {klass}. Reproduce this EXACT "
+        "character from the source image — identical face, skin tone, hair, body, "
+        "existing clothing and standing pose. Change only ONE thing: give them the "
+        f"equipped items listed here, placed naturally — {gear}. Weapons are held in "
+        "the hands, a shield on the arm; a worn piece (armour, cloak, boots) appears "
+        "on the body ONLY if it is named in that list. Do NOT add, remove, upgrade, or "
+        "restyle any armour, clothing, or equipment that is not in the list — keep "
+        "their current outfit exactly as it is. Full body head to boots, clean die-cut "
+        "cutout on a fully transparent background, no scenery, no shadow, painterly "
+        "video-game character model. No text, no watermark, no border."
     )
 
 
