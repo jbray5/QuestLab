@@ -6,7 +6,14 @@ from typing import Optional
 
 from sqlmodel import Session, select
 
-from domain.character import PlayerCharacter, PlayerCharacterCreate, PlayerCharacterUpdate
+from domain.character import (
+    CharacterFeature,
+    CharacterItem,
+    CharacterSpell,
+    PlayerCharacter,
+    PlayerCharacterCreate,
+    PlayerCharacterUpdate,
+)
 
 
 class CharacterRepo:
@@ -85,7 +92,12 @@ class CharacterRepo:
 
     @staticmethod
     def delete(session: Session, character: PlayerCharacter) -> bool:
-        """Delete a player character record.
+        """Delete a player character record and its junction rows.
+
+        The child tables (inventory, spells, features) reference
+        player_characters without ON DELETE CASCADE, so the repo emulates
+        it — otherwise any PC that ever bought or learned anything is
+        undeletable (FK violation).
 
         Args:
             session: Active database session.
@@ -94,6 +106,14 @@ class CharacterRepo:
         Returns:
             True if deleted.
         """
+        for model in (CharacterItem, CharacterSpell, CharacterFeature):
+            rows = session.exec(select(model).where(model.character_id == character.id)).all()
+            for row in rows:
+                session.delete(row)
+        # Commit the junction deletes before the parent delete: DuckDB's FK
+        # check doesn't see same-transaction child deletions (documented
+        # limitation) and would still reject the parent row.
+        session.commit()
         session.delete(character)
         session.commit()
         return True

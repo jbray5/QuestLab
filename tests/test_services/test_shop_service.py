@@ -512,3 +512,28 @@ class TestPurchase:
         gear = play_svc.list_gear(duckdb_session, pc.id)
         row = next(g for g in gear if g["name"] == "Torch Bundle")
         assert row["quantity"] == 2
+
+
+class TestDeleteCascade:
+    """A PC who bought things must still be deletable (repo emulates cascade)."""
+
+    def test_delete_pc_with_inventory(self, duckdb_session: Session):
+        """Deleting a PC clears inventory junction rows instead of erroring."""
+        import services.character_service as char_svc
+        from db.repos.character_item_repo import CharacterItemRepo
+        from db.repos.character_repo import CharacterRepo
+
+        dm = _dm()
+        campaign = _campaign(duckdb_session, dm)
+        shop = _shop(duckdb_session, campaign.id, dm)
+        card = shop_svc.add_item(
+            duckdb_session, shop.id, dm, ShopItemAdd(name="Lantern", price_gp=5)
+        )
+        pc = TestPurchase()._pc_with_gold(duckdb_session, campaign.id, dm, gp=10)
+        shop_svc.purchase(duckdb_session, pc.id, card.shop_item_id)
+        assert len(CharacterItemRepo.list_for_character(duckdb_session, pc.id)) == 1
+
+        char_svc.delete_character(duckdb_session, pc.id, dm)
+
+        assert CharacterRepo.get_by_id(duckdb_session, pc.id) is None
+        assert CharacterItemRepo.list_for_character(duckdb_session, pc.id) == []
