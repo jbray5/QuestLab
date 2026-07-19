@@ -305,3 +305,38 @@ def forget_feature(db: Session, character_feature_id: uuid.UUID, dm_email: str) 
         raise ValueError(f"Character-feature {character_feature_id} not found.")
     _assert_pc_owner(db, row.character_id, dm_email)
     return CharacterFeatureRepo.delete(db, row)
+
+
+def sync_for_level(db: Session, character_id: uuid.UUID, dm_email: str) -> list[str]:
+    """Grant every catalog feature the PC qualifies for (level-up helper).
+
+    Idempotent: features already learned are skipped. A feature qualifies
+    when its class matches, its ``level_acquired`` is within the PC's
+    level, and it is either class-generic or matches the PC's subclass
+    (case-insensitive substring either way, so "Life Domain" matches
+    "Life").
+
+    Args:
+        db: Active database session.
+        character_id: UUID of the PC.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        Names of the newly granted features (empty if up to date).
+    """
+    pc = _assert_pc_owner(db, character_id, dm_email)
+    granted: list[str] = []
+    have = {row.feature_id for row in CharacterFeatureRepo.list_for_character(db, character_id)}
+    subclass = (pc.subclass or "").strip().lower()
+    for feature in ClassFeatureRepo.list_all(
+        db, character_class=pc.character_class, max_level=pc.level
+    ):
+        if feature.id in have:
+            continue
+        if feature.subclass:
+            fsub = feature.subclass.strip().lower()
+            if not subclass or (fsub not in subclass and subclass not in fsub):
+                continue
+        CharacterFeatureRepo.create(db, character_id, CharacterFeatureCreate(feature_id=feature.id))
+        granted.append(feature.name)
+    return granted

@@ -357,3 +357,74 @@ class TestSeedCatalog:
             ],
         )
         assert n == 0
+
+
+class TestSyncForLevel:
+    """Level-up helper: grant everything the PC now qualifies for."""
+
+    def _catalog(self, db):
+        """L1/L2/L3 generic + an L3 subclass feature for Fighter."""
+        f1 = _feature(db, name="Second Wind", level_acquired=1)
+        f2 = _feature(db, name="Action Surge", level_acquired=2)
+        f3 = _feature(db, name="Tactical Master", level_acquired=3)
+        champ = ClassFeatureRepo.create(
+            db,
+            ClassFeatureCreate(
+                name="Improved Critical",
+                character_class=CharacterClass.FIGHTER,
+                subclass="Champion",
+                level_acquired=3,
+                recovery=RecoveryType.NONE,
+                uses_formula=UsesFormula.NONE,
+                description="Crit on 19-20.",
+            ),
+        )
+        return f1, f2, f3, champ
+
+    def test_grants_up_to_level_and_is_idempotent(self, duckdb_session: Session):
+        """A level-2 PC gets L1+L2 generics; re-sync grants nothing."""
+        dm = _unique_dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm, level=2)
+        self._catalog(duckdb_session)
+
+        granted = feat_svc.sync_for_level(duckdb_session, pc.id, dm)
+
+        assert sorted(granted) == ["Action Surge", "Second Wind"]
+        assert feat_svc.sync_for_level(duckdb_session, pc.id, dm) == []
+
+    def test_level_up_with_subclass_grants_the_rest(self, duckdb_session: Session):
+        """Bumping to 3 + choosing Champion grants L3 generic + subclass."""
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import PlayerCharacterUpdate
+
+        dm = _unique_dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm, level=2)
+        self._catalog(duckdb_session)
+        feat_svc.sync_for_level(duckdb_session, pc.id, dm)
+
+        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
+        CharacterRepo.update(
+            duckdb_session, row, PlayerCharacterUpdate(level=3, subclass="Champion")
+        )
+        granted = feat_svc.sync_for_level(duckdb_session, pc.id, dm)
+
+        assert sorted(granted) == ["Improved Critical", "Tactical Master"]
+
+    def test_wrong_subclass_features_stay_out(self, duckdb_session: Session):
+        """A Battle Master never receives Champion features."""
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import PlayerCharacterUpdate
+
+        dm = _unique_dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm, level=3)
+        self._catalog(duckdb_session)
+        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
+        CharacterRepo.update(duckdb_session, row, PlayerCharacterUpdate(subclass="Battle Master"))
+
+        granted = feat_svc.sync_for_level(duckdb_session, pc.id, dm)
+
+        assert "Improved Critical" not in granted
+        assert sorted(granted) == ["Action Surge", "Second Wind", "Tactical Master"]

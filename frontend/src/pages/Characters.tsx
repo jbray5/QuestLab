@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { charactersApi } from "../api/characters";
+import { featuresApi } from "../api/features";
 import type { PlayerCharacter } from "../api/types";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import FeaturePanel from "../components/FeaturePanel";
@@ -14,6 +15,14 @@ function mod(score: number) {
   const m = Math.floor((score - 10) / 2);
   return m >= 0 ? `+${m}` : `${m}`;
 }
+
+/** Hit die by class (2024 PHB) — drives the suggested HP gain on level-up. */
+const HIT_DIE: Record<string, number> = {
+  Sorcerer: 6, Wizard: 6,
+  Artificer: 8, Bard: 8, Cleric: 8, Druid: 8, Monk: 8, Rogue: 8, Warlock: 8,
+  Fighter: 10, Paladin: 10, Ranger: 10,
+  Barbarian: 12,
+};
 
 function HpBar({ hp, maxHp }: { hp: number; maxHp: number }) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (hp / maxHp) * 100)) : 0;
@@ -39,7 +48,9 @@ const BLANK_FORM = {
   player_name: "",
   race: "",
   character_class: "",
+  subclass: "",
   level: 1,
+  speed: 30,
   hp_current: 10,
   hp_max: 10,
   ac: 10,
@@ -88,7 +99,12 @@ export default function Characters() {
   });
 
   const update = useMutation({
-    mutationFn: () => charactersApi.update(editing!.id, { ...form }),
+    mutationFn: async () => {
+      const saved = await charactersApi.update(editing!.id, { ...form });
+      // Level/subclass may have changed — sync class features (idempotent).
+      await featuresApi.sync(editing!.id).catch(() => undefined);
+      return saved;
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["characters", campaignId] });
       resetForm();
@@ -107,6 +123,51 @@ export default function Characters() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
   });
 
+  /** Level-up flow: bump level, set new max HP (suggested = average hit-die
+   * roll + CON mod), pick a subclass at level 3, auto-grant class features. */
+  async function levelUp(c: PlayerCharacter) {
+    const newLevel = c.level + 1;
+    const die = HIT_DIE[c.character_class] ?? 8;
+    const conMod = Math.floor((c.score_con - 10) / 2);
+    const suggestedGain = Math.max(1, Math.floor(die / 2) + 1 + conMod);
+    const hpRaw = window.prompt(
+      `${c.character_name} → level ${newLevel}!\n\nNew MAX HP? ` +
+        `(average gain is +${suggestedGain}: d${die} avg ${Math.floor(die / 2) + 1} ` +
+        `${conMod >= 0 ? "+" : ""}${conMod} CON)`,
+      String(c.hp_max + suggestedGain),
+    );
+    if (hpRaw === null) return;
+    const newMax = Math.max(1, Math.floor(Number(hpRaw) || c.hp_max + suggestedGain));
+
+    let subclass = c.subclass ?? "";
+    if (newLevel >= 3 && !subclass) {
+      subclass =
+        window.prompt(
+          "Subclass? (chosen at level 3 — leave blank to decide later)",
+          "",
+        )?.trim() ?? "";
+    }
+
+    await charactersApi.update(c.id, {
+      level: newLevel,
+      hp_max: newMax,
+      // Level-up HP is gained, not just capacity: current rises by the same amount.
+      hp_current: Math.max(0, c.hp_current + (newMax - c.hp_max)),
+      ...(subclass ? { subclass } : {}),
+    });
+    const { granted } = await featuresApi.sync(c.id);
+    void qc.invalidateQueries({ queryKey: ["characters", campaignId] });
+    window.alert(
+      `${c.character_name} is now level ${newLevel}!` +
+        (granted.length
+          ? `\n\nNew class features granted:\n• ${granted.join("\n• ")}`
+          : "\n\nNo new class features at this level.") +
+        (newLevel >= 3 && !subclass
+          ? "\n\n(No subclass set — Edit the character once they choose; subclass features sync automatically on save.)"
+          : ""),
+    );
+  }
+
   function resetForm() {
     setForm(BLANK_FORM);
     setFormError("");
@@ -121,7 +182,9 @@ export default function Characters() {
       player_name: c.player_name ?? "",
       race: c.race ?? "",
       character_class: c.character_class ?? "",
+      subclass: c.subclass ?? "",
       level: c.level,
+      speed: c.speed ?? 30,
       hp_current: c.hp_current,
       hp_max: c.hp_max,
       ac: c.ac,
@@ -202,6 +265,14 @@ export default function Characters() {
                   </select>
                 </div>
                 <div className="form-group">
+                  <label>Subclass (chosen at level 3)</label>
+                  <input
+                    value={form.subclass}
+                    onChange={f("subclass")}
+                    placeholder="e.g. Champion, Circle of the Moon"
+                  />
+                </div>
+                <div className="form-group">
                   <label>Level</label>
                   <input
                     type="number"
@@ -209,6 +280,15 @@ export default function Characters() {
                     max={20}
                     value={form.level}
                     onChange={f("level")}
+                    onFocus={(e) => e.currentTarget.select()}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Speed (ft)</label>
+                  <input
+                    type="number"
+                    value={form.speed}
+                    onChange={f("speed")}
                     onFocus={(e) => e.currentTarget.select()}
                   />
                 </div>
@@ -405,6 +485,14 @@ export default function Characters() {
               </button>
               <button className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => startEdit(c)}>
                 Edit
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: "0.7rem", color: "var(--gold)" }}
+                title="Bump level, set new max HP, auto-grant class features"
+                onClick={() => void levelUp(c)}
+              >
+                ⬆ Level up
               </button>
               <button
                 className="btn btn-danger"

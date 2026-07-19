@@ -180,3 +180,23 @@ def forget_character_feature(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/characters/{character_id}/features/sync")
+def sync_character_features(character_id: uuid.UUID, db: DB, user: CurrentUser) -> dict:
+    """Grant every catalog feature the PC now qualifies for (level-up helper).
+
+    Args:
+        character_id: UUID of the PC.
+        db: Database session.
+        user: Authenticated DM.
+
+    Returns:
+        ``{"granted": [<feature names>]}`` — empty when already up to date.
+    """
+    try:
+        return {"granted": feature_service.sync_for_level(db, character_id, user)}
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))

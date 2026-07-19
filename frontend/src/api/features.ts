@@ -17,6 +17,9 @@ export const featuresApi = {
     api.get<CharacterFeature[]>(`/characters/${characterId}/features`),
   learn: (characterId: string, body: CharacterFeatureCreate) =>
     api.post<CharacterFeature>(`/characters/${characterId}/features`, body),
+  /** Grant every catalog feature the PC now qualifies for (level-up helper). */
+  sync: (characterId: string) =>
+    api.post<{ granted: string[] }>(`/characters/${characterId}/features/sync`),
   spend: (characterId: string, characterFeatureId: string) =>
     api.post<CharacterFeature>(
       `/characters/${characterId}/features/${characterFeatureId}/spend`,
