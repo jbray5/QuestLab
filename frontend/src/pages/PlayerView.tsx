@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { playApi, type CombatState, type TurnState } from "../api/play";
+import { playApi, type CombatState, type GearRow, type TurnState } from "../api/play";
 import { portraitSrc } from "../lib/portrait";
 import type { PlayerCharacter } from "../api/types";
 import InfoTip from "../components/character-sheet/InfoTip";
@@ -259,6 +259,10 @@ function PlayerSheet({ pcId }: { pcId: string }) {
             <FeaturesBlock features={features} pcId={pcId} qc={qc} />
           </Section>
         )}
+
+        <Section title="🎒 Inventory" defaultOpen>
+          <InventoryBlock pcId={pcId} />
+        </Section>
 
         <Section title="🧭 Your Turn — Walkthrough" defaultOpen>
           <TurnWalkthrough pc={pc} />
@@ -1482,6 +1486,74 @@ function TurnWalkthrough({ pc }: { pc: PlayerCharacter }) {
         <strong>Ask the DM.</strong> Everyone's new at the table for the
         first session — questions are good. The fastest way to learn is to
         try something and see what happens.
+      </p>
+    </div>
+  );
+}
+
+function InventoryBlock({ pcId }: { pcId: string }) {
+  // Plan 48/50 — the enriched gear view (names, art, slots). Keyed to
+  // "play-inventory" so pc.inventory.updated SSE events (purchases, DM
+  // grants, equips) refresh it live.
+  const { data: gear = [], isLoading } = useQuery({
+    queryKey: ["play-inventory", pcId],
+    queryFn: () => playApi.gear(pcId),
+  });
+  if (isLoading) return <p className="text-sm text-muted">Loading…</p>;
+  if (gear.length === 0) {
+    return <p className="text-sm text-muted">Your pack is empty — loot and market buys land here.</p>;
+  }
+  const equipped = gear.filter((g) => g.equipped);
+  const carried = gear.filter((g) => !g.equipped);
+  const row = (g: GearRow) => (
+    <div
+      key={g.character_item_id}
+      style={{ display: "flex", alignItems: "center", gap: "0.55rem", padding: "0.3rem 0" }}
+    >
+      {g.image_url ? (
+        <img
+          src={g.image_url}
+          alt={g.name}
+          style={{ width: 34, height: 34, objectFit: "cover", borderRadius: 6, flex: "none" }}
+          loading="lazy"
+        />
+      ) : (
+        <span style={{ width: 34, textAlign: "center", fontSize: "1.2rem", flex: "none" }}>🎒</span>
+      )}
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: "0.85rem" }}>
+          {g.name}
+          {g.quantity > 1 ? ` ×${g.quantity}` : ""}
+          {g.attuned ? " ✨" : ""}
+        </div>
+        <div style={{ fontSize: "0.65rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          {g.item_type}
+          {g.rarity !== "Common" ? ` · ${g.rarity.replace("VeryRare", "Very Rare")}` : ""}
+        </div>
+      </div>
+      {g.equipped && (
+        <span style={{ marginLeft: "auto", fontSize: "0.65rem", color: "var(--gold)", flex: "none" }}>
+          ⚔ equipped
+        </span>
+      )}
+    </div>
+  );
+  return (
+    <div>
+      {equipped.length > 0 && (
+        <>
+          <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Equipped</div>
+          {equipped.map(row)}
+        </>
+      )}
+      {carried.length > 0 && (
+        <>
+          <div style={{ fontSize: "0.62rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginTop: equipped.length ? "0.4rem" : 0 }}>Pack</div>
+          {carried.map(row)}
+        </>
+      )}
+      <p style={{ fontSize: "0.7rem", color: "var(--muted)", marginTop: "0.4rem", marginBottom: 0 }}>
+        Equip &amp; render gear in 🛡 Your Character · buy &amp; sell via 🏪 Market (top of sheet).
       </p>
     </div>
   );
