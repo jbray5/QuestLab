@@ -33,6 +33,7 @@ import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import DmScreen from "../components/dm-screen/DmScreen";
 import LootPanel from "../components/LootPanel";
 import TableConsole from "../components/table/TableConsole";
+import { tableApi } from "../api/table";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import MonsterStatBlock from "../components/MonsterStatBlock";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
@@ -506,6 +507,35 @@ export default function SessionHud() {
 
   // ── Scene navigator ────────────────────────────────────────────────────────
   const [sceneIdx, setSceneIdx] = useState(0);
+
+  // ── Plan 53 — tabbed center panel: Script | Maps | People ─────────────────
+  // The runbook was hogging the whole center column; it becomes one tab so
+  // maps and full stat blocks can live where the DM actually looks mid-scene.
+  const [centerTab, setCenterTab] = useState<"script" | "maps" | "people">("script");
+  const { data: hudMaps = [] } = useQuery({
+    queryKey: ["battle-maps", adventure?.campaign_id],
+    queryFn: () => tableApi.listMaps(adventure!.campaign_id),
+    enabled: !!adventure?.campaign_id && centerTab === "maps",
+  });
+  const { data: hudTable } = useQuery({
+    queryKey: ["hud-table", sessionId],
+    queryFn: () => tableApi.getState(sessionId!),
+    enabled: !!sessionId && centerTab === "maps",
+  });
+  const setActiveMap = useMutation({
+    mutationFn: (mapId: string) => tableApi.updateState(sessionId!, { active_map_id: mapId }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["hud-table", sessionId] }),
+  });
+  // Distinct monsters across tonight's encounter rosters (for 👥 People).
+  const rosterMonsters = useMemo(() => {
+    const seen = new Map<string, RosterEntry>();
+    for (const enc of adventureEncounters) {
+      for (const r of (enc.monster_roster ?? []) as unknown as RosterEntry[]) {
+        if (r.monster_id && !seen.has(r.monster_id)) seen.set(r.monster_id, r);
+      }
+    }
+    return Array.from(seen.values());
+  }, [adventureEncounters]);
   const scenes: RunbookScene[] = runbook?.scenes ?? [];
   const currentScene = scenes[sceneIdx] ?? null;
 
@@ -1220,8 +1250,25 @@ export default function SessionHud() {
             justifyContent: "space-between",
             alignItems: "center",
           }}>
-            <span>Scene Navigator</span>
-            {scenes.length > 0 && (
+            <div className="flex" style={{ gap: "0.3rem" }}>
+              {(
+                [
+                  ["script", "🎬 Script"],
+                  ["maps", "🗺 Maps"],
+                  ["people", "👥 People"],
+                ] as const
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setCenterTab(k)}
+                  className={`btn ${centerTab === k ? "btn-primary" : "btn-ghost"}`}
+                  style={{ fontSize: "0.68rem", padding: "0.15rem 0.55rem", textTransform: "none" }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {centerTab === "script" && scenes.length > 0 && (
               <span style={{ fontWeight: 400 }}>
                 {sceneIdx + 1} / {scenes.length}
               </span>
@@ -1229,6 +1276,8 @@ export default function SessionHud() {
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
+            {centerTab === "script" && (
+            <>
             {!runbook && (
               <div style={{ color: "var(--muted)", textAlign: "center", marginTop: "2rem" }}>
                 <p>No runbook generated yet.</p>
@@ -1366,6 +1415,145 @@ export default function SessionHud() {
                     </ul>
                   </details>
                 ))}
+              </div>
+            )}
+            </>
+            )}
+
+            {/* ── 🗺 Maps tab (Plan 53) — the battle-map library, one click to stage ── */}
+            {centerTab === "maps" && (
+              <div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "0.7rem" }}>
+                  {hudMaps.map((m) => {
+                    const active = hudTable?.active_map_id === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => setActiveMap.mutate(m.id)}
+                        disabled={setActiveMap.isPending}
+                        title={active ? "Live on the table" : "Make this the active table map"}
+                        style={{
+                          padding: 0,
+                          textAlign: "left",
+                          background: "var(--surface2)",
+                          border: `2px solid ${active ? "var(--gold)" : "var(--border)"}`,
+                          borderRadius: 8,
+                          overflow: "hidden",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <img
+                          src={m.image_url}
+                          alt={m.name}
+                          loading="lazy"
+                          style={{ width: "100%", aspectRatio: "16/10", objectFit: "cover", display: "block" }}
+                        />
+                        <div style={{ padding: "0.35rem 0.5rem", fontSize: "0.78rem", color: active ? "var(--gold)" : "var(--text)" }}>
+                          {active ? "● " : ""}{m.name}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                {hudMaps.length === 0 && (
+                  <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
+                    No battle maps in this campaign yet — add them under Battle Maps.
+                  </p>
+                )}
+                <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: "0.7rem" }}>
+                  Click a map to put it on the table (players&rsquo; views switch live). Drive tokens
+                  from the <Link to={`/sessions/${sessionId}/board`}>🎲 3D Board</Link>.
+                </p>
+              </div>
+            )}
+
+            {/* ── 👥 People tab (Plan 53) — full blocks one click away ── */}
+            {centerTab === "people" && (
+              <div>
+                <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
+                  Party — tap for the full sheet
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "0.5rem", marginBottom: "1rem" }}>
+                  {party.map((pc) => (
+                    <button
+                      key={pc.id}
+                      onClick={() => setSheetPcId(pc.id)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.4rem 0.5rem",
+                        background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8,
+                        cursor: "pointer", textAlign: "left",
+                      }}
+                    >
+                      {pc.portrait_url ? (
+                        <img src={pc.portrait_url} alt="" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flex: "none" }} />
+                      ) : (
+                        <span style={{ fontSize: "1.3rem", flex: "none" }}>🧙</span>
+                      )}
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: "0.8rem", color: "var(--gold)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pc.character_name}</div>
+                        <div style={{ fontSize: "0.65rem", color: "var(--muted)" }}>
+                          Lv{pc.level} · {pc.hp_current}/{pc.hp_max} HP · AC {pc.ac}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
+                  Monsters (tonight&rsquo;s encounters) — tap for the stat block
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "0.5rem", marginBottom: "1rem" }}>
+                  {rosterMonsters.map((r) => (
+                    <button
+                      key={r.monster_id}
+                      onClick={() => setStatBlockMonsterId(r.monster_id)}
+                      style={{
+                        padding: "0.4rem 0.5rem", background: "var(--surface2)",
+                        border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer", textAlign: "left",
+                      }}
+                    >
+                      <div style={{ fontSize: "0.8rem", color: "#e57373" }}>
+                        {r.name}{r.count > 1 ? ` ×${r.count}` : ""}
+                      </div>
+                      <div style={{ fontSize: "0.65rem", color: "var(--muted)" }}>
+                        CR {r.cr} · {r.hp} HP · AC {r.ac}
+                      </div>
+                    </button>
+                  ))}
+                  {rosterMonsters.length === 0 && (
+                    <p style={{ color: "var(--muted)", fontSize: "0.8rem" }}>No encounters staged.</p>
+                  )}
+                </div>
+
+                {campaignNpcs.length > 0 && (
+                  <>
+                    <div style={{ fontSize: "0.68rem", fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
+                      NPCs
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "0.5rem" }}>
+                      {campaignNpcs.map((npc) => (
+                        <div
+                          key={npc.id}
+                          title={npc.appearance ?? undefined}
+                          style={{
+                            display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.4rem 0.5rem",
+                            background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 8,
+                          }}
+                        >
+                          {npc.portrait_url ? (
+                            <img src={npc.portrait_url} alt="" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flex: "none" }} />
+                          ) : (
+                            <span style={{ fontSize: "1.3rem", flex: "none" }}>👤</span>
+                          )}
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: "0.8rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{npc.name}</div>
+                            <div style={{ fontSize: "0.65rem", color: "var(--muted)" }}>{npc.role}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
