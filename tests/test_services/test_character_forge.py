@@ -262,3 +262,94 @@ class TestDressModel:
 
         with pytest.raises(ValueError, match="forge is still glowing"):
             play_svc.dress_model(duckdb_session, pc.id)
+
+
+class TestUseItem:
+    """Plan 52 — consumables that actually heal."""
+
+    def _pc_with_potion(self, db, monkeypatch=None, *, name="Potion of Healing", qty=1, hp=5):
+        """A hurt PC holding a consumable."""
+        import services.inventory_service as inv_svc
+        import services.item_service as item_svc
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import CharacterItemCreate, PlayerCharacterUpdate
+        from domain.item import ItemCreate
+
+        dm = _dm()
+        c = _campaign(db, dm)
+        pc = _pc(db, c.id, dm)
+        row_pc = CharacterRepo.get_by_id(db, pc.id)
+        CharacterRepo.update(db, row_pc, PlayerCharacterUpdate(hp_current=hp))
+        item = item_svc.create_item(
+            db,
+            ItemCreate(name=name, rarity=ItemRarity.COMMON, item_type="Potion", value_gp=50),
+        )
+        row = inv_svc.add_item(db, pc.id, CharacterItemCreate(item_id=item.id, quantity=qty), dm)
+        return dm, c, pc, row
+
+    def test_heal_self_consumes_and_clamps(self, duckdb_session: Session):
+        """Healing lands (2d4+2 is 4..10), row is consumed, HP caps at max."""
+        dm, c, pc, row = self._pc_with_potion(duckdb_session, hp=25)
+
+        receipt = play_svc.use_item(duckdb_session, pc.id, row.id)
+
+        assert receipt["effect"] == "heal"
+        assert 4 <= receipt["amount"] <= 10
+        assert receipt["target_hp_current"] == 30  # clamped at hp_max
+        assert receipt["quantity_left"] == 0
+        assert all(
+            g["character_item_id"] != str(row.id) for g in play_svc.list_gear(duckdb_session, pc.id)
+        )
+
+    def test_heal_party_member(self, duckdb_session: Session):
+        """Using a potion on a hurt friend heals the friend."""
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import PlayerCharacterUpdate
+
+        dm, c, pc, row = self._pc_with_potion(duckdb_session)
+        friend = _pc(duckdb_session, c.id, dm)
+        frow = CharacterRepo.get_by_id(duckdb_session, friend.id)
+        CharacterRepo.update(duckdb_session, frow, PlayerCharacterUpdate(hp_current=5))
+
+        receipt = play_svc.use_item(duckdb_session, pc.id, row.id, friend.id)
+
+        assert receipt["target_name"] == "Hero"
+        assert 5 + 4 <= receipt["target_hp_current"] <= 5 + 10
+
+    def test_cross_campaign_target_denied(self, duckdb_session: Session):
+        """You cannot pour a potion down a stranger's throat."""
+        dm, c, pc, row = self._pc_with_potion(duckdb_session)
+        other_campaign = _campaign(duckdb_session, dm)
+        outsider = _pc(duckdb_session, other_campaign.id, dm)
+
+        with pytest.raises(PermissionError):
+            play_svc.use_item(duckdb_session, pc.id, row.id, outsider.id)
+
+    def test_unknown_item_refused(self, duckdb_session: Session):
+        """Items outside the effects table go to the DM."""
+        dm, c, pc, row = self._pc_with_potion(duckdb_session, name="Mysterious Orb")
+
+        with pytest.raises(ValueError, match="ask the DM"):
+            play_svc.use_item(duckdb_session, pc.id, row.id)
+
+    def test_stack_decrements(self, duckdb_session: Session):
+        """A stack of 3 leaves 2 after one use."""
+        dm, c, pc, row = self._pc_with_potion(duckdb_session, qty=3)
+
+        receipt = play_svc.use_item(duckdb_session, pc.id, row.id)
+
+        assert receipt["quantity_left"] == 2
+
+    def test_temp_hp_takes_higher(self, duckdb_session: Session):
+        """Plum jam grants temp HP; existing higher temp HP is kept."""
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import PlayerCharacterUpdate
+
+        dm, c, pc, row = self._pc_with_potion(duckdb_session, name="Fey-Touched Plum Jam")
+        rowpc = CharacterRepo.get_by_id(duckdb_session, pc.id)
+        CharacterRepo.update(duckdb_session, rowpc, PlayerCharacterUpdate(temp_hp=10))
+
+        receipt = play_svc.use_item(duckdb_session, pc.id, row.id)
+
+        assert receipt["effect"] == "temp_hp"
+        assert receipt["target_temp_hp"] == 10  # 1d4 can't beat 10

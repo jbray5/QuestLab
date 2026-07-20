@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from typing import Any
+from typing import Any, Optional
 
 from sqlmodel import Session
 
@@ -760,3 +760,134 @@ def give_coin(db: Session, pc_id: uuid.UUID, to_pc_id: uuid.UUID, amount_gp: flo
         sp=refreshed.sp,
         cp=refreshed.cp,
     )
+
+
+# ---------------------------------------------------------------------------
+# Plan 52 — use consumables from the pack (heal yourself or a friend)
+# ---------------------------------------------------------------------------
+
+# Known consumable effects, matched by lowercase substring, FIRST match wins
+# (order matters: "greater healing" before "healing"). Anything not listed is
+# refused — the DM adjudicates odd items at the table (fail closed).
+_CONSUMABLE_EFFECTS: list[tuple[str, dict[str, Any]]] = [
+    ("potion of supreme healing", {"kind": "heal", "dice": (10, 4, 20)}),
+    ("potion of superior healing", {"kind": "heal", "dice": (8, 4, 8)}),
+    ("potion of greater healing", {"kind": "heal", "dice": (4, 4, 4)}),
+    ("potion of healing", {"kind": "heal", "dice": (2, 4, 2)}),
+    ("cask of comfort", {"kind": "heal", "dice": (2, 4, 2)}),
+    ("honeycake", {"kind": "heal", "dice": (0, 0, 1)}),
+    ("plum jam", {"kind": "temp_hp", "dice": (1, 4, 0)}),
+    ("morning bun", {"kind": "exhaustion", "dice": (0, 0, 1)}),
+    ("hearthfire cordial", {"kind": "exhaustion", "dice": (0, 0, 1)}),
+]
+
+
+def _consumable_effect(name: str) -> Optional[dict[str, Any]]:
+    """Look up the table effect for an item name, or None if unknown."""
+    lname = name.lower()
+    for needle, effect in _CONSUMABLE_EFFECTS:
+        if needle in lname:
+            return effect
+    return None
+
+
+def use_item(
+    db: Session,
+    pc_id: uuid.UUID,
+    character_item_id: uuid.UUID,
+    target_pc_id: Optional[uuid.UUID] = None,
+) -> dict[str, Any]:
+    """Use one unit of a consumable on yourself or a party member (Plan 52).
+
+    Rolls the effect server-side, applies it to the target (healing clamps
+    at max HP; temp HP takes the higher value per 5e; exhaustion drops one
+    level), consumes one unit, and publishes SSE for both sheets.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the acting PC (owns the item).
+        character_item_id: UUID of the inventory row being used.
+        target_pc_id: Optional target PC (defaults to self; same campaign).
+
+    Returns:
+        Receipt dict: item/target names, roll detail, amount, target HP.
+
+    Raises:
+        ValueError: Unknown row/item, empty row, or an item the table
+            doesn't know how to resolve.
+        PermissionError: Row belongs to another PC, or target is outside
+            the campaign.
+    """
+    import random
+
+    from db.repos.character_item_repo import CharacterItemRepo
+    from db.repos.character_repo import CharacterRepo
+    from db.repos.item_repo import ItemRepo
+    from domain.character import CharacterItemUpdate, PlayerCharacterUpdate
+    from integrations.event_bus import publish_pc_updated
+
+    pc = _get_pc_or_raise(db, pc_id)
+    row = CharacterItemRepo.get_by_id(db, character_item_id)
+    if row is None:
+        raise ValueError(f"Inventory row {character_item_id} not found.")
+    if row.character_id != pc_id:
+        raise PermissionError("That item belongs to a different character.")
+    item = ItemRepo.get_by_id(db, row.item_id)
+    if item is None:
+        raise ValueError(f"Item {row.item_id} not found.")
+
+    target = pc if target_pc_id in (None, pc_id) else CharacterRepo.get_by_id(db, target_pc_id)
+    if target is None or target.campaign_id != pc.campaign_id:
+        raise PermissionError("You can only use items on your own party.")
+
+    effect = _consumable_effect(item.name)
+    if effect is None:
+        raise ValueError(
+            f"{item.name} isn't something you can just quaff — ask the DM to resolve it."
+        )
+
+    n, die, flat = effect["dice"]
+    rolls = [random.randint(1, die) for _ in range(n)]
+    amount = sum(rolls) + flat
+    roll_detail = (
+        f"{n}d{die}{'+' + str(flat) if flat else ''} → {'+'.join(map(str, rolls))}"
+        f"{'+' + str(flat) if flat else ''} = {amount}"
+        if n
+        else str(amount)
+    )
+
+    dm = _dm_email_for(db, pc_id)
+    kind = effect["kind"]
+    if kind == "heal":
+        character_service.apply_healing(db, target.id, amount, dm)
+    elif kind == "temp_hp":
+        # 5e RAW: temp HP doesn't stack — keep the higher value.
+        new_temp = max(target.temp_hp or 0, amount)
+        CharacterRepo.update(db, target, PlayerCharacterUpdate(temp_hp=new_temp))
+    elif kind == "exhaustion":
+        new_ex = max(0, (target.exhaustion or 0) - amount)
+        CharacterRepo.update(db, target, PlayerCharacterUpdate(exhaustion=new_ex))
+
+    # One unit leaves the pack.
+    if row.quantity > 1:
+        updated = CharacterItemRepo.update(db, row, CharacterItemUpdate(quantity=row.quantity - 1))
+        left = updated.quantity
+    else:
+        CharacterItemRepo.delete(db, row)
+        left = 0
+
+    publish_pc_updated(pc.id, pc.campaign_id, kind="pc.inventory.updated")
+    publish_pc_updated(target.id, target.campaign_id)
+    refreshed = _get_pc_or_raise(db, target.id)
+    return {
+        "item_name": item.name,
+        "target_name": refreshed.character_name,
+        "effect": kind,
+        "roll": roll_detail,
+        "amount": amount,
+        "target_hp_current": refreshed.hp_current,
+        "target_hp_max": refreshed.hp_max,
+        "target_temp_hp": refreshed.temp_hp,
+        "target_exhaustion": refreshed.exhaustion,
+        "quantity_left": left,
+    }

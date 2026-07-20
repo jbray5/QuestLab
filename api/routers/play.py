@@ -438,3 +438,34 @@ def give_coin(pc_id: uuid.UUID, body: GiveRequest, db: DB) -> TransferReceipt:
         if "not found" in msg.lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
+
+
+@router.post("/play/{pc_id}/use-item")
+def use_item(pc_id: uuid.UUID, body: dict, db: DB) -> dict:
+    """Use a consumable from the pack on yourself or a party member.
+
+    Body: ``{"character_item_id": "<uuid>", "target_pc_id": "<uuid>"?}``.
+
+    Args:
+        pc_id: UUID of the acting player character.
+        body: Inventory row + optional target.
+        db: Database session.
+
+    Returns:
+        Receipt: item/target names, roll detail, amount, target HP.
+    """
+    try:
+        target = body.get("target_pc_id")
+        return player_service.use_item(
+            db,
+            pc_id,
+            uuid.UUID(str(body.get("character_item_id"))),
+            uuid.UUID(str(target)) if target else None,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except ValueError as exc:
+        msg = str(exc)
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)

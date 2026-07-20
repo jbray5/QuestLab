@@ -100,6 +100,12 @@ export const playApi = {
   sell: (pcId: string, characterItemId: string) =>
     api.post<SellReceipt>(`/play/${pcId}/sell`, { character_item_id: characterItemId }),
   party: (pcId: string) => api.get<PartyMate[]>(`/play/${pcId}/party`),
+  // Plan 52 — use a consumable on yourself or a party member
+  useItem: (pcId: string, characterItemId: string, targetPcId?: string) =>
+    api.post<UseItemReceipt>(`/play/${pcId}/use-item`, {
+      character_item_id: characterItemId,
+      target_pc_id: targetPcId ?? null,
+    }),
   give: (pcId: string, toPcId: string, amountGp: number) =>
     api.post<TransferReceipt>(`/play/${pcId}/give`, { to_pc_id: toPcId, amount_gp: amountGp }),
 };
@@ -114,6 +120,20 @@ export interface SellReceipt {
   ep: number;
   sp: number;
   cp: number;
+}
+
+/** Receipt from using a consumable (Plan 52). */
+export interface UseItemReceipt {
+  item_name: string;
+  target_name: string;
+  effect: string;
+  roll: string;
+  amount: number;
+  target_hp_current: number;
+  target_hp_max: number;
+  target_temp_hp: number;
+  target_exhaustion: number;
+  quantity_left: number;
 }
 
 /** A campaign-mate for the pool-coin dropdown (Plan 51). */
