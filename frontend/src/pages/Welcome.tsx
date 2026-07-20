@@ -23,6 +23,12 @@ export default function Welcome() {
     if (dmEmail) navigate(next, { replace: true });
   }, [dmEmail, navigate, next]);
 
+  // Plan 54 — on demo deployments the marketing landing IS the front door;
+  // identity is pinned server-side, so there's nothing to sign into.
+  useEffect(() => {
+    if (import.meta.env.VITE_DEMO_MODE && !dmEmail) navigate("/try", { replace: true });
+  }, [dmEmail, navigate]);
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);

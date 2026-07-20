@@ -1,0 +1,198 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+import { api } from "../api/client";
+import { useAuthStore } from "../stores/useAuthStore";
+
+/**
+ * TryLanding — the public marketing page (Plan 54), /try.
+ *
+ * The page behind the Reddit link. Pitches the product with real in-app
+ * art, offers the sandbox demo (when this deployment runs in demo mode),
+ * and captures beta-waitlist emails. Standalone — no app chrome, no auth.
+ */
+
+const DEMO = !!import.meta.env.VITE_DEMO_MODE;
+
+// Real assets generated inside the app — the art IS the pitch.
+const ART = {
+  board:
+    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/c708579c-70e1-4811-8f58-d92504868d0c-kDyq5ThugnkcHPxSHyt9aegBQgCHcG.png",
+  shop:
+    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/shops/shop-28dfae87-aa59-497d-ba6a-14eb403200d4-924ffeoHilNwalnFozTyZlfcSMUJGl.png",
+  hero:
+    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/heroes/pc-9a450e7d-4def-40f9-8be1-dd060db7a93c-loadout-MonhrHDJ2FtqJRDVyoCBFsKBl2OfeW.png",
+};
+
+const CSS = `
+.try-root {
+  min-height: 100vh; color: #e6ddc8;
+  background: radial-gradient(ellipse at 50% -10%, #241a38 0%, #0d0a16 55%, #06050a 100%);
+  font-family: Georgia, 'Times New Roman', serif;
+}
+.try-inner { max-width: 1000px; margin: 0 auto; padding: 0 1.2rem 4rem; }
+.try-hero { text-align: center; padding: 4.5rem 0 2.5rem; }
+.try-title {
+  font-family: Cinzel, Georgia, serif; letter-spacing: 0.12em;
+  font-size: clamp(2.2rem, 6vw, 3.6rem); color: #f0e6c8; margin: 0;
+  text-shadow: 0 2px 24px rgba(214,175,54,0.35);
+}
+.try-tag { color: #b3a789; font-size: 1.15rem; font-style: italic; margin-top: 0.7rem; }
+.try-cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 1.8rem; }
+.try-btn {
+  padding: 12px 28px; border-radius: 12px; cursor: pointer; text-decoration: none;
+  font-family: Cinzel, Georgia, serif; font-size: 1.05rem; letter-spacing: 0.06em;
+  color: #1c1508; background: linear-gradient(180deg, #e8c95c, #c9a136);
+  border: 1px solid #f0e0a0; box-shadow: 0 2px 22px rgba(224,192,77,0.35);
+}
+.try-note { color: #8f8672; font-size: 0.82rem; margin-top: 0.7rem; }
+.try-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 18px; margin-top: 2.2rem; }
+.try-card {
+  background: linear-gradient(180deg, rgba(38,32,54,0.85), rgba(20,17,28,0.95));
+  border: 1px solid rgba(240,230,200,0.14); border-radius: 16px; overflow: hidden;
+}
+.try-card img { width: 100%; aspect-ratio: 16/10; object-fit: cover; object-position: top; display: block; }
+.try-card-body { padding: 0.9rem 1rem 1.1rem; }
+.try-card h3 { margin: 0 0 5px; font-family: Cinzel, Georgia, serif; color: #f0e6c8; font-size: 1.1rem; }
+.try-card p { margin: 0; color: #cfc4a9; font-size: 0.9rem; line-height: 1.5; }
+.try-wait {
+  margin: 3rem auto 0; max-width: 520px; text-align: center;
+  background: rgba(28,23,42,0.6); border: 1px solid rgba(240,230,200,0.16);
+  border-radius: 16px; padding: 1.4rem 1.5rem;
+}
+.try-wait h3 { font-family: Cinzel, Georgia, serif; color: #d6c390; margin: 0 0 4px; }
+.try-wait-row { display: flex; gap: 8px; margin-top: 0.9rem; }
+.try-input {
+  flex: 1; background: rgba(240,230,200,0.07); border: 1px solid rgba(240,230,200,0.25);
+  color: #e6ddc8; border-radius: 10px; padding: 10px 14px; font-size: 0.95rem; font-family: inherit;
+}
+.try-foot { text-align: center; color: #6b6b7a; font-size: 0.75rem; margin-top: 3.5rem; line-height: 1.6; }
+`;
+
+export default function TryLanding() {
+  const navigate = useNavigate();
+  const { setDmEmail } = useAuthStore();
+  const [email, setEmail] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function joinWaitlist(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email.trim()) return;
+    setBusy(true);
+    try {
+      const r = await api.post<{ email: string; already_registered: boolean }>("/waitlist", {
+        email: email.trim(),
+        source: DEMO ? "demo-landing" : "landing",
+      });
+      setMsg(
+        r.already_registered
+          ? "You're already on the list — we'll be in touch."
+          : "You're on the list! We'll email you when the beta opens.",
+      );
+      setEmail("");
+    } catch (err) {
+      setMsg((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function enterDemo() {
+    setDmEmail("demo@questlab.app");
+    navigate("/", { replace: true });
+  }
+
+  return (
+    <div className="try-root">
+      <style>{CSS}</style>
+      <div className="try-inner">
+        <header className="try-hero">
+          <h1 className="try-title">QUESTLAB</h1>
+          <p className="try-tag">
+            The AI-powered studio for running 5e at a real table — or a screen-shared one.
+          </p>
+          <div className="try-cta-row">
+            {DEMO ? (
+              <button className="try-btn" onClick={enterDemo}>
+                ▶ Enter the demo world
+              </button>
+            ) : (
+              <a className="try-btn" href="#waitlist">
+                Join the beta waitlist
+              </a>
+            )}
+          </div>
+          {DEMO && (
+            <p className="try-note">
+              A shared sandbox campaign — poke everything. It resets nightly.
+            </p>
+          )}
+        </header>
+
+        <div className="try-grid">
+          <div className="try-card">
+            <img src={ART.board} alt="A living 3D battle map" loading="lazy" />
+            <div className="try-card-body">
+              <h3>🎲 A living 3D table</h3>
+              <p>
+                AI-generated battle maps become dioramas — standee minifigs of your party,
+                day-night skies, weather, torchlight, and broadcast spell effects. You drive;
+                your players watch it live on any screen, no install.
+              </p>
+            </div>
+          </div>
+          <div className="try-card">
+            <img src={ART.shop} alt="An AI-stocked shop" loading="lazy" />
+            <div className="try-card-body">
+              <h3>🏪 A real economy</h3>
+              <p>
+                AI-stocked shops with painted item art and honest price tags. Players browse on
+                their phones, buy with their actual coin, sell loot back, and pool gold for the
+                big purchase — inventory updates live.
+              </p>
+            </div>
+          </div>
+          <div className="try-card">
+            <img src={ART.hero} alt="A forged character model" loading="lazy" />
+            <div className="try-card-body">
+              <h3>🛡 Characters they'll love</h3>
+              <p>
+                Every player gets a phone sheet with HP, spells, and dice — plus a paper-doll
+                character screen: describe your look, forge a painted model, equip real gear,
+                and drink real potions.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="try-wait" id="waitlist">
+          <h3>Want this for your table?</h3>
+          <p style={{ color: "#b3a789", fontSize: "0.9rem", margin: 0 }}>
+            The beta is coming — leave an email and you&rsquo;ll be first in.
+          </p>
+          <form className="try-wait-row" onSubmit={joinWaitlist}>
+            <input
+              className="try-input"
+              type="email"
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <button className="try-btn" style={{ padding: "10px 20px", fontSize: "0.9rem" }} disabled={busy}>
+              {busy ? "…" : "Join"}
+            </button>
+          </form>
+          {msg && <p style={{ color: "#d6c390", fontSize: "0.85rem", marginTop: "0.7rem" }}>{msg}</p>}
+        </div>
+
+        <footer className="try-foot">
+          QuestLab is an independent tool compatible with the 5th-edition rules. Not affiliated
+          with or endorsed by Wizards of the Coast. Includes content from the Systems Reference
+          Document 5.2 by Wizards of the Coast LLC, used under the Creative Commons Attribution
+          4.0 International License.
+        </footer>
+      </div>
+    </div>
+  );
+}

@@ -40,6 +40,7 @@ from api.routers import (
     stream,
     table,
     uploads,
+    waitlist,
 )
 
 load_dotenv()
@@ -136,6 +137,7 @@ app.include_router(combat_beats.router, prefix=_PREFIX)
 app.include_router(battle_maps.router, prefix=_PREFIX)
 app.include_router(table.router, prefix=_PREFIX)
 app.include_router(shops.router, prefix=_PREFIX)
+app.include_router(waitlist.router, prefix=_PREFIX)
 
 
 @app.get("/api/health")

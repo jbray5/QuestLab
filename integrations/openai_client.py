@@ -18,6 +18,20 @@ import openai
 _DEFAULT_IMAGE_MODEL = "gpt-image-1"
 
 
+def _require_ai_enabled() -> None:
+    """Raise unless AI generation is enabled on this deployment (Plan 54).
+
+    ``AI_GENERATION_ENABLED=false`` is the global kill switch — set on the
+    public demo deployment (and in any cost emergency) so no code path can
+    reach a paid image API.
+
+    Raises:
+        PermissionError: If the kill switch is thrown.
+    """
+    if os.environ.get("AI_GENERATION_ENABLED", "true").strip().lower() not in ("1", "true", "yes"):
+        raise PermissionError("AI generation is disabled on this deployment.")
+
+
 def _get_client() -> openai.OpenAI:
     """Return an OpenAI client using ``OPENAI_API_KEY`` from env.
 
@@ -66,6 +80,7 @@ def generate_image(
         PermissionError: If ``OPENAI_API_KEY`` is unset.
         RuntimeError: If the API returns no images or no decodable data.
     """
+    _require_ai_enabled()
     client = _get_client()
     kwargs: dict = {"model": model, "prompt": prompt, "size": size, "quality": quality, "n": 1}
     if background is not None:
@@ -109,6 +124,7 @@ def edit_image(
         PermissionError: If ``OPENAI_API_KEY`` is unset.
         RuntimeError: If the API call fails or returns no decodable data.
     """
+    _require_ai_enabled()
     client = _get_client()
     edit_kwargs: dict = {
         "model": model,

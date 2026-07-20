@@ -1,0 +1,28 @@
+# Plan 54 — nightly reset of the public demo world.
+# Requires repo secret DEMO_API_URL (e.g. https://questlab-demo.onrender.com/api).
+# Does nothing until that secret exists, so it's safe to merge ahead of the
+# demo deployment.
+name: demo-reset
+
+on:
+  schedule:
+    - cron: "0 9 * * *" # 09:00 UTC daily (~4am US Central)
+  workflow_dispatch: {}
+
+jobs:
+  reset:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Reset demo world
+        env:
+          DEMO_API_URL: ${{ secrets.DEMO_API_URL }}
+        run: |
+          if [ -z "$DEMO_API_URL" ]; then
+            echo "DEMO_API_URL secret not set — skipping (demo not deployed yet)."
+            exit 0
+          fi
+          python scripts/seed_demo_world.py --api "$DEMO_API_URL"

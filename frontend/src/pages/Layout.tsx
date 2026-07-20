@@ -7,6 +7,33 @@ import { useIsCompact } from "../hooks/useIsCompact";
 import DiceTray from "../components/dice-tray/DiceTray";
 import TourGuide from "../components/tour/TourGuide";
 
+// Plan 54 — public demo deployments show a persistent banner so nobody
+// mistakes the shared sandbox for a private campaign.
+const DEMO_BANNER = import.meta.env.VITE_DEMO_MODE ? (
+  <div
+    style={{
+      position: "fixed",
+      bottom: 10,
+      left: "50%",
+      transform: "translateX(-50%)",
+      zIndex: 300,
+      background: "rgba(20,16,30,0.95)",
+      border: "1px solid var(--gold)",
+      color: "var(--text)",
+      borderRadius: 999,
+      padding: "0.35rem 1rem",
+      fontSize: "0.78rem",
+      whiteSpace: "nowrap",
+      boxShadow: "0 4px 18px rgba(0,0,0,0.5)",
+    }}
+  >
+    🧪 Shared demo world — resets nightly ·{" "}
+    <a href="/try#waitlist" style={{ color: "var(--gold)" }}>
+      join the beta waitlist
+    </a>
+  </div>
+) : null;
+
 const NAV_ITEMS: Array<{
   to: string;
   label: string;
@@ -178,6 +205,7 @@ export default function Layout() {
   if (compact) {
     return (
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        {DEMO_BANNER}
         <div className="ql-topbar">
           <button
             className="ql-hamburger"
@@ -229,6 +257,7 @@ export default function Layout() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
+      {DEMO_BANNER}
       <aside
         data-tour-id="sidebar"
         style={{ ...navVisual, width: 220, borderRight: "1px solid var(--border)", flexShrink: 0 }}

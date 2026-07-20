@@ -18,6 +18,19 @@ DEFAULT_MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-opus-4-8")
 _DEFAULT_MODEL = DEFAULT_MODEL  # alias kept for existing helper signatures
 
 
+def _require_ai_enabled() -> None:
+    """Raise unless AI generation is enabled on this deployment (Plan 54).
+
+    ``AI_GENERATION_ENABLED=false`` is the global kill switch — set on the
+    public demo deployment so no code path can reach a paid text API.
+
+    Raises:
+        PermissionError: If the kill switch is thrown.
+    """
+    if os.environ.get("AI_GENERATION_ENABLED", "true").strip().lower() not in ("1", "true", "yes"):
+        raise PermissionError("AI generation is disabled on this deployment.")
+
+
 def _get_client() -> anthropic.Anthropic:
     """Return an Anthropic client using ANTHROPIC_API_KEY from env.
 
@@ -57,6 +70,7 @@ def complete(
         PermissionError: If ANTHROPIC_API_KEY is missing.
         anthropic.APIError: On API-level failures.
     """
+    _require_ai_enabled()
     client = _get_client()
     response = client.messages.create(
         model=model,
@@ -99,6 +113,7 @@ def complete_json(
         "\n\nYou MUST respond with ONLY valid JSON — no markdown code fences, "
         "no commentary, no explanation. Raw JSON only."
     )
+    _require_ai_enabled()
     client = _get_client()
     response = client.messages.create(
         model=model,
@@ -154,6 +169,7 @@ def complete_structured(
         anthropic.APIError: On API-level failures.
         pydantic.ValidationError: If the parsed output fails validation.
     """
+    _require_ai_enabled()
     client = _get_client()
     response = client.messages.parse(
         model=model,
@@ -193,6 +209,7 @@ def stream_complete(
         PermissionError: If ANTHROPIC_API_KEY is missing.
         anthropic.APIError: On API-level failures.
     """
+    _require_ai_enabled()
     client = _get_client()
     with client.messages.stream(
         model=model,

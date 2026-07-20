@@ -1,7 +1,20 @@
 # Plan 00054 — Product Readiness (public beta on a Reddit link)
 
 ## Status
-[x] Not started (roadmap)  [ ] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+
+**2026-07-19 — decisions delegated to Claude; locked:** demo-first ·
+Clerk for Stage B auth · quotas now / BYO keys later · keep "QuestLab"
+working name (⚠ real company "Quest Labs" exists — rename + domain
+before serious launch) · invite codes for beta.
+
+**Stage A code SHIPPED:** AI kill switch (`AI_GENERATION_ENABLED`,
+guarded at every OpenAI/Claude call site), `DEMO_MODE` identity pinning,
+waitlist (migration 0031 + POST /api/waitlist), public landing at
+`/try` (real in-app art, waitlist form, SRD/CC-BY + no-affiliation
+footer), demo banner, `scripts/seed_demo_world.py`, nightly-reset
+workflow. **Remaining: the dashboard clicks in `docs/DEMO_DEPLOY.md`
+(owner-only — Render/Vercel credentials).**
 
 **Created:** 2026-07-19. Owner: "I want to start thinking about making this
 app an actual product... share a link on DnD reddit for people to try out."

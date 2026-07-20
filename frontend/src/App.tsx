@@ -34,6 +34,7 @@ const Shops         = lazy(() => import("./pages/Shops"));
 const MarketView    = lazy(() => import("./pages/MarketView"));
 const StorefrontView = lazy(() => import("./pages/StorefrontView"));
 const CharacterView = lazy(() => import("./pages/CharacterView"));
+const TryLanding = lazy(() => import("./pages/TryLanding"));
 
 function PageLoader() {
   return (
@@ -89,6 +90,8 @@ export default function App() {
 
       {/* Plan 35 — Landing / sign-in: standalone, no DM chrome */}
       <Route path="/welcome" element={<Welcome />} />
+      {/* Plan 54 — public marketing/demo landing (the Reddit link) */}
+      <Route path="/try" element={lazyRoute(<TryLanding />)} />
 
       <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />

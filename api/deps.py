@@ -46,6 +46,13 @@ def current_user(request: Request) -> str:
     Raises:
         HTTPException 401: If no identity can be resolved.
     """
+    # Plan 54 — public demo deployments pin EVERY visitor to one shared
+    # demo identity, ignoring the client header entirely. The demo runs on
+    # its own service + database, so this identity can only ever touch
+    # demo data (and the AI kill switch is thrown there besides).
+    if os.environ.get("DEMO_MODE", "").strip().lower() in ("1", "true", "yes"):
+        return os.environ.get("DEMO_DM_EMAIL", "demo@questlab.app").strip().lower()
+
     header_name = os.environ.get("AUTH_EMAIL_HEADER", "X-MS-CLIENT-PRINCIPAL-NAME")
     email = request.headers.get(header_name) or os.environ.get("CURRENT_USER_EMAIL", "")
 
