@@ -28,12 +28,12 @@ from domain.monster import MonsterStatBlock, MonsterStatBlockUpdate
 from domain.npc import Npc, NpcRead, NpcUpdate
 from integrations import blob_storage
 from integrations.openai_client import edit_image, generate_image
+from services.art_direction import HOUSE_STYLE, HOUSE_STYLE_CUTOUT
 
 # Tone-by-default — keeps prompts grounded in the QuestLab aesthetic.
 _DEFAULT_STYLE = (
-    "Painterly fantasy character portrait, dramatic lighting, head and "
-    "shoulders framing, neutral background, photoreal but slightly "
-    "stylized."
+    "Fantasy character portrait, head and shoulders framing, plain "
+    f"parchment-toned background. {HOUSE_STYLE}."
 )
 
 
@@ -218,7 +218,7 @@ def _build_monster_prompt(monster: MonsterStatBlock, style_hints: Optional[str])
 
 _FIGURE_STYLE = (
     "2D game character sprite asset, full body, standing pose, entire figure "
-    "in frame with feet visible, painterly heroic-fantasy style. The figure "
+    f"in frame with feet visible. {HOUSE_STYLE_CUTOUT}. The figure "
     "is the ONLY thing in the image, isolated on a fully transparent "
     "background: no backdrop, no scenery, no gradient, no outline, no white "
     "edge, no glow, no shadow, no floor, no text. (The board applies an "
@@ -436,7 +436,7 @@ def _build_hero_prompt(pc: PlayerCharacter) -> str:
     bits.append(
         "Video-game character-select model: one figure standing straight and "
         "facing forward, full body from head to boots in frame, symmetrical "
-        "neutral pose, painterly fantasy detail, clean die-cut cutout on a fully "
+        f"neutral pose. {HOUSE_STYLE_CUTOUT}. Clean die-cut cutout on a fully "
         "transparent background, no scenery, no ground, no shadow. "
         "No text, no watermark, no border"
     )
@@ -510,8 +510,8 @@ def _build_loadout_prompt(pc: PlayerCharacter, equipped: list[str]) -> str:
         "on the body ONLY if it is named in that list. Do NOT add, remove, upgrade, or "
         "restyle any armour, clothing, or equipment that is not in the list — keep "
         "their current outfit exactly as it is. Full body head to boots, clean die-cut "
-        "cutout on a fully transparent background, no scenery, no shadow, painterly "
-        "video-game character model. No text, no watermark, no border."
+        f"cutout on a fully transparent background, no scenery, no shadow. "
+        f"{HOUSE_STYLE_CUTOUT}. No text, no watermark, no border."
     )
 
 

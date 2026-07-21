@@ -279,12 +279,15 @@ class TestPromptBuilder:
     """Direct exercise of the internal prompt builders for fast feedback."""
 
     def test_pc_prompt_includes_default_style(self, duckdb_session: Session):
-        """The default painterly-fantasy style hint is always in the prompt."""
+        """The house art style (Plan 54: inked storybook) is always in the prompt."""
+        from services.art_direction import HOUSE_STYLE
+
         dm = _dm()
         c = _campaign(duckdb_session, dm)
         pc = _pc(duckdb_session, c.id, dm)
         prompt = portrait_svc._build_pc_prompt(pc, None)
-        assert "Painterly fantasy" in prompt
+        assert "storybook illustration" in prompt
+        assert HOUSE_STYLE.rstrip(".") in prompt
 
     def test_npc_prompt_handles_missing_fields(self, duckdb_session: Session):
         """Bare NPC still produces a valid prompt without 'None' artifacts."""

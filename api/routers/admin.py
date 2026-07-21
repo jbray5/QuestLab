@@ -106,3 +106,29 @@ def export_campaigns(db: DB, user: CurrentUser) -> Response:
         media_type="application/json",
         headers={"Content-Disposition": "attachment; filename=campaigns_export.json"},
     )
+
+
+@router.get("/waitlist")
+def list_waitlist(db: DB, user: CurrentUser) -> dict:
+    """List beta-waitlist signups, newest last (admin only, Plan 54).
+
+    Args:
+        db: Database session.
+        user: Authenticated admin email.
+
+    Returns:
+        ``{"count": N, "entries": [{email, source, created_at}]}``.
+    """
+    _require_admin(user)
+    from sqlmodel import select
+
+    from db.repos.waitlist_repo import WaitlistRepo
+    from domain.waitlist import WaitlistEntry
+
+    rows = db.exec(select(WaitlistEntry).order_by(WaitlistEntry.created_at.asc())).all()
+    return {
+        "count": WaitlistRepo.count(db),
+        "entries": [
+            {"email": r.email, "source": r.source, "created_at": str(r.created_at)} for r in rows
+        ],
+    }

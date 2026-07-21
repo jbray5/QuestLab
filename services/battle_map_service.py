@@ -16,14 +16,14 @@ from domain.battle_map import BattleMap, BattleMapCreate, BattleMapUpdate
 from integrations import blob_storage, image_tools
 from integrations.openai_client import edit_image, generate_image
 from services import campaign_service
+from services.art_direction import HOUSE_STYLE
 
 # Plan 45 — the 3D board wraps this image on an inverted sphere; the horizon
 # band is what matters, so a wide landscape frame is enough.
 _BACKDROP_STYLE = (
     "Seamless 360-degree equirectangular panorama for a fantasy tabletop scene, "
     "horizon centered vertically, no text, no watermark, no people in the "
-    "foreground, painterly high-fantasy environment art, soft volumetric light, "
-    "muted cinematic palette. Left and right edges must tile seamlessly."
+    f"foreground. {HOUSE_STYLE}. Left and right edges must tile seamlessly."
 )
 
 

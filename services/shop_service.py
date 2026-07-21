@@ -35,6 +35,7 @@ from domain.shop import (
 from integrations import blob_storage
 from integrations.openai_client import generate_image
 from services import ai_service, campaign_service
+from services.art_direction import HOUSE_STYLE
 
 logger = logging.getLogger(__name__)
 
@@ -409,10 +410,10 @@ def generate_item_image(
 
     detail = (item.description or "").strip()[:400]
     prompt = (
-        f"A single {item.name} — {item.item_type.lower()} from a Dungeons and Dragons "
-        f"world. {detail} Painterly fantasy illustration, one centered object as a "
-        "shop display piece, soft dramatic lighting, rich color, dark parchment "
-        "background with subtle vignette. No text, no watermark, no border, no hands."
+        f"A single {item.name} — {item.item_type.lower()} from a fantasy world. "
+        f"{detail} One centered object as a shop display piece on a dark "
+        f"parchment background with a subtle vignette. {HOUSE_STYLE}. "
+        "No text, no watermark, no border, no hands."
     )
     png = generate_image(prompt, size="1024x1024", quality="medium")
     url = blob_storage.upload(path=f"items/item-{item.id}.png", data=png, content_type="image/png")
@@ -441,7 +442,7 @@ def generate_banner(db: DBSession, shop_id: uuid.UUID, dm_email: str) -> ShopRea
     prompt = (
         f'Storefront of "{shop.name}", {blurb}{keeper}. Fantasy village market street, '
         "warm inviting light, hanging wooden sign, wares visible in the window, "
-        "painterly concept art, wide establishing shot. "
+        f"wide establishing shot. {HOUSE_STYLE}. "
         f'The shop sign reads "{shop.name}". No watermark.'
     )
     png = generate_image(prompt, size="1536x1024", quality="medium")
