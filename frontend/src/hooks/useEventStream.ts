@@ -10,7 +10,7 @@ import { useEffect, useRef } from "react";
 
 import { apiBase } from "../api/client";
 
-export type StreamScope = "pc" | "campaign" | "table";
+export type StreamScope = "pc" | "campaign" | "table" | "puzzle";
 
 export interface StreamEvent {
   type: string;
@@ -78,6 +78,7 @@ export function useEventStream(
       "dice.rolled",
       "table.updated",
       "table.ping",
+      "puzzle.updated",
     ];
 
     // The browser retries transient drops itself, but a non-200 response

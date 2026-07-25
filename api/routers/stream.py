@@ -123,6 +123,31 @@ async def stream_campaign(campaign_id: uuid.UUID):
     )
 
 
+@router.get("/stream/puzzle/{puzzle_id}")
+async def stream_puzzle(puzzle_id: uuid.UUID):
+    """SSE stream for a shared puzzle board (Plan 55).
+
+    Same capability-URL trust model as the Table View — the puzzle UUID is
+    the implicit secret. Carries only ``puzzle.updated`` pings; the client
+    refetches the (answer-free) projection.
+
+    Args:
+        puzzle_id: UUID of the puzzle.
+
+    Returns:
+        StreamingResponse with ``text/event-stream`` media type.
+    """
+    return StreamingResponse(
+        _stream([f"puzzle:{puzzle_id}"]),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
 @router.get("/stream/table/{session_id}")
 async def stream_table(session_id: uuid.UUID):
     """SSE stream for the projected Table View (Plan 42).

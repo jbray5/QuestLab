@@ -86,3 +86,4 @@ logs/
 
 # Local cache for one-shot SRD parsing scripts
 scripts/.srd_*.md
+party-art/

@@ -133,6 +133,9 @@ export default function Layout() {
           <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/shops`)}>
             🏪 Shops
           </button>
+          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/puzzles`)}>
+            🧩 Puzzles
+          </button>
         </>
       )}
 

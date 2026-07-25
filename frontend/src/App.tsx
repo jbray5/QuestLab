@@ -35,6 +35,8 @@ const MarketView    = lazy(() => import("./pages/MarketView"));
 const StorefrontView = lazy(() => import("./pages/StorefrontView"));
 const CharacterView = lazy(() => import("./pages/CharacterView"));
 const TryLanding = lazy(() => import("./pages/TryLanding"));
+const PuzzleView = lazy(() => import("./pages/PuzzleView"));
+const PuzzleWorkbench = lazy(() => import("./pages/PuzzleWorkbench"));
 
 function PageLoader() {
   return (
@@ -84,6 +86,9 @@ export default function App() {
       {/* DM 3D tabletop (Plan 44) — full-screen, DM-driven */}
       <Route path="/sessions/:sessionId/board" element={lazyRoute(<BoardView />)} />
 
+      {/* Plan 55 — puzzle display: capability URL, projector-safe */}
+      <Route path="/puzzle/:puzzleId" element={lazyRoute(<PuzzleView />)} />
+
       {/* Plan 47 — player marketplace: capability URLs, no auth, no DM chrome */}
       <Route path="/market/:campaignId" element={lazyRoute(<MarketView />)} />
       <Route path="/shop/:shopId" element={lazyRoute(<StorefrontView />)} />
@@ -123,6 +128,10 @@ export default function App() {
         <Route
           path="campaigns/:campaignId/shops"
           element={lazyRoute(<Shops />)}
+        />
+        <Route
+          path="campaigns/:campaignId/puzzles"
+          element={lazyRoute(<PuzzleWorkbench />)}
         />
         <Route
           path="adventures/:adventureId/sessions"
