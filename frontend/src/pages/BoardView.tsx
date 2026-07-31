@@ -13,9 +13,11 @@ import Board3D, { type GridKind, type StrikeFx } from "../components/board/Board
 import { WEATHER_KINDS, type WeatherKind } from "../components/board/boardTheme";
 import BoardTracker from "../components/board/BoardTracker";
 import {
+  importScenePresets,
   loadScenePresets,
   saveScenePresets,
   type ScenePreset,
+  type ScenePresetImport,
 } from "../components/board/scenePresets";
 import { useEventStream } from "../hooks/useEventStream";
 
@@ -537,6 +539,31 @@ export default function BoardView() {
     saveScenePresets(sessionId!, next);
   }
 
+  function importScenesFile(file: File) {
+    // Presets live in this browser only — a checked-in scenes JSON
+    // (e.g. campaigns/session-05-scenes.json) is the durable copy. Map
+    // names resolve against the library so the file works on any DB.
+    void file.text().then((text) => {
+      let incoming: ScenePresetImport[];
+      try {
+        incoming = JSON.parse(text) as ScenePresetImport[];
+        if (!Array.isArray(incoming)) throw new Error("not a list");
+      } catch {
+        window.alert("Not a scenes file — expected a JSON list of presets.");
+        return;
+      }
+      const byName = (name: string) =>
+        maps.find((m) => m.name.toLowerCase() === name.toLowerCase())?.id ?? null;
+      const { presets: next, unresolved } = importScenePresets(sessionId!, incoming, byName);
+      setPresets(next);
+      if (unresolved.length) {
+        window.alert(
+          `Imported, but these couldn't find their map (applied as mood-only):\n${unresolved.join("\n")}`,
+        );
+      }
+    });
+  }
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "#06060b", display: "flex", flexDirection: "column" }}>
       <style>{FLOAT_CSS}</style>
@@ -714,6 +741,23 @@ export default function BoardView() {
         >
           💾 Save scene
         </button>
+        <label
+          className="btn btn-ghost"
+          style={{ fontSize: "0.72rem", padding: "0.12rem 0.55rem", cursor: "pointer" }}
+          title="Import scenes from a JSON file (e.g. campaigns/session-05-scenes.json) — same-name presets are replaced"
+        >
+          ⬆ Import
+          <input
+            type="file"
+            accept="application/json,.json"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) importScenesFile(f);
+              e.target.value = "";
+            }}
+          />
+        </label>
 
         <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 4px" }} />
         <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>CAST</span>
