@@ -13,6 +13,8 @@ Everything here is app operation; the story is in those two.
 | 🧩 Puzzle workbench (you) | `/campaigns/80b6f517-d124-4fea-9435-8e727f3171a9/puzzles` |
 | Refrain display (projector) | `/puzzle/21adee42-ccff-43e1-8c14-e40f2877590b` |
 | Cipher display (projector) | `/puzzle/6ebf0326-ada9-49e3-b137-21bebe1fcc5c` |
+| 🕯 Chapel explorable (players) | `https://claude.ai/code/artifact/bc994291-9a3b-499a-a369-422b7d0bbf41` (share from its menu) · offline copy: `campaigns/session-04-chapel.html` |
+| 🗝 Chapel DM keys (YOU only) | `campaigns/session-04-chapel-dm-notes.md` — never on the projector |
 | Party sheets | Creed `/play/9a450e7d-…` · Nya `/play/c29ba294-…` · Thane `/play/2dde41c5-…` · Willa `/play/bed58549-…` |
 
 > All IDs live: Session 4 row created, both puzzles seeded and E2E-verified
@@ -61,6 +63,20 @@ it works in both).
 - [ ] Scene presets saved: Harbor Day · The Mooring · Night Harbor (+ reuse
       The Road, Camp).
 - [ ] Party sheets load on a phone; market opens.
+
+## 🗺 Session-day additions (2026-07-25 afternoon)
+- Battle maps in library, all 5-ft grids on, backdrops attached:
+  **The Lantern Ford — dark** · **The Lantern Ford — lit (path revealed)**
+  (identical layouts — switching dark→lit IS the "path lit" reveal; tokens
+  stay put) · **The Tide-Taken** (night waterfront; add three tokens named
+  BOY / NET-MENDER / COTTER at the three doorways when you stage it).
+- 🕯 Chapel explorable rebuilt to the handoff spec (lightbox panels, rolls
+  search w/ the Ashmantle entry, decoy ward, leaning flame, cold ring).
+  Keys: `session-04-chapel-dm-notes.md`.
+- Encounter ready: **The Brawl at the Mooring** (4× dockhand — script stats
+  in its DM notes; Bandit tokens as chassis).
+- Discord: `party-art/canon.png` (the canon painting) +
+  `party-art/canon-campfire.gif` (animated firelight loop) + the five scenes.
 
 ## 🛟 Fallbacks
 - Puzzles: the addendum runs fully on Teams chat + a printed Vigenère

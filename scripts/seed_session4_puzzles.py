@@ -122,7 +122,7 @@ def main() -> None:
     ciphertext = encipher(PLAINTEXT, KEY)
     page = {
         "kind": "cipher",
-        "title": "Halve's Page (warded)",
+        "title": "Halve's Page",
         "config": {
             "key": KEY,
             "ciphertext": ciphertext,
