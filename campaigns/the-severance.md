@@ -203,6 +203,9 @@
 - **Primal Order:** Warden
 - **Backstory:** received from Hayley 2026-05-22 — full reconciliation
   in "Willa (Hayley's PC) — DM canon" below.
+- **Wild Shape known form: dog** (noted Session 4 week).
+- **Companion: Tinkerman** — the named Tinker-sprite; speaks rarely
+  (see NPC extras).
 - **DM-set canon (from earlier prep):**
   - As a Sage, she has read about the Lantern Circle. She volunteers
     *one* prepared fact at the tavern when the topic comes up — DM
@@ -261,12 +264,15 @@
   testimony. Session 3 line, flat: *"There's a tree on the green.
   There wasn't a tree."*
 
-### The Tinker-sprite — Willa's companion (Session 2)
+### Tinkerman — Willa's companion (named Session 4; spared Session 2)
 
 - The sprite Nya spared at ~4× lethal damage; mercy lifted its
   corruption. It **imprinted on Willa** — a tiny blue fey companion.
+- **Named TINKERMAN (Session 4).** Speaks rarely — booming
+  pro-wrestler style. First words: **"I CAN HELP MOMMY."**
 - **It will not cross into the shrine's light.** Waits at the edge,
-  wings still. Say nothing about it; it's the quiet tell.
+  wings still. Say nothing about it; it's the quiet tell. (Same refusal
+  at the Lantern Ford's ferry-lantern, Session 4.)
 
 ### The Lutenist — recurring gag NPC (unnamed — that's the bit)
 
@@ -321,6 +327,28 @@
 Everything below is the backstage truth of the campaign. The PCs will
 learn fragments of this over many sessions, but the whole picture is
 DM-only. Do NOT share this section with players.
+
+---
+
+## The Tallyman's ledger — status as of Session 4
+
+Player-safe rule (all data, app included): **price details never appear
+in any player-visible field.** Same rule covers Nya's full true name.
+
+| Buyer | Bought | Price | Status |
+|---|---|---|---|
+| Nya (Chelsea) | whistle that summons the Wild Hunt | her true name, whispered once | **PAID** — content not captured in these notes; record it if you have it |
+| Willa (Hayley) | purse that never runs out of coin | one true secret, freely told | **PAID** (Session 4 cold open) — live answer was canon; content not captured in these notes; record it if you have it |
+| Cory (Creed) | dagger that knows every lie in the room | the last kind lie he'll ever tell | **OUTSTANDING** — falls due whenever that turns out to be |
+| Parker (Thane) | jar of bottled nightmares | a night's sleep, collected at the Tallyman's whim | **OUTSTANDING (banked)** — Session 4 prep note: recommend collecting on the voyage |
+
+## The ferry-lantern (DM note — party unaware)
+
+Nya carries **an old ferry-lantern (wickless)** — **taken from the
+Lantern Ford crossing; the party is unaware.** The item is listed
+plainly in her in-app inventory with no note attached, because in-app
+inventory notes are player-visible. This paragraph is the only record
+of its origin.
 
 ---
 
@@ -744,18 +772,18 @@ hasn't earned yet.
 - Clever, sarcastic, slow to trust. Masks fear with humour. Values
   freedom above almost everything; despises power used to control
   others; protects the weak in spite of herself.
-- **Mira** — her younger sister. Matters more than anyone.
+- **Mira** — her younger **adoptive** sister (canon as of Session 4).
+  Matters more than anyone. Runs The Mooring.
 - **Captain Edrik Thorne** — aging sailor; taught her the blade, the
   sea, and how to stay calm in chaos.
 
 ### The reconciliation
 
 - **The dormant spark.** Willa is an Aasimar and does not know it.
-  Likely **adopted** — the Blackreef tavern family raised her; her
-  celestial heritage came from parents she never knew. (Open: adopted /
-  unknown vs. birth parents who were coastal Aasimar. "Adopted, doesn't
-  know" reads cleaner — it explains why the spark stayed hidden. Ask
-  Hayley.)
+  **Adopted** (canon as of Session 4 — Mira is her adoptive sister; the
+  Blackreef tavern family raised her); her celestial heritage came from
+  parents she never knew. (Still open with Hayley: who the birth parents
+  were.)
 - **The compass woke it; it did not grant it.** Hayley's dump says her
   "stranger abilities" began when she touched the black iron compass.
   Canon: the compass did not *give* power — it *woke* what was already
@@ -882,6 +910,24 @@ light goes out, Wenneth screams and turns. (Prep docs:
 - Yelvyne on the cipher: ancient magic, not her field — *"my sisters,
   scattered near the other lights, could read it."*
 - Party leveled to **2**. **Creed has Inspiration banked.**
+
+## Session 4 — "The Singing Tide" (played; canon logged 2026-07-30)
+
+- Party crossed the **Lantern Ford** (west road), arrived **Blackreef
+  Cove** at dusk. The sea has been "singing" for three weeks.
+- Met **Mira** (Willa's adoptive sister, runs The Mooring tavern) and
+  **Sister Maren** (chapel records-keeper). **Captain Edrik Thorne**
+  sailed toward the song alone and is missing; his skiff drifted back
+  empty with symbols burned into the deck.
+- The party decoded the song's refrain: **"COME HOME, CHILD."**
+- The sprite companion now has a name and a voice: **TINKERMAN** —
+  speaks rarely, booming pro-wrestler style; first words **"I CAN HELP
+  MOMMY."**
+- Cliffhanger: the song stopped mid-phrase and a crewless **ghost ship**
+  entered the harbor and lowered its gangplank. Session 5 = they board,
+  sail, and descend to a drowned temple.
+- **The Tallyman:** four bargains with the party; ledger status = **two
+  paid, two outstanding** (detail: the ledger in the DM-only section).
 
 ---
 
