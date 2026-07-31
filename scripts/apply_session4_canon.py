@@ -226,8 +226,9 @@ def main() -> int:
 
     pcs = _request(ctx, f"campaigns/{args.campaign_id}/characters")
     pcs = pcs if isinstance(pcs, list) else []
-    willa = _find(pcs, "name", "willa")
-    nya = _find(pcs, "name", "nya")
+    # PlayerCharacter's field is character_name (not name).
+    willa = _find(pcs, "character_name", "willa")
+    nya = _find(pcs, "character_name", "nya")
 
     update_willa(ctx, willa)
     ensure_lantern(ctx, nya)

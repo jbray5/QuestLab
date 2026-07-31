@@ -125,8 +125,9 @@ export function monogram(name: string): string {
     .toUpperCase();
 }
 
-/** App page an entity pin opens (new tab). Null = nowhere to go. */
-export function entityHref(campaignId: string, kind: string, refId: string): string | null {
+/** App page an entity pin opens (new tab). Null = nowhere to go.
+ * (_refId is unused today — entity list pages have no per-id routes yet.) */
+export function entityHref(campaignId: string, kind: string, _refId: string): string | null {
   switch (kind) {
     case "pc":
       return `/campaigns/${campaignId}/characters`;
