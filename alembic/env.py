@@ -18,10 +18,12 @@ load_dotenv()
 import domain.adventure  # noqa: E402, F401
 import domain.campaign  # noqa: E402, F401
 import domain.character  # noqa: E402, F401
+import domain.crier  # noqa: E402, F401
 import domain.encounter  # noqa: E402, F401
 import domain.item  # noqa: E402, F401
 import domain.map  # noqa: E402, F401
 import domain.monster  # noqa: E402, F401
+import domain.notebook  # noqa: E402, F401
 import domain.session  # noqa: E402, F401
 from alembic import context  # noqa: E402
 

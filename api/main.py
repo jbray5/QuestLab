@@ -31,6 +31,7 @@ from api.routers import (
     items,
     maps,
     monsters,
+    notebooks,
     npcs,
     play,
     puzzles,
@@ -142,6 +143,7 @@ app.include_router(shops.router, prefix=_PREFIX)
 app.include_router(waitlist.router, prefix=_PREFIX)
 app.include_router(puzzles.router, prefix=_PREFIX)
 app.include_router(crier.router, prefix=_PREFIX)
+app.include_router(notebooks.router, prefix=_PREFIX)
 
 
 @app.get("/api/health")
