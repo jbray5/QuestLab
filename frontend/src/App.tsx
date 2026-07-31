@@ -37,6 +37,7 @@ const CharacterView = lazy(() => import("./pages/CharacterView"));
 const TryLanding = lazy(() => import("./pages/TryLanding"));
 const PuzzleView = lazy(() => import("./pages/PuzzleView"));
 const PuzzleWorkbench = lazy(() => import("./pages/PuzzleWorkbench"));
+const TownCrier = lazy(() => import("./pages/TownCrier"));
 
 function PageLoader() {
   return (
@@ -132,6 +133,10 @@ export default function App() {
         <Route
           path="campaigns/:campaignId/puzzles"
           element={lazyRoute(<PuzzleWorkbench />)}
+        />
+        <Route
+          path="campaigns/:campaignId/crier"
+          element={lazyRoute(<TownCrier />)}
         />
         <Route
           path="adventures/:adventureId/sessions"
