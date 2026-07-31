@@ -244,8 +244,8 @@ export default function NotebookPage() {
       const q = upto.slice(at + 1);
       const spaces = (q.match(/ /g) || []).length;
       // Live query: short, single-line, at most one space ("Sister Maren"),
-      // and not the inside of an already-inserted token.
-      if (!q.includes("\n") && q.length <= 30 && spaces <= 1 && !q.includes("](")) {
+      // and not the inside of an already-inserted token (short or long form).
+      if (!q.includes("\n") && q.length <= 30 && spaces <= 1 && !q.startsWith("[") && !q.includes("](")) {
         setMention({ blockId: block.id, start: at, query: q, mode: "mention" });
         return;
       }
@@ -263,7 +263,8 @@ export default function NotebookPage() {
     const text = String(block.content.text ?? "");
     const before = text.slice(0, mention.start);
     const after = text.slice(mention.start + 1 + mention.query.length);
-    const token = `@[${hit.name}](${hit.kind}:${hit.refId})`;
+    // Short token — the page reads clean; kind/id ride on the margin pin.
+    const token = `@[${hit.name}]`;
     mutate((d) => {
       const blocks = d.blocks.map((b) =>
         b.id === mention.blockId ? { ...b, content: { ...b.content, text: `${before}${token} ${after}` } } : b,
@@ -361,7 +362,26 @@ export default function NotebookPage() {
     setOffsets(next);
   }, [doc?.blocks, doc?.pins]);
 
-  // Rail entries: group pins by block, sort by block offset, avoid overlap.
+  // Rail entries: sort by anchor-block offset, then stack using each pin's
+  // MEASURED height — fixed estimates made tall AI pins overlap unreadably.
+  const pinRefs = useRef(new Map<string, HTMLDivElement>());
+  const [pinHeights, setPinHeights] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    const next = new Map<string, number>();
+    pinRefs.current.forEach((el, id) => next.set(id, el.offsetHeight));
+    // Only update when something actually changed, or this loops forever.
+    let changed = next.size !== pinHeights.size;
+    if (!changed) {
+      for (const [id, h] of next) {
+        if (pinHeights.get(id) !== h) {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (changed) setPinHeights(next);
+  });
+
   const railEntries = useMemo(() => {
     if (!doc) return [] as { pin: Pin; top: number }[];
     const entries: { pin: Pin; top: number }[] = [];
@@ -373,10 +393,10 @@ export default function NotebookPage() {
       const want = offsets.get(pin.block_id) ?? 0;
       const top = Math.max(want, floor);
       entries.push({ pin, top });
-      floor = top + (pin.kind === "entity" ? 64 : 96);
+      floor = top + (pinHeights.get(pin.id) ?? 90) + 8;
     }
     return entries;
-  }, [doc, offsets]);
+  }, [doc, offsets, pinHeights]);
 
   // ── Margin "+" ────────────────────────────────────────────────────────────
   const [addingPin, setAddingPin] = useState(false);
@@ -710,7 +730,15 @@ export default function NotebookPage() {
 
         <div className="nb-rail-pins">
           {railEntries.map(({ pin, top }) => (
-            <div key={pin.id} className="nb-rail-slot" style={{ top }}>
+            <div
+              key={pin.id}
+              className="nb-rail-slot"
+              style={{ top }}
+              ref={(el) => {
+                if (el) pinRefs.current.set(pin.id, el);
+                else pinRefs.current.delete(pin.id);
+              }}
+            >
               <PinCard pin={pin} campaignId={campaignId} onDismiss={dismissPin} />
             </div>
           ))}

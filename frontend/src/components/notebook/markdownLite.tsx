@@ -15,12 +15,16 @@ export interface MentionSpan {
 }
 
 const TOKEN_RE =
-  /(@\[[^\]]+\]\([^)]*\))|(\[\[[^\]]+\]\])|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(`[^`]+`)/g;
+  /(@\[[^\]]+\](?:\([^)]*\))?)|(\[\[[^\]]+\]\])|(\*\*[^*]+\*\*)|(\*[^*]+\*)|(`[^`]+`)/g;
 
-/** Parse one mention token like @[Mira](npc:abc). Returns null if malformed. */
+/** Parse a mention token. Current format is the short `@[Mira]` (entity
+ * details live on the margin pin); the original `@[Mira](npc:abc)` long
+ * form still parses so early pages keep rendering. */
 export function parseMention(token: string): MentionSpan | null {
-  const m = /^@\[([^\]]+)\]\(([^:)]+):([^)]*)\)$/.exec(token);
-  return m ? { name: m[1], kind: m[2], refId: m[3] } : null;
+  const long = /^@\[([^\]]+)\]\(([^:)]+):([^)]*)\)$/.exec(token);
+  if (long) return { name: long[1], kind: long[2], refId: long[3] };
+  const short = /^@\[([^\]]+)\]$/.exec(token);
+  return short ? { name: short[1], kind: "", refId: "" } : null;
 }
 
 /** Render a line of notebook text to React nodes. */
@@ -104,7 +108,7 @@ export function blockToMarkdown(block: {
 }): string {
   const c = block.content || {};
   const text = String(c.text ?? "");
-  const plain = text.replace(/@\[([^\]]+)\]\([^)]*\)/g, "@$1");
+  const plain = text.replace(/@\[([^\]]+)\](?:\([^)]*\))?/g, "@$1");
   switch (block.type) {
     case "text":
       return plain;

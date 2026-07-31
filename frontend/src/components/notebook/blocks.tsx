@@ -189,6 +189,61 @@ export function ImageBlockEditor({
   );
 }
 
+/** Sketch + the "🗺 sketch over a map" picker (maps/PC/NPC/item art). */
+function SketchWithPicker({
+  campaignId,
+  content,
+  onChange,
+}: {
+  campaignId: string;
+  content: SketchContent;
+  onChange: (c: SketchContent) => void;
+}) {
+  const [picking, setPicking] = useState(false);
+  const [q, setQ] = useState("");
+  const resolver = useRef<((url: string | null) => void) | null>(null);
+
+  function settle(url: string | null) {
+    resolver.current?.(url);
+    resolver.current = null;
+    setPicking(false);
+    setQ("");
+  }
+
+  return (
+    <div>
+      <SketchBlock
+        content={content}
+        onChange={onChange}
+        onPickBackground={() =>
+          new Promise<string | null>((resolve) => {
+            resolver.current = resolve;
+            setPicking(true);
+          })
+        }
+      />
+      {picking && (
+        <div className="nb-image-pick">
+          <input
+            className="nb-picker-search"
+            autoFocus
+            placeholder="Search maps (or any art) to sketch over…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <EntityPicker
+            campaignId={campaignId}
+            query={q}
+            kinds={["map", "npc", "pc", "item"]}
+            onPick={(h) => settle(h.thumb)}
+            onClose={() => settle(null)}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Read-only textarea substitute typing for the divider. */
 export function Divider() {
   return <hr className="nb-divider" />;
@@ -229,7 +284,8 @@ export function BlockEditor({
       return <CardEditor content={block.content} onChange={onContent} />;
     case "sketch":
       return (
-        <SketchBlock
+        <SketchWithPicker
+          campaignId={campaignId}
           content={block.content as unknown as SketchContent}
           onChange={(c) => onContent(c as unknown as Record<string, unknown>)}
         />

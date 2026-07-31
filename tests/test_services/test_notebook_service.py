@@ -136,12 +136,14 @@ def test_mention_tokens_collapse_to_names_in_search_text(duckdb_session):
         {
             "id": "b1",
             "type": "text",
-            "content": {"text": "@[Mira](npc:abc-123) meets them at [[The Mooring]]."},
+            # Long (original) and short (current) token forms together.
+            "content": {"text": "@[Mira](npc:abc-123) meets @[Edrik] at [[The Mooring]]."},
         }
     ]
     saved = nb.update_page(duckdb_session, page.id, dm, PageUpdate(blocks=blocks))
-    assert "Mira meets them at The Mooring." in saved.search_text
+    assert "Mira meets Edrik at The Mooring." in saved.search_text
     assert "npc:abc-123" not in saved.search_text
+    assert "@[" not in saved.search_text
 
 
 def test_deleting_a_notebook_removes_its_pages(duckdb_session):

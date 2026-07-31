@@ -43,8 +43,9 @@ logger = logging.getLogger(__name__)
 
 # Block types whose content.text participates in search.
 _TEXTUAL_TYPES = {"text", "verbatim", "prompt", "key"}
-# Mention tokens look like @[Name](kind:id) — search wants just the name.
-_MENTION_RE = re.compile(r"@\[([^\]]+)\]\([^)]*\)")
+# Mention tokens: short form @[Name] (current) or @[Name](kind:id)
+# (original long form) — search wants just the name either way.
+_MENTION_RE = re.compile(r"@\[([^\]]+)\](?:\([^)]*\))?")
 # Page links look like [[Title]] — search wants just the title.
 _LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 

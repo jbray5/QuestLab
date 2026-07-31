@@ -22,6 +22,8 @@ export interface SketchPath {
 export interface SketchContent {
   paths: SketchPath[];
   height: number;
+  /** Optional background image (a map to sketch over). */
+  bg?: string | null;
 }
 
 // Inks from the app palette + parchment/bone tones that read on dark.
@@ -61,14 +63,18 @@ export default function SketchBlock({
   content,
   readOnly,
   onChange,
+  onPickBackground,
 }: {
   content: SketchContent;
   readOnly?: boolean;
   onChange?: (next: SketchContent) => void;
+  /** Provided by the page: opens the map/image picker, resolves to a URL. */
+  onPickBackground?: () => Promise<string | null>;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [paths, setPaths] = useState<SketchPath[]>(content.paths ?? []);
   const [height, setHeight] = useState(content.height || 260);
+  const [bg, setBg] = useState<string | null>(content.bg ?? null);
   const [ink, setInk] = useState(INKS[0]);
   const [weight, setWeight] = useState(WEIGHTS[1]);
   const [erasing, setErasing] = useState(false);
@@ -81,15 +87,16 @@ export default function SketchBlock({
   useEffect(() => {
     setPaths(content.paths ?? []);
     setHeight(content.height || 260);
+    setBg(content.bg ?? null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function commit(next: SketchPath[], nextHeight = height) {
+  function commit(next: SketchPath[], nextHeight = height, nextBg = bg) {
     undoStack.current.push(paths);
     if (undoStack.current.length > 50) undoStack.current.shift();
     redoStack.current = [];
     setPaths(next);
-    onChange?.({ paths: next, height: nextHeight });
+    onChange?.({ paths: next, height: nextHeight, bg: nextBg });
   }
 
   function undo() {
@@ -97,7 +104,7 @@ export default function SketchBlock({
     if (!prev) return;
     redoStack.current.push(paths);
     setPaths(prev);
-    onChange?.({ paths: prev, height });
+    onChange?.({ paths: prev, height, bg });
   }
 
   function redo() {
@@ -105,7 +112,7 @@ export default function SketchBlock({
     if (!next) return;
     undoStack.current.push(paths);
     setPaths(next);
-    onChange?.({ paths: next, height });
+    onChange?.({ paths: next, height, bg });
   }
 
   function local(e: React.PointerEvent): Point {
@@ -204,6 +211,29 @@ export default function SketchBlock({
           >
             ✕
           </button>
+          {onPickBackground && (
+            <>
+              <span className="nb-tool-gap" />
+              <button
+                className={`nb-tool${bg ? " on" : ""}`}
+                title={bg ? "Remove the map underneath" : "Sketch on top of a map"}
+                onClick={async () => {
+                  if (bg) {
+                    setBg(null);
+                    onChange?.({ paths, height, bg: null });
+                    return;
+                  }
+                  const url = await onPickBackground();
+                  if (url) {
+                    setBg(url);
+                    onChange?.({ paths, height, bg: url });
+                  }
+                }}
+              >
+                🗺
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -216,6 +246,17 @@ export default function SketchBlock({
         onPointerUp={up}
         onPointerCancel={up}
       >
+        {bg && (
+          <image
+            href={bg}
+            x="0"
+            y="0"
+            width="100%"
+            height="100%"
+            preserveAspectRatio="xMidYMid meet"
+            opacity={0.85}
+          />
+        )}
         {paths.map((p, i) => (
           <path key={i} d={p.d} stroke={p.color} strokeWidth={p.w} fill="none" strokeLinecap="round" strokeLinejoin="round" />
         ))}
@@ -240,7 +281,7 @@ export default function SketchBlock({
               window.removeEventListener("pointermove", onMove);
               window.removeEventListener("pointerup", onUp);
               const h = Math.max(120, Math.min(900, startH + ev.clientY - startY));
-              onChange?.({ paths, height: h });
+              onChange?.({ paths, height: h, bg });
             };
             window.addEventListener("pointermove", onMove);
             window.addEventListener("pointerup", onUp);

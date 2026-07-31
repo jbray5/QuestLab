@@ -2,21 +2,21 @@
   {
     "name": "Open Water Night",
     "mapName": "The Crossing",
-    "darkness": 0.9,
+    "darkness": 0.68,
     "weather": null,
     "title": "Open Water"
   },
   {
     "name": "The Stair",
-    "mapName": null,
-    "darkness": 0.75,
+    "mapName": "The Stair",
+    "darkness": 0.55,
     "weather": null,
     "title": "The Stair"
   },
   {
     "name": "The Drowned Temple",
     "mapName": "The Drowned Temple",
-    "darkness": 0.8,
+    "darkness": 0.6,
     "weather": null,
     "title": "The Drowned Temple"
   }
