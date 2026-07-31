@@ -53,17 +53,21 @@ _MAX_SUGGESTIONS = 3
 
 
 def _require_enabled() -> None:
-    """Refuse unless the notebook feature flag is on.
+    """Refuse unless the notebook feature is available on this deployment.
 
-    Ship dark: the default is DISABLED until the DM verifies the deploy.
+    Lit by default at the owner's request (2026-07-30) — set
+    ``NOTEBOOK_ENABLED=false`` to go dark. Always dark under ``DEMO_MODE``:
+    the demo pins every visitor to one shared identity, and a shared
+    notebook is not a prep surface.
 
     Raises:
-        PermissionError: If NOTEBOOK_ENABLED is not truthy.
+        PermissionError: If DEMO_MODE is on, or NOTEBOOK_ENABLED is falsy.
     """
-    if os.environ.get("NOTEBOOK_ENABLED", "").strip().lower() not in ("1", "true", "yes"):
+    if os.environ.get("DEMO_MODE", "").strip().lower() in ("1", "true", "yes"):
+        raise PermissionError("The Session Notebook is not available on the public demo.")
+    if os.environ.get("NOTEBOOK_ENABLED", "true").strip().lower() not in ("1", "true", "yes"):
         raise PermissionError(
-            "The Session Notebook is not enabled on this deployment. "
-            "Set NOTEBOOK_ENABLED=true to light it up."
+            "The Session Notebook is disabled on this deployment " "(NOTEBOOK_ENABLED=false)."
         )
 
 

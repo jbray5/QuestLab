@@ -48,18 +48,29 @@ def _page(db: Session, notebook_id, dm, title="Homecoming"):
 # ── The feature flag ──────────────────────────────────────────────────────────
 
 
-def test_everything_refuses_when_flag_off(duckdb_session, monkeypatch):
-    """Ship dark: with the flag unset, no notebook operation runs."""
+def test_everything_refuses_when_flag_disabled(duckdb_session, monkeypatch):
+    """NOTEBOOK_ENABLED=false is the kill switch: nothing runs."""
     dm = _dm()
     camp = _campaign(duckdb_session, dm)
-    monkeypatch.delenv("NOTEBOOK_ENABLED", raising=False)
+    monkeypatch.setenv("NOTEBOOK_ENABLED", "false")
 
-    with pytest.raises(PermissionError, match="not enabled"):
+    with pytest.raises(PermissionError, match="disabled"):
         nb.list_notebooks(duckdb_session, camp.id, dm)
-    with pytest.raises(PermissionError, match="not enabled"):
+    with pytest.raises(PermissionError, match="disabled"):
         nb.create_notebook(duckdb_session, camp.id, dm, NotebookCreate(title="X"))
-    with pytest.raises(PermissionError, match="not enabled"):
+    with pytest.raises(PermissionError, match="disabled"):
         nb.search(duckdb_session, camp.id, dm, "anything")
+
+
+def test_demo_mode_is_always_dark(duckdb_session, monkeypatch):
+    """The shared-identity demo never gets a notebook, flag or no flag."""
+    dm = _dm()
+    camp = _campaign(duckdb_session, dm)
+    monkeypatch.setenv("DEMO_MODE", "true")
+    monkeypatch.setenv("NOTEBOOK_ENABLED", "true")
+
+    with pytest.raises(PermissionError, match="demo"):
+        nb.list_notebooks(duckdb_session, camp.id, dm)
 
 
 # ── Ownership ─────────────────────────────────────────────────────────────────
