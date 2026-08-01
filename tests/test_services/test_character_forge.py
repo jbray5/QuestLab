@@ -288,8 +288,12 @@ class TestUseItem:
         return dm, c, pc, row
 
     def test_heal_self_consumes_and_clamps(self, duckdb_session: Session):
-        """Healing lands (2d4+2 is 4..10), row is consumed, HP caps at max."""
-        dm, c, pc, row = self._pc_with_potion(duckdb_session, hp=25)
+        """Healing lands (2d4+2 is 4..10), row is consumed, HP caps at max.
+
+        Start at 26, not 25: from 25 a minimum roll (4) lands on 29 and the
+        clamp never fires, so the assertion below failed ~1 run in 16.
+        """
+        dm, c, pc, row = self._pc_with_potion(duckdb_session, hp=26)
 
         receipt = play_svc.use_item(duckdb_session, pc.id, row.id)
 
