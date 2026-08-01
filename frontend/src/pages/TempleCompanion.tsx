@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import BossMode, { INITIAL_BOSS, type BossState } from "../components/temple/BossMode";
 import TempleCanvas from "../components/temple/TempleCanvas";
@@ -70,6 +70,7 @@ function load(campaignId: string): Persisted {
 
 export default function TempleCompanion() {
   const { campaignId = "" } = useParams();
+  const navigate = useNavigate();
   const [state, setState] = useState<Persisted>(() => load(campaignId));
   const [bossOpen, setBossOpen] = useState(false);
   const [printing, setPrinting] = useState(false);
@@ -163,6 +164,10 @@ export default function TempleCompanion() {
       {/* ── Cockpit ── */}
       <div className="tc-left">
         <div className="tc-bar">
+          {/* The cockpit is full-bleed and covers the nav — this is the way out. */}
+          <button className="tc-ghost" title="Leave the cockpit" onClick={() => navigate(-1)}>
+            ← back
+          </button>
           <h1>The Drowned Temple — Companion</h1>
           <span className="tc-warnpill">{DM_WARNING}</span>
           <button className={`tc-ghost${bossOpen ? " on" : ""}`} onClick={() => setBossOpen((v) => !v)}>
@@ -234,7 +239,6 @@ export default function TempleCompanion() {
                         key={id}
                         label={`#${i + 1}`}
                         max={s.hp!}
-                        value={state.checks[`${id}:down`] ? 0 : undefined}
                         onDown={() =>
                           setState((st) => ({
                             ...st,
@@ -337,7 +341,6 @@ function ReacherHp({
 }: {
   label: string;
   max: number;
-  value?: number;
   down: boolean;
   onDown: () => void;
 }) {
