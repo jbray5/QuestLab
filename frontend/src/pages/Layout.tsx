@@ -142,6 +142,9 @@ export default function Layout() {
           <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/notebook`)}>
             📓 Notebook
           </button>
+          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/temple`)}>
+            🔱 Temple Companion
+          </button>
         </>
       )}
 

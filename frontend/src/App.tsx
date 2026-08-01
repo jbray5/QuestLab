@@ -39,6 +39,7 @@ const PuzzleView = lazy(() => import("./pages/PuzzleView"));
 const PuzzleWorkbench = lazy(() => import("./pages/PuzzleWorkbench"));
 const TownCrier = lazy(() => import("./pages/TownCrier"));
 const NotebookPage = lazy(() => import("./pages/NotebookPage"));
+const TempleCompanion = lazy(() => import("./pages/TempleCompanion"));
 
 function PageLoader() {
   return (
@@ -142,6 +143,10 @@ export default function App() {
         <Route
           path="campaigns/:campaignId/notebook"
           element={lazyRoute(<NotebookPage />)}
+        />
+        <Route
+          path="campaigns/:campaignId/temple"
+          element={lazyRoute(<TempleCompanion />)}
         />
         <Route
           path="adventures/:adventureId/sessions"

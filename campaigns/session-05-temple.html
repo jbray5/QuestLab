@@ -269,6 +269,17 @@
   document.querySelectorAll(".spot").forEach((s) =>
     s.addEventListener("click", () => open(s.dataset.go, s))
   );
+
+  // Deep links: #covenant / #glyphs / #lantern / #kept open that panel
+  // straight away, so the DM's companion can send him to one hotspot.
+  function openFromHash() {
+    const id = (location.hash || "").replace("#", "");
+    const spot = document.querySelector(`.spot[data-go="${id}"]`);
+    if (spot) open(id, spot);
+  }
+  openFromHash();
+  window.addEventListener("hashchange", openFromHash);
+
   document.getElementById("back").addEventListener("click", close);
   veil.addEventListener("click", (e) => { if (e.target === veil) close(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
