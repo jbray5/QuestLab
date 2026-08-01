@@ -76,9 +76,13 @@ _MAP_STYLE = (
     "STRICT ORTHOGRAPHIC TOP-DOWN fantasy battle map for a tabletop RPG: the camera looks "
     "straight down at 90 degrees — zero perspective, no tilt, no horizon. Every object is "
     "seen exactly from above; walls and stonework show ONLY their top cross-section, no "
-    "side faces anywhere. Painterly high-detail environment art, cold undersea light. "
-    "Terrain fills the entire frame edge to edge. STRICTLY NO grid lines, NO text, NO "
-    "labels, NO characters or creatures, NO UI elements, NO borders."
+    "side faces anywhere. Painterly high-detail environment art. "
+    # Readability rule (2026-07-31): the table's darkness dial adds the night —
+    # the ART must be bright. Dark art + the dial = an unreadable black board.
+    "BRIGHT, EVENLY LIT and clearly readable: mid-tone colors, no deep shadows, "
+    "no near-black areas, every floor detail plainly visible as if lit for a printed "
+    "atlas page. Terrain fills the entire frame edge to edge. STRICTLY NO grid lines, "
+    "NO text, NO labels, NO characters or creatures, NO UI elements, NO borders."
 )
 
 

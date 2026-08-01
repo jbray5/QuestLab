@@ -43,7 +43,12 @@ _MAP_STYLE = (
     "round leaf clusters from directly overhead (no trunks, no side foliage), "
     "standing stones and walls show ONLY their top cross-section, no side "
     "faces of anything anywhere. Painterly, high-detail environment art, "
-    "soft even light with small contact shadows. Terrain fills the entire "
+    "soft even light with small contact shadows. "
+    # Readability rule (2026-07-31): the table's darkness dial adds the night —
+    # the art must be BRIGHT and readable even for night scenes, or the board
+    # goes black. Post-fix if needed: gamma-lift, see Plan 58 retro.
+    "BRIGHT and clearly readable: mid-tone colors, no deep shadows, no "
+    "near-black areas. Terrain fills the entire "
     "frame edge to edge. STRICTLY NO grid lines, NO text, NO labels, NO "
     "characters or creatures, NO UI elements, NO borders."
 )

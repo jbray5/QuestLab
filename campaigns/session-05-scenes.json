@@ -2,56 +2,56 @@
   {
     "name": "Open Water Night",
     "mapName": "The Crossing",
-    "darkness": 0.68,
+    "darkness": 0.5,
     "weather": null,
     "title": "Open Water"
   },
   {
     "name": "The Stair",
     "mapName": "The Stair",
-    "darkness": 0.55,
+    "darkness": 0.3,
     "weather": null,
     "title": "The Stair"
   },
   {
     "name": "1 Tide Gate",
     "mapName": "The Tide Gate",
-    "darkness": 0.55,
+    "darkness": 0.25,
     "weather": null,
     "title": "The Tide Gate"
   },
   {
     "name": "2 Nave",
     "mapName": "The Drowned Nave",
-    "darkness": 0.6,
+    "darkness": 0.3,
     "weather": null,
     "title": "The Drowned Nave"
   },
   {
     "name": "T Gallery",
     "mapName": "The Gallery",
-    "darkness": 0.6,
+    "darkness": 0.3,
     "weather": null,
     "title": "The Gallery"
   },
   {
     "name": "3 Bell Well",
     "mapName": "The Bell Well",
-    "darkness": 0.65,
+    "darkness": 0.35,
     "weather": null,
     "title": "The Bell Well"
   },
   {
     "name": "4 Keeper's Cell",
     "mapName": "The Keeper's Cell",
-    "darkness": 0.6,
+    "darkness": 0.3,
     "weather": null,
     "title": "The Keeper's Cell"
   },
   {
     "name": "The Drowned Temple",
     "mapName": "The Drowned Temple",
-    "darkness": 0.6,
+    "darkness": 0.35,
     "weather": null,
     "title": "The Drowned Temple"
   }
