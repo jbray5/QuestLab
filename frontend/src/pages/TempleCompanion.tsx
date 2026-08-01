@@ -203,6 +203,15 @@ export default function TempleCompanion() {
               </span>
             </div>
 
+            {current.player && (
+              <div className="tc-player">
+                <span className="tc-player-badge">🖥 ON THE PLAYERS' SCREEN</span>
+                {current.player.map((line, i) => (
+                  <div key={i}>{line}</div>
+                ))}
+              </div>
+            )}
+
             <div className="tc-read">
               <span className="tc-read-badge">📖 READ ALOUD</span>
               {current.readAloud}

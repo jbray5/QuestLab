@@ -46,6 +46,8 @@ export interface Room {
   beats: Beat[];
   links?: { label: string; href: string }[];
   stats?: StatCard[];
+  /** What the PLAYERS should be looking at while the party is here. */
+  player?: string[];
 }
 
 export const ROOMS: Room[] = [
@@ -58,6 +60,10 @@ export const ROOMS: Room[] = [
     x: 560,
     y: 447,
     key: "1",
+    player: [
+      "Scene: '1 Tide Gate' (board preset)",
+      "Puzzle: 'The Tide Gate' board on the projector — Workbench → ▸ run it. They earned every letter; answer HOME parts the door.",
+    ],
     readAloud:
       "A door of standing water under an arch carved HOLD. Fish hang frozen inside it, mid-turn. Beside the door: loose glyph tiles, and a small tide pool alive with silverfish.",
     beats: [
@@ -84,6 +90,10 @@ export const ROOMS: Room[] = [
     x: 770,
     y: 460,
     key: "2",
+    player: [
+      "Scene: '2 Nave' (board preset)",
+      "Explorable: Covenant Stone when they approach the tablet.",
+    ],
     readAloud: "A pillared hall. At its center, a great tablet furred with growth.",
     beats: [
       { text: "ASHMANTLE legible; Creed engages or doesn't.", tone: "dm" },
@@ -100,6 +110,10 @@ export const ROOMS: Room[] = [
     x: 955,
     y: 520,
     key: "t",
+    player: [
+      "Scene: 'T Gallery' — the glowing limpet path is ON the map; they pick their steps by it.",
+      "Explorable: Glyph Wall as they walk.",
+    ],
     readAloud:
       "A sloping corridor. A winding path of soft gold light — colonies of lamp-limpets — threading through dark stone. The walls are written floor to ceiling.",
     beats: [
@@ -122,6 +136,9 @@ export const ROOMS: Room[] = [
     x: 1085,
     y: 500,
     key: "3",
+    player: [
+      "Scene: '3 Bell Well' — the bell and the three shapes are visible from above.",
+    ],
     readAloud:
       "A flooded shaft. A great sunken bell, humming the refrain — and three shapes clinging to it, dormant.",
     beats: [
@@ -154,6 +171,9 @@ export const ROOMS: Room[] = [
     x: 935,
     y: 712,
     key: "4",
+    player: [
+      "Scene: '4 Keeper's Cell'. Nothing else on screen. Let the room do it.",
+    ],
     readAloud:
       "Her sanctum. A kelp-woven cot. Tally marks past counting, on every wall. And a small side alcove, prepared long ago: infant things, and a half-finished carving of a boat.",
     beats: [
@@ -170,6 +190,10 @@ export const ROOMS: Room[] = [
     x: 1120,
     y: 800,
     key: "5",
+    player: [
+      "Scene: 'The Drowned Temple' (battle map, 5-ft grid, four hazard zones ready to reveal).",
+      "Explorable: Sealed Lantern / The Kept before the fight starts.",
+    ],
     readAloud:
       "The sealed lantern — wickless, dark, wrapped in chains of black that doesn't move like water. Beside it, held like a coat on a hook: Edrik. And between you and both of them, something wearing a woman, beautifully.",
     beats: [

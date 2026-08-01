@@ -14,6 +14,41 @@
     "title": "The Stair"
   },
   {
+    "name": "1 Tide Gate",
+    "mapName": "The Tide Gate",
+    "darkness": 0.55,
+    "weather": null,
+    "title": "The Tide Gate"
+  },
+  {
+    "name": "2 Nave",
+    "mapName": "The Drowned Nave",
+    "darkness": 0.6,
+    "weather": null,
+    "title": "The Drowned Nave"
+  },
+  {
+    "name": "T Gallery",
+    "mapName": "The Gallery",
+    "darkness": 0.6,
+    "weather": null,
+    "title": "The Gallery"
+  },
+  {
+    "name": "3 Bell Well",
+    "mapName": "The Bell Well",
+    "darkness": 0.65,
+    "weather": null,
+    "title": "The Bell Well"
+  },
+  {
+    "name": "4 Keeper's Cell",
+    "mapName": "The Keeper's Cell",
+    "darkness": 0.6,
+    "weather": null,
+    "title": "The Keeper's Cell"
+  },
+  {
     "name": "The Drowned Temple",
     "mapName": "The Drowned Temple",
     "darkness": 0.6,

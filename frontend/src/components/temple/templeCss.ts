@@ -65,6 +65,15 @@ export const TEMPLE_CSS = `
 .tc-room-kind {
   margin-left: auto; font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase;
 }
+.tc-player {
+  border: 1px solid #7fd4c8; border-radius: 5px; background: rgba(127, 212, 200, 0.07);
+  padding: 0.5rem 0.7rem; margin: 0.6rem 0 0.2rem; font-size: 0.8rem; line-height: 1.5;
+  color: #a9dcd4;
+}
+.tc-player-badge {
+  display: block; font-size: 0.6rem; letter-spacing: 0.2em; color: #7fd4c8;
+  margin-bottom: 0.25rem; font-weight: 700;
+}
 .tc-read {
   border-left: 4px solid var(--tc-parch); background: rgba(232, 217, 168, 0.07);
   padding: 0.7rem 0.9rem; margin: 0.7rem 0 1rem; font-style: italic; line-height: 1.55;
