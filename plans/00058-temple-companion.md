@@ -1,7 +1,13 @@
 # Plan 00058 — The Temple Companion (DM cockpit, Session 5)
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
+
+Built and shipped 2026-07-31 (`d7b077b`), five days before the freeze.
+Blueprint arrived mid-build, so the canvas is the DM's real scene rather
+than a placeholder. Frontend-only; CI green. Pending: the DM's painted
+cutaway (set `ART_URL` in `TempleCompanion.tsx`) and the post-fight
+scene script (drawer currently carries the pointer only).
 
 **Started:** 2026-07-31
 **Last updated:** 2026-07-31
