@@ -1,0 +1,331 @@
+<title>The Held Door</title>
+<!--
+  Session 5 explorable — The Held Door. Player surface.
+-->
+<style>
+  :root {
+    --soot: #06090c; --parchment: #cfd9de; --dim: #6f8089;
+    --glow: #9fc4d4; --edge: #1a232a; --card: #0a1014;
+  }
+  html { background: var(--soot); }
+  body {
+    margin: 0; color: var(--parchment); background: var(--soot);
+    font-family: Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    line-height: 1.65;
+  }
+  main { max-width: 62rem; margin: 0 auto; padding: 1.2rem 1rem 4rem; }
+  .eyebrow {
+    font-size: .72rem; letter-spacing: .28em; color: var(--dim);
+    text-transform: uppercase; margin: 1.4rem 0 .4rem; text-align: center;
+  }
+  h1 {
+    font-size: clamp(1.6rem, 4.5vw, 2.6rem); font-weight: 400; margin: 0 0 .4rem;
+    text-align: center; text-wrap: balance; letter-spacing: .02em;
+  }
+  h2 { font-size: 1.45rem; font-weight: 400; margin: 0 0 .6rem; letter-spacing: .02em; }
+  .intro {
+    max-width: 38rem; margin: 0 auto 1.4rem; text-align: center;
+    color: var(--dim); font-style: italic;
+  }
+  .scene { position: relative; border: 1px solid var(--edge); border-radius: 4px; overflow: hidden; }
+  .scene svg { display: block; width: 100%; height: auto; }
+  .spot {
+    position: absolute; transform: translate(-50%, -50%);
+    width: 48px; height: 48px; border-radius: 50%; padding: 0;
+    background: radial-gradient(circle, rgba(159,196,212,.28) 0%, rgba(159,196,212,.10) 45%, transparent 70%);
+    border: 1px solid rgba(159,196,212,.5); cursor: pointer;
+    animation: breathe 5s ease-in-out infinite;
+  }
+  .spot::after {
+    content: attr(data-label); position: absolute; top: 105%; left: 50%;
+    transform: translateX(-50%); white-space: nowrap;
+    font-size: .62rem; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--glow); text-shadow: 0 1px 4px #000;
+    font-family: Palatino, Georgia, serif;
+  }
+  .spot:focus-visible { outline: 2px solid var(--glow); outline-offset: 3px; }
+  .spot.visited { opacity: .55; }
+  @keyframes breathe {
+    0%, 100% { box-shadow: 0 0 10px 2px rgba(159,196,212,.28); }
+    50% { box-shadow: 0 0 20px 6px rgba(159,196,212,.10); }
+  }
+  /* The only motion on the page: the far light behind the standing water. */
+  .farlight { animation: drift 19s ease-in-out infinite; }
+  @keyframes drift {
+    0%, 100% { transform: translate(-40px, 30px) scale(1); opacity: .5; }
+    50%      { transform: translate(45px, -25px) scale(1.18); opacity: .85; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .spot, .farlight { animation: none; }
+  }
+
+  /* Lightbox */
+  .veil {
+    position: fixed; inset: 0; background: rgba(3,6,8,.9); z-index: 10;
+    display: none; overflow-y: auto; padding: 3vh 1rem 6vh;
+  }
+  .veil.open { display: block; }
+  .panel {
+    max-width: 36rem; margin: 0 auto; background: var(--card);
+    border: 1px solid var(--edge); border-radius: 6px; padding: 1.4rem 1.5rem 1.8rem;
+    box-shadow: 0 12px 60px rgba(0,0,0,.7);
+  }
+  .back {
+    background: none; border: none; color: var(--dim); cursor: pointer;
+    font: inherit; font-size: .82rem; letter-spacing: .14em; padding: 0;
+    margin-bottom: 1.1rem; text-transform: uppercase;
+  }
+  .back:hover, .back:focus-visible { color: var(--glow); }
+  .read { color: var(--parchment); margin: .9rem 0; }
+  .read b { font-weight: 600; }
+  .word {
+    text-align: center; letter-spacing: .3em; color: var(--parchment);
+    font-size: clamp(1.9rem, 6vw, 2.8rem); margin: 1rem 0 .6rem;
+  }
+  .go {
+    background: none; border: 1px solid var(--glow); border-radius: 3px;
+    color: var(--glow); font: inherit; letter-spacing: .06em;
+    padding: .55rem 1rem; cursor: pointer;
+  }
+  .go:hover, .go:focus-visible { background: rgba(159,196,212,.12); }
+  .go.solo { margin-top: .4rem; }
+  .answer { min-height: 1.4rem; font-style: italic; color: var(--parchment); margin: .9rem 0 0; }
+  .swim { animation: swim 1s ease-out; }
+  @keyframes swim {
+    0% { filter: blur(3px); opacity: 0; letter-spacing: .12em; }
+    60% { filter: blur(1px); opacity: .7; letter-spacing: .04em; }
+    100% { filter: blur(0); opacity: 1; letter-spacing: normal; }
+  }
+  @media (prefers-reduced-motion: reduce) { .swim { animation: none; } }
+</style>
+
+<main>
+  <p class="eyebrow">Blackreef Deep &middot; the last door</p>
+  <h1>The Held Door</h1>
+  <p class="intro">The way into the heart of the temple. It was not built to
+  keep people out. It was built so that going in <b>cost something</b>.</p>
+
+  <div class="scene">
+    <svg viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="A drowned chamber: a tall arched door of standing water, and four stone posts before it, each crowned with a carved hand.">
+      <defs>
+        <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#0b1319"/><stop offset="1" stop-color="#060a0e"/>
+        </linearGradient>
+        <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#0a1218"/><stop offset="1" stop-color="#0d161d"/>
+        </linearGradient>
+        <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#20505f" stop-opacity=".95"/>
+          <stop offset=".55" stop-color="#163b49" stop-opacity=".95"/>
+          <stop offset="1" stop-color="#0e2a35" stop-opacity=".95"/>
+        </linearGradient>
+        <radialGradient id="far" cx=".5" cy=".5" r=".5">
+          <stop offset="0" stop-color="#cfe4ec" stop-opacity=".85"/>
+          <stop offset="1" stop-color="#cfe4ec" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#2a3942"/><stop offset="1" stop-color="#16232b"/>
+        </linearGradient>
+        <!-- The doorway: arch over a rectangle. -->
+        <path id="doorpath" d="M628,650 L628,300 A172,172 0 0 1 972,300 L972,650 Z"/>
+        <clipPath id="doorclip"><use href="#doorpath"/></clipPath>
+
+        <!-- One station: post, crown, and a hand carved palm-up. -->
+        <g id="crown">
+          <path d="M-52,26 L-44,232 L44,232 L52,26 Z" fill="url(#stone)"/>
+          <path d="M-44,232 L44,232 L46,244 L-46,244 Z" fill="#101a20"/>
+          <ellipse cx="0" cy="14" rx="86" ry="40" fill="#101a20" opacity=".55"/>
+          <ellipse cx="0" cy="0" rx="84" ry="38" fill="url(#stone)" stroke="#39505c" stroke-width="2"/>
+          <g transform="scale(1,0.52)" fill="#22333c" stroke="#455d68" stroke-width="2.6"
+             stroke-linecap="round" stroke-linejoin="round" opacity=".95">
+            <path d="M-38,12 Q-40,-18 -27,-31 L27,-31 Q40,-18 38,12 Q29,42 0,44 Q-29,42 -38,12 Z"
+                  fill="#22333c"/>
+            <path d="M-27,-31 L-27,-70 Q-27,-78 -20,-78 Q-13,-78 -13,-70 L-13,-31"/>
+            <path d="M-8,-33 L-8,-76 Q-8,-84 -1,-84 Q6,-84 6,-76 L6,-33"/>
+            <path d="M11,-32 L11,-73 Q11,-81 18,-81 Q25,-81 25,-73 L25,-32"/>
+            <path d="M28,-26 L34,-58 Q36,-66 42,-64 Q48,-62 46,-54 L40,-22"/>
+            <path d="M-38,-2 L-62,-22 Q-69,-27 -64,-34 Q-59,-41 -52,-36 L-30,-20"/>
+          </g>
+        </g>
+      </defs>
+
+      <!-- chamber -->
+      <rect width="1600" height="900" fill="url(#wall)"/>
+      <rect y="600" width="1600" height="300" fill="url(#floor)"/>
+      <g stroke="#121d24" stroke-width="2" opacity=".8">
+        <path d="M0,600 H1600 M0,690 H1600 M0,790 H1600"/>
+        <path d="M180,600 V900 M520,600 V900 M1080,600 V900 M1420,600 V900"/>
+        <path d="M300,0 V600 M1300,0 V600 M0,180 H1600 M0,360 H1600"/>
+      </g>
+
+      <!-- the door: standing water, floor to arch -->
+      <use href="#doorpath" fill="#050a0d"/>
+      <g clip-path="url(#doorclip)">
+        <use href="#doorpath" fill="url(#water)"/>
+        <ellipse class="farlight" cx="800" cy="430" rx="150" ry="190" fill="url(#far)"/>
+        <g stroke="#8fc0d0" stroke-width="1.5" opacity=".22" fill="none">
+          <path d="M640,360 q80,26 160,0 t160,0"/>
+          <path d="M640,470 q80,-24 160,0 t160,0"/>
+          <path d="M640,570 q80,22 160,0 t160,0"/>
+        </g>
+      </g>
+      <use href="#doorpath" fill="none" stroke="#4d6b78" stroke-width="7"/>
+      <use href="#doorpath" fill="none" stroke="#93bccb" stroke-width="1.5" opacity=".5"/>
+
+      <!-- one word over the arch, carved larger than any word in the temple -->
+      <text x="800" y="176" text-anchor="middle" font-size="104" letter-spacing="26"
+            fill="#a8c6d3" opacity=".92"
+            font-family="Palatino, Georgia, serif">&#11039;&#10022;&#9724;&#10033;</text>
+
+      <!-- the stations -->
+      <g id="station-01" transform="translate(300,690)">
+        <use href="#crown"/>
+        <g transform="translate(0,4) scale(1,0.52)" stroke="#5d7783" stroke-width="3.4"
+           stroke-linecap="round" fill="none" opacity=".5">
+          <path d="M-20,-4 L0,10 L20,-4"/><path d="M-20,-18 L0,-4 L20,-18"/>
+        </g>
+        <rect class="crown-detail" id="detail-01" x="-30" y="-9" width="60" height="26"
+              fill="transparent" pointer-events="all"/>
+      </g>
+
+      <g id="station-02" transform="translate(618,742)">
+        <use href="#crown"/>
+        <g transform="translate(0,4) scale(1,0.52)" stroke="#5d7783" stroke-width="3.4"
+           stroke-linecap="round" fill="none" opacity=".5">
+          <circle cx="0" cy="0" r="15"/><path d="M-22,0 H22"/>
+        </g>
+        <rect class="crown-detail" id="detail-02" x="-30" y="-9" width="60" height="26"
+              fill="transparent" pointer-events="all"/>
+      </g>
+
+      <g id="station-03" transform="translate(982,742)">
+        <use href="#crown"/>
+        <g transform="translate(0,4) scale(1,0.52)" stroke="#b9d2dc" stroke-width="4.2"
+           stroke-linecap="butt" fill="none" opacity=".92">
+          <path d="M-24,-14 L20,10"/>
+          <path d="M-20,12 L22,-12"/>
+          <path d="M-6,-18 L2,14"/>
+          <path d="M-26,2 L-4,-16"/>
+          <path d="M8,-16 L24,2"/>
+        </g>
+        <rect class="crown-detail" id="detail-03" data-panel="station-03"
+              x="-30" y="-9" width="60" height="26" fill="transparent" pointer-events="all"/>
+      </g>
+
+      <g id="station-04" transform="translate(1300,690)">
+        <use href="#crown"/>
+        <g transform="translate(0,4) scale(1,0.52)" stroke="#5d7783" stroke-width="3.4"
+           stroke-linecap="round" fill="none" opacity=".5">
+          <path d="M0,-18 V4 M0,4 L-13,17 M0,4 L13,17 M-11,-11 H11"/>
+        </g>
+        <rect class="crown-detail" id="detail-04" x="-30" y="-9" width="60" height="26"
+              fill="transparent" pointer-events="all"/>
+      </g>
+    </svg>
+
+    <button class="spot" style="left:50%;top:44%" data-go="door" data-label="the door"></button>
+    <button class="spot" style="left:29%;top:83%" data-go="stations" data-label="the stations"></button>
+  </div>
+</main>
+
+<div class="veil" id="veil" role="dialog" aria-modal="true">
+  <div class="panel">
+    <button class="back" id="back">&#8617; return to the door</button>
+    <div id="panel-body"></div>
+  </div>
+</div>
+
+<template id="tpl-door">
+  <h2>The Door</h2>
+  <p class="read">A door of standing water, floor to arch, thin as a pane and
+  steady as stone. Light moves behind it &mdash; slow, silver, far away. Sound
+  does not come through. Over the arch, one word in the old letters, carved
+  larger than any word in the temple:</p>
+  <p class="word" aria-label="four marks, carved very large">&#11039;&#10022;&#9724;&#10033;</p>
+  <button class="go solo" data-kind="touch" data-id="door"
+    data-text="Cold, and firm, and unhurried. It is not refusing you. It is waiting for something, and you are not yet it."
+    data-again="The water has not changed its mind.">Touch the water</button>
+  <p class="answer" aria-live="polite"></p>
+</template>
+
+<template id="tpl-stations">
+  <h2>The Four Stations</h2>
+  <p class="read">Four waist-high stone posts stand before the door in a shallow
+  arc, each crowned with a carved hand, palm up. The carving is plain: the hands
+  are for holding.</p>
+  <button class="go solo" data-kind="touch" data-id="stations"
+    data-text="Three of the crowns bear house-marks, worn soft but readable &mdash; the same marks that head the surviving names on the covenant stone. Three marks. Four stations.">Look closer</button>
+  <p class="answer" aria-live="polite"></p>
+</template>
+
+<template id="tpl-station-03">
+  <h2>The Third Station</h2>
+  <p class="read">The other three marks are worn. This one is cut.</p>
+  <p class="read">Somebody stood here with a chisel and took a mark off the
+  stone. The gouges are old. But they are gouges, not weather.</p>
+</template>
+
+<script>
+  const veil = document.getElementById("veil");
+  const body = document.getElementById("panel-body");
+  let lastSpot = null;
+  const spent = {};
+
+  function say(el, text) {
+    el.classList.remove("swim");
+    void el.offsetWidth;
+    el.textContent = text;
+    el.classList.add("swim");
+  }
+
+  function wire() {
+    body.querySelectorAll("[data-kind='touch']").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const out = btn.parentElement.querySelector(".answer");
+        const again = btn.dataset.again;
+        if (spent[btn.dataset.id] && again) { say(out, again); return; }
+        spent[btn.dataset.id] = true;
+        say(out, btn.dataset.text);
+      });
+    });
+  }
+
+  function open(id, spot) {
+    const tpl = document.getElementById("tpl-" + id);
+    if (!tpl) return;
+    body.innerHTML = tpl.innerHTML;
+    veil.classList.add("open");
+    lastSpot = spot || null;
+    if (spot) spot.classList.add("visited");
+    wire();
+    document.getElementById("back").focus();
+  }
+  function close() {
+    veil.classList.remove("open");
+    if (lastSpot) lastSpot.focus();
+  }
+
+  document.querySelectorAll(".spot").forEach((s) =>
+    s.addEventListener("click", () => open(s.dataset.go, s))
+  );
+
+  // Crown details.
+  document.querySelectorAll(".crown-detail").forEach((d) =>
+    d.addEventListener("click", () => {
+      if (d.dataset.panel) open(d.dataset.panel, null);
+    })
+  );
+
+  function openFromHash() {
+    const id = (location.hash || "").replace("#", "");
+    const spot = document.querySelector(`.spot[data-go="${id}"]`);
+    if (spot) open(id, spot);
+  }
+  openFromHash();
+  window.addEventListener("hashchange", openFromHash);
+
+  document.getElementById("back").addEventListener("click", close);
+  veil.addEventListener("click", (e) => { if (e.target === veil) close(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+</script>

@@ -13,6 +13,13 @@
 /** The published player explorable; hashes open a specific panel. */
 export const EXPLORABLE = "https://claude.ai/code/artifact/51e93716-00cd-418e-8770-c526d816f4dd";
 
+/**
+ * The Held Door (Amendment 1) — the last door before the Heart. Its own
+ * page. Carries the temple's first hidden hotspot: a player must SPOT the
+ * struck crown in the art and ask to click it. Do not point at it.
+ */
+export const HELD_DOOR = "https://claude.ai/code/artifact/9d66e351-fead-479a-8fb5-0901634d6ff9";
+
 export type RoomKind = "puzzle" | "lore" | "trap" | "choice" | "soul" | "boss";
 
 export interface Beat {
@@ -191,12 +198,26 @@ export const ROOMS: Room[] = [
     y: 800,
     key: "5",
     player: [
+      "FIRST — the Held Door: the way in. Four stations, and the word over the arch.",
       "Scene: 'The Drowned Temple' (battle map, 5-ft grid, four hazard zones ready to reveal).",
       "Explorable: Sealed Lantern / The Kept before the fight starts.",
     ],
     readAloud:
       "The sealed lantern — wickless, dark, wrapped in chains of black that doesn't move like water. Beside it, held like a coat on a hook: Edrik. And between you and both of them, something wearing a woman, beautifully.",
     beats: [
+      {
+        text:
+          "The Held Door comes first — the way into the heart. Let them read the " +
+          "word over the arch themselves (it is one letter off the wall's).",
+        tone: "dm",
+      },
+      {
+        text:
+          "The struck crown is SPOTTED, never pointed at. If a player asks about " +
+          "the third station, click its gouges. If nobody looks, nobody looks.",
+        tone: "dm",
+      },
+      { text: "Struck crown found.", check: "struck-crown" },
       { text: "Then BOSS MODE — press B.", tone: "dm" },
       {
         text: "Post-fight: run the scene script (content arrives separately).",
@@ -204,6 +225,8 @@ export const ROOMS: Room[] = [
       },
     ],
     links: [
+      { label: "open → The Held Door", href: HELD_DOOR },
+      { label: "→ the four stations", href: `${HELD_DOOR}#stations` },
       { label: "open explorable → Sealed Lantern", href: `${EXPLORABLE}#lantern` },
       { label: "open explorable → The Kept", href: `${EXPLORABLE}#kept` },
     ],
