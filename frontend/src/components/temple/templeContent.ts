@@ -200,7 +200,7 @@ export const ROOMS: Room[] = [
     player: [
       "FIRST — the Held Door: the way in. Four stations, and the word over the arch.",
       "Scene: 'The Drowned Temple' (battle map, 5-ft grid, four hazard zones ready to reveal).",
-      "Explorable: Sealed Lantern / The Kept before the fight starts.",
+      "Explorable: Sealed Lantern. Edrik is NOT a pin — he is behind the joint in the masonry.",
     ],
     readAloud:
       "The sealed lantern — wickless, dark, wrapped in chains of black that doesn't move like water. Beside it, held like a coat on a hook: Edrik. And between you and both of them, something wearing a woman, beautifully.",
@@ -218,6 +218,14 @@ export const ROOMS: Room[] = [
         tone: "dm",
       },
       { text: "Struck crown found.", check: "struck-crown" },
+      {
+        text:
+          "Edrik is not on the panel. He is behind the joint in the masonry, " +
+          "right of the chained mass — click it ONLY when the party finds the " +
+          "door. Same rule as the crown: they spot it, you confirm it.",
+        tone: "dm",
+      },
+      { text: "Edrik found.", check: "edrik-found" },
       { text: "Then BOSS MODE — press B.", tone: "dm" },
       {
         text: "Post-fight: run the scene script (content arrives separately).",
@@ -228,7 +236,6 @@ export const ROOMS: Room[] = [
       { label: "open → The Held Door", href: HELD_DOOR },
       { label: "→ the four stations", href: `${HELD_DOOR}#stations` },
       { label: "open explorable → Sealed Lantern", href: `${EXPLORABLE}#lantern` },
-      { label: "open explorable → The Kept", href: `${EXPLORABLE}#kept` },
     ],
   },
 ];
