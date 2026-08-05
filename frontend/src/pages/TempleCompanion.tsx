@@ -11,8 +11,11 @@ import {
   LAIR_ACTIONS,
   MIRA,
   NEREA,
+  ONE_RULE,
   PHASES,
   ROOMS,
+  SCREEN_ORDER,
+  WHAT_IT_SAYS,
   type Room,
 } from "../components/temple/templeContent";
 
@@ -178,6 +181,13 @@ export default function TempleCompanion() {
           </button>
           <span className="tc-keys">1–5 rooms · T gallery · B boss · ← → walk · P print</span>
         </div>
+        <div className="tc-order" title="Screen order, start to finish">
+          {SCREEN_ORDER.map((step, i) => (
+            <span key={step} className={`tc-order-step${i === SCREEN_ORDER.length - 1 ? " last" : ""}`}>
+              {step}
+            </span>
+          ))}
+        </div>
         <TempleCanvas
           currentId={state.currentId}
           marker={state.marker}
@@ -276,6 +286,9 @@ export default function TempleCompanion() {
             <div className="tc-cut">
               <b>CUT ORDER:</b> {CUT_ORDER}
             </div>
+            <div className="tc-cut">
+              <b>THE ONE RULE:</b> {ONE_RULE}
+            </div>
           </>
         )}
       </aside>
@@ -328,6 +341,17 @@ export default function TempleCompanion() {
           </div>
         </div>
 
+        <div className="tc-print-box">
+          <b>SCREEN ORDER</b>
+          <div>{SCREEN_ORDER.join("  →  ")}</div>
+        </div>
+
+        <div className="tc-print-cut">
+          <b>THE ONE RULE:</b> {ONE_RULE}
+        </div>
+        <div className="tc-print-cut">
+          <b>WHAT THE BUILDING SAYS, IN ORDER:</b> {WHAT_IT_SAYS}
+        </div>
         <div className="tc-print-cut">
           <b>CUT ORDER:</b> {CUT_ORDER}
         </div>

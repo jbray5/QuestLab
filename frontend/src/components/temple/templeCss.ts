@@ -43,6 +43,22 @@ export const TEMPLE_CSS = `
 .tc-ghost:hover { border-color: var(--tc-parch); color: var(--tc-parch); }
 .tc-ghost.on { border-color: var(--tc-parch); color: var(--tc-parch); }
 
+/* Screen order, always visible — the DM should never wonder what's on the
+   projector right now. */
+.tc-order {
+  display: flex; gap: 0.3rem; align-items: center; overflow-x: auto;
+  padding: 0.3rem 0.9rem; border-bottom: 1px solid var(--tc-edge);
+  background: #050f17; font-size: 0.62rem; white-space: nowrap;
+}
+.tc-order-step {
+  color: var(--tc-muted); border: 1px solid var(--tc-edge); border-radius: 3px;
+  padding: 0.1rem 0.4rem; flex-shrink: 0;
+}
+.tc-order-step + .tc-order-step::before {
+  content: "→"; margin-right: 0.4rem; margin-left: -0.15rem; color: var(--tc-edge);
+}
+.tc-order-step.last { color: #e6b3a5; border-color: var(--tc-warn); }
+
 .tc-canvas { flex: 1; width: 100%; height: auto; min-height: 0; display: block; }
 .tc-pin { cursor: pointer; }
 .tc-pin circle { transition: r 0.15s; }

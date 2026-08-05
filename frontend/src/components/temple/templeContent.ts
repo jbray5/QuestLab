@@ -68,23 +68,24 @@ export const ROOMS: Room[] = [
     y: 447,
     key: "1",
     player: [
-      "Scene: '1 Tide Gate' (board preset)",
-      "Puzzle: 'The Tide Gate' board on the projector — Workbench → ▸ run it. They earned every letter; answer HOME parts the door.",
+      "ONE STATIC IMAGE — the door. Solved out loud, not by clicking.",
+      "Scene: '1 Tide Gate'. Do NOT run the puzzle board; it's a backup only.",
     ],
     readAloud:
-      "A door of standing water under an arch carved HOLD. Fish hang frozen inside it, mid-turn. Beside the door: loose glyph tiles, and a small tide pool alive with silverfish.",
+      "A door of standing water. A long inscription in letters they mostly don't have — and one word repeating that they CAN read. Four empty sockets, four loose tiles.",
     beats: [
+      { text: "DO: press tiles into sockets.", tone: "roll" },
+      { text: "SOLVE: ⬟ ● ◼ ✱ — H-O-L-D. The oath completed, the water parts.", tone: "roll" },
       {
-        text: "Press tiles ⬟ ● ▲ ✦ (H-O-M-E) in order → the door parts.",
+        text: "COST: wrong press, the water slaps — DC 12 DEX or 1d4 cold, pushed back.",
         tone: "roll",
       },
+      { text: "Hint 1 — the repeating word is readable.", check: "hint-1" },
+      { text: "Hint 2 — four sockets, four tiles.", check: "hint-2" },
+      { text: "Hint 3 — Willa's glow near the right first tile.", check: "hint-3" },
       {
-        text: "Wrong order: the water SLAPS — DC 12 DEX or 1d4 cold + pushed back.",
-        tone: "roll",
-      },
-      {
-        text: "HINT: watched long enough, the silverfish school into the sequence.",
-        check: "hint-fired",
+        text: "After this room the alphabet is SPENT. No more letter puzzles tonight.",
+        tone: "dm",
       },
     ],
   },
@@ -144,21 +145,30 @@ export const ROOMS: Room[] = [
     y: 500,
     key: "3",
     player: [
-      "Scene: '3 Bell Well' — the bell and the three shapes are visible from above.",
+      "BOARD — only if they ring. Nothing to inspect, everything to decide.",
+      "Scene: '3 Bell Well'. If they climb, stay off the screen entirely.",
     ],
     readAloud:
       "A flooded shaft. A great sunken bell, humming the refrain — and three shapes clinging to it, dormant.",
     beats: [
       {
-        text: "THE CHOICE — RING IT: the deep door opens instantly + 3 Drowned Reachers wake.",
+        text:
+          "RING IT: the deep door opens instantly, they wake — fight on the spiral, " +
+          "Claw mode.",
         tone: "dm",
       },
       { text: "Rang it.", check: "rang-it" },
       {
-        text: "OR THE LONG CLIMB: group Stealth DC 12, then Athletics DC 12s.",
+        text: "OR THE LONG CLIMB: group Stealth DC 12, then climb DC 12s.",
         tone: "roll",
       },
       { text: "Climbed.", check: "climbed" },
+      {
+        text:
+          "Both answers right. Say nothing about what else the bell can do. Clear " +
+          "the sleepers here and her bell lair action is spent — they'll never know.",
+        tone: "dm",
+      },
     ],
     stats: [
       {
@@ -178,9 +188,7 @@ export const ROOMS: Room[] = [
     x: 935,
     y: 712,
     key: "4",
-    player: [
-      "Scene: '4 Keeper's Cell'. Nothing else on screen. Let the room do it.",
-    ],
+    player: ["NOTHING. Dim the screen. Tech would wound this room."],
     readAloud:
       "Her sanctum. A kelp-woven cot. Tally marks past counting, on every wall. And a small side alcove, prepared long ago: infant things, and a half-finished carving of a boat.",
     beats: [
@@ -207,26 +215,56 @@ export const ROOMS: Room[] = [
     beats: [
       {
         text:
-          "The Held Door comes first — the way into the heart. Let them read the " +
-          "word over the arch themselves (it is one letter off the wall's).",
+          "THE HELD DOOR COMES FIRST. Over the arch, bigger than any word in the " +
+          "temple: HELD. Let them do the one-letter diff themselves.",
         tone: "dm",
       },
       {
         text:
-          "The struck crown is SPOTTED, never pointed at. If a player asks about " +
-          "the third station, click its gouges. If nobody looks, nobody looks.",
+          "DO: touch stations, crowns light. Weight does nothing — the door knows " +
+          "held from weighted. Let them work it; let the who-goes argument start.",
+        tone: "dm",
+      },
+      {
+        text:
+          "The gouges are SPOTTED, never pointed at. Click only when a player " +
+          "points. If nobody looks, nobody looks.",
         tone: "dm",
       },
       { text: "Struck crown found.", check: "struck-crown" },
       {
         text:
-          "Edrik is not on the panel. He is behind the joint in the masonry, " +
-          "right of the chained mass — click it ONLY when the party finds the " +
-          "door. Same rule as the crown: they spot it, you confirm it.",
+          "THEN — she opens it herself. All four crowns die at once, the water " +
+          "parts, and she is standing in it. The security of the whole temple, " +
+          "waived. Go to the greeting.",
         tone: "dm",
       },
+      { text: "She opened it.", check: "she-opened-it" },
+      {
+        text:
+          "No Edrik visible. The seam is in the wall right of the chained mass — " +
+          "Perception DC 13, or stand quiet near it and hear breathing, no roll. " +
+          "Click it on discovery; they spot it, you confirm it.",
+        tone: "roll",
+      },
       { text: "Edrik found.", check: "edrik-found" },
-      { text: "Then BOSS MODE — press B.", tone: "dm" },
+      { text: "THE PITCH: she asks Willa, gently, only true things.", tone: "dm" },
+      {
+        text:
+          "THE SPRING — first trigger wins: they find him or demand him · they " +
+          "refuse or stall · Willa's hands touch the lantern and his pounding " +
+          "interrupts, no roll. The bait won't stay quiet.",
+        tone: "dm",
+      },
+      { text: "Sprung.", check: "sprung" },
+      {
+        text: "Then: his warning · the vanished way in · the sealed mouth · her line · initiative.",
+        tone: "dm",
+      },
+      {
+        text: "SWITCH TO THE BOARD the moment dice come out, and don't go back. Press B.",
+        tone: "dm",
+      },
       {
         text: "Post-fight: run the scene script (content arrives separately).",
         tone: "dm",
@@ -299,3 +337,30 @@ export const CUT_ORDER =
   "long climb collapses (ring or nothing) → Nave+Cell merge → Gate opens at a touch. Cell never dies.";
 
 export const DM_WARNING = "DM EYES ONLY — NEVER ON THE PROJECTOR";
+
+/** The one rule of the place. Say none of it; let the walls do it. */
+export const ONE_RULE =
+  "It's a keeper's house. Everything in it holds, or asks them to. The building " +
+  "teaches one word all the way down, and the last door changes one letter of it. " +
+  "Say none of this. Let the walls do it.";
+
+/** Screen order, start to finish. */
+export const SCREEN_ORDER = [
+  "DECK board → dawn preset, let it sit",
+  "Gate image",
+  "Nave explorable",
+  "Gallery explorable, board behind",
+  "Bell Well board — only if rung",
+  "Cell — dim everything",
+  "Door explorable",
+  "Heart explorable",
+  "HEART BOARD at initiative",
+  "ALL SCREENS DARK at 0 HP — paper from there to the end",
+];
+
+/** What the building says, in order. Never explain it. */
+export const WHAT_IT_SAYS =
+  "HOLD, spelled by their own hands. Whose oath it was. HOLD carved hundreds of " +
+  "times, some hurried. What holding cost her, in tally marks. HELD, over the last " +
+  "door. And then the thing that did the holding, wearing her voice. Never explain " +
+  "this. It lands on the drive home.";
