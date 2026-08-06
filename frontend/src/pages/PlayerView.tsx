@@ -197,6 +197,49 @@ function PlayerSheet({ pcId }: { pcId: string }) {
   const initMod = mod(pc.score_dex);
   const conMod = mod(pc.score_con);
   const dieSize = HIT_DIE_BY_CLASS[pc.character_class] ?? 8;
+
+  // ── Tier 1 UX rework: persisted collapse state per player ────────────────
+  // A druid who collapses Inventory shouldn't re-collapse it every session.
+  const collapseKey = `ql-sheet-open-${pcId}`;
+  const [openMap, setOpenMap] = useState<Record<string, boolean>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(collapseKey) || "{}");
+    } catch {
+      return {};
+    }
+  });
+  function toggleSection(id: string, open: boolean) {
+    setOpenMap((m) => {
+      const next = { ...m, [id]: open };
+      try {
+        localStorage.setItem(collapseKey, JSON.stringify(next));
+      } catch {
+        // storage blocked — collapse state just doesn't persist
+      }
+      return next;
+    });
+  }
+  // CALLED-ON mode is urgent and social: when combat starts, fold the
+  // between-sessions sections (everything below Features) once. The player
+  // can reopen anything; we don't fight them again until the next combat.
+  const wasInCombat = useRef(false);
+  useEffect(() => {
+    const now = !!combatState?.in_combat;
+    if (now && !wasInCombat.current) {
+      setOpenMap((m) => {
+        const next = { ...m, resources: false, inventory: false, people: false, walkthrough: false, rules: false };
+        try {
+          localStorage.setItem(collapseKey, JSON.stringify(next));
+        } catch {
+          // storage blocked
+        }
+        return next;
+      });
+    }
+    wasInCombat.current = now;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [combatState?.in_combat]);
+  const sectionProps = { openMap, onToggle: toggleSection };
   const flashClass =
     sheetFlash === "damage"
       ? "ql-sheet-flash-damage"
@@ -234,7 +277,36 @@ function PlayerSheet({ pcId }: { pcId: string }) {
 
         <ConcentrationBlock pc={pc} pcId={pcId} conMod={conMod} onUpdate={invalidate} />
 
-        <Section title="🎲 Resources" defaultOpen>
+        {/* Tier 1 order (UX handoff): CALLED-ON mode first — saves and
+            skills are what four waiting people demand — then MY-TURN mode
+            (spells, slots, features), then between-sessions material. */}
+        <Section title="🛡 Saving Throws" defaultOpen id="saves" {...sectionProps}>
+          <SavesBlock saves={savingThrows} />
+        </Section>
+
+        <Section title="🎯 Skills" defaultOpen id="skills" {...sectionProps}>
+          <SkillsBlock bonuses={skillBonuses} />
+        </Section>
+
+        {slotState && Object.keys(slotState.levels).length > 0 && (
+          <Section title="📖 Spell Slots" defaultOpen id="slots" {...sectionProps}>
+            <SlotBlock slotState={slotState} pcId={pcId} qc={qc} />
+          </Section>
+        )}
+
+        {spellList.length > 0 && (
+          <Section title="✨ Your Spells" defaultOpen id="spells" {...sectionProps}>
+            <SpellsBlock spells={spellList} />
+          </Section>
+        )}
+
+        {features.length > 0 && (
+          <Section title="⚡ Features" defaultOpen id="features" {...sectionProps}>
+            <FeaturesBlock features={features} pcId={pcId} qc={qc} />
+          </Section>
+        )}
+
+        <Section title="🎲 Resources" defaultOpen id="resources" {...sectionProps}>
           <HitDiceBlock pc={pc} dieSize={dieSize} conMod={conMod} pcId={pcId} onUpdate={invalidate} />
           <hr style={hrStyle} />
           <ExhaustionBlock pc={pc} pcId={pcId} onUpdate={invalidate} />
@@ -242,45 +314,19 @@ function PlayerSheet({ pcId }: { pcId: string }) {
           <CurrencyBlock pc={pc} pcId={pcId} onUpdate={invalidate} />
         </Section>
 
-        {slotState && Object.keys(slotState.levels).length > 0 && (
-          <Section title="📖 Spell Slots" defaultOpen>
-            <SlotBlock slotState={slotState} pcId={pcId} qc={qc} />
-          </Section>
-        )}
-
-        {spellList.length > 0 && (
-          <Section title="✨ Your Spells" defaultOpen>
-            <SpellsBlock spells={spellList} />
-          </Section>
-        )}
-
-        {features.length > 0 && (
-          <Section title="⚡ Features" defaultOpen>
-            <FeaturesBlock features={features} pcId={pcId} qc={qc} />
-          </Section>
-        )}
-
-        <Section title="🎒 Inventory" defaultOpen>
+        <Section title="🎒 Inventory" defaultOpen id="inventory" {...sectionProps}>
           <InventoryBlock pcId={pcId} />
         </Section>
 
-        <Section title="🧭 Your Turn — Walkthrough" defaultOpen>
-          <TurnWalkthrough pc={pc} />
-        </Section>
-
-        <Section title="🎯 Skills">
-          <SkillsBlock bonuses={skillBonuses} />
-        </Section>
-
-        <Section title="🛡 Saving Throws">
-          <SavesBlock saves={savingThrows} />
-        </Section>
-
-        <Section title="🎭 People You've Met">
+        <Section title="🎭 People You've Met" id="people" {...sectionProps}>
           <NpcsBlock pcId={pcId} />
         </Section>
 
-        <Section title="📚 Quick Rules Reference">
+        <Section title="🧭 Your Turn — Walkthrough" id="walkthrough" {...sectionProps}>
+          <TurnWalkthrough pc={pc} />
+        </Section>
+
+        <Section title="📚 Quick Rules Reference" id="rules" {...sectionProps}>
           <RulesReference pc={pc} />
         </Section>
       </div>
@@ -1838,8 +1884,27 @@ function PipRow({ label, filled, color }: { label: string; filled: number; color
   );
 }
 
-function Section({ title, defaultOpen = false, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
+function Section({
+  title,
+  defaultOpen = false,
+  id,
+  openMap,
+  onToggle,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  /** Stable id for persisted collapse state (Tier 1 UX rework). */
+  id?: string;
+  openMap?: Record<string, boolean>;
+  onToggle?: (id: string, open: boolean) => void;
+  children: React.ReactNode;
+}) {
+  // Controlled when the page supplies persisted state; local otherwise.
+  const [localOpen, setLocalOpen] = useState(defaultOpen);
+  const controlled = id !== undefined && openMap !== undefined && onToggle !== undefined;
+  const open = controlled ? (openMap[id] ?? defaultOpen) : localOpen;
+  const setOpen = (v: boolean) => (controlled ? onToggle(id, v) : setLocalOpen(v));
   return (
     <section style={{ ...cardStyle, padding: 0 }}>
       <button
