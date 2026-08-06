@@ -99,6 +99,9 @@ class TableMap(BaseModel):
     """Resolved active-map summary embedded in the projection."""
 
     id: uuid.UUID
+    # Player-safe: scene titles already announce the room; the name lets the
+    # player view enable per-map dressing (the DECK sea, Plan 59).
+    name: str = ""
     image_url: str
     width: int
     height: int

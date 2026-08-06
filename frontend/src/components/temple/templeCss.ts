@@ -142,7 +142,12 @@ export const TEMPLE_CSS = `
 .tc-hp-max { font-size: 0.8rem; color: var(--tc-muted); }
 .tc-hp-bar { height: 6px; background: #08151d; border-radius: 3px; margin-top: 6px; overflow: hidden; }
 .tc-hp-fill { height: 100%; background: linear-gradient(90deg, #6e4550, #b0563f); transition: width 0.2s; }
-.tc-dealt { font-size: 0.8rem; color: var(--tc-muted); margin: 0.3rem 0 0.8rem; }
+.tc-dealt { font-size: 0.8rem; color: var(--tc-muted); margin: 0.3rem 0 0.4rem; }
+.tc-floor-hint { color: #e6b3a5; }
+.tc-never {
+  margin: 0.3rem 0 0.7rem; padding: 0.35rem 0.55rem; border: 1px solid var(--tc-warn);
+  border-radius: 4px; color: #e6b3a5; font-size: 0.78rem; font-weight: 700;
+}
 .tc-phases { display: flex; flex-direction: column; gap: 4px; }
 .tc-phase {
   display: flex; align-items: center; gap: 0.55rem; padding: 0.4rem 0.6rem;

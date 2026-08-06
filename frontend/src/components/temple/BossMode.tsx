@@ -4,6 +4,8 @@ import {
   LAIR_ACTIONS,
   MIRA,
   NEREA,
+  NEVER_WHELM,
+  P3_FLOOR_NOTE,
   PHASES,
 } from "./templeContent";
 
@@ -22,8 +24,11 @@ export interface BossState {
   round: number;
   lairUsed: string[];
   edrikFreed: boolean;
+  edrikHp: number;
   miraIn: boolean;
   miraHp: number;
+  /** She cannot drop below 1 HP until P3 has taken a turn. */
+  p3Acted: boolean;
 }
 
 export const INITIAL_BOSS: BossState = {
@@ -31,8 +36,10 @@ export const INITIAL_BOSS: BossState = {
   round: 1,
   lairUsed: [],
   edrikFreed: false,
+  edrikHp: EDRIK.maxHp,
   miraIn: false,
   miraHp: MIRA.maxHp,
+  p3Acted: false,
 };
 
 function Ticker({
@@ -40,13 +47,16 @@ function Ticker({
   max,
   onChange,
   label,
+  floor = 0,
 }: {
   value: number;
   max: number;
   onChange: (v: number) => void;
   label: string;
+  /** Minimum the tracker will allow (Nerea's 1-HP floor until P3 acts). */
+  floor?: number;
 }) {
-  const clamp = (v: number) => Math.max(0, Math.min(max, v));
+  const clamp = (v: number) => Math.max(floor, Math.min(max, v));
   return (
     <div className="tc-ticker">
       <div className="tc-ticker-row">
@@ -104,11 +114,24 @@ export default function BossMode({
         value={state.hp}
         max={NEREA.maxHp}
         label="Nerea HP"
+        floor={state.p3Acted ? 0 : 1}
         onChange={(hp) => onChange({ ...state, hp })}
       />
       <div className="tc-dealt">
         damage dealt: <b>{dealt}</b>
+        {!state.p3Acted && state.hp === 1 && (
+          <span className="tc-floor-hint"> · held at 1 — mark P3's turn below</span>
+        )}
       </div>
+      <label className="tc-toggle">
+        <input
+          type="checkbox"
+          checked={state.p3Acted}
+          onChange={(e) => onChange({ ...state, p3Acted: e.target.checked })}
+        />
+        <span>{P3_FLOOR_NOTE}</span>
+      </label>
+      <div className="tc-never">{NEVER_WHELM}</div>
 
       {/* Phase banners — auto-light by damage dealt. */}
       <div className="tc-phases">
@@ -185,6 +208,12 @@ export default function BossMode({
       {state.edrikFreed && (
         <div className="tc-ally">
           <b>EDRIK fights</b> — {EDRIK.allyLine}
+          <Ticker
+            value={state.edrikHp}
+            max={EDRIK.maxHp}
+            label="Edrik HP"
+            onChange={(edrikHp) => onChange({ ...state, edrikHp })}
+          />
           <div className="tc-ally-note">Chains Tighten removed from the lair list.</div>
         </div>
       )}

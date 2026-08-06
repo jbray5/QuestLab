@@ -413,3 +413,84 @@ export function BackdropDome({ tex, fit, darkness }: DomeProps) {
     </group>
   );
 }
+
+// ── The sea (Plan 59 / P3) ───────────────────────────────────────────────────
+
+export type SeaMode = "animated" | "static" | "off";
+
+const SEA_VERT = `
+  uniform float uTime;
+  uniform float uAmp;
+  varying vec2 vUv;
+  varying float vSwell;
+  void main() {
+    vUv = uv;
+    vec3 p = position;
+    // Two slow crossing swells; amplitude is a few pixels of world height.
+    float s = sin(p.x * 0.012 + uTime * 0.45) * 0.6
+            + sin(p.y * 0.017 - uTime * 0.31) * 0.4;
+    p.z += s * uAmp;
+    vSwell = s;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  }
+`;
+
+const SEA_FRAG = `
+  uniform float uTime;
+  varying vec2 vUv;
+  varying float vSwell;
+  void main() {
+    // Cold blue-silver bands drifting at different speeds; near-black rim.
+    vec2 c = vUv - 0.5;
+    float r = length(c) * 2.0;
+    float band1 = sin(vUv.x * 34.0 + uTime * 0.32 + sin(vUv.y * 9.0) * 1.6);
+    float band2 = sin(vUv.x * 21.0 - uTime * 0.19 + vUv.y * 12.0);
+    float band3 = sin((vUv.x + vUv.y) * 15.0 + uTime * 0.11);
+    float bands = band1 * 0.5 + band2 * 0.32 + band3 * 0.18;
+    vec3 deep = vec3(0.012, 0.028, 0.042);
+    vec3 lift = vec3(0.055, 0.115, 0.150);
+    vec3 col = mix(deep, lift, smoothstep(-1.0, 1.0, bands) * 0.55 + vSwell * 0.18);
+    // Sparse slow glints riding the band crests.
+    float glint = smoothstep(0.985, 1.0, sin(vUv.x * 210.0 + uTime * 0.5)
+                                        * sin(vUv.y * 170.0 - uTime * 0.37));
+    col += vec3(0.10, 0.14, 0.16) * glint * (0.5 + 0.5 * vSwell);
+    // Fade to near-black at the outer edge; fully clear under the map.
+    float edge = 1.0 - smoothstep(0.55, 1.0, r);
+    col *= 0.35 + 0.65 * edge;
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
+/** Open night ocean OUTSIDE the map bounds (DECK board). The playable map
+ * never animates — this plane sits below it, so the map and grid occlude
+ * the center entirely. GPU-only motion: one time uniform per frame, one
+ * draw call. `static` freezes the uniform — the kill switch and the
+ * prefers-reduced-motion path are the same code. */
+export function Sea({ fit, mode }: { fit: number; mode: SeaMode }) {
+  const mat = useRef<THREE.ShaderMaterial>(null);
+  const reduced = useMemo(
+    () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false,
+    [],
+  );
+  const animate = mode === "animated" && !reduced;
+  useFrame(({ clock }) => {
+    if (animate && mat.current) mat.current.uniforms.uTime.value = clock.elapsedTime;
+  });
+  const uniforms = useMemo(
+    () => ({ uTime: { value: 0 }, uAmp: { value: fit * 0.006 } }),
+    [fit],
+  );
+  if (mode === "off") return null;
+  return (
+    <mesh rotation-x={-Math.PI / 2} position-y={-2}>
+      <planeGeometry args={[fit * 5, fit * 5, 96, 96]} />
+      <shaderMaterial
+        ref={mat}
+        vertexShader={SEA_VERT}
+        fragmentShader={SEA_FRAG}
+        uniforms={uniforms}
+        fog={false}
+      />
+    </mesh>
+  );
+}

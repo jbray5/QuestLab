@@ -6,7 +6,16 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import type { SessionCombatant, TableToken } from "../../api/types";
-import { BackdropDome, Flyers, LightRig, ProceduralSky, Starfield, Weather } from "./atmosphere";
+import {
+  BackdropDome,
+  Flyers,
+  LightRig,
+  ProceduralSky,
+  Sea,
+  Starfield,
+  Weather,
+  type SeaMode,
+} from "./atmosphere";
 import {
   cardTint,
   getVignetteTexture,
@@ -95,6 +104,8 @@ interface Board3DProps {
   readOnly?: boolean;
   /** Defeated token refs from the player-safe projection (no combat data). */
   defeatedRefs?: string[];
+  /** Open ocean beyond the map edges (DECK board only). Default off. */
+  sea?: SeaMode;
   /** Transient "look here" pings, in image pixels. */
   pings?: BoardPing[];
   fogOn?: boolean;
@@ -1204,6 +1215,7 @@ function BoardScene(props: Board3DProps) {
       <LightRig fit={fit} darkness={darkness} weather={weather} />
       <Lightning seq={props.stormFlash} />
       <Starfield fit={fit} darkness={darkness} />
+      <Sea fit={fit} mode={props.sea ?? "off"} />
       <Flyers fit={fit} darkness={darkness} weather={weather} />
       {domeTex ? (
         <BackdropDome tex={domeTex} fit={fit} darkness={darkness} />

@@ -118,6 +118,17 @@ export default function Table3DView() {
   const [cinema, setCinema] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
   const map = proj?.map ?? null;
+
+  // Plan 59 / P3 — the DECK sea on the players' screen. Scoped to The
+  // Crossing. Projector-side kill switch: append ?sea=static (or ?sea=off)
+  // to this view's URL — Justin tests both states Thursday.
+  const seaMode = useMemo(() => {
+    const mapName = (proj?.map as { name?: string } | null)?.name ?? "";
+    if (mapName !== "The Crossing") return "off" as const;
+    const forced = new URLSearchParams(window.location.search).get("sea");
+    if (forced === "static" || forced === "off") return forced;
+    return "animated" as const;
+  }, [proj?.map]);
   const effectiveGrid: GridKind = gridKind ?? (map?.grid_size ? "hex" : "off");
 
   const torchCount = useMemo(
@@ -146,6 +157,7 @@ export default function Table3DView() {
       {map && proj ? (
         <Board3D
           map={map as BoardMapLike}
+          sea={seaMode}
           tokens={proj.tokens}
           combatantByRef={EMPTY_COMBATANTS}
           activeRef={proj.active_token_ref}

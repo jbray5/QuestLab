@@ -86,7 +86,10 @@ def _make_map(db, campaign_id, dm, name="Hearth"):
             height=1400,
             grid_size=140,
             regions=[
-                FogRegion(id="r1", name="The Hearth", points=[[0, 0], [100, 0], [100, 100]]),
+                # Region names are deliberately DISJOINT from the map name:
+                # the map's name is player-safe and ships in the projection
+                # (Plan 59 — per-map dressing); region names never do.
+                FogRegion(id="r1", name="Undercroft", points=[[0, 0], [100, 0], [100, 100]]),
                 FogRegion(id="r2", name="Graveyard", points=[[200, 200], [300, 200], [300, 300]]),
             ],
         ),
@@ -207,11 +210,13 @@ class TestProjectionSafety:
         proj = table_svc.get_projection(duckdb_session, gs.id)
 
         assert proj.map is not None and proj.map.width == 2000
+        # The MAP name is part of the projection contract (player-safe).
+        assert proj.map.name == "Hearth"
         # r1 revealed → its points present; r2 (Graveyard) absent.
         assert proj.revealed_regions == [[[0, 0], [100, 0], [100, 100]]]
         blob = proj.model_dump_json()
         assert "Graveyard" not in blob  # unrevealed region name
-        assert "Hearth" not in blob  # revealed region's NAME still never sent
+        assert "Undercroft" not in blob  # revealed region's NAME still never sent
 
     def test_projection_carries_no_hp(self, duckdb_session: Session):
         """No HP / initiative fields ever appear in the projection payload."""

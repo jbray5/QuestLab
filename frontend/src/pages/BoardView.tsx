@@ -160,6 +160,20 @@ export default function BoardView() {
   }
   const [cinema, setCinema] = useState(false);
   const [followTurn, setFollowTurn] = useState(true);
+  // Plan 59 / P3 — the open ocean beyond the DECK map's edges. Scoped to
+  // The Crossing only; the kill switch swaps animated → static band and
+  // persists per browser (Justin tests both on the projector Thursday).
+  const seaHere = activeMap?.name === "The Crossing";
+  const [seaMode, setSeaModeState] = useState<"animated" | "static">(() =>
+    localStorage.getItem("ql-sea-mode") === "static" ? "static" : "animated",
+  );
+  function toggleSea() {
+    setSeaModeState((m) => {
+      const next = m === "animated" ? "static" : "animated";
+      localStorage.setItem("ql-sea-mode", next);
+      return next;
+    });
+  }
   const [backdropOpen, setBackdropOpen] = useState(false);
   const [backdropHints, setBackdropHints] = useState("");
   const [backdropBusy, setBackdropBusy] = useState(false);
@@ -644,6 +658,16 @@ export default function BoardView() {
         >
           🎞 Cinema
         </button>
+        {seaHere && (
+          <button
+            className={seaMode === "animated" ? "btn" : "btn btn-ghost"}
+            style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
+            onClick={toggleSea}
+            title="The open ocean beyond the deck. Kill switch: click to swap animated ↔ static band if the projector chugs."
+          >
+            🌊 Sea{seaMode === "static" ? " (static)" : ""}
+          </button>
+        )}
         <button
           className={followTurn ? "btn" : "btn btn-ghost"}
           style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
@@ -829,6 +853,7 @@ export default function BoardView() {
               weather={weather}
               cinema={cinema}
               followTurn={followTurn}
+              sea={seaHere ? seaMode : "off"}
               fogOn={state?.fog_on ?? false}
               revealedRegions={revealedRegionPoints}
               brushReveals={state?.brush_reveals ?? []}

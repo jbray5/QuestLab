@@ -180,6 +180,7 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
             if battle_map is not None:
                 table_map = TableMap(
                     id=battle_map.id,
+                    name=battle_map.name,
                     image_url=battle_map.image_url,
                     width=battle_map.width,
                     height=battle_map.height,

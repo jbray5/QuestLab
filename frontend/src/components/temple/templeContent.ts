@@ -74,19 +74,20 @@ export const ROOMS: Room[] = [
     readAloud:
       "A door of standing water. A long inscription in letters they mostly don't have — and one word repeating that they CAN read. Four empty sockets, four loose tiles.",
     beats: [
+      {
+        text:
+          "P0 REVISION PENDING — the glyph program is scrapped (no letter puzzles " +
+          "anywhere). The physical replacement arrives with today's revised handoff; " +
+          "these mechanics update then. If it lands late: paper fallback.",
+        tone: "dm",
+      },
       { text: "DO: press tiles into sockets.", tone: "roll" },
-      { text: "SOLVE: ⬟ ● ◼ ✱ — H-O-L-D. The oath completed, the water parts.", tone: "roll" },
       {
         text: "COST: wrong press, the water slaps — DC 12 DEX or 1d4 cold, pushed back.",
         tone: "roll",
       },
-      { text: "Hint 1 — the repeating word is readable.", check: "hint-1" },
       { text: "Hint 2 — four sockets, four tiles.", check: "hint-2" },
       { text: "Hint 3 — Willa's glow near the right first tile.", check: "hint-3" },
-      {
-        text: "After this room the alphabet is SPENT. No more letter puzzles tonight.",
-        tone: "dm",
-      },
     ],
   },
   {
@@ -215,8 +216,9 @@ export const ROOMS: Room[] = [
     beats: [
       {
         text:
-          "THE HELD DOOR COMES FIRST. Over the arch, bigger than any word in the " +
-          "temple: HELD. Let them do the one-letter diff themselves.",
+          "THE HELD DOOR COMES FIRST. P0: the arch word is old script they can't " +
+          "read now — the letter payoff is scrapped; physical replacement arrives " +
+          "with today's revision.",
         tone: "dm",
       },
       {
@@ -282,16 +284,24 @@ export const ROOMS: Room[] = [
 
 export const NEREA = {
   name: "NEREA / the thing",
-  maxHp: 75,
-  line: "AC 14 · +6 attack, 2d6+3 cold, reach 10 ft · saves +3",
+  maxHp: 114,
+  line:
+    "AC 14 · Slam +7, 2d8+4, Med or smaller prone · Whelm (rech 4–6) DC 15 STR, " +
+    "4d8+4, Grappled esc 14 + Restrained, 2d8/turn · Resist Acid (NOT Fire) · " +
+    "Freeze: cold slows 20 ft · full card: Monsters → Nerea",
 };
 
-/** Banners light automatically once cumulative damage dealt crosses `at`. */
+/** Banners light automatically once cumulative damage dealt crosses `at`.
+ * Work order 8/5: P2 at 40 dealt, P3 at 75 dealt. She cannot drop below
+ * 1 HP until P3 has taken a turn (the tracker enforces the floor). */
 export const PHASES = [
-  { at: 25, label: "THE COMPOSURE CRACKS — voice doubles" },
-  { at: 50, label: "THE PRETENSE DROPS — two attacks/turn, faster" },
-  { at: 75, label: "IT CANNOT HOLD HER", endstate: true },
+  { at: 40, label: "P2 — THE PRETENSE DROPS: Multiattack" },
+  { at: 75, label: "P3 — +WHELM. After her next turn, she can fall", endstate: true },
 ];
+
+/** The 1-HP floor: holds until the DM marks P3's turn taken. */
+export const P3_FLOOR_NOTE = "P3 has taken a turn (unlocks 0 HP)";
+export const NEVER_WHELM = "Never damage-Whelm Willa.";
 
 export interface LairAction {
   id: string;
@@ -320,13 +330,14 @@ export const LAIR_ACTIONS: LairAction[] = [
 
 export const EDRIK = {
   freeing: "freed (action + DC 12 STR)",
-  allyLine: "+4 cutlass, 1d8+2",
+  allyLine: "AC 14 · cutlass +4, 1d8+2",
+  maxHp: 15,
 };
 
 export const MIRA = {
   label: "Mira boarded",
   maxHp: 20,
-  line: "AC 15 · +5 cutlass 1d8+3 · Second Wind 1/day (1d10+2)",
+  line: "AC 15 · cutlass +5, 1d8+3 · Second Wind 1/day (1d10+2) · adv. shove/trip/intimidate",
 };
 
 export const BOSS_FLAVOR =
@@ -338,11 +349,13 @@ export const CUT_ORDER =
 
 export const DM_WARNING = "DM EYES ONLY — NEVER ON THE PROJECTOR";
 
-/** The one rule of the place. Say none of it; let the walls do it. */
+/** The one rule of the place. Say none of it; let the walls do it.
+ * [P0 REVISION PENDING — the word-program half is scrapped; the revised
+ * rule arrives with today's handoff.] */
 export const ONE_RULE =
-  "It's a keeper's house. Everything in it holds, or asks them to. The building " +
-  "teaches one word all the way down, and the last door changes one letter of it. " +
-  "Say none of this. Let the walls do it.";
+  "It's a keeper's house. Everything in it holds, or asks them to. " +
+  "[P0: the 'one word all the way down' program is scrapped — revised copy " +
+  "arrives today.] Say none of this. Let the walls do it.";
 
 /** Screen order, start to finish. */
 export const SCREEN_ORDER = [
@@ -358,9 +371,10 @@ export const SCREEN_ORDER = [
   "ALL SCREENS DARK at 0 HP — paper from there to the end",
 ];
 
-/** What the building says, in order. Never explain it. */
+/** What the building says, in order. Never explain it.
+ * [P0 REVISION PENDING — was the HOLD/HELD ladder; replacement arrives
+ * with today's revised handoff.] */
 export const WHAT_IT_SAYS =
-  "HOLD, spelled by their own hands. Whose oath it was. HOLD carved hundreds of " +
-  "times, some hurried. What holding cost her, in tally marks. HELD, over the last " +
-  "door. And then the thing that did the holding, wearing her voice. Never explain " +
-  "this. It lands on the drive home.";
+  "[P0 REVISION PENDING] Whose oath it was. What holding cost her, in tally " +
+  "marks. And then the thing that did the holding, wearing her voice. Never " +
+  "explain this. It lands on the drive home.";
