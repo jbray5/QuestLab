@@ -191,15 +191,10 @@ function PlayerSheet({ pcId }: { pcId: string }) {
     return () => clearTimeout(t);
   }, [pc?.hp_current]);
 
-  if (isLoading) return <LoadingScreen />;
-  if (isError || !pc) return <ErrorScreen msg="Could not load character." />;
-
-  const initMod = mod(pc.score_dex);
-  const conMod = mod(pc.score_con);
-  const dieSize = HIT_DIE_BY_CLASS[pc.character_class] ?? 8;
-
   // ── Tier 1 UX rework: persisted collapse state per player ────────────────
-  // A druid who collapses Inventory shouldn't re-collapse it every session.
+  // MUST live above the early returns — hooks after a conditional return
+  // crash the sheet the moment data arrives (React #310; broke all four
+  // player links on 8/5, caught by the DM).
   const collapseKey = `ql-sheet-open-${pcId}`;
   const [openMap, setOpenMap] = useState<Record<string, boolean>>(() => {
     try {
@@ -240,6 +235,13 @@ function PlayerSheet({ pcId }: { pcId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [combatState?.in_combat]);
   const sectionProps = { openMap, onToggle: toggleSection };
+
+  if (isLoading) return <LoadingScreen />;
+  if (isError || !pc) return <ErrorScreen msg="Could not load character." />;
+
+  const initMod = mod(pc.score_dex);
+  const conMod = mod(pc.score_con);
+  const dieSize = HIT_DIE_BY_CLASS[pc.character_class] ?? 8;
   const flashClass =
     sheetFlash === "damage"
       ? "ql-sheet-flash-damage"
