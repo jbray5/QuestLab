@@ -19,7 +19,7 @@ from db.repos.encounter_repo import EncounterRepo
 from db.repos.monster_repo import MonsterRepo
 from domain.encounter import Encounter, EncounterCreate, EncounterUpdate
 from domain.enums import EncounterDifficulty
-from domain.monster import MonsterStatBlock, MonsterStatBlockUpdate
+from domain.monster import MonsterStatBlock, MonsterStatBlockCreate, MonsterStatBlockUpdate
 from integrations.dnd_rules.encounter_math import calculate_difficulty, cr_to_xp
 
 MAX_ENCOUNTERS_PER_ADVENTURE = 20
@@ -688,6 +688,28 @@ def delete_all_monsters(session: Session) -> int:
         Number of monsters deleted.
     """
     return MonsterRepo.delete_all(session)
+
+
+def create_custom_monster(
+    session: Session, payload: MonsterStatBlockCreate, dm_email: str
+) -> MonsterStatBlock:
+    """Create a custom (non-SRD) monster stat block (Plan 59 / P1.5).
+
+    Args:
+        session: Active database session.
+        payload: Validated stat block payload.
+        dm_email: Email of the creating DM (stamped on the row).
+
+    Returns:
+        The created MonsterStatBlock, flagged is_custom.
+    """
+    row = MonsterRepo.create(session, payload)
+    row.is_custom = True
+    row.created_by_email = dm_email
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
 
 
 def get_monster(session: Session, monster_id: uuid.UUID) -> MonsterStatBlock:

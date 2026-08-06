@@ -6,10 +6,25 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.deps import DB, CurrentUser
-from domain.monster import MonsterStatBlockRead, MonsterStatBlockUpdate
+from domain.monster import MonsterStatBlockCreate, MonsterStatBlockRead, MonsterStatBlockUpdate
 from services import encounter_service
 
 router = APIRouter(tags=["monsters"])
+
+
+@router.post("/monsters", response_model=MonsterStatBlockRead, status_code=status.HTTP_201_CREATED)
+def create_monster(body: MonsterStatBlockCreate, db: DB, user: CurrentUser) -> MonsterStatBlockRead:
+    """Create a custom monster stat block (flagged is_custom).
+
+    Args:
+        body: Validated stat block payload.
+        db: Database session.
+        user: Authenticated DM email (stamped as creator).
+
+    Returns:
+        The created stat block.
+    """
+    return encounter_service.create_custom_monster(db, body, user)
 
 
 @router.get("/monsters", response_model=list[MonsterStatBlockRead])
