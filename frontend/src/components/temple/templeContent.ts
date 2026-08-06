@@ -61,33 +61,24 @@ export const ROOMS: Room[] = [
   {
     id: "tide-gate",
     numeral: "①",
-    title: "Tide Gate",
+    title: "Flood Gate",
     kind: "puzzle",
     color: "#c9a25a",
     x: 560,
     y: 447,
     key: "1",
     player: [
-      "ONE STATIC IMAGE — the door. Solved out loud, not by clicking.",
-      "Scene: '1 Tide Gate'. Do NOT run the puzzle board; it's a backup only.",
+      "BOARD + NARRATION (REV 3) — scene 'FLOOD GATE'. No explorable, no puzzle screen.",
     ],
-    readAloud:
-      "A door of standing water. A long inscription in letters they mostly don't have — and one word repeating that they CAN read. Four empty sockets, four loose tiles.",
+    readAloud: "A door of standing water. Fish hang frozen inside it, mid-turn.",
     beats: [
       {
         text:
-          "P0 REVISION PENDING — the glyph program is scrapped (no letter puzzles " +
-          "anywhere). The physical replacement arrives with today's revised handoff; " +
-          "these mechanics update then. If it lands late: paper fallback.",
+          "REV 3: zero language/symbol puzzles — the letter mechanic is deleted " +
+          "(the seeded puzzle board is gone too). Run the room from the table doc; " +
+          "wall script is texture only.",
         tone: "dm",
       },
-      { text: "DO: press tiles into sockets.", tone: "roll" },
-      {
-        text: "COST: wrong press, the water slaps — DC 12 DEX or 1d4 cold, pushed back.",
-        tone: "roll",
-      },
-      { text: "Hint 2 — four sockets, four tiles.", check: "hint-2" },
-      { text: "Hint 3 — Willa's glow near the right first tile.", check: "hint-3" },
     ],
   },
   {
@@ -105,23 +96,32 @@ export const ROOMS: Room[] = [
     ],
     readAloud: "A pillared hall. At its center, a great tablet furred with growth.",
     beats: [
-      { text: "ASHMANTLE legible; Creed engages or doesn't.", tone: "dm" },
-      { text: "Stone read.", check: "stone-read" },
+      {
+        text:
+          "REV 3: the panel shows house SIGILS (all dark) + the oath — no names " +
+          "anywhere. Creed recognizing his own mark is a TABLE beat, yours to give.",
+        tone: "dm",
+      },
+      {
+        text: "The 'bloodied thumb' press wakes silver in one sigil. One room, one beat, move.",
+        tone: "dm",
+      },
+      { text: "Stone touched.", check: "stone-read" },
     ],
     links: [{ label: "open explorable → Covenant Stone", href: `${EXPLORABLE}#covenant` }],
   },
   {
     id: "gallery",
     numeral: "Ⓣ",
-    title: "The Gallery",
+    title: "Corridor",
     kind: "trap",
     color: "#b0563f",
     x: 955,
     y: 520,
     key: "t",
     player: [
-      "Scene: 'T Gallery' — the glowing limpet path is ON the map; they pick their steps by it.",
-      "Explorable: Glyph Wall as they walk.",
+      "BOARD + NARRATION (REV 3) — scene 'CORRIDOR'. The glowing limpet path is ON " +
+        "the map; they pick their steps by it. No explorable for this room.",
     ],
     readAloud:
       "A sloping corridor. A winding path of soft gold light — colonies of lamp-limpets — threading through dark stone. The walls are written floor to ceiling.",
@@ -132,9 +132,11 @@ export const ROOMS: Room[] = [
         tone: "roll",
       },
       { text: "Trap sprung.", check: "trap-sprung" },
-      { text: "Wall read.", check: "wall-read" },
+      {
+        text: "The wall script is TEXTURE (REV 3) — nothing to read, nothing to click.",
+        tone: "dm",
+      },
     ],
-    links: [{ label: "open explorable → Glyph Wall", href: `${EXPLORABLE}#glyphs` }],
   },
   {
     id: "bell-well",
@@ -216,9 +218,8 @@ export const ROOMS: Room[] = [
     beats: [
       {
         text:
-          "THE HELD DOOR COMES FIRST. P0: the arch word is old script they can't " +
-          "read now — the letter payoff is scrapped; physical replacement arrives " +
-          "with today's revision.",
+          "THE HELD DOOR COMES FIRST. REV 3: the arch is BARE dressed stone — " +
+          "the only uncarved surface in the temple. No word, no glyphs.",
         tone: "dm",
       },
       {
@@ -349,20 +350,18 @@ export const CUT_ORDER =
 
 export const DM_WARNING = "DM EYES ONLY — NEVER ON THE PROJECTOR";
 
-/** The one rule of the place. Say none of it; let the walls do it.
- * [P0 REVISION PENDING — the word-program half is scrapped; the revised
- * rule arrives with today's handoff.] */
+/** The one rule of the place (REV 3 final — the word program is gone). */
 export const ONE_RULE =
   "It's a keeper's house. Everything in it holds, or asks them to. " +
-  "[P0: the 'one word all the way down' program is scrapped — revised copy " +
-  "arrives today.] Say none of this. Let the walls do it.";
+  "Say none of this. Let the walls do it.";
 
-/** Screen order, start to finish. */
+/** Screen order, start to finish (REV 3 names; The Stair kept for dawn). */
 export const SCREEN_ORDER = [
-  "DECK board → dawn preset, let it sit",
-  "Gate image",
+  "DECK board → dawn, let it sit",
+  "THE STAIR board — the descent",
+  "FLOOD GATE board + narration",
   "Nave explorable",
-  "Gallery explorable, board behind",
+  "CORRIDOR board + narration",
   "Bell Well board — only if rung",
   "Cell — dim everything",
   "Door explorable",
@@ -371,10 +370,8 @@ export const SCREEN_ORDER = [
   "ALL SCREENS DARK at 0 HP — paper from there to the end",
 ];
 
-/** What the building says, in order. Never explain it.
- * [P0 REVISION PENDING — was the HOLD/HELD ladder; replacement arrives
- * with today's revised handoff.] */
+/** What the building says, in order (REV 3 final). Never explain it. */
 export const WHAT_IT_SAYS =
-  "[P0 REVISION PENDING] Whose oath it was. What holding cost her, in tally " +
-  "marks. And then the thing that did the holding, wearing her voice. Never " +
-  "explain this. It lands on the drive home.";
+  "Whose oath it was. What holding cost her, in tally marks. The bare arch, " +
+  "the only uncarved stone. And then the thing that did the holding, wearing " +
+  "her voice. Never explain this. It lands on the drive home.";

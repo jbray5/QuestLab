@@ -14,11 +14,11 @@
     "title": "The Stair"
   },
   {
-    "name": "TIDE GATE",
-    "mapName": "The Tide Gate",
+    "name": "FLOOD GATE",
+    "mapName": "The Flood Gate",
     "darkness": 0.25,
     "weather": null,
-    "title": "The Tide Gate"
+    "title": "The Flood Gate"
   },
   {
     "name": "NAVE",
@@ -28,11 +28,11 @@
     "title": "The Drowned Nave"
   },
   {
-    "name": "GALLERY",
-    "mapName": "The Gallery",
+    "name": "CORRIDOR",
+    "mapName": "The Corridor",
     "darkness": 0.3,
     "weather": null,
-    "title": "The Gallery"
+    "title": "The Corridor"
   },
   {
     "name": "BELL WELL",

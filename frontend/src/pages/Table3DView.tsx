@@ -119,16 +119,9 @@ export default function Table3DView() {
   const [soundOn, setSoundOn] = useState(false);
   const map = proj?.map ?? null;
 
-  // Plan 59 / P3 — the DECK sea on the players' screen. Scoped to The
-  // Crossing. Projector-side kill switch: append ?sea=static (or ?sea=off)
-  // to this view's URL — Justin tests both states Thursday.
-  const seaMode = useMemo(() => {
-    const mapName = (proj?.map as { name?: string } | null)?.name ?? "";
-    if (mapName !== "The Crossing") return "off" as const;
-    const forced = new URLSearchParams(window.location.search).get("sea");
-    if (forced === "static" || forced === "off") return forced;
-    return "animated" as const;
-  }, [proj?.map]);
+  // Plan 59 / P3 — the DECK sea. DISABLED 8/5 (DM call): overlaps the hex
+  // grid; no 3D-engine surgery this close to the freeze. Revisit after 8/8.
+  const seaMode = "off" as const;
   const effectiveGrid: GridKind = gridKind ?? (map?.grid_size ? "hex" : "off");
 
   const torchCount = useMemo(

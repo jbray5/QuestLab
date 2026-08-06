@@ -160,10 +160,11 @@ export default function BoardView() {
   }
   const [cinema, setCinema] = useState(false);
   const [followTurn, setFollowTurn] = useState(true);
-  // Plan 59 / P3 — the open ocean beyond the DECK map's edges. Scoped to
-  // The Crossing only; the kill switch swaps animated → static band and
-  // persists per browser (Justin tests both on the projector Thursday).
-  const seaHere = activeMap?.name === "The Crossing";
+  // Plan 59 / P3 — the open ocean beyond the DECK map's edges. DISABLED
+  // 8/5 (DM call): the plane overlaps the hex grid and the toggle didn't
+  // behave; too late to touch the 3D engine before the freeze. Revisit
+  // after 8/8 — flip this constant to re-enable for The Crossing.
+  const seaHere = false as boolean;
   const [seaMode, setSeaModeState] = useState<"animated" | "static">(() =>
     localStorage.getItem("ql-sea-mode") === "static" ? "static" : "animated",
   );

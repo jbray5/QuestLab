@@ -159,7 +159,6 @@
     <div class="seam" style="left:72.5%;top:66.5%"></div>
     <div class="joint" style="left:88%;top:39%" data-panel="kept"></div>
     <button class="spot" style="left:15%;top:48%" data-go="covenant" data-label="the covenant stone"></button>
-    <button class="spot" style="left:43%;top:30%" data-go="glyphs" data-label="the glyph wall"></button>
     <button class="spot" style="left:73%;top:44%" data-go="lantern" data-label="the sealed lantern"></button>
   </div>
   <p class="whisper">The sea holds its breath. It is waiting to see what you do.</p>
@@ -175,36 +174,14 @@
 <template id="tpl-covenant">
   <h2>The Covenant Stone</h2>
   <p class="read">A great tablet, furred with centuries of growth. Beneath the
-  barnacles: names, cut deep in an old formal hand. A list of the sworn.</p>
-  <button class="go solo" data-kind="reveal-once" data-id="covenant">Clear the growth</button>
-  <div class="more" hidden>
-    <p class="read">Most of the names are worn beyond reading. Three survive:</p>
-    <p class="names">ASHMANTLE &middot; DUNMORE &middot; <span class="halfgone">&mdash;ORWALE</span></p>
-    <p class="read">And beneath the names, one line of oath, still sharp:</p>
-    <p class="oath">&ldquo;WHILE THE BRAID HOLDS, SO HOLD WE.&rdquo;</p>
-  </div>
-</template>
-<template id="tpl-glyphs">
-  <h2>The Glyph Wall</h2>
-  <p class="read">Old script covers the wall floor to vanished ceiling &mdash;
-  the same hand as the singing, the same hand as the ship.</p>
-  <div class="wall" aria-label="dense bands of old carved marks">
-    <span class='deep'>&#9776;</span><span>&#9781;</span><span class='deep'>&#8962;</span><span>&#991;</span><span>&#9790;</span><span>&#9638;</span><span>&#9798;</span><span>&#8984;</span><span>&#9776;</span><span class='faint'>&#9781;</span><span class='faint'>&#8962;</span><span class='deep'>&#991;</span><span>&#9790;</span><span class='deep'>&#9638;</span><span>&#9798;</span><span>&#8984;</span><span>&#9776;</span><span>&#9781;</span><span>&#8962;</span><span>&#991;</span><span class='faint'>&#9790;</span><span class='faint'>&#9638;</span><span class='deep'>&#9798;</span><span>&#8984;</span>
-    <span>&#9638;</span><span class='faint'>&#9638;</span><span class='faint'>&#9638;</span><span class='deep'>&#9776;</span><span>&#9776;</span><span class='deep'>&#9776;</span><span>&#991;</span><span>&#991;</span><span>&#991;</span><span>&#9798;</span><span>&#9798;</span><span>&#9798;</span><span class='faint'>&#9781;</span><span class='faint'>&#9781;</span><span class='deep'>&#9781;</span><span>&#9790;</span><span class='deep'>&#9790;</span><span>&#9790;</span><span>&#8984;</span><span>&#8984;</span><span>&#8984;</span><span>&#8962;</span><span>&#8962;</span><span class='faint'>&#8962;</span>
-    <span>&#8962;</span><span>&#9781;</span><span>&#991;</span><span>&#9638;</span><span class='faint'>&#9790;</span><span class='faint'>&#9798;</span><span class='deep'>&#9776;</span><span>&#8984;</span><span class='deep'>&#9781;</span><span>&#991;</span><span>&#8962;</span><span>&#9790;</span><span>&#9798;</span><span>&#9638;</span><span>&#8984;</span><span class='faint'>&#9781;</span><span class='faint'>&#9776;</span><span class='deep'>&#8962;</span><span>&#9790;</span><span class='deep'>&#991;</span><span>&#9638;</span><span>&#8984;</span><span>&#9798;</span><span>&#9776;</span>
-    <span class='deep'>&#8984;</span><span>&#9776;</span><span>&#9781;</span><span>&#8962;</span><span>&#991;</span><span>&#9790;</span><span>&#9638;</span><span class='faint'>&#9798;</span><span class='faint'>&#8984;</span><span class='deep'>&#9776;</span><span>&#9781;</span><span class='deep'>&#8962;</span><span>&#991;</span><span>&#9790;</span><span>&#9638;</span><span>&#9798;</span><span>&#8984;</span><span>&#9776;</span><span class='faint'>&#9781;</span><span class='faint'>&#8962;</span><span class='deep'>&#991;</span><span>&#9790;</span><span class='deep'>&#9638;</span><span>&#9798;</span>
-    <span class='faint'>&#9790;</span><span class='deep'>&#9790;</span><span>&#9790;</span><span class='deep'>&#8984;</span><span>&#8984;</span><span>&#8984;</span><span>&#8962;</span><span>&#8962;</span><span>&#8962;</span><span>&#9638;</span><span class='faint'>&#9638;</span><span class='faint'>&#9638;</span><span class='deep'>&#9776;</span><span>&#9776;</span><span class='deep'>&#9776;</span><span>&#991;</span><span>&#991;</span><span>&#991;</span><span>&#9798;</span><span>&#9798;</span><span>&#9798;</span><span class='faint'>&#9781;</span><span class='faint'>&#9781;</span><span class='deep'>&#9781;</span>
-    <span>&#9781;</span><span>&#9776;</span><span class='faint'>&#8962;</span><span class='faint'>&#9790;</span><span class='deep'>&#991;</span><span>&#9638;</span><span class='deep'>&#8984;</span><span>&#9798;</span><span>&#9776;</span><span>&#8962;</span><span>&#9781;</span><span>&#991;</span><span>&#9638;</span><span class='faint'>&#9790;</span><span class='faint'>&#9798;</span><span class='deep'>&#9776;</span><span>&#8984;</span><span class='deep'>&#9781;</span><span>&#991;</span><span>&#8962;</span><span>&#9790;</span><span>&#9798;</span><span>&#9638;</span><span>&#8984;</span>
-    <span>&#9798;</span><span>&#8984;</span><span>&#9776;</span><span>&#9781;</span><span>&#8962;</span><span class='faint'>&#991;</span><span class='faint'>&#9790;</span><span class='deep'>&#9638;</span><span>&#9798;</span><span class='deep'>&#8984;</span><span>&#9776;</span><span>&#9781;</span><span>&#8962;</span><span>&#991;</span><span>&#9790;</span><span>&#9638;</span><span class='faint'>&#9798;</span><span class='faint'>&#8984;</span><span class='deep'>&#9776;</span><span>&#9781;</span><span class='deep'>&#8962;</span><span>&#991;</span><span>&#9790;</span><span>&#9638;</span>
-    <span>&#991;</span><span class='deep'>&#991;</span><span>&#991;</span><span>&#9798;</span><span>&#9798;</span><span>&#9798;</span><span>&#9781;</span><span>&#9781;</span><span class='faint'>&#9781;</span><span class='faint'>&#9790;</span><span class='deep'>&#9790;</span><span>&#9790;</span><span class='deep'>&#8984;</span><span>&#8984;</span><span>&#8984;</span><span>&#8962;</span><span>&#8962;</span><span>&#8962;</span><span>&#9638;</span><span class='faint'>&#9638;</span><span class='faint'>&#9638;</span><span class='deep'>&#9776;</span><span>&#9776;</span><span class='deep'>&#9776;</span>
-    <span class='faint'>&#9776;</span><span class='faint'>&#8984;</span><span class='deep'>&#9781;</span><span>&#991;</span><span class='deep'>&#8962;</span><span>&#9790;</span><span>&#9798;</span><span>&#9638;</span><span>&#8984;</span><span>&#9781;</span><span>&#9776;</span><span class='faint'>&#8962;</span><span class='faint'>&#9790;</span><span class='deep'>&#991;</span><span>&#9638;</span><span class='deep'>&#8984;</span><span>&#9798;</span><span>&#9776;</span><span>&#8962;</span><span>&#9781;</span><span>&#991;</span><span>&#9638;</span><span class='faint'>&#9790;</span><span class='faint'>&#9798;</span>
-    <span>&#9638;</span><span>&#9798;</span><span>&#8984;</span><span class='faint'>&#9776;</span><span class='faint'>&#9781;</span><span class='deep'>&#8962;</span><span>&#991;</span><span class='deep'>&#9790;</span><span>&#9638;</span><span>&#9798;</span><span>&#8984;</span><span>&#9776;</span><span>&#9781;</span><span>&#8962;</span><span class='faint'>&#991;</span><span class='faint'>&#9790;</span><span class='deep'>&#9638;</span><span>&#9798;</span><span class='deep'>&#8984;</span><span>&#9776;</span><span>&#9781;</span><span>&#8962;</span><span>&#991;</span><span>&#9790;</span>
-    <span>&#8962;</span><span>&#8962;</span><span>&#8962;</span><span>&#9638;</span><span>&#9638;</span><span>&#9638;</span><span class='faint'>&#9776;</span><span class='faint'>&#9776;</span><span class='deep'>&#9776;</span><span>&#991;</span><span class='deep'>&#991;</span><span>&#991;</span><span>&#9798;</span><span>&#9798;</span><span>&#9798;</span><span>&#9781;</span><span>&#9781;</span><span class='faint'>&#9781;</span><span class='faint'>&#9790;</span><span class='deep'>&#9790;</span><span>&#9790;</span><span class='deep'>&#8984;</span><span>&#8984;</span><span>&#8984;</span>
-    <span class='deep'>&#8984;</span><span>&#9798;</span><span class='deep'>&#9776;</span><span>&#8962;</span><span>&#9781;</span><span>&#991;</span><span>&#9638;</span><span>&#9790;</span><span>&#9798;</span><span class='faint'>&#9776;</span><span class='faint'>&#8984;</span><span class='deep'>&#9781;</span><span>&#991;</span><span class='deep'>&#8962;</span><span>&#9790;</span><span>&#9798;</span><span>&#9638;</span><span>&#8984;</span><span>&#9781;</span><span>&#9776;</span><span class='faint'>&#8962;</span><span class='faint'>&#9790;</span><span class='deep'>&#991;</span><span>&#9638;</span>
-    <span>&#9790;</span><span class='faint'>&#9638;</span><span class='faint'>&#9798;</span><span class='deep'>&#8984;</span><span>&#9776;</span><span class='deep'>&#9781;</span><span>&#8962;</span><span>&#991;</span><span>&#9790;</span><span>&#9638;</span><span>&#9798;</span><span>&#8984;</span><span class='faint'>&#9776;</span><span class='faint'>&#9781;</span><span class='deep'>&#8962;</span><span>&#991;</span><span class='deep'>&#9790;</span><span>&#9638;</span><span>&#9798;</span><span>&#8984;</span><span>&#9776;</span><span>&#9781;</span><span>&#8962;</span><span class='faint'>&#991;</span>
-    <span>&#9781;</span><span>&#9781;</span><span>&#9781;</span><span>&#9790;</span><span class='faint'>&#9790;</span><span class='faint'>&#9790;</span><span class='deep'>&#8984;</span><span>&#8984;</span><span class='deep'>&#8984;</span><span>&#8962;</span><span>&#8962;</span><span>&#8962;</span><span>&#9638;</span><span>&#9638;</span><span>&#9638;</span><span class='faint'>&#9776;</span><span class='faint'>&#9776;</span><span class='deep'>&#9776;</span><span>&#991;</span><span class='deep'>&#991;</span><span>&#991;</span><span>&#9798;</span><span>&#9798;</span><span>&#9798;</span>
-  </div>
-
+  barnacles: a column of carved marks &mdash; house sigils, most worn nearly
+  smooth, all of them dark. And under the marks, one sentence, cut deep and
+  still sharp:</p>
+  <p class="oath">&ldquo;WHILE THE BRAID HOLDS, SO HOLD WE.&rdquo;</p>
+  <button class="go solo" data-kind="touch" data-id="covenant"
+    data-text="The mark drinks. Faint silver wakes in the grooves and holds, steady as a kept flame. Somewhere under your palm, something is glad."
+    data-again="The silver holds. It remembers being touched.">Press a bloodied thumb to a sigil</button>
+  <p class="answer" aria-live="polite"></p>
 </template>
 <template id="tpl-lantern">
   <h2>The Sealed Lantern</h2>
@@ -244,19 +221,6 @@
   }
 
   function wire() {
-    body.querySelectorAll("[data-kind='reveal-once']").forEach((btn) => {
-      const block = btn.parentElement.querySelector(".more");
-      const show = (animate) => {
-        block.hidden = false;
-        if (animate) block.classList.add("swim");
-        btn.remove();
-      };
-      if (spent[btn.dataset.id]) { show(false); return; }
-      btn.addEventListener("click", () => {
-        spent[btn.dataset.id] = true;
-        show(true);
-      });
-    });
     body.querySelectorAll("[data-kind='touch']").forEach((btn) => {
       btn.addEventListener("click", () => {
         const out = btn.parentElement.querySelector(".answer");
