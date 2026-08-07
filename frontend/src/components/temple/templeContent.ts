@@ -214,7 +214,7 @@ export const ROOMS: Room[] = [
       "Explorable: Sealed Lantern. Edrik is NOT a pin — he is behind the joint in the masonry.",
     ],
     readAloud:
-      "The sealed lantern — wickless, dark, wrapped in chains of black that doesn't move like water. Beside it, held like a coat on a hook: Edrik. And between you and both of them, something wearing a woman, beautifully.",
+      "The sealed lantern — wickless, dark, wrapped in ribbons of liquid black that hover just off it, coiling without touching. Beside it, held like a coat on a hook: Edrik. And between you and both of them, something wearing a woman, beautifully.",
     beats: [
       {
         text:
@@ -245,7 +245,7 @@ export const ROOMS: Room[] = [
       { text: "She opened it.", check: "she-opened-it" },
       {
         text:
-          "No Edrik visible. The seam is in the wall right of the chained mass — " +
+          "No Edrik visible. The seam is in the wall right of the lantern dais — " +
           "Perception DC 13, or stand quiet near it and hear breathing, no roll. " +
           "Click it on discovery; they spot it, you confirm it.",
         tone: "roll",
