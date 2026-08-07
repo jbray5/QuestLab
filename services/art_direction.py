@@ -1,12 +1,14 @@
 """Art direction — the single visual voice for every generated image (Plan 54).
 
-The lane: **inked storybook**. Confident hand-inked linework, flat gouache
-colour washes, a muted earthy palette with one warm accent, and an
-aged-paper feel — the tradition of classic tabletop rulebook plates.
-Chosen (owner delegated the call) over photorealism because the glossy,
-over-lit, airbrushed look is exactly what reads as "AI slop"; a flat
-stylized voice is distinctive, hides model artefacts, and stays coherent
-across items, portraits, standees, banners, and backdrops.
+The lane: **oil painting** (owner's call, 2026-08-07). Visible brushwork
+and impasto, layered glazes, real tonal depth, naturalistic materials —
+19th-century romantic painting, not photography. It replaced the earlier
+inked-storybook lane, which read as "animated" beside the Session 5
+explorable scenes.
+
+Still deliberately NOT photoreal: the glossy, over-lit, airbrushed render
+is what reads as "AI slop". Painterly realism keeps the distinctive voice
+while giving materials and light genuine weight.
 
 Every image-prompt builder appends ``HOUSE_STYLE`` (or the transparent-
 asset variant) instead of inventing its own style tail. Change the lane
@@ -15,18 +17,20 @@ here, and the whole product changes together.
 
 # Appended to scene-like images (portraits, banners, item cards, backdrops).
 HOUSE_STYLE = (
-    "Hand-inked storybook illustration in the tradition of classic tabletop "
-    "rulebook plates: confident ink linework, flat gouache colour washes, a "
-    "muted earthy palette with one warm accent colour, subtle aged-paper "
-    "grain, soft matte finish. Absolutely no photorealism, no glossy 3D-render "
-    "look, no neon rim lighting, no airbrushed gradients, no lens effects, "
-    "no depth-of-field blur"
+    "Traditional oil painting on canvas in the tradition of 19th-century "
+    "romantic painting: visible brushwork and impasto texture, layered glazes, "
+    "rich tonal depth, naturalistic forms and believable materials, soft "
+    "atmospheric light, faint canvas weave in the surface. Painterly realism — "
+    "not a photograph, not a 3D render, no digital airbrush gradients, no neon "
+    "rim lighting, no lens flare, no depth-of-field blur, no cartoon outlines, "
+    "no flat vector shapes"
 )
 
 # Variant for transparent cut-out assets (standees, character models) —
 # same voice, plus the isolation requirements those pipelines depend on.
 HOUSE_STYLE_CUTOUT = (
-    "Hand-inked storybook illustration: confident ink linework, flat gouache "
-    "colour washes, muted earthy palette, soft matte finish — no photorealism, "
-    "no glossy 3D-render look, no airbrushed gradients"
+    "Traditional oil painting on canvas: visible brushwork, layered glazes, "
+    "rich tonal depth, naturalistic anatomy and believable materials, soft "
+    "directional light. Painterly realism — not a photograph, not a 3D render, "
+    "no airbrush gradients, no neon rim lighting, no cartoon outlines"
 )

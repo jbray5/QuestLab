@@ -361,6 +361,21 @@ export default function BoardView() {
 
   async function generateMinifig() {
     if (!selectedToken || !state) return;
+    // Art direction is the DM's, not the model's: whatever is typed here is
+    // appended to the standee prompt. Remembered per token so a re-roll keeps
+    // the description instead of retyping it. Empty = house style only.
+    const hintKey = `ql-figure-hints-${selectedToken.ref_id ?? selectedToken.id}`;
+    const previous = localStorage.getItem(hintKey) ?? "";
+    const hints = window.prompt(
+      `Art direction for "${selectedToken.label}" — appearance, mood, pose, wardrobe.
+` +
+        "Leave blank for the house style alone. Cancel to abort.",
+      previous,
+    );
+    if (hints === null) return;
+    const styleHints = hints.trim();
+    if (styleHints) localStorage.setItem(hintKey, styleHints);
+    else localStorage.removeItem(hintKey);
     setFigureBusy(true);
     try {
       let figureUrl: string | null = null;
@@ -371,13 +386,13 @@ export default function BoardView() {
           : null;
       if (selectedToken.kind === "pc" && selectedToken.ref_id) {
         // Entity-backed: store on the PC so every future session reuses it.
-        const pc = await charactersApi.generateFigure(selectedToken.ref_id);
+        const pc = await charactersApi.generateFigure(selectedToken.ref_id, styleHints || undefined);
         figureUrl = pc.figure_url;
         matches = (t) => t.ref_id === selectedToken.ref_id;
         void qc.invalidateQueries({ queryKey: ["characters", campaignId] });
       } else if (linkedMonsterId) {
         // Entity-backed: every token whose combatant shares this stat block.
-        const m = await monstersApi.generateFigure(linkedMonsterId);
+        const m = await monstersApi.generateFigure(linkedMonsterId, styleHints || undefined);
         figureUrl = m.figure_url;
         matches = (t) => {
           const c = t.ref_id ? combatantByRef.get(t.ref_id) : undefined;
@@ -388,7 +403,9 @@ export default function BoardView() {
         // label and write onto this token only.
         const res = await tableApi.generateTokenFigure(
           sessionId!,
-          selectedToken.label || "mysterious fantasy creature",
+          [selectedToken.label || "mysterious fantasy creature", styleHints]
+            .filter(Boolean)
+            .join(". "),
         );
         figureUrl = res.url;
         matches = (t) => t.id === selectedToken.id;
@@ -1039,7 +1056,7 @@ export default function BoardView() {
               style={{ fontSize: "0.72rem" }}
               onClick={() => void generateMinifig()}
               disabled={figureBusy || !selectedToken || selectedToken.kind === "light"}
-              title="AI-generate a full-body standee for the selected token (~30s). Linked tokens store it on the character/monster; unlinked ones generate from the label."
+              title="AI-generate a full-body standee for the selected token (~30s). You are asked for art direction first, and it is remembered for re-rolls."
             >
               {figureBusy ? "🧍 Generating…" : "🧍 Minifig"}
             </button>
