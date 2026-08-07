@@ -4,6 +4,10 @@ import { Link, useParams } from "react-router-dom";
 
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
+import {
+  EXPLORABLE as EXPLORABLE_TEMPLE,
+  HELD_DOOR as EXPLORABLE_HELD_DOOR,
+} from "../components/temple/templeContent";
 import { monstersApi } from "../api/monsters";
 import { sessionsApi } from "../api/sessions";
 import { tableApi } from "../api/table";
@@ -783,6 +787,31 @@ export default function BoardView() {
             }}
           />
         </label>
+
+        {/* Explorable panels — the DM's remote for the second screen. This is
+            the DM board only; the players' /table view never renders it, and
+            the two hidden hotspots are deliberately absent (they are found by
+            clicking the art, never by a link). */}
+        <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 4px" }} />
+        <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>PANELS</span>
+        {[
+          ["🕯 Covenant Stone", `${EXPLORABLE_TEMPLE}#covenant`, "Nave — the tablet"],
+          ["🕯 Sealed Lantern", `${EXPLORABLE_TEMPLE}#lantern`, "Heart — the lantern"],
+          ["🚪 The Door", `${EXPLORABLE_HELD_DOOR}#door`, "Held Door — the standing water"],
+          ["🚪 Four Stations", `${EXPLORABLE_HELD_DOOR}#stations`, "Held Door — the crowned posts"],
+        ].map(([label, href, tip]) => (
+          <a
+            key={href}
+            className="btn btn-ghost"
+            style={{ fontSize: "0.72rem", padding: "0.12rem 0.55rem", textDecoration: "none" }}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            title={`${tip} — opens in a new tab`}
+          >
+            {label}
+          </a>
+        ))}
 
         <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 4px" }} />
         <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>CAST</span>
