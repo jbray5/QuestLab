@@ -182,3 +182,28 @@ class TestGenerateBackdrop:
 
         assert projection.map is not None
         assert projection.map.backdrop_url == updated.backdrop_url
+
+
+def test_update_can_change_dimensions(duckdb_session):
+    """An art swap may change aspect ratio; width/height must be patchable.
+
+    Regression: BattleMapUpdate had no width/height, so re-pointing The
+    Crossing to a portrait ship's deck silently kept the old landscape
+    dimensions and the board stretched the new art (2026-08-07).
+    """
+    import services.battle_map_service as bms
+    import services.campaign_service as camp_svc
+    from domain.battle_map import BattleMapCreate, BattleMapUpdate
+
+    dm = f"dm-{uuid.uuid4().hex[:8]}@example.com"
+    camp = camp_svc.create_campaign(duckdb_session, name="C", setting="S", tone="T", dm_email=dm)
+    m = bms.create_map(
+        duckdb_session,
+        camp.id,
+        dm,
+        BattleMapCreate(name="Deck", image_url="https://x/a.png", width=1536, height=1024),
+    )
+    out = bms.update_map(
+        duckdb_session, m.id, dm, BattleMapUpdate(width=1024, height=1536, grid_size=128)
+    )
+    assert (out.width, out.height, out.grid_size) == (1024, 1536, 128)

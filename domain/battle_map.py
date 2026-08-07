@@ -77,6 +77,11 @@ class BattleMapUpdate(BaseModel):
     # Re-point the map art (e.g. an orthographic regeneration) without losing
     # the row — sessions, tokens, and backdrop stay attached.
     image_url: Optional[str] = PydField(default=None, min_length=1, max_length=1000)
+    # An art swap can change the aspect ratio (a landscape room repainted as a
+    # portrait ship's deck). Without these the row keeps the old dimensions and
+    # the board stretches the new art onto the old plane.
+    width: Optional[int] = PydField(default=None, ge=1, le=20000)
+    height: Optional[int] = PydField(default=None, ge=1, le=20000)
     grid_size: Optional[int] = PydField(default=None, ge=8, le=1000)
     regions: Optional[list[FogRegion]] = None
     backdrop_url: Optional[str] = PydField(default=None, max_length=1000)
