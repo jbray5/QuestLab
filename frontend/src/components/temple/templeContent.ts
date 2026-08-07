@@ -10,8 +10,16 @@
  * DM-only content. This page is never player-visible.
  */
 
-/** The published player explorable; hashes open a specific panel. */
-export const EXPLORABLE = "https://claude.ai/code/artifact/51e93716-00cd-418e-8770-c526d816f4dd";
+/**
+ * Player explorables — ONE PAGE PER ROOM. They were one combined page until
+ * 8/6; that put the Nave's covenant stone and the Heart's lantern in the same
+ * room, and worse, put the hidden Edrik seam on a page the party opens three
+ * rooms early. Split so each page shows only what is actually in that room.
+ */
+export const EXPLORABLE_NAVE =
+  "https://claude.ai/code/artifact/ba7fa675-2d77-4e25-87c2-fed771a5f899";
+export const EXPLORABLE_HEART =
+  "https://claude.ai/code/artifact/51e93716-00cd-418e-8770-c526d816f4dd";
 
 /**
  * The Held Door (Amendment 1) — the last door before the Heart. Its own
@@ -108,7 +116,7 @@ export const ROOMS: Room[] = [
       },
       { text: "Stone touched.", check: "stone-read" },
     ],
-    links: [{ label: "open explorable → Covenant Stone", href: `${EXPLORABLE}#covenant` }],
+    links: [{ label: "open → the Nave: Covenant Stone", href: `${EXPLORABLE_NAVE}#covenant` }],
   },
   {
     id: "gallery",
@@ -211,7 +219,7 @@ export const ROOMS: Room[] = [
     player: [
       "FIRST — the Held Door: the way in. Four stations, and the word over the arch.",
       "Scene: 'The Drowned Temple' (battle map, 5-ft grid, four hazard zones ready to reveal).",
-      "Explorable: Sealed Lantern. Edrik is NOT a pin — he is behind the joint in the masonry.",
+      "Explorable: the HEART page — Sealed Lantern. Edrik is NOT a pin; he is behind the joint in the wall right of the dais.",
     ],
     readAloud:
       "The sealed lantern — wickless, dark, wrapped in ribbons of liquid black that hover just off it, coiling without touching. Beside it, held like a coat on a hook: Edrik. And between you and both of them, something wearing a woman, beautifully.",
@@ -276,7 +284,7 @@ export const ROOMS: Room[] = [
     links: [
       { label: "open → The Held Door", href: HELD_DOOR },
       { label: "→ the four stations", href: `${HELD_DOOR}#stations` },
-      { label: "open explorable → Sealed Lantern", href: `${EXPLORABLE}#lantern` },
+      { label: "open → the Heart: Sealed Lantern", href: `${EXPLORABLE_HEART}#lantern` },
     ],
   },
 ];

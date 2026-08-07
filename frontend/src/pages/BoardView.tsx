@@ -5,7 +5,8 @@ import { Link, useParams } from "react-router-dom";
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
 import {
-  EXPLORABLE as EXPLORABLE_TEMPLE,
+  EXPLORABLE_HEART,
+  EXPLORABLE_NAVE,
   HELD_DOOR as EXPLORABLE_HELD_DOOR,
 } from "../components/temple/templeContent";
 import { monstersApi } from "../api/monsters";
@@ -795,8 +796,8 @@ export default function BoardView() {
         <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 4px" }} />
         <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>PANELS</span>
         {[
-          ["🕯 Covenant Stone", `${EXPLORABLE_TEMPLE}#covenant`, "Nave — the tablet"],
-          ["🕯 Sealed Lantern", `${EXPLORABLE_TEMPLE}#lantern`, "Heart — the lantern"],
+          ["🪨 Nave: Covenant", `${EXPLORABLE_NAVE}#covenant`, "The Nave — the tablet"],
+          ["🕯 Heart: Lantern", `${EXPLORABLE_HEART}#lantern`, "The Heart — the sealed lantern"],
           ["🚪 The Door", `${EXPLORABLE_HELD_DOOR}#door`, "Held Door — the standing water"],
           ["🚪 Four Stations", `${EXPLORABLE_HELD_DOOR}#stations`, "Held Door — the crowned posts"],
         ].map(([label, href, tip]) => (
