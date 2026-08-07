@@ -279,14 +279,18 @@ class TestPromptBuilder:
     """Direct exercise of the internal prompt builders for fast feedback."""
 
     def test_pc_prompt_includes_default_style(self, duckdb_session: Session):
-        """The house art style (Plan 54: inked storybook) is always in the prompt."""
+        """The house art style is always in the prompt.
+
+        Asserts against the constant rather than a hard-coded phrase — the
+        lane moved from inked storybook to oil painting on 2026-08-07, and a
+        literal here just breaks the next time it moves.
+        """
         from services.art_direction import HOUSE_STYLE
 
         dm = _dm()
         c = _campaign(duckdb_session, dm)
         pc = _pc(duckdb_session, c.id, dm)
         prompt = portrait_svc._build_pc_prompt(pc, None)
-        assert "storybook illustration" in prompt
         assert HOUSE_STYLE.rstrip(".") in prompt
 
     def test_npc_prompt_handles_missing_fields(self, duckdb_session: Session):
