@@ -289,8 +289,26 @@ export default function BoardView() {
       }));
     if (fresh.length) {
       patchTokens([...state.tokens, ...fresh]);
-    } else {
-      window.alert(`All ${party.length} party member(s) are already on the board.`);
+    } else if (
+      window.confirm(
+        `All ${party.length} party member(s) are on the board.
+
+` +
+          "Re-form them in a rank at the near edge of this map?",
+      )
+    ) {
+      let seat = 0;
+      patchTokens(
+        state.tokens.map((t) =>
+          t.kind === "pc"
+            ? {
+                ...t,
+                x: activeMap.width * (0.5 + (seat++ - 1.5) * 0.11),
+                y: activeMap.height * 0.82,
+              }
+            : t,
+        ),
+      );
     }
   }
 
@@ -553,6 +571,33 @@ export default function BoardView() {
     };
     applyLocal(patch);
     void tableApi.updateState(sessionId!, patch);
+
+    // Carry the board across with the scene. Without this the party keeps
+    // the previous map's pixel coordinates and lands off the new one.
+    const from = activeMap;
+    const to = p.mapId ? maps.find((m) => m.id === p.mapId) : null;
+    if (!to || !state || state.tokens.length === 0) return;
+    if (from && from.id === to.id) return;
+    const sx = from ? to.width / from.width : 1;
+    const sy = from ? to.height / from.height : 1;
+    let pcSeat = 0;
+    const moved = state.tokens.map((t) => {
+      if (t.kind === "pc") {
+        // Re-form at the near edge, in a tidy rank, in party order.
+        const seat = pcSeat++;
+        return {
+          ...t,
+          x: to.width * (0.5 + (seat - 1.5) * 0.11),
+          y: to.height * 0.82,
+        };
+      }
+      return {
+        ...t,
+        x: Math.min(to.width * 0.97, Math.max(to.width * 0.03, t.x * sx)),
+        y: Math.min(to.height * 0.97, Math.max(to.height * 0.03, t.y * sy)),
+      };
+    });
+    patchTokens(moved);
   }
 
   function saveCurrentScene() {
