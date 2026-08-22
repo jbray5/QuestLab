@@ -132,9 +132,11 @@ CLASS_FEATURES_2024: list[ClassFeatureCreate] = [
         character_class=CharacterClass.PALADIN,
         level_acquired=3,
         recovery=RecoveryType.SHORT,
-        uses_formula=UsesFormula.FIXED_1,  # 2 at L11, 3 at L17
+        uses_formula=UsesFormula.FIXED_2,  # 2024 PHB: 2 uses at L3, 3 at L11
         description=(
-            "Use one of your subclass's Channel Divinity options. Recharges on short or long rest."
+            "Use Divine Sense (Bonus Action: detect Celestials, Fiends, and Undead within "
+            "60 ft for 10 minutes) or one of your subclass's Channel Divinity options. "
+            "2024 RAW: regain one use on a short rest, all uses on a long rest."
         ),
     ),
     # ── Ranger ───────────────────────────────────────────────────────────
