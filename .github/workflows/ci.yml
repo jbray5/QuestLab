@@ -53,7 +53,19 @@ jobs:
           AUTH_EMAIL_HEADER: X-MS-CLIENT-PRINCIPAL-NAME
           BOOTSTRAP_ADMIN_EMAILS: ci@questlab.test
           LOG_LEVEL: WARNING
-        run: pytest -q --tb=short
+        # On failure, surface the tail of the output as an ::error::
+        # annotation — annotations are readable via the public API, the raw
+        # step log is not (2026-08-22: a conftest-level failure was
+        # undiagnosable from outside the dashboard).
+        run: |
+          set +e
+          pytest -q --tb=short 2>&1 | tee pytest-out.txt
+          code=${PIPESTATUS[0]}
+          if [ "$code" -ne 0 ]; then
+            msg=$(tail -c 900 pytest-out.txt | tr '\n' '¶')
+            echo "::error title=pytest exit ${code}::${msg}"
+          fi
+          exit $code
 
   frontend:
     name: Frontend Build
