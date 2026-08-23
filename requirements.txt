@@ -10,6 +10,10 @@ duckdb-engine>=0.13
 pydantic>=2.7
 anthropic>=0.28
 openai>=1.50
+# Direct dependency (integrations/blob_storage.py, scripts, TestClient). Was
+# only ever pulled in transitively; a dep dropped it ~2026-08 (httpx2
+# migration) and CI + Render both broke on ModuleNotFoundError (2026-08-22).
+httpx>=0.27
 python-dotenv>=1.0
 # Security pin — msgpack <1.2.1 has GHSA-6v7p-g79w-8964 (transitive dep). Plan 00041.
 msgpack>=1.2.1

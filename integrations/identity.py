@@ -14,8 +14,6 @@ Raises:
 
 import os
 
-import streamlit as st
-
 
 def get_current_user_email() -> str:
     """Resolve the authenticated user's email from the request context.
@@ -56,9 +54,15 @@ def _extract_from_headers(header_name: str) -> str | None:
         Header value string, or ``None`` if not present.
     """
     try:
+        # Lazy import: this is the legacy Streamlit adapter. The FastAPI app
+        # resolves identity from the request itself (api/deps) and must not
+        # require streamlit — or any of its dependency tree — to start.
+        import streamlit as st
+
         headers = st.context.headers
         # Streamlit headers dict is case-insensitive
         return headers.get(header_name) or None
-    except AttributeError:
-        # st.context not available (e.g., running outside Streamlit in tests)
+    except (ImportError, AttributeError):
+        # streamlit absent, or st.context unavailable (running outside
+        # Streamlit — the FastAPI path and tests).
         return None
