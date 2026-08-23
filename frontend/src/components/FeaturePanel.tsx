@@ -19,8 +19,15 @@ interface Props {
 const RECOVERY_COLOR: Record<string, string> = {
   short: "#64b5f6",
   long: "#a78bfa",
+  short_one: "#64b5f6",
   none: "var(--muted)",
   per_turn: "var(--gold)",
+};
+
+/** Compact badge text — "short +1" = regain one use per short rest (2024). */
+const RECOVERY_LABEL: Record<string, string> = {
+  none: "—",
+  short_one: "short +1",
 };
 
 /**
@@ -200,7 +207,7 @@ export default function FeaturePanel({
             textAlign: "right",
           }}
         >
-          {row.recovery === "none" ? "—" : row.recovery}
+          {RECOVERY_LABEL[row.recovery] ?? row.recovery}
         </span>
 
         <button
@@ -350,7 +357,7 @@ export default function FeaturePanel({
                         textTransform: "uppercase",
                       }}
                     >
-                      {f.recovery === "none" ? "passive" : f.recovery}
+                      {f.recovery === "none" ? "passive" : RECOVERY_LABEL[f.recovery] ?? f.recovery}
                     </span>
                   </button>
                 ))}

@@ -188,6 +188,9 @@ class RecoveryType(str, Enum):
 
     SHORT = "short"
     LONG = "long"
+    # 2024 PHB pattern (Second Wind, Channel Divinity): regain ONE expended
+    # use on a short rest, ALL expended uses on a long rest.
+    SHORT_ONE = "short_one"
     NONE = "none"
     PER_TURN = "per_turn"
 

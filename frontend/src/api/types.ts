@@ -673,7 +673,7 @@ export interface SpellSlotStateRead {
 
 // ── Class features + rest (Plan 00021) ──────────────────────────────────────
 
-export type RecoveryType = "short" | "long" | "none" | "per_turn";
+export type RecoveryType = "short" | "long" | "short_one" | "none" | "per_turn";
 
 export interface ClassFeature {
   id: string;

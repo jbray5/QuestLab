@@ -1378,7 +1378,9 @@ function FeaturesBlock({
         return (
           <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <span style={{ flex: 1, fontWeight: 600 }}>{f.feature_name}</span>
-            <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>{f.recovery}</span>
+            <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
+              {f.recovery === "short_one" ? "short +1" : f.recovery}
+            </span>
             <div style={{ display: "flex", gap: "0.25rem" }}>
               {Array.from({ length: Math.max(1, f.max_uses) }).map((_, i) => {
                 const filled = i < remaining;

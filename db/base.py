@@ -204,13 +204,19 @@ def patch_duckdb_schema() -> None:
         # 0030 — hidden shops + non-gold costs (Plan 47)
         "ALTER TABLE shops ADD COLUMN IF NOT EXISTS hidden BOOLEAN DEFAULT FALSE",
         "ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS cost_text VARCHAR(200)",
-        # 0035 — Paladin Channel Divinity: 2 uses at L3 per the 2024 PHB.
+        # 0035 — 2024 PHB recovery numbers (Paladin CD 2 uses; the
+        # regain-one-on-short-rest pattern for CD + Second Wind).
         # seed_catalog() only fires on an empty table, so already-seeded
         # DuckDB files need the same data fix the Alembic migration applies.
         (
             "UPDATE class_features SET uses_formula = 'FIXED_2' "
             "WHERE name = 'Channel Divinity (Paladin)' "
             "AND character_class = 'PALADIN' AND uses_formula = 'FIXED_1'"
+        ),
+        (
+            "UPDATE class_features SET recovery = 'SHORT_ONE' "
+            "WHERE recovery = 'SHORT' AND name IN "
+            "('Channel Divinity (Paladin)', 'Channel Divinity', 'Second Wind')"
         ),
     ]
     with engine.begin() as conn:

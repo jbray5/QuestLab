@@ -80,6 +80,34 @@ def _reset_features(db: Session, character_id: uuid.UUID, recovery: RecoveryType
     return restored
 
 
+def _regain_one_short_one(db: Session, character_id: uuid.UUID) -> list[str]:
+    """Give back ONE spent use for every ``recovery=SHORT_ONE`` feature.
+
+    The 2024 PHB pattern (Second Wind, Channel Divinity): a short rest
+    returns one expended use; only a long rest returns them all.
+
+    Args:
+        db: Active database session.
+        character_id: UUID of the PC.
+
+    Returns:
+        List of feature names that regained a use (had uses_spent > 0).
+    """
+    rows = CharacterFeatureRepo.list_for_character(db, character_id)
+    restored: list[str] = []
+    for row in rows:
+        feature = ClassFeatureRepo.get_by_id(db, row.feature_id)
+        if feature is None or feature.recovery != RecoveryType.SHORT_ONE:
+            continue
+        if row.uses_spent > 0:
+            row.uses_spent -= 1
+            db.add(row)
+            restored.append(feature.name)
+    if restored:
+        db.commit()
+    return restored
+
+
 def short_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSummary:
     """Apply a short rest to one PC.
 
@@ -96,6 +124,7 @@ def short_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSu
     """
     pc = _assert_pc_owner(db, character_id, dm_email)
     restored = _reset_features(db, character_id, RecoveryType.SHORT)
+    restored += _regain_one_short_one(db, character_id)
 
     slot_levels_restored: list[str] = []
     if pc.character_class == CharacterClass.WARLOCK:
@@ -136,8 +165,9 @@ def long_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSum
     pc = _assert_pc_owner(db, character_id, dm_email)
 
     short_features = _reset_features(db, character_id, RecoveryType.SHORT)
+    short_one_features = _reset_features(db, character_id, RecoveryType.SHORT_ONE)
     long_features = _reset_features(db, character_id, RecoveryType.LONG)
-    restored_features = short_features + long_features
+    restored_features = short_features + short_one_features + long_features
 
     # Slots: zero everything.
     before = spellcasting_service.slot_state(db, character_id, dm_email)

@@ -54,11 +54,11 @@ CLASS_FEATURES_2024: list[ClassFeatureCreate] = [
         name="Channel Divinity",
         character_class=CharacterClass.CLERIC,
         level_acquired=2,
-        recovery=RecoveryType.SHORT,
+        recovery=RecoveryType.SHORT_ONE,
         uses_formula=UsesFormula.PROF_BONUS,
         description=(
             "Use a Channel Divinity option (Turn Undead at L2; others granted by subclass). "
-            "Uses recharge on short or long rest."
+            "2024 RAW: regain one use on a short rest, all uses on a long rest."
         ),
     ),
     # ── Druid ────────────────────────────────────────────────────────────
@@ -78,11 +78,11 @@ CLASS_FEATURES_2024: list[ClassFeatureCreate] = [
         name="Second Wind",
         character_class=CharacterClass.FIGHTER,
         level_acquired=1,
-        recovery=RecoveryType.SHORT,
+        recovery=RecoveryType.SHORT_ONE,
         uses_formula=UsesFormula.FIXED_2,  # 2 at L1, 3 at L10, 4 at L17
         description=(
-            "Bonus action: regain Hit Points equal to 1d10 + Fighter level. Two uses, recharging "
-            "on short or long rest."
+            "Bonus action: regain Hit Points equal to 1d10 + Fighter level. Two uses. "
+            "2024 RAW: regain one use on a short rest, all uses on a long rest."
         ),
     ),
     ClassFeatureCreate(
@@ -131,7 +131,7 @@ CLASS_FEATURES_2024: list[ClassFeatureCreate] = [
         name="Channel Divinity (Paladin)",
         character_class=CharacterClass.PALADIN,
         level_acquired=3,
-        recovery=RecoveryType.SHORT,
+        recovery=RecoveryType.SHORT_ONE,
         uses_formula=UsesFormula.FIXED_2,  # 2024 PHB: 2 uses at L3, 3 at L11
         description=(
             "Use Divine Sense (Bonus Action: detect Celestials, Fiends, and Undead within "

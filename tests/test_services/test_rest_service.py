@@ -145,6 +145,39 @@ class TestShortRestPc:
         assert by_name["Action Surge"].uses_spent == 0
         assert by_name["Indomitable"].uses_spent == 1  # untouched
 
+    def test_short_one_regains_exactly_one_use(self, duckdb_session: Session):
+        """2024 pattern: Channel Divinity regains ONE use per short rest."""
+        dm = _dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm, character_class=CharacterClass.PALADIN)
+        cd = _feature(
+            duckdb_session,
+            name="Channel Divinity (Paladin)",
+            character_class=CharacterClass.PALADIN,
+            recovery=RecoveryType.SHORT_ONE,
+            uses_formula=UsesFormula.FIXED_2,
+        )
+        row = feat_svc.learn_feature(
+            duckdb_session, pc.id, CharacterFeatureCreate(feature_id=cd.id), dm
+        )
+        feat_svc.spend_use(duckdb_session, row.id, dm)
+        feat_svc.spend_use(duckdb_session, row.id, dm)  # both uses spent
+
+        summary = rest_svc.short_rest_pc(duckdb_session, pc.id, dm)
+
+        assert "Channel Divinity (Paladin)" in summary.features_restored
+        rows = feat_svc.list_for_character(duckdb_session, pc.id, dm)
+        assert rows[0].uses_spent == 1  # one back, not both
+
+        # A second short rest returns the last one.
+        rest_svc.short_rest_pc(duckdb_session, pc.id, dm)
+        rows = feat_svc.list_for_character(duckdb_session, pc.id, dm)
+        assert rows[0].uses_spent == 0
+
+        # A third short rest has nothing to give back.
+        summary3 = rest_svc.short_rest_pc(duckdb_session, pc.id, dm)
+        assert summary3.features_restored == []
+
     def test_short_rest_does_not_restore_hp(self, duckdb_session: Session):
         """HP is not part of a short rest in 2024 (hit dice spend is deferred)."""
         dm = _dm()
@@ -214,6 +247,30 @@ class TestLongRestPc:
 
         assert summary.rest_type == "long"
         assert set(summary.features_restored) == {"Action Surge", "Indomitable"}
+
+    def test_long_rest_fully_restores_short_one(self, duckdb_session: Session):
+        """Long rest returns ALL uses of a SHORT_ONE feature at once."""
+        dm = _dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm, character_class=CharacterClass.PALADIN)
+        cd = _feature(
+            duckdb_session,
+            name="Channel Divinity (Paladin)",
+            character_class=CharacterClass.PALADIN,
+            recovery=RecoveryType.SHORT_ONE,
+            uses_formula=UsesFormula.FIXED_2,
+        )
+        row = feat_svc.learn_feature(
+            duckdb_session, pc.id, CharacterFeatureCreate(feature_id=cd.id), dm
+        )
+        feat_svc.spend_use(duckdb_session, row.id, dm)
+        feat_svc.spend_use(duckdb_session, row.id, dm)
+
+        summary = rest_svc.long_rest_pc(duckdb_session, pc.id, dm)
+
+        assert "Channel Divinity (Paladin)" in summary.features_restored
+        rows = feat_svc.list_for_character(duckdb_session, pc.id, dm)
+        assert rows[0].uses_spent == 0
 
     def test_restores_hp_to_max(self, duckdb_session: Session):
         """HP returns to hp_max; hp_restored reports the delta."""
