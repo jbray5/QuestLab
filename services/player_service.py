@@ -481,8 +481,10 @@ def list_gear(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
 
     Returns:
         One dict per inventory row: ids, name/type/rarity/image from the
-        catalog, quantity/equipped/attuned from the row, plus the derived
-        paper-doll ``slot`` (None for carried, non-equippable items).
+        catalog, quantity/equipped/attuned/notes from the row, the item's
+        detail fields (description, value, weapon stats) for the tap-to-
+        inspect panel, plus the derived paper-doll ``slot`` (None for
+        carried, non-equippable items).
     """
     from db.repos.item_repo import ItemRepo
     from services import inventory_service
@@ -504,9 +506,22 @@ def list_gear(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
                 "description": item.description,
                 "image_url": item.image_url,
                 "is_magic": item.is_magic,
+                "attunement_required": item.attunement_required,
+                "value_gp": item.value_gp,
+                # Weapon stats (None for non-weapons) — tap-to-inspect panel.
+                "weapon_category": item.weapon_category,
+                "damage_die": item.damage_die,
+                "damage_type": item.damage_type,
+                "weapon_properties": item.weapon_properties,
+                "versatile_damage": item.versatile_damage,
+                "weapon_range": item.weapon_range,
+                "mastery": item.mastery,
                 "quantity": row.quantity,
                 "equipped": row.equipped,
                 "attuned": row.attuned,
+                # Row notes are player-visible by convention (the raw
+                # /play inventory route already returns them).
+                "notes": row.notes,
                 "slot": _equip_slot(item.item_type, item.name),
                 # What a vendor pays per unit (None = won't buy) — Plan 51.
                 "sell_gp": sell_price_gp(item),

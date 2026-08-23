@@ -1598,6 +1598,62 @@ function TurnWalkthrough({ pc }: { pc: PlayerCharacter }) {
   );
 }
 
+/**
+ * Tap-to-inspect panel for one inventory row: description, weapon stats,
+ * value, magic/attunement — everything the player would ask the DM about.
+ */
+function GearDetail({ g }: { g: GearRow }) {
+  const weaponLine = g.damage_die
+    ? [
+        `${g.damage_die} ${g.damage_type ?? ""}`.trim(),
+        g.versatile_damage ? `Versatile (${g.versatile_damage})` : null,
+        g.weapon_range,
+        g.mastery ? `Mastery: ${g.mastery}` : null,
+        g.weapon_category,
+        ...(g.weapon_properties ?? []).filter(
+          (p) => !/^versatile/i.test(p), // already shown with its damage die
+        ),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
+  const facts = [
+    g.is_magic ? "✨ Magic item" : null,
+    g.attunement_required ? `Attunement required${g.attuned ? " (attuned)" : ""}` : null,
+    g.value_gp > 0 ? `Value ${g.value_gp} gp` : null,
+    g.sell_gp != null ? `Sells for ${g.sell_gp} gp` : null,
+    g.quantity > 1 ? `Quantity ${g.quantity}` : null,
+  ].filter(Boolean);
+  return (
+    <div
+      style={{
+        margin: "0.3rem 0 0.2rem 42px",
+        padding: "0.5rem 0.65rem",
+        background: "var(--surface2)",
+        borderRadius: 6,
+        fontSize: "0.8rem",
+        lineHeight: 1.45,
+      }}
+    >
+      {weaponLine && (
+        <div style={{ fontFamily: "monospace", color: "var(--gold)", marginBottom: g.description || facts.length ? "0.3rem" : 0 }}>
+          ⚔ {weaponLine}
+        </div>
+      )}
+      {g.description && <div style={{ marginBottom: facts.length ? "0.3rem" : 0 }}>{g.description}</div>}
+      {facts.length > 0 && (
+        <div style={{ fontSize: "0.7rem", color: "var(--muted)" }}>{facts.join(" · ")}</div>
+      )}
+      {g.notes && (
+        <div style={{ fontSize: "0.72rem", fontStyle: "italic", marginTop: "0.3rem" }}>{g.notes}</div>
+      )}
+      {!weaponLine && !g.description && facts.length === 0 && !g.notes && (
+        <span style={{ color: "var(--muted)" }}>Nothing remarkable — ask the DM.</span>
+      )}
+    </div>
+  );
+}
+
 function InventoryBlock({ pcId }: { pcId: string }) {
   // Plan 48/50 — the enriched gear view (names, art, slots). Keyed to
   // "play-inventory" so pc.inventory.updated SSE events (purchases, DM
@@ -1612,6 +1668,7 @@ function InventoryBlock({ pcId }: { pcId: string }) {
     queryFn: () => playApi.party(pcId),
   });
   const [usingId, setUsingId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string | null>(null);
 
@@ -1646,7 +1703,13 @@ function InventoryBlock({ pcId }: { pcId: string }) {
   const carried = gear.filter((g) => !g.equipped);
   const row = (g: GearRow) => (
     <div key={g.character_item_id} style={{ padding: "0.3rem 0" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: "0.55rem" }}>
+      <div
+        style={{ display: "flex", alignItems: "center", gap: "0.55rem", cursor: "pointer" }}
+        title="Tap for details"
+        onClick={() =>
+          setDetailId((cur) => (cur === g.character_item_id ? null : g.character_item_id))
+        }
+      >
         {g.image_url ? (
           <img
             src={g.image_url}
@@ -1675,12 +1738,28 @@ function InventoryBlock({ pcId }: { pcId: string }) {
             className="btn btn-ghost"
             style={{ fontSize: "0.7rem", flex: "none" }}
             disabled={busy}
-            onClick={() => setUsingId((cur) => (cur === g.character_item_id ? null : g.character_item_id))}
+            onClick={(e) => {
+              e.stopPropagation();
+              setUsingId((cur) => (cur === g.character_item_id ? null : g.character_item_id));
+            }}
           >
             🧪 Use
           </button>
         ) : null}
+        <span
+          aria-hidden
+          style={{
+            fontSize: "0.6rem",
+            color: "var(--muted)",
+            flex: "none",
+            transform: detailId === g.character_item_id ? "rotate(90deg)" : "none",
+            transition: "transform 0.15s",
+          }}
+        >
+          ▶
+        </span>
       </div>
+      {detailId === g.character_item_id && <GearDetail g={g} />}
       {usingId === g.character_item_id && (
         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.3rem", marginLeft: 42 }}>
           <button className="btn btn-primary" style={{ fontSize: "0.7rem" }} disabled={busy} onClick={() => void applyItem(g)}>

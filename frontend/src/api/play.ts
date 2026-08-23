@@ -175,9 +175,22 @@ export interface GearRow {
   description: string | null;
   image_url: string | null;
   is_magic: boolean;
+  attunement_required: boolean;
+  /** Catalog list price in gold. */
+  value_gp: number;
+  /** Weapon stats — null for non-weapons. */
+  weapon_category: string | null;
+  damage_die: string | null;
+  damage_type: string | null;
+  weapon_properties: string[] | null;
+  versatile_damage: string | null;
+  weapon_range: string | null;
+  mastery: string | null;
   quantity: number;
   equipped: boolean;
   attuned: boolean;
+  /** Row notes (player-visible). */
+  notes: string | null;
   /** Paper-doll slot, or null for carried, non-equippable items. */
   slot: string | null;
   /** What a vendor pays per unit, or null if unsellable (Plan 51). */

@@ -82,6 +82,11 @@ class TestGearAndAppearance:
         assert gear[0]["item_type"] == "Weapon"
         assert gear[0]["equipped"] is False
         assert gear[0]["slot"] == "main_hand"
+        # Tap-to-inspect fields ride along for the player detail panel.
+        assert gear[0]["value_gp"] == 15
+        assert gear[0]["attunement_required"] is False
+        assert gear[0]["notes"] is None
+        assert "damage_die" in gear[0] and "weapon_properties" in gear[0]
 
     def test_player_equips_own_row(self, duckdb_session: Session):
         """Equipping via the player scope flips the flag."""
