@@ -593,6 +593,8 @@ function HeaderBanner({
         {pc.heroic_inspiration && <BigChip label="Insp" value="●" accent="var(--gold)" />}
       </div>
 
+      <AbilityStrip pc={pc} />
+
       {spellStats?.ability && (
         <div style={spellLineStyle}>
           <strong style={{ color: "var(--gold)" }}>SPELLCASTING</strong>{" "}
@@ -601,6 +603,61 @@ function HeaderBanner({
           {spellStats.attack_bonus}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Always-visible ability-modifier strip (2024 sheets lead with the mod).
+ * The modifier is the number players actually add — hit-die rolls (CON),
+ * raw checks the DM calls for, etc. The score sits underneath, small.
+ */
+function AbilityStrip({ pc }: { pc: PlayerCharacter }) {
+  const abilities: Array<[string, number]> = [
+    ["STR", pc.score_str],
+    ["DEX", pc.score_dex],
+    ["CON", pc.score_con],
+    ["INT", pc.score_int],
+    ["WIS", pc.score_wis],
+    ["CHA", pc.score_cha],
+  ];
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(6, 1fr)",
+        gap: "0.3rem",
+        marginTop: "0.5rem",
+      }}
+    >
+      {abilities.map(([ab, score]) => (
+        <div
+          key={ab}
+          title={`${ab} ${score} — add ${fmt(mod(score))} to ${ab} checks`}
+          style={{
+            textAlign: "center",
+            background: "var(--surface2)",
+            borderRadius: 6,
+            padding: "0.25rem 0.1rem",
+          }}
+        >
+          <div style={{ fontSize: "0.6rem", letterSpacing: "0.08em", color: "var(--muted)" }}>
+            {ab}
+          </div>
+          <div
+            style={{
+              fontFamily: "monospace",
+              fontWeight: 700,
+              color: "var(--gold)",
+              fontSize: "1rem",
+              lineHeight: 1.15,
+            }}
+          >
+            {fmt(mod(score))}
+          </div>
+          <div style={{ fontSize: "0.62rem", color: "var(--muted)" }}>{score}</div>
+        </div>
+      ))}
     </div>
   );
 }
