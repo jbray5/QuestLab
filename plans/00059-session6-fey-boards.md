@@ -1,7 +1,7 @@
 # Plan 00059 — Session 6 Fey Boards + Restwater Companion
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
 
 **Started:** 2026-08-22
 **Last updated:** 2026-08-22
@@ -31,8 +31,8 @@ Handoff ground rules: invent NO lore/names/labels; leave gaps empty.
 - [x] Step 2: companion built — `components/restwater/{restwaterContent,restwaterCss}.ts`, `pages/RestwaterCompanion.tsx`, route `/campaigns/:id/restwater`, nav "♨ Restwater Companion" (2026-08-22)
 - [x] Step 3: `scripts/seed_session6_boards.py` written; dry-run clean (session 6 "Into the Fey" already existed) (2026-08-22)
 - [x] Step 4: `campaigns/session-06-scenes.json` — 4 presets, titles EMPTY (2026-08-22)
-- [x] Step 5: live seed run — boards uploaded; token tray generation kicked off (2026-08-22, verify output)
-- [ ] Step 6: gate (tsc ✓, vite build ✓; pytest/lint + commit pending)
+- [x] Step 5: live seed VERIFIED — 4 maps in library (1536×1024, grid 64); 17 unlabeled figure tokens on the session-6 table, all with art (2026-08-22)
+- [x] Step 6: gate green (tsc, vite build, 726 pytest, lint) — committed `024599a` (2026-08-22)
 
 ---
 
