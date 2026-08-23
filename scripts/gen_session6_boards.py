@@ -29,17 +29,21 @@ OUT_DIR = _ROOT / "data" / "generated-maps"
 BOARDS = {
     "restwater": (
         "Restwater",
-        "a fey bathhouse built into a green hillside, STRICT TOP-DOWN: a central main "
-        "hall of pale timber and cedar with a large ornate standing water clock near its "
-        "middle; three or four terraced open-air soaking pools stepping down the hillside "
-        "outside the hall, steaming turquoise water; three or four small guest rooms "
-        "opening off the hall, each with a clear doorway gap in its walls; a front gate "
-        "at one end; wide clear doorway openings connecting hall, rooms, and pool "
-        "terraces; lit paper lanterns in daytime, drifting steam wisps; warm golden "
-        "inviting light, immaculately clean; AND, inset along the bottom edge of the map "
-        "separated by a thick band of solid dark rock, a small separate stone chamber "
-        "directly beneath the main pool containing a large shut sluice gate mechanism of "
-        "stone and timber with a wheel, a narrow water channel leading from it",
+        "the floor plan of a luxurious fey bathhouse, STRICT TOP-DOWN, the building and "
+        "its pool terraces FILLING THE FRAME: on the left half, a large central main hall "
+        "of pale honey-colored timber with clearly drawn interior walls dividing off three "
+        "or four small guest rooms, each guest room furnished with a visible bed and small "
+        "table, each with an obvious doorway gap; the hall furnished with low tables, "
+        "cushions, benches, stacks of folded towels, and one large ornate standing water "
+        "clock as a centerpiece; a front gate entrance at the far left; on the right half, "
+        "THREE distinct large round-cornered soaking pools of vivid steaming turquoise "
+        "water, each pool ringed by a wide pale stone coping edge, arranged on descending "
+        "stone terraces connected by short steps, the largest pool nearest the hall; "
+        "drifting white steam wisps over every pool, lit paper lanterns, warm golden "
+        "inviting light, immaculately clean and beautiful; AND, inset along the bottom "
+        "edge of the map separated by a thick unbroken band of solid dark rock, one small "
+        "rectangular stone chamber directly beneath the largest pool containing a large "
+        "shut sluice gate mechanism of stone and timber with a prominent wheel",
     ),
     "ring-strand": (
         "The Ring at the Strand",
@@ -54,15 +58,18 @@ BOARDS = {
     ),
     "crossing-shallows": (
         "The Crossing (Shallows)",
-        "a mile-wide strait of shallow glass-clear sunlit water crossed from one short "
-        "edge to the other, STRICT TOP-DOWN: a white sand beach along one short edge and "
-        "a lush green coastline along the opposite short edge; running the full length "
-        "between them under the knee-deep transparent water, a clearly visible straight "
-        "paved stone road on the seafloor; off the road several very large dark sleeping "
-        "silhouette shapes on the sandy bottom, indistinct dark masses only with no "
-        "detail; a few patches of subtly discolored water; wide open white sand seafloor "
-        "everywhere else, fully visible through the warm bright shallow water, golden "
-        "hour sunlight",
+        "a long thin strait of shallow knee-deep glass-clear sunlit water, crossed the "
+        "LONG way from the left edge to the right edge, STRICT TOP-DOWN: a narrow sliver "
+        "of white sand beach along the far left edge and a narrow sliver of lush green "
+        "coastline along the far right edge; everything between is open shallow sea with "
+        "the white sand seafloor fully visible through the transparent turquoise water; "
+        "running the full width from left to right, an ancient SUBMERGED paved stone road "
+        "lying flat ON THE SEAFLOOR, entirely underwater, its flagstones tinted and "
+        "softened by the water covering them — ABSOLUTELY NO bridge, NO causeway, NO "
+        "raised walkway, NO dry surface: the road is drowned paving seen through water; "
+        "off the road several very large dark sleeping silhouette shapes resting on the "
+        "bottom, indistinct dark masses only with no detail; two or three patches of "
+        "subtly discolored water; warm golden-hour sunlight sparkling on the surface",
     ),
     "beach": (
         "The Beach",
