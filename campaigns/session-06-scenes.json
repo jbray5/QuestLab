@@ -1,0 +1,30 @@
+[
+  {
+    "name": "BEACH",
+    "mapName": "The Beach",
+    "darkness": 0.1,
+    "weather": null,
+    "title": ""
+  },
+  {
+    "name": "CROSSING",
+    "mapName": "The Crossing (Shallows)",
+    "darkness": 0.1,
+    "weather": null,
+    "title": ""
+  },
+  {
+    "name": "RESTWATER",
+    "mapName": "Restwater",
+    "darkness": 0.15,
+    "weather": null,
+    "title": ""
+  },
+  {
+    "name": "THE RING",
+    "mapName": "The Ring at the Strand",
+    "darkness": 0.1,
+    "weather": null,
+    "title": ""
+  }
+]
