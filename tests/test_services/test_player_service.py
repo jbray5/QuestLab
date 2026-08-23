@@ -276,3 +276,54 @@ class TestCrossPcIsolation:
         # Re-read pc2 — untouched
         refreshed_pc2 = play_svc.get_character(duckdb_session, pc2.id)
         assert refreshed_pc2.hp_current == 20
+
+
+class TestSavingThrowItemBonus:
+    """Equipped+attuned protection items add their flat bonus to all saves."""
+
+    def _cloaked_pc(self, db, *, equipped: bool, attuned: bool):
+        """PC carrying a Cloak of Protection in the given wear state."""
+        import services.inventory_service as inv_svc
+        import services.item_service as item_svc
+        from domain.character import CharacterItemCreate
+        from domain.enums import ItemRarity
+        from domain.item import ItemCreate
+
+        dm = _dm()
+        c = _campaign(db, dm)
+        pc = _pc(db, c.id, dm)
+        cloak = item_svc.create_item(
+            db,
+            ItemCreate(
+                name="Cloak of Protection",
+                rarity=ItemRarity.UNCOMMON,
+                item_type="Wondrous item",
+                is_magic=True,
+                attunement_required=True,
+            ),
+        )
+        inv_svc.add_item(
+            db,
+            pc.id,
+            CharacterItemCreate(item_id=cloak.id, equipped=equipped, attuned=attuned),
+            dm,
+        )
+        return pc
+
+    def test_attuned_cloak_adds_one_to_every_save(self, duckdb_session: Session):
+        """+1 on all six saves while the cloak is worn and attuned."""
+        pc = self._cloaked_pc(duckdb_session, equipped=True, attuned=True)
+        import services.character_service as cs
+
+        saves = play_svc.saving_throws(duckdb_session, pc.id)
+        raw = cs.compute_saving_throws(play_svc.get_character(duckdb_session, pc.id))
+        assert saves == {k: v + 1 for k, v in raw.items()}
+
+    def test_unattuned_cloak_adds_nothing(self, duckdb_session: Session):
+        """Equipped but not attuned = no bonus."""
+        pc = self._cloaked_pc(duckdb_session, equipped=True, attuned=False)
+        import services.character_service as cs
+
+        saves = play_svc.saving_throws(duckdb_session, pc.id)
+        raw = cs.compute_saving_throws(play_svc.get_character(duckdb_session, pc.id))
+        assert saves == raw

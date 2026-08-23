@@ -98,11 +98,37 @@ def skill_bonuses(db: Session, pc_id: uuid.UUID) -> dict[str, int]:
     return character_service.compute_skill_bonuses(pc)
 
 
+# Items that add a flat bonus to ALL saving throws while equipped AND
+# attuned. Matched by exact catalog name.
+_SAVE_BONUS_ITEMS: dict[str, int] = {
+    "Cloak of Protection": 1,
+    "Ring of Protection": 1,
+}
+
+
 def saving_throws(db: Session, pc_id: uuid.UUID) -> dict[str, int]:
-    """Computed saving-throw bonuses for a PC."""
+    """Computed saving-throw bonuses for a PC.
+
+    Base bonuses (ability mod + proficiency) plus any flat all-saves bonus
+    from equipped-and-attuned protection items (Cloak/Ring of Protection).
+    """
+    from db.repos.item_repo import ItemRepo
+    from services import inventory_service
+
     dm = _dm_email_for(db, pc_id)
     pc = character_service.get_character(db, pc_id, dm)
-    return character_service.compute_saving_throws(pc)
+    saves = character_service.compute_saving_throws(pc)
+
+    bonus = 0
+    for row in inventory_service.list_for_character(db, pc_id, dm):
+        if not (row.equipped and row.attuned):
+            continue
+        item = ItemRepo.get_by_id(db, row.item_id)
+        if item is not None:
+            bonus += _SAVE_BONUS_ITEMS.get(item.name, 0)
+    if bonus:
+        saves = {k: v + bonus for k, v in saves.items()}
+    return saves
 
 
 def slot_state(db: Session, pc_id: uuid.UUID):
