@@ -1441,6 +1441,10 @@ function FeaturesBlock({
             <div style={{ display: "flex", gap: "0.25rem" }}>
               {Array.from({ length: Math.max(1, f.max_uses) }).map((_, i) => {
                 const filled = i < remaining;
+                // Psionic features glow cyan — the dice are psychic energy,
+                // not divine gold.
+                const psionic = /psionic/i.test(f.feature_name);
+                const hue = psionic ? "#22d3ee" : "var(--gold)";
                 return (
                   <button
                     key={i}
@@ -1451,8 +1455,10 @@ function FeaturesBlock({
                       height: 18,
                       padding: 0,
                       borderRadius: "50%",
-                      border: "2px solid var(--gold)",
-                      background: filled ? "var(--gold)" : "transparent",
+                      border: `2px solid ${hue}`,
+                      background: filled ? hue : "transparent",
+                      boxShadow:
+                        psionic && filled ? "0 0 8px rgba(34,211,238,0.85)" : undefined,
                     }}
                   />
                 );

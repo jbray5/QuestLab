@@ -183,10 +183,21 @@ export default function FeaturePanel({
                     width: 12,
                     height: 12,
                     borderRadius: "50%",
-                    border: `1px solid ${RECOVERY_COLOR[row.recovery] ?? "var(--gold)"}`,
+                    // Psionic features glow cyan instead of the recovery hue.
+                    border: `1px solid ${
+                      /psionic/i.test(row.feature_name)
+                        ? "#22d3ee"
+                        : RECOVERY_COLOR[row.recovery] ?? "var(--gold)"
+                    }`,
                     background: isFilled
-                      ? RECOVERY_COLOR[row.recovery] ?? "var(--gold)"
+                      ? /psionic/i.test(row.feature_name)
+                        ? "#22d3ee"
+                        : RECOVERY_COLOR[row.recovery] ?? "var(--gold)"
                       : "transparent",
+                    boxShadow:
+                      /psionic/i.test(row.feature_name) && isFilled
+                        ? "0 0 7px rgba(34,211,238,0.85)"
+                        : undefined,
                     cursor: "pointer",
                     padding: 0,
                   }}
