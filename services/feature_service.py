@@ -54,6 +54,8 @@ def resolve_max_uses(formula: UsesFormula, pc: PlayerCharacter) -> int:
         return 4
     if formula == UsesFormula.PROF_BONUS:
         return character_service.proficiency_bonus(pc.level)
+    if formula == UsesFormula.PROF_X2:
+        return 2 * character_service.proficiency_bonus(pc.level)
     if formula == UsesFormula.WIS_MOD:
         return max(1, _ability_mod(pc.score_wis))
     if formula == UsesFormula.CHA_MOD:

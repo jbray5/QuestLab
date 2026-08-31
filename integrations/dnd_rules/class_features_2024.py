@@ -73,6 +73,18 @@ CLASS_FEATURES_2024: list[ClassFeatureCreate] = [
             "your Druid level. Two uses, recharging on short or long rest."
         ),
     ),
+    ClassFeatureCreate(
+        name="Star Map — Free Guiding Bolt",
+        character_class=CharacterClass.DRUID,
+        subclass="Circle of Stars",
+        level_acquired=3,
+        recovery=RecoveryType.LONG,
+        uses_formula=UsesFormula.PROF_BONUS,
+        description=(
+            "Cast Guiding Bolt without expending a spell slot, proficiency-bonus times per "
+            "long rest. (Star Map also keeps Guidance and Guiding Bolt always prepared.)"
+        ),
+    ),
     # ── Fighter ──────────────────────────────────────────────────────────
     ClassFeatureCreate(
         name="Second Wind",
@@ -172,6 +184,20 @@ CLASS_FEATURES_2024: list[ClassFeatureCreate] = [
         description=(
             "Turn a failed attack into a hit, or a failed ability check into a 20. Once per "
             "short or long rest."
+        ),
+    ),
+    ClassFeatureCreate(
+        name="Psionic Energy Dice",
+        character_class=CharacterClass.ROGUE,
+        subclass="Soulknife",
+        level_acquired=3,
+        recovery=RecoveryType.SHORT_ONE,
+        uses_formula=UsesFormula.PROF_X2,
+        description=(
+            "Pool of 2 × proficiency bonus d6s (d8 at L5, d10 at L11, d12 at L17) fueling "
+            "Psi-Bolstered Knack and Psychic Whispers. 2024 RAW: regain one die on a short "
+            "rest, all on a long rest; also a Bonus Action regains one die, once per "
+            "short/long rest."
         ),
     ),
     # ── Sorcerer ─────────────────────────────────────────────────────────

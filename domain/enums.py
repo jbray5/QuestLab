@@ -204,6 +204,8 @@ class UsesFormula(str, Enum):
     FIXED_3 = "fixed_3"
     FIXED_4 = "fixed_4"
     PROF_BONUS = "prof_bonus"
+    # 2024 Soulknife Psionic Energy Dice: pool = 2 × proficiency bonus.
+    PROF_X2 = "prof_x2"
     WIS_MOD = "wis_mod"
     CHA_MOD = "cha_mod"
     INT_MOD = "int_mod"

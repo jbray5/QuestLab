@@ -122,6 +122,8 @@ class TestResolveMaxUses:
         # L5 → +3 prof
         pc = _pc(duckdb_session, c.id, dm, level=5)
         assert feat_svc.resolve_max_uses(UsesFormula.PROF_BONUS, pc) == 3
+        # PROF_X2 (2024 Soulknife Psionic Energy Dice): 2 × prof bonus.
+        assert feat_svc.resolve_max_uses(UsesFormula.PROF_X2, pc) == 6
         # L9 → +4 prof — different PC to avoid name collision via service
         pc2 = char_svc.create_character(
             duckdb_session,

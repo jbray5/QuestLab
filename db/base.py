@@ -218,6 +218,27 @@ def patch_duckdb_schema() -> None:
             "WHERE recovery = 'SHORT' AND name IN "
             "('Channel Divinity (Paladin)', 'Channel Divinity', 'Second Wind')"
         ),
+        # 0036 — Session-6 subclass counters (mirrors the Alembic inserts;
+        # descriptions intentionally abbreviated here — the full copy lives in
+        # class_features_2024.py and the Postgres migration).
+        (
+            "INSERT INTO class_features (id, name, character_class, subclass, "
+            "level_acquired, recovery, uses_formula, description, source) "
+            "SELECT uuid(), 'Psionic Energy Dice', 'ROGUE', 'Soulknife', 3, "
+            "'SHORT_ONE', 'PROF_X2', 'Pool of 2 x proficiency bonus d6s. 2024 RAW: "
+            "regain one die on a short rest, all on a long rest.', "
+            "'SRD 5.5e / 2024 PHB' WHERE NOT EXISTS "
+            "(SELECT 1 FROM class_features WHERE name = 'Psionic Energy Dice')"
+        ),
+        (
+            "INSERT INTO class_features (id, name, character_class, subclass, "
+            "level_acquired, recovery, uses_formula, description, source) "
+            "SELECT uuid(), 'Star Map — Free Guiding Bolt', 'DRUID', 'Circle of Stars', 3, "
+            "'LONG', 'PROF_BONUS', 'Cast Guiding Bolt without a spell slot, "
+            "proficiency-bonus times per long rest.', "
+            "'SRD 5.5e / 2024 PHB' WHERE NOT EXISTS "
+            "(SELECT 1 FROM class_features WHERE name = 'Star Map — Free Guiding Bolt')"
+        ),
     ]
     with engine.begin() as conn:
         for stmt in patches:
