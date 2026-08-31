@@ -615,6 +615,10 @@ export default function SessionHud() {
   // on demand instead of occupying a tab.
   const [centerTab, setCenterTab] = useState<"maps" | "people">("maps");
   const [scriptOpen, setScriptOpen] = useState(false);
+  // Party owns the real estate by default; the center only claims it while
+  // the DM is actively working a map. Auto-enters on staging a map, manual
+  // toggle either way.
+  const [mapFocus, setMapFocus] = useState(false);
   const { data: hudMaps = [] } = useQuery({
     queryKey: ["battle-maps", adventure?.campaign_id],
     queryFn: () => tableApi.listMaps(adventure!.campaign_id),
@@ -1200,7 +1204,11 @@ export default function SessionHud() {
       {/* ── Three-panel body (CSS stacks + scrolls it below 820px) ─────────── */}
       <div className="ql-hud-body" style={{
         display: "grid",
-        gridTemplateColumns: "280px 1fr 320px",
+        // Plan 60b — party-first by default; map focus flips the balance.
+        gridTemplateColumns: mapFocus
+          ? "300px 2.2fr 320px"
+          : "minmax(360px, 1.2fr) minmax(300px, 1fr) 320px",
+        transition: "grid-template-columns 0.25s ease",
         flex: 1,
         overflow: "hidden",
         minHeight: 0,
@@ -1389,14 +1397,24 @@ export default function SessionHud() {
                 </button>
               ))}
             </div>
-            <button
-              onClick={() => setScriptOpen((v) => !v)}
-              className={`btn ${scriptOpen ? "btn-primary" : "btn-ghost"}`}
-              title="Runbook script (slide-over)"
-              style={{ fontSize: "0.68rem", padding: "0.15rem 0.55rem", textTransform: "none" }}
-            >
-              🎬 Script{scenes.length > 0 ? ` ${sceneIdx + 1}/${scenes.length}` : ""}
-            </button>
+            <div className="flex" style={{ gap: "0.3rem" }}>
+              <button
+                onClick={() => setMapFocus((v) => !v)}
+                className={`btn ${mapFocus ? "btn-primary" : "btn-ghost"}`}
+                title={mapFocus ? "Give the space back to the party panel" : "Expand the map pane"}
+                style={{ fontSize: "0.68rem", padding: "0.15rem 0.55rem", textTransform: "none" }}
+              >
+                {mapFocus ? "⤢ Unfocus" : "⛶ Focus map"}
+              </button>
+              <button
+                onClick={() => setScriptOpen((v) => !v)}
+                className={`btn ${scriptOpen ? "btn-primary" : "btn-ghost"}`}
+                title="Runbook script (slide-over)"
+                style={{ fontSize: "0.68rem", padding: "0.15rem 0.55rem", textTransform: "none" }}
+              >
+                🎬 Script{scenes.length > 0 ? ` ${sceneIdx + 1}/${scenes.length}` : ""}
+              </button>
+            </div>
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
@@ -1580,7 +1598,10 @@ export default function SessionHud() {
                     return (
                       <button
                         key={m.id}
-                        onClick={() => setActiveMap.mutate(m.id)}
+                        onClick={() => {
+                          setActiveMap.mutate(m.id);
+                          setMapFocus(true);
+                        }}
                         disabled={setActiveMap.isPending}
                         title={active ? "Live on the table" : "Make this the active table map"}
                         style={{
