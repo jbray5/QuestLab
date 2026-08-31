@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { sessionsApi } from "../api/sessions";
+import { portraitSrc } from "../lib/portrait";
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
 import { encountersApi } from "../api/encounters";
@@ -1255,63 +1256,112 @@ export default function SessionHud() {
             const pcConditions = conditions[pc.id] ?? new Set<Condition>();
             const isUnconcious = pc.hp_current <= 0;
 
+            const hpPct = pc.hp_max > 0 ? pc.hp_current / pc.hp_max : 0;
+            const hpHue = hpPct > 0.5 ? "#4caf50" : hpPct > 0.25 ? "#ff9800" : "#f44336";
+
             return (
               <div
                 key={pc.id}
+                className="ql-pc-card"
                 style={{
-                  padding: "0.65rem 0.75rem",
-                  borderBottom: "1px solid var(--border)",
-                  background: isUnconcious ? "rgba(244,67,54,0.07)" : "transparent",
+                  margin: "0.5rem 0.55rem",
+                  padding: "0.6rem 0.65rem",
+                  borderRadius: 10,
+                  border: `1px solid ${isUnconcious ? "rgba(244,67,54,0.55)" : "var(--border)"}`,
+                  background: isUnconcious
+                    ? "linear-gradient(180deg, rgba(244,67,54,0.10), var(--surface2))"
+                    : "var(--surface2)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
                 }}
               >
-                {/* Name + class/level */}
-                <div className="flex" style={{ justifyContent: "space-between", marginBottom: "0.3rem" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <button
-                      onClick={() => setSheetPcId(pc.id)}
-                      title="Open full character sheet"
-                      style={{
-                        background: "transparent",
-                        border: "none",
-                        padding: 0,
-                        cursor: "pointer",
-                        color: isUnconcious ? "var(--crimson2)" : "var(--gold)",
-                        fontWeight: 700,
-                        fontSize: "0.9rem",
-                        fontFamily: "inherit",
-                        textAlign: "left",
-                        textDecoration: "underline dotted",
-                        textUnderlineOffset: 3,
-                      }}
-                    >
-                      {pc.character_name}
-                    </button>
-                    {pc.player_name && (
-                      <span style={{ fontSize: "0.7rem", color: "var(--muted)", marginLeft: "0.4rem" }}>
-                        ({pc.player_name})
-                      </span>
+                {/* Portrait + identity + quick-stat chips */}
+                <div className="flex" style={{ gap: "0.6rem", marginBottom: "0.35rem" }}>
+                  <button
+                    onClick={() => setSheetPcId(pc.id)}
+                    title="Open full character sheet"
+                    style={{
+                      padding: 0,
+                      border: `2.5px solid ${hpHue}`,
+                      borderRadius: 10,
+                      width: 54,
+                      height: 54,
+                      flex: "none",
+                      overflow: "hidden",
+                      cursor: "pointer",
+                      background: "var(--surface)",
+                      filter: isUnconcious ? "grayscale(0.9)" : undefined,
+                      boxShadow: `0 0 8px ${hpHue}44`,
+                    }}
+                  >
+                    {pc.portrait_url ? (
+                      <img
+                        src={portraitSrc(pc.portrait_url, pc.updated_at)}
+                        alt={pc.character_name}
+                        loading="lazy"
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                      />
+                    ) : (
+                      <span style={{ fontSize: "1.6rem", lineHeight: "50px" }}>🧙</span>
                     )}
-                    <div style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
-                      {[pc.race, pc.character_class, `Lvl ${pc.level}`].filter(Boolean).join(" · ")}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right", fontSize: "0.72rem", color: "var(--muted)" }}>
-                    <div>AC <strong style={{ color: "var(--text)" }}>{pc.ac}</strong></div>
-                    <div title="Passive Perception / Passive Insight">
-                      PP <strong style={{ color: "var(--text)" }}>{pp}</strong>
-                      {" · "}PI <strong style={{ color: "var(--text)" }}>{pi}</strong>
-                    </div>
-                    <div title="Spell save DC / Initiative / Speed">
-                      {dc !== null && (
-                        <>DC <strong style={{ color: "var(--text)" }}>{dc}</strong>{" · "}</>
-                      )}
-                      Init <strong style={{ color: "var(--text)" }}>
-                        {mod(pc.score_dex) >= 0 ? "+" : ""}{mod(pc.score_dex)}
-                      </strong>
-                      {" · "}<strong style={{ color: "var(--text)" }}>{pc.speed}ft</strong>
-                    </div>
-                    <div style={{ marginTop: "0.2rem" }}>
+                  </button>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="flex" style={{ justifyContent: "space-between", alignItems: "baseline", gap: "0.4rem" }}>
+                      <button
+                        onClick={() => setSheetPcId(pc.id)}
+                        title="Open full character sheet"
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          padding: 0,
+                          cursor: "pointer",
+                          color: isUnconcious ? "var(--crimson2)" : "var(--gold)",
+                          fontWeight: 700,
+                          fontSize: "0.92rem",
+                          fontFamily: "inherit",
+                          textAlign: "left",
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {pc.character_name}
+                      </button>
                       <PlayerLinkButton characterId={pc.id} compact />
+                    </div>
+                    <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginBottom: "0.25rem" }}>
+                      {[pc.player_name, pc.character_class, `Lv ${pc.level}`].filter(Boolean).join(" · ")}
+                    </div>
+                    {/* Quick-stat chips — the DM cheat-sheet row */}
+                    <div className="flex" style={{ gap: "0.25rem", flexWrap: "wrap" }}>
+                      {(
+                        [
+                          ["🛡", pc.ac, "Armor Class"],
+                          ["👁", pp, "Passive Perception"],
+                          ["🧠", pi, "Passive Insight"],
+                          ...(dc !== null ? ([["✨", dc, "Spell save DC"]] as const) : []),
+                          ["⚡", `${mod(pc.score_dex) >= 0 ? "+" : ""}${mod(pc.score_dex)}`, "Initiative modifier"],
+                          ["👟", pc.speed, "Speed (ft)"],
+                        ] as const
+                      ).map(([icon, value, label]) => (
+                        <span
+                          key={label}
+                          title={label}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 3,
+                            background: "var(--surface)",
+                            border: "1px solid var(--border)",
+                            borderRadius: 999,
+                            padding: "0.05rem 0.4rem",
+                            fontSize: "0.68rem",
+                            cursor: "default",
+                          }}
+                        >
+                          <span aria-hidden>{icon}</span>
+                          <strong style={{ color: "var(--text)" }}>{value}</strong>
+                        </span>
+                      ))}
                     </div>
                   </div>
                 </div>
