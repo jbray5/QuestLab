@@ -26,6 +26,7 @@ import EditableRunbookText from "../components/runbook/EditableRunbookText";
 import TableRollStrip from "../components/dice-tray/TableRollStrip";
 import { monstersApi } from "../api/monsters";
 import { restApi } from "../api/rest";
+import { featuresApi } from "../api/features";
 import { spellcastingApi } from "../api/spellcasting";
 import BriefPanel from "../components/brief/BriefPanel";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
@@ -91,12 +92,33 @@ function abilityMod(score: number) {
   return Math.floor((score - 10) / 2);
 }
 
-function passivePerception(wis: number, profBonus: number, hasProficiency = true) {
-  return 10 + abilityMod(wis) + (hasProficiency ? profBonus : 0);
-}
-
 function profBonus(level: number) {
   return Math.floor((level - 1) / 4) + 2;
+}
+
+// Plan 60 — party-strip quick stats. Casting ability by class; null = no DC row.
+const CASTING_ABILITY: Record<string, "wis" | "cha" | "int"> = {
+  Cleric: "wis",
+  Druid: "wis",
+  Ranger: "wis",
+  Bard: "cha",
+  Paladin: "cha",
+  Sorcerer: "cha",
+  Warlock: "cha",
+  Wizard: "int",
+};
+
+function spellSaveDc(pc: PlayerCharacter): number | null {
+  const ability = CASTING_ABILITY[pc.character_class];
+  if (!ability) return null;
+  const score =
+    ability === "wis" ? pc.score_wis : ability === "cha" ? pc.score_cha : pc.score_int;
+  return 8 + profBonus(pc.level) + abilityMod(score);
+}
+
+function passiveSkill(score: number, pb: number, rank: number): number {
+  // rank 0 = none, 1 = proficient, 2 = expertise (matches skill_proficiencies).
+  return 10 + abilityMod(score) + pb * rank;
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -311,6 +333,85 @@ interface SpellSlotTrackerProps {
  * sync. Clicking a filled pip spends a slot; clicking a hollow pip
  * restores one (DM undo).
  */
+/**
+ * Plan 60 — per-PC class-feature pips in the party strip.
+ *
+ * Same interaction grammar as spell slots: filled pip = available (click
+ * to spend), hollow = spent (click to restore). Psionic features glow
+ * cyan, matching the player sheet. Passive features (max_uses 0) hidden.
+ */
+function FeaturePipsRow({ pcId }: { pcId: string }) {
+  const qc = useQueryClient();
+  const { data: rows = [] } = useQuery({
+    queryKey: ["hud-features", pcId],
+    queryFn: () => featuresApi.list(pcId),
+  });
+  const spend = useMutation({
+    mutationFn: (rowId: string) => featuresApi.spend(pcId, rowId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["hud-features", pcId] }),
+  });
+  const restore = useMutation({
+    mutationFn: (rowId: string) => featuresApi.restore(pcId, rowId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["hud-features", pcId] }),
+  });
+
+  const tracked = rows.filter((r) => r.max_uses > 0);
+  if (tracked.length === 0) return null;
+
+  return (
+    <div style={{ marginTop: "0.3rem" }}>
+      {tracked.map((r) => {
+        const remaining = Math.max(0, r.max_uses - r.uses_spent);
+        const psionic = /psionic/i.test(r.feature_name);
+        const hue = psionic ? "#22d3ee" : "var(--gold)";
+        return (
+          <div
+            key={r.id}
+            style={{ display: "flex", alignItems: "center", gap: "0.3rem", marginTop: "0.15rem" }}
+          >
+            <span
+              style={{
+                fontSize: "0.62rem",
+                color: "var(--muted)",
+                flex: 1,
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              title={`${r.feature_name} — ${remaining}/${r.max_uses} (${r.recovery})`}
+            >
+              {r.feature_name}
+            </span>
+            <span style={{ display: "flex", gap: "0.15rem", flex: "none" }}>
+              {Array.from({ length: r.max_uses }).map((_, i) => {
+                const filled = i < remaining;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => (filled ? spend.mutate(r.id) : restore.mutate(r.id))}
+                    title={filled ? "Click to spend" : "Click to restore"}
+                    style={{
+                      width: 11,
+                      height: 11,
+                      padding: 0,
+                      borderRadius: "50%",
+                      border: `1px solid ${hue}`,
+                      background: filled ? hue : "transparent",
+                      boxShadow: psionic && filled ? "0 0 6px rgba(34,211,238,0.85)" : undefined,
+                      cursor: "pointer",
+                    }}
+                  />
+                );
+              })}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function SpellSlotTracker({ pcId }: SpellSlotTrackerProps) {
   const qc = useQueryClient();
   const { data: state } = useQuery({
@@ -508,19 +609,21 @@ export default function SessionHud() {
   // ── Scene navigator ────────────────────────────────────────────────────────
   const [sceneIdx, setSceneIdx] = useState(0);
 
-  // ── Plan 53 — tabbed center panel: Script | Maps | People ─────────────────
-  // The runbook was hogging the whole center column; it becomes one tab so
-  // maps and full stat blocks can live where the DM actually looks mid-scene.
-  const [centerTab, setCenterTab] = useState<"script" | "maps" | "people">("script");
+  // ── Plan 60 — map-first center panel: Maps | People, Script in a drawer ───
+  // Plan 53 demoted the runbook to a tab; in practice sessions run from map
+  // control and cards, so Maps is now the default and the script slides over
+  // on demand instead of occupying a tab.
+  const [centerTab, setCenterTab] = useState<"maps" | "people">("maps");
+  const [scriptOpen, setScriptOpen] = useState(false);
   const { data: hudMaps = [] } = useQuery({
     queryKey: ["battle-maps", adventure?.campaign_id],
     queryFn: () => tableApi.listMaps(adventure!.campaign_id),
-    enabled: !!adventure?.campaign_id && centerTab === "maps",
+    enabled: !!adventure?.campaign_id,
   });
   const { data: hudTable } = useQuery({
     queryKey: ["hud-table", sessionId],
     queryFn: () => tableApi.getState(sessionId!),
-    enabled: !!sessionId && centerTab === "maps",
+    enabled: !!sessionId,
   });
   const setActiveMap = useMutation({
     mutationFn: (mapId: string) => tableApi.updateState(sessionId!, { active_map_id: mapId }),
@@ -1137,7 +1240,10 @@ export default function SessionHud() {
           {party.map((pc) => {
             const mod = abilityMod;
             const pb = profBonus(pc.level);
-            const pp = passivePerception(pc.score_wis, pb);
+            const skills = (pc.skill_proficiencies ?? {}) as Record<string, number>;
+            const pp = passiveSkill(pc.score_wis, pb, skills["Perception"] ?? 0);
+            const pi = passiveSkill(pc.score_wis, pb, skills["Insight"] ?? 0);
+            const dc = spellSaveDc(pc);
             const pcConditions = conditions[pc.id] ?? new Set<Condition>();
             const isUnconcious = pc.hp_current <= 0;
 
@@ -1183,7 +1289,19 @@ export default function SessionHud() {
                   </div>
                   <div style={{ textAlign: "right", fontSize: "0.72rem", color: "var(--muted)" }}>
                     <div>AC <strong style={{ color: "var(--text)" }}>{pc.ac}</strong></div>
-                    <div>PP <strong style={{ color: "var(--text)" }}>{pp}</strong></div>
+                    <div title="Passive Perception / Passive Insight">
+                      PP <strong style={{ color: "var(--text)" }}>{pp}</strong>
+                      {" · "}PI <strong style={{ color: "var(--text)" }}>{pi}</strong>
+                    </div>
+                    <div title="Spell save DC / Initiative / Speed">
+                      {dc !== null && (
+                        <>DC <strong style={{ color: "var(--text)" }}>{dc}</strong>{" · "}</>
+                      )}
+                      Init <strong style={{ color: "var(--text)" }}>
+                        {mod(pc.score_dex) >= 0 ? "+" : ""}{mod(pc.score_dex)}
+                      </strong>
+                      {" · "}<strong style={{ color: "var(--text)" }}>{pc.speed}ft</strong>
+                    </div>
                     <div style={{ marginTop: "0.2rem" }}>
                       <PlayerLinkButton characterId={pc.id} compact />
                     </div>
@@ -1230,13 +1348,17 @@ export default function SessionHud() {
 
                 {/* Spell slots — persistent, reads from Plan 20 store */}
                 <SpellSlotTracker pcId={pc.id} />
+
+                {/* Plan 60 — spendable class-feature pips (Channel Divinity,
+                    Psionic Dice, Wild Shape…) without leaving the HUD. */}
+                <FeaturePipsRow pcId={pc.id} />
               </div>
             );
           })}
         </div>
 
-        {/* ── CENTER: Scene Navigator ───────────────────────────────────── */}
-        <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {/* ── CENTER: map control first; the script slides over on demand ── */}
+        <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
           <div style={{
             padding: "0.6rem 0.75rem",
             borderBottom: "1px solid var(--border)",
@@ -1253,7 +1375,6 @@ export default function SessionHud() {
             <div className="flex" style={{ gap: "0.3rem" }}>
               {(
                 [
-                  ["script", "🎬 Script"],
                   ["maps", "🗺 Maps"],
                   ["people", "👥 People"],
                 ] as const
@@ -1268,16 +1389,46 @@ export default function SessionHud() {
                 </button>
               ))}
             </div>
-            {centerTab === "script" && scenes.length > 0 && (
-              <span style={{ fontWeight: 400 }}>
-                {sceneIdx + 1} / {scenes.length}
-              </span>
-            )}
+            <button
+              onClick={() => setScriptOpen((v) => !v)}
+              className={`btn ${scriptOpen ? "btn-primary" : "btn-ghost"}`}
+              title="Runbook script (slide-over)"
+              style={{ fontSize: "0.68rem", padding: "0.15rem 0.55rem", textTransform: "none" }}
+            >
+              🎬 Script{scenes.length > 0 ? ` ${sceneIdx + 1}/${scenes.length}` : ""}
+            </button>
           </div>
 
           <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
-            {centerTab === "script" && (
-            <>
+            {/* Plan 60 — runbook drawer: slides over the center column. */}
+            {scriptOpen && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                right: 0,
+                bottom: 0,
+                width: "min(520px, 92%)",
+                zIndex: 40,
+                background: "var(--surface)",
+                borderLeft: "1px solid var(--border)",
+                boxShadow: "-12px 0 28px rgba(0,0,0,0.45)",
+                overflowY: "auto",
+                padding: "1rem",
+              }}
+            >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem" }}>
+              <strong style={{ fontSize: "0.8rem", color: "var(--muted)", letterSpacing: "0.08em" }}>
+                🎬 SCRIPT
+              </strong>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: "0.7rem", padding: "0.1rem 0.5rem" }}
+                onClick={() => setScriptOpen(false)}
+              >
+                ✕ close
+              </button>
+            </div>
             {!runbook && (
               <div style={{ color: "var(--muted)", textAlign: "center", marginTop: "2rem" }}>
                 <p>No runbook generated yet.</p>
@@ -1417,7 +1568,7 @@ export default function SessionHud() {
                 ))}
               </div>
             )}
-            </>
+            </div>
             )}
 
             {/* ── 🗺 Maps tab (Plan 53) — the battle-map library, one click to stage ── */}
