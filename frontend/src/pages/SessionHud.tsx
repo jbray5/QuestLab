@@ -109,6 +109,19 @@ const CASTING_ABILITY: Record<string, "wis" | "cha" | "int"> = {
   Wizard: "int",
 };
 
+// Plan 60c — subclass-flavored card backgrounds (generated art, dark on
+// purpose; the card lays a scrim over them so text stays readable).
+const SUBCLASS_CARD_ART: Record<string, string> = {
+  "Soulknife":
+    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/9eb43275-c314-4adf-b9f5-917b729e3524-dtVEd2T3YDlwdMcWUoLONuRNoS544O.png",
+  "Circle of Stars":
+    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/d8d651e0-eb18-476c-8024-559858407dbb-Te0IfpHUFCUlW4bG2uoBnfy3DdIrJS.png",
+  "Oath of the Ancients":
+    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/ba6bf3cc-8c71-469a-b171-0e3a2fc9efd8-wpUg89LhJgUEBoyZlj58KENJa7zSYd.png",
+  "Wild Magic":
+    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/cc01c109-6edb-42a0-a6c8-2138773321d8-7aEzqBbAmw8cH1zdof5bvmZfjcQDIm.png",
+};
+
 function spellSaveDc(pc: PlayerCharacter): number | null {
   const ability = CASTING_ABILITY[pc.character_class];
   if (!ability) return null;
@@ -1268,9 +1281,19 @@ export default function SessionHud() {
                   padding: "0.6rem 0.65rem",
                   borderRadius: 10,
                   border: `1px solid ${isUnconcious ? "rgba(244,67,54,0.55)" : "var(--border)"}`,
-                  background: isUnconcious
-                    ? "linear-gradient(180deg, rgba(244,67,54,0.10), var(--surface2))"
-                    : "var(--surface2)",
+                  background: (() => {
+                    const art = pc.subclass ? SUBCLASS_CARD_ART[pc.subclass] : undefined;
+                    if (!art) {
+                      return isUnconcious
+                        ? "linear-gradient(180deg, rgba(244,67,54,0.10), var(--surface2))"
+                        : "var(--surface2)";
+                    }
+                    const down = isUnconcious
+                      ? "linear-gradient(rgba(200,40,40,0.28), rgba(200,40,40,0.28)), "
+                      : "";
+                    // Scrim keeps chips/pips/text readable over the art.
+                    return `${down}linear-gradient(rgba(10,11,15,0.42), rgba(10,11,15,0.66)), url(${art}) center/cover`;
+                  })(),
                   boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
                 }}
               >
