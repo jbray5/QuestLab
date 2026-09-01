@@ -150,15 +150,31 @@ def key_chroma(png: bytes, tolerance: int = 110) -> bytes:
     except Exception:
         return png
 
+    # Adaptive reference: models render "#FF00FF" as anything from hot pink
+    # to raspberry. Sample the corner patches; if their average sits in the
+    # magenta/pink family, key against THAT colour (the backdrop is near-
+    # uniform), not against the literal request.
+    rs = gs = bs = n = 0
+    for cx, cy in ((0, 0), (w - 9, 0), (0, h - 9), (w - 9, h - 9)):
+        for dy in range(8):
+            for dx in range(8):
+                o = ((cy + dy) * w + (cx + dx)) * bpp
+                rs += px[o]
+                gs += px[o + 1]
+                bs += px[o + 2]
+                n += 1
+    ref_r, ref_g, ref_b = rs // n, gs // n, bs // n
+    pinkish = (ref_r - ref_g) >= 70 and (ref_b - ref_g) >= 25 and ref_r >= 140
+    if not pinkish:
+        return png  # backdrop isn't the requested chroma — don't guess
+    tol = 36
+
     def is_mag(i: int) -> bool:
         o = i * bpp
-        r, g, b = px[o], px[o + 1], px[o + 2]
         return (
-            r >= 255 - tolerance
-            and b >= 255 - tolerance
-            and g <= tolerance
-            and (r - g) >= 80
-            and (b - g) >= 80
+            abs(px[o] - ref_r) <= tol
+            and abs(px[o + 1] - ref_g) <= tol
+            and abs(px[o + 2] - ref_b) <= tol
         )
 
     from collections import deque
