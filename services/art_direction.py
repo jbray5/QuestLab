@@ -28,13 +28,19 @@ HOUSE_STYLE = (
 
 # Variant for transparent cut-out assets (standees, character models) —
 # same voice, plus the isolation requirements those pipelines depend on.
+# Cutout assets (heroes, standees) live one step off the oil lane: literal
+# "oil painting on canvas" makes an isolated full-body figure read as a
+# photographed painted SCULPTURE (2026-09-01, Creed the clay statue). The
+# cutout voice is painted RPG character illustration — same warmth and
+# brushwork, unmistakably a living person.
 HOUSE_STYLE_CUTOUT = (
-    "Painted in oils: visible brushwork, layered glazes, rich tonal depth, "
-    "naturalistic anatomy and believable materials, soft directional light. "
-    "The subject is a LIVING character rendered in paint — with expressive "
-    "eyes, natural skin/scale texture, and fabric that drapes and moves. "
-    "Painterly realism — not a photograph, not a 3D render, and NEVER a "
-    "sculpture, statue, figurine, clay model, toy, or miniature: no clay or "
-    "plasticine texture, no matte stone surface, no museum-piece stiffness. "
-    "No airbrush gradients, no neon rim lighting, no cartoon outlines"
+    "Hand-painted fantasy RPG character illustration, in the tradition of "
+    "classic painted game splash art: confident painterly brushwork, rich "
+    "warm colour, dramatic soft studio lighting, crisp readable silhouette. "
+    "The subject is a LIVING character — expressive eyes catching the light, "
+    "natural skin and scale texture, hair and cloth with weight and movement. "
+    "Not a photograph, not a 3D render, and NEVER a sculpture, statue, "
+    "figurine, clay model, toy, or miniature: no clay or plasticine texture, "
+    "no stone surface, no museum stiffness. No neon rim lighting, no cartoon "
+    "outlines, no flat vector shapes"
 )

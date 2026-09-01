@@ -26,7 +26,7 @@ from db.repos.npc_repo import NpcRepo
 from domain.character import PlayerCharacter, PlayerCharacterRead, PlayerCharacterUpdate
 from domain.monster import MonsterStatBlock, MonsterStatBlockUpdate
 from domain.npc import Npc, NpcRead, NpcUpdate
-from integrations import blob_storage
+from integrations import blob_storage, image_tools
 from integrations.openai_client import edit_image, generate_image
 from services.art_direction import HOUSE_STYLE, HOUSE_STYLE_CUTOUT
 
@@ -439,8 +439,9 @@ def _build_hero_prompt(pc: PlayerCharacter) -> str:
         "not a mannequin), full body from head to boots in frame. Their hands "
         "are EMPTY and they carry NOTHING — no weapons, instruments, tools, or "
         f"props (equipment is added in a separate pass). {HOUSE_STYLE_CUTOUT}. "
-        "Clean die-cut cutout on a fully transparent background, no scenery, "
-        "no ground, no shadow. No text, no watermark, no border"
+        "isolated on a SINGLE PERFECTLY FLAT solid magenta background "
+        "(pure #FF00FF filling every pixel around the figure — no gradient, "
+        "no glow, no vignette, no shadow). No scenery, no ground. No text, no watermark, no border"
     )
     return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
 
@@ -460,7 +461,8 @@ def generate_pc_hero(session: Session, pc: PlayerCharacter) -> str:
         RuntimeError: If the upstream API calls fail.
     """
     prompt = _build_hero_prompt(pc)
-    png_bytes = generate_image(prompt, size="1024x1536", background="transparent")
+    png_bytes = generate_image(prompt, size="1024x1536")
+    png_bytes = image_tools.key_chroma(png_bytes)
     url = blob_storage.upload(path=f"heroes/pc-{pc.id}.png", data=png_bytes)
     # Naive UTC on purpose: DuckDB round-trips tz-aware values through local
     # time (breaking the cooldown math), while naive UTC reads back verbatim;
@@ -513,8 +515,12 @@ def _build_loadout_prompt(pc: PlayerCharacter, equipped: list[str]) -> str:
         "restyle any armour, clothing, or equipment that is not in the list — keep "
         "their current outfit exactly as it is. If the source image shows them holding "
         "ANY object not in the list (an instrument, tool, weapon, or prop), REMOVE it "
-        "— they hold only what the list names. Full body head to boots, clean die-cut "
-        f"cutout on a fully transparent background, no scenery, no shadow. "
+        "— they hold only what the list names, and EXACTLY ONE of each named "
+        "item (a single sword stays a single sword; never mirror or duplicate "
+        "items). Full body head to boots, clean die-cut "
+        f"isolated on a SINGLE PERFECTLY FLAT solid magenta background "
+        "(pure #FF00FF filling every pixel around the figure — no gradient, "
+        "no glow, no vignette, no shadow). No scenery. "
         f"{HOUSE_STYLE_CUTOUT}. No text, no watermark, no border."
     )
 
@@ -544,7 +550,8 @@ def generate_pc_loadout(session: Session, pc: PlayerCharacter, equipped: list[st
         raise ValueError("Generate a character model first, then dress it.")
     base_bytes = blob_storage.download(base_url)
     prompt = _build_loadout_prompt(pc, equipped)
-    png_bytes = edit_image(prompt, base_bytes, size="1024x1536", background="transparent")
+    png_bytes = edit_image(prompt, base_bytes, size="1024x1536")
+    png_bytes = image_tools.key_chroma(png_bytes)
     url = blob_storage.upload(path=f"heroes/pc-{pc.id}-loadout.png", data=png_bytes)
     stamp = datetime.now(timezone.utc).replace(tzinfo=None)
     CharacterRepo.update(
@@ -613,11 +620,14 @@ def derive_pc_figure(session: Session, pc: PlayerCharacter) -> str:
     prompt = (
         "Convert this EXACT character from the source image into a game standee sprite — "
         "identical face, hair, outfit, and equipment, full body, standing pose, entire "
-        "figure in frame with feet visible. CRITICAL: the output is a die-cut PNG cutout "
-        "with a FULLY TRANSPARENT alpha background — absolutely no backdrop, no glow, no "
-        f"vignette, no colored haze behind the figure. {_FIGURE_STYLE}"
+        "figure in frame with feet visible, isolated on a SINGLE PERFECTLY "
+        "FLAT solid magenta background "
+        "(pure #FF00FF filling every pixel around the figure — no gradient, "
+        "no glow, no vignette, no shadow). "
+        f"{_FIGURE_STYLE}"
     )
-    png_bytes = edit_image(prompt, base_bytes, size="1024x1536", background="transparent")
+    png_bytes = edit_image(prompt, base_bytes, size="1024x1536")
+    png_bytes = image_tools.key_chroma(png_bytes)
     url = blob_storage.upload(path=f"figures/pc-{pc.id}.png", data=png_bytes)
     CharacterRepo.update(session, pc, PlayerCharacterUpdate(figure_url=url))
     return url

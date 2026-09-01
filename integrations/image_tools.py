@@ -98,6 +98,253 @@ def encode_rgb_png(w: int, h: int, rgb: bytes) -> bytes:
     )
 
 
+def encode_rgba_png(w: int, h: int, rgba: bytes) -> bytes:
+    """Encode raw RGBA bytes as a filter-0 PNG.
+
+    Args:
+        w: Image width.
+        h: Image height.
+        rgba: Row-major RGBA bytes (4 per pixel).
+
+    Returns:
+        PNG file bytes.
+    """
+
+    def chunk(typ: bytes, body: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(body))
+            + typ
+            + body
+            + struct.pack(">I", zlib.crc32(typ + body) & 0xFFFFFFFF)
+        )
+
+    stride = w * 4
+    raw = b"".join(b"\x00" + bytes(rgba[r * stride : (r + 1) * stride]) for r in range(h))
+    ihdr = struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + chunk(b"IHDR", ihdr)
+        + chunk(b"IDAT", zlib.compress(raw, 6))
+        + chunk(b"IEND", b"")
+    )
+
+
+def key_chroma(png: bytes, tolerance: int = 110) -> bytes:
+    """Chroma-key a flat magenta backdrop to transparency (Plan 62).
+
+    The cutout pipeline asks the model for a solid #FF00FF background —
+    a colour no painted character contains — then removes it here,
+    border-connected so magenta accents inside the subject survive.
+
+    Args:
+        png: PNG bytes (8-bit RGB or RGBA).
+        tolerance: Max per-channel distance from pure magenta.
+
+    Returns:
+        RGBA PNG bytes with the backdrop keyed out, or the original bytes
+        if no meaningful magenta region touches the border (or the input
+        cannot be decoded — cleanup must never destroy a paid render).
+    """
+    try:
+        w, h, bpp, px = decode_png(png)
+    except Exception:
+        return png
+
+    def is_mag(i: int) -> bool:
+        o = i * bpp
+        r, g, b = px[o], px[o + 1], px[o + 2]
+        return (
+            r >= 255 - tolerance
+            and b >= 255 - tolerance
+            and g <= tolerance
+            and (r - g) >= 80
+            and (b - g) >= 80
+        )
+
+    from collections import deque
+
+    seen = bytearray(w * h)
+    queue: deque[int] = deque()
+    for x in range(w):
+        for y in (0, h - 1):
+            i = y * w + x
+            if is_mag(i) and not seen[i]:
+                seen[i] = 1
+                queue.append(i)
+    for y in range(h):
+        for x in (0, w - 1):
+            i = y * w + x
+            if is_mag(i) and not seen[i]:
+                seen[i] = 1
+                queue.append(i)
+
+    filled = 0
+    while queue:
+        i = queue.popleft()
+        filled += 1
+        x, y = i % w, i // w
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if 0 <= nx < w and 0 <= ny < h:
+                j = ny * w + nx
+                if not seen[j] and is_mag(j):
+                    seen[j] = 1
+                    queue.append(j)
+
+    if filled < (w * h) * 0.05:
+        return png  # no magenta backdrop found — leave untouched
+
+    out = bytearray(w * h * 4)
+    for i in range(w * h):
+        o = i * bpp
+        d = i * 4
+        out[d] = px[o]
+        out[d + 1] = px[o + 1]
+        out[d + 2] = px[o + 2]
+        out[d + 3] = 0 if seen[i] else (px[o + 3] if bpp == 4 else 255)
+    # Despill + feather the one-pixel boundary: kill magenta fringe.
+    for y in range(1, h - 1):
+        base = y * w
+        for x in range(1, w - 1):
+            i = base + x
+            if not seen[i] and (seen[i - 1] or seen[i + 1] or seen[i - w] or seen[i + w]):
+                d = i * 4
+                r, g, b = out[d], out[d + 1], out[d + 2]
+                if r > g + 40 and b > g + 40:  # magenta spill
+                    avg = (r + g + b) // 3
+                    out[d] = out[d + 1] = out[d + 2] = avg
+                out[d + 3] = min(out[d + 3], 150)
+    return encode_rgba_png(w, h, bytes(out))
+
+
+def key_background(png: bytes, tolerance: int = 52) -> bytes:
+    """Force a transparent background on a cutout image (Plan 62).
+
+    The image models honour "transparent background" unreliably — edits in
+    particular love to paint a warm haze behind the subject. This keys it
+    out deterministically: flood-fill from every border pixel across
+    near-uniform background colour (seeded from the corner patches) and
+    zero the alpha of the filled region.
+
+    Safety valves: an image that is already mostly transparent is returned
+    untouched, and if the fill would eat more than 92% of the pixels (the
+    "background" was the subject) the original is returned.
+
+    Args:
+        png: PNG bytes (8-bit RGB or RGBA).
+        tolerance: Max per-channel colour distance treated as background.
+
+    Returns:
+        RGBA PNG bytes with the background keyed to transparent.
+    """
+    try:
+        w, h, bpp, px = decode_png(png)
+    except Exception:
+        return png
+
+    def rgb_at(x: int, y: int) -> tuple[int, int, int]:
+        o = (y * w + x) * bpp
+        return px[o], px[o + 1], px[o + 2]
+
+    # Reference background colours: average of an 8x8 patch in each corner.
+    refs: list[tuple[int, int, int]] = []
+    for cx, cy in ((0, 0), (w - 8, 0), (0, h - 8), (w - 8, h - 8)):
+        rs = gs = bs = 0
+        for dy in range(8):
+            for dx in range(8):
+                r, g, b = rgb_at(min(w - 1, cx + dx), min(h - 1, cy + dy))
+                rs += r
+                gs += g
+                bs += b
+        refs.append((rs // 64, gs // 64, bs // 64))
+
+    def near_ref(x: int, y: int) -> bool:
+        r, g, b = rgb_at(x, y)
+        for rr, rg, rb in refs:
+            if abs(r - rr) <= tolerance and abs(g - rg) <= tolerance and abs(b - rb) <= tolerance:
+                return True
+        return False
+
+    # Gradient-tracking fill: a pixel joins the background if it is close in
+    # colour to the BACKGROUND NEIGHBOUR it was reached from (small step),
+    # letting the fill ride smooth halo gradients while stopping at the
+    # subject's painted edge. Seeds are border pixels near a corner colour.
+    step = 16
+    from collections import deque
+
+    seen = bytearray(w * h)
+    queue: deque[int] = deque()
+    # Mode split: an image with real transparency gets ALPHA-ONLY halo
+    # removal (colour rules leak on subjects that share the halo's palette —
+    # a gold knight in an amber glow). Fully opaque images get the
+    # colour-gradient fill instead.
+    transparent_ct = sum(1 for i in range(3, len(px), 4) if px[i] == 0) if bpp == 4 else 0
+    alpha_mode = bpp == 4 and transparent_ct > (w * h) * 0.05
+    if alpha_mode:
+        for i in range(w * h):
+            if px[i * 4 + 3] == 0:
+                seen[i] = 1
+                queue.append(i)
+    else:
+        # Border pixels near a corner colour seed the opaque-background fill.
+        for x in range(w):
+            for y in (0, h - 1):
+                i = y * w + x
+                if near_ref(x, y) and not seen[i]:
+                    seen[i] = 1
+                    queue.append(i)
+        for y in range(h):
+            for x in (0, w - 1):
+                i = y * w + x
+                if near_ref(x, y) and not seen[i]:
+                    seen[i] = 1
+                    queue.append(i)
+
+    filled = 0
+    while queue:
+        i = queue.popleft()
+        filled += 1
+        x, y = i % w, i // w
+        o = i * bpp
+        cr, cg, cb = px[o], px[o + 1], px[o + 2]
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if 0 <= nx < w and 0 <= ny < h:
+                j = ny * w + nx
+                if not seen[j]:
+                    no = j * bpp
+                    if alpha_mode:
+                        # Halo pixels betray themselves through partial alpha.
+                        join = px[no + 3] < 252
+                    else:
+                        join = (
+                            abs(px[no] - cr) <= step
+                            and abs(px[no + 1] - cg) <= step
+                            and abs(px[no + 2] - cb) <= step
+                        )
+                    if join:
+                        seen[j] = 1
+                        queue.append(j)
+
+    if filled > (w * h) * 0.92 or filled < (w * h) * 0.02:
+        return png  # keyed everything or nothing — don't trust it
+
+    out = bytearray(w * h * 4)
+    for i in range(w * h):
+        o = i * bpp
+        d = i * 4
+        out[d] = px[o]
+        out[d + 1] = px[o + 1]
+        out[d + 2] = px[o + 2]
+        out[d + 3] = 0 if seen[i] else (px[o + 3] if bpp == 4 else 255)
+    # One-pixel feather: soften subject pixels that touch the keyed region.
+    for y in range(1, h - 1):
+        base = y * w
+        for x in range(1, w - 1):
+            i = base + x
+            if not seen[i] and (seen[i - 1] or seen[i + 1] or seen[i - w] or seen[i + w]):
+                out[i * 4 + 3] = min(out[i * 4 + 3], 140)
+    return encode_rgba_png(w, h, bytes(out))
+
+
 def diff_footprints(
     original: bytes,
     ground: bytes,

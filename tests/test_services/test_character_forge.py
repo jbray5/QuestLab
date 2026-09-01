@@ -148,7 +148,9 @@ class TestForgeHero:
         assert "Storm-grey eyes" in captured["prompt"]
         assert "Moonblade" not in captured["prompt"]
         assert captured["kwargs"].get("size") == "1024x1536"
-        assert captured["kwargs"].get("background") == "transparent"
+        # Plan 62: transparency now comes from the magenta chroma key,
+        # not the API background param.
+        assert "#FF00FF" in captured["prompt"]
         refreshed = play_svc.get_character(duckdb_session, pc.id)
         assert refreshed.hero_url == result["hero_url"]
 
@@ -234,7 +236,7 @@ class TestDressModel:
         assert "Moonblade" in captured["prompt"]
         assert "Bedroll" not in captured["prompt"]
         assert "identical face" in captured["prompt"].lower()
-        assert captured["kwargs"].get("background") == "transparent"
+        assert "#FF00FF" in captured["prompt"]
         refreshed = play_svc.get_character(duckdb_session, pc.id)
         assert refreshed.loadout_url == result["loadout_url"]
 
