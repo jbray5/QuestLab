@@ -551,10 +551,78 @@ def generate_pc_loadout(session: Session, pc: PlayerCharacter, equipped: list[st
     return url
 
 
+def _best_identity_render(pc: PlayerCharacter) -> str | None:
+    """The canonical current look: dressed render first, then base model."""
+    return pc.loadout_url or pc.hero_url
+
+
+def derive_pc_portrait(session: Session, pc: PlayerCharacter) -> str:
+    """Derive the portrait from the PC's current render (Plan 62).
+
+    Identity comes from the IMAGE, not a fresh text roll — the face on the
+    sheet, the HUD card, and the board token stays the same person.
+
+    Args:
+        session: Active database session.
+        pc: The player character row (ownership-checked upstream).
+
+    Returns:
+        The uploaded portrait URL.
+
+    Raises:
+        ValueError: If the PC has no render to derive from.
+    """
+    base_url = _best_identity_render(pc)
+    if not base_url:
+        raise ValueError("Forge a character model first — the portrait is derived from it.")
+    base_bytes = blob_storage.download(base_url)
+    prompt = (
+        f"Head-and-shoulders portrait of this EXACT character from the source image — "
+        f"identical face, skin tone, hair, expression, and the outfit they are wearing. "
+        f"Framed like a painted character portrait: chest-up, facing slightly toward the "
+        f"viewer, warm painterly light, parchment-toned background. {HOUSE_STYLE}. "
+        "No text, no watermark, no border."
+    )
+    png_bytes = edit_image(prompt, base_bytes, size="1024x1024")
+    url = blob_storage.upload(path=blob_storage.portrait_path("pc", pc.id), data=png_bytes)
+    CharacterRepo.update(session, pc, PlayerCharacterUpdate(portrait_url=url))
+    return url
+
+
+def derive_pc_figure(session: Session, pc: PlayerCharacter) -> str:
+    """Derive the board minifig standee from the PC's current render (Plan 62).
+
+    Args:
+        session: Active database session.
+        pc: The player character row (ownership-checked upstream).
+
+    Returns:
+        The uploaded figure URL.
+
+    Raises:
+        ValueError: If the PC has no render to derive from.
+    """
+    base_url = _best_identity_render(pc)
+    if not base_url:
+        raise ValueError("Forge a character model first — the minifig is derived from it.")
+    base_bytes = blob_storage.download(base_url)
+    prompt = (
+        "Convert this EXACT character from the source image into a game standee sprite — "
+        "identical face, hair, outfit, and equipment, full body, standing pose, entire "
+        f"figure in frame with feet visible. {_FIGURE_STYLE}"
+    )
+    png_bytes = edit_image(prompt, base_bytes, size="1024x1536", background="transparent")
+    url = blob_storage.upload(path=f"figures/pc-{pc.id}.png", data=png_bytes)
+    CharacterRepo.update(session, pc, PlayerCharacterUpdate(figure_url=url))
+    return url
+
+
 __all__ = [
     "generate_pc_portrait",
     "generate_npc_portrait",
     "generate_monster_portrait",
     "generate_pc_hero",
     "generate_pc_loadout",
+    "derive_pc_portrait",
+    "derive_pc_figure",
 ]

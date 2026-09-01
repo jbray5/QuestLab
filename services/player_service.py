@@ -686,6 +686,52 @@ def dress_model(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     return {"loadout_url": url}
 
 
+def forge_identity(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
+    """The full identity chain (Plan 62): one look, every surface.
+
+    Cooldown-guarded (same 90 s forge guard). Steps:
+    1. If the PC has no base model yet, generate the hero render.
+    2. If gear is equipped, dress the model (image-to-image loadout).
+    3. Derive the portrait AND the board minifig from that same render.
+
+    One publish at the end so sheet, HUD cards, and board tokens refresh
+    together.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC.
+
+    Returns:
+        ``{"hero_url", "loadout_url", "portrait_url", "figure_url"}`` —
+        the PC's refreshed identity set (some may be unchanged).
+    """
+    from integrations.event_bus import publish_pc_updated
+    from services import portrait_service
+
+    pc = _get_pc_or_raise(db, pc_id)
+    _check_forge_cooldown(pc)
+
+    if not pc.hero_url:
+        portrait_service.generate_pc_hero(db, pc)
+        db.refresh(pc)
+    equipped = [g["name"] for g in list_gear(db, pc_id) if g["equipped"]]
+    if equipped:
+        portrait_service.generate_pc_loadout(db, pc, equipped)
+        db.refresh(pc)
+    portrait_service.derive_pc_portrait(db, pc)
+    db.refresh(pc)
+    portrait_service.derive_pc_figure(db, pc)
+    db.refresh(pc)
+
+    publish_pc_updated(pc.id, pc.campaign_id)
+    return {
+        "hero_url": pc.hero_url,
+        "loadout_url": pc.loadout_url,
+        "portrait_url": pc.portrait_url,
+        "figure_url": pc.figure_url,
+    }
+
+
 def buy_item(db: Session, pc_id: uuid.UUID, shop_item_id: uuid.UUID):
     """Buy a stocked shop item with this PC's coin (Plan 50).
 

@@ -362,3 +362,79 @@ class TestUseItem:
 
         assert receipt["effect"] == "temp_hp"
         assert receipt["target_temp_hp"] == 10  # 1d4 can't beat 10
+
+
+class TestIdentityForge:
+    """Plan 62 — portrait + minifig derived from the current render."""
+
+    def _pc_with_hero(self, db, monkeypatch):
+        """PC with a hero render and stubbed image/blob calls."""
+        captured: dict = {}
+
+        def fake_edit(prompt, image_bytes, **kwargs):
+            captured.setdefault("prompts", []).append(prompt)
+            return b"EDIT"
+
+        monkeypatch.setattr(portrait_svc, "edit_image", fake_edit)
+        monkeypatch.setattr(portrait_svc, "generate_image", lambda *a, **k: b"GEN")
+        monkeypatch.setattr(portrait_svc.blob_storage, "download", lambda url, **k: b"BASE")
+        monkeypatch.setattr(
+            portrait_svc.blob_storage,
+            "upload",
+            lambda *, path, data, content_type="image/png": f"https://fake.blob/{path}",
+        )
+        dm = _dm()
+        c = _campaign(duckdb_session := db, dm)
+        pc = _pc(duckdb_session, c.id, dm)
+        return pc, dm, captured
+
+    def test_derive_portrait_and_figure_from_render(self, duckdb_session, monkeypatch):
+        """Both derivations edit the SAME source render and persist URLs."""
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import PlayerCharacterUpdate
+
+        pc, dm, captured = self._pc_with_hero(duckdb_session, monkeypatch)
+        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
+        CharacterRepo.update(
+            duckdb_session, row, PlayerCharacterUpdate(hero_url="https://fake.blob/heroes/x.png")
+        )
+        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
+
+        portrait_svc.derive_pc_portrait(duckdb_session, row)
+        duckdb_session.refresh(row)
+        portrait_svc.derive_pc_figure(duckdb_session, row)
+        duckdb_session.refresh(row)
+
+        assert row.portrait_url and "portraits/pc-" in row.portrait_url
+        assert row.figure_url and "figures/pc-" in row.figure_url
+        assert any("EXACT character" in pr for pr in captured["prompts"])
+
+    def test_derive_without_render_raises(self, duckdb_session, monkeypatch):
+        """No hero/loadout yet -> clear error, no API calls."""
+        import pytest as _pytest
+
+        from db.repos.character_repo import CharacterRepo
+
+        pc, dm, _ = self._pc_with_hero(duckdb_session, monkeypatch)
+        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
+        with _pytest.raises(ValueError):
+            portrait_svc.derive_pc_portrait(duckdb_session, row)
+
+    def test_forge_identity_chain(self, duckdb_session, monkeypatch):
+        """Chain: hero (absent) -> derive portrait + figure; one result set."""
+        pc, dm, captured = self._pc_with_hero(duckdb_session, monkeypatch)
+
+        out = play_svc.forge_identity(duckdb_session, pc.id)
+
+        assert out["hero_url"] and out["portrait_url"] and out["figure_url"]
+        # No gear equipped -> no loadout step.
+        assert out["loadout_url"] is None
+
+    def test_forge_identity_cooldown(self, duckdb_session, monkeypatch):
+        """Second forge inside 90s raises the glowing-forge error."""
+        import pytest as _pytest
+
+        pc, dm, _ = self._pc_with_hero(duckdb_session, monkeypatch)
+        play_svc.forge_identity(duckdb_session, pc.id)
+        with _pytest.raises(ValueError, match="forge is still glowing"):
+            play_svc.forge_identity(duckdb_session, pc.id)

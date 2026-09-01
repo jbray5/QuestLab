@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { playApi, type GearRow } from "../api/play";
 import { RARITY_COLORS, typeEmoji } from "../components/store/storeTheme";
+import { subclassPanelBackground } from "../lib/subclassArt";
 
 /**
  * CharacterView — the character screen (Plan 48), /play/:pcId/character.
@@ -122,6 +123,31 @@ const FORGE_CSS = `
 .forge-save:hover { color: #f0e6c8; }
 .forge-note { font-size: 0.76rem; color: #8f8672; }
 .forge-back { color: #b3a789; text-decoration: none; font-size: 0.85rem; }
+.forge-primary {
+  padding: 12px 22px; border-radius: 12px; cursor: pointer; width: 100%;
+  font-family: Cinzel, Georgia, serif; font-size: 1.05rem; letter-spacing: 0.08em;
+  color: #1c1508; background: linear-gradient(180deg, #f0d570, #c9a136);
+  border: 1px solid #f5e6ae; box-shadow: 0 4px 22px rgba(214,175,54,0.35);
+}
+.forge-primary:disabled { opacity: 0.6; cursor: default; box-shadow: none; }
+.identity-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 0.6rem; }
+.identity-card {
+  border: 1px solid rgba(240,230,200,0.16); border-radius: 12px; overflow: hidden;
+  background: rgba(20,16,30,0.7); text-align: center;
+}
+.identity-card .im { aspect-ratio: 3/4; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.identity-card .im img { width: 100%; height: 100%; object-fit: contain; }
+.identity-card .im.face img { object-fit: cover; }
+.identity-card .cap {
+  font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; color: #b3a789;
+  padding: 5px 4px 7px; border-top: 1px solid rgba(240,230,200,0.1);
+}
+.chip-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 8px; }
+.look-chip {
+  font-size: 0.74rem; color: #d6c390; background: rgba(214,175,54,0.08);
+  border: 1px solid rgba(214,175,54,0.35); border-radius: 999px; padding: 3px 11px; cursor: pointer;
+}
+.look-chip:hover { background: rgba(214,175,54,0.18); }
 .forge-back:hover { color: #f0e6c8; }
 `;
 
@@ -314,7 +340,21 @@ export default function CharacterView() {
     },
     onError: (err: Error) => setForgeError(err.message),
   });
-  const busy = dressMut.isPending || forgeMut.isPending;
+  // Plan 62 — the full identity chain: one press, every surface.
+  const identityMut = useMutation({
+    mutationFn: async () => {
+      if (draft !== null && draft !== (pc?.appearance ?? "")) {
+        await playApi.setAppearance(pcId as string, draft);
+      }
+      return playApi.forgeIdentity(pcId as string);
+    },
+    onSuccess: () => {
+      setForgeError(null);
+      void qc.invalidateQueries({ queryKey: pcKey });
+    },
+    onError: (err: Error) => setForgeError(err.message),
+  });
+  const busy = dressMut.isPending || forgeMut.isPending || identityMut.isPending;
 
   if (!pc) {
     return (
@@ -332,8 +372,9 @@ export default function CharacterView() {
   // changes when they deliberately press "Render me wearing this".
   const model = pc.loadout_url || pc.hero_url || pc.figure_url || pc.portrait_url || null;
 
+  const artBg = subclassPanelBackground(pc.subclass, { scrim: [0.62, 0.88] });
   return (
-    <div className="forge-root">
+    <div className="forge-root" style={artBg ? { background: artBg, backgroundAttachment: "fixed" } : undefined}>
       <style>{FORGE_CSS}</style>
       <div className="forge-inner">
         <h1 className="forge-title">{pc.character_name}</h1>
@@ -344,17 +385,34 @@ export default function CharacterView() {
 
         <Doll pcId={pcId as string} model={model} busy={busy} />
 
-        <div className="forge-row" style={{ marginTop: 12 }}>
-          <button className="forge-btn" disabled={busy} onClick={() => dressMut.mutate()}>
-            {dressMut.isPending ? "⚒ Dressing…" : "⚔ Render me wearing this"}
-          </button>
-          <span className="forge-note">
-            {forgeError
-              ? forgeError
-              : dressMut.isPending
-                ? "Painting your gear onto your model — about half a minute."
-                : "Equip your loadout in the slots, then paint it onto your character (keeps your face)."}
-          </span>
+        <button
+          className="forge-primary"
+          style={{ marginTop: 14 }}
+          disabled={busy}
+          onClick={() => identityMut.mutate()}
+        >
+          {identityMut.isPending
+            ? "🔥 Forging… model → gear → portrait → board mini (a minute or two)"
+            : "🔥 Forge my look — updates your model, portrait & board mini"}
+        </button>
+        {forgeError && (
+          <div className="forge-note" style={{ color: "#e0a83c", marginTop: 6 }}>{forgeError}</div>
+        )}
+
+        <h2 className="forge-h2">This is you — everywhere</h2>
+        <div className="identity-row">
+          <div className="identity-card">
+            <div className="im">{model ? <img src={model} alt="Your model" /> : <span style={{ opacity: 0.3, fontSize: "2rem" }}>🧍</span>}</div>
+            <div className="cap">Your model</div>
+          </div>
+          <div className="identity-card">
+            <div className="im face">{pc.portrait_url ? <img src={pc.portrait_url} alt="Your portrait" /> : <span style={{ opacity: 0.3, fontSize: "2rem" }}>🎭</span>}</div>
+            <div className="cap">Sheet &amp; DM screen</div>
+          </div>
+          <div className="identity-card">
+            <div className="im">{pc.figure_url ? <img src={pc.figure_url} alt="Your board mini" /> : <span style={{ opacity: 0.3, fontSize: "2rem" }}>♟</span>}</div>
+            <div className="cap">Your mini on the table</div>
+          </div>
         </div>
 
         <h2 className="forge-h2">✍ How your character looks</h2>
@@ -365,7 +423,21 @@ export default function CharacterView() {
           onChange={(e) => setDraft(e.target.value)}
           maxLength={1500}
         />
+        <div className="chip-row">
+          {["battle-scarred", "silver braided hair", "glowing runic tattoos", "weathered cloak", "regal bearing", "mismatched eyes", "soot-streaked", "hung with charms"].map((c) => (
+            <button
+              key={c}
+              className="look-chip"
+              onClick={() => setDraft((d) => ((d ?? "").trim() ? `${(d ?? "").trim()}, ${c}` : c))}
+            >
+              + {c}
+            </button>
+          ))}
+        </div>
         <div className="forge-row">
+          <button className="forge-save" disabled={busy} onClick={() => dressMut.mutate()}>
+            {dressMut.isPending ? "⚒ Dressing…" : "⚔ Gear only"}
+          </button>
           <button
             className="forge-save"
             disabled={appearanceMut.isPending || draft === null}

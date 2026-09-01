@@ -93,6 +93,14 @@ export const playApi = {
     api.post<GearRow>(`/play/${pcId}/gear/${characterItemId}/equip`, { equipped }),
   forgeHero: (pcId: string) => api.post<{ hero_url: string }>(`/play/${pcId}/hero`),
   dressModel: (pcId: string) => api.post<{ loadout_url: string }>(`/play/${pcId}/loadout`),
+  /** Plan 62 — the full chain: model → dressed → portrait + board minifig. */
+  forgeIdentity: (pcId: string) =>
+    api.post<{
+      hero_url: string | null;
+      loadout_url: string | null;
+      portrait_url: string | null;
+      figure_url: string | null;
+    }>(`/play/${pcId}/identity`),
   // Plan 50 — buy a shop item with coin from this PC's purse
   buy: (pcId: string, shopItemId: string) =>
     api.post<PurchaseReceipt>(`/play/${pcId}/buy`, { shop_item_id: shopItemId }),

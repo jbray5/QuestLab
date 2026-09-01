@@ -327,6 +327,34 @@ def forge_hero(pc_id: uuid.UUID, db: DB) -> dict:
         )
 
 
+@router.post("/play/{pc_id}/identity")
+def forge_identity(pc_id: uuid.UUID, db: DB) -> dict:
+    """Run the full identity chain: model → dressed → portrait + minifig.
+
+    One look, every surface (Plan 62). 90s cooldown shared with the other
+    forge actions.
+
+    Args:
+        pc_id: UUID of the player character.
+        db: Database session.
+
+    Returns:
+        ``{"hero_url", "loadout_url", "portrait_url", "figure_url"}``.
+    """
+    try:
+        return player_service.forge_identity(db, pc_id)
+    except ValueError as exc:
+        if "forge is still glowing" in str(exc):
+            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc))
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Identity forge failed: {exc}"
+        )
+
+
 @router.post("/play/{pc_id}/loadout")
 def dress_model(pc_id: uuid.UUID, db: DB) -> dict:
     """Render the character wearing their equipped gear (90s cooldown).
