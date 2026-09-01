@@ -42,6 +42,7 @@ from integrations.event_bus import (
     publish_pc_turn_changed,
     publish_session_combat_updated,
     publish_table_fx,
+    publish_table_updated,
 )
 
 MAX_SESSIONS_PER_ADVENTURE = 20
@@ -75,6 +76,10 @@ def _emit_turn_change(
         session_id: UUID of the session.
         combat_round: Current combat round number.
     """
+    # Plan 61 — the table surfaces follow turns live (glow ring + splash).
+    # Without this, the projector only learns of the new turn on the next
+    # unrelated table event or its slow poll.
+    publish_table_updated(session_id)
     if previous_active_id and previous_active_id != new_active_id:
         prev = SessionCombatantRepo.get_by_id(db, previous_active_id)
         if prev and prev.character_id:
