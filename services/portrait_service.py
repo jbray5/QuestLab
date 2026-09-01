@@ -609,7 +609,9 @@ def derive_pc_figure(session: Session, pc: PlayerCharacter) -> str:
     prompt = (
         "Convert this EXACT character from the source image into a game standee sprite — "
         "identical face, hair, outfit, and equipment, full body, standing pose, entire "
-        f"figure in frame with feet visible. {_FIGURE_STYLE}"
+        "figure in frame with feet visible. CRITICAL: the output is a die-cut PNG cutout "
+        "with a FULLY TRANSPARENT alpha background — absolutely no backdrop, no glow, no "
+        f"vignette, no colored haze behind the figure. {_FIGURE_STYLE}"
     )
     png_bytes = edit_image(prompt, base_bytes, size="1024x1536", background="transparent")
     url = blob_storage.upload(path=f"figures/pc-{pc.id}.png", data=png_bytes)

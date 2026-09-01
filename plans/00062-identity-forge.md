@@ -1,7 +1,7 @@
 # Plan 00062 — The Identity Forge (one look, every surface)
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
 
 **Started:** 2026-09-01
 **Last updated:** 2026-09-01
@@ -25,20 +25,20 @@ same image. Plus a rebuilt /play/:pcId/character screen worthy of it.
 ## Progress
 - [x] Step 0: recon — hero/loadout pipeline + 90s cooldown + paper-doll
       screen mapped; figure/portrait presently text-generated (2026-09-01)
-- [ ] Step 1: backend — portrait_service.derive_pc_portrait +
+- [x] Step 1: backend — portrait_service.derive_pc_portrait +
       derive_pc_figure (edit_image from best render, reusing the portrait /
       _FIGURE_STYLE language); player_service.forge_identity chain
       (cooldown-guarded): [hero if none] → [loadout if gear] → derive both
       → publish; route POST /play/{pc_id}/identity
-- [ ] Step 2: tests — derive fns (stubbed image/blob per test_character_forge
+- [x] Step 2: tests — derive fns (stubbed image/blob per test_character_forge
       _patch pattern), forge_identity chain + cooldown
-- [ ] Step 3: frontend rebuild of CharacterView — Diablo stage: subclass-art
+- [x] Step 3: frontend rebuild of CharacterView — Diablo stage: subclass-art
       backdrop, bigger model, rarity-ringed slots, LOOKS panel (appearance
       editor + suggestion chips), THE FORGE panel with one primary action
       ("Forge my look" → full chain) + per-step buttons, identity row
       showing model/portrait/minifig side by side ("this is you, everywhere")
-- [ ] Step 4: gate (pytest, tsc, eslint on touched, build) + commit + push
-- [ ] Step 5: live smoke on Creed via prod: forge chain → verify
+- [x] Step 4: gate (pytest, tsc, eslint on touched, build) + commit + push
+- [x] Step 5: live smoke on Creed via prod: forge chain → verify
       portrait/figure updated → screenshots to Justin
 
 ---
