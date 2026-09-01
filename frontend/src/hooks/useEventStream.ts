@@ -77,6 +77,7 @@ export function useEventStream(
       "session.combat.updated",
       "dice.rolled",
       "table.updated",
+      "table.fx",
       "table.ping",
       "puzzle.updated",
     ];

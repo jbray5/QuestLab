@@ -323,30 +323,41 @@ export default function MapCanvas({
 
       {/* Ping ripple — remounts on a new ping.key so the SVG animations restart. */}
       {/* Combat cinema (Plan 61) — floating damage / heal numbers. */}
+      {fx.length > 0 && (
+        <style>{`
+          @keyframes qlFxRise {
+            0%   { opacity: 0; transform: translateY(10px) scale(0.8); }
+            12%  { opacity: 1; transform: translateY(0) scale(1.1); }
+            30%  { transform: translateY(-4px) scale(1); }
+            55%  { opacity: 1; }
+            100% { opacity: 0; transform: translateY(-42px) scale(0.95); }
+          }
+          .ql-fx-rise { animation: qlFxRise 1.4s ease-out forwards; transform-box: fill-box; transform-origin: center; }
+          @media (prefers-reduced-motion: reduce) { .ql-fx-rise { animation-duration: 0.01s; } }
+        `}</style>
+      )}
       {fx.map((f) => {
         if (f.kind === "ko") return null;
         const tok = tokens.find((t) => (t.ref_id ?? t.id) === f.refId);
         if (!tok) return null;
         const size = Math.max(22, tokenUnit * 0.62);
         return (
-          <text
-            key={f.id}
-            x={tok.x}
-            y={tok.y - tokenUnit * 0.7}
-            textAnchor="middle"
-            fontFamily="Cinzel, Georgia, serif"
-            fontWeight={800}
-            fontSize={size}
-            fill={f.kind === "heal" ? "#7fd98a" : "#ff6b57"}
-            stroke="#000"
-            strokeWidth={size * 0.06}
-            paintOrder="stroke"
-            style={{ pointerEvents: "none" }}
-          >
-            {f.kind === "heal" ? `+${f.amount ?? ""}` : `−${f.amount ?? ""}`}
-            <animate attributeName="y" from={tok.y - tokenUnit * 0.55} to={tok.y - tokenUnit * 1.6} dur="1.4s" fill="freeze" />
-            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.55;1" dur="1.4s" fill="freeze" />
-          </text>
+          <g key={f.id} className="ql-fx-rise" style={{ pointerEvents: "none" }}>
+            <text
+              x={tok.x}
+              y={tok.y - tokenUnit * 0.7}
+              textAnchor="middle"
+              fontFamily="Cinzel, Georgia, serif"
+              fontWeight={800}
+              fontSize={size}
+              fill={f.kind === "heal" ? "#7fd98a" : "#ff6b57"}
+              stroke="#000"
+              strokeWidth={size * 0.06}
+              paintOrder="stroke"
+            >
+              {f.kind === "heal" ? `+${f.amount ?? ""}` : `−${f.amount ?? ""}`}
+            </text>
+          </g>
         );
       })}
       {ping && (
