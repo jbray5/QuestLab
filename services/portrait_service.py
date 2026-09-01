@@ -434,11 +434,13 @@ def _build_hero_prompt(pc: PlayerCharacter) -> str:
     if pc.appearance:
         bits.append(pc.appearance.strip()[:1200])
     bits.append(
-        "Video-game character-select model: one figure standing straight and "
-        "facing forward, full body from head to boots in frame, symmetrical "
-        f"neutral pose. {HOUSE_STYLE_CUTOUT}. Clean die-cut cutout on a fully "
-        "transparent background, no scenery, no ground, no shadow. "
-        "No text, no watermark, no border"
+        "Video-game character-select hero: one living figure facing the viewer "
+        "in a confident, natural stance (weight settled, shoulders easy — alive, "
+        "not a mannequin), full body from head to boots in frame. Their hands "
+        "are EMPTY and they carry NOTHING — no weapons, instruments, tools, or "
+        f"props (equipment is added in a separate pass). {HOUSE_STYLE_CUTOUT}. "
+        "Clean die-cut cutout on a fully transparent background, no scenery, "
+        "no ground, no shadow. No text, no watermark, no border"
     )
     return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
 
@@ -509,7 +511,9 @@ def _build_loadout_prompt(pc: PlayerCharacter, equipped: list[str]) -> str:
         "the hands, a shield on the arm; a worn piece (armour, cloak, boots) appears "
         "on the body ONLY if it is named in that list. Do NOT add, remove, upgrade, or "
         "restyle any armour, clothing, or equipment that is not in the list — keep "
-        "their current outfit exactly as it is. Full body head to boots, clean die-cut "
+        "their current outfit exactly as it is. If the source image shows them holding "
+        "ANY object not in the list (an instrument, tool, weapon, or prop), REMOVE it "
+        "— they hold only what the list names. Full body head to boots, clean die-cut "
         f"cutout on a fully transparent background, no scenery, no shadow. "
         f"{HOUSE_STYLE_CUTOUT}. No text, no watermark, no border."
     )

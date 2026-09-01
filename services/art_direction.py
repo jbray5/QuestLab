@@ -29,8 +29,12 @@ HOUSE_STYLE = (
 # Variant for transparent cut-out assets (standees, character models) —
 # same voice, plus the isolation requirements those pipelines depend on.
 HOUSE_STYLE_CUTOUT = (
-    "Traditional oil painting on canvas: visible brushwork, layered glazes, "
-    "rich tonal depth, naturalistic anatomy and believable materials, soft "
-    "directional light. Painterly realism — not a photograph, not a 3D render, "
-    "no airbrush gradients, no neon rim lighting, no cartoon outlines"
+    "Painted in oils: visible brushwork, layered glazes, rich tonal depth, "
+    "naturalistic anatomy and believable materials, soft directional light. "
+    "The subject is a LIVING character rendered in paint — with expressive "
+    "eyes, natural skin/scale texture, and fabric that drapes and moves. "
+    "Painterly realism — not a photograph, not a 3D render, and NEVER a "
+    "sculpture, statue, figurine, clay model, toy, or miniature: no clay or "
+    "plasticine texture, no matte stone surface, no museum-piece stiffness. "
+    "No airbrush gradients, no neon rim lighting, no cartoon outlines"
 )
