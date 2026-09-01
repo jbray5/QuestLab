@@ -35,28 +35,6 @@ import { useEventStream } from "../hooks/useEventStream";
  * owns it.
  */
 
-const FLOAT_CSS = `
-.board-dmg-float {
-  position: absolute;
-  top: -38px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: Cinzel, serif;
-  font-size: 30px;
-  font-weight: 800;
-  color: #ff6b57;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.9);
-  animation: board-dmg-rise 1.4s ease-out forwards;
-  pointer-events: none;
-  white-space: nowrap;
-}
-@keyframes board-dmg-rise {
-  0%   { opacity: 0; transform: translate(-50%, 10px) scale(0.7); }
-  15%  { opacity: 1; transform: translate(-50%, 0) scale(1.15); }
-  30%  { transform: translate(-50%, -6px) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -46px) scale(0.95); }
-}
-`;
 
 export default function BoardView() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -648,7 +626,6 @@ export default function BoardView() {
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "#06060b", display: "flex", flexDirection: "column" }}>
-      <style>{FLOAT_CSS}</style>
 
       {/* header */}
       <header

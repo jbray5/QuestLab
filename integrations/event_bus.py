@@ -242,6 +242,35 @@ def publish_pc_turn_changed(pc_id: Any, active: bool, **extra: Any) -> None:
     event_bus.publish(f"pc:{pc_id}", payload)
 
 
+def publish_table_fx(
+    session_id: Any,
+    kind: str,
+    ref_id: Any,
+    amount: int | None = None,
+) -> None:
+    """Publish a combat-cinema effect to the table topic (Plan 61).
+
+    Player-safe by construction: the payload carries a token reference and
+    a DELTA only — never totals, never remaining HP. The table views render
+    it as a transient effect (floating number, KO beat, stinger).
+
+    Args:
+        session_id: UUID of the session whose board should react.
+        kind: "damage" | "heal" | "ko".
+        ref_id: Token link — a character_id or session_combatant id.
+        amount: Magnitude of the change (absolute value), if numeric.
+    """
+    payload: Event = {
+        "type": "table.fx",
+        "session_id": str(session_id),
+        "kind": kind,
+        "ref_id": str(ref_id),
+    }
+    if amount is not None:
+        payload["amount"] = int(amount)
+    event_bus.publish(f"table:{session_id}", payload)
+
+
 def publish_table_updated(session_id: Any) -> None:
     """Notify the Table View that the projected surface changed (Plan 42).
 

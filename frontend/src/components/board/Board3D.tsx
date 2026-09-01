@@ -8,7 +8,6 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { SessionCombatant, TableToken } from "../../api/types";
 import {
   BackdropDome,
-  Flyers,
   LightRig,
   ProceduralSky,
   Sea,
@@ -125,6 +124,16 @@ interface Board3DProps {
   measureMode?: boolean;
   onMeasure?: (x: number, y: number) => void;
   measurePts?: { x: number; y: number }[];
+  /** Combat cinema (Plan 61): transient damage/heal fx keyed by token ref. */
+  fx?: BoardFx[];
+}
+
+/** One transient combat effect, sourced from a "table.fx" SSE event. */
+export interface BoardFx {
+  id: string;
+  refId: string;
+  kind: "damage" | "heal" | "ko";
+  amount: number | null;
 }
 
 const SQRT3 = Math.sqrt(3);
@@ -419,7 +428,7 @@ interface StandeeProps {
   glideRef: RefObject<GlideAnim | null>;
   strikeRef: RefObject<StrikeAnim | null>;
   strikeTarget: { x: number; y: number } | null;
-  floatingText: string | null;
+  floatingText: { key: string; text: string; tone: "damage" | "heal" } | null;
   onMoveCommit: (id: string, x: number, y: number) => void;
   onClick: (e: ThreeEvent<MouseEvent>) => void;
 }
@@ -721,8 +730,11 @@ function Standee({
             </div>
           )}
           {floatingText && (
-            <div className="board-dmg-float" key={floatingText}>
-              {floatingText}
+            <div
+              className={`board-dmg-float${floatingText.tone === "heal" ? " heal" : ""}`}
+              key={floatingText.key}
+            >
+              {floatingText.text}
             </div>
           )}
         </div>
@@ -1216,7 +1228,6 @@ function BoardScene(props: Board3DProps) {
       <Lightning seq={props.stormFlash} />
       <Starfield fit={fit} darkness={darkness} />
       <Sea fit={fit} mode={props.sea ?? "off"} />
-      <Flyers fit={fit} darkness={darkness} weather={weather} />
       {domeTex ? (
         <BackdropDome tex={domeTex} fit={fit} darkness={darkness} />
       ) : (
@@ -1392,12 +1403,26 @@ function BoardScene(props: Board3DProps) {
       {tokens.map((t) => {
         const combatant = (t.ref_id && combatantByRef.get(t.ref_id)) || null;
         const ref = t.ref_id ?? t.id;
-        const showDamage =
+        // Floating text: DM strike animation wins; otherwise the latest
+        // remote combat-cinema fx for this token (Plan 61).
+        const fxHit = props.fx?.find((f) => f.refId === ref && f.kind !== "ko");
+        const showDamage: { key: string; text: string; tone: "damage" | "heal" } | null =
           strike && strike.targetId === t.id
-            ? strike.amount === "miss"
-              ? "miss"
-              : `−${strike.amount}`
-            : null;
+            ? {
+                key: `strike-${strike.seq}`,
+                text: strike.amount === "miss" ? "miss" : `−${strike.amount}`,
+                tone: "damage",
+              }
+            : fxHit
+              ? {
+                  key: fxHit.id,
+                  text:
+                    fxHit.kind === "heal"
+                      ? `+${fxHit.amount ?? ""}`
+                      : `−${fxHit.amount ?? ""}`,
+                  tone: fxHit.kind === "heal" ? "heal" : "damage",
+                }
+              : null;
         return (
           <Standee
             key={t.id}
@@ -1445,10 +1470,38 @@ function BoardScene(props: Board3DProps) {
   );
 }
 
+/** Floating combat numbers (rise + fade). Lives here so every surface that
+ * mounts the board — DM page, player 3D table — gets it without page CSS. */
+const FLOAT_CSS = `
+.board-dmg-float {
+  position: absolute;
+  top: -38px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: Cinzel, Georgia, serif;
+  font-size: 30px;
+  font-weight: 800;
+  color: #ff6b57;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.9);
+  animation: board-dmg-rise 1.4s ease-out forwards;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.board-dmg-float.heal { color: #7fd98a; }
+@keyframes board-dmg-rise {
+  0%   { opacity: 0; transform: translate(-50%, 10px) scale(0.7); }
+  15%  { opacity: 1; transform: translate(-50%, 0) scale(1.15); }
+  30%  { transform: translate(-50%, -6px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -46px) scale(0.95); }
+}
+`;
+
 /** Public component: the Canvas wrapper (keeps three types out of the page). */
 export default function Board3D(props: Board3DProps) {
   const fit = Math.max(props.map.width, props.map.height) * 1.05;
   return (
+    <>
+    <style>{FLOAT_CSS}</style>
     <Canvas
       dpr={[1, 1.75]}
       gl={{ antialias: true, powerPreference: "high-performance" }}
@@ -1457,5 +1510,6 @@ export default function Board3D(props: Board3DProps) {
     >
       <BoardScene {...props} />
     </Canvas>
+    </>
   );
 }

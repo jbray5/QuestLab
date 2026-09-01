@@ -36,6 +36,8 @@ interface Props {
   onCanvasPointerDown?: (x: number, y: number, e: React.PointerEvent) => void;
   onTokenMove?: (id: string, x: number, y: number) => void;
   onTokenDragEnd?: (id: string, x: number, y: number) => void;
+  /** Combat cinema (Plan 61): transient floating numbers by token ref. */
+  fx?: { id: string; refId: string; kind: "damage" | "heal" | "ko"; amount: number | null }[];
 }
 
 const RING_COLORS: Record<string, string> = {
@@ -70,6 +72,7 @@ export default function MapCanvas({
   onCanvasPointerDown,
   onTokenMove,
   onTokenDragEnd,
+  fx = [],
 }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragId = useRef<string | null>(null);
@@ -319,6 +322,33 @@ export default function MapCanvas({
       })}
 
       {/* Ping ripple — remounts on a new ping.key so the SVG animations restart. */}
+      {/* Combat cinema (Plan 61) — floating damage / heal numbers. */}
+      {fx.map((f) => {
+        if (f.kind === "ko") return null;
+        const tok = tokens.find((t) => (t.ref_id ?? t.id) === f.refId);
+        if (!tok) return null;
+        const size = Math.max(22, tokenUnit * 0.62);
+        return (
+          <text
+            key={f.id}
+            x={tok.x}
+            y={tok.y - tokenUnit * 0.7}
+            textAnchor="middle"
+            fontFamily="Cinzel, Georgia, serif"
+            fontWeight={800}
+            fontSize={size}
+            fill={f.kind === "heal" ? "#7fd98a" : "#ff6b57"}
+            stroke="#000"
+            strokeWidth={size * 0.06}
+            paintOrder="stroke"
+            style={{ pointerEvents: "none" }}
+          >
+            {f.kind === "heal" ? `+${f.amount ?? ""}` : `−${f.amount ?? ""}`}
+            <animate attributeName="y" from={tok.y - tokenUnit * 0.55} to={tok.y - tokenUnit * 1.6} dur="1.4s" fill="freeze" />
+            <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.12;0.55;1" dur="1.4s" fill="freeze" />
+          </text>
+        );
+      })}
       {ping && (
         <g key={ping.key} pointerEvents="none">
           {[0, 1, 2].map((i) => (

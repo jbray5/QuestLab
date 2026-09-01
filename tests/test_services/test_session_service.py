@@ -588,6 +588,40 @@ class TestUpdateCombatant:
         assert updated.hp_max == 30  # untouched
         assert updated.defeated is False  # untouched
 
+    def test_hp_delta_publishes_table_fx(self, duckdb_session: Session, monkeypatch):
+        """Combat cinema (Plan 61): damage/heal/ko deltas hit the table topic."""
+        fired: list[tuple] = []
+        monkeypatch.setattr(
+            sess_svc,
+            "publish_table_fx",
+            lambda sid, kind, ref, amount=None: fired.append((kind, amount)),
+        )
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(combatants=[_persist_combatant(0, "Hero", hp=30)]),
+        )
+        cid = state.combatants[0].id
+
+        sess_svc.update_combatant(
+            duckdb_session, gs.id, cid, dm, SessionCombatantUpdate(hp_current=18)
+        )
+        sess_svc.update_combatant(
+            duckdb_session, gs.id, cid, dm, SessionCombatantUpdate(hp_current=25)
+        )
+        sess_svc.update_combatant(
+            duckdb_session, gs.id, cid, dm, SessionCombatantUpdate(defeated=True)
+        )
+
+        assert ("damage", 12) in fired
+        assert ("heal", 7) in fired
+        assert ("ko", None) in fired
+
     def test_unknown_combatant_raises(self, duckdb_session: Session):
         """Patching a combatant that doesn't exist raises ValueError."""
         dm = _unique_dm()

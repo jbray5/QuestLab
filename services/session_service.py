@@ -41,6 +41,7 @@ from integrations.event_bus import (
     publish_pc_combat_updated,
     publish_pc_turn_changed,
     publish_session_combat_updated,
+    publish_table_fx,
 )
 
 MAX_SESSIONS_PER_ADVENTURE = 20
@@ -865,7 +866,22 @@ def update_combatant(
     combatant = SessionCombatantRepo.get_by_id(db, combatant_id)
     if combatant is None or combatant.session_id != session_id:
         raise ValueError(f"Combatant {combatant_id} not found in session {session_id}.")
+    hp_before = combatant.hp_current
+    was_defeated = combatant.defeated
     updated = SessionCombatantRepo.update_one(db, combatant, update)
+
+    # Plan 61 — combat cinema. The board reacts: HP deltas float over the
+    # token, a KO gets its beat. Deltas only — the payload never carries
+    # totals. Token link = character_id (PCs) or the combatant row id.
+    fx_ref = updated.character_id or updated.id
+    if update.hp_current is not None and hp_before is not None:
+        delta = update.hp_current - hp_before
+        if delta < 0:
+            publish_table_fx(session_id, "damage", fx_ref, amount=-delta)
+        elif delta > 0:
+            publish_table_fx(session_id, "heal", fx_ref, amount=delta)
+    if update.defeated is True and not was_defeated:
+        publish_table_fx(session_id, "ko", fx_ref)
     adventure = AdventureRepo.get_by_id(db, game_session.adventure_id)
     campaign_id = adventure.campaign_id if adventure is not None else None
 

@@ -5,6 +5,7 @@ import { useParams } from "react-router-dom";
 import { tableApi } from "../api/table";
 import type { SessionCombatant } from "../api/types";
 import Board3D, {
+  type BoardFx as BoardFxEvent,
   type BoardMapLike,
   type BoardPing,
   type GridKind,
@@ -12,6 +13,7 @@ import Board3D, {
 import type { WeatherKind } from "../components/board/boardTheme";
 import { useAmbience } from "../components/board/ambience";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
+import TurnSplash, { type SplashSubject } from "../components/table/TurnSplash";
 
 /**
  * Table3DView — the players' 3D table (Plan 45), /table/:sessionId/3d.
@@ -94,10 +96,30 @@ export default function Table3DView() {
   const pingSeq = useRef(0);
   const stingerRef = useRef<(kind: string) => void>(() => undefined);
   const [stormSeq, setStormSeq] = useState(0);
+  // Combat cinema (Plan 61): transient fx + the turn splash.
+  const [fx, setFx] = useState<BoardFxEvent[]>([]);
+  const fxSeq = useRef(0);
+  const [splash, setSplash] = useState<SplashSubject | null>(null);
+  const splashSeq = useRef(0);
 
   useEventStream("table", sessionId, (event: StreamEvent) => {
     if (event.type === "table.updated") {
       void qc.invalidateQueries({ queryKey: projKey });
+    } else if (event.type === "table.fx") {
+      const f = event as StreamEvent & { kind?: string; ref_id?: string; amount?: number };
+      if (!f.kind || !f.ref_id) return;
+      stingerRef.current(f.kind);
+      if (f.kind === "ko") return; // the topple animation is the visual
+      fxSeq.current += 1;
+      const id = `fx-${fxSeq.current}`;
+      const entry: BoardFxEvent = {
+        id,
+        refId: f.ref_id,
+        kind: f.kind as BoardFxEvent["kind"],
+        amount: typeof f.amount === "number" ? f.amount : null,
+      };
+      setFx((cur) => [...cur, entry]);
+      window.setTimeout(() => setFx((cur) => cur.filter((q) => q.id !== id)), 1500);
     } else if (event.type === "table.ping") {
       const p = event as StreamEvent & { x?: number; y?: number; kind?: string; amount?: number };
       if (typeof p.x !== "number" || typeof p.y !== "number") return;
@@ -144,6 +166,24 @@ export default function Table3DView() {
     return token?.label ?? null;
   }, [proj]);
 
+  // Combat cinema (Plan 61): a PC's turn opens with a splash + fanfare.
+  const lastActiveRef = useRef<string | null>(null);
+  useEffect(() => {
+    const ref = proj?.active_token_ref ?? null;
+    if (ref === lastActiveRef.current) return;
+    lastActiveRef.current = ref;
+    if (!ref) return;
+    const token = proj?.tokens.find((t) => (t.ref_id ?? t.id) === ref);
+    if (!token || token.kind !== "pc") return;
+    splashSeq.current += 1;
+    setSplash({
+      key: `${ref}-${splashSeq.current}`,
+      name: token.label || "Your turn",
+      imageUrl: token.image_url ?? null,
+    });
+    stingerRef.current("turn");
+  }, [proj]);
+
   return (
     <div style={{ position: "fixed", inset: 0, background: "#020208" }}>
       <style>{TITLE_CSS}</style>
@@ -170,6 +210,7 @@ export default function Table3DView() {
           fogOpacity={0.94}
           pings={pings}
           stormFlash={stormSeq}
+          fx={fx}
           introKey={map.id}
           onSelect={noop}
           onMoveCommit={noop}
@@ -201,6 +242,7 @@ export default function Table3DView() {
           ⚔ {activeLabel}&rsquo;s turn
         </div>
       )}
+      <TurnSplash subject={splash} />
       <div style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 6, opacity: 0.75 }}>
         <button
           onClick={() => setSoundOn((v) => !v)}

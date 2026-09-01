@@ -194,6 +194,96 @@ export class AmbienceEngine {
       g.gain.exponentialRampToValueAtTime(0.0001, t + 2.8);
       src.connect(lp).connect(g).connect(master);
       src.start(t);
+    } else if (kind === "damage") {
+      // Combat cinema (Plan 61): a fast impact — noise crack + pitch drop.
+      const crack = ctx.createBufferSource();
+      crack.buffer = noiseBuffer(ctx, 0.15);
+      const clp = ctx.createBiquadFilter();
+      clp.type = "lowpass";
+      clp.frequency.value = 900;
+      const cg = ctx.createGain();
+      cg.gain.setValueAtTime(0.28, t);
+      cg.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
+      crack.connect(clp).connect(cg).connect(master);
+      crack.start(t);
+      const drop = ctx.createOscillator();
+      drop.frequency.setValueAtTime(190, t);
+      drop.frequency.exponentialRampToValueAtTime(62, t + 0.22);
+      const dg = ctx.createGain();
+      dg.gain.setValueAtTime(0.16, t);
+      dg.gain.exponentialRampToValueAtTime(0.0001, t + 0.26);
+      drop.connect(dg).connect(master);
+      drop.start(t);
+      drop.stop(t + 0.3);
+    } else if (kind === "heal") {
+      // A soft ascending third — restorative, never saccharine.
+      for (const [freq, at] of [
+        [392, 0],
+        [494, 0.09],
+        [587, 0.18],
+      ] as const) {
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t + at);
+        g.gain.exponentialRampToValueAtTime(0.07, t + at + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.6);
+        osc.connect(g).connect(master);
+        osc.start(t + at);
+        osc.stop(t + at + 0.7);
+      }
+    } else if (kind === "ko") {
+      // A death knell: sub boom with a slow pitch fall.
+      const boom = ctx.createOscillator();
+      boom.type = "sine";
+      boom.frequency.setValueAtTime(110, t);
+      boom.frequency.exponentialRampToValueAtTime(38, t + 1.1);
+      const bg = ctx.createGain();
+      bg.gain.setValueAtTime(0.3, t);
+      bg.gain.exponentialRampToValueAtTime(0.0001, t + 1.3);
+      boom.connect(bg).connect(master);
+      boom.start(t);
+      boom.stop(t + 1.4);
+      const dust = ctx.createBufferSource();
+      dust.buffer = noiseBuffer(ctx, 0.5);
+      const dlp = ctx.createBiquadFilter();
+      dlp.type = "lowpass";
+      dlp.frequency.value = 300;
+      const dg2 = ctx.createGain();
+      dg2.gain.setValueAtTime(0.12, t + 0.05);
+      dg2.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+      dust.connect(dlp).connect(dg2).connect(master);
+      dust.start(t + 0.05);
+    } else if (kind === "turn") {
+      // A turn fanfare: filtered sweep up into a bright fifth.
+      const sweep = ctx.createBufferSource();
+      sweep.buffer = noiseBuffer(ctx, 0.5);
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.Q.value = 6;
+      bp.frequency.setValueAtTime(300, t);
+      bp.frequency.exponentialRampToValueAtTime(2400, t + 0.35);
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0.07, t);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+      sweep.connect(bp).connect(sg).connect(master);
+      sweep.start(t);
+      for (const [freq, at] of [
+        [523, 0.3],
+        [784, 0.38],
+      ] as const) {
+        const osc = ctx.createOscillator();
+        osc.type = "triangle";
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t + at);
+        g.gain.exponentialRampToValueAtTime(0.08, t + at + 0.04);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.7);
+        osc.connect(g).connect(master);
+        osc.start(t + at);
+        osc.stop(t + at + 0.8);
+      }
     } else if (kind === "sting") {
       // A dramatic low hit: detuned saws + a noise thump.
       for (const [freq, detune] of [
