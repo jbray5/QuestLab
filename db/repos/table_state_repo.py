@@ -64,6 +64,24 @@ class TableStateRepo:
         return state
 
     @staticmethod
+    def delete_for_session(session: Session, session_id: uuid.UUID) -> bool:
+        """Delete the session's table state row, if any.
+
+        Args:
+            session: Active database session.
+            session_id: UUID of the parent game session.
+
+        Returns:
+            True if a row was deleted.
+        """
+        state = TableStateRepo.get_by_session(session, session_id)
+        if state is None:
+            return False
+        session.delete(state)
+        session.commit()
+        return True
+
+    @staticmethod
     def clear_map_references(session: Session, map_id: uuid.UUID) -> int:
         """Null out any table state pointing at a map about to be deleted.
 

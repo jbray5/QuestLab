@@ -147,3 +147,40 @@ def test_projection_tokens_carry_conditions(client, api_engine):
     assert len(tokens) == 1
     assert sorted(tokens[0]["conditions"]) == ["poisoned", "prone"]
     assert tokens[0]["concentrating"] is None  # not a PC token
+
+
+def test_delete_session_cascades_table_and_combat(client, api_engine):
+    """DELETE /sessions/{id} succeeds even with combat + table state attached."""
+    dm = "dm_del@example.com"
+    _cid, sid = _seed(api_engine, dm)
+
+    put = client.put(
+        f"/api/sessions/{sid}/combat",
+        headers=auth(dm),
+        json={
+            "round": 1,
+            "combat_state": "running",
+            "combatants": [
+                {
+                    "sort_index": 0,
+                    "name": "Ghoul",
+                    "dex_score": 14,
+                    "initiative_roll": 12,
+                    "hp_current": 22,
+                    "hp_max": 22,
+                    "type": "monster",
+                }
+            ],
+        },
+    )
+    assert put.status_code == 200
+    patch = client.patch(
+        f"/api/sessions/{sid}/table",
+        headers=auth(dm),
+        json={"darkness": 0.4},
+    )
+    assert patch.status_code == 200
+
+    resp = client.delete(f"/api/sessions/{sid}", headers=auth(dm))
+    assert resp.status_code == 204
+    assert client.get(f"/api/table/{sid}").json()["map"] is None  # empty projection

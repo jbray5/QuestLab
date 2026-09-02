@@ -18,10 +18,13 @@ from sqlmodel import Session as DBSession
 from db.repos.adventure_repo import AdventureRepo
 from db.repos.campaign_repo import CampaignRepo
 from db.repos.character_repo import CharacterRepo
+from db.repos.combat_beat_repo import CombatBeatRepo
 from db.repos.encounter_repo import EncounterRepo
 from db.repos.item_repo import ItemRepo
 from db.repos.monster_repo import MonsterRepo
+from db.repos.session_brief_repo import SessionBriefRepo
 from db.repos.session_repo import SessionCombatantRepo, SessionRepo, SessionRunbookRepo
+from db.repos.table_state_repo import TableStateRepo
 from domain.enums import SessionStatus
 from domain.session import Session as GameSession
 from domain.session import (
@@ -279,7 +282,16 @@ def delete_session(db: DBSession, session_id: uuid.UUID, dm_email: str) -> bool:
     if game_session is None:
         raise ValueError(f"Session {session_id} not found.")
     _assert_session_owner(db, game_session, dm_email)
-    # Cascade delete the runbook first
+    # Cascade every child table first — Postgres FKs abort the delete
+    # otherwise (beats reference combatants, so beats go first).
+    for beat in CombatBeatRepo.list_for_session(db, session_id):
+        CombatBeatRepo.delete(db, beat)
+    for combatant in SessionCombatantRepo.list_for_session(db, session_id):
+        SessionCombatantRepo.delete_one(db, combatant)
+    TableStateRepo.delete_for_session(db, session_id)
+    brief = SessionBriefRepo.get_by_session(db, session_id)
+    if brief:
+        SessionBriefRepo.delete(db, brief)
     runbook = SessionRunbookRepo.get_by_session(db, session_id)
     if runbook:
         SessionRunbookRepo.delete(db, runbook)
