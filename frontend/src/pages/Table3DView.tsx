@@ -162,10 +162,11 @@ export default function Table3DView() {
   }, [stinger]);
 
   // Plan 64 — staging a new map mid-session plays the scene card.
+  // Map name over scene title: it rides the same payload as the art.
   const reveal = useMapReveal(
     proj ? (proj.map?.id ?? null) : undefined,
     proj?.map?.image_url,
-    proj?.title,
+    proj?.map?.name || proj?.title,
     () => stingerRef.current("reveal"),
   );
 

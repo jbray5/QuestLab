@@ -103,10 +103,12 @@ export default function TableView() {
   const title = data?.title ?? "";
 
   // Plan 64 — staging a new map mid-session plays the scene card.
+  // The map's own name rides the same payload object as the art, so it
+  // can never lag the map change the way the scene title can.
   const reveal = useMapReveal(
     data ? (data.map?.id ?? null) : undefined,
     data?.map?.image_url,
-    data?.title,
+    data?.map?.name || data?.title,
   );
 
   return (

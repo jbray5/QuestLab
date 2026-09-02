@@ -31,7 +31,11 @@ board. Same energy as the TurnSplash, scaled up to "you have arrived."
 ---
 
 ## Surprises and Discoveries
-- (none yet)
+- The DM PATCH field is `active_map_id` (not battle_map_id) — the first
+  smoke staged nothing and only changed the title.
+- The scene `title` can lag the map by one refetch; the reveal card now
+  uses `map.name` (rides the same payload object as the art, atomic) and
+  falls back to the scene title. TableMapSummary gained `name` frontside.
 
 ---
 

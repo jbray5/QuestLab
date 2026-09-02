@@ -469,6 +469,7 @@ export interface TableStateUpdate {
 
 export interface TableMapSummary {
   id: string;
+  name: string;
   image_url: string;
   width: number;
   height: number;
