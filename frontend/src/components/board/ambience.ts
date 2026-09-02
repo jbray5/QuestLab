@@ -284,6 +284,37 @@ export class AmbienceEngine {
         osc.start(t + at);
         osc.stop(t + at + 0.8);
       }
+    } else if (kind === "reveal") {
+      // Arrival swell (Plan 64): a low drone blooms into an open fifth
+      // with a soft shimmer — wonder, not danger.
+      for (const [freq, at, peak] of [
+        [65.4, 0, 0.07],
+        [130.8, 0.5, 0.06],
+        [196.0, 0.9, 0.05],
+        [261.6, 1.25, 0.045],
+      ] as const) {
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t + at);
+        g.gain.exponentialRampToValueAtTime(peak, t + at + 0.7);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + at + 3.2);
+        osc.connect(g).connect(master);
+        osc.start(t + at);
+        osc.stop(t + at + 3.4);
+      }
+      const shimmer = ctx.createBufferSource();
+      shimmer.buffer = noiseBuffer(ctx, 2.5);
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 5200;
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0.0001, t + 0.8);
+      sg.gain.exponentialRampToValueAtTime(0.025, t + 1.4);
+      sg.gain.exponentialRampToValueAtTime(0.0001, t + 3.0);
+      shimmer.connect(hp).connect(sg).connect(master);
+      shimmer.start(t + 0.8);
     } else if (kind === "sting") {
       // A dramatic low hit: detuned saws + a noise thump.
       for (const [freq, detune] of [

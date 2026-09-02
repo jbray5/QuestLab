@@ -14,6 +14,8 @@ import type { WeatherKind } from "../components/board/boardTheme";
 import { useAmbience } from "../components/board/ambience";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import TurnSplash, { type SplashSubject } from "../components/table/TurnSplash";
+import MapReveal from "../components/table/MapReveal";
+import { useMapReveal } from "../hooks/useMapReveal";
 
 /**
  * Table3DView — the players' 3D table (Plan 45), /table/:sessionId/3d.
@@ -159,6 +161,14 @@ export default function Table3DView() {
     stingerRef.current = stinger;
   }, [stinger]);
 
+  // Plan 64 — staging a new map mid-session plays the scene card.
+  const reveal = useMapReveal(
+    proj ? (proj.map?.id ?? null) : undefined,
+    proj?.map?.image_url,
+    proj?.title,
+    () => stingerRef.current("reveal"),
+  );
+
   // Turn banner — the player-facing "whose turn" lower-third.
   const activeLabel = useMemo(() => {
     if (!proj?.active_token_ref) return null;
@@ -243,6 +253,7 @@ export default function Table3DView() {
         </div>
       )}
       <TurnSplash subject={splash} />
+      <MapReveal subject={reveal} />
       <div style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 6, opacity: 0.75 }}>
         <button
           onClick={() => setSoundOn((v) => !v)}

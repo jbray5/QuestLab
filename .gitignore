@@ -87,3 +87,7 @@ logs/
 # Local cache for one-shot SRD parsing scripts
 scripts/.srd_*.md
 party-art/
+
+# Czepeku map library (3GB local asset store, 2026-09-01) — never committed;
+# imported into Vercel Blob via tooling instead.
+maps/

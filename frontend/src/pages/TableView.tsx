@@ -7,6 +7,8 @@ import { tableApi } from "../api/table";
 import MapCanvas from "../components/table/MapCanvas";
 import JoinQr from "../components/table/JoinQr";
 import TurnSplash, { type SplashSubject } from "../components/table/TurnSplash";
+import MapReveal from "../components/table/MapReveal";
+import { useMapReveal } from "../hooks/useMapReveal";
 
 /**
  * TableView — the full-screen battle-map surface the remote table projects
@@ -100,6 +102,13 @@ export default function TableView() {
   const mapId = data?.map?.id ?? "none";
   const title = data?.title ?? "";
 
+  // Plan 64 — staging a new map mid-session plays the scene card.
+  const reveal = useMapReveal(
+    data ? (data.map?.id ?? null) : undefined,
+    data?.map?.image_url,
+    data?.title,
+  );
+
   return (
     <div
       style={{
@@ -135,6 +144,7 @@ export default function TableView() {
       )}
 
       <TurnSplash subject={splash} />
+      <MapReveal subject={reveal} />
       {data?.campaign_id && <JoinQr campaignId={data.campaign_id} />}
 
       {title && (
