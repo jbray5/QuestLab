@@ -6,6 +6,7 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 
 import type { SessionCombatant, TableToken } from "../../api/types";
+import { CONCENTRATION_COLOR, conditionLook } from "../../lib/conditions";
 import {
   BackdropDome,
   LightRig,
@@ -470,6 +471,19 @@ function Standee({
   const baseColor = tokenColor(token);
   const tint = cardTint(darkness);
   const hpPct = combatant ? Math.max(0, Math.min(1, combatant.hp_current / combatant.hp_max)) : null;
+  // Token state FX (Plan 65): the DM board has real combatants; the player
+  // 3D view gets conditions enriched onto the projection token.
+  const conds = useMemo(
+    () => (combatant?.conditions ?? token.conditions ?? []).map((c) => c.toLowerCase()),
+    [combatant?.conditions, token.conditions],
+  );
+  const isProne = conds.includes("prone");
+  const condRingColor = useMemo(() => {
+    const priority = ["poisoned", "restrained", "grappled", "stunned", "paralyzed", "frightened", "charmed", "blinded"];
+    const hit = priority.find((c) => conds.includes(c)) ?? conds.find((c) => c !== "prone");
+    return hit ? conditionLook(hit).color : null;
+  }, [conds]);
+  const condRing = useRef<THREE.Mesh>(null);
   const spawned = useRef(false);
   const scratch = useRef(new THREE.Vector3());
 
@@ -534,13 +548,19 @@ function Standee({
     }
 
     if (cardGroup.current) {
-      // Idle bob + defeat tip-over, both eased in the frame loop.
-      const bob = defeated ? 0 : Math.sin(now * 1.6 + phase) * unit * 0.02;
-      const targetTip = defeated ? 1.15 : 0;
+      // Idle bob + defeat tip-over (full) or prone tip (partial, Plan 65),
+      // all eased in the frame loop.
+      const bob = defeated || isProne ? 0 : Math.sin(now * 1.6 + phase) * unit * 0.02;
+      const targetTip = defeated ? 1.15 : isProne ? 0.8 : 0;
       const cur = cardGroup.current.rotation.z;
       cardGroup.current.rotation.z = cur + (targetTip - cur) * Math.min(1, dt * 5 + 0.02);
-      const targetSink = defeated ? -bodyH * 0.22 : 0;
+      const targetSink = defeated ? -bodyH * 0.22 : isProne ? -bodyH * 0.12 : 0;
       cardGroup.current.position.y += (targetSink + bob - cardGroup.current.position.y) * 0.15;
+    }
+
+    if (condRing.current) {
+      const mat = condRing.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.5 + 0.3 * Math.sin(now * 2.4 + phase);
     }
 
     if (torchLight.current) {
@@ -612,6 +632,26 @@ function Standee({
         <mesh ref={ring} rotation-x={-Math.PI / 2} position-y={unit * 0.09}>
           <ringGeometry args={[r * 1.34, r * 1.52, 48]} />
           <meshBasicMaterial color="#ffd76a" transparent opacity={0.8} depthWrite={false} />
+        </mesh>
+      )}
+      {/* condition ring (Plan 65) — breathing glow in the condition color */}
+      {condRingColor && !defeated && (
+        <mesh ref={condRing} rotation-x={-Math.PI / 2} position-y={unit * 0.085}>
+          <ringGeometry args={[r * 1.08, r * 1.26, 48]} />
+          <meshBasicMaterial color={condRingColor} transparent opacity={0.7} depthWrite={false} />
+        </mesh>
+      )}
+      {/* concentration shimmer (Plan 65) — a thin violet halo */}
+      {(token.concentrating || false) && !defeated && (
+        <mesh rotation-x={-Math.PI / 2} position-y={unit * 0.095}>
+          <ringGeometry args={[r * 1.56, r * 1.64, 48]} />
+          <meshBasicMaterial
+            color={CONCENTRATION_COLOR}
+            transparent
+            opacity={0.55}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+          />
         </mesh>
       )}
       {/* the standee body (inner group takes bob + defeat tip). The two

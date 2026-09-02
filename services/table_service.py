@@ -16,6 +16,7 @@ from sqlmodel import Session as DBSession
 
 from db.repos.adventure_repo import AdventureRepo
 from db.repos.battle_map_repo import BattleMapRepo
+from db.repos.character_repo import CharacterRepo
 from db.repos.session_repo import SessionCombatantRepo, SessionRepo
 from db.repos.table_state_repo import TableStateRepo
 from domain.table_state import TableMap, TableProjection, TableStateRead, TableStateUpdate, Token
@@ -200,6 +201,7 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     # is actually running (Plan 41 lifecycle), so nothing leaks between fights.
     active_ref: str | None = None
     defeated_refs: list[str] = []
+    condition_by_ref: dict[str, list[str]] = {}
     game_session = SessionRepo.get_by_id(db, session_id)
     if game_session is not None and getattr(game_session, "combat_state", "idle") == "running":
         for c in SessionCombatantRepo.list_for_session(db, session_id):
@@ -208,6 +210,26 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
                 defeated_refs.append(ref)
             if c.id == game_session.combat_active_combatant_id:
                 active_ref = ref
+            if c.conditions:
+                # Both keys: HUD tokens ref combatant ids, PC tokens ref
+                # character ids (Plan 65).
+                condition_by_ref[str(c.id)] = list(c.conditions)
+                if c.character_id:
+                    condition_by_ref[str(c.character_id)] = list(c.conditions)
+
+    # Token state FX (Plan 65) — overwrite live-state fields from combat
+    # truth on every build so stale stored copies never leak through.
+    for token in tokens:
+        ref = token.ref_id or token.id
+        token.conditions = condition_by_ref.get(ref, [])
+        token.concentrating = None
+        if token.kind == "pc" and token.ref_id:
+            try:
+                pc = CharacterRepo.get_by_id(db, uuid.UUID(token.ref_id))
+            except ValueError:
+                pc = None
+            if pc is not None:
+                token.concentrating = bool(pc.concentration_on)
 
     campaign_id = None
     if game_session is not None:

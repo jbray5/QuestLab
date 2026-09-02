@@ -64,6 +64,11 @@ class Token(BaseModel):
     color: Optional[str] = PydField(default=None, max_length=20)
     # "card" (default portrait card) | "figure" (transparent minifig cut-out).
     style: Optional[str] = PydField(default=None, max_length=12)
+    # Live table state (Plan 65) — ALWAYS overwritten at projection-build
+    # time from combat truth; stored copies are ignored. Player-safe: 5e
+    # conditions are public information at a physical table.
+    conditions: Optional[list[str]] = None
+    concentrating: Optional[bool] = None
 
 
 class TableStateUpdate(BaseModel):

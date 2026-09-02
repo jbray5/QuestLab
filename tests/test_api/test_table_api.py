@@ -104,3 +104,46 @@ def test_map_upload_and_project_flow(client, api_engine):
     assert proj["map"]["width"] == 2560
     assert proj["revealed_regions"] == [[[0, 0], [10, 0], [10, 10]]]
     assert "Bar" not in client.get(f"/api/table/{sid}").text  # region name never sent
+
+
+def test_projection_tokens_carry_conditions(client, api_engine):
+    """Plan 65 — projection tokens are enriched with combatant conditions."""
+    dm = "dm_fx@example.com"
+    _cid, sid = _seed(api_engine, dm)
+
+    put = client.put(
+        f"/api/sessions/{sid}/combat",
+        headers=auth(dm),
+        json={
+            "round": 1,
+            "combat_state": "running",
+            "combatants": [
+                {
+                    "sort_index": 0,
+                    "name": "Hag",
+                    "dex_score": 12,
+                    "initiative_roll": 15,
+                    "hp_current": 40,
+                    "hp_max": 40,
+                    "type": "monster",
+                    "conditions": ["poisoned", "prone"],
+                }
+            ],
+        },
+    )
+    assert put.status_code == 200
+    hag_id = put.json()["combatants"][0]["id"]
+
+    patch = client.patch(
+        f"/api/sessions/{sid}/table",
+        headers=auth(dm),
+        json={"tokens": [{"id": "tok-hag", "kind": "monster", "ref_id": hag_id, "label": "Hag"}]},
+    )
+    assert patch.status_code == 200
+
+    proj = client.get(f"/api/table/{sid}")
+    assert proj.status_code == 200
+    tokens = proj.json()["tokens"]
+    assert len(tokens) == 1
+    assert sorted(tokens[0]["conditions"]) == ["poisoned", "prone"]
+    assert tokens[0]["concentrating"] is None  # not a PC token

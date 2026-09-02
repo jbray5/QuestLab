@@ -442,6 +442,9 @@ export interface TableToken {
   size: number;
   color?: string | null;
   style?: "card" | "figure" | null;
+  // Plan 65 — live state, enriched at projection-build time.
+  conditions?: string[] | null;
+  concentrating?: boolean | null;
 }
 
 export interface TableStateRead {

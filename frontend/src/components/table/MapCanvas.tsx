@@ -1,6 +1,7 @@
 import { useRef } from "react";
 
 import type { BrushReveal, TableToken } from "../../api/types";
+import { CONCENTRATION_COLOR, conditionLook } from "../../lib/conditions";
 
 /**
  * MapCanvas — the shared cinematic battle-map renderer (Plan 42).
@@ -237,13 +238,58 @@ export default function MapCanvas({
         const isDefeated = defeatedSet.has(ref);
         const ring = t.color || RING_COLORS[t.kind] || RING_COLORS.custom;
         const selected = editable && selectedTokenId === t.id;
+        // Token state FX (Plan 65) — always-visible condition marks.
+        const conds = (t.conditions ?? []).map((c) => c.toLowerCase());
+        const isProne = conds.includes("prone");
+        const isPoisoned = conds.includes("poisoned");
+        const isRestrained = conds.includes("restrained") || conds.includes("grappled");
+        const pips = conds.filter((c) => c !== "prone").slice(0, 4);
         return (
           <g
             key={t.id}
             style={{ cursor: editable ? "grab" : "default" }}
             opacity={isDefeated ? 0.55 : 1}
+            transform={
+              isProne && !isDefeated
+                ? `translate(${t.x} ${t.y}) scale(1 0.68) translate(${-t.x} ${-t.y})`
+                : undefined
+            }
             onPointerDown={editable ? (e) => handleTokenDown(t.id, e) : undefined}
           >
+            {t.concentrating && !isDefeated && (
+              <circle
+                cx={t.x}
+                cy={t.y}
+                r={r + Math.max(4, r * 0.22)}
+                fill="none"
+                stroke={CONCENTRATION_COLOR}
+                strokeWidth={Math.max(1.5, r * 0.07)}
+                strokeDasharray={`${r * 0.35} ${r * 0.22}`}
+                className="ql-cond-spin"
+              />
+            )}
+            {isPoisoned && !isDefeated && (
+              <circle
+                cx={t.x}
+                cy={t.y}
+                r={r + Math.max(2, r * 0.1)}
+                fill="none"
+                stroke="#5fae4c"
+                strokeWidth={Math.max(2, r * 0.12)}
+                className="ql-cond-pulse"
+              />
+            )}
+            {isRestrained && !isDefeated && (
+              <circle
+                cx={t.x}
+                cy={t.y}
+                r={r + Math.max(3, r * 0.16)}
+                fill="none"
+                stroke="#b0b0bc"
+                strokeWidth={Math.max(1.5, r * 0.08)}
+                strokeDasharray={`${r * 0.12} ${r * 0.12}`}
+              />
+            )}
             {isActive && (
               <circle cx={t.x} cy={t.y} r={r + 3} fill="none" stroke="#f4d876" strokeWidth={Math.max(2, r * 0.14)}>
                 <animate attributeName="r" values={`${r + 1};${r + r * 0.4 + 6};${r + 1}`} dur="1.9s" repeatCount="indefinite" />
@@ -317,9 +363,56 @@ export default function MapCanvas({
                 </text>
               </>
             )}
+            {pips.length > 0 && !isDefeated && (
+              <g>
+                {pips.map((c, i) => {
+                  const look = conditionLook(c);
+                  const pw = r * 0.66;
+                  const ph = r * 0.32;
+                  const total = pips.length * pw + (pips.length - 1) * r * 0.08;
+                  const px = t.x - total / 2 + i * (pw + r * 0.08);
+                  const py = t.y + r + r * 0.7;
+                  return (
+                    <g key={c}>
+                      <rect
+                        x={px}
+                        y={py}
+                        width={pw}
+                        height={ph}
+                        rx={ph / 2}
+                        fill="rgba(6,6,12,0.8)"
+                        stroke={look.color}
+                        strokeWidth={Math.max(1, r * 0.035)}
+                      />
+                      <text
+                        x={px + pw / 2}
+                        y={py + ph * 0.74}
+                        textAnchor="middle"
+                        fontSize={ph * 0.62}
+                        fontWeight={700}
+                        fill={look.color}
+                        fontFamily="'IBM Plex Mono', monospace"
+                        letterSpacing="0.05em"
+                      >
+                        {look.abbr}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
+            )}
           </g>
         );
       })}
+
+      {/* Condition FX keyframes (Plan 65) — CSS, not SMIL (headless-safe). */}
+      <style>{`
+        @keyframes qlCondSpin { to { transform: rotate(360deg); } }
+        .ql-cond-spin { animation: qlCondSpin 7s linear infinite; transform-box: fill-box; transform-origin: center; opacity: 0.8; }
+        @keyframes qlCondPulse { 0%,100% { opacity: 0.85; } 50% { opacity: 0.3; } }
+        .ql-cond-pulse { animation: qlCondPulse 1.6s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .ql-cond-spin, .ql-cond-pulse { animation: none; opacity: 0.7; } }
+      `}</style>
 
       {/* Ping ripple — remounts on a new ping.key so the SVG animations restart. */}
       {/* Combat cinema (Plan 61) — floating damage / heal numbers. */}
