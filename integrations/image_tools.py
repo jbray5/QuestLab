@@ -210,26 +210,49 @@ def key_chroma(png: bytes, tolerance: int = 110) -> bytes:
                     avg = (r + g + b) // 3
                     out[d] = out[d + 1] = out[d + 2] = avg
                 out[d + 3] = min(out[d + 3], 150)
-    # Shadow despill: painted drop-shadows hugging the backdrop keep a
-    # pink cast that sits outside the key tolerance. Dilate the keyed mask
-    # a few pixels and neutralize pink-family tones inside that band only —
-    # pink clothing deeper in the subject is untouched.
-    band = bytearray(seen)
-    for _ in range(5):
-        grown = bytearray(band)
-        for y in range(1, h - 1):
-            base = y * w
-            for x in range(1, w - 1):
-                i = base + x
-                if not band[i] and (band[i - 1] or band[i + 1] or band[i - w] or band[i + w]):
-                    grown[i] = 1
-        band = grown
-    for i in range(w * h):
-        if band[i] and not seen[i]:
-            d = i * 4
-            r, g, b = out[d], out[d + 1], out[d + 2]
-            if r > g + 25 and b > g + 10:  # pink-cast shadow tone
-                avg = (r + g + b) // 3
+    # Shadow despill v2: painted drop-shadow pools keep a pink cast that
+    # sits outside the key tolerance, and big pools have interiors far from
+    # any keyed pixel — so flood from the keyed region across CONNECTED
+    # pink-family pixels (whatever the pool size) and neutralize them to
+    # gray. Pink accents deeper in the subject stay: they aren't connected
+    # to the backdrop through pink. Valve: a flood covering >15% of the
+    # image means the "pool" was the subject — abort the pass.
+    from collections import deque
+
+    def pinkish(i: int) -> bool:
+        d = i * 4
+        r, g, b = out[d], out[d + 1], out[d + 2]
+        return r > g + 25 and b > g + 10
+
+    spill = bytearray(w * h)
+    queue: deque[int] = deque()
+    for y in range(1, h - 1):
+        base = y * w
+        for x in range(1, w - 1):
+            i = base + x
+            if (
+                not seen[i]
+                and pinkish(i)
+                and (seen[i - 1] or seen[i + 1] or seen[i - w] or seen[i + w])
+            ):
+                spill[i] = 1
+                queue.append(i)
+    count = 0
+    while queue:
+        i = queue.popleft()
+        count += 1
+        x, y = i % w, i // w
+        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
+            if 0 < nx < w - 1 and 0 < ny < h - 1:
+                j = ny * w + nx
+                if not spill[j] and not seen[j] and pinkish(j):
+                    spill[j] = 1
+                    queue.append(j)
+    if count <= (w * h) * 0.15:
+        for i in range(w * h):
+            if spill[i]:
+                d = i * 4
+                avg = (out[d] + out[d + 1] + out[d + 2]) // 3
                 out[d] = out[d + 1] = out[d + 2] = avg
     return encode_rgba_png(w, h, bytes(out))
 
