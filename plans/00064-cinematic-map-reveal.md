@@ -1,7 +1,7 @@
 # Plan 00064 — Cinematic Map Reveal
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
 
 **Started:** 2026-09-01
 **Last updated:** 2026-09-01
@@ -55,10 +55,11 @@ board. Same energy as the TurnSplash, scaled up to "you have arrived."
 - Stingers live in `components/board/ambience.ts`.
 
 ## Validation and Acceptance
-- [ ] Staging a different map mid-session plays the cinematic on both
-      2D and 3D player views; initial page load does not
-- [ ] Click/tap skips; prefers-reduced-motion gets a simple crossfade
-- [ ] tsc + build + pytest green; live smoke with screenshots
+- [x] Staging a different map mid-session plays the cinematic on both
+      2D and 3D player views; initial page load does not (verified live
+      on prod 2026-09-01 — Feywild Lagoon scene card, screenshot)
+- [x] Click/tap skips; prefers-reduced-motion gets a simple crossfade
+- [x] tsc + build + pytest green; live smoke with screenshots
 
 ## Idempotence and Recovery
 Pure frontend addition; progress boxes are the restart guide.
