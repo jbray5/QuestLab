@@ -1,7 +1,7 @@
 # Plan 00066 — Dice on the Table
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
 
 **Started:** 2026-09-01
 **Last updated:** 2026-09-01
@@ -56,9 +56,10 @@ rolls (Plan 39) join the same cinematic.
 - Player sheet: frontend/src/pages/PlayerView.tsx.
 
 ## Validation and Acceptance
-- [ ] Tap d20 on the phone → projector plays the tumble and result
-- [ ] Crit (nat 20) and fumble (nat 1) get distinct flourishes
-- [ ] pytest + tsc + build green; live screenshots
+- [x] Tap d20 on the phone → projector plays the tumble and result
+      (live-verified 2026-09-01: Creed d20+5 Athletics on The Crossing)
+- [x] Crit (nat 20) and fumble (nat 1) get distinct flourishes
+- [x] pytest + tsc + build green; live screenshots
 
 ## Idempotence and Recovery
 Additive route + UI; progress boxes are the restart guide.

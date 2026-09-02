@@ -1,7 +1,7 @@
 # Plan 00065 — Token State FX
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
 
 **Started:** 2026-09-01
 **Last updated:** 2026-09-01
@@ -52,9 +52,10 @@ concentration render as always-visible FX on the projector and 3D board
 - 2D: frontend/src/components/table/MapCanvas.tsx; 3D: Board3D.tsx.
 
 ## Validation and Acceptance
-- [ ] Poisoning a combatant in the HUD shows FX on 2D + 3D within a beat
-- [ ] Prone standees visibly tilt; concentration shimmers
-- [ ] pytest + tsc + build green; live screenshots
+- [x] Live-verified 2026-09-01 on a throwaway session: prone squash +
+      poison pulse, restrained dashes, concentration shimmer, pips
+- [x] Prone standees visibly tilt; concentration shimmers
+- [x] pytest + tsc + build green; live screenshots
 
 ## Idempotence and Recovery
 Additive field + visuals; progress boxes are the restart guide.
