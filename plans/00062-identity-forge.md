@@ -86,3 +86,9 @@ same image. Plus a rebuilt /play/:pcId/character screen worthy of it.
 ## Idempotence and Recovery
 All additive; blob uploads use fixed paths w/ random suffix (CDN-safe).
 Progress boxes = restart guide.
+
+## Follow-up (Justin, 2026-09-01)
+Golden base models: when a base render lands that the player loves, LOCK
+it as the canonical base (never auto-regenerated) and derive all variants
+from it. Productized shape: "Forge 3 candidates -> player picks -> pinned."
+Add a `hero_locked` flag + candidate-picker UI when we next touch the forge.
