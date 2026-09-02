@@ -1,7 +1,7 @@
 # Plan 00068 — Legend Cards + Nav Streamline
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
 
 **Started:** 2026-09-02
 **Last updated:** 2026-09-02
@@ -29,17 +29,18 @@ Two asks from Justin's "Instagram scroll" review:
 ---
 
 ## Progress
-- [ ] Step 1: Layout.tsx regroup — core (Dashboard, Campaigns,
+- [x] Step 1: Layout.tsx regroup (2026-09-02) — core (Dashboard, Campaigns,
       Adventures, Sessions, Encounters, Characters, Battle Maps),
       collapsible "World & Tools" (NPCs, Shops, Puzzles, Crier,
       Notebook, Map Builder, Temple, Restwater), collapsible
       "Compendium" (Monsters, Spells, Weapons, Magic Items), Admin →
       footer. localStorage-persisted collapse state.
-- [ ] Step 2: legendCard.ts canvas compositor (blob art CORS-safe,
+- [x] Step 2: legendCard.ts canvas compositor (2026-09-02) (blob art CORS-safe,
       fonts preloaded, fallback gradient when no subclass art)
-- [ ] Step 3: CharacterView "📸 Legend card" — Web Share API with
+- [x] Step 3: CharacterView (2026-09-02) "📸 Legend card" — Web Share API with
       download fallback
-- [ ] Step 4: gate + ship + live verify (screenshot of a card)
+- [x] Step 4: gate + ship + live verified 2026-09-02 — Creed's card
+      generated on prod (despill v2 cleaned the shadow pool first)
 
 ---
 
@@ -54,8 +55,8 @@ Two asks from Justin's "Instagram scroll" review:
 ---
 
 ## Validation and Acceptance
-- [ ] Sidebar shows ≤9 items with a fresh campaign (core + 2 group headers)
-- [ ] Collapse state survives reload; tour id nav-campaigns intact
-- [ ] Legend card generates for a PC with forge art AND for one with
+- [x] Sidebar shows ≤9 items with a fresh campaign (core + 2 group headers)
+- [x] Collapse state survives reload; tour id nav-campaigns intact
+- [x] Legend card generates for a PC with forge art AND for one with
       only a portrait; share falls back to download on desktop
-- [ ] tsc + eslint + build + pytest green; live screenshots
+- [x] tsc + eslint + build + pytest green; live screenshots
