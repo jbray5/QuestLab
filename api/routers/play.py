@@ -327,6 +327,23 @@ def forge_hero(pc_id: uuid.UUID, db: DB) -> dict:
         )
 
 
+@router.get("/play/{pc_id}/campaign")
+def get_campaign_name(pc_id: uuid.UUID, db: DB) -> dict:
+    """Player-safe campaign name (share cards, Plan 68).
+
+    Args:
+        pc_id: UUID of the player character (capability URL).
+        db: Database session.
+
+    Returns:
+        ``{"name": <campaign name>}``.
+    """
+    try:
+        return player_service.get_campaign_name(db, pc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
 @router.post("/play/{pc_id}/roll")
 def throw_dice(pc_id: uuid.UUID, body: PlayerRollBody, db: DB) -> dict:
     """Roll dice server-side and show them on the table (Plan 66).

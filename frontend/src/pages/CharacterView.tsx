@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { playApi, type GearRow } from "../api/play";
 import { RARITY_COLORS, typeEmoji } from "../components/store/storeTheme";
 import { subclassPanelBackground } from "../lib/subclassArt";
+import { renderLegendCard, shareLegendCard } from "../lib/legendCard";
 
 /**
  * CharacterView — the character screen (Plan 48), /play/:pcId/character.
@@ -354,6 +355,36 @@ export default function CharacterView() {
     },
     onError: (err: Error) => setForgeError(err.message),
   });
+  // Legend Cards (Plan 68) — the share loop.
+  const [cardState, setCardState] = useState<"idle" | "busy" | "shared" | "downloaded" | "failed">(
+    "idle",
+  );
+  async function makeLegendCard() {
+    if (!pc) return;
+    setCardState("busy");
+    try {
+      const artUrl = pc.loadout_url || pc.hero_url || pc.figure_url || pc.portrait_url;
+      if (!artUrl) throw new Error("no art");
+      let campaign = "";
+      try {
+        campaign = (await playApi.campaignName(pcId as string)).name;
+      } catch {
+        /* card works without the campaign line */
+      }
+      const blob = await renderLegendCard({
+        name: pc.character_name,
+        subtitle: `Level ${pc.level} ${pc.race} ${pc.character_class}${pc.subclass ? ` · ${pc.subclass}` : ""}`,
+        campaign,
+        subclass: pc.subclass,
+        artUrl,
+      });
+      setCardState(await shareLegendCard(blob, pc.character_name));
+    } catch {
+      setCardState("failed");
+    }
+    window.setTimeout(() => setCardState("idle"), 3500);
+  }
+
   // Golden base (Plan 62 follow-up): pin the render you love.
   const lockMut = useMutation({
     mutationFn: (locked: boolean) => playApi.setHeroLock(pcId as string, locked),
@@ -409,6 +440,25 @@ export default function CharacterView() {
         )}
 
         <h2 className="forge-h2">This is you — everywhere</h2>
+        {model && (
+          <button
+            className="forge-save"
+            style={{ marginBottom: 10 }}
+            disabled={cardState === "busy"}
+            onClick={() => void makeLegendCard()}
+            title="Composites a story-sized card of your character to post"
+          >
+            {cardState === "busy"
+              ? "🖼 Forging your card…"
+              : cardState === "shared"
+                ? "✓ Shared!"
+                : cardState === "downloaded"
+                  ? "✓ Saved — post it!"
+                  : cardState === "failed"
+                    ? "Couldn't build the card — try again"
+                    : "📸 Legend card — share your character"}
+          </button>
+        )}
         <div className="identity-row">
           <div className="identity-card">
             <div className="im">{model ? <img src={model} alt="Your model" /> : <span style={{ opacity: 0.3, fontSize: "2rem" }}>🧍</span>}</div>

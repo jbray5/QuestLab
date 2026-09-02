@@ -118,3 +118,12 @@ def test_player_roll_lands_on_table(client, api_engine):
 
     bad = client.post(f"/api/play/{pc_id}/roll", json={"die": "d7"})
     assert bad.status_code == 422  # not a real die
+
+
+def test_campaign_name_is_player_safe(client, api_engine):
+    """Plan 68 — GET /play/{pc}/campaign returns just the name, no auth."""
+    cid = _seed(api_engine, "dm_card@example.com")
+    roster = client.get(f"/api/play/join/{cid}").json()
+    resp = client.get(f"/api/play/{roster[0]['id']}/campaign")
+    assert resp.status_code == 200
+    assert resp.json() == {"name": "C"}

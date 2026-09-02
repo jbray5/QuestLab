@@ -42,12 +42,53 @@ const NAV_ITEMS: Array<{
 }> = [
   { to: "/", label: "⚔ Dashboard", end: true },
   { to: "/campaigns", label: "📜 Campaigns", tourId: "nav-campaigns" },
-  { to: "/monsters", label: "🐉 Monsters" },
-  { to: "/spells", label: "📖 Spells" },
-  { to: "/weapons", label: "🗡 Weapons" },
-  { to: "/magic-items", label: "⚗️ Magic Items" },
-  { to: "/admin", label: "🛡 Admin" },
 ];
+
+/** Collapsible sidebar group (Plan 68) — collapse state persists per id. */
+function NavGroup({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(`ql-nav-group-${id}`) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggle = () => {
+    setOpen((v) => {
+      try {
+        localStorage.setItem(`ql-nav-group-${id}`, v ? "0" : "1");
+      } catch {
+        /* collapse state just doesn't persist */
+      }
+      return !v;
+    });
+  };
+  return (
+    <>
+      <button
+        className="nav-item"
+        onClick={toggle}
+        aria-expanded={open}
+        style={{ color: "var(--muted)", fontSize: "0.78rem", letterSpacing: "0.06em" }}
+      >
+        {open ? "▾" : "▸"} {title}
+      </button>
+      {open && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", paddingLeft: "0.55rem" }}>
+          {children}
+        </div>
+      )}
+    </>
+  );
+}
 
 export default function Layout() {
   const { dmEmail, signOut } = useAuthStore();
@@ -116,57 +157,74 @@ export default function Layout() {
         <>
           <hr className="divider" style={{ margin: "0.75rem 0" }} />
           <p style={{ fontSize: "0.65rem", color: "var(--muted)", margin: "0 0 0.25rem 0.5rem" }}>
-            CAMPAIGN
+            {activeCampaign.name.toUpperCase().slice(0, 24)}
           </p>
+          {/* The nightly loop stays one click away; everything else folds. */}
           <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/adventures`)}>
             🗺 Adventures
           </button>
+          {activeAdventure && (
+            <>
+              <button className="nav-item" onClick={() => go(`/adventures/${activeAdventure.id}/sessions`)}>
+                📅 Sessions
+              </button>
+              <button className="nav-item" onClick={() => go(`/adventures/${activeAdventure.id}/encounters`)}>
+                💀 Encounters
+              </button>
+            </>
+          )}
           <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/characters`)}>
             🧙 Characters
-          </button>
-          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/npcs`)}>
-            👤 NPCs
           </button>
           <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/battle-maps`)}>
             🗺️ Battle Maps
           </button>
-          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/shops`)}>
-            🏪 Shops
-          </button>
-          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/puzzles`)}>
-            🧩 Puzzles
-          </button>
-          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/crier`)}>
-            📣 Town Crier
-          </button>
-          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/notebook`)}>
-            📓 Notebook
-          </button>
-          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/temple`)}>
-            🔱 Temple Companion
-          </button>
-          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/restwater`)}>
-            ♨ Restwater Companion
-          </button>
+
+          <NavGroup id="world" title="World & Tools">
+            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/npcs`)}>
+              👤 NPCs
+            </button>
+            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/shops`)}>
+              🏪 Shops
+            </button>
+            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/puzzles`)}>
+              🧩 Puzzles
+            </button>
+            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/crier`)}>
+              📣 Town Crier
+            </button>
+            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/notebook`)}>
+              📓 Notebook
+            </button>
+            {activeAdventure && (
+              <button className="nav-item" onClick={() => go(`/adventures/${activeAdventure.id}/maps`)}>
+                🗾 Map Builder
+              </button>
+            )}
+            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/temple`)}>
+              🔱 Temple Companion
+            </button>
+            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/restwater`)}>
+              ♨ Restwater Companion
+            </button>
+          </NavGroup>
         </>
       )}
 
-      {activeAdventure && (
-        <>
-          <p style={{ fontSize: "0.65rem", color: "var(--muted)", margin: "0.5rem 0 0.25rem 0.5rem" }}>
-            ADVENTURE
-          </p>
-          <button className="nav-item" onClick={() => go(`/adventures/${activeAdventure.id}/sessions`)}>
-            📅 Sessions
-          </button>
-          <button className="nav-item" onClick={() => go(`/adventures/${activeAdventure.id}/encounters`)}>
-            💀 Encounters
-          </button>
-          <button className="nav-item" onClick={() => go(`/adventures/${activeAdventure.id}/maps`)}>
-            🗾 Map Builder
-          </button>
-        </>
-      )}
+      <NavGroup id="compendium" title="Compendium">
+        <button className="nav-item" onClick={() => go("/monsters")}>
+          🐉 Monsters
+        </button>
+        <button className="nav-item" onClick={() => go("/spells")}>
+          📖 Spells
+        </button>
+        <button className="nav-item" onClick={() => go("/weapons")}>
+          🗡 Weapons
+        </button>
+        <button className="nav-item" onClick={() => go("/magic-items")}>
+          ⚗️ Magic Items
+        </button>
+      </NavGroup>
 
       {/* DM identity at the bottom — email + sign out. */}
       <div style={{ marginTop: "auto", paddingTop: "1rem", borderTop: "1px solid var(--border)" }}>
@@ -194,6 +252,14 @@ export default function Layout() {
           {dmEmail}
         </p>
         <div style={{ display: "flex", gap: "0.35rem" }}>
+          <button
+            onClick={() => go("/admin")}
+            className="btn btn-ghost"
+            title="Admin"
+            style={{ flex: 1, fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
+          >
+            🛡 Admin
+          </button>
           <button
             onClick={() => {
               startTour();

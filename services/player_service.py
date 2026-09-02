@@ -605,6 +605,26 @@ def set_equipped(db: Session, pc_id: uuid.UUID, character_item_id: uuid.UUID, eq
     return inventory_service.set_equipped(db, character_item_id, equipped, dm)
 
 
+def get_campaign_name(db: Session, pc_id: uuid.UUID) -> dict[str, str]:
+    """Player-safe campaign name for the PC's share card (Plan 68).
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC.
+
+    Returns:
+        ``{"name": <campaign name>}``.
+
+    Raises:
+        ValueError: If the PC or campaign is unknown.
+    """
+    pc = _get_pc_or_raise(db, pc_id)
+    campaign = CampaignRepo.get_by_id(db, pc.campaign_id)
+    if campaign is None:
+        raise ValueError("Campaign not found.")
+    return {"name": campaign.name}
+
+
 def throw_dice(
     db: Session,
     pc_id: uuid.UUID,
