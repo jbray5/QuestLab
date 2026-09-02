@@ -138,6 +138,66 @@ def complete_json(
     return schema.model_validate(json.loads(raw))
 
 
+def complete_json_with_image(
+    system: str,
+    user: str,
+    image_png: bytes,
+    schema: type[BaseModel],
+    model: str = "claude-haiku-4-5-20251001",
+    max_tokens: int = 1024,
+) -> Any:
+    """Vision variant of ``complete_json`` — inspect one PNG (Plan 62 QC).
+
+    Defaults to Haiku: render quality-control is a counting/looking task
+    and runs inside the paid forge chain, so cheap + fast wins.
+
+    Args:
+        system: System prompt.
+        user: The question about the image.
+        image_png: Raw PNG bytes to inspect.
+        schema: Pydantic BaseModel subclass defining the expected shape.
+        model: Claude model ID.
+        max_tokens: Maximum output tokens.
+
+    Returns:
+        Validated instance of ``schema``.
+    """
+    import base64
+
+    json_instruction = (
+        "\n\nYou MUST respond with ONLY valid JSON — no markdown code fences, "
+        "no commentary, no explanation. Raw JSON only."
+    )
+    _require_ai_enabled()
+    client = _get_client()
+    response = client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        system=system + json_instruction,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": base64.b64encode(image_png).decode(),
+                        },
+                    },
+                    {"type": "text", "text": user},
+                ],
+            }
+        ],
+    )
+    raw = next(b.text for b in response.content if b.type == "text").strip()
+    if raw.startswith("```"):
+        lines = raw.split("\n")
+        raw = "\n".join(lines[1:-1]) if lines[-1].strip() == "```" else "\n".join(lines[1:])
+    return schema.model_validate(json.loads(raw))
+
+
 def complete_structured(
     system: str,
     user: str,

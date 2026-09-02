@@ -17,6 +17,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+from pydantic import BaseModel
 from sqlmodel import Session
 
 from db.repos.campaign_repo import CampaignRepo
@@ -27,8 +28,60 @@ from domain.character import PlayerCharacter, PlayerCharacterRead, PlayerCharact
 from domain.monster import MonsterStatBlock, MonsterStatBlockUpdate
 from domain.npc import Npc, NpcRead, NpcUpdate
 from integrations import blob_storage, image_tools
+from integrations.claude_client import complete_json_with_image
 from integrations.openai_client import edit_image, generate_image
 from services.art_direction import HOUSE_STYLE, HOUSE_STYLE_CUTOUT
+
+
+class _QcVerdict(BaseModel):
+    """Vision QC verdict for a generated cutout (Plan 62)."""
+
+    passes: bool
+    problems: list[str] = []
+
+
+def _qc_cutout(png: bytes, checklist: str) -> list[str]:
+    """Inspect a render with Claude vision; return problems (fail-open).
+
+    Args:
+        png: The generated PNG.
+        checklist: What must be true of the image.
+
+    Returns:
+        A list of concrete problems, empty when the render passes (or when
+        QC itself is unavailable — the gate never blocks the forge).
+    """
+    try:
+        verdict = _QC_INSPECT(
+            system=(
+                "You are a strict art QA inspector for a fantasy game. "
+                "Judge ONLY the listed criteria; ignore taste."
+            ),
+            user=(
+                "Inspect this character render against every criterion. "
+                f"Criteria: {checklist}. "
+                'Return JSON {"passes": bool, "problems": [string]} — '
+                "problems must be short, concrete, and only for failed criteria."
+            ),
+            image_png=png,
+            schema=_QcVerdict,
+        )
+        return [] if verdict.passes else list(verdict.problems)[:4]
+    except Exception:
+        return []
+
+
+# Indirection so tests can stub the vision call.
+_QC_INSPECT = complete_json_with_image
+
+# Species anatomy the models get wrong without help (extend as players do).
+_RACE_NOTES = {
+    "dragonborn": (
+        "a true dragon's head: long pronounced snout, strong reptilian brow, "
+        "backswept horns and crest, scaled jawline — noble and draconic, "
+        "NEVER flat-faced, frog-like, or amphibian"
+    ),
+}
 
 # Tone-by-default — keeps prompts grounded in the QuestLab aesthetic.
 _DEFAULT_STYLE = (
@@ -429,6 +482,10 @@ def _build_hero_prompt(pc: PlayerCharacter) -> str:
         else str(pc.character_class)
     )
     bits: list[str] = [f"Full-body character model of {pc.character_name}, a {pc.race} {klass}"]
+    bits.append("Anatomy faithful to the classic Dungeons & Dragons depiction of their species")
+    for key, note in _RACE_NOTES.items():
+        if key in pc.race.lower():
+            bits.append(note)
     if pc.subclass:
         bits.append(f"({pc.subclass})")
     if pc.appearance:
@@ -461,8 +518,20 @@ def generate_pc_hero(session: Session, pc: PlayerCharacter) -> str:
         RuntimeError: If the upstream API calls fail.
     """
     prompt = _build_hero_prompt(pc)
-    png_bytes = generate_image(prompt, size="1024x1536")
-    png_bytes = image_tools.key_chroma(png_bytes)
+    png_bytes = image_tools.key_chroma(generate_image(prompt, size="1024x1536"))
+    problems = _qc_cutout(
+        png_bytes,
+        f"exactly one figure; the figure is a {pc.race}, anatomically faithful "
+        "to classic D&D depictions of that species; hands are empty (no weapons, "
+        "instruments, or props); no leftover magenta/pink background patches; "
+        "no duplicated or malformed limbs",
+    )
+    if problems:
+        retry_prompt = prompt + (
+            " CORRECTIONS — a previous attempt failed QA for these reasons, "
+            f"do not repeat them: {'; '.join(problems)}."
+        )
+        png_bytes = image_tools.key_chroma(generate_image(retry_prompt, size="1024x1536"))
     url = blob_storage.upload(path=f"heroes/pc-{pc.id}.png", data=png_bytes)
     # Naive UTC on purpose: DuckDB round-trips tz-aware values through local
     # time (breaking the cooldown math), while naive UTC reads back verbatim;
@@ -516,8 +585,8 @@ def _build_loadout_prompt(pc: PlayerCharacter, equipped: list[str]) -> str:
         "their current outfit exactly as it is. If the source image shows them holding "
         "ANY object not in the list (an instrument, tool, weapon, or prop), REMOVE it "
         "— they hold only what the list names, and EXACTLY ONE of each named "
-        "item (a single sword stays a single sword; never mirror or duplicate "
-        "items). Full body head to boots, clean die-cut "
+        "item (a single sword stays a single sword with exactly ONE blade; "
+        "never mirror or duplicate items or blades). Full body head to boots, clean die-cut "
         f"isolated on a SINGLE PERFECTLY FLAT solid magenta background "
         "(pure #FF00FF filling every pixel around the figure — no gradient, "
         "no glow, no vignette, no shadow). No scenery. "
@@ -550,8 +619,22 @@ def generate_pc_loadout(session: Session, pc: PlayerCharacter, equipped: list[st
         raise ValueError("Generate a character model first, then dress it.")
     base_bytes = blob_storage.download(base_url)
     prompt = _build_loadout_prompt(pc, equipped)
-    png_bytes = edit_image(prompt, base_bytes, size="1024x1536")
-    png_bytes = image_tools.key_chroma(png_bytes)
+    png_bytes = image_tools.key_chroma(edit_image(prompt, base_bytes, size="1024x1536"))
+    gear = ", ".join(equipped[:12]) if equipped else "nothing"
+    problems = _qc_cutout(
+        png_bytes,
+        f"exactly one figure holding/wearing ONLY these items: {gear}; exactly "
+        "one of each item (a sword has exactly one blade — no twin blades, no "
+        "mirrored weapons); no instruments or props not in the list; no "
+        "leftover magenta/pink background patches; no duplicated or malformed "
+        "limbs or hands",
+    )
+    if problems:
+        retry_prompt = prompt + (
+            " CORRECTIONS — a previous attempt failed QA for these reasons, "
+            f"do not repeat them: {'; '.join(problems)}."
+        )
+        png_bytes = image_tools.key_chroma(edit_image(retry_prompt, base_bytes, size="1024x1536"))
     url = blob_storage.upload(path=f"heroes/pc-{pc.id}-loadout.png", data=png_bytes)
     stamp = datetime.now(timezone.utc).replace(tzinfo=None)
     CharacterRepo.update(
@@ -626,8 +709,19 @@ def derive_pc_figure(session: Session, pc: PlayerCharacter) -> str:
         "no glow, no vignette, no shadow). "
         f"{_FIGURE_STYLE}"
     )
-    png_bytes = edit_image(prompt, base_bytes, size="1024x1536")
-    png_bytes = image_tools.key_chroma(png_bytes)
+    png_bytes = image_tools.key_chroma(edit_image(prompt, base_bytes, size="1024x1536"))
+    problems = _qc_cutout(
+        png_bytes,
+        "exactly one figure matching the source character; no leftover "
+        "magenta/pink background patches; no duplicated or malformed limbs "
+        "or weapons",
+    )
+    if problems:
+        retry_prompt = prompt + (
+            " CORRECTIONS — a previous attempt failed QA for these reasons, "
+            f"do not repeat them: {'; '.join(problems)}."
+        )
+        png_bytes = image_tools.key_chroma(edit_image(retry_prompt, base_bytes, size="1024x1536"))
     url = blob_storage.upload(path=f"figures/pc-{pc.id}.png", data=png_bytes)
     CharacterRepo.update(session, pc, PlayerCharacterUpdate(figure_url=url))
     return url

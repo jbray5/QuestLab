@@ -440,3 +440,53 @@ class TestIdentityForge:
         play_svc.forge_identity(duckdb_session, pc.id)
         with _pytest.raises(ValueError, match="forge is still glowing"):
             play_svc.forge_identity(duckdb_session, pc.id)
+
+
+class TestForgeQcGate:
+    """Plan 62 — vision QC catches a bad roll and retries with corrections."""
+
+    def test_hero_retries_once_on_qc_failure(self, duckdb_session, monkeypatch):
+        """First render fails QC -> exactly one corrected regeneration."""
+        prompts: list[str] = []
+
+        def fake_generate(prompt, **kwargs):
+            prompts.append(prompt)
+            return b"GENPNG"
+
+        monkeypatch.setattr(portrait_svc, "generate_image", fake_generate)
+        monkeypatch.setattr(
+            portrait_svc.blob_storage,
+            "upload",
+            lambda *, path, data, content_type="image/png": f"https://fake.blob/{path}",
+        )
+        verdicts = iter([["the figure holds a lute"], []])
+        monkeypatch.setattr(portrait_svc, "_qc_cutout", lambda png, checklist: next(verdicts, []))
+        dm = _dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm)
+
+        play_svc.forge_hero(duckdb_session, pc.id)
+
+        assert len(prompts) == 2
+        assert "CORRECTIONS" in prompts[1]
+        assert "lute" in prompts[1]
+
+    def test_qc_is_fail_open(self, duckdb_session, monkeypatch):
+        """QC blowing up never blocks the forge."""
+        monkeypatch.setattr(portrait_svc, "generate_image", lambda *a, **k: b"GENPNG")
+        monkeypatch.setattr(
+            portrait_svc.blob_storage,
+            "upload",
+            lambda *, path, data, content_type="image/png": f"https://fake.blob/{path}",
+        )
+
+        def boom(**kwargs):
+            raise RuntimeError("vision down")
+
+        monkeypatch.setattr(portrait_svc, "_QC_INSPECT", boom)
+        dm = _dm()
+        c = _campaign(duckdb_session, dm)
+        pc = _pc(duckdb_session, c.id, dm)
+
+        out = play_svc.forge_hero(duckdb_session, pc.id)
+        assert out["hero_url"]

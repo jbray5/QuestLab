@@ -167,7 +167,7 @@ def key_chroma(png: bytes, tolerance: int = 110) -> bytes:
     pinkish = (ref_r - ref_g) >= 70 and (ref_b - ref_g) >= 25 and ref_r >= 140
     if not pinkish:
         return png  # backdrop isn't the requested chroma — don't guess
-    tol = 36
+    tol = 48
 
     def is_mag(i: int) -> bool:
         o = i * bpp
@@ -177,34 +177,15 @@ def key_chroma(png: bytes, tolerance: int = 110) -> bytes:
             and abs(px[o + 2] - ref_b) <= tol
         )
 
-    from collections import deque
-
+    # Global match, not border-connected: the reference is corner-verified
+    # pink that no painted subject contains, and border-only filling left
+    # enclosed pockets (between legs, under cape gaps) un-keyed.
     seen = bytearray(w * h)
-    queue: deque[int] = deque()
-    for x in range(w):
-        for y in (0, h - 1):
-            i = y * w + x
-            if is_mag(i) and not seen[i]:
-                seen[i] = 1
-                queue.append(i)
-    for y in range(h):
-        for x in (0, w - 1):
-            i = y * w + x
-            if is_mag(i) and not seen[i]:
-                seen[i] = 1
-                queue.append(i)
-
     filled = 0
-    while queue:
-        i = queue.popleft()
-        filled += 1
-        x, y = i % w, i // w
-        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-            if 0 <= nx < w and 0 <= ny < h:
-                j = ny * w + nx
-                if not seen[j] and is_mag(j):
-                    seen[j] = 1
-                    queue.append(j)
+    for i in range(w * h):
+        if is_mag(i):
+            seen[i] = 1
+            filled += 1
 
     if filled < (w * h) * 0.05:
         return png  # no magenta backdrop found — leave untouched
