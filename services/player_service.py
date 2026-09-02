@@ -605,6 +605,74 @@ def set_equipped(db: Session, pc_id: uuid.UUID, character_item_id: uuid.UUID, eq
     return inventory_service.set_equipped(db, character_item_id, equipped, dm)
 
 
+def throw_dice(
+    db: Session,
+    pc_id: uuid.UUID,
+    die: str,
+    count: int = 1,
+    modifier: int = 0,
+    label: str | None = None,
+) -> dict[str, Any]:
+    """Roll dice server-side and land them on the live table (Plan 66).
+
+    The server is the authority (SystemRandom) — phones only ask. The
+    roll broadcasts on the table topic of the PC's live session:
+    the campaign's newest IN_PROGRESS session, else its newest session.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the rolling PC.
+        die: Die code ("d4".."d100").
+        count: Number of dice (1-10).
+        modifier: Flat modifier (-20..20).
+        label: Optional roll label, e.g. "Stealth".
+
+    Returns:
+        ``{"die", "rolls", "modifier", "total", "session_id"}``.
+
+    Raises:
+        ValueError: If the PC is unknown or the campaign has no sessions.
+    """
+    import random
+
+    from db.repos.adventure_repo import AdventureRepo
+    from db.repos.session_repo import SessionRepo
+    from domain.enums import SessionStatus
+    from integrations.event_bus import publish_table_roll
+
+    pc = _get_pc_or_raise(db, pc_id)
+
+    sessions = []
+    for adventure in AdventureRepo.list_by_campaign(db, pc.campaign_id):
+        sessions.extend(SessionRepo.list_by_adventure(db, adventure.id))
+    if not sessions:
+        raise ValueError("No sessions in this campaign yet — ask your DM.")
+    live = [g for g in sessions if g.status == SessionStatus.IN_PROGRESS]
+    pool = live or sessions
+    target = max(pool, key=lambda g: (g.session_number, g.id.hex))
+
+    rng = random.SystemRandom()
+    sides = int(die[1:])
+    rolls = [rng.randint(1, sides) for _ in range(count)]
+    total = sum(rolls) + modifier
+    publish_table_roll(
+        target.id,
+        roller=pc.character_name,
+        die=die,
+        rolls=rolls,
+        modifier=modifier,
+        total=total,
+        label=label,
+    )
+    return {
+        "die": die,
+        "rolls": rolls,
+        "modifier": modifier,
+        "total": total,
+        "session_id": str(target.id),
+    }
+
+
 def forge_hero(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     """Generate the full-body hero render for this PC (cooldown-guarded).
 

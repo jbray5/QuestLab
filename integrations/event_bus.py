@@ -287,6 +287,43 @@ def publish_table_updated(session_id: Any) -> None:
     )
 
 
+def publish_table_roll(
+    session_id: Any,
+    roller: str,
+    die: str,
+    rolls: list[int],
+    modifier: int,
+    total: int,
+    label: str | None = None,
+) -> None:
+    """Broadcast a player dice roll to the table surfaces (Plan 66).
+
+    Server-rolled and player-safe: carries only the roll itself, never
+    sheet stats.
+
+    Args:
+        session_id: UUID of the session whose board should show the roll.
+        roller: Display name of who rolled.
+        die: Die code, e.g. "d20".
+        rolls: The individual die results.
+        modifier: Flat modifier added to the sum.
+        total: Sum of rolls + modifier.
+        label: Optional label, e.g. "Stealth".
+    """
+    payload: Event = {
+        "type": "table.roll",
+        "session_id": str(session_id),
+        "roller": roller,
+        "die": die,
+        "rolls": list(rolls),
+        "modifier": int(modifier),
+        "total": int(total),
+    }
+    if label:
+        payload["label"] = str(label)[:60]
+    event_bus.publish(f"table:{session_id}", payload)
+
+
 def publish_table_ping(
     session_id: Any,
     x: float,

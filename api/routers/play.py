@@ -16,7 +16,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB
-from domain.character import HeroLockBody, PlayerCharacter
+from domain.character import HeroLockBody, PlayerCharacter, PlayerRollBody
 from domain.shop import (
     GiveRequest,
     PurchaseReceipt,
@@ -325,6 +325,26 @@ def forge_hero(pc_id: uuid.UUID, db: DB) -> dict:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Hero generation failed: {exc}"
         )
+
+
+@router.post("/play/{pc_id}/roll")
+def throw_dice(pc_id: uuid.UUID, body: PlayerRollBody, db: DB) -> dict:
+    """Roll dice server-side and show them on the table (Plan 66).
+
+    Args:
+        pc_id: UUID of the player character (capability URL).
+        body: Die code, count, modifier, optional label.
+        db: Database session.
+
+    Returns:
+        ``{"die", "rolls", "modifier", "total", "session_id"}``.
+    """
+    try:
+        return player_service.throw_dice(
+            db, pc_id, body.die, count=body.count, modifier=body.modifier, label=body.label
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
 @router.post("/play/{pc_id}/identity/lock")

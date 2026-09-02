@@ -92,6 +92,11 @@ export const playApi = {
   setEquipped: (pcId: string, characterItemId: string, equipped: boolean) =>
     api.post<GearRow>(`/play/${pcId}/gear/${characterItemId}/equip`, { equipped }),
   forgeHero: (pcId: string) => api.post<{ hero_url: string }>(`/play/${pcId}/hero`),
+  throwDice: (pcId: string, die: string, modifier = 0, label?: string) =>
+    api.post<{ die: string; rolls: number[]; modifier: number; total: number; session_id: string }>(
+      `/play/${pcId}/roll`,
+      { die, modifier, label },
+    ),
   setHeroLock: (pcId: string, locked: boolean) =>
     api.post<{ hero_locked: boolean }>(`/play/${pcId}/identity/lock`, { locked }),
   dressModel: (pcId: string) => api.post<{ loadout_url: string }>(`/play/${pcId}/loadout`),

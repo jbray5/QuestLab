@@ -8,6 +8,7 @@ import { subclassPanelBackground } from "../lib/subclassArt";
 import type { PlayerCharacter } from "../api/types";
 import InfoTip from "../components/character-sheet/InfoTip";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
+import PlayerDice from "../components/dice-tray/PlayerDice";
 
 /**
  * Player view (Plan 00025).
@@ -266,6 +267,8 @@ function PlayerSheet({ pcId }: { pcId: string }) {
           }}
         />
       )}
+      {/* Plan 66 — throw dice from the phone onto the table (shake!) */}
+      <PlayerDice pcId={pcId as string} />
       <div style={containerStyle}>
         <TurnBanner turnState={turnState} />
         <ConditionsStrip combatState={combatState} />

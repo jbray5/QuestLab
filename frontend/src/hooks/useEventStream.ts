@@ -79,6 +79,7 @@ export function useEventStream(
       "table.updated",
       "table.fx",
       "table.ping",
+      "table.roll",
       "puzzle.updated",
     ];
 

@@ -15,6 +15,7 @@ import { useAmbience } from "../components/board/ambience";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import TurnSplash, { type SplashSubject } from "../components/table/TurnSplash";
 import MapReveal from "../components/table/MapReveal";
+import DiceCinematic, { type TableRoll } from "../components/table/DiceCinematic";
 import { useMapReveal } from "../hooks/useMapReveal";
 
 /**
@@ -103,6 +104,8 @@ export default function Table3DView() {
   const fxSeq = useRef(0);
   const [splash, setSplash] = useState<SplashSubject | null>(null);
   const splashSeq = useRef(0);
+  const [tableRoll, setTableRoll] = useState<TableRoll | null>(null);
+  const rollSeq = useRef(0);
 
   useEventStream("table", sessionId, (event: StreamEvent) => {
     if (event.type === "table.updated") {
@@ -122,6 +125,21 @@ export default function Table3DView() {
       };
       setFx((cur) => [...cur, entry]);
       window.setTimeout(() => setFx((cur) => cur.filter((q) => q.id !== id)), 1500);
+    } else if (event.type === "table.roll") {
+      const d = event as StreamEvent & {
+        roller?: string; die?: string; rolls?: number[]; modifier?: number; total?: number; label?: string;
+      };
+      if (!d.die || !Array.isArray(d.rolls) || typeof d.total !== "number") return;
+      rollSeq.current += 1;
+      setTableRoll({
+        key: `roll-${rollSeq.current}`,
+        roller: d.roller || "Someone",
+        die: d.die,
+        rolls: d.rolls,
+        modifier: d.modifier ?? 0,
+        total: d.total,
+        label: d.label ?? null,
+      });
     } else if (event.type === "table.ping") {
       const p = event as StreamEvent & { x?: number; y?: number; kind?: string; amount?: number };
       if (typeof p.x !== "number" || typeof p.y !== "number") return;
@@ -255,6 +273,7 @@ export default function Table3DView() {
       )}
       <TurnSplash subject={splash} />
       <MapReveal subject={reveal} />
+      <DiceCinematic roll={tableRoll} />
       <div style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 6, opacity: 0.75 }}>
         <button
           onClick={() => setSoundOn((v) => !v)}

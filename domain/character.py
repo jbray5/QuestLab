@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, field_validator
 from sqlalchemy import Column
@@ -256,6 +256,15 @@ class PlayerCharacterUpdate(BaseModel):
     loadout_url: Optional[str] = None
     hero_generated_at: Optional[datetime] = None
     hero_locked: Optional[bool] = None
+
+
+class PlayerRollBody(BaseModel):
+    """Request body for a player dice roll thrown to the table (Plan 66)."""
+
+    die: Literal["d4", "d6", "d8", "d10", "d12", "d20", "d100"]
+    count: int = Field(default=1, ge=1, le=10)
+    modifier: int = Field(default=0, ge=-20, le=20)
+    label: Optional[str] = Field(default=None, max_length=60)
 
 
 class HeroLockBody(BaseModel):

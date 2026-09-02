@@ -8,6 +8,7 @@ import MapCanvas from "../components/table/MapCanvas";
 import JoinQr from "../components/table/JoinQr";
 import TurnSplash, { type SplashSubject } from "../components/table/TurnSplash";
 import MapReveal from "../components/table/MapReveal";
+import DiceCinematic, { type TableRoll } from "../components/table/DiceCinematic";
 import { useMapReveal } from "../hooks/useMapReveal";
 
 /**
@@ -27,6 +28,8 @@ export default function TableView() {
   const fxCounter = useRef(0);
   const [splash, setSplash] = useState<SplashSubject | null>(null);
   const splashCounter = useRef(0);
+  const [tableRoll, setTableRoll] = useState<TableRoll | null>(null);
+  const rollCounter = useRef(0);
   const lastActive = useRef<string | null>(null);
 
   const { data, refetch, isLoading, isError } = useQuery({
@@ -76,6 +79,27 @@ export default function TableView() {
         /* ignore malformed */
       }
     };
+    const onRoll = (e: MessageEvent) => {
+      try {
+        const d = JSON.parse(e.data) as {
+          roller?: string; die?: string; rolls?: number[]; modifier?: number; total?: number; label?: string;
+        };
+        if (!d.die || !Array.isArray(d.rolls) || typeof d.total !== "number") return;
+        rollCounter.current += 1;
+        setTableRoll({
+          key: `roll-${rollCounter.current}`,
+          roller: d.roller || "Someone",
+          die: d.die,
+          rolls: d.rolls,
+          modifier: d.modifier ?? 0,
+          total: d.total,
+          label: d.label ?? null,
+        });
+      } catch {
+        /* ignore malformed */
+      }
+    };
+    es.addEventListener("table.roll", onRoll as EventListener);
     es.addEventListener("table.updated", onUpdate as EventListener);
     es.addEventListener("table.fx", onFx as EventListener);
     es.addEventListener("table.ping", onPing as EventListener);
@@ -147,6 +171,7 @@ export default function TableView() {
 
       <TurnSplash subject={splash} />
       <MapReveal subject={reveal} />
+      <DiceCinematic roll={tableRoll} />
       {data?.campaign_id && <JoinQr campaignId={data.campaign_id} />}
 
       {title && (
