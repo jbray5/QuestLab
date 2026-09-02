@@ -14,6 +14,7 @@ from typing import Optional
 
 from sqlmodel import Session as DBSession
 
+from db.repos.adventure_repo import AdventureRepo
 from db.repos.battle_map_repo import BattleMapRepo
 from db.repos.session_repo import SessionCombatantRepo, SessionRepo
 from db.repos.table_state_repo import TableStateRepo
@@ -208,8 +209,15 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
             if c.id == game_session.combat_active_combatant_id:
                 active_ref = ref
 
+    campaign_id = None
+    if game_session is not None:
+        adventure = AdventureRepo.get_by_id(db, game_session.adventure_id)
+        if adventure is not None:
+            campaign_id = adventure.campaign_id
+
     return TableProjection(
         session_id=session_id,
+        campaign_id=campaign_id,
         map=table_map,
         fog_on=fog_on,
         revealed_regions=revealed_regions,

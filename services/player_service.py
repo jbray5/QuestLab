@@ -800,6 +800,38 @@ def sell_item(db: Session, pc_id: uuid.UUID, character_item_id: uuid.UUID):
     return shop_service.sell(db, pc_id, character_item_id)
 
 
+def join_roster(db: Session, campaign_id: uuid.UUID) -> list[dict[str, Any]]:
+    """Player-safe party roster for the QR join page (Plan 63).
+
+    Capability trust model: the campaign UUID is the secret, shown only in
+    the room. Names + portraits only — no stats.
+
+    Args:
+        db: Active database session.
+        campaign_id: UUID of the campaign.
+
+    Returns:
+        [{"id", "character_name", "player_name", "portrait_url"}] sorted
+        by character name.
+    """
+    campaign = CampaignRepo.get_by_id(db, campaign_id)
+    if campaign is None:
+        raise ValueError(f"Campaign {campaign_id} not found.")
+    pcs = CharacterRepo.list_by_campaign(db, campaign_id)
+    return sorted(
+        (
+            {
+                "id": str(pc.id),
+                "character_name": pc.character_name,
+                "player_name": pc.player_name,
+                "portrait_url": pc.portrait_url,
+            }
+            for pc in pcs
+        ),
+        key=lambda r: r["character_name"],
+    )
+
+
 def list_party(db: Session, pc_id: uuid.UUID) -> list[dict[str, str]]:
     """Names + ids of the PC's campaign-mates (Plan 51 pooling dropdown).
 

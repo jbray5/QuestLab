@@ -491,6 +491,7 @@ export interface TableProjection {
   weather: string | null;
   active_token_ref: string | null;
   defeated_refs: string[];
+  campaign_id: string | null;
 }
 
 // ── DM brief (Plan 43) — the glanceable session-2 format ─────────────────────

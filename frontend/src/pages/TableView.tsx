@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiBase } from "../api/client";
 import { tableApi } from "../api/table";
 import MapCanvas from "../components/table/MapCanvas";
+import JoinQr from "../components/table/JoinQr";
 import TurnSplash, { type SplashSubject } from "../components/table/TurnSplash";
 
 /**
@@ -134,6 +135,7 @@ export default function TableView() {
       )}
 
       <TurnSplash subject={splash} />
+      {data?.campaign_id && <JoinQr campaignId={data.campaign_id} />}
 
       {title && (
         <div key={title} className="ql-title-card" aria-live="polite">

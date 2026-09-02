@@ -428,6 +428,23 @@ def sell_item(pc_id: uuid.UUID, body: SellRequest, db: DB) -> SellReceipt:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
 
 
+@router.get("/play/join/{campaign_id}")
+def join_roster(campaign_id: uuid.UUID, db: DB) -> list[dict]:
+    """Party roster for the QR join page (Plan 63) — names + portraits only.
+
+    Args:
+        campaign_id: UUID of the campaign (the capability).
+        db: Database session.
+
+    Returns:
+        Player-safe roster rows.
+    """
+    try:
+        return player_service.join_roster(db, campaign_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
 @router.get("/play/{pc_id}/party")
 def list_party(pc_id: uuid.UUID, db: DB) -> list[dict]:
     """Names + ids of campaign-mates (for the pool-coin dropdown).

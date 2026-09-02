@@ -116,6 +116,9 @@ class TableProjection(BaseModel):
     """Player-safe table surface — everything the projector needs, nothing else."""
 
     session_id: uuid.UUID
+    # Campaign scope for the projector's join-QR (Plan 63). A UUID only —
+    # same capability trust model as every /play URL.
+    campaign_id: Optional[uuid.UUID] = None
     map: Optional[TableMap] = None
     fog_on: bool = False
     # Revealed region polygons (points only — unrevealed regions and all region

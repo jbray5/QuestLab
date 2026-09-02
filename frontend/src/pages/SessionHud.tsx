@@ -36,6 +36,7 @@ import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import DmScreen from "../components/dm-screen/DmScreen";
 import LootPanel from "../components/LootPanel";
 import TableConsole from "../components/table/TableConsole";
+import { JoinQrOverlay } from "../components/table/JoinQr";
 import { tableApi } from "../api/table";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import MonsterStatBlock from "../components/MonsterStatBlock";
@@ -621,6 +622,7 @@ export default function SessionHud() {
   // the DM is actively working a map. Auto-enters on staging a map, manual
   // toggle either way.
   const [mapFocus, setMapFocus] = useState(false);
+  const [showJoinQr, setShowJoinQr] = useState(false);
   const { data: hudMaps = [] } = useQuery({
     queryKey: ["battle-maps", adventure?.campaign_id],
     queryFn: () => tableApi.listMaps(adventure!.campaign_id),
@@ -1233,9 +1235,38 @@ export default function SessionHud() {
             textTransform: "uppercase",
             letterSpacing: "0.08em",
             background: "var(--surface2)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}>
-            Party — {party.length} PCs
+            <span>Party — {party.length} PCs</span>
+            {adventure?.campaign_id && (
+              <button
+                onClick={() => setShowJoinQr(true)}
+                title="Show the join QR — players scan to open their sheets"
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: 6,
+                  background: "transparent",
+                  color: "var(--gold)",
+                  cursor: "pointer",
+                  fontSize: "0.65rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  padding: "2px 8px",
+                }}
+              >
+                📱 Join QR
+              </button>
+            )}
           </div>
+          {showJoinQr && adventure?.campaign_id && (
+            <JoinQrOverlay
+              campaignId={adventure.campaign_id}
+              onClose={() => setShowJoinQr(false)}
+              showCopy
+            />
+          )}
 
           {party.length === 0 && (
             <p className="text-muted" style={{ padding: "1rem", fontSize: "0.85rem" }}>
