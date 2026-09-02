@@ -61,12 +61,12 @@ const CSS = `
   font-family: Cinzel, Georgia, serif; color: #f2e3ae;
   font-size: clamp(1.1rem, 2.6vh, 1.7rem); letter-spacing: 0.08em;
   text-shadow: 0 2px 12px rgba(0,0,0,0.9);
-  opacity: 0; animation: qlDiceTotal 0.4s ease ${TUMBLE_MS / 1000 + 0.15}s forwards;
+  opacity: 0; animation: qlDiceTotal 0.4s ease 0.12s forwards; /* mounts at landing */
 }
 .ql-dicecine-callout {
   font-family: Cinzel, Georgia, serif; font-weight: 700; letter-spacing: 0.3em;
   font-size: clamp(0.8rem, 2vh, 1.2rem); padding-left: 0.3em;
-  opacity: 0; animation: qlDiceTotal 0.4s ease ${TUMBLE_MS / 1000 + 0.3}s forwards;
+  opacity: 0; animation: qlDiceTotal 0.4s ease 0.28s forwards; /* mounts at landing */
 }
 .ql-dicecine-callout.crit { color: #ffd76a; text-shadow: 0 0 18px rgba(255,205,90,0.8); }
 .ql-dicecine-callout.fumble { color: #c96a5c; }
