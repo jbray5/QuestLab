@@ -354,6 +354,15 @@ export default function CharacterView() {
     },
     onError: (err: Error) => setForgeError(err.message),
   });
+  // Golden base (Plan 62 follow-up): pin the render you love.
+  const lockMut = useMutation({
+    mutationFn: (locked: boolean) => playApi.setHeroLock(pcId as string, locked),
+    onSuccess: () => {
+      setForgeError(null);
+      void qc.invalidateQueries({ queryKey: pcKey });
+    },
+    onError: (err: Error) => setForgeError(err.message),
+  });
   const busy = dressMut.isPending || forgeMut.isPending || identityMut.isPending;
 
   if (!pc) {
@@ -445,11 +454,29 @@ export default function CharacterView() {
           >
             {saved ? "✓ saved" : "Save description"}
           </button>
-          <button className="forge-save" disabled={busy} onClick={() => forgeMut.mutate()}>
-            {forgeMut.isPending ? "⚒ Repainting…" : "🎭 New base look"}
-          </button>
+          {!pc.hero_locked && (
+            <button className="forge-save" disabled={busy} onClick={() => forgeMut.mutate()}>
+              {forgeMut.isPending ? "⚒ Repainting…" : "🎭 New base look"}
+            </button>
+          )}
+          {pc.hero_url && (
+            <button
+              className="forge-save"
+              disabled={lockMut.isPending}
+              title={
+                pc.hero_locked
+                  ? "Unlock to allow a new base look"
+                  : "Pin this base — gear and portraits keep deriving from it, and it can't be re-rolled"
+              }
+              onClick={() => lockMut.mutate(!pc.hero_locked)}
+            >
+              {pc.hero_locked ? "🔒 Base locked" : "📌 Lock this look"}
+            </button>
+          )}
           <span className="forge-note">
-            Rebuilds the character from your description (then re-render your gear).
+            {pc.hero_locked
+              ? "Your base look is pinned — gear and portraits build on it, and it can't be accidentally re-rolled."
+              : "New base look rebuilds the character from your description (then re-render your gear)."}
           </span>
         </div>
 

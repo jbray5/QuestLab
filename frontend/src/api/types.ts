@@ -69,6 +69,7 @@ export interface PlayerCharacter {
   appearance?: string | null;
   hero_url?: string | null;
   loadout_url?: string | null;
+  hero_locked?: boolean;
   // Plan 00023 — combat state
   temp_hp: number;
   heroic_inspiration: boolean;

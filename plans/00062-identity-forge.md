@@ -92,3 +92,6 @@ Golden base models: when a base render lands that the player loves, LOCK
 it as the canonical base (never auto-regenerated) and derive all variants
 from it. Productized shape: "Forge 3 candidates -> player picks -> pinned."
 Add a `hero_locked` flag + candidate-picker UI when we next touch the forge.
+  UPDATE 2026-09-01: `hero_locked` SHIPPED — migration 0037, lock guard on
+  hero re-roll, POST /play/{pc}/identity/lock, 📌 Lock-this-look toggle on
+  the forge screen. Candidate picker (forge 3 → pick) still open.

@@ -624,10 +624,40 @@ def forge_hero(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     from services import portrait_service
 
     pc = _get_pc_or_raise(db, pc_id)
+    if pc.hero_locked and pc.hero_url:
+        raise ValueError("This base look is locked. Unlock it first if you truly want a new one.")
     _check_forge_cooldown(pc)
     url = portrait_service.generate_pc_hero(db, pc)
     publish_pc_updated(pc.id, pc.campaign_id)
     return {"hero_url": url}
+
+
+def set_hero_lock(db: Session, pc_id: uuid.UUID, locked: bool) -> dict[str, Any]:
+    """Pin or unpin the PC's golden base render (Plan 62 follow-up).
+
+    A locked hero is never re-rolled by "New base look"; gear, portrait,
+    and minifig passes keep deriving from it. Free action — no cooldown.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC.
+        locked: Desired lock state.
+
+    Returns:
+        ``{"hero_locked": bool}``.
+
+    Raises:
+        ValueError: If the PC is not found, or locking with no hero yet.
+    """
+    from domain.character import PlayerCharacterUpdate
+    from integrations.event_bus import publish_pc_updated
+
+    pc = _get_pc_or_raise(db, pc_id)
+    if locked and not pc.hero_url:
+        raise ValueError("Forge a base look first — there is nothing to lock yet.")
+    CharacterRepo.update(db, pc, PlayerCharacterUpdate(hero_locked=locked))
+    publish_pc_updated(pc.id, pc.campaign_id)
+    return {"hero_locked": locked}
 
 
 def _check_forge_cooldown(pc: PlayerCharacter) -> None:

@@ -490,3 +490,45 @@ class TestForgeQcGate:
 
         out = play_svc.forge_hero(duckdb_session, pc.id)
         assert out["hero_url"]
+
+
+class TestHeroLock:
+    """Golden base models (Plan 62 follow-up): the pinned render."""
+
+    def test_lock_requires_existing_hero(self, duckdb_session: Session):
+        dm = _dm()
+        pc = _pc(duckdb_session, _campaign(duckdb_session, dm).id, dm)
+        with pytest.raises(ValueError, match="nothing to lock"):
+            play_svc.set_hero_lock(duckdb_session, pc.id, True)
+
+    def test_locked_hero_refuses_reroll(self, duckdb_session: Session, monkeypatch):
+        dm = _dm()
+        pc = _pc(duckdb_session, _campaign(duckdb_session, dm).id, dm)
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import PlayerCharacterUpdate
+
+        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
+        CharacterRepo.update(
+            duckdb_session, row, PlayerCharacterUpdate(hero_url="https://blob/x.png")
+        )
+        assert play_svc.set_hero_lock(duckdb_session, pc.id, True) == {"hero_locked": True}
+        with pytest.raises(ValueError, match="locked"):
+            play_svc.forge_hero(duckdb_session, pc.id)
+
+    def test_unlock_restores_reroll(self, duckdb_session: Session, monkeypatch):
+        dm = _dm()
+        pc = _pc(duckdb_session, _campaign(duckdb_session, dm).id, dm)
+        from db.repos.character_repo import CharacterRepo
+        from domain.character import PlayerCharacterUpdate
+        from services import portrait_service
+
+        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
+        CharacterRepo.update(
+            duckdb_session, row, PlayerCharacterUpdate(hero_url="https://blob/x.png")
+        )
+        play_svc.set_hero_lock(duckdb_session, pc.id, True)
+        play_svc.set_hero_lock(duckdb_session, pc.id, False)
+        monkeypatch.setattr(
+            portrait_service, "generate_pc_hero", lambda db, p: "https://blob/new.png"
+        )
+        assert play_svc.forge_hero(duckdb_session, pc.id) == {"hero_url": "https://blob/new.png"}

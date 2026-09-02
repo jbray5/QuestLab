@@ -16,7 +16,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB
-from domain.character import PlayerCharacter
+from domain.character import HeroLockBody, PlayerCharacter
 from domain.shop import (
     GiveRequest,
     PurchaseReceipt,
@@ -325,6 +325,24 @@ def forge_hero(pc_id: uuid.UUID, db: DB) -> dict:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Hero generation failed: {exc}"
         )
+
+
+@router.post("/play/{pc_id}/identity/lock")
+def set_hero_lock(pc_id: uuid.UUID, body: HeroLockBody, db: DB) -> dict:
+    """Pin or unpin the PC's golden base render (Plan 62 follow-up).
+
+    Args:
+        pc_id: UUID of the player character (capability URL).
+        body: ``{"locked": bool}``.
+        db: Database session.
+
+    Returns:
+        ``{"hero_locked": bool}``.
+    """
+    try:
+        return player_service.set_hero_lock(db, pc_id, body.locked)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 
 @router.post("/play/{pc_id}/identity")

@@ -58,6 +58,9 @@ class PlayerCharacter(SQLModel, table=True):
     # loadout (image-to-image from hero_url, so identity is preserved).
     loadout_url: Optional[str] = Field(default=None, max_length=500)
     hero_generated_at: Optional[datetime] = Field(default=None)
+    # Golden base (Plan 62 follow-up): a locked hero is never re-rolled;
+    # every variant (loadout, portrait, minifig) derives from it.
+    hero_locked: bool = Field(default=False)
     backstory: Optional[str] = None
     notes: Optional[str] = None
     # JSON columns for complex fields
@@ -189,6 +192,7 @@ class PlayerCharacterRead(BaseModel):
     appearance: Optional[str] = None
     hero_url: Optional[str] = None
     loadout_url: Optional[str] = None
+    hero_locked: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -251,6 +255,13 @@ class PlayerCharacterUpdate(BaseModel):
     hero_url: Optional[str] = None
     loadout_url: Optional[str] = None
     hero_generated_at: Optional[datetime] = None
+    hero_locked: Optional[bool] = None
+
+
+class HeroLockBody(BaseModel):
+    """Request body for pinning/unpinning the base render (Plan 62)."""
+
+    locked: bool
 
 
 # ---------------------------------------------------------------------------

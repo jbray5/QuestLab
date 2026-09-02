@@ -92,6 +92,8 @@ export const playApi = {
   setEquipped: (pcId: string, characterItemId: string, equipped: boolean) =>
     api.post<GearRow>(`/play/${pcId}/gear/${characterItemId}/equip`, { equipped }),
   forgeHero: (pcId: string) => api.post<{ hero_url: string }>(`/play/${pcId}/hero`),
+  setHeroLock: (pcId: string, locked: boolean) =>
+    api.post<{ hero_locked: boolean }>(`/play/${pcId}/identity/lock`, { locked }),
   dressModel: (pcId: string) => api.post<{ loadout_url: string }>(`/play/${pcId}/loadout`),
   /** Plan 62 — the full chain: model → dressed → portrait + board minifig. */
   forgeIdentity: (pcId: string) =>
