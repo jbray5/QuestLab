@@ -210,6 +210,27 @@ def key_chroma(png: bytes, tolerance: int = 110) -> bytes:
                     avg = (r + g + b) // 3
                     out[d] = out[d + 1] = out[d + 2] = avg
                 out[d + 3] = min(out[d + 3], 150)
+    # Shadow despill: painted drop-shadows hugging the backdrop keep a
+    # pink cast that sits outside the key tolerance. Dilate the keyed mask
+    # a few pixels and neutralize pink-family tones inside that band only —
+    # pink clothing deeper in the subject is untouched.
+    band = bytearray(seen)
+    for _ in range(5):
+        grown = bytearray(band)
+        for y in range(1, h - 1):
+            base = y * w
+            for x in range(1, w - 1):
+                i = base + x
+                if not band[i] and (band[i - 1] or band[i + 1] or band[i - w] or band[i + w]):
+                    grown[i] = 1
+        band = grown
+    for i in range(w * h):
+        if band[i] and not seen[i]:
+            d = i * 4
+            r, g, b = out[d], out[d + 1], out[d + 2]
+            if r > g + 25 and b > g + 10:  # pink-cast shadow tone
+                avg = (r + g + b) // 3
+                out[d] = out[d + 1] = out[d + 2] = avg
     return encode_rgba_png(w, h, bytes(out))
 
 
