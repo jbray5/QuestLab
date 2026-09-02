@@ -34,13 +34,17 @@ HOUSE_STYLE = (
 # cutout voice is painted RPG character illustration — same warmth and
 # brushwork, unmistakably a living person.
 HOUSE_STYLE_CUTOUT = (
-    "Hand-painted fantasy RPG character illustration, in the tradition of "
-    "classic painted game splash art: confident painterly brushwork, rich "
-    "warm colour, dramatic soft studio lighting, crisp readable silhouette. "
-    "The subject is a LIVING character — expressive eyes catching the light, "
-    "natural skin and scale texture, hair and cloth with weight and movement. "
-    "Not a photograph, not a 3D render, and NEVER a sculpture, statue, "
-    "figurine, clay model, toy, or miniature: no clay or plasticine texture, "
-    "no stone surface, no museum stiffness. No neon rim lighting, no cartoon "
-    "outlines, no flat vector shapes"
+    "Hand-painted dark-fantasy character illustration in the tradition of "
+    "serious book-cover and concept art: grounded painterly realism, "
+    "confident brushwork, muted naturalistic palette, dramatic soft light, "
+    "crisp readable silhouette. Realistic adult proportions (roughly seven "
+    "and a half heads tall) — NEVER chibi, stocky-toy, or caricature. "
+    "Weathered, battle-worn materials: scuffed and dented metal, frayed "
+    "cloth, scarred leather. The subject is a LIVING character with a "
+    "serious, composed expression — mouth closed or set with quiet resolve, "
+    "no grin — expressive eyes catching the light, natural skin and scale "
+    "texture, cloth with weight. Not a photograph, not a 3D render, not "
+    "cartoony or cute, and NEVER a sculpture, statue, figurine, clay model, "
+    "toy, or miniature. No cartoon outlines, no neon rim lighting, no flat "
+    "vector shapes"
 )
