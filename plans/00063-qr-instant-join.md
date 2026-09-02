@@ -1,7 +1,7 @@
 # Plan 00063 — QR Instant Join
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
 
 **Started:** 2026-09-01
 **Last updated:** 2026-09-01
@@ -57,7 +57,9 @@ QR from the HUD.
 - [x] /join/{campaignId} lists party with portraits; tap → /play/{pcId}
 - [x] Projector 📱 chip shows scannable QR with the join URL
 - [x] HUD Join QR modal + copy link
-- [x] pytest + tsc + build green — live smoke on The Severance pending deploy
+- [x] pytest + tsc + build green; live smoke on The Severance verified 2026-09-01
+      (join page renders all 5 PCs sorted with portraits; projector QR
+      overlay live; projection.campaign_id confirmed on prod)
 
 ## Idempotence and Recovery
 Additive routes + UI; progress boxes are the restart guide.
