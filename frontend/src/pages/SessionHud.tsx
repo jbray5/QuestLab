@@ -36,7 +36,6 @@ import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import DmScreen from "../components/dm-screen/DmScreen";
 import LootPanel from "../components/LootPanel";
 import TableConsole from "../components/table/TableConsole";
-import { JoinQrOverlay } from "../components/table/JoinQr";
 import { tableApi } from "../api/table";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import MonsterStatBlock from "../components/MonsterStatBlock";
@@ -607,6 +606,16 @@ export default function SessionHud() {
       else s.add(c);
       return { ...prev, [pcId]: s };
     });
+    // Plan 69 — write through to the persisted combatant row so the
+    // condition renders on the boards (Plan 65 FX). Local state stays the
+    // instant-UI source; out of combat there is no row and it stays local.
+    const row = persistedCombatants.find((pc) => pc.character_id === pcId);
+    if (row) {
+      const current = row.conditions ?? [];
+      const has = current.includes(c);
+      const next = has ? current.filter((x) => x !== c) : [...current, c];
+      void patchPersistedCombatant(row.id, { conditions: next });
+    }
   }
 
   // ── Scene navigator ────────────────────────────────────────────────────────
@@ -622,7 +631,6 @@ export default function SessionHud() {
   // the DM is actively working a map. Auto-enters on staging a map, manual
   // toggle either way.
   const [mapFocus, setMapFocus] = useState(false);
-  const [showJoinQr, setShowJoinQr] = useState(false);
   const { data: hudMaps = [] } = useQuery({
     queryKey: ["battle-maps", adventure?.campaign_id],
     queryFn: () => tableApi.listMaps(adventure!.campaign_id),
@@ -632,6 +640,13 @@ export default function SessionHud() {
     queryKey: ["hud-table", sessionId],
     queryFn: () => tableApi.getState(sessionId!),
     enabled: !!sessionId,
+  });
+  // Plan 69 — the QR belongs on the PROJECTOR: the HUD button toggles
+  // table state; the projector overlay follows via SSE.
+  const projectorQrOn = !!hudTable?.join_qr_on;
+  const toggleJoinQr = useMutation({
+    mutationFn: () => tableApi.updateState(sessionId!, { join_qr_on: !projectorQrOn }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["hud-table", sessionId] }),
   });
   const setActiveMap = useMutation({
     mutationFn: (mapId: string) => tableApi.updateState(sessionId!, { active_map_id: mapId }),
@@ -1241,32 +1256,51 @@ export default function SessionHud() {
           }}>
             <span>Party — {party.length} PCs</span>
             {adventure?.campaign_id && (
-              <button
-                onClick={() => setShowJoinQr(true)}
-                title="Show the join QR — players scan to open their sheets"
-                style={{
-                  border: "1px solid var(--border)",
-                  borderRadius: 6,
-                  background: "transparent",
-                  color: "var(--gold)",
-                  cursor: "pointer",
-                  fontSize: "0.65rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.06em",
-                  padding: "2px 8px",
-                }}
-              >
-                📱 Join QR
-              </button>
+              <span style={{ display: "flex", gap: 4 }}>
+                <button
+                  onClick={() => toggleJoinQr.mutate()}
+                  disabled={toggleJoinQr.isPending}
+                  title={
+                    projectorQrOn
+                      ? "Hide the join QR on the projector"
+                      : "Show the join QR ON THE PROJECTOR — players scan the big screen"
+                  }
+                  style={{
+                    border: `1px solid ${projectorQrOn ? "var(--gold)" : "var(--border)"}`,
+                    borderRadius: 6,
+                    background: projectorQrOn ? "rgba(214,175,54,0.18)" : "transparent",
+                    color: "var(--gold)",
+                    cursor: "pointer",
+                    fontSize: "0.65rem",
+                    fontWeight: 700,
+                    letterSpacing: "0.06em",
+                    padding: "2px 8px",
+                  }}
+                >
+                  {projectorQrOn ? "📱 QR on table ✓" : "📱 QR → projector"}
+                </button>
+                <button
+                  onClick={() => {
+                    void navigator.clipboard?.writeText(
+                      `${window.location.origin}/join/${adventure.campaign_id}`,
+                    );
+                  }}
+                  title="Copy the join link"
+                  style={{
+                    border: "1px solid var(--border)",
+                    borderRadius: 6,
+                    background: "transparent",
+                    color: "var(--muted)",
+                    cursor: "pointer",
+                    fontSize: "0.65rem",
+                    padding: "2px 6px",
+                  }}
+                >
+                  ⧉
+                </button>
+              </span>
             )}
           </div>
-          {showJoinQr && adventure?.campaign_id && (
-            <JoinQrOverlay
-              campaignId={adventure.campaign_id}
-              onClose={() => setShowJoinQr(false)}
-              showCopy
-            />
-          )}
 
           {party.length === 0 && (
             <p className="text-muted" style={{ padding: "1rem", fontSize: "0.85rem" }}>

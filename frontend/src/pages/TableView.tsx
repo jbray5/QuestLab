@@ -172,7 +172,9 @@ export default function TableView() {
       <TurnSplash subject={splash} />
       <MapReveal subject={reveal} />
       <DiceCinematic roll={tableRoll} />
-      {data?.campaign_id && <JoinQr campaignId={data.campaign_id} />}
+      {data?.campaign_id && (
+        <JoinQr campaignId={data.campaign_id} forcedOpen={data.join_qr_on} />
+      )}
 
       {title && (
         <div key={title} className="ql-title-card" aria-live="polite">

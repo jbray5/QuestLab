@@ -170,12 +170,14 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     title = ""
     weather: str | None = None
 
+    join_qr_on = False
     if state is not None:
         fog_on = state.fog_on
         brush_reveals = [dict(b) for b in (state.brush_reveals or [])]
         darkness = state.darkness
         title = state.title
         weather = state.weather
+        join_qr_on = bool(getattr(state, "join_qr_on", False))
         tokens = [Token.model_validate(t) for t in (state.tokens or [])]
         if state.active_map_id is not None:
             battle_map = BattleMapRepo.get_by_id(db, state.active_map_id)
@@ -203,19 +205,24 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     defeated_refs: list[str] = []
     condition_by_ref: dict[str, list[str]] = {}
     game_session = SessionRepo.get_by_id(db, session_id)
-    if game_session is not None and getattr(game_session, "combat_state", "idle") == "running":
-        for c in SessionCombatantRepo.list_for_session(db, session_id):
-            ref = str(c.character_id) if c.character_id else str(c.id)
-            if c.defeated:
-                defeated_refs.append(ref)
-            if c.id == game_session.combat_active_combatant_id:
-                active_ref = ref
-            if c.conditions:
-                # Both keys: HUD tokens ref combatant ids, PC tokens ref
-                # character ids (Plan 65).
-                condition_by_ref[str(c.id)] = list(c.conditions)
-                if c.character_id:
-                    condition_by_ref[str(c.character_id)] = list(c.conditions)
+    combat_running = (
+        game_session is not None and getattr(game_session, "combat_state", "idle") == "running"
+    )
+    # Conditions flow whenever combatant rows exist — the DM marks poison
+    # during setup or lulls too (Plan 69). Turn glow/defeat stay gated on a
+    # RUNNING combat so nothing leaks between fights.
+    for c in SessionCombatantRepo.list_for_session(db, session_id):
+        ref = str(c.character_id) if c.character_id else str(c.id)
+        if combat_running and c.defeated:
+            defeated_refs.append(ref)
+        if combat_running and c.id == game_session.combat_active_combatant_id:
+            active_ref = ref
+        if c.conditions:
+            # Both keys: HUD tokens ref combatant ids, PC tokens ref
+            # character ids (Plan 65).
+            condition_by_ref[str(c.id)] = list(c.conditions)
+            if c.character_id:
+                condition_by_ref[str(c.character_id)] = list(c.conditions)
 
     # Token state FX (Plan 65) — overwrite live-state fields from combat
     # truth on every build so stale stored copies never leak through.
@@ -240,6 +247,7 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     return TableProjection(
         session_id=session_id,
         campaign_id=campaign_id,
+        join_qr_on=join_qr_on,
         map=table_map,
         fog_on=fog_on,
         revealed_regions=revealed_regions,

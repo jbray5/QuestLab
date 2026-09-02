@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
+
+import Dice3D from "./Dice3D";
 
 /**
  * DiceCinematic (Plan 66) — the whole table watches the same die land.
@@ -19,8 +21,8 @@ export interface TableRoll {
   label?: string | null;
 }
 
-const TUMBLE_MS = 1400;
-const HOLD_MS = 4200;
+const TUMBLE_MS = 2100;
+const HOLD_MS = 5400;
 
 const CSS = `
 .ql-dicecine {
@@ -31,28 +33,20 @@ const CSS = `
   display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
   animation: qlDiceOut 0.5s ease ${(HOLD_MS - 500) / 1000}s forwards;
 }
-.ql-dicecine-die {
-  width: clamp(120px, 22vh, 220px); height: clamp(120px, 22vh, 220px);
-  display: flex; align-items: center; justify-content: center;
+.ql-dicecine-arena {
+  position: relative; width: min(74vw, 120vh); height: min(46vh, 420px);
+}
+.ql-dicecine-num {
+  position: absolute; left: 50%; top: 54%; transform: translate(-50%, -50%);
   font-family: Cinzel, Georgia, serif; font-weight: 700;
-  font-size: clamp(2.6rem, 9vh, 5.2rem); color: #f2e3ae;
-  background:
-    radial-gradient(circle at 35% 30%, rgba(255,255,255,0.14), transparent 55%),
-    linear-gradient(150deg, #2a2338 0%, #171224 60%, #0d0a16 100%);
-  border: 2px solid rgba(240,230,200,0.35); border-radius: 26%;
-  box-shadow: 0 12px 50px rgba(0,0,0,0.75), 0 0 34px rgba(214,175,54,0.18);
-  transform: rotate(-8deg);
+  font-size: clamp(2.8rem, 10vh, 5.8rem); color: #f2e3ae;
+  text-shadow: 0 3px 20px rgba(0,0,0,0.95), 0 0 30px rgba(214,175,54,0.4);
+  animation: qlDiceStamp 0.3s cubic-bezier(0.2,1.7,0.4,1);
+  pointer-events: none;
 }
-.ql-dicecine-die.tumbling { animation: qlDiceTumble 0.32s linear infinite; }
-.ql-dicecine-die.landed { animation: qlDiceLand 0.34s cubic-bezier(0.2,1.6,0.4,1) forwards; }
-.ql-dicecine-die.crit {
-  border-color: #ffd76a; color: #ffe9a8;
-  box-shadow: 0 12px 50px rgba(0,0,0,0.75), 0 0 70px rgba(255,205,90,0.55);
-}
-.ql-dicecine-die.fumble {
-  border-color: #7a3a34; color: #d8938a; filter: saturate(0.7);
-  box-shadow: 0 12px 50px rgba(0,0,0,0.85), 0 0 40px rgba(190,70,50,0.35);
-}
+.ql-dicecine-num.crit { color: #ffe9a8; text-shadow: 0 3px 20px rgba(0,0,0,0.95), 0 0 60px rgba(255,205,90,0.9); }
+.ql-dicecine-num.fumble { color: #d8938a; text-shadow: 0 3px 20px rgba(0,0,0,0.95), 0 0 34px rgba(190,70,50,0.6); }
+@keyframes qlDiceStamp { 0% { transform: translate(-50%, -50%) scale(1.9); opacity: 0; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
 .ql-dicecine-name {
   font-family: Georgia, serif; font-style: italic; color: #cfc2a4;
   font-size: clamp(0.9rem, 2vh, 1.3rem); text-shadow: 0 2px 12px rgba(0,0,0,0.9);
@@ -70,47 +64,25 @@ const CSS = `
 }
 .ql-dicecine-callout.crit { color: #ffd76a; text-shadow: 0 0 18px rgba(255,205,90,0.8); }
 .ql-dicecine-callout.fumble { color: #c96a5c; }
-@keyframes qlDiceTumble {
-  0% { transform: rotate(-14deg) translateY(0); }
-  25% { transform: rotate(4deg) translateY(-6px); }
-  50% { transform: rotate(14deg) translateY(0); }
-  75% { transform: rotate(-4deg) translateY(-4px); }
-  100% { transform: rotate(-14deg) translateY(0); }
-}
-@keyframes qlDiceLand {
-  0% { transform: rotate(6deg) scale(1.25); }
-  100% { transform: rotate(0deg) scale(1); }
-}
 @keyframes qlDiceTotal { to { opacity: 1; } }
 @keyframes qlDiceOut { to { opacity: 0; transform: translateY(-2vh); } }
 @media (prefers-reduced-motion: reduce) {
-  .ql-dicecine-die.tumbling { animation: none; }
-  .ql-dicecine-stage, .ql-dicecine-die.landed { animation-duration: 0.01s; }
+  .ql-dicecine-stage, .ql-dicecine-num { animation-duration: 0.01s; }
 }
 `;
 
 /** Renders one cinematic per `roll.key`; self-dismissing. */
 export default function DiceCinematic({ roll }: { roll: TableRoll | null }) {
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
-  const [landed, setLanded] = useState(false);
-  const [face, setFace] = useState(1);
-  const cycler = useRef<number | null>(null);
+  // Landing is keyed to the roll, so a new roll starts un-landed without a
+  // synchronous state reset in the effect.
+  const [landedKey, setLandedKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!roll) return;
-    setLanded(false);
-    const sides = parseInt(roll.die.slice(1), 10) || 20;
-    cycler.current = window.setInterval(
-      () => setFace(1 + Math.floor(Math.random() * sides)),
-      90,
-    );
-    const landTimer = window.setTimeout(() => {
-      if (cycler.current) window.clearInterval(cycler.current);
-      setLanded(true);
-    }, TUMBLE_MS);
+    const landTimer = window.setTimeout(() => setLandedKey(roll.key), TUMBLE_MS);
     const byeTimer = window.setTimeout(() => setDismissedKey(roll.key), HOLD_MS);
     return () => {
-      if (cycler.current) window.clearInterval(cycler.current);
       window.clearTimeout(landTimer);
       window.clearTimeout(byeTimer);
     };
@@ -118,11 +90,10 @@ export default function DiceCinematic({ roll }: { roll: TableRoll | null }) {
 
   const visible = roll && roll.key !== dismissedKey ? roll : null;
   if (!visible) return null;
+  const landed = landedKey === visible.key;
 
-  const sides = parseInt(visible.die.slice(1), 10) || 20;
   const isCrit = visible.die === "d20" && visible.rolls.length === 1 && visible.rolls[0] === 20;
   const isFumble = visible.die === "d20" && visible.rolls.length === 1 && visible.rolls[0] === 1;
-  const shown = landed ? visible.rolls[0] : Math.min(face, sides);
   const detail =
     visible.rolls.length > 1 || visible.modifier !== 0
       ? `${visible.rolls.join(" + ")}${visible.modifier ? ` ${visible.modifier > 0 ? "+" : "−"} ${Math.abs(visible.modifier)}` : ""} = ${visible.total}`
@@ -137,15 +108,15 @@ export default function DiceCinematic({ roll }: { roll: TableRoll | null }) {
           {visible.die}
           {visible.label ? ` — ${visible.label}` : ""}
         </div>
-        <div
-          className={[
-            "ql-dicecine-die",
-            landed ? "landed" : "tumbling",
-            landed && isCrit ? "crit" : "",
-            landed && isFumble ? "fumble" : "",
-          ].join(" ")}
-        >
-          {shown}
+        <div className="ql-dicecine-arena">
+          <Dice3D die={visible.die} rollKey={visible.key} durationMs={TUMBLE_MS} />
+          {landed && (
+            <div
+              className={["ql-dicecine-num", isCrit ? "crit" : "", isFumble ? "fumble" : ""].join(" ")}
+            >
+              {visible.rolls[0]}
+            </div>
+          )}
         </div>
         {detail && landed && <div className="ql-dicecine-total">{detail}</div>}
         {landed && isCrit && <div className="ql-dicecine-callout crit">CRITICAL</div>}

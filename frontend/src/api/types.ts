@@ -452,6 +452,7 @@ export interface TableStateRead {
   session_id: string;
   active_map_id: string | null;
   fog_on: boolean;
+  join_qr_on?: boolean;
   revealed_region_ids: string[];
   brush_reveals: BrushReveal[];
   tokens: TableToken[];
@@ -469,6 +470,7 @@ export interface TableStateUpdate {
   darkness?: number;
   title?: string;
   weather?: string | null;
+  join_qr_on?: boolean;
 }
 
 export interface TableMapSummary {
@@ -497,6 +499,7 @@ export interface TableProjection {
   active_token_ref: string | null;
   defeated_refs: string[];
   campaign_id: string | null;
+  join_qr_on: boolean;
 }
 
 // ── DM brief (Plan 43) — the glanceable session-2 format ─────────────────────

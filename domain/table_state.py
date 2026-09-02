@@ -45,6 +45,8 @@ class TableState(SQLModel, table=True):
     # Synced weather preset for the 3D views (Plan 46): none|embers|
     # fireflies|rain|snow|dust. None = clear.
     weather: Optional[str] = Field(default=None, max_length=12)
+    # DM-summoned join QR on the projector (Plan 69).
+    join_qr_on: bool = Field(default=False)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -85,6 +87,7 @@ class TableStateUpdate(BaseModel):
     darkness: Optional[float] = PydField(default=None, ge=0.0, le=1.0)
     title: Optional[str] = PydField(default=None, max_length=120)
     weather: Optional[str] = PydField(default=None, max_length=12)
+    join_qr_on: Optional[bool] = None
 
 
 class TokenFigureRequest(BaseModel):
@@ -124,6 +127,8 @@ class TableProjection(BaseModel):
     # Campaign scope for the projector's join-QR (Plan 63). A UUID only —
     # same capability trust model as every /play URL.
     campaign_id: Optional[uuid.UUID] = None
+    # DM summoned the join QR onto the projector (Plan 69).
+    join_qr_on: bool = False
     map: Optional[TableMap] = None
     fog_on: bool = False
     # Revealed region polygons (points only — unrevealed regions and all region
@@ -152,6 +157,7 @@ class TableStateRead(BaseModel):
     darkness: float = 0.0
     title: str = ""
     weather: Optional[str] = None
+    join_qr_on: bool = False
 
     model_config = {"from_attributes": True}
 

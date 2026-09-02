@@ -16,6 +16,7 @@ import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import TurnSplash, { type SplashSubject } from "../components/table/TurnSplash";
 import MapReveal from "../components/table/MapReveal";
 import DiceCinematic, { type TableRoll } from "../components/table/DiceCinematic";
+import { JoinQrOverlay } from "../components/table/JoinQr";
 import { useMapReveal } from "../hooks/useMapReveal";
 
 /**
@@ -274,6 +275,9 @@ export default function Table3DView() {
       <TurnSplash subject={splash} />
       <MapReveal subject={reveal} />
       <DiceCinematic roll={tableRoll} />
+      {proj?.join_qr_on && proj?.campaign_id && (
+        <JoinQrOverlay campaignId={proj.campaign_id} onClose={() => undefined} />
+      )}
       <div style={{ position: "absolute", top: 10, right: 12, display: "flex", gap: 6, opacity: 0.75 }}>
         <button
           onClick={() => setSoundOn((v) => !v)}

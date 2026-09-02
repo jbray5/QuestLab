@@ -184,3 +184,49 @@ def test_delete_session_cascades_table_and_combat(client, api_engine):
     resp = client.delete(f"/api/sessions/{sid}", headers=auth(dm))
     assert resp.status_code == 204
     assert client.get(f"/api/table/{sid}").json()["map"] is None  # empty projection
+
+
+def test_join_qr_toggle_reaches_projection(client, api_engine):
+    """Plan 69 — DM toggles join_qr_on; the public projection carries it."""
+    dm = "dm_qr@example.com"
+    _cid, sid = _seed(api_engine, dm)
+    assert client.get(f"/api/table/{sid}").json()["join_qr_on"] is False
+    patch = client.patch(f"/api/sessions/{sid}/table", headers=auth(dm), json={"join_qr_on": True})
+    assert patch.status_code == 200
+    assert client.get(f"/api/table/{sid}").json()["join_qr_on"] is True
+
+
+def test_conditions_flow_without_running_combat(client, api_engine):
+    """Plan 69 — conditions enrich tokens even when combat isn't running."""
+    dm = "dm_c2@example.com"
+    _cid, sid = _seed(api_engine, dm)
+    put = client.put(
+        f"/api/sessions/{sid}/combat",
+        headers=auth(dm),
+        json={
+            "round": 1,
+            "combat_state": "setup",
+            "combatants": [
+                {
+                    "sort_index": 0,
+                    "name": "Wretch",
+                    "dex_score": 10,
+                    "initiative_roll": 10,
+                    "hp_current": 10,
+                    "hp_max": 10,
+                    "type": "monster",
+                    "conditions": ["poisoned"],
+                }
+            ],
+        },
+    )
+    assert put.status_code == 200
+    wid = put.json()["combatants"][0]["id"]
+    client.patch(
+        f"/api/sessions/{sid}/table",
+        headers=auth(dm),
+        json={"tokens": [{"id": "t1", "kind": "monster", "ref_id": wid, "label": "W"}]},
+    )
+    proj = client.get(f"/api/table/{sid}").json()
+    assert proj["tokens"][0]["conditions"] == ["poisoned"]
+    assert proj["active_token_ref"] is None  # turn glow still gated on running

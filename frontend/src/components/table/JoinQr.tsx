@@ -89,7 +89,14 @@ export function JoinQrOverlay({
   );
 }
 
-export default function JoinQr({ campaignId }: { campaignId: string }) {
+export default function JoinQr({
+  campaignId,
+  forcedOpen = false,
+}: {
+  campaignId: string;
+  /** DM summoned the QR from the HUD (Plan 69) — overrides the local chip. */
+  forcedOpen?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -102,7 +109,9 @@ export default function JoinQr({ campaignId }: { campaignId: string }) {
       >
         📱
       </button>
-      {open && <JoinQrOverlay campaignId={campaignId} onClose={() => setOpen(false)} />}
+      {(open || forcedOpen) && (
+        <JoinQrOverlay campaignId={campaignId} onClose={() => setOpen(false)} />
+      )}
     </>
   );
 }

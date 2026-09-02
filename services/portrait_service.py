@@ -342,7 +342,7 @@ def generate_pc_figure(
     """
     pc = _assert_pc_owner(session, character_id, dm_email)
     prompt = _build_pc_figure_prompt(pc, style_hints)
-    png_bytes = image_tools.key_chroma(generate_image(prompt, size="1024x1536"))
+    png_bytes = image_tools.key_chroma(generate_image(prompt, size="1024x1536", quality="high"))
     url = blob_storage.upload(path=f"figures/pc-{pc.id}.png", data=png_bytes)
     updated = CharacterRepo.update(session, pc, PlayerCharacterUpdate(figure_url=url))
     return PlayerCharacterRead.model_validate(updated)
@@ -391,7 +391,7 @@ def generate_monster_figure(
     """
     monster = _assert_monster_managed(session, monster_id, dm_email)
     prompt = _build_monster_figure_prompt(monster, style_hints)
-    png_bytes = image_tools.key_chroma(generate_image(prompt, size="1024x1536"))
+    png_bytes = image_tools.key_chroma(generate_image(prompt, size="1024x1536", quality="high"))
     url = blob_storage.upload(path=f"figures/monster-{monster.id}.png", data=png_bytes)
     return MonsterRepo.update(session, monster, MonsterStatBlockUpdate(figure_url=url))
 
@@ -514,7 +514,7 @@ def generate_pc_hero(session: Session, pc: PlayerCharacter) -> str:
         RuntimeError: If the upstream API calls fail.
     """
     prompt = _build_hero_prompt(pc)
-    png_bytes = image_tools.key_chroma(generate_image(prompt, size="1024x1536"))
+    png_bytes = image_tools.key_chroma(generate_image(prompt, size="1024x1536", quality="high"))
     problems = _qc_cutout(
         png_bytes,
         f"exactly one figure; the figure is a {pc.race}, anatomically faithful "
@@ -527,7 +527,9 @@ def generate_pc_hero(session: Session, pc: PlayerCharacter) -> str:
             " CORRECTIONS — a previous attempt failed QA for these reasons, "
             f"do not repeat them: {'; '.join(problems)}."
         )
-        png_bytes = image_tools.key_chroma(generate_image(retry_prompt, size="1024x1536"))
+        png_bytes = image_tools.key_chroma(
+            generate_image(retry_prompt, size="1024x1536", quality="high")
+        )
     url = blob_storage.upload(path=f"heroes/pc-{pc.id}.png", data=png_bytes)
     # Naive UTC on purpose: DuckDB round-trips tz-aware values through local
     # time (breaking the cooldown math), while naive UTC reads back verbatim;
@@ -632,7 +634,9 @@ def generate_pc_loadout(
             "exact item designs on the character, matching their shape, "
             "material, and colours."
         )
-    png_bytes = image_tools.key_chroma(edit_image(prompt, sources, size="1024x1536"))
+    png_bytes = image_tools.key_chroma(
+        edit_image(prompt, sources, size="1024x1536", quality="high")
+    )
     gear = ", ".join(equipped[:12]) if equipped else "nothing"
     problems = _qc_cutout(
         png_bytes,
@@ -647,7 +651,9 @@ def generate_pc_loadout(
             " CORRECTIONS — a previous attempt failed QA for these reasons, "
             f"do not repeat them: {'; '.join(problems)}."
         )
-        png_bytes = image_tools.key_chroma(edit_image(retry_prompt, base_bytes, size="1024x1536"))
+        png_bytes = image_tools.key_chroma(
+            edit_image(retry_prompt, base_bytes, size="1024x1536", quality="high")
+        )
     url = blob_storage.upload(path=f"heroes/pc-{pc.id}-loadout.png", data=png_bytes)
     stamp = datetime.now(timezone.utc).replace(tzinfo=None)
     CharacterRepo.update(
@@ -722,7 +728,9 @@ def derive_pc_figure(session: Session, pc: PlayerCharacter) -> str:
         "no glow, no vignette, no shadow). "
         f"{_FIGURE_STYLE}"
     )
-    png_bytes = image_tools.key_chroma(edit_image(prompt, base_bytes, size="1024x1536"))
+    png_bytes = image_tools.key_chroma(
+        edit_image(prompt, base_bytes, size="1024x1536", quality="high")
+    )
     problems = _qc_cutout(
         png_bytes,
         "exactly one figure matching the source character; no leftover "
@@ -734,7 +742,9 @@ def derive_pc_figure(session: Session, pc: PlayerCharacter) -> str:
             " CORRECTIONS — a previous attempt failed QA for these reasons, "
             f"do not repeat them: {'; '.join(problems)}."
         )
-        png_bytes = image_tools.key_chroma(edit_image(retry_prompt, base_bytes, size="1024x1536"))
+        png_bytes = image_tools.key_chroma(
+            edit_image(retry_prompt, base_bytes, size="1024x1536", quality="high")
+        )
     url = blob_storage.upload(path=f"figures/pc-{pc.id}.png", data=png_bytes)
     CharacterRepo.update(session, pc, PlayerCharacterUpdate(figure_url=url))
     return url
