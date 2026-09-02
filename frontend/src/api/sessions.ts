@@ -31,6 +31,14 @@ export const sessionsApi = {
     api.get<SessionRunbook | null>(`/sessions/${id}/runbook`),
   generateRunbook: (id: string, notes?: string) =>
     api.post<SessionRunbook>(`/sessions/${id}/runbook`, { notes: notes ?? "" }),
+  generatePack: (id: string, premise: string) =>
+    api.post<{
+      encounters: { id: string; name: string; difficulty: string }[];
+      npcs: { name: string; role: string }[];
+      scenes: number;
+      loot: string[];
+      warnings: string[];
+    }>(`/sessions/${id}/pack`, { premise }),
   patchRunbook: (id: string, update: Partial<SessionRunbook>) =>
     api.patch<SessionRunbook>(`/sessions/${id}/runbook`, update),
   // ── DM brief (Plan 43) ──────────────────────────────────────────────────

@@ -266,6 +266,45 @@ def generate_runbook(
         )
 
 
+@router.post("/sessions/{session_id}/pack")
+def generate_session_pack(
+    session_id: uuid.UUID, db: DB, user: CurrentUser, body: dict[str, str] | None = None
+) -> dict:
+    """Generate a fully LINKED session pack from a premise (Plan 70).
+
+    Creates real encounter rows (catalog monsters resolved), campaign
+    NPCs, loot notes, and the runbook — everything wired into the HUD.
+
+    Args:
+        session_id: UUID of the session.
+        db: Database session.
+        user: Authenticated DM email.
+        body: JSON body with a ``premise`` key.
+
+    Returns:
+        Pack summary: created encounters/NPCs, scene count, warnings.
+    """
+    from services import session_pack_service
+
+    premise = (body or {}).get("premise", "").strip()
+    if not premise:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Give the pack a premise — a paragraph about tonight.",
+        )
+    try:
+        return session_pack_service.generate_session_pack(db, session_id, user, premise)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except (RuntimeError, json.JSONDecodeError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Pack generation failed: {exc}",
+        )
+
+
 @router.patch("/sessions/{session_id}/runbook", response_model=SessionRunbook)
 def patch_runbook(
     session_id: uuid.UUID,
