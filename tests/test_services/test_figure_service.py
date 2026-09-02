@@ -1,4 +1,4 @@
-"""Plan 45 tests — transparent minifig figure generation for PCs + monsters.
+"""Plan 45 tests — minifig figure generation for PCs + monsters (chroma-keyed).
 
 Same mocking pattern as the portrait tests: OpenAI + Blob patched on the
 modules the service imports from.
@@ -109,8 +109,8 @@ class TestPcFigure:
         assert updated.figure_url == f"https://fake.blob/figures/pc-{pc.id}.png"
         assert updated.portrait_url is None  # untouched
         assert "Thane" in captured["prompt"]
-        assert "transparent" in captured["prompt"].lower()
-        assert captured["image_kwargs"].get("background") == "transparent"
+        assert "#FF00FF" in captured["prompt"]
+        assert "background" not in captured["image_kwargs"]  # chroma-keyed, not transparent
         assert captured["image_kwargs"].get("size") == "1024x1536"
 
     def test_non_owner_forbidden(self, duckdb_session: Session, monkeypatch):
@@ -135,7 +135,7 @@ class TestMonsterFigure:
         assert updated.figure_url == f"https://fake.blob/figures/monster-{monster.id}.png"
         assert updated.image_url is None
         assert "Driven Wolf" in captured["prompt"]
-        assert captured["image_kwargs"].get("background") == "transparent"
+        assert "background" not in captured["image_kwargs"]  # chroma-keyed, not transparent
 
     def test_missing_monster_raises(self, duckdb_session: Session, monkeypatch):
         """Unknown monster id raises ValueError (maps to 404)."""
@@ -177,7 +177,7 @@ class TestTokenFigure:
 
         assert url.startswith("https://fake.blob/figures/token-")
         assert "Bandit" in captured["prompt"]
-        assert captured["image_kwargs"].get("background") == "transparent"
+        assert "background" not in captured["image_kwargs"]  # chroma-keyed, not transparent
 
     def test_non_owner_forbidden(self, duckdb_session: Session, monkeypatch):
         """Only the session's owning DM can generate token figures."""

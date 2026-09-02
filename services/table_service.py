@@ -20,7 +20,7 @@ from db.repos.character_repo import CharacterRepo
 from db.repos.session_repo import SessionCombatantRepo, SessionRepo
 from db.repos.table_state_repo import TableStateRepo
 from domain.table_state import TableMap, TableProjection, TableStateRead, TableStateUpdate, Token
-from integrations import blob_storage
+from integrations import blob_storage, image_tools
 from integrations.event_bus import publish_table_ping, publish_table_updated
 from integrations.openai_client import generate_image
 from services import portrait_service, session_service
@@ -56,7 +56,7 @@ def generate_token_figure(
     """
     session_service.get_session(db, session_id, dm_email)  # ownership check
     prompt = portrait_service.build_figure_prompt(name, style_hints)
-    png_bytes = generate_image(prompt, size="1024x1536", background="transparent")
+    png_bytes = image_tools.key_chroma(generate_image(prompt, size="1024x1536"))
     return blob_storage.upload(path=f"figures/token-{uuid.uuid4().hex[:12]}.png", data=png_bytes)
 
 

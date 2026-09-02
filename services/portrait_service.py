@@ -261,13 +261,20 @@ def _build_monster_prompt(monster: MonsterStatBlock, style_hints: Optional[str])
     return ". ".join(b.strip().rstrip(".") for b in bits if b.strip()) + "."
 
 
+# One backdrop contract for every cut-out asset: the model paints flat
+# magenta, image_tools.key_chroma lifts it to true alpha. ("Transparent
+# background" asks used to bake opaque halos — Plan 62 post-mortem.)
+_CHROMA_BACKDROP = (
+    "isolated on a SINGLE PERFECTLY FLAT solid magenta background "
+    "(pure #FF00FF filling every pixel around the figure — no gradient, "
+    "no glow, no vignette, no shadow, no floor)"
+)
+
 _FIGURE_STYLE = (
     "2D game character sprite asset, full body, standing pose, entire figure "
     f"in frame with feet visible. {HOUSE_STYLE_CUTOUT}. The figure "
-    "is the ONLY thing in the image, isolated on a fully transparent "
-    "background: no backdrop, no scenery, no gradient, no outline, no white "
-    "edge, no glow, no shadow, no floor, no text. (The board applies an "
-    "alpha-curve clean-up pass client-side, so residual halo is tolerated.)"
+    f"is the ONLY thing in the image, {_CHROMA_BACKDROP}. "
+    "No scenery, no text, no watermark."
 )
 
 
@@ -335,7 +342,7 @@ def generate_pc_figure(
     """
     pc = _assert_pc_owner(session, character_id, dm_email)
     prompt = _build_pc_figure_prompt(pc, style_hints)
-    png_bytes = generate_image(prompt, size="1024x1536", background="transparent")
+    png_bytes = image_tools.key_chroma(generate_image(prompt, size="1024x1536"))
     url = blob_storage.upload(path=f"figures/pc-{pc.id}.png", data=png_bytes)
     updated = CharacterRepo.update(session, pc, PlayerCharacterUpdate(figure_url=url))
     return PlayerCharacterRead.model_validate(updated)
@@ -384,7 +391,7 @@ def generate_monster_figure(
     """
     monster = _assert_monster_managed(session, monster_id, dm_email)
     prompt = _build_monster_figure_prompt(monster, style_hints)
-    png_bytes = generate_image(prompt, size="1024x1536", background="transparent")
+    png_bytes = image_tools.key_chroma(generate_image(prompt, size="1024x1536"))
     url = blob_storage.upload(path=f"figures/monster-{monster.id}.png", data=png_bytes)
     return MonsterRepo.update(session, monster, MonsterStatBlockUpdate(figure_url=url))
 
@@ -559,8 +566,8 @@ def _build_loadout_prompt(pc: PlayerCharacter, equipped: list[str]) -> str:
         return (
             f"This is {pc.character_name}, a {pc.race} {klass}. Reproduce this exact "
             "character from the source image — identical face, skin tone, hair, body, "
-            "outfit and pose. Full body head to boots, clean die-cut cutout on a fully "
-            "transparent background, no scenery, no shadow. No text, no watermark."
+            f"outfit and pose. Full body head to boots, {_CHROMA_BACKDROP}. "
+            "No scenery. No text, no watermark."
         )
     gear = ", ".join(equipped[:12])
     return (
