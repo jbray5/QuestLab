@@ -680,10 +680,41 @@ def dress_model(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     if not (pc.hero_url or pc.figure_url or pc.portrait_url):
         portrait_service.generate_pc_hero(db, pc)
         pc = _get_pc_or_raise(db, pc_id)
-    equipped = [g["name"] for g in list_gear(db, pc_id) if g["equipped"]]
-    url = portrait_service.generate_pc_loadout(db, pc, equipped)
+    equipped, item_refs = _equipped_gear_refs(db, pc_id)
+    url = portrait_service.generate_pc_loadout(db, pc, equipped, item_refs=item_refs)
     publish_pc_updated(pc.id, pc.campaign_id)
     return {"loadout_url": url}
+
+
+def _equipped_gear_refs(db: Session, pc_id: uuid.UUID) -> tuple[list[str], list[bytes]]:
+    """Equipped item names + their catalog art bytes (Plan 62 snap-on gear).
+
+    Downloads up to four equipped items' catalog images to hand the loadout
+    edit as visual references. Missing art or a failed download just drops
+    that reference — names alone still work.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC.
+
+    Returns:
+        (equipped item names, downloaded reference PNGs).
+    """
+    from integrations import blob_storage
+
+    names: list[str] = []
+    refs: list[bytes] = []
+    for g in list_gear(db, pc_id):
+        if not g["equipped"]:
+            continue
+        names.append(g["name"])
+        url = g.get("image_url")
+        if url and len(refs) < 4:
+            try:
+                refs.append(blob_storage.download(url))
+            except Exception:  # noqa: BLE001 — reference art is best-effort
+                pass
+    return names, refs
 
 
 def forge_identity(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
@@ -714,9 +745,9 @@ def forge_identity(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     if not pc.hero_url:
         portrait_service.generate_pc_hero(db, pc)
         db.refresh(pc)
-    equipped = [g["name"] for g in list_gear(db, pc_id) if g["equipped"]]
+    equipped, item_refs = _equipped_gear_refs(db, pc_id)
     if equipped:
-        portrait_service.generate_pc_loadout(db, pc, equipped)
+        portrait_service.generate_pc_loadout(db, pc, equipped, item_refs=item_refs)
         db.refresh(pc)
     portrait_service.derive_pc_portrait(db, pc)
     db.refresh(pc)

@@ -100,7 +100,7 @@ def generate_image(
 
 def edit_image(
     prompt: str,
-    image_bytes: bytes,
+    image_bytes: bytes | list[bytes],
     *,
     size: Literal["1024x1024", "1024x1536", "1536x1024"] = "1536x1024",
     quality: Literal["low", "medium", "high"] = "medium",
@@ -126,9 +126,12 @@ def edit_image(
     """
     _require_ai_enabled()
     client = _get_client()
+    images = image_bytes if isinstance(image_bytes, list) else [image_bytes]
     edit_kwargs: dict = {
         "model": model,
-        "image": ("source.png", image_bytes, "image/png"),
+        # gpt-image-1 accepts multiple input images; the first is the primary
+        # subject, the rest are references (Plan 62: catalog item art).
+        "image": [(f"ref{i}.png", b, "image/png") for i, b in enumerate(images)],
         "prompt": prompt,
         "size": size,
         "quality": quality,

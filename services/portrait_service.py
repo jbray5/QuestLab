@@ -74,14 +74,6 @@ def _qc_cutout(png: bytes, checklist: str) -> list[str]:
 # Indirection so tests can stub the vision call.
 _QC_INSPECT = complete_json_with_image
 
-# Species anatomy the models get wrong without help (extend as players do).
-_RACE_NOTES = {
-    "dragonborn": (
-        "a true dragon's head: long pronounced snout, strong reptilian brow, "
-        "backswept horns and crest, scaled jawline — noble and draconic, "
-        "NEVER flat-faced, frog-like, or amphibian"
-    ),
-}
 
 # Tone-by-default — keeps prompts grounded in the QuestLab aesthetic.
 _DEFAULT_STYLE = (
@@ -483,9 +475,6 @@ def _build_hero_prompt(pc: PlayerCharacter) -> str:
     )
     bits: list[str] = [f"Full-body character model of {pc.character_name}, a {pc.race} {klass}"]
     bits.append("Anatomy faithful to the classic Dungeons & Dragons depiction of their species")
-    for key, note in _RACE_NOTES.items():
-        if key in pc.race.lower():
-            bits.append(note)
     if pc.subclass:
         bits.append(f"({pc.subclass})")
     if pc.appearance:
@@ -594,7 +583,12 @@ def _build_loadout_prompt(pc: PlayerCharacter, equipped: list[str]) -> str:
     )
 
 
-def generate_pc_loadout(session: Session, pc: PlayerCharacter, equipped: list[str]) -> str:
+def generate_pc_loadout(
+    session: Session,
+    pc: PlayerCharacter,
+    equipped: list[str],
+    item_refs: list[bytes] | None = None,
+) -> str:
     """Dress the base model in its equipped gear via image-to-image (Plan 48).
 
     Downloads the base character render (hero → figure → portrait), edits it to
@@ -619,7 +613,19 @@ def generate_pc_loadout(session: Session, pc: PlayerCharacter, equipped: list[st
         raise ValueError("Generate a character model first, then dress it.")
     base_bytes = blob_storage.download(base_url)
     prompt = _build_loadout_prompt(pc, equipped)
-    png_bytes = image_tools.key_chroma(edit_image(prompt, base_bytes, size="1024x1536"))
+    # "Snap-on" gear (Plan 62): pass the catalog's own item art as reference
+    # images so the rendered gear IS the item the player equipped, not a
+    # text-prompt reinvention of it.
+    sources: list[bytes] | bytes = base_bytes
+    if item_refs:
+        sources = [base_bytes, *item_refs[:4]]
+        prompt += (
+            " The FIRST image is the character. Each ADDITIONAL image shows the "
+            "exact design of one equipped item from the list — reproduce THOSE "
+            "exact item designs on the character, matching their shape, "
+            "material, and colours."
+        )
+    png_bytes = image_tools.key_chroma(edit_image(prompt, sources, size="1024x1536"))
     gear = ", ".join(equipped[:12]) if equipped else "nothing"
     problems = _qc_cutout(
         png_bytes,
