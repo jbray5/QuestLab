@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { campaignsApi } from "../api/campaigns";
 import { charactersApi } from "../api/characters";
 import { featuresApi } from "../api/features";
 import type { PlayerCharacter } from "../api/types";
@@ -76,6 +77,17 @@ const STAT_LABELS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 
 export default function Characters() {
   const { campaignId } = useParams<{ campaignId: string }>();
+  // Plan 74 — the campaign row carries the player sign-up switch.
+  const { data: campaign } = useQuery({
+    queryKey: ["campaign", campaignId],
+    queryFn: () => campaignsApi.get(campaignId as string),
+    enabled: !!campaignId,
+  });
+  const signupMut = useMutation({
+    mutationFn: (on: boolean) =>
+      campaignsApi.update(campaignId as string, { allow_player_signup: on } as Record<string, unknown>),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["campaign", campaignId] }),
+  });
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<PlayerCharacter | null>(null);
@@ -215,15 +227,30 @@ export default function Characters() {
         style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}
       >
         <h1>Characters</h1>
-        <button
-          className="btn btn-primary"
-          onClick={() => {
-            resetForm();
-            setShowForm(!showForm);
-          }}
-        >
-          {showForm && !editing ? "✕ Cancel" : "+ Add Character"}
-        </button>
+        <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
+          {/* Plan 74 — players build their own characters from the join link. */}
+          <label
+            style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8rem", color: "var(--muted)", cursor: "pointer" }}
+            title="When on, anyone with your join link / QR can create a character in this campaign"
+          >
+            <input
+              type="checkbox"
+              checked={campaign?.allow_player_signup ?? true}
+              onChange={(e) => signupMut.mutate(e.target.checked)}
+              disabled={signupMut.isPending}
+            />
+            Players can create their own characters
+          </label>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              resetForm();
+              setShowForm(!showForm);
+            }}
+          >
+            {showForm && !editing ? "✕ Cancel" : "+ Add Character"}
+          </button>
+        </div>
       </div>
 
       {showForm && (

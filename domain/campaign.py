@@ -26,6 +26,8 @@ class Campaign(CampaignBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     dm_email: str = Field(index=True, description="Email of the owning DM")
+    # Plan 74 — anyone with the join link may create their own character.
+    allow_player_signup: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -45,6 +47,7 @@ class CampaignRead(CampaignBase):
 
     id: uuid.UUID
     dm_email: str
+    allow_player_signup: bool = True
     created_at: datetime
     updated_at: datetime
 
@@ -58,4 +61,5 @@ class CampaignUpdate(BaseModel):
     setting: Optional[str] = Field(default=None, min_length=1, max_length=200)
     tone: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = None
+    allow_player_signup: Optional[bool] = None
     world_notes: Optional[str] = None

@@ -43,6 +43,7 @@ const NotebookPage = lazy(() => import("./pages/NotebookPage"));
 const TempleCompanion = lazy(() => import("./pages/TempleCompanion"));
 const JoinView = lazy(() => import("./pages/JoinView"));
 const GuidePage = lazy(() => import("./pages/GuidePage"));
+const CharacterCreator = lazy(() => import("./pages/CharacterCreator"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const RestwaterCompanion = lazy(() => import("./pages/RestwaterCompanion"));
 
@@ -86,6 +87,7 @@ export default function App() {
     <Routes>
       {/* Plan 25 — Player view: standalone route with no DM chrome */}
       <Route path="/join/:campaignId" element={lazyRoute(<JoinView />)} />
+      <Route path="/join/:campaignId/new" element={lazyRoute(<CharacterCreator />)} />
       <Route path="/play/:pcId" element={lazyRoute(<PlayerView />)} />
       {/* Plan 48 — Character Forge: the player's full-body character screen */}
       <Route path="/play/:pcId/character" element={lazyRoute(<CharacterView />)} />

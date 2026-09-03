@@ -82,11 +82,21 @@ export default function JoinView() {
     <div className="qj-root">
       <style>{CSS}</style>
       <h1 className="qj-title">Who are you?</h1>
-      <p className="qj-sub">Tap your character to open your sheet.</p>
+      <p className="qj-sub">Tap your character to open your sheet — or make a new one.</p>
       {error && <p className="qj-msg">This join link isn&rsquo;t valid — ask your DM for a fresh code.</p>}
       {!error && roster === null && <p className="qj-msg">Gathering the party&hellip;</p>}
       {roster && (
         <div className="qj-grid">
+          <button
+            className="qj-card"
+            style={{ borderStyle: "dashed", borderColor: "rgba(214,175,54,0.55)" }}
+            onClick={() => navigate(`/join/${campaignId}/new`)}
+            title="Build a new character right here — about five minutes"
+          >
+            <div className="ph" style={{ opacity: 0.9 }}>✨</div>
+            <div className="qj-name">New character</div>
+            <div className="qj-player">Create yours</div>
+          </button>
           {roster.map((row) => (
             <button key={row.id} className="qj-card" onClick={() => pick(row)}>
               {row.portrait_url ? (

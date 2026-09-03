@@ -69,6 +69,7 @@ API reports them at `/api/auth/providers`. Remove `VITE_DM_EMAIL` if set.
 - [ ] The demo service (`questlab-demo`) either fixed (new free Postgres, re-point PG*, redeploy, `scripts/seed_demo_world.py`) or its links removed from `/try`.
 - [ ] Support channel: a Discord server invite in the Guide footer, or an email.
 - [ ] Try the full new-DM path yourself in a private window: sign in → sample campaign → QR join from a phone → stage a map → roll.
+- [ ] Compendium check: the character creator ships SRD 5.2.1 only. The class-feature catalog (`integrations/dnd_rules/class_features_2024.py`) still seeds two PHB subclasses' feature text (Circle of Stars, Soulknife) for Justin's table — strip or mark them `source="PHB"` and skip in public seeds before launch.
 - [ ] Shippable art check: the sample campaign and demo use AI-generated maps only. Your Czepeku/Dynamic-Dungeons imports live in *your* campaign and never seed anyone else's.
 
 ## 5. The post (draft)

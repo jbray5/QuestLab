@@ -8,6 +8,8 @@ export interface Campaign {
   description: string | null;
   world_notes: string | null;
   dm_email: string;
+  // Plan 74 — players may build their own characters from the join link.
+  allow_player_signup?: boolean;
   created_at: string | null;
   updated_at: string | null;
 }

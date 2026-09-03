@@ -17,6 +17,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB, gate_ai_for_pc
 from domain.character import HeroLockBody, PlayerCharacter, PlayerRollBody
+from domain.character_builder import BuilderOptions, BuildResult, CharacterBuild
 from domain.shop import (
     GiveRequest,
     PurchaseReceipt,
@@ -25,7 +26,7 @@ from domain.shop import (
     SellRequest,
     TransferReceipt,
 )
-from services import player_service
+from services import character_builder_service, player_service
 
 router = APIRouter(tags=["play"])
 
@@ -326,6 +327,49 @@ def forge_hero(pc_id: uuid.UUID, db: DB) -> dict:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Hero generation failed: {exc}"
         )
+
+
+@router.get("/play/join/{campaign_id}/options", response_model=BuilderOptions)
+def join_options(campaign_id: uuid.UUID, db: DB) -> BuilderOptions:
+    """The SRD compendium the character creator renders (Plan 74).
+
+    Args:
+        campaign_id: UUID of the campaign (capability URL).
+        db: Database session.
+
+    Returns:
+        BuilderOptions.
+    """
+    try:
+        return character_builder_service.options(db, campaign_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post(
+    "/play/join/{campaign_id}/characters",
+    response_model=BuildResult,
+    status_code=status.HTTP_201_CREATED,
+)
+def join_create_character(campaign_id: uuid.UUID, body: CharacterBuild, db: DB) -> BuildResult:
+    """A player creates their own character in the campaign (Plan 74).
+
+    Args:
+        campaign_id: UUID of the campaign (capability URL).
+        body: The finished build.
+        db: Database session.
+
+    Returns:
+        BuildResult with the new pc_id.
+    """
+    try:
+        return character_builder_service.create(db, campaign_id, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
 @router.get("/play/{pc_id}/campaign")
