@@ -11,6 +11,9 @@ QuestLab runs in one of two identity modes, chosen by `AUTH_MODE` (Plan 73):
 - A `users` row (email-keyed) records linked provider ids and the Patreon membership snapshot. **Email remains the ownership key** for every table (`campaign.dm_email`), so nothing downstream changed.
 - OAuth CSRF is a signed `state` token (kind `state`, 10-minute TTL) bound to the provider.
 
+### Email + password accounts (both modes)
+- `POST /api/auth/signup` (name, email, password) and `POST /api/auth/login` issue the same signed session tokens. Passwords are hashed with **scrypt** (N=2^15, r=8, p=1, per-user 16-byte salt, constant-time verify; `integrations/passwords.py`); only the hash is stored. Enabled whenever `APP_SECRET` is set. Login failures return one generic message (no account enumeration).
+
 ### `header` — personal / Azure deployments (default)
 - Identity comes from the trusted header named by `AUTH_EMAIL_HEADER` (injected by Azure Front Door + Entra ID at the edge) or `CURRENT_USER_EMAIL` locally.
 - A valid bearer token is also accepted in this mode, so a personal deployment can try OAuth before flipping.

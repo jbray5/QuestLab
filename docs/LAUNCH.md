@@ -5,6 +5,16 @@ exactly how Justin's own deployment has always run. Flipping to public mode is
 a handful of environment variables plus two OAuth apps. Nothing in the code path
 changes until you set them.
 
+## 0. Turn on accounts today (2 minutes, no OAuth needed)
+
+Set **`APP_SECRET`** on Render (any long random string) and redeploy. That alone
+enables the **Create account / Sign in** card on `/welcome` — name, email and
+password (scrypt-hashed, stdlib). It works in personal mode too: your own
+identity keeps working, and a new DM who signs up owns only what they create.
+Password resets have no email path yet: a user who forgets can sign in with
+Discord using the same email (once configured) or ask you to clear
+`users.password_hash` for them. Rate-limit `/api/auth/login` at the edge.
+
 ## 1. Create the OAuth apps (15 minutes)
 
 ### Discord (identity — every DM has one)
@@ -26,7 +36,7 @@ changes until you set them.
 ## 2. Set the environment on Render (API)
 
 ```
-APP_SECRET=<long random string — `python -c "import secrets;print(secrets.token_urlsafe(48))"`>
+APP_SECRET=<long random string — `python -c "import secrets;print(secrets.token_urlsafe(48))"`>   # also enables email+password accounts
 AUTH_MODE=oauth                 # header identity is IGNORED from now on
 OAUTH_REDIRECT_BASE=https://<API_HOST>/api
 FRONTEND_ORIGIN=https://<FRONTEND_HOST>
