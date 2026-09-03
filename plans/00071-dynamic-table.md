@@ -1,7 +1,7 @@
 # Plan 00071 — Dynamic Table (animated map surfaces)
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (Phase 1)
 
 **Started:** 2026-09-02 · **Implemented by:** Claude Code
 
@@ -35,7 +35,7 @@ the lightweight legacy mode and gets video too.
 - [x] Step 2: 2D canvas, 3D board, reveal card play the loop
 - [x] Step 3: Battle Maps page video import (dims + poster in-browser)
 - [x] Step 4: import_czepeku --pack Animated
-- [ ] Step 5: gate + ship + first animated map staged live
+- [x] Step 5: gate + ship + first animated map staged live (2026-09-02: Harpy Cove — Night, Czepeku 4K loop; 15% of projector pixels change per 1.2s = real motion; reveal + 3D verified)
 
 ## Decision Log
 
@@ -46,6 +46,6 @@ the lightweight legacy mode and gets video too.
 | 09-02 | 2D rendering | HTML video behind SVG / foreignObject | foreignObject | shares the SVG viewBox → zero coordinate math |
 
 ## Validation and Acceptance
-- [ ] Animated map staged → projector shows moving water, tokens on top
-- [ ] 3D board plane plays the loop; still shows until first frame
+- [x] Animated map staged → projector shows moving water, tokens on top
+- [x] 3D board plane plays the loop; still shows until first frame
 - [x] pytest + tsc + build green (754 passed)
