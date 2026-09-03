@@ -269,3 +269,31 @@ def test_map_upload_accepts_video(client):
     )
     assert resp.status_code == 201, resp.text
     assert resp.json()["url"].endswith(".mp4")
+
+
+def test_stand_down_flips_group_to_neutral(client, api_engine):
+    """Plan 72 — one call turns every hostile token in a group neutral; others untouched."""
+    dm = "dm_sd@example.com"
+    _cid, sid = _seed(api_engine, dm)
+    tokens = [
+        {"id": "a1", "kind": "monster", "label": "Attendant", "group": "house"},
+        {"id": "d1", "kind": "monster", "label": "Dryad", "group": "house"},
+        {"id": "boss", "kind": "monster", "label": "Auntie Sorrel"},
+        {"id": "pc1", "kind": "pc", "label": "Creed", "group": "house"},
+    ]
+    assert (
+        client.patch(
+            f"/api/sessions/{sid}/table", headers=auth(dm), json={"tokens": tokens}
+        ).status_code
+        == 200
+    )
+    resp = client.post(
+        f"/api/sessions/{sid}/table/stand-down", headers=auth(dm), json={"group": "house"}
+    )
+    assert resp.status_code == 200, resp.text
+    kinds = {t["id"]: t["kind"] for t in resp.json()["tokens"]}
+    assert kinds == {"a1": "custom", "d1": "custom", "boss": "monster", "pc1": "pc"}
+    # Unauthenticated callers can't stand anyone down.
+    assert client.post(
+        f"/api/sessions/{sid}/table/stand-down", json={"group": "house"}
+    ).status_code in (401, 403)
