@@ -40,8 +40,11 @@ ART = {
     ),
     "circle-of-stars": (
         "Circle of Stars",
-        "an ancient celestial star chart on a deep indigo night sky, fine faint gold "
-        "constellation lines connecting tiny stars, delicate astronomical rings",
+        "an ancient celestial star chart on a deep indigo night sky: scattered tiny gold "
+        "stars of varied brightness, a few faint gold constellation lines linking small "
+        "groups of stars into figures, a soft drifting nebula haze of violet and teal. "
+        "ABSOLUTELY NO concentric circles, NO rings, NO radial spokes, NO grids, NO web "
+        "patterns, NO astrolabe or compass dials — only stars and short straight links",
     ),
     "oath-of-the-ancients": (
         "Oath of the Ancients",

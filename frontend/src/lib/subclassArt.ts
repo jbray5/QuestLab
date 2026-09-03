@@ -9,7 +9,7 @@ export const SUBCLASS_CARD_ART: Record<string, string> = {
   "Soulknife":
     "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/9eb43275-c314-4adf-b9f5-917b729e3524-dtVEd2T3YDlwdMcWUoLONuRNoS544O.png",
   "Circle of Stars":
-    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/d8d651e0-eb18-476c-8024-559858407dbb-Te0IfpHUFCUlW4bG2uoBnfy3DdIrJS.png",
+    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/2f2b9dcd-8f86-4846-84f3-beb8368b1d72-Q02z2WdW2WsjDg3VrZASH4wQ7cKUdY.png",
   "Oath of the Ancients":
     "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/ba6bf3cc-8c71-469a-b171-0e3a2fc9efd8-wpUg89LhJgUEBoyZlj58KENJa7zSYd.png",
   "Wild Magic":
