@@ -251,14 +251,14 @@ export default function Layout() {
         >
           {dmEmail}
         </p>
-        <div style={{ display: "flex", gap: "0.35rem" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem" }}>
           <a
             href="/guide"
             target="_blank"
             rel="noreferrer"
             className="btn btn-ghost"
             title="The 15-minute guide"
-            style={{ flex: 1, fontSize: "0.78rem", padding: "0.35rem 0.5rem", textAlign: "center" }}
+            style={{ fontSize: "0.78rem", padding: "0.35rem 0.5rem", textAlign: "center" }}
           >
             📖 Guide
           </a>
@@ -266,7 +266,7 @@ export default function Layout() {
             onClick={() => go("/admin")}
             className="btn btn-ghost"
             title="Admin"
-            style={{ flex: 1, fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
+            style={{ fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
           >
             🛡 Admin
           </button>
@@ -277,14 +277,14 @@ export default function Layout() {
             }}
             className="btn btn-ghost"
             title="Replay the new-DM tour"
-            style={{ flex: 1, fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
+            style={{ fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
           >
             🧭 Tour
           </button>
           <button
             onClick={handleSignOut}
             className="btn btn-ghost"
-            style={{ flex: 1, fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
+            style={{ fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
           >
             ↩ Sign out
           </button>
