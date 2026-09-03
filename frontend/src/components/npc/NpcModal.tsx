@@ -503,6 +503,9 @@ const overlayStyle: React.CSSProperties = {
   justifyContent: "center",
   padding: "2rem 1rem",
   overflowY: "auto",
+  minHeight: 0,
+  WebkitOverflowScrolling: "touch",
+  overscrollBehavior: "contain",
 };
 
 const sheetStyle: React.CSSProperties = {

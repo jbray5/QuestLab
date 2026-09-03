@@ -271,6 +271,11 @@ const bodyStyle: React.CSSProperties = {
   padding: "1rem",
   overflowY: "auto",
   flex: 1,
+  // Flex children don't shrink below content without minHeight 0 — on a
+  // phone the body clipped instead of scrolling (Plan 73b).
+  minHeight: 0,
+  WebkitOverflowScrolling: "touch",
+  overscrollBehavior: "contain",
 };
 
 const entriesStyle: React.CSSProperties = {
