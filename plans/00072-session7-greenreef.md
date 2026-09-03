@@ -15,8 +15,8 @@ player-facing surfaces contain no secrets; paper fallbacks exist for all.
        Mira Large override, sealed-door markers, one-click house stand-down
 2. [x] Greenreef board with four findable locations + beached boats
        (Czepeku Tropical Island Village "No Boat Day" — SVG not on disk;
-       Justin cleared Czepeku replacements) — markers/boats placed on S7
-       table state when staged; "Greenreef — Night" imported for S8
+       Justin cleared Czepeku replacements) — four hulls composited INTO the art
+       above the tide line (day + night); "Greenreef — Night" imported for S8
 3. [x] Shop, gold tier, rules verbatim in descriptions
 4. [x] Greenreef NPC cards (6 + Sael placeholder; Tavish paragraph only)
 5. [x] Road boards: Forest road (Czepeku Forest Pass) imported; coast road +
