@@ -12,8 +12,10 @@ router = APIRouter(tags=["uploads"])
 
 _UPLOAD_DIR = Path(__file__).parent.parent.parent / "uploads"
 _ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+# Animated map surfaces (Plan 71): looping MP4/WebM under the table layers.
+_ALLOWED_MAP_CONTENT_TYPES = _ALLOWED_CONTENT_TYPES | {"video/mp4", "video/webm"}
 _MAX_BYTES = 5 * 1024 * 1024  # 5 MB
-_MAX_MAP_BYTES = 40 * 1024 * 1024  # 40 MB — Czepeku / Roll20 4K map exports
+_MAX_MAP_BYTES = 80 * 1024 * 1024  # 80 MB — 4K stills and animated loops
 
 
 class UploadResponse(BaseModel):
@@ -90,16 +92,16 @@ async def upload_map(
         HTTPException 415: If the file is not an allowed raster image type.
         HTTPException 413: If the file exceeds 40 MB.
     """
-    if file.content_type not in _ALLOWED_CONTENT_TYPES:
+    if file.content_type not in _ALLOWED_MAP_CONTENT_TYPES:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail="Only JPEG, PNG, WebP, or GIF images are allowed.",
+            detail="Only JPEG, PNG, WebP, GIF images or MP4/WebM loops are allowed.",
         )
     contents = await file.read()
     if len(contents) > _MAX_MAP_BYTES:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Map image too large. Maximum size is 40 MB.",
+            detail="Map file too large. Maximum size is 80 MB.",
         )
 
     original = file.filename or "map"

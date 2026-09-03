@@ -12,6 +12,7 @@ export function useMapReveal(
   imageUrl: string | null | undefined,
   title: string | null | undefined,
   onReveal?: () => void,
+  videoUrl?: string | null,
 ): RevealSubject | null {
   const [subject, setSubject] = useState<RevealSubject | null>(null);
   const [seen, setSeen] = useState<{ id: string | null } | null>(null);
@@ -30,10 +31,11 @@ export function useMapReveal(
       key: `${id}-${Date.now()}`,
       title: title?.trim() || "A new scene unfolds",
       imageUrl,
+      videoUrl: videoUrl ?? null,
     });
     onReveal?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mapId, imageUrl, title]);
+  }, [mapId, imageUrl, title, videoUrl]);
 
   return subject;
 }

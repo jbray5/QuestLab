@@ -24,6 +24,12 @@ Examples:
     # Optional GPT restyle before upload (lossy: output is 1536x1024)
     python scripts/import_czepeku.py --pack Windmill --variant Day \\
         --restyle "make it autumnal, fey-touched, amber leaves"
+
+    # Animated loops (Plan 71): MP4s in maps/Animated become video maps.
+    # Dimensions come from the MP4 header; the poster is a generated
+    # title card unless --poster points at a still.
+    python scripts/import_czepeku.py --pack Animated --variant "Harpy Cove Original Night" \\
+        --name "Harpy Cove — Night"
 """
 
 from __future__ import annotations
@@ -50,6 +56,7 @@ MAPS_DIR = _ROOT / "maps"
 MAX_EDGE = 4096
 JPEG_QUALITY = 87
 _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+_VIDEO_EXTS = {".mp4", ".webm"}
 
 
 def _library() -> dict[str, list[Path]]:
@@ -59,7 +66,9 @@ def _library() -> dict[str, list[Path]]:
         return packs
     for pack_dir in sorted(p for p in MAPS_DIR.iterdir() if p.is_dir()):
         files = sorted(
-            f for f in pack_dir.rglob("*") if f.is_file() and f.suffix.lower() in _IMAGE_EXTS
+            f
+            for f in pack_dir.rglob("*")
+            if f.is_file() and f.suffix.lower() in (_IMAGE_EXTS | _VIDEO_EXTS)
         )
         if files:
             packs[pack_dir.name] = files
@@ -95,6 +104,49 @@ def _prettify(stem: str) -> str:
                 buf += ch
         words.append(buf)
     return " ".join(words)[:120] or stem[:120]
+
+
+def _mp4_dims(data: bytes) -> tuple[int, int]:
+    """Read the video track's width/height from an MP4's tkhd box.
+
+    Pure-Python — no ffmpeg on this machine. Walks every ``tkhd`` and
+    returns the first with non-zero dimensions (audio tracks carry 0x0).
+    """
+    import struct
+
+    pos = 0
+    while True:
+        pos = data.find(b"tkhd", pos)
+        if pos < 0:
+            break
+        box = pos + 4  # version(1) + flags(3) follow the type
+        version = data[box]
+        # v0: 4+4+4+4+4 + 8 reserved + 2+2+2+2 + 36 matrix = 72 → dims at +72
+        # v1: 8+8+4+4+8 + 8 reserved + 2+2+2+2 + 36 matrix = 84 → dims at +84
+        off = box + 4 + (84 if version == 1 else 72)
+        if off + 8 <= len(data):
+            w = struct.unpack(">I", data[off : off + 4])[0] >> 16
+            h = struct.unpack(">I", data[off + 4 : off + 8])[0] >> 16
+            if w and h:
+                return w, h
+        pos += 4
+    raise SystemExit("Could not read dimensions from the MP4 header.")
+
+
+def _title_poster(name: str, w: int, h: int) -> bytes:
+    """A dark title-card poster for animated maps without a still."""
+    from PIL import ImageDraw
+
+    scale = 1280 / max(w, h)
+    pw, ph = max(64, int(w * scale)), max(64, int(h * scale))
+    img = Image.new("RGB", (pw, ph), (13, 10, 22))
+    draw = ImageDraw.Draw(img)
+    draw.rectangle([12, 12, pw - 13, ph - 13], outline=(214, 175, 54), width=3)
+    text = f"▶ {name}"
+    draw.text((pw // 2, ph // 2), text, fill=(240, 230, 200), anchor="mm")
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=82)
+    return buf.getvalue()
 
 
 def _optimize(path: Path) -> tuple[bytes, int, int]:
@@ -133,6 +185,7 @@ def main() -> None:
     ap.add_argument("--name", help="battle map name (default: prettified filename)")
     ap.add_argument("--grid", type=int, help="grid size in px, if known")
     ap.add_argument("--restyle", help="GPT edit prompt applied before upload (lossy)")
+    ap.add_argument("--poster", help="still image to use as the poster for an animated map")
     ap.add_argument("--campaign", default=DEFAULT_CAMPAIGN_ID)
     ap.add_argument("--api", default=os.environ.get("QUESTLAB_API", DEFAULT_API_BASE))
     ap.add_argument("--dm-email", default="justinray5@outlook.com")
@@ -162,6 +215,54 @@ def main() -> None:
         sys.exit("Give --list, --file, or --pack (see --help).")
 
     print(f"Source: {src.relative_to(_ROOT) if src.is_relative_to(_ROOT) else src}")
+
+    if src.suffix.lower() in _VIDEO_EXTS:
+        # Animated map (Plan 71): upload the loop as-is, plus a poster.
+        video = src.read_bytes()
+        width, height = _mp4_dims(video)
+        name = args.name or _prettify(src.stem)
+        print(f"Animated loop: {width}x{height}, {len(video) / 1e6:.1f} MB")
+        if args.poster:
+            poster, _pw, _ph = _optimize(Path(args.poster))
+        else:
+            poster = _title_poster(name, width, height)
+        if args.dry_run:
+            print(f"[dry-run] would upload video + poster as {name!r} (grid={args.grid})")
+            return
+        headers = {AUTH_HEADER: args.dm_email}
+        mime = "video/webm" if src.suffix.lower() == ".webm" else "video/mp4"
+        up_v = httpx.post(
+            f"{args.api}/uploads/map",
+            headers=headers,
+            files={"file": (src.name, video, mime)},
+            timeout=600.0,
+        )
+        up_v.raise_for_status()
+        up_p = httpx.post(
+            f"{args.api}/uploads/map",
+            headers=headers,
+            files={"file": (f"{src.stem}-poster.jpg", poster, "image/jpeg")},
+            timeout=300.0,
+        )
+        up_p.raise_for_status()
+        body = {
+            "name": name,
+            "image_url": up_p.json()["url"],
+            "video_url": up_v.json()["url"],
+            "width": width,
+            "height": height,
+            "grid_size": args.grid,
+        }
+        created = httpx.post(
+            f"{args.api}/campaigns/{args.campaign}/battle-maps",
+            headers=headers,
+            json=body,
+            timeout=120.0,
+        )
+        created.raise_for_status()
+        print(f"Animated battle map created: {created.json()['id']}  ({name!r})")
+        return
+
     data, width, height = _optimize(src)
     print(f"Optimized: {width}x{height}, {len(data) / 1e6:.1f} MB")
 

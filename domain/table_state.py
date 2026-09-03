@@ -118,6 +118,8 @@ class TableMap(BaseModel):
     heightmap_url: Optional[str] = None
     ground_url: Optional[str] = None
     props: Optional[list] = None
+    # Animated map surface (Plan 71) — projector plays it under the layers.
+    video_url: Optional[str] = None
 
 
 class TableProjection(BaseModel):

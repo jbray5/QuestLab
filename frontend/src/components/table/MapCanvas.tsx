@@ -19,6 +19,8 @@ export interface MapCanvasMap {
   width: number;
   height: number;
   grid_size: number | null;
+  /** Plan 71 — animated surface; the image is the poster beneath it. */
+  video_url?: string | null;
 }
 
 interface Props {
@@ -184,6 +186,28 @@ export default function MapCanvas({
           filter: `brightness(${1 - darkness * 0.45}) saturate(${1 - darkness * 0.35})`,
         }}
       />
+      {/* Animated surface (Plan 71) — a looping video in the same pixel space,
+          drawn over the poster so the still shows until frames arrive. */}
+      {map.video_url && (
+        <foreignObject x="0" y="0" width={W} height={H}>
+          <video
+            key={map.video_url}
+            src={map.video_url}
+            autoPlay
+            muted
+            loop
+            playsInline
+            crossOrigin="anonymous"
+            style={{
+              width: "100%",
+              height: "100%",
+              objectFit: "fill",
+              display: "block",
+              filter: `brightness(${1 - darkness * 0.45}) saturate(${1 - darkness * 0.35})`,
+            }}
+          />
+        </foreignObject>
+      )}
 
       {/* Faint grid */}
       {showGrid && grid > 0 && (

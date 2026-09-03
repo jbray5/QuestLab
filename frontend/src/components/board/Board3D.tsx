@@ -41,6 +41,7 @@ export type GridKind = "hex" | "square" | "off";
 export interface BoardMapLike {
   id: string;
   image_url: string;
+  video_url?: string | null;
   width: number;
   height: number;
   grid_size: number | null;
@@ -275,6 +276,46 @@ function useBoardTexture(
   }, [url, figureProcess]);
   const current = url && loaded?.url === url ? loaded : null;
   return { tex: current?.tex ?? null, error: current?.error ?? false };
+}
+
+/** Animated map surface (Plan 71): a looping <video> driving a VideoTexture.
+ * Resolves null until the first frame can paint, so the still-image texture
+ * carries the board in the meantime. */
+function useVideoTexture(url: string | null | undefined): THREE.VideoTexture | null {
+  const [state, setState] = useState<{ url: string; tex: THREE.VideoTexture } | null>(null);
+  useEffect(() => {
+    if (!url) return undefined;
+    const video = document.createElement("video");
+    video.src = url;
+    video.crossOrigin = "anonymous";
+    video.loop = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    let tex: THREE.VideoTexture | null = null;
+    let alive = true;
+    const onReady = () => {
+      if (!alive || tex) return;
+      tex = new THREE.VideoTexture(video);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = false;
+      setState({ url, tex });
+      void video.play().catch(() => undefined);
+    };
+    video.addEventListener("canplay", onReady);
+    video.load();
+    return () => {
+      alive = false;
+      video.removeEventListener("canplay", onReady);
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      tex?.dispose();
+    };
+  }, [url]);
+  return url && state?.url === url ? state.tex : null;
 }
 
 /** Terrain sculpting is retired (owner call: flat board + upright props).
@@ -1135,6 +1176,8 @@ function BoardScene(props: Board3DProps) {
   // hand-baked prototype scenes remain as fallback until re-generated.
   const protoScene = PROTO_SCENES[map.id];
   const boardImage = map.ground_url ?? protoScene?.ground ?? map.image_url;
+  // Plan 71 — an animated surface wins over the still once it can paint.
+  const videoTex = useVideoTexture(map.video_url ?? null);
   const boardProps = map.props?.length ? map.props : protoScene?.props;
   const { tex, error } = useBoardTexture(boardImage);
   const { tex: domeTex } = useBoardTexture(map.backdrop_url);
@@ -1310,9 +1353,9 @@ function BoardScene(props: Board3DProps) {
       >
         <planeGeometry args={[map.width, map.height]} />
         <meshLambertMaterial
-          key={tex ? `map-${tex.uuid}` : "map-flat"}
-          map={tex ?? undefined}
-          color={tex ? "#ffffff" : error ? "#2a2433" : "#111119"}
+          key={videoTex ? `map-video-${videoTex.uuid}` : tex ? `map-${tex.uuid}` : "map-flat"}
+          map={videoTex ?? tex ?? undefined}
+          color={videoTex || tex ? "#ffffff" : error ? "#2a2433" : "#111119"}
         />
       </mesh>
       {/* edge fade — mostly a night effect; barely-there at fey midday */}

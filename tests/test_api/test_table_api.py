@@ -230,3 +230,42 @@ def test_conditions_flow_without_running_combat(client, api_engine):
     proj = client.get(f"/api/table/{sid}").json()
     assert proj["tokens"][0]["conditions"] == ["poisoned"]
     assert proj["active_token_ref"] is None  # turn glow still gated on running
+
+
+def test_video_map_flows_to_projection(client, api_engine):
+    """Plan 71 — an animated map's video_url reaches the public projection."""
+    dm = "dm_video@example.com"
+    cid, sid = _seed(api_engine, dm)
+    created = client.post(
+        f"/api/campaigns/{cid}/battle-maps",
+        headers=auth(dm),
+        json={
+            "name": "Harpy Cove — Night",
+            "image_url": "https://example.test/poster.jpg",
+            "video_url": "https://example.test/loop.mp4",
+            "width": 3840,
+            "height": 2160,
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["video_url"] == "https://example.test/loop.mp4"
+    patch = client.patch(
+        f"/api/sessions/{sid}/table",
+        headers=auth(dm),
+        json={"active_map_id": created.json()["id"]},
+    )
+    assert patch.status_code == 200
+    proj = client.get(f"/api/table/{sid}").json()
+    assert proj["map"]["video_url"] == "https://example.test/loop.mp4"
+    assert proj["map"]["image_url"] == "https://example.test/poster.jpg"
+
+
+def test_map_upload_accepts_video(client):
+    """Plan 71 — /uploads/map takes MP4 loops (local-dir fallback in tests)."""
+    resp = client.post(
+        "/api/uploads/map",
+        headers=auth("dm_upl@example.com"),
+        files={"file": ("loop.mp4", b"\x00\x00\x00\x18ftypmp42", "video/mp4")},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["url"].endswith(".mp4")

@@ -133,6 +133,8 @@ export default function TableView() {
     data ? (data.map?.id ?? null) : undefined,
     data?.map?.image_url,
     data?.map?.name || data?.title,
+    undefined,
+    data?.map?.video_url,
   );
 
   return (

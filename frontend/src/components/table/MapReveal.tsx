@@ -15,6 +15,8 @@ export interface RevealSubject {
   key: string;
   title: string;
   imageUrl: string;
+  /** Plan 71 — when the map is animated, the card plays the loop itself. */
+  videoUrl?: string | null;
 }
 
 const HOLD_MS = 5200;
@@ -92,7 +94,19 @@ export default function MapReveal({ subject }: { subject: RevealSubject | null }
       onClick={() => setDismissedKey(visible.key)}
     >
       <style>{CSS}</style>
-      <div className="ql-mapreveal-art" style={{ backgroundImage: `url(${visible.imageUrl})` }} />
+      <div className="ql-mapreveal-art" style={{ backgroundImage: `url(${visible.imageUrl})` }}>
+        {visible.videoUrl && (
+          <video
+            src={visible.videoUrl}
+            autoPlay
+            muted
+            loop
+            playsInline
+            crossOrigin="anonymous"
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        )}
+      </div>
       <div className="ql-mapreveal-vignette" />
       <div className="ql-mapreveal-card">
         <div className="ql-mapreveal-sub">You have arrived</div>

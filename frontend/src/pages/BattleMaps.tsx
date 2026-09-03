@@ -16,6 +16,45 @@ import { useIsCompact } from "../hooks/useIsCompact";
 
 type Tool = "rect" | "poly";
 
+/** Plan 71 — dimensions + a poster frame from a video file, all in-browser. */
+function readVideo(file: File): Promise<{ w: number; h: number; poster: File }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.src = url;
+    const fail = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Couldn't read that video."));
+    };
+    video.onerror = fail;
+    video.onloadeddata = () => {
+      // Seek a hair in so the poster isn't a fade-from-black frame.
+      video.currentTime = Math.min(0.5, (video.duration || 1) / 4);
+    };
+    video.onseeked = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return fail();
+      ctx.drawImage(video, 0, 0);
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(url);
+        if (!blob) return fail();
+        const base = file.name.replace(/\.[^.]+$/, "");
+        resolve({
+          w: video.videoWidth,
+          h: video.videoHeight,
+          poster: new File([blob], `${base}-poster.jpg`, { type: "image/jpeg" }),
+        });
+      }, "image/jpeg", 0.86);
+    };
+  });
+}
+
 function readDims(file: File): Promise<{ w: number; h: number }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -57,6 +96,7 @@ export default function BattleMaps() {
       image_url: string;
       width: number;
       height: number;
+      video_url?: string | null;
     }) => tableApi.createMap(campaignId as string, payload),
     onSuccess: (m) => {
       void qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
@@ -78,8 +118,25 @@ export default function BattleMaps() {
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
-        const [{ w, h }, url] = await Promise.all([readDims(file), tableApi.uploadMap(file)]);
         const name = file.name.replace(/\.[^.]+$/, "").replace(/[-_]/g, " ");
+        if (file.type.startsWith("video/")) {
+          // Plan 71 — animated map: the browser reads the dimensions and
+          // grabs a poster frame; both upload, and the map gets video_url.
+          const { w, h, poster } = await readVideo(file);
+          const [videoUrl, posterUrl] = await Promise.all([
+            tableApi.uploadMap(file),
+            tableApi.uploadMap(poster),
+          ]);
+          await createMut.mutateAsync({
+            name,
+            image_url: posterUrl,
+            width: w,
+            height: h,
+            video_url: videoUrl,
+          });
+          continue;
+        }
+        const [{ w, h }, url] = await Promise.all([readDims(file), tableApi.uploadMap(file)]);
         await createMut.mutateAsync({ name, image_url: url, width: w, height: h });
       }
     } catch (e) {
@@ -111,7 +168,7 @@ export default function BattleMaps() {
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
+            accept="image/*,video/mp4,video/webm"
             multiple
             style={{ display: "none" }}
             onChange={(e) => void handleFiles(e.target.files)}

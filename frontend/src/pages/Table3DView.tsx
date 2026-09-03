@@ -187,6 +187,7 @@ export default function Table3DView() {
     proj?.map?.image_url,
     proj?.map?.name || proj?.title,
     () => stingerRef.current("reveal"),
+    proj?.map?.video_url,
   );
 
   // Turn banner — the player-facing "whose turn" lower-third.

@@ -399,6 +399,8 @@ export interface BattleMap {
   heightmap_url: string | null;
   ground_url: string | null;
   props: MapProp[] | null;
+  // Plan 71 — animated map surface (looping MP4/WebM); image_url is the poster.
+  video_url?: string | null;
 }
 
 export interface MapProp {
@@ -416,6 +418,7 @@ export interface BattleMapCreate {
   height: number;
   grid_size?: number | null;
   regions?: FogRegion[];
+  video_url?: string | null;
 }
 
 export interface BattleMapUpdate {
@@ -484,6 +487,7 @@ export interface TableMapSummary {
   heightmap_url: string | null;
   ground_url: string | null;
   props: MapProp[] | null;
+  video_url?: string | null;
 }
 
 export interface TableProjection {

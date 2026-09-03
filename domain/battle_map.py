@@ -48,6 +48,9 @@ class BattleMap(SQLModel, table=True):
     # [{x, y, kind, url, h}] in image pixels / grid-unit heights.
     ground_url: Optional[str] = Field(default=None, max_length=1000)
     props: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # Animated map surface (Plan 71): a looping MP4/WebM played under the
+    # table layers. image_url stays the poster / thumbnail / fallback.
+    video_url: Optional[str] = Field(default=None, max_length=1000)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -68,6 +71,7 @@ class BattleMapCreate(BaseModel):
     height: int = PydField(ge=1, le=20000)
     grid_size: Optional[int] = PydField(default=None, ge=8, le=1000)
     regions: list[FogRegion] = PydField(default_factory=list)
+    video_url: Optional[str] = PydField(default=None, max_length=1000)
 
 
 class BattleMapUpdate(BaseModel):
@@ -88,6 +92,7 @@ class BattleMapUpdate(BaseModel):
     heightmap_url: Optional[str] = PydField(default=None, max_length=1000)
     ground_url: Optional[str] = PydField(default=None, max_length=1000)
     props: Optional[list[dict[str, Any]]] = None
+    video_url: Optional[str] = PydField(default=None, max_length=1000)
 
 
 class BattleMapRead(BaseModel):
@@ -105,5 +110,6 @@ class BattleMapRead(BaseModel):
     heightmap_url: Optional[str] = None
     ground_url: Optional[str] = None
     props: Optional[list[dict[str, Any]]] = None
+    video_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
