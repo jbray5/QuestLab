@@ -144,6 +144,43 @@ def ping(
     publish_table_ping(session_id, x, y, kind=kind, amount=amount)
 
 
+def stand_down(db: DBSession, session_id: uuid.UUID, dm_email: str, group: str) -> TableStateRead:
+    """Flip every token in ``group`` from hostile to neutral in one action (Plan 72).
+
+    The fight can be won by something other than hit points (a gate opens,
+    a bell rings) — every standing enemy in the group stops being an enemy
+    at once, and the board shows it: red rings turn grey.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+        group: The token group tag to stand down.
+
+    Returns:
+        The refreshed TableStateRead.
+
+    Raises:
+        ValueError: If the session has no table state.
+        PermissionError: If the DM does not own the campaign.
+    """
+    session_service.get_session(db, session_id, dm_email)
+    state = TableStateRepo.get_by_session(db, session_id)
+    if state is None:
+        raise ValueError("No table state for this session.")
+    tokens = []
+    for raw in state.tokens or []:
+        t = dict(raw)
+        if t.get("group") == group and t.get("kind") == "monster":
+            t["kind"] = "custom"
+            t["color"] = "#9aa0b4"
+        tokens.append(t)
+    state.tokens = tokens
+    TableStateRepo.save(db, state)
+    publish_table_updated(session_id)
+    return TableStateRead.model_validate(state)
+
+
 def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     """Build the player-safe projection for the projector (NO auth).
 

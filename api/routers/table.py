@@ -75,6 +75,34 @@ def update_table(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
+@router.post("/sessions/{session_id}/table/stand-down", response_model=TableStateRead)
+def stand_down_group(
+    session_id: uuid.UUID, body: dict[str, str], db: DB, user: CurrentUser
+) -> TableStateRead:
+    """Flip a whole token group from hostile to neutral (Plan 72).
+
+    Args:
+        session_id: UUID of the session.
+        body: ``{"group": "<tag>"}``.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The refreshed TableStateRead.
+    """
+    group = (body or {}).get("group", "").strip()
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="group required"
+        )
+    try:
+        return table_service.stand_down(db, session_id, user, group)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
 @router.post("/sessions/{session_id}/table/figure", response_model=TokenFigureResponse)
 def generate_token_figure(
     session_id: uuid.UUID, body: TokenFigureRequest, db: DB, user: CurrentUser

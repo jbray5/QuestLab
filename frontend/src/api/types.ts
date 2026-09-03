@@ -446,6 +446,8 @@ export interface TableToken {
   size: number;
   color?: string | null;
   style?: "card" | "figure" | null;
+  // Plan 72 — faction tag for one-click stand-down.
+  group?: string | null;
   // Plan 65 — live state, enriched at projection-build time.
   conditions?: string[] | null;
   concentrating?: boolean | null;

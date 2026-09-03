@@ -60,11 +60,52 @@ def build_payload(
     if content and content.strip():
         payload["content"] = content
     if embed_description and embed_description.strip():
-        embed: dict[str, Any] = {"description": embed_description}
-        if embed_color is not None:
+        embed = _parse_embed(embed_description)
+        if embed_color is not None and "color" not in embed:
             embed["color"] = embed_color
         payload["embeds"] = [embed]
     return payload
+
+
+def _parse_embed(text: str) -> dict[str, Any]:
+    """Turn the embed field into a Discord embed object.
+
+    Plain prose becomes ``{"description": text}``. A pasted JSON object
+    (``{"title": ..., "description": ..., "fields": [...]}``) is used as the
+    embed itself, so a prepared notice keeps its title, fields and footer.
+    Anything that isn't a JSON object falls back to prose — a notice never
+    posts as a wall of braces.
+
+    Args:
+        text: The embed field as typed or pasted.
+
+    Returns:
+        A Discord embed dict.
+    """
+    import json
+
+    stripped = text.strip()
+    if stripped.startswith("{"):
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError:
+            parsed = None
+        if isinstance(parsed, dict) and parsed:
+            allowed = {
+                "title",
+                "description",
+                "url",
+                "color",
+                "fields",
+                "footer",
+                "image",
+                "thumbnail",
+                "author",
+            }
+            embed = {k: v for k, v in parsed.items() if k in allowed}
+            if embed:
+                return embed
+    return {"description": text}
 
 
 def post(

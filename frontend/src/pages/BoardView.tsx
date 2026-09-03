@@ -1073,6 +1073,21 @@ export default function BoardView() {
             <button className="btn btn-ghost" style={{ fontSize: "0.72rem" }} onClick={addTorch} disabled={!activeMap} title="A movable point light — select + Del to remove">
               + Torch
             </button>
+            {/* Plan 72 — one click flips a whole hostile group to neutral. */}
+            {[...new Set((state?.tokens ?? []).filter((t) => t.kind === "monster" && t.group).map((t) => t.group as string))].map((g) => (
+              <button
+                key={g}
+                className="btn btn-ghost"
+                style={{ fontSize: "0.72rem", color: "var(--gold)" }}
+                title={`Every hostile token tagged "${g}" stops fighting — rings go grey`}
+                onClick={() => {
+                  if (!sessionId) return;
+                  void tableApi.standDown(sessionId, g).then(() => qc.invalidateQueries({ queryKey: ["board-table", sessionId] }));
+                }}
+              >
+                ✋ Stand down: {g}
+              </button>
+            ))}
             <button
               className="btn"
               style={{ fontSize: "0.72rem" }}

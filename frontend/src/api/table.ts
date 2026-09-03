@@ -44,6 +44,8 @@ export const tableApi = {
   // Live table surface (DM console)
   getState: (sessionId: string) =>
     api.get<TableStateRead>(`/sessions/${sessionId}/table`),
+  standDown: (sessionId: string, group: string) =>
+    api.post<TableStateRead>(`/sessions/${sessionId}/table/stand-down`, { group }),
   updateState: (sessionId: string, data: TableStateUpdate) =>
     api.patch<TableStateRead>(`/sessions/${sessionId}/table`, data),
   ping: (sessionId: string, x: number, y: number, kind?: string, amount?: number) =>
