@@ -40,7 +40,8 @@ class TestGate:
         monkeypatch.setenv("AI_FREE_EMAILS", "friend@example.com")
         monkeypatch.setenv("BOOTSTRAP_ADMIN_EMAILS", "Owner@Example.com")
         assert ent.check_ai(duckdb_session, "friend@example.com").allowed
-        assert ent.check_ai(duckdb_session, "owner@example.com").allowed
+        owner = ent.check_ai(duckdb_session, "owner@example.com")
+        assert owner.allowed and owner.remaining_today is None  # no daily wall for the admin
 
 
 class TestQuota:

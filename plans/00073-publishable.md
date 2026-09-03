@@ -1,7 +1,7 @@
 # Plan 00073 — Publishable QuestLab (the Reddit launch)
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (code) — launch flips are Justin's (docs/LAUNCH.md)
 
 **Started:** 2026-09-02 (overnight) · **Implemented by:** Claude Code
 

@@ -69,7 +69,11 @@ def check_ai(db: DBSession, email: str) -> Entitlement:
     """
     email = email.strip().lower()
     patreon_url = os.environ.get("PATREON_URL", "").strip() or None
-    if gate_mode() == "patreon" and email not in _free_emails():
+    if email in _free_emails():
+        # Admins and the allowlist skip both the gate and the daily allowance —
+        # the DM running the show shouldn't hit a wall mid-prep.
+        return Entitlement(True, None, None, patreon_url)
+    if gate_mode() == "patreon":
         user = UserRepo.get_by_email(db, email)
         if user is None or not user.patron_active:
             return Entitlement(False, "patreon_required", None, patreon_url)
