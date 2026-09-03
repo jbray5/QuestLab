@@ -1,7 +1,7 @@
 # Plan 00072 — Session 7 + the Greenreef build
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (ready for 9/12; live edits welcome)
 
 **Started:** 2026-09-02 · **Session:** Saturday 2026-09-12 · **Implemented by:** Claude Code
 
@@ -10,7 +10,7 @@ Rules: no invented lore; where the doc is silent, leave a placeholder;
 player-facing surfaces contain no secrets; paper fallbacks exist for all.
 
 ## Priority order (from the doc) and status
-1. [ ] Restwater board: sluice object (AC 15 HP 25, immune poison/psychic),
+1. [x] Restwater board (S7 86b85efd staged; verified on the projector): sluice object (AC 15 HP 25, immune poison/psychic),
        Sorrel regen/phase cues, five house fighters, round-one positions,
        Mira Large override, sealed-door markers, one-click house stand-down
 2. [x] Greenreef board with four findable locations + beached boats
@@ -19,7 +19,7 @@ player-facing surfaces contain no secrets; paper fallbacks exist for all.
        table state when staged; "Greenreef — Night" imported for S8
 3. [x] Shop, gold tier, rules verbatim in descriptions
 4. [x] Greenreef NPC cards (6 + Sael placeholder; Tavish paragraph only)
-5. [~] Road boards: Forest road (Czepeku Forest Pass) imported; coast road +
+5. [x] Road boards: Forest road (Czepeku Forest Pass) imported; coast road +
        crossroads generated (S6 style prompts) — Justin may swap
 6. [x] Shop, trade tier (cost_text → storefront shows the price text and
        Buy defers to the table; DM rules on it)
