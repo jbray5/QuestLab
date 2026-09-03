@@ -1,9 +1,27 @@
 # QuestLab — Security Model
 
 ## Authentication
-QuestLab has **no in-app authentication**. Identity is handled externally by Azure Front Door + Microsoft Entra ID (formerly Azure AD). After authentication, Azure Front Door injects the verified user's email address into a trusted HTTP header before forwarding the request to the app.
 
-The header name is configured via the `AUTH_EMAIL_HEADER` environment variable (default: `X-MS-CLIENT-PRINCIPAL-NAME`).
+QuestLab runs in one of two identity modes, chosen by `AUTH_MODE` (Plan 73):
+
+### `oauth` — public deployments (the Reddit launch)
+- DMs sign in with **Discord** or **Patreon** (`/api/auth/{provider}/start` → provider consent → `/api/auth/{provider}/callback`).
+- The API issues an **HMAC-SHA256 signed session token** (`integrations/session_token.py`, secret `APP_SECRET`, 30-day expiry, constant-time verify, fail-closed). The frontend keeps it in `localStorage` and sends `Authorization: Bearer …`.
+- In this mode the client-supplied email header is **ignored** — a browser can never assert an identity it does not hold. An expired/invalid bearer → 401.
+- A `users` row (email-keyed) records linked provider ids and the Patreon membership snapshot. **Email remains the ownership key** for every table (`campaign.dm_email`), so nothing downstream changed.
+- OAuth CSRF is a signed `state` token (kind `state`, 10-minute TTL) bound to the provider.
+
+### `header` — personal / Azure deployments (default)
+- Identity comes from the trusted header named by `AUTH_EMAIL_HEADER` (injected by Azure Front Door + Entra ID at the edge) or `CURRENT_USER_EMAIL` locally.
+- A valid bearer token is also accepted in this mode, so a personal deployment can try OAuth before flipping.
+- **This mode must never face the public internet without an authenticating edge in front of it** — the header is trusted as-is.
+
+### Players
+Player surfaces (`/play/{pc_id}`, `/table/{session_id}`, `/join/{campaign_id}`, `/market/…`) are **capability URLs**: the UUID is the secret, shown only to the people at the table. They expose player-safe projections only (no DM notes, no hidden shops, no stat internals beyond the player's own sheet).
+
+### Authorization
+- Every service method checks campaign ownership by email before acting; admins are the `BOOTSTRAP_ADMIN_EMAILS` allowlist (`services/auth_service.require_admin`).
+- **AI entitlement** (`services/entitlement_service.py`): `AI_GATE=patreon` restricts generation to active patrons, admins and `AI_FREE_EMAILS`; every AI route depends on `AiUser` (402 with a Patreon link when gated, 429 when the daily allowance `AI_DAILY_LIMIT` is spent). Player-facing AI (the forge) is charged to and gated on the campaign owner. Usage is counted per user per UTC day in `ai_usage`.
 
 ## Identity Resolution (integrations/identity.py)
 1. Read the header named by `AUTH_EMAIL_HEADER` from `st.context.headers`.

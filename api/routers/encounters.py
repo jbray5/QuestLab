@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 
-from api.deps import DB, CurrentUser
+from api.deps import DB, AiUser, CurrentUser
 from domain.encounter import Encounter, EncounterCreate, EncounterUpdate
 from services import encounter_service
 
@@ -161,9 +161,7 @@ def preview_difficulty_endpoint(
 
 
 @router.post("/adventures/{adventure_id}/encounters/suggest-monsters")
-def suggest_monsters_endpoint(
-    adventure_id: uuid.UUID, body: dict, db: DB, user: CurrentUser
-) -> dict:
+def suggest_monsters_endpoint(adventure_id: uuid.UUID, body: dict, db: DB, user: AiUser) -> dict:
     """Ask Claude for monsters that fit the adventure's theme.
 
     Body: ``{"target_difficulty": "Moderate"}`` (defaults to Moderate).

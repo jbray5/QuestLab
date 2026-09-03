@@ -7,7 +7,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from api.deps import DB, CurrentUser
+from api.deps import DB, AiUser, CurrentUser
 from domain.session import (
     DiceRollBroadcast,
 )
@@ -237,7 +237,7 @@ def get_runbook(session_id: uuid.UUID, db: DB, user: CurrentUser) -> SessionRunb
 
 @router.post("/sessions/{session_id}/runbook", response_model=SessionRunbook)
 def generate_runbook(
-    session_id: uuid.UUID, db: DB, user: CurrentUser, body: dict[str, str] | None = None
+    session_id: uuid.UUID, db: DB, user: AiUser, body: dict[str, str] | None = None
 ) -> SessionRunbook:
     """Generate (or regenerate) an AI runbook for a session.
 
@@ -268,7 +268,7 @@ def generate_runbook(
 
 @router.post("/sessions/{session_id}/pack")
 def generate_session_pack(
-    session_id: uuid.UUID, db: DB, user: CurrentUser, body: dict[str, str] | None = None
+    session_id: uuid.UUID, db: DB, user: AiUser, body: dict[str, str] | None = None
 ) -> dict:
     """Generate a fully LINKED session pack from a premise (Plan 70).
 
@@ -596,7 +596,7 @@ def get_brief(session_id: uuid.UUID, db: DB, user: CurrentUser) -> Optional[Sess
     status_code=status.HTTP_201_CREATED,
 )
 def generate_brief(
-    session_id: uuid.UUID, body: BriefGenerateBody, db: DB, user: CurrentUser
+    session_id: uuid.UUID, body: BriefGenerateBody, db: DB, user: AiUser
 ) -> SessionBriefRead:
     """Generate (or regenerate) the session's glanceable DM brief.
 

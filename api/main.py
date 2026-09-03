@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from api.routers import (
     admin,
     adventures,
+    auth,
     battle_maps,
     campaigns,
     characters,
@@ -33,6 +34,7 @@ from api.routers import (
     monsters,
     notebooks,
     npcs,
+    onboarding,
     play,
     puzzles,
     rest,
@@ -98,7 +100,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="QuestLab API",
     description="AI-powered D&D 5e campaign planning tool — REST API.",
-    version="1.4.0",
+    version="1.4.1",
     lifespan=lifespan,
 )
 
@@ -118,6 +120,7 @@ app.add_middleware(
 # ── Routers ────────────────────────────────────────────────────────────────────
 _PREFIX = "/api"
 
+app.include_router(auth.router, prefix=_PREFIX)
 app.include_router(campaigns.router, prefix=_PREFIX)
 app.include_router(adventures.router, prefix=_PREFIX)
 app.include_router(characters.router, prefix=_PREFIX)
@@ -144,6 +147,7 @@ app.include_router(waitlist.router, prefix=_PREFIX)
 app.include_router(puzzles.router, prefix=_PREFIX)
 app.include_router(crier.router, prefix=_PREFIX)
 app.include_router(notebooks.router, prefix=_PREFIX)
+app.include_router(onboarding.router, prefix=_PREFIX)
 
 
 @app.get("/api/health")

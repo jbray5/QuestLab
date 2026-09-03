@@ -18,6 +18,10 @@ const BASE = apiBase();
 
 /** Read DM identity from localStorage (set on first load from a meta tag or env). */
 function getAuthHeader(): Record<string, string> {
+  // Plan 73 — a signed session token (OAuth sign-in) is the real identity.
+  // The email header remains for personal/header-mode deployments only.
+  const token = localStorage.getItem("ql_token") || "";
+  if (token) return { Authorization: `Bearer ${token}` };
   const email = localStorage.getItem("dm_email") || import.meta.env.VITE_DM_EMAIL || "";
   return email ? { "X-MS-CLIENT-PRINCIPAL-NAME": email } : {};
 }
@@ -50,6 +54,17 @@ async function request<T>(
     // Plan 29 — dispatch a window event so the global ToastProvider can
     // surface transient API errors that callers don't explicitly handle.
     // 401s are noisy on first load (no DM email yet); skip them.
+    // Plan 73 — the AI paywall / quota answers with a structured detail;
+    // surface it as a dedicated event so one modal serves every AI button.
+    if (typeof window !== "undefined" && (res.status === 402 || res.status === 429) && detail && typeof detail === "object" && "code" in detail) {
+      window.dispatchEvent(new CustomEvent("ql:paywall", { detail }));
+      throw new Error(detail.code === "daily_limit" ? "Today's AI allowance is spent." : "AI features are for QuestLab patrons.");
+    }
+    if (typeof window !== "undefined" && res.status === 401 && localStorage.getItem("ql_token")) {
+      // Expired session in oauth mode — clear it so the guard sends them to sign in.
+      localStorage.removeItem("ql_token");
+      window.dispatchEvent(new CustomEvent("ql:signed-out"));
+    }
     if (typeof window !== "undefined" && res.status !== 401) {
       window.dispatchEvent(
         new CustomEvent("ql:api-error", { detail: { message } }),

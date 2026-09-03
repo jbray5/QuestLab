@@ -10,7 +10,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from api.deps import DB, CurrentUser
+from api.deps import DB, AiUser, CurrentUser
 from domain.shop import (
     MarketRead,
     ShopCreate,
@@ -117,9 +117,7 @@ def delete_shop(shop_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
 
 
 @router.post("/shops/{shop_id}/stock", response_model=StorefrontRead)
-def stock_shop(
-    shop_id: uuid.UUID, body: ShopStockRequest, db: DB, user: CurrentUser
-) -> StorefrontRead:
+def stock_shop(shop_id: uuid.UUID, body: ShopStockRequest, db: DB, user: AiUser) -> StorefrontRead:
     """AI-stock a shop with keeper, blurb, and priced inventory.
 
     Args:
@@ -238,7 +236,7 @@ def remove_item(shop_id: uuid.UUID, shop_item_id: uuid.UUID, db: DB, user: Curre
 
 @router.post("/shops/{shop_id}/items/{shop_item_id}/image", response_model=ItemImageResponse)
 def generate_item_image(
-    shop_id: uuid.UUID, shop_item_id: uuid.UUID, db: DB, user: CurrentUser
+    shop_id: uuid.UUID, shop_item_id: uuid.UUID, db: DB, user: AiUser
 ) -> ItemImageResponse:
     """Generate catalog art for one stocked item.
 

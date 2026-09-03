@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
+import PaywallModal from "./components/PaywallModal";
 
 // Eager — small, always-needed pages.
 import Layout from "./pages/Layout";
@@ -41,6 +42,8 @@ const TownCrier = lazy(() => import("./pages/TownCrier"));
 const NotebookPage = lazy(() => import("./pages/NotebookPage"));
 const TempleCompanion = lazy(() => import("./pages/TempleCompanion"));
 const JoinView = lazy(() => import("./pages/JoinView"));
+const GuidePage = lazy(() => import("./pages/GuidePage"));
+const TermsPage = lazy(() => import("./pages/TermsPage"));
 const RestwaterCompanion = lazy(() => import("./pages/RestwaterCompanion"));
 
 function PageLoader() {
@@ -78,6 +81,8 @@ function lazyRoute(node: React.ReactNode): React.ReactNode {
 
 export default function App() {
   return (
+    <>
+    <PaywallModal />
     <Routes>
       {/* Plan 25 — Player view: standalone route with no DM chrome */}
       <Route path="/join/:campaignId" element={lazyRoute(<JoinView />)} />
@@ -103,6 +108,9 @@ export default function App() {
       <Route path="/welcome" element={<Welcome />} />
       {/* Plan 54 — public marketing/demo landing (the Reddit link) */}
       <Route path="/try" element={lazyRoute(<TryLanding />)} />
+      {/* Plan 73 — public guide + terms */}
+      <Route path="/guide" element={lazyRoute(<GuidePage />)} />
+      <Route path="/terms" element={lazyRoute(<TermsPage />)} />
 
       <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />
@@ -183,5 +191,6 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
+    </>
   );
 }

@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
-from api.deps import DB, CurrentUser
+from api.deps import DB, AiUser, CurrentUser
 from db.repos.character_repo import CharacterRepo
 from db.repos.item_repo import ItemRepo
 from domain.item import ItemCreate, ItemRead, ItemUpdate, WeaponAttackPreview
@@ -214,7 +214,7 @@ def generate_lore(
     item_id: uuid.UUID,
     body: LoreRequest,
     db: DB,
-    user: CurrentUser,
+    user: AiUser,
 ) -> LoreResponse:
     """Generate AI flavor lore for a magic item.
 

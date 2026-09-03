@@ -67,6 +67,10 @@ streamlit run main.py    # http://localhost:8501
 
 ---
 
+## Going public
+
+QuestLab runs in **personal mode** by default (trusted-header identity, AI open). To let strangers in — Discord/Patreon sign-in, signed sessions, the AI paywall — follow [docs/LAUNCH.md](docs/LAUNCH.md). New DMs start at `/guide`.
+
 ## Environment Variables
 
 | Variable | Required | Default | Description |

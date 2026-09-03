@@ -114,6 +114,18 @@ export default function BattleMaps() {
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
+    // Plan 73 — one-time map-rights notice (personal-use packs are fine; never other people's files).
+    try {
+      if (!localStorage.getItem("ql-map-rights-ok")) {
+        const ok = window.confirm(
+          "Upload only maps you have the right to use at your own table: your own work, map packs you bought or back (personal-use), or free maps under their terms. Uploads stay private to your account. OK to continue?",
+        );
+        if (!ok) return;
+        localStorage.setItem("ql-map-rights-ok", "1");
+      }
+    } catch {
+      /* storage blocked — ask every time */
+    }
     setUploadError("");
     setUploading(true);
     try {

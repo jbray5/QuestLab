@@ -1,5 +1,7 @@
-import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+
+import { api, apiBase } from "../api/client";
 
 import Flourish from "../components/Flourish";
 import { useAuthStore } from "../stores/useAuthStore";
@@ -15,8 +17,34 @@ import { useAuthStore } from "../stores/useAuthStore";
 export default function Welcome() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { dmEmail, setDmEmail } = useAuthStore();
+  const { dmEmail, setDmEmail, setToken, setProfile } = useAuthStore();
   const next = params.get("next") || "/";
+  const error = params.get("error");
+  // Plan 73 — which sign-in methods this deployment offers.
+  const [providers, setProviders] = useState<{ providers: string[]; mode: string } | null>(null);
+  useEffect(() => {
+    api
+      .get<{ providers: string[]; mode: string }>("/auth/providers")
+      .then(setProviders)
+      .catch(() => setProviders({ providers: [], mode: "header" }));
+  }, []);
+
+  // Plan 73 — OAuth callback lands here with #token=… (never sent to servers).
+  useEffect(() => {
+    const m = window.location.hash.match(/token=([^&]+)/);
+    if (!m) return;
+    const token = decodeURIComponent(m[1]);
+    setToken(token);
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    api
+      .get<{ email: string; display_name: string; avatar_url: string | null; discord_linked: boolean; patreon_linked: boolean; patron_active: boolean; is_admin: boolean; ai_allowed: boolean; ai_reason: string | null; ai_remaining_today: number | null }>("/auth/me")
+      .then((me) => {
+        setProfile(me);
+        setDmEmail(me.email);
+        navigate(next, { replace: true });
+      })
+      .catch(() => undefined);
+  }, [navigate, next, setDmEmail, setProfile, setToken]);
 
   // If they're already signed in, skip the landing.
   useEffect(() => {
@@ -90,34 +118,77 @@ export default function Welcome() {
         {/* Sign-in card */}
         <section style={signInCardStyle}>
           <h2 style={signInTitleStyle}>Enter the lab</h2>
-          <p style={signInSubtitleStyle}>
-            Your email is stored on this device only. It identifies which
-            campaigns belong to you. No password, no verification — change
-            it any time from the sidebar.
+          {error && (
+            <p style={{ color: "var(--danger, #ef5350)", textAlign: "center", margin: "0 0 0.8rem" }}>{error}</p>
+          )}
+          {providers && providers.providers.length > 0 ? (
+            <>
+              <p style={signInSubtitleStyle}>
+                Sign in and your campaigns are yours alone. Players never need an account —
+                they get a link or a QR code.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", alignItems: "center" }}>
+                {providers.providers.includes("discord") && (
+                  <a className="btn btn-primary" style={ctaBtnStyle} href={`${apiBase()}/auth/discord/start`}>
+                    Continue with Discord
+                  </a>
+                )}
+                {providers.providers.includes("patreon") && (
+                  <a className="btn" style={ctaBtnStyle} href={`${apiBase()}/auth/patreon/start`}>
+                    Continue with Patreon
+                  </a>
+                )}
+              </div>
+              {providers.mode !== "oauth" && (
+                <details style={{ marginTop: "1rem", color: "var(--muted)", fontSize: "0.85rem" }}>
+                  <summary style={{ cursor: "pointer" }}>Personal mode (email only)</summary>
+                  <form onSubmit={handleSubmit} style={formStyle}>
+                    <label htmlFor="dm-email" style={labelStyle}>DM email</label>
+                    <input id="dm-email" name="email" type="email" required placeholder="you@example.com" style={inputStyle} />
+                    <button className="btn btn-primary" type="submit" style={ctaBtnStyle}>Continue →</button>
+                  </form>
+                </details>
+              )}
+            </>
+          ) : (
+            <>
+              <p style={signInSubtitleStyle}>
+                Your email is stored on this device only. It identifies which
+                campaigns belong to you. No password, no verification — change
+                it any time from the sidebar.
+              </p>
+              <form onSubmit={handleSubmit} style={formStyle}>
+                <label htmlFor="dm-email" style={labelStyle}>
+                  DM email
+                </label>
+                <input
+                  id="dm-email"
+                  name="email"
+                  type="email"
+                  required
+                  autoFocus
+                  placeholder="you@example.com"
+                  style={inputStyle}
+                />
+                <button className="btn btn-primary" type="submit" style={ctaBtnStyle}>
+                  Continue →
+                </button>
+              </form>
+            </>
+          )}
+          <p style={{ textAlign: "center", marginTop: "1rem", fontSize: "0.85rem" }}>
+            New here? Read <Link to="/guide" style={{ color: "var(--gold)" }}>the 15-minute guide</Link>.
           </p>
-          <form onSubmit={handleSubmit} style={formStyle}>
-            <label htmlFor="dm-email" style={labelStyle}>
-              DM email
-            </label>
-            <input
-              id="dm-email"
-              name="email"
-              type="email"
-              required
-              autoFocus
-              placeholder="you@example.com"
-              style={inputStyle}
-            />
-            <button className="btn btn-primary" type="submit" style={ctaBtnStyle}>
-              Continue →
-            </button>
-          </form>
         </section>
 
         <footer style={footerStyle}>
           <span>QuestLab · 2026</span>
           <span>·</span>
           <span>SRD 5.2.1 content used under CC-BY 4.0</span>
+          <span>·</span>
+          <Link to="/guide" style={{ color: "inherit" }}>Guide</Link>
+          <span>·</span>
+          <Link to="/terms" style={{ color: "inherit" }}>Terms</Link>
         </footer>
       </div>
     </div>

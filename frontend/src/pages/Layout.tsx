@@ -252,6 +252,16 @@ export default function Layout() {
           {dmEmail}
         </p>
         <div style={{ display: "flex", gap: "0.35rem" }}>
+          <a
+            href="/guide"
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-ghost"
+            title="The 15-minute guide"
+            style={{ flex: 1, fontSize: "0.78rem", padding: "0.35rem 0.5rem", textAlign: "center" }}
+          >
+            📖 Guide
+          </a>
           <button
             onClick={() => go("/admin")}
             className="btn btn-ghost"

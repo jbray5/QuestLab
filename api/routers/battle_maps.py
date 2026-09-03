@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 
-from api.deps import DB, CurrentUser
+from api.deps import DB, AiUser, CurrentUser
 from domain.battle_map import BattleMapCreate, BattleMapRead, BattleMapUpdate
 from services import battle_map_service
 
@@ -86,7 +86,7 @@ def update_battle_map(
 
 @router.post("/battle-maps/{map_id}/backdrop", response_model=BattleMapRead)
 def generate_battle_map_backdrop(
-    map_id: uuid.UUID, body: dict, db: DB, user: CurrentUser
+    map_id: uuid.UUID, body: dict, db: DB, user: AiUser
 ) -> BattleMapRead:
     """Generate an AI 360° backdrop for the map and persist its URL (Plan 45).
 
@@ -118,7 +118,7 @@ def generate_battle_map_backdrop(
 
 
 @router.post("/battle-maps/{map_id}/props", response_model=BattleMapRead)
-def generate_battle_map_props(map_id: uuid.UUID, db: DB, user: CurrentUser) -> BattleMapRead:
+def generate_battle_map_props(map_id: uuid.UUID, db: DB, user: AiUser) -> BattleMapRead:
     """Dioramify the map: AI ground layer + auto-placed upright props (Plan 46).
 
     Removes tall features from the painted map via gpt-image-1's edit API,
@@ -144,7 +144,7 @@ def generate_battle_map_props(map_id: uuid.UUID, db: DB, user: CurrentUser) -> B
 
 
 @router.post("/battle-maps/{map_id}/terrain", response_model=BattleMapRead)
-def generate_battle_map_terrain(map_id: uuid.UUID, db: DB, user: CurrentUser) -> BattleMapRead:
+def generate_battle_map_terrain(map_id: uuid.UUID, db: DB, user: AiUser) -> BattleMapRead:
     """Auto-generate 3D terrain (a heightmap) for the map (Plan 45 Tier 3).
 
     Runs the map image through ``gpt-image-1``'s edit API to produce a

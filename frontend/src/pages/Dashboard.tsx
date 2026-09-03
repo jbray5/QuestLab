@@ -1,3 +1,4 @@
+import { api } from "../api/client";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -112,6 +113,19 @@ export default function Dashboard() {
         ))}
       </div>
 
+      <button
+        className="btn"
+        style={{ marginRight: "0.5rem" }}
+        title="A ready-made adventure, four pregens, a staged map and an encounter — run it tonight"
+        onClick={() => {
+          void api
+            .post<{ campaign_id: string }>("/onboarding/starter")
+            .then(() => window.location.assign("/campaigns"))
+            .catch(() => navigate("/campaigns"));
+        }}
+      >
+        🎲 Create a sample campaign
+      </button>
       <button className="btn btn-primary" onClick={() => navigate("/campaigns")}>
         + Manage Campaigns
       </button>

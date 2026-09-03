@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 
-from api.deps import DB, CurrentUser
+from api.deps import DB, AiUser, CurrentUser
 from domain.character import PlayerCharacter, PlayerCharacterCreate, PlayerCharacterUpdate
 from services import character_service
 
@@ -384,7 +384,7 @@ def restore_hit_dice_endpoint(
 
 @router.post("/characters/{character_id}/figure", response_model=PlayerCharacter)
 def generate_pc_figure(
-    character_id: uuid.UUID, body: dict, db: DB, user: CurrentUser
+    character_id: uuid.UUID, body: dict, db: DB, user: AiUser
 ) -> PlayerCharacter:
     """Generate a transparent full-body minifig standee for a PC (Plan 45).
 
@@ -425,7 +425,7 @@ def generate_pc_figure(
 
 @router.post("/characters/{character_id}/portrait", response_model=PlayerCharacter)
 def generate_pc_portrait(
-    character_id: uuid.UUID, body: dict, db: DB, user: CurrentUser
+    character_id: uuid.UUID, body: dict, db: DB, user: AiUser
 ) -> PlayerCharacter:
     """Generate an AI portrait for a PC and persist the URL.
 

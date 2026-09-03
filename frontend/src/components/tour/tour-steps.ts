@@ -108,6 +108,8 @@ export const TOUR_STEPS: TourStep[] = [
     body:
       "That's the loop. Create a campaign, then an adventure, then a " +
       "session — and run it from the HUD with live sync to your players' " +
-      "phones. Click 🧭 in the sidebar to replay this tour later.",
+      "phones. Press 🎲 Create a sample campaign on the dashboard to get a " +
+      "ready-made night, and read the 15-minute guide (📖 in the sidebar). " +
+      "Click 🧭 to replay this tour later.",
   },
 ];

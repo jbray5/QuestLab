@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from api.deps import DB, CurrentUser
+from api.deps import DB, AiUser, CurrentUser
 from domain.monster import MonsterStatBlockCreate, MonsterStatBlockRead, MonsterStatBlockUpdate
 from services import encounter_service
 
@@ -116,7 +116,7 @@ def generate_monster_figure_endpoint(
     monster_id: uuid.UUID,
     body: dict,
     db: DB,
-    user: CurrentUser,
+    user: AiUser,
 ) -> MonsterStatBlockRead:
     """Generate a transparent full-body minifig standee for a monster (Plan 45).
 
@@ -160,7 +160,7 @@ def generate_monster_portrait_endpoint(
     monster_id: uuid.UUID,
     body: dict,
     db: DB,
-    user: CurrentUser,
+    user: AiUser,
 ) -> MonsterStatBlockRead:
     """Generate an AI portrait for a monster and persist the image URL.
 
