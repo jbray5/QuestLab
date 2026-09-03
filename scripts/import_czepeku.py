@@ -135,15 +135,34 @@ def _mp4_dims(data: bytes) -> tuple[int, int]:
 
 def _title_poster(name: str, w: int, h: int) -> bytes:
     """A dark title-card poster for animated maps without a still."""
-    from PIL import ImageDraw
+    from PIL import ImageDraw, ImageFont
 
     scale = 1280 / max(w, h)
     pw, ph = max(64, int(w * scale)), max(64, int(h * scale))
     img = Image.new("RGB", (pw, ph), (13, 10, 22))
     draw = ImageDraw.Draw(img)
     draw.rectangle([12, 12, pw - 13, ph - 13], outline=(214, 175, 54), width=3)
-    text = f"▶ {name}"
-    draw.text((pw // 2, ph // 2), text, fill=(240, 230, 200), anchor="mm")
+    # PIL's bitmap default font is tiny and glyph-poor; use a system serif
+    # when present, ASCII-safe text either way.
+    title = name.replace("—", "-").replace("–", "-").upper()
+    size = max(28, pw // 18)
+    font = None
+    for candidate in ("C:/Windows/Fonts/georgia.ttf", "C:/Windows/Fonts/times.ttf"):
+        try:
+            font = ImageFont.truetype(candidate, size)
+            break
+        except OSError:
+            continue
+    draw.text((pw // 2, ph // 2), title, fill=(240, 230, 200), anchor="mm", font=font)
+    draw.text(
+        (pw // 2, ph // 2 + size),
+        "ANIMATED MAP",
+        fill=(201, 185, 137),
+        anchor="mm",
+        font=(
+            ImageFont.truetype("C:/Windows/Fonts/georgia.ttf", max(14, size // 2)) if font else None
+        ),
+    )
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=82)
     return buf.getvalue()

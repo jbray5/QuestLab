@@ -286,12 +286,14 @@ function useVideoTexture(url: string | null | undefined): THREE.VideoTexture | n
   useEffect(() => {
     if (!url) return undefined;
     const video = document.createElement("video");
-    video.src = url;
+    // crossOrigin MUST be set before src: the fetch starts on src assignment,
+    // and a video fetched without CORS taints the WebGL texture upload.
     video.crossOrigin = "anonymous";
     video.loop = true;
     video.muted = true;
     video.playsInline = true;
     video.preload = "auto";
+    video.src = url;
     let tex: THREE.VideoTexture | null = null;
     let alive = true;
     const onReady = () => {
