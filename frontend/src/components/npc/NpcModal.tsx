@@ -513,7 +513,7 @@ const sheetStyle: React.CSSProperties = {
   width: "100%",
   display: "flex",
   flexDirection: "column",
-  maxHeight: "calc(100vh - 4rem)",
+  maxHeight: "calc(100dvh - 4rem)",
   overflow: "hidden",
 };
 

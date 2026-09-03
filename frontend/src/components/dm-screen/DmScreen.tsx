@@ -205,7 +205,7 @@ const modalStyle: React.CSSProperties = {
   borderRadius: 10,
   width: "100%",
   maxWidth: 880,
-  maxHeight: "calc(100vh - 2rem)",
+  maxHeight: "calc(100dvh - 2rem)",
   display: "flex",
   flexDirection: "column",
   overflow: "hidden",

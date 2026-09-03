@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
 from api.deps import DB, CurrentUser
-from domain.user import AuthProviders, UserRead
+from domain.user import AuthProviders, LoginRequest, SessionResponse, SignupRequest, UserRead
 from integrations import oauth
 from services import auth_service, entitlement_service
 
@@ -36,6 +36,7 @@ def providers() -> AuthProviders:
     """
     return AuthProviders(
         providers=oauth.configured_providers(),
+        password_signup=bool(os.environ.get("APP_SECRET", "").strip()),
         mode=auth_service.auth_mode(),
         patreon_url=os.environ.get("PATREON_URL", "").strip() or None,
         ai_gate=entitlement_service.gate_mode(),
@@ -87,6 +88,46 @@ def callback(
     except ValueError as exc:
         return RedirectResponse(f"{front}/welcome?{urlencode({'error': str(exc)})}", 302)
     return RedirectResponse(f"{front}/welcome#token={token}", 302)
+
+
+@router.post("/auth/signup", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
+def signup(body: SignupRequest, db: DB) -> SessionResponse:
+    """Create a name + email + password account and return a session (Plan 73b).
+
+    Args:
+        body: Name, email, password.
+        db: Database session.
+
+    Returns:
+        The session token and profile.
+    """
+    try:
+        token, user = auth_service.signup(db, body.name, body.email, body.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+    return SessionResponse(token=token, user=auth_service.me(db, user.email))
+
+
+@router.post("/auth/login", response_model=SessionResponse)
+def login(body: LoginRequest, db: DB) -> SessionResponse:
+    """Sign in with email + password (Plan 73b).
+
+    Args:
+        body: Email and password.
+        db: Database session.
+
+    Returns:
+        The session token and profile.
+    """
+    try:
+        token, user = auth_service.login(db, body.email, body.password)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc))
+    return SessionResponse(token=token, user=auth_service.me(db, user.email))
 
 
 @router.get("/auth/me", response_model=UserRead)

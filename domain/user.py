@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from typing import Optional
 
 from pydantic import BaseModel
+from pydantic import Field as PField
 from sqlmodel import Field, SQLModel
 
 
@@ -29,6 +30,8 @@ class User(SQLModel, table=True):
     patron_active: bool = Field(default=False)
     patron_tier_cents: int = Field(default=0, ge=0)
     patron_checked_at: Optional[datetime] = Field(default=None)
+    # Email + password accounts (Plan 73b) — scrypt hash, null for OAuth-only users.
+    password_hash: Optional[str] = Field(default=None, max_length=300)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_seen_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -60,10 +63,34 @@ class UserRead(BaseModel):
     ai_remaining_today: Optional[int] = None
 
 
+class SignupRequest(BaseModel):
+    """Create an account with a name, email and password."""
+
+    name: str = PField(min_length=1, max_length=120)
+    email: str = PField(min_length=3, max_length=320)
+    password: str = PField(min_length=8, max_length=200)
+
+
+class LoginRequest(BaseModel):
+    """Sign in with email and password."""
+
+    email: str = PField(min_length=3, max_length=320)
+    password: str = PField(min_length=1, max_length=200)
+
+
+class SessionResponse(BaseModel):
+    """A fresh session token plus the profile it belongs to."""
+
+    token: str
+    user: "UserRead"
+
+
 class AuthProviders(BaseModel):
     """Which sign-in methods this deployment offers."""
 
     providers: list[str]
+    # Email + password accounts need APP_SECRET to mint sessions.
+    password_signup: bool = False
     mode: str  # "oauth" | "header"
     patreon_url: Optional[str] = None
     ai_gate: str  # "off" | "patreon"

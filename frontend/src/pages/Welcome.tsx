@@ -21,10 +21,14 @@ export default function Welcome() {
   const next = params.get("next") || "/";
   const error = params.get("error");
   // Plan 73 — which sign-in methods this deployment offers.
-  const [providers, setProviders] = useState<{ providers: string[]; mode: string } | null>(null);
+  const [providers, setProviders] = useState<{ providers: string[]; mode: string; password_signup?: boolean } | null>(null);
+  // Plan 73b — email + password accounts (the always-available path).
+  const [tab, setTab] = useState<"signup" | "signin">("signup");
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   useEffect(() => {
     api
-      .get<{ providers: string[]; mode: string }>("/auth/providers")
+      .get<{ providers: string[]; mode: string; password_signup?: boolean }>("/auth/providers")
       .then(setProviders)
       .catch(() => setProviders({ providers: [], mode: "header" }));
   }, []);
@@ -56,6 +60,30 @@ export default function Welcome() {
   useEffect(() => {
     if (import.meta.env.VITE_DEMO_MODE && !dmEmail) navigate("/try", { replace: true });
   }, [dmEmail, navigate]);
+
+  async function handleAccount(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    const email = String(form.get("email") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+    const name = String(form.get("name") ?? "").trim();
+    setBusy(true);
+    setFormError(null);
+    try {
+      const res = await api.post<{ token: string; user: { email: string; display_name: string; avatar_url: string | null; discord_linked: boolean; patreon_linked: boolean; patron_active: boolean; is_admin: boolean; ai_allowed: boolean; ai_reason: string | null; ai_remaining_today: number | null } }>(
+        tab === "signup" ? "/auth/signup" : "/auth/login",
+        tab === "signup" ? { name, email, password } : { email, password },
+      );
+      setToken(res.token);
+      setProfile(res.user);
+      setDmEmail(res.user.email);
+      navigate(next, { replace: true });
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -121,27 +149,65 @@ export default function Welcome() {
           {error && (
             <p style={{ color: "var(--danger, #ef5350)", textAlign: "center", margin: "0 0 0.8rem" }}>{error}</p>
           )}
-          {providers && providers.providers.length > 0 ? (
+          {providers === null ? null : providers.password_signup || providers.providers.length > 0 ? (
             <>
               <p style={signInSubtitleStyle}>
-                Sign in and your campaigns are yours alone. Players never need an account —
-                they get a link or a QR code.
+                Your campaigns are tied to your account — nobody else can see them. Players never
+                need an account; they get a link or a QR code.
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", alignItems: "center" }}>
-                {providers.providers.includes("discord") && (
-                  <a className="btn btn-primary" style={ctaBtnStyle} href={`${apiBase()}/auth/discord/start`}>
-                    Continue with Discord
-                  </a>
-                )}
-                {providers.providers.includes("patreon") && (
-                  <a className="btn" style={ctaBtnStyle} href={`${apiBase()}/auth/patreon/start`}>
-                    Continue with Patreon
-                  </a>
-                )}
-              </div>
+              {providers.providers.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", alignItems: "center", marginBottom: "0.9rem" }}>
+                  {providers.providers.includes("discord") && (
+                    <a className="btn btn-primary" style={ctaBtnStyle} href={`${apiBase()}/auth/discord/start`}>
+                      Continue with Discord
+                    </a>
+                  )}
+                  {providers.providers.includes("patreon") && (
+                    <a className="btn" style={ctaBtnStyle} href={`${apiBase()}/auth/patreon/start`}>
+                      Continue with Patreon
+                    </a>
+                  )}
+                  {providers.password_signup && (
+                    <div style={{ color: "var(--muted)", fontSize: "0.8rem", letterSpacing: "0.1em" }}>— OR —</div>
+                  )}
+                </div>
+              )}
+              {providers.password_signup && (
+                <>
+                  <div style={{ display: "flex", gap: "0.4rem", justifyContent: "center", marginBottom: "0.8rem" }}>
+                    <button type="button" className={`btn ${tab === "signup" ? "btn-primary" : "btn-ghost"}`} onClick={() => setTab("signup")}>
+                      Create account
+                    </button>
+                    <button type="button" className={`btn ${tab === "signin" ? "btn-primary" : "btn-ghost"}`} onClick={() => setTab("signin")}>
+                      Sign in
+                    </button>
+                  </div>
+                  <form onSubmit={(e) => void handleAccount(e)} style={formStyle}>
+                    {tab === "signup" && (
+                      <>
+                        <label htmlFor="acct-name" style={labelStyle}>Your name</label>
+                        <input id="acct-name" name="name" type="text" required autoComplete="name" placeholder="What your players call you" style={inputStyle} />
+                      </>
+                    )}
+                    <label htmlFor="acct-email" style={labelStyle}>Email</label>
+                    <input id="acct-email" name="email" type="email" required autoComplete="email" placeholder="you@example.com" style={inputStyle} />
+                    <label htmlFor="acct-password" style={labelStyle}>Password</label>
+                    <input id="acct-password" name="password" type="password" required minLength={8} autoComplete={tab === "signup" ? "new-password" : "current-password"} placeholder={tab === "signup" ? "At least 8 characters" : "Your password"} style={inputStyle} />
+                    {formError && <p style={{ color: "var(--danger, #ef5350)", margin: "0.2rem 0 0", fontSize: "0.9rem" }}>{formError}</p>}
+                    <button className="btn btn-primary" type="submit" style={ctaBtnStyle} disabled={busy}>
+                      {busy ? "One moment…" : tab === "signup" ? "Create my account →" : "Sign in →"}
+                    </button>
+                  </form>
+                  {tab === "signin" && (
+                    <p style={{ textAlign: "center", color: "var(--muted)", fontSize: "0.8rem", marginTop: "0.6rem" }}>
+                      Forgot your password? Sign in with Discord using the same email, or contact support.
+                    </p>
+                  )}
+                </>
+              )}
               {providers.mode !== "oauth" && (
                 <details style={{ marginTop: "1rem", color: "var(--muted)", fontSize: "0.85rem" }}>
-                  <summary style={{ cursor: "pointer" }}>Personal mode (email only)</summary>
+                  <summary style={{ cursor: "pointer" }}>Personal mode (email only, no password)</summary>
                   <form onSubmit={handleSubmit} style={formStyle}>
                     <label htmlFor="dm-email" style={labelStyle}>DM email</label>
                     <input id="dm-email" name="email" type="email" required placeholder="you@example.com" style={inputStyle} />

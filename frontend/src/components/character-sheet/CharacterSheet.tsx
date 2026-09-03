@@ -892,8 +892,10 @@ const overlayStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
   justifyContent: "center",
-  padding: "2rem 1rem",
+  padding: "1rem 0.6rem",
   overflowY: "auto",
+  // iOS: keep the overlay's own scrolling from bouncing the page behind it.
+  overscrollBehavior: "contain",
 };
 
 const sheetStyle: React.CSSProperties = {
@@ -904,7 +906,8 @@ const sheetStyle: React.CSSProperties = {
   borderRadius: 12,
   display: "flex",
   flexDirection: "column",
-  maxHeight: "calc(100vh - 4rem)",
+  // dvh = the VISIBLE viewport on phones (100vh hides behind the iOS URL bar).
+  maxHeight: "calc(100dvh - 2rem)",
   overflow: "hidden",
 };
 
@@ -918,6 +921,12 @@ const stickyHeaderStyle: React.CSSProperties = {
 const bodyStyle: React.CSSProperties = {
   padding: "1rem 1.25rem",
   overflowY: "auto",
+  // A flex child won't shrink below its content without minHeight 0 — that
+  // was the phone bug: the body could never scroll, the sheet just clipped.
+  flex: "1 1 auto",
+  minHeight: 0,
+  WebkitOverflowScrolling: "touch",
+  overscrollBehavior: "contain",
   display: "flex",
   flexDirection: "column",
   gap: "1rem",

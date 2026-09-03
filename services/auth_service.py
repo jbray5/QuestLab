@@ -156,6 +156,65 @@ def complete(db: DBSession, provider: str, code: str, state: str) -> tuple[str, 
     return session_token.issue(user.email), user
 
 
+def signup(db: DBSession, name: str, email: str, password: str) -> tuple[str, User]:
+    """Create an email + password account and sign it in (Plan 73b).
+
+    Args:
+        db: Active database session.
+        name: Display name.
+        email: Email (the identity key).
+        password: Plaintext password (hashed with scrypt before storage).
+
+    Returns:
+        ``(session_token, user)``.
+
+    Raises:
+        ValueError: If the email is taken (with a password) or the password is weak.
+    """
+    from integrations import passwords
+
+    email = email.strip().lower()
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise ValueError("That doesn't look like an email address.")
+    user = UserRepo.get_by_email(db, email)
+    if user is not None and user.password_hash:
+        raise ValueError("An account with that email already exists — sign in instead.")
+    if user is None:
+        user = User(email=email)
+    user.display_name = name.strip()[:120] or user.display_name
+    user.password_hash = passwords.hash_password(password)
+    user = UserRepo.save(db, user)
+    return session_token.issue(user.email), user
+
+
+def login(db: DBSession, email: str, password: str) -> tuple[str, User]:
+    """Sign in with email + password (Plan 73b).
+
+    Args:
+        db: Active database session.
+        email: Email.
+        password: Plaintext password.
+
+    Returns:
+        ``(session_token, user)``.
+
+    Raises:
+        ValueError: On unknown email, no password set, or a wrong password
+            (one message for all three — no account enumeration).
+    """
+    from integrations import passwords
+
+    user = UserRepo.get_by_email(db, email.strip().lower())
+    if (
+        user is None
+        or not user.password_hash
+        or not passwords.verify_password(password, user.password_hash)
+    ):
+        raise ValueError("Email or password didn't match.")
+    user = UserRepo.save(db, user)  # bumps last_seen_at
+    return session_token.issue(user.email), user
+
+
 def touch_header_user(db: DBSession, email: str) -> None:
     """Ensure a users row exists for a trusted-header identity (best effort).
 
