@@ -1,7 +1,7 @@
 # Plan 00074 — Join → create your character
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (v1, live-verified 2026-09-03)
 
 **Started:** 2026-09-03 · **Implemented by:** Claude Code
 

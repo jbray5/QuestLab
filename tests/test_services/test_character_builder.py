@@ -14,6 +14,10 @@ from services import character_builder_service as builder
 from services import character_service, spellcasting_service
 
 
+def _cleanup(db, pc_id: str, dm: str) -> None:
+    character_service.delete_character(db, uuid.UUID(pc_id), dm)
+
+
 def _campaign(db):
     dm = f"dm_{uuid.uuid4().hex[:6]}@example.com"
     return camp_svc.create_campaign(db, name="Open Table", setting="R", tone="T", dm_email=dm)
@@ -74,6 +78,7 @@ class TestCreate:
         assert set(pc.saving_throw_proficiencies) == {"STR", "CON"}
         assert set(pc.skill_proficiencies) == {"Athletics", "Perception", "Intimidation"}
         assert pc.speed == 30
+        _cleanup(duckdb_session, res.pc_id, c.dm_email)
 
     def test_standard_array_enforced(self, duckdb_session: Session):
         c = _campaign(duckdb_session)
@@ -153,6 +158,7 @@ class TestCreate:
             "Fireball" in w for w in res.warnings
         )
         assert res.ac == 12  # unarmored 10 + DEX 2
+        _cleanup(duckdb_session, res.pc_id, c.dm_email)
 
     def test_signup_toggle_blocks(self, duckdb_session: Session):
         c = _campaign(duckdb_session)
