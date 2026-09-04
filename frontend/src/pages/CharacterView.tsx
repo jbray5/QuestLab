@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { zoomable } from "../components/Lightbox";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -232,7 +233,7 @@ function Doll({ pcId, model, busy }: { pcId: string; model: string | null; busy:
       <div className="doll">
         <div className="slot-col">{LEFT_SLOTS.map(renderSlot)}</div>
         <div className={busy ? "model busy" : "model"}>
-          {model ? <img src={model} alt="Your character" /> : <span className="ph">🧍</span>}
+          {model ? <img src={model} {...zoomable(model, pc.character_name)} alt="Your character" /> : <span className="ph">🧍</span>}
         </div>
         <div className="slot-col">{RIGHT_SLOTS.map(renderSlot)}</div>
       </div>
@@ -461,11 +462,11 @@ export default function CharacterView() {
         )}
         <div className="identity-row">
           <div className="identity-card">
-            <div className="im">{model ? <img src={model} alt="Your model" /> : <span style={{ opacity: 0.3, fontSize: "2rem" }}>🧍</span>}</div>
+            <div className="im">{model ? <img src={model} {...zoomable(model, `${pc.character_name} — model`)} alt="Your model" /> : <span style={{ opacity: 0.3, fontSize: "2rem" }}>🧍</span>}</div>
             <div className="cap">Your model</div>
           </div>
           <div className="identity-card">
-            <div className="im face">{pc.portrait_url ? <img src={pc.portrait_url} alt="Your portrait" /> : <span style={{ opacity: 0.3, fontSize: "2rem" }}>🎭</span>}</div>
+            <div className="im face">{pc.portrait_url ? <img src={pc.portrait_url} {...zoomable(pc.portrait_url, `${pc.character_name} — board mini`)} alt="Your portrait" /> : <span style={{ opacity: 0.3, fontSize: "2rem" }}>🎭</span>}</div>
             <div className="cap">Sheet &amp; DM screen</div>
           </div>
           <div className="identity-card">

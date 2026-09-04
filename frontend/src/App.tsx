@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PaywallModal from "./components/PaywallModal";
+import Lightbox from "./components/Lightbox";
 
 // Eager — small, always-needed pages.
 import Layout from "./pages/Layout";
@@ -84,6 +85,7 @@ export default function App() {
   return (
     <>
     <PaywallModal />
+    <Lightbox />
     <Routes>
       {/* Plan 25 — Player view: standalone route with no DM chrome */}
       <Route path="/join/:campaignId" element={lazyRoute(<JoinView />)} />

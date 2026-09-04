@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { zoomable } from "../components/Lightbox";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -538,7 +539,7 @@ function HeaderBanner({
     <div style={artBg ? { ...headerStyle, background: artBg } : headerStyle}>
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
         {pc.portrait_url ? (
-          <img src={portraitSrc(pc.portrait_url, pc.updated_at)} alt={pc.character_name} style={portraitStyle} />
+          <img src={portraitSrc(pc.portrait_url, pc.updated_at)} {...zoomable(portraitSrc(pc.portrait_url, pc.updated_at), pc.character_name)} alt={pc.character_name} style={portraitStyle} />
         ) : (
           <div style={{ ...portraitStyle, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.6rem" }}>
             🧙
@@ -1874,7 +1875,7 @@ function NpcsBlock({ pcId }: { pcId: string }) {
         >
           {n.portrait_url ? (
             <img
-              src={portraitSrc(n.portrait_url)}
+              src={portraitSrc(n.portrait_url)} {...zoomable(portraitSrc(n.portrait_url), n.name)}
               alt={n.name}
               style={{
                 width: "100%",

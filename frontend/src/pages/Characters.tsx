@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { zoomable } from "../components/Lightbox";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { campaignsApi } from "../api/campaigns";
@@ -411,7 +412,7 @@ export default function Characters() {
             <div className="flex items-center" style={{ gap: "0.75rem", marginBottom: "0.75rem" }}>
               {c.portrait_url ? (
                 <img
-                  src={portraitSrc(c.portrait_url, c.updated_at)}
+                  src={portraitSrc(c.portrait_url, c.updated_at)} {...zoomable(portraitSrc(c.portrait_url, c.updated_at), c.character_name)}
                   alt={c.character_name}
                   style={{
                     width: 52,

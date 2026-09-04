@@ -1,4 +1,5 @@
 import { type Npc, NPC_STATUS_COLORS } from "../../api/npcs";
+import { zoomable } from "../Lightbox";
 import { portraitSrc } from "../../lib/portrait";
 
 /**
@@ -71,7 +72,7 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
       <div style={{ display: "flex", gap: "0.7rem", alignItems: "center" }}>
         {npc.portrait_url ? (
           <img
-            src={portraitSrc(npc.portrait_url)}
+            src={portraitSrc(npc.portrait_url)} {...zoomable(portraitSrc(npc.portrait_url), npc.name)}
             alt={npc.name}
             style={{
               width: compact ? 40 : 52,

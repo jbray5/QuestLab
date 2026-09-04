@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { zoomable } from "../Lightbox";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { charactersApi } from "../../api/characters";
@@ -172,7 +173,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
           <div className="flex items-center" style={{ gap: "0.75rem" }}>
             {pc.portrait_url ? (
               <img
-                src={portraitSrc(pc.portrait_url, pc.updated_at)}
+                src={portraitSrc(pc.portrait_url, pc.updated_at)} {...zoomable(portraitSrc(pc.portrait_url, pc.updated_at), pc.character_name)}
                 alt={pc.character_name}
                 style={{
                   width: 56,

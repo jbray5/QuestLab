@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { zoomable } from "../components/Lightbox";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { sessionsApi } from "../api/sessions";
@@ -1367,7 +1368,7 @@ export default function SessionHud() {
                   >
                     {pc.portrait_url ? (
                       <img
-                        src={portraitSrc(pc.portrait_url, pc.updated_at)}
+                        src={portraitSrc(pc.portrait_url, pc.updated_at)} {...zoomable(portraitSrc(pc.portrait_url, pc.updated_at), pc.character_name)}
                         alt={pc.character_name}
                         loading="lazy"
                         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
@@ -1779,7 +1780,7 @@ export default function SessionHud() {
                       }}
                     >
                       {pc.portrait_url ? (
-                        <img src={pc.portrait_url} alt="" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flex: "none" }} />
+                        <img src={pc.portrait_url} {...zoomable(pc.portrait_url, pc.character_name)} alt="" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flex: "none" }} />
                       ) : (
                         <span style={{ fontSize: "1.3rem", flex: "none" }}>🧙</span>
                       )}
@@ -1835,7 +1836,7 @@ export default function SessionHud() {
                           }}
                         >
                           {npc.portrait_url ? (
-                            <img src={npc.portrait_url} alt="" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flex: "none" }} />
+                            <img src={npc.portrait_url} {...zoomable(npc.portrait_url, npc.name)} alt="" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flex: "none" }} />
                           ) : (
                             <span style={{ fontSize: "1.3rem", flex: "none" }}>👤</span>
                           )}
