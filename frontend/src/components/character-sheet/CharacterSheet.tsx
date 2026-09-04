@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { zoomable } from "../Lightbox";
+import { zoomable } from "../../lib/lightbox";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { charactersApi } from "../../api/characters";

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { zoomable } from "../components/Lightbox";
+import { zoomable } from "../lib/lightbox";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -334,7 +334,7 @@ function PlayerSheet({ pcId }: { pcId: string }) {
         </Section>
 
         <Section title="📚 Quick Rules Reference" id="rules" {...sectionProps}>
-          <RulesReference pc={pc} />
+          <RulesReference />
         </Section>
       </div>
     </div>
@@ -1967,7 +1967,7 @@ function NpcsBlock({ pcId }: { pcId: string }) {
   );
 }
 
-function RulesReference({ pc: _pc }: { pc: PlayerCharacter }) {
+function RulesReference() {
   return (
     <div style={{ fontSize: "0.85rem", lineHeight: 1.5 }}>
       <h4 style={ruleHeadStyle}>Advantage / Disadvantage</h4>

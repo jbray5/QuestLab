@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import type { LightboxDetail } from "../lib/lightbox";
+
 /**
  * Lightbox — tap any portrait to see it big.
  *
@@ -8,38 +10,6 @@ import { useEffect, useState } from "react";
  * access, and a tap that opens the full-size art with a caption. Closes on
  * tap, ✕, or Escape. Works on player pages and DM pages alike.
  */
-
-interface LightboxDetail {
-  src: string;
-  caption?: string;
-}
-
-/** Open the shared lightbox for `src`. */
-export function openLightbox(src: string, caption?: string) {
-  window.dispatchEvent(new CustomEvent<LightboxDetail>("ql:lightbox", { detail: { src, caption } }));
-}
-
-/** Props to spread onto an <img> so a tap enlarges it. */
-export function zoomable(src: string | null | undefined, caption?: string) {
-  if (!src) return {};
-  return {
-    role: "button" as const,
-    tabIndex: 0,
-    title: "Tap to enlarge",
-    style: { cursor: "zoom-in" as const },
-    onClick: (e: React.MouseEvent) => {
-      e.stopPropagation();
-      openLightbox(src, caption);
-    },
-    onKeyDown: (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        e.stopPropagation();
-        openLightbox(src, caption);
-      }
-    },
-  };
-}
 
 const CSS = `
 .ql-lightbox { position: fixed; inset: 0; z-index: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 2.5vh 2vw; background: rgba(4,3,8,0.92); backdrop-filter: blur(6px); cursor: zoom-out; animation: qlLbIn 0.16s ease-out; }

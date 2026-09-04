@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { zoomable } from "../components/Lightbox";
+import { zoomable } from "../lib/lightbox";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -233,7 +233,7 @@ function Doll({ pcId, model, busy }: { pcId: string; model: string | null; busy:
       <div className="doll">
         <div className="slot-col">{LEFT_SLOTS.map(renderSlot)}</div>
         <div className={busy ? "model busy" : "model"}>
-          {model ? <img src={model} {...zoomable(model, pc.character_name)} alt="Your character" /> : <span className="ph">🧍</span>}
+          {model ? <img src={model} {...zoomable(model, "Your character")} alt="Your character" /> : <span className="ph">🧍</span>}
         </div>
         <div className="slot-col">{RIGHT_SLOTS.map(renderSlot)}</div>
       </div>

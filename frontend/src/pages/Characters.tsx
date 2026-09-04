@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { zoomable } from "../components/Lightbox";
+import { zoomable } from "../lib/lightbox";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { campaignsApi } from "../api/campaigns";

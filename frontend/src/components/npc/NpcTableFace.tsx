@@ -1,5 +1,5 @@
 import { type Npc, NPC_STATUS_COLORS } from "../../api/npcs";
-import { zoomable } from "../Lightbox";
+import { zoomable } from "../../lib/lightbox";
 import { portraitSrc } from "../../lib/portrait";
 
 /**
