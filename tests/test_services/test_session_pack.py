@@ -124,8 +124,10 @@ class TestSessionPackLinking:
         assert any("Existing Ned" in w for w in result["warnings"])
         assert [n["name"] for n in result["npcs"]] == ["Maro the Ferryman"]
         # NPC actually landed on the roster.
-        names = {n.name for n in NpcRepo.list_by_campaign(duckdb_session, campaign.id)}
-        assert "Maro the Ferryman" in names
+        rows = {n.name: n for n in NpcRepo.list_by_campaign(duckdb_session, campaign.id)}
+        assert "Maro the Ferryman" in rows
+        # Unmet by definition — never on a player sheet until the DM reveals them.
+        assert rows["Maro the Ferryman"].is_revealed is False
         # Runbook saved with the pack's scenes.
         runbook = sess_svc.get_runbook(duckdb_session, game_session.id, dm)
         assert runbook is not None and runbook.opening_scene == "The fog parts."

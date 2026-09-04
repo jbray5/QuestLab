@@ -351,12 +351,12 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
             >
               <input
                 type="checkbox"
-                checked={form.is_revealed ?? true}
+                checked={form.is_revealed ?? false}
                 onChange={(e) => set("is_revealed", e.target.checked)}
                 style={{ width: "auto" }}
               />
               <span>
-                {form.is_revealed ?? true ? (
+                {form.is_revealed ?? false ? (
                   <>
                     <strong style={{ color: "var(--green2, #4caf50)" }}>Revealed</strong>
                     {" — shows on player phones in 'People You've Met'"}
@@ -417,7 +417,7 @@ function fromInitial(initial: Npc | null): NpcCreate {
     return {
       name: "",
       status: "Alive",
-      is_revealed: true,
+      is_revealed: false,
     };
   return {
     name: initial.name,
@@ -436,7 +436,7 @@ function fromInitial(initial: Npc | null): NpcCreate {
     monster_stat_block_id: initial.monster_stat_block_id,
     portrait_url: initial.portrait_url,
     notes: initial.notes,
-    is_revealed: initial.is_revealed ?? true,
+    is_revealed: initial.is_revealed ?? false,
     // Plan 40 — Table face
     quick_who: initial.quick_who,
     want_now: initial.want_now,

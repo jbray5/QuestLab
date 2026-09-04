@@ -302,6 +302,8 @@ lines. Make read-alouds atmospheric and the tactics concrete."""
                 want_now=n.want_now[:200] or None,
                 secret_short=n.secret_short[:200] or None,
                 dialog_hooks=n.improv_hooks or None,
+                # Unmet by definition: players see an NPC only once the DM reveals them.
+                is_revealed=False,
             ),
         )
         created_npcs.append({"name": n.name, "role": n.role})

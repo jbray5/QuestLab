@@ -220,7 +220,7 @@ def list_visible_npcs(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
     # Plan 38 P3-3 — DM-controlled visibility. Filter hidden NPCs server
     # side so even a curious player hitting /api/play/{id}/npcs can't see
     # the names/portraits of NPCs the DM hasn't revealed yet.
-    visible = [n for n in npcs if getattr(n, "is_revealed", True)]
+    visible = [n for n in npcs if getattr(n, "is_revealed", False)]
     return [
         {
             "id": str(npc.id),

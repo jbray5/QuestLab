@@ -51,7 +51,9 @@ class Npc(SQLModel, table=True):
     # True so existing NPCs stay visible; the DM flips this to False to
     # hide an NPC (villain reveal, plot twist, future-session character)
     # until they're ready for players to see the portrait + name.
-    is_revealed: bool = Field(default=True)
+    # Players see an NPC only after the DM marks them met — no secrets on
+    # player-facing surfaces (Plan 72 rule).
+    is_revealed: bool = Field(default=False)
     # ── Plan 40 — Table-face fields. Short, scannable counterparts to the
     #    rich prep-face fields above (appearance / personality / motivation /
     #    secret / notes). The Prep face above stays untouched; these are
@@ -98,7 +100,7 @@ class NpcCreate(BaseModel):
     monster_stat_block_id: Optional[uuid.UUID] = None
     portrait_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = None
-    is_revealed: bool = True
+    is_revealed: bool = False
     # Plan 40 — Table-face
     quick_who: Optional[str] = Field(default=None, max_length=120)
     want_now: Optional[str] = Field(default=None, max_length=200)
@@ -129,7 +131,7 @@ class NpcRead(BaseModel):
     monster_stat_block_id: Optional[uuid.UUID] = None
     portrait_url: Optional[str] = None
     notes: Optional[str] = None
-    is_revealed: bool = True
+    is_revealed: bool = False
     # Plan 40 — Table-face
     quick_who: Optional[str] = None
     want_now: Optional[str] = None
