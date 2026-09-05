@@ -2,18 +2,109 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, apiBase } from "../api/client";
-
-import Flourish from "../components/Flourish";
+import D20Mark from "../components/D20Mark";
 import { useAuthStore } from "../stores/useAuthStore";
 
 /**
- * Welcome / landing page (Plan 00035).
+ * Welcome / landing page (Plan 00035; redesigned in Plan 78).
  *
- * Standalone — no Layout chrome, no sidebar. Pitches QuestLab and
- * collects the DM email that becomes the identity. If a DM is already
- * signed in, redirects straight to the dashboard (or the ``next`` query
- * param if present).
+ * Standalone — no Layout chrome. One screen makes the case and takes the
+ * sign-up: the pitch on the left, the account card on the right, then four
+ * pillars and the three-step night. If a DM is already signed in, redirects
+ * straight to the dashboard (or the ``next`` query param).
  */
+
+interface Profile {
+  email: string;
+  display_name: string;
+  avatar_url: string | null;
+  discord_linked: boolean;
+  patreon_linked: boolean;
+  patron_active: boolean;
+  is_admin: boolean;
+  ai_allowed: boolean;
+  ai_reason: string | null;
+  ai_remaining_today: number | null;
+  tier?: string;
+  ai_daily_limit?: number | null;
+}
+
+interface Providers {
+  providers: string[];
+  mode: string;
+  password_signup?: boolean;
+}
+
+const CSS = `
+.ql-welcome { min-height: 100vh; padding: 0 1.25rem 3rem; color: var(--text);
+  background:
+    radial-gradient(1100px 560px at 15% -8%, rgba(201,168,76,0.11), transparent 62%),
+    radial-gradient(900px 520px at 100% 18%, rgba(139,26,26,0.18), transparent 60%),
+    var(--bg); }
+.ql-w-top { max-width: 1080px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 0; }
+.ql-w-brand { font-family: "Cinzel Decorative", serif; color: var(--gold); letter-spacing: 0.08em; font-size: 1rem; }
+.ql-w-top nav { display: flex; gap: 1.25rem; font-size: 0.85rem; }
+.ql-w-top a { color: var(--muted); text-decoration: none; }
+.ql-w-top a:hover { color: var(--gold); }
+.ql-w-hero { max-width: 1080px; margin: 1.25rem auto 0; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 420px); gap: 3rem; align-items: center; }
+.ql-w-die { margin: 0 0 0.75rem -6px; }
+.ql-w-eyebrow { text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.7rem; color: var(--gold); margin: 0 0 0.55rem; }
+.ql-w-hero h1 { font-family: "Cinzel Decorative", serif; font-size: clamp(1.7rem, 3.3vw, 2.5rem); line-height: 1.15; color: var(--parch); margin: 0 0 0.9rem; text-wrap: balance; }
+.ql-w-lede { font-size: 1.12rem; line-height: 1.55; margin: 0 0 1.1rem; max-width: 34em; opacity: 0.92; }
+.ql-w-proof { list-style: none; padding: 0; margin: 0 0 1.1rem; display: flex; flex-direction: column; gap: 0.55rem; }
+.ql-w-proof li { padding-left: 1.4rem; position: relative; line-height: 1.45; font-size: 0.98rem; }
+.ql-w-proof li::before { content: "◆"; position: absolute; left: 0; top: 0.2rem; color: var(--gold); font-size: 0.65rem; }
+.ql-w-proof b { color: var(--parch2); font-weight: 600; }
+.ql-w-price { font-size: 0.86rem; color: var(--muted); margin: 0; }
+.ql-w-card { background: linear-gradient(180deg, rgba(32,30,38,0.92), rgba(22,22,26,0.96)); border: 1px solid var(--gold); border-radius: 14px; padding: 1.5rem 1.6rem 1.4rem; box-shadow: 0 24px 60px rgba(0,0,0,0.5), 0 0 60px rgba(201,168,76,0.08); }
+.ql-w-card h2 { font-family: "Cinzel Decorative", serif; color: var(--gold); font-size: 1.15rem; margin: 0 0 0.4rem; text-align: center; letter-spacing: 0.03em; }
+.ql-w-sub { font-size: 0.84rem; color: var(--muted); text-align: center; line-height: 1.5; margin: 0 0 1rem; }
+.ql-w-form { display: flex; flex-direction: column; gap: 0.5rem; }
+.ql-w-form label { font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.ql-w-form input { padding: 0.62rem 0.75rem; font-size: 1rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: inherit; }
+.ql-w-form input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201,168,76,0.18); }
+.ql-w-cta { margin-top: 0.4rem; font-size: 0.98rem; padding: 0.68rem 1rem; width: 100%; }
+.ql-w-seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--border); border-radius: 999px; padding: 3px; margin-bottom: 0.9rem; background: var(--surface2); }
+.ql-w-seg button { border: 0; background: transparent; color: var(--muted); padding: 0.42rem; border-radius: 999px; font-family: inherit; font-size: 0.92rem; cursor: pointer; }
+.ql-w-seg button.on { background: var(--crimson); color: #fff; }
+.ql-w-or { text-align: center; color: var(--muted); font-size: 0.7rem; letter-spacing: 0.18em; margin: 0.85rem 0; }
+.ql-w-provider { display: block; text-align: center; width: 100%; margin-bottom: 0.55rem; }
+.ql-w-err { color: var(--danger); font-size: 0.88rem; margin: 0.2rem 0 0; text-align: center; }
+.ql-w-note { text-align: center; color: var(--muted); font-size: 0.8rem; margin: 0.75rem 0 0; line-height: 1.45; }
+.ql-w-note a { color: var(--gold); }
+.ql-w-card details { margin-top: 0.9rem; color: var(--muted); font-size: 0.82rem; }
+.ql-w-card summary { cursor: pointer; }
+.ql-w-pillars { max-width: 1080px; margin: 3.5rem auto 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.ql-w-pillar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.1rem 1.2rem; transition: border-color 0.2s, transform 0.2s; }
+.ql-w-pillar:hover { border-color: rgba(201,168,76,0.55); transform: translateY(-2px); }
+.ql-w-pillar .ic { font-size: 1.5rem; margin-bottom: 0.45rem; line-height: 1; }
+.ql-w-pillar h3 { font-family: "Cinzel Decorative", serif; font-size: 0.84rem; color: var(--gold); margin: 0 0 0.4rem; letter-spacing: 0.03em; line-height: 1.35; }
+.ql-w-pillar p { margin: 0; font-size: 0.86rem; line-height: 1.45; opacity: 0.85; }
+.ql-w-steps { max-width: 1080px; margin: 3rem auto 0; }
+.ql-w-steps h2 { font-family: "Cinzel Decorative", serif; color: var(--parch); font-size: 1.15rem; margin: 0 0 1rem; text-align: center; letter-spacing: 0.03em; }
+.ql-w-steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.ql-w-steps li { display: flex; gap: 0.8rem; align-items: flex-start; background: rgba(22,22,26,0.65); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; font-size: 0.9rem; line-height: 1.45; }
+.ql-w-steps .k { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--gold); color: var(--gold); display: flex; align-items: center; justify-content: center; font-family: "Cinzel Decorative", serif; font-size: 0.85rem; }
+.ql-w-steps b { color: var(--parch2); }
+.ql-w-foot { max-width: 1080px; margin: 3rem auto 0; display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; font-size: 0.72rem; color: var(--muted); }
+.ql-w-foot a { color: inherit; }
+@media (max-width: 900px) {
+  .ql-w-hero { grid-template-columns: 1fr; gap: 1.8rem; }
+  .ql-w-pillars { grid-template-columns: 1fr 1fr; }
+  .ql-w-steps ol { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .ql-welcome { padding: 0 1rem 2.5rem; }
+  .ql-w-proof { display: none; }
+  .ql-w-lede { margin-bottom: 0.7rem; }
+  .ql-w-pillars { grid-template-columns: 1fr; margin-top: 2.5rem; }
+  .ql-w-hero h1 { font-size: 1.55rem; }
+  .ql-w-die svg { width: 116px; height: 116px; }
+  .ql-w-lede { font-size: 1.02rem; }
+}
+@media (prefers-reduced-motion: reduce) { .ql-w-pillar { transition: none; } }
+`;
+
 export default function Welcome() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -21,14 +112,14 @@ export default function Welcome() {
   const next = params.get("next") || "/";
   const error = params.get("error");
   // Plan 73 — which sign-in methods this deployment offers.
-  const [providers, setProviders] = useState<{ providers: string[]; mode: string; password_signup?: boolean } | null>(null);
+  const [providers, setProviders] = useState<Providers | null>(null);
   // Plan 73b — email + password accounts (the always-available path).
   const [tab, setTab] = useState<"signup" | "signin">("signup");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   useEffect(() => {
     api
-      .get<{ providers: string[]; mode: string; password_signup?: boolean }>("/auth/providers")
+      .get<Providers>("/auth/providers")
       .then(setProviders)
       .catch(() => setProviders({ providers: [], mode: "header" }));
   }, []);
@@ -41,7 +132,7 @@ export default function Welcome() {
     setToken(token);
     window.history.replaceState(null, "", window.location.pathname + window.location.search);
     api
-      .get<{ email: string; display_name: string; avatar_url: string | null; discord_linked: boolean; patreon_linked: boolean; patron_active: boolean; is_admin: boolean; ai_allowed: boolean; ai_reason: string | null; ai_remaining_today: number | null }>("/auth/me")
+      .get<Profile>("/auth/me")
       .then((me) => {
         setProfile(me);
         setDmEmail(me.email);
@@ -70,7 +161,7 @@ export default function Welcome() {
     setBusy(true);
     setFormError(null);
     try {
-      const res = await api.post<{ token: string; user: { email: string; display_name: string; avatar_url: string | null; discord_linked: boolean; patreon_linked: boolean; patron_active: boolean; is_admin: boolean; ai_allowed: boolean; ai_reason: string | null; ai_remaining_today: number | null } }>(
+      const res = await api.post<{ token: string; user: Profile }>(
         tab === "signup" ? "/auth/signup" : "/auth/login",
         tab === "signup" ? { name, email, password } : { email, password },
       );
@@ -85,7 +176,7 @@ export default function Welcome() {
     }
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleEmailOnly(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const email = String(form.get("email") ?? "").trim();
@@ -95,331 +186,218 @@ export default function Welcome() {
     }
   }
 
+  const hasAccounts = !!providers && (providers.password_signup || providers.providers.length > 0);
+
   return (
-    <div style={pageStyle}>
-      <div style={containerStyle} className="ql-modal-in">
-        {/* Hero */}
-        <header style={heroStyle}>
-          <img src="/d20.svg" alt="" aria-hidden style={d20Style} />
-          <h1 style={titleStyle}>QuestLab</h1>
-          <Flourish width={220} />
-          <p style={taglineStyle}>
-            An AI campaign studio for D&amp;D 5e (2024). Plan your worlds,
-            run your sessions, and put a living sheet in every player&apos;s hand.
+    <div className="ql-welcome">
+      <style>{CSS}</style>
+
+      <header className="ql-w-top">
+        <span className="ql-w-brand">⚔ QuestLab</span>
+        <nav>
+          <Link to="/guide">Guide</Link>
+          <Link to="/terms">Terms</Link>
+          <a href="#account">Sign in</a>
+        </nav>
+      </header>
+
+      <section className="ql-w-hero">
+        <div className="ql-w-pitch">
+          <div className="ql-w-die">
+            <D20Mark size={160} />
+          </div>
+          <p className="ql-w-eyebrow">A table tool for D&amp;D 5e (2024)</p>
+          <h1>Run the table you&rsquo;ve been picturing.</h1>
+          <p className="ql-w-lede">
+            A shared board on the TV. A living sheet on every phone. Dice you shake. Your prep on one
+            screen. In person, online, or both.
           </p>
-        </header>
+          <ul className="ql-w-proof">
+            <li>
+              <b>Minutes to the first roll.</b> Players scan the QR on the TV, build a character, and
+              they&rsquo;re on the board.
+            </li>
+            <li>
+              <b>Nothing to refresh.</b> Damage you apply lands on their phones in a second; conditions
+              show up on the board.
+            </li>
+            <li>
+              <b>One screen to run from.</b> Party HP, initiative, the live board, and tonight&rsquo;s
+              notes in one cockpit.
+            </li>
+          </ul>
+          <p className="ql-w-price">Free, forever, for the table. AI prep for patrons from $5 a month.</p>
+        </div>
 
-        {/* Feature grid */}
-        <section style={featuresStyle}>
-          <Feature
-            icon="🧙"
-            title="Full character sheets"
-            desc="2024 rules — spells, weapons, attacks, features, rest, inspiration, death saves, exhaustion, hit dice. The real ones."
-          />
-          <Feature
-            icon="📱"
-            title="A live sheet per player"
-            desc="Each player gets a URL on their phone. HP, slots, hit dice — all self-service. The DM doesn't bottleneck."
-          />
-          <Feature
-            icon="⚡"
-            title="Live sync"
-            desc="DM applies damage on the HUD; the player's phone updates within a second. No refresh."
-          />
-          <Feature
-            icon="✨"
-            title="AI for patrons"
-            desc="NPCs with secrets, encounters, runbooks and full Session Packs for prep; portraits, standees and maps for the table. Included with a Patreon membership from $5 a month. Everything else is free."
-          />
-          <Feature
-            icon="🎲"
-            title="Real-die first"
-            desc="Players still roll real dice at the table. The app shows the total + crit / fumble effects with confetti and sound."
-          />
-          <Feature
-            icon="📖"
-            title="DM screen on tap"
-            desc="11 tabs of 2024 rules — conditions, actions, cover, hazards. Searchable. Open mid-session."
-          />
-        </section>
-
-        {/* Sign-in card */}
-        <section style={signInCardStyle}>
-          <h2 style={signInTitleStyle}>Enter the lab</h2>
-          {error && (
-            <p style={{ color: "var(--danger, #ef5350)", textAlign: "center", margin: "0 0 0.8rem" }}>{error}</p>
-          )}
-          {providers === null ? null : providers.password_signup || providers.providers.length > 0 ? (
+        <section id="account" className="ql-w-card" aria-label="Sign in or create an account">
+          <h2>Enter the lab</h2>
+          {error && <p className="ql-w-err">{error}</p>}
+          {providers === null ? null : hasAccounts ? (
             <>
-              <p style={signInSubtitleStyle}>
-                Your campaigns are tied to your account — nobody else can see them. Players never
-                need an account; they get a link or a QR code.
+              <p className="ql-w-sub">
+                Your campaigns live under your account and nobody else sees them. Players never need
+                one; they get a link or a QR.
               </p>
               {providers.providers.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", alignItems: "center", marginBottom: "0.9rem" }}>
+                <div>
                   {providers.providers.includes("discord") && (
-                    <a className="btn btn-primary" style={ctaBtnStyle} href={`${apiBase()}/auth/discord/start`}>
+                    <a className="btn btn-primary ql-w-provider" href={`${apiBase()}/auth/discord/start`}>
                       Continue with Discord
                     </a>
                   )}
                   {providers.providers.includes("patreon") && (
-                    <a className="btn" style={ctaBtnStyle} href={`${apiBase()}/auth/patreon/start`}>
+                    <a className="btn btn-secondary ql-w-provider" href={`${apiBase()}/auth/patreon/start`}>
                       Continue with Patreon
                     </a>
                   )}
-                  {providers.password_signup && (
-                    <div style={{ color: "var(--muted)", fontSize: "0.8rem", letterSpacing: "0.1em" }}>— OR —</div>
-                  )}
+                  {providers.password_signup && <div className="ql-w-or">OR</div>}
                 </div>
               )}
               {providers.password_signup && (
                 <>
-                  <div style={{ display: "flex", gap: "0.4rem", justifyContent: "center", marginBottom: "0.8rem" }}>
-                    <button type="button" className={`btn ${tab === "signup" ? "btn-primary" : "btn-ghost"}`} onClick={() => setTab("signup")}>
+                  <div className="ql-w-seg" role="tablist">
+                    <button type="button" role="tab" aria-selected={tab === "signup"} className={tab === "signup" ? "on" : ""} onClick={() => setTab("signup")}>
                       Create account
                     </button>
-                    <button type="button" className={`btn ${tab === "signin" ? "btn-primary" : "btn-ghost"}`} onClick={() => setTab("signin")}>
+                    <button type="button" role="tab" aria-selected={tab === "signin"} className={tab === "signin" ? "on" : ""} onClick={() => setTab("signin")}>
                       Sign in
                     </button>
                   </div>
-                  <form onSubmit={(e) => void handleAccount(e)} style={formStyle}>
+                  <form onSubmit={(e) => void handleAccount(e)} className="ql-w-form">
                     {tab === "signup" && (
                       <>
-                        <label htmlFor="acct-name" style={labelStyle}>Your name</label>
-                        <input id="acct-name" name="name" type="text" required autoComplete="name" placeholder="What your players call you" style={inputStyle} />
+                        <label htmlFor="acct-name">Your name</label>
+                        <input id="acct-name" name="name" type="text" required autoComplete="name" placeholder="What your players call you" />
                       </>
                     )}
-                    <label htmlFor="acct-email" style={labelStyle}>Email</label>
-                    <input id="acct-email" name="email" type="email" required autoComplete="email" placeholder="you@example.com" style={inputStyle} />
-                    <label htmlFor="acct-password" style={labelStyle}>Password</label>
-                    <input id="acct-password" name="password" type="password" required minLength={8} autoComplete={tab === "signup" ? "new-password" : "current-password"} placeholder={tab === "signup" ? "At least 8 characters" : "Your password"} style={inputStyle} />
-                    {formError && <p style={{ color: "var(--danger, #ef5350)", margin: "0.2rem 0 0", fontSize: "0.9rem" }}>{formError}</p>}
-                    <button className="btn btn-primary" type="submit" style={ctaBtnStyle} disabled={busy}>
+                    <label htmlFor="acct-email">Email</label>
+                    <input id="acct-email" name="email" type="email" required autoComplete="email" placeholder="you@example.com" />
+                    <label htmlFor="acct-password">Password</label>
+                    <input
+                      id="acct-password"
+                      name="password"
+                      type="password"
+                      required
+                      minLength={8}
+                      autoComplete={tab === "signup" ? "new-password" : "current-password"}
+                      placeholder={tab === "signup" ? "At least 8 characters" : "Your password"}
+                    />
+                    {formError && <p className="ql-w-err">{formError}</p>}
+                    <button className="btn btn-primary ql-w-cta" type="submit" disabled={busy}>
                       {busy ? "One moment…" : tab === "signup" ? "Create my account →" : "Sign in →"}
                     </button>
                   </form>
                   {tab === "signin" && (
-                    <p style={{ textAlign: "center", color: "var(--muted)", fontSize: "0.8rem", marginTop: "0.6rem" }}>
+                    <p className="ql-w-note">
                       Forgot your password? Sign in with Discord using the same email, or contact support.
                     </p>
                   )}
                 </>
               )}
               {providers.mode !== "oauth" && (
-                <details style={{ marginTop: "1rem", color: "var(--muted)", fontSize: "0.85rem" }}>
-                  <summary style={{ cursor: "pointer" }}>Personal mode (email only, no password)</summary>
-                  <form onSubmit={handleSubmit} style={formStyle}>
-                    <label htmlFor="dm-email" style={labelStyle}>DM email</label>
-                    <input id="dm-email" name="email" type="email" required placeholder="you@example.com" style={inputStyle} />
-                    <button className="btn btn-primary" type="submit" style={ctaBtnStyle}>Continue →</button>
+                <details>
+                  <summary>Personal mode (email only, no password)</summary>
+                  <form onSubmit={handleEmailOnly} className="ql-w-form" style={{ marginTop: "0.5rem" }}>
+                    <label htmlFor="dm-email">DM email</label>
+                    <input id="dm-email" name="email" type="email" required placeholder="you@example.com" />
+                    <button className="btn btn-primary ql-w-cta" type="submit">Continue →</button>
                   </form>
                 </details>
               )}
             </>
           ) : (
             <>
-              <p style={signInSubtitleStyle}>
-                Your email is stored on this device only. It identifies which
-                campaigns belong to you. No password, no verification — change
-                it any time from the sidebar.
+              <p className="ql-w-sub">
+                Your email stays on this device and marks which campaigns are yours. No password, no
+                verification; change it any time from the sidebar.
               </p>
-              <form onSubmit={handleSubmit} style={formStyle}>
-                <label htmlFor="dm-email" style={labelStyle}>
-                  DM email
-                </label>
-                <input
-                  id="dm-email"
-                  name="email"
-                  type="email"
-                  required
-                  autoFocus
-                  placeholder="you@example.com"
-                  style={inputStyle}
-                />
-                <button className="btn btn-primary" type="submit" style={ctaBtnStyle}>
+              <form onSubmit={handleEmailOnly} className="ql-w-form">
+                <label htmlFor="dm-email">DM email</label>
+                <input id="dm-email" name="email" type="email" required autoFocus placeholder="you@example.com" />
+                <button className="btn btn-primary ql-w-cta" type="submit">
                   Continue →
                 </button>
               </form>
             </>
           )}
-          <p style={{ textAlign: "center", marginTop: "1rem", fontSize: "0.85rem" }}>
-            New here? Read <Link to="/guide" style={{ color: "var(--gold)" }}>the 15-minute guide</Link>.
+          <p className="ql-w-note">
+            New here? Read <Link to="/guide">the 15-minute guide</Link>.
           </p>
         </section>
+      </section>
 
-        <footer style={footerStyle}>
-          <span>QuestLab · 2026</span>
-          <span>·</span>
-          <span>SRD 5.2.1 content used under CC-BY 4.0</span>
-          <span>·</span>
-          <Link to="/guide" style={{ color: "inherit" }}>Guide</Link>
-          <span>·</span>
-          <Link to="/terms" style={{ color: "inherit" }}>Terms</Link>
-        </footer>
-      </div>
+      <section className="ql-w-pillars" aria-label="What QuestLab does">
+        <Pillar
+          icon="🗺"
+          title="The board on the TV"
+          text="Stage a map, reveal it with a cinematic, move tokens on a 3D table. HP, conditions and whose turn it is live right on it."
+        />
+        <Pillar
+          icon="📱"
+          title="A living sheet on every phone"
+          text="Spells, slots, rests, inventory, death saves, all self-service. Shake to roll and the die lands on the shared board."
+        />
+        <Pillar
+          icon="🎬"
+          title="A DM cockpit"
+          text="Party HP, initiative and the live board over tonight's notes, on one screen. Press N for your notes anywhere."
+        />
+        <Pillar
+          icon="✨"
+          title="AI prep for patrons"
+          text="NPCs with secrets, encounters, runbooks, full Session Packs, portraits and standees. From $5 a month; everything else is free."
+        />
+      </section>
+
+      <section className="ql-w-steps" aria-label="How a night goes">
+        <h2>A night, start to finish</h2>
+        <ol>
+          <li>
+            <span className="k">1</span>
+            <div>
+              <b>Make a campaign.</b> Or take the sample one and be running in five minutes.
+            </div>
+          </li>
+          <li>
+            <span className="k">2</span>
+            <div>
+              <b>Put the QR on the TV.</b> Players scan it, build or claim a character, and their phone
+              becomes their sheet.
+            </div>
+          </li>
+          <li>
+            <span className="k">3</span>
+            <div>
+              <b>Stage a map and roll initiative.</b> Move tokens, apply damage, drop conditions.
+              Everyone&rsquo;s screen follows.
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <footer className="ql-w-foot">
+        <span>QuestLab · 2026</span>
+        <span>·</span>
+        <span>SRD 5.2.1 content under CC-BY 4.0</span>
+        <span>·</span>
+        <span>Not affiliated with Wizards of the Coast</span>
+        <span>·</span>
+        <Link to="/guide">Guide</Link>
+        <span>·</span>
+        <Link to="/terms">Terms</Link>
+      </footer>
     </div>
   );
 }
 
-function Feature({
-  icon,
-  title,
-  desc,
-}: {
-  icon: string;
-  title: string;
-  desc: string;
-}) {
+function Pillar({ icon, title, text }: { icon: string; title: string; text: string }) {
   return (
-    <div style={featureCardStyle}>
-      <div style={{ fontSize: "1.6rem", marginBottom: "0.3rem" }}>{icon}</div>
-      <h3
-        style={{
-          margin: 0,
-          fontSize: "0.95rem",
-          color: "var(--gold)",
-          fontFamily: "Cinzel Decorative, serif",
-          letterSpacing: "0.04em",
-        }}
-      >
-        {title}
-      </h3>
-      <p
-        style={{
-          margin: "0.3rem 0 0",
-          fontSize: "0.82rem",
-          color: "var(--text)",
-          opacity: 0.85,
-          lineHeight: 1.45,
-        }}
-      >
-        {desc}
-      </p>
+    <div className="ql-w-pillar">
+      <div className="ic" aria-hidden>
+        {icon}
+      </div>
+      <h3>{title}</h3>
+      <p>{text}</p>
     </div>
   );
 }
-
-// ── Styles ────────────────────────────────────────────────────────────────────
-
-const pageStyle: React.CSSProperties = {
-  minHeight: "100vh",
-  padding: "3rem 1rem",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "flex-start",
-};
-
-const containerStyle: React.CSSProperties = {
-  maxWidth: 880,
-  width: "100%",
-  display: "flex",
-  flexDirection: "column",
-  gap: "2rem",
-};
-
-const heroStyle: React.CSSProperties = {
-  textAlign: "center",
-};
-
-const d20Style: React.CSSProperties = {
-  width: 96,
-  height: 96,
-  marginBottom: "0.4rem",
-  filter: "drop-shadow(0 0 24px rgba(201, 168, 76, 0.35))",
-};
-
-const titleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: "2.4rem",
-  color: "var(--gold)",
-  fontFamily: "Cinzel Decorative, serif",
-  letterSpacing: "0.06em",
-};
-
-const taglineStyle: React.CSSProperties = {
-  margin: "0.5rem auto 0",
-  maxWidth: 560,
-  fontStyle: "italic",
-  color: "var(--text)",
-  opacity: 0.85,
-  fontSize: "1.02rem",
-  lineHeight: 1.5,
-};
-
-const featuresStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "0.85rem",
-};
-
-const featureCardStyle: React.CSSProperties = {
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  padding: "0.85rem 1rem",
-  transition: "transform 180ms ease, border-color 180ms ease",
-};
-
-const signInCardStyle: React.CSSProperties = {
-  background: "var(--surface)",
-  border: "1px solid var(--gold)",
-  borderRadius: 12,
-  padding: "1.5rem 1.75rem",
-  boxShadow: "0 8px 40px rgba(0,0,0,0.45), 0 0 60px rgba(201, 168, 76, 0.08)",
-  maxWidth: 520,
-  margin: "0 auto",
-  width: "100%",
-};
-
-const signInTitleStyle: React.CSSProperties = {
-  margin: 0,
-  fontSize: "1.3rem",
-  color: "var(--gold)",
-  fontFamily: "Cinzel Decorative, serif",
-  textAlign: "center",
-};
-
-const signInSubtitleStyle: React.CSSProperties = {
-  margin: "0.5rem 0 1.1rem",
-  fontSize: "0.85rem",
-  color: "var(--muted)",
-  textAlign: "center",
-  lineHeight: 1.5,
-};
-
-const formStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "0.5rem",
-};
-
-const labelStyle: React.CSSProperties = {
-  fontSize: "0.65rem",
-  color: "var(--muted)",
-  letterSpacing: "0.1em",
-  textTransform: "uppercase",
-};
-
-const inputStyle: React.CSSProperties = {
-  padding: "0.55rem 0.75rem",
-  fontSize: "1rem",
-  background: "var(--surface2)",
-  border: "1px solid var(--border)",
-  borderRadius: 6,
-  color: "var(--text)",
-};
-
-const ctaBtnStyle: React.CSSProperties = {
-  marginTop: "0.4rem",
-  fontSize: "0.95rem",
-  padding: "0.55rem 1rem",
-};
-
-const footerStyle: React.CSSProperties = {
-  display: "flex",
-  gap: "0.5rem",
-  justifyContent: "center",
-  fontSize: "0.7rem",
-  color: "var(--muted)",
-  flexWrap: "wrap",
-};
