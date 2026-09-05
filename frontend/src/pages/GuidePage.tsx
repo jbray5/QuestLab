@@ -64,7 +64,7 @@ export default function GuidePage() {
       </div>
 
       <h2 id="cockpit">Two screens, one cockpit</h2>
-      <p>The setup most DMs land on: the players&rsquo; screen (a TV, a projector, or a shared link) shows the <b>3D table view</b>; your own screen shows the <b>HUD</b> — party HP on the left, the live board in the middle, combat on the right. You never have to leave it during play.</p>
+      <p>The setup most DMs land on: the players&rsquo; screen (a TV, a projector, or a shared link) shows the <b>3D table view</b>; your own screen shows the <b>HUD</b> — party HP on the left; the combat bar and initiative across the top; the live board; your notes and the beats underneath. Give it three-quarters of a monitor and you never have to leave it during play.</p>
       <ul>
         <li><b>Notes anywhere.</b> Press <b>N</b> on any DM page for the notes dock: tonight&rsquo;s notes (autosaved), the runbook script, and every NPC with their secrets. Drag it where you like, resize it from the corner, dim it to see the board through it.</li>
         <li><b>Half a monitor?</b> If Discord takes the other half, hit <span className="btnref">↗ Pop out</span> on the dock: your notes open in a small window you can park over the Discord chat column.</li>

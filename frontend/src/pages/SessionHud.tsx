@@ -38,6 +38,7 @@ import DmScreen from "../components/dm-screen/DmScreen";
 import LootPanel from "../components/LootPanel";
 import TableConsole from "../components/table/TableConsole";
 import LiveBoardPane from "../components/table/LiveBoardPane";
+import SessionNotesEditor from "../components/dm/SessionNotesEditor";
 import { tableApi } from "../api/table";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import MonsterStatBlock from "../components/MonsterStatBlock";
@@ -90,7 +91,6 @@ const CONDITION_RULES: Record<Condition, string> = {
   Unconscious: "Incapacitated + can't move/speak + unaware of surroundings. Drop held items, fall prone. Auto-fail STR/DEX saves. Attacks have advantage; hits within 5 ft are crits.",
 };
 
-const DICE = [4, 6, 8, 10, 12, 20, 100] as const;
 
 function abilityMod(score: number) {
   return Math.floor((score - 10) / 2);
@@ -628,6 +628,38 @@ export default function SessionHud() {
   // control and cards, so Maps is now the default and the script slides over
   // on demand instead of occupying a tab.
   const [centerTab, setCenterTab] = useState<"maps" | "live" | "people">("maps");
+  // Plan 76 — cockpit chrome: the ＋ Add / 📣 Table roll popover and the
+  // height of the notes strip under the board (persisted).
+  const [addOpen, setAddOpen] = useState(false);
+  const [tableRollOpen, setTableRollOpen] = useState(false);
+  const [stripOpen, setStripOpen] = useState(true);
+  const [notesH, setNotesH] = useState<number>(() => {
+    try {
+      return Math.min(520, Math.max(120, Number(localStorage.getItem("ql-hud-notes-h") ?? 200) || 200));
+    } catch {
+      return 200;
+    }
+  });
+  function startNotesResize(e: React.PointerEvent) {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = notesH;
+    const move = (ev: PointerEvent) => setNotesH(Math.min(520, Math.max(120, startH - (ev.clientY - startY))));
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setNotesH((h) => {
+        try {
+          localStorage.setItem("ql-hud-notes-h", String(h));
+        } catch {
+          /* height just doesn't persist */
+        }
+        return h;
+      });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
   const [scriptOpen, setScriptOpen] = useState(false);
   // Party owns the real estate by default; the center only claims it while
   // the DM is actively working a map. Auto-enters on staging a map, manual
@@ -1039,14 +1071,6 @@ export default function SessionHud() {
     return map;
   }, [monsterQueries, distinctMonsterIds]);
 
-  // ── Dice roller ────────────────────────────────────────────────────────────
-  const [diceLog, setDiceLog] = useState<{ die: number; result: number }[]>([]);
-
-  const rollDie = useCallback((sides: number) => {
-    const result = Math.floor(Math.random() * sides) + 1;
-    setDiceLog((prev) => [{ die: sides, result }, ...prev].slice(0, 8));
-  }, []);
-
   // ── Quick rules accordion ──────────────────────────────────────────────────
   const [rulesOpen, setRulesOpen] = useState<string | null>(null);
 
@@ -1097,7 +1121,7 @@ export default function SessionHud() {
   const sessionLabel = `Session ${session.session_number}${session.title ? `: ${session.title}` : ""}`;
 
   return (
-    <div className="fade-in" style={{ display: "flex", flexDirection: "column", height: "100%", gap: 0 }}>
+    <div className="fade-in ql-hud-root" style={{ display: "flex", flexDirection: "column", gap: 0 }}>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="flex" style={{
@@ -1225,10 +1249,11 @@ export default function SessionHud() {
       {/* ── Three-panel body (CSS stacks + scrolls it below 820px) ─────────── */}
       <div className="ql-hud-body" style={{
         display: "grid",
-        // Plan 60b — party-first by default; map focus flips the balance.
+        // Plan 76 — two columns: the party, then the cockpit (combat bar +
+        // initiative strip over the board, notes + beats under it).
         gridTemplateColumns: mapFocus
-          ? "300px 2.2fr 320px"
-          : "minmax(360px, 1.2fr) minmax(300px, 1fr) 320px",
+          ? "300px minmax(0, 1fr)"
+          : "minmax(330px, 380px) minmax(0, 1fr)",
         transition: "grid-template-columns 0.25s ease",
         flex: 1,
         overflow: "hidden",
@@ -1489,8 +1514,483 @@ export default function SessionHud() {
           })}
         </div>
 
+        {/* ── COCKPIT (Plan 76): combat bar + initiative strip over the board, notes + beats under it ── */}
+        <div
+          className="ql-cockpit"
+          style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, overflow: "hidden", position: "relative" }}
+        >
+          <div style={{
+            padding: "0.6rem 0.75rem",
+            borderBottom: "1px solid var(--border)",
+            fontSize: "0.7rem",
+            fontWeight: 700,
+            color: "var(--muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            background: "var(--surface2)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}>
+            <button
+              className="btn btn-ghost"
+              onClick={() => setStripOpen((v) => !v)}
+              title={stripOpen ? "Hide the initiative strip" : "Show the initiative strip"}
+              style={{ fontSize: "0.7rem", padding: "0.1rem 0.4rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)" }}
+            >
+              {stripOpen ? "▾" : "▸"} Combat {combatActive ? `· Round ${round} · ${combatants.length} in order` : "· idle"}
+            </button>
+            <div
+              style={{
+                display: "flex",
+                gap: "0.35rem",
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+              }}
+            >
+              <button
+                className={`btn ${addOpen ? "btn-primary" : "btn-ghost"}`}
+                style={{ fontSize: "0.65rem", padding: "0.2rem 0.55rem" }}
+                onClick={() => {
+                  setAddOpen((v) => !v);
+                  setTableRollOpen(false);
+                }}
+                title="Load an encounter or add one combatant"
+              >
+                ＋ Add
+              </button>
+              <button
+                className={`btn ${tableRollOpen ? "btn-primary" : "btn-ghost"}`}
+                style={{ fontSize: "0.65rem", padding: "0.2rem 0.55rem" }}
+                onClick={() => {
+                  setTableRollOpen((v) => !v);
+                  setAddOpen(false);
+                }}
+                title="Roll dice the players' phones see"
+              >
+                📣 Table roll
+              </button>
+              {combatActive && (
+                <button
+                  className="btn btn-primary"
+                  style={{ fontSize: "0.78rem", padding: "0.3rem 0.65rem", fontWeight: 700 }}
+                  onClick={nextTurn}
+                  title="Advance to the next combatant's turn"
+                >
+                  End Turn →
+                </button>
+              )}
+              <button
+                className="btn btn-secondary"
+                style={{ fontSize: "0.65rem", padding: "0.2rem 0.55rem" }}
+                onClick={rollAllInitiative}
+              >
+                🎲 Roll Init
+              </button>
+              {combatActive && (
+                <button
+                  className="btn btn-danger"
+                  style={{ fontSize: "0.7rem", padding: "0.2rem 0.55rem", fontWeight: 600 }}
+                  onClick={() => {
+                    if (window.confirm("End combat? Clears the initiative tracker and resets the round counter.")) {
+                      void resetCombat();
+                    }
+                  }}
+                  title="End combat — clears the initiative tracker"
+                >
+                  🛑 End Combat
+                </button>
+              )}
+            </div>
+          </div>
+
+          {(addOpen || tableRollOpen) && (
+            <div
+              style={{
+                position: "absolute",
+                top: 44,
+                right: 8,
+                zIndex: 45,
+                width: "min(440px, 94%)",
+                background: "var(--surface)",
+                border: "1px solid var(--gold)",
+                borderRadius: 10,
+                boxShadow: "0 12px 32px rgba(0,0,0,0.55)",
+                overflow: "hidden",
+              }}
+            >
+              {tableRollOpen && sessionId && <TableRollStrip sessionId={sessionId} />}
+              {addOpen && (
+                <>
+          {/* Load Encounter */}
+          {adventureEncounters.length > 0 && (
+            <div style={{
+              padding: "0.4rem 0.75rem",
+              borderBottom: "1px solid var(--border)",
+              background: "var(--surface2)",
+              display: "flex",
+              gap: "0.4rem",
+              alignItems: "center",
+            }}>
+              <select
+                value={loadEncounterId}
+                onChange={(e) => setLoadEncounterId(e.target.value)}
+                style={{ flex: 1, fontSize: "0.72rem" }}
+              >
+                <option value="">Load Encounter…</option>
+                {adventureEncounters.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name} ({e.difficulty})
+                  </option>
+                ))}
+              </select>
+              <button
+                className="btn btn-secondary"
+                style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", whiteSpace: "nowrap" }}
+                disabled={!loadEncounterId}
+                onClick={loadEncounter}
+              >
+                ⚔️ Load
+              </button>
+            </div>
+          )}
+
+          {/* Add combatant form — grid layout so inputs grow with the column */}
+          <div
+            style={{
+              padding: "0.5rem 0.75rem",
+              borderBottom: "1px solid var(--border)",
+              background: "var(--surface2)",
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.35rem",
+            }}
+          >
+            {/* Plan 38 P4-1/9 — Add-from-roster shortcut. Pre-fills the
+                manual form from a known PC or NPC; the DM can still
+                tweak HP / AC / init before clicking + Add. */}
+            {(party.length > 0 || campaignNpcs.length > 0) && (
+              <select
+                value=""
+                onChange={(e) => {
+                  pickFromRoster(e.target.value);
+                  e.target.value = "";
+                }}
+                style={{ fontSize: "0.72rem", padding: "0.2rem 0.35rem", minWidth: 0 }}
+                title="Pre-fill the form from a campaign PC or NPC"
+              >
+                <option value="">+ Add from roster…</option>
+                {party.length > 0 && (
+                  <optgroup label="Party">
+                    {party
+                      .filter(
+                        (p) => !persistedCombatants.some((c) => c.character_id === p.id),
+                      )
+                      .map((p) => (
+                        <option key={p.id} value={`pc:${p.id}`}>
+                          {p.character_name} (Lv {p.level} {p.character_class})
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                {campaignNpcs.length > 0 && (
+                  <optgroup label="NPCs">
+                    {campaignNpcs.map((n) => (
+                      <option key={n.id} value={`npc:${n.id}`}>
+                        {n.name}
+                        {n.role ? ` — ${n.role}` : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            )}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
+                gap: "0.35rem",
+              }}
+            >
+              <input
+                placeholder="Name"
+                value={newCName}
+                onChange={(e) => setNewCName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addCombatant()}
+                style={{ fontSize: "0.78rem", padding: "0.25rem 0.4rem", minWidth: 0 }}
+              />
+              <select
+                value={newCType}
+                onChange={(e) =>
+                  setNewCType(e.target.value as "pc" | "monster" | "npc")
+                }
+                style={{ fontSize: "0.78rem", padding: "0.25rem 0.3rem", minWidth: 0 }}
+              >
+                <option value="monster">Monster</option>
+                <option value="npc">NPC</option>
+                <option value="pc">PC</option>
+              </select>
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto",
+                gap: "0.35rem",
+                alignItems: "end",
+              }}
+            >
+              <FormField label="HP">
+                <input
+                  type="number"
+                  value={newCHp}
+                  onChange={(e) => {
+                    setNewCHp(Number(e.target.value));
+                    setNewCHpMax(Number(e.target.value));
+                  }}
+                  onFocus={(e) => e.currentTarget.select()}
+                  style={{
+                    width: "100%",
+                    minWidth: 0,
+                    fontSize: "0.78rem",
+                    padding: "0.2rem 0.35rem",
+                    textAlign: "center",
+                  }}
+                />
+              </FormField>
+              <FormField label="AC">
+                <input
+                  type="number"
+                  value={newCAc}
+                  onChange={(e) => setNewCAc(Number(e.target.value))}
+                  onFocus={(e) => e.currentTarget.select()}
+                  style={{
+                    width: "100%",
+                    minWidth: 0,
+                    fontSize: "0.78rem",
+                    padding: "0.2rem 0.35rem",
+                    textAlign: "center",
+                  }}
+                />
+              </FormField>
+              <FormField label="Init">
+                <input
+                  type="number"
+                  value={newCInit}
+                  onChange={(e) => setNewCInit(Number(e.target.value))}
+                  onFocus={(e) => e.currentTarget.select()}
+                  style={{
+                    width: "100%",
+                    minWidth: 0,
+                    fontSize: "0.78rem",
+                    padding: "0.2rem 0.35rem",
+                    textAlign: "center",
+                  }}
+                />
+              </FormField>
+              <button
+                className="btn btn-secondary"
+                style={{
+                  fontSize: "0.72rem",
+                  padding: "0.3rem 0.65rem",
+                  whiteSpace: "nowrap",
+                  alignSelf: "end",
+                }}
+                onClick={addCombatant}
+                title="Add to initiative tracker"
+              >
+                + Add
+              </button>
+            </div>
+          </div>
+
+                </>
+              )}
+              <div style={{ textAlign: "right", padding: "0.25rem 0.5rem" }}>
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: "0.65rem", padding: "0.1rem 0.5rem" }}
+                  onClick={() => {
+                    setAddOpen(false);
+                    setTableRollOpen(false);
+                  }}
+                >
+                  ✕ close
+                </button>
+              </div>
+            </div>
+          )}
+          {/* Combatant list */}
+          {stripOpen && (
+          <div
+            className="ql-init-strip"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 6,
+              overflowX: "auto",
+              overflowY: "hidden",
+              padding: "0.3rem 0.6rem",
+              borderBottom: "1px solid var(--border)",
+              background: "var(--surface2)",
+              flexShrink: 0,
+            }}
+          >
+            {combatants.map((c) => {
+              // Plan 38 P4-2 — match by id since combatants is now sorted
+              // by initiative desc (which can differ from sort_index).
+              const isActive = combatActive && c.id === storeActiveId;
+              const pct = c.maxHp > 0 ? Math.max(0, (c.hp / c.maxHp) * 100) : 0;
+              const barColor = pct > 50 ? "#4caf50" : pct > 25 ? "#ff9800" : "#f44336";
+              const typeColor = c.type === "pc" ? "var(--gold)" : c.type === "npc" ? "#64b5f6" : "#ef5350";
+
+              return (
+                <div
+                  key={c.id}
+                  style={{
+                    padding: "0.35rem 0.55rem",
+                    width: 300,
+                    flexShrink: 0,
+                    borderRadius: 8,
+                    border: `1px solid ${isActive ? "var(--gold)" : "var(--border)"}`,
+                    background: isActive
+                      ? "rgba(212,185,120,0.1)"
+                      : c.defeated
+                        ? "rgba(0,0,0,0.2)"
+                        : "transparent",
+                    opacity: c.defeated ? 0.5 : 1,
+                  }}
+                >
+                  <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start", flexWrap: "nowrap" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="flex" style={{ alignItems: "center", gap: "0.3rem", flexWrap: "nowrap", minWidth: 0 }}>
+                        {isActive && <span style={{ color: "var(--gold)", fontSize: "0.8rem" }}>▶</span>}
+                        <span
+                          title={c.name}
+                          style={{ fontWeight: 700, fontSize: "0.82rem", color: typeColor, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 118 }}
+                        >
+                          {c.name}
+                        </span>
+                        <span style={{ fontSize: "0.65rem", color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: "0.2rem" }}>
+                          init
+                          {/* Plan 38 P4-2 — click-to-edit initiative; PATCH on blur/Enter. */}
+                          <input
+                            type="number"
+                            defaultValue={c.initiative}
+                            key={`init-${c.id}-${c.initiative}`}
+                            onBlur={(e) => {
+                              const v = Number(e.target.value);
+                              if (!Number.isFinite(v) || v === c.initiative) return;
+                              // Plan 41 — persists immediately; server reseats
+                              // sort_index so End Turn follows the shown order.
+                              void setPersistedInitiative(c.id, v);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+                            }}
+                            onFocus={(e) => e.currentTarget.select()}
+                            style={{
+                              width: 36,
+                              fontSize: "0.65rem",
+                              padding: "0 0.2rem",
+                              textAlign: "center",
+                              background: "var(--surface2)",
+                              border: "1px solid var(--border)",
+                              borderRadius: 3,
+                              color: "var(--muted)",
+                            }}
+                            title="Edit initiative — Enter or click out to save"
+                          />
+                          · AC {c.ac}
+                        </span>
+                      </div>
+
+                      {/* HP row — typed amount drives the −/+ buttons (Plan 38) */}
+                      <div className="flex" style={{ alignItems: "center", gap: "0.25rem", marginTop: "0.2rem" }}>
+                        <button
+                          className="btn btn-ghost"
+                          style={{ padding: "0 0.35rem", fontSize: "0.75rem", color: "var(--red, #ef5350)", fontWeight: 700 }}
+                          onClick={() => updateCombatantHp(c.id, c.hp - deltaFor(c.id))}
+                          disabled={c.defeated}
+                          title={`Apply ${deltaFor(c.id)} damage`}
+                        >−</button>
+                        <input
+                          type="number"
+                          min={1}
+                          value={deltaFor(c.id)}
+                          onChange={(e) => setDeltaFor(c.id, Number(e.target.value))}
+                          onFocus={(e) => e.currentTarget.select()}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") updateCombatantHp(c.id, c.hp - deltaFor(c.id));
+                          }}
+                          style={{
+                            width: 38,
+                            fontSize: "0.7rem",
+                            padding: "0.1rem 0.2rem",
+                            textAlign: "center",
+                          }}
+                          title="Damage/heal amount (Enter applies damage)"
+                        />
+                        <button
+                          className="btn btn-ghost"
+                          style={{ padding: "0 0.35rem", fontSize: "0.75rem", color: "var(--green2, #4caf50)", fontWeight: 700 }}
+                          onClick={() => updateCombatantHp(c.id, c.hp + deltaFor(c.id))}
+                          disabled={c.defeated}
+                          title={`Apply ${deltaFor(c.id)} healing`}
+                        >+</button>
+                        <span style={{ fontSize: "0.8rem", fontWeight: 700, color: barColor, minWidth: 28, marginLeft: "0.2rem" }}>
+                          {c.hp}
+                        </span>
+                        <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>/{c.maxHp}</span>
+                        <div style={{ flex: 1, height: 5, borderRadius: 3, background: "var(--surface2)", overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: barColor, transition: "width 0.2s" }} />
+                        </div>
+                      </div>
+
+                      {/* Conditions */}
+                      <div style={{ marginTop: "0.2rem" }}>
+                        <ConditionTags
+                          active={c.conditions}
+                          onToggle={(cond) => toggleCombatantCondition(c.id, cond)}
+                          immunities={
+                            c.monsterId ? immunitiesByMonsterId[c.monsterId] : undefined
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* Stat block (monsters only) */}
+                    {c.monsterId && (
+                      <button
+                        className="btn btn-ghost"
+                        style={{ fontSize: "0.7rem", padding: "0.1rem 0.3rem", marginRight: "0.2rem" }}
+                        onClick={() => setStatBlockMonsterId(c.monsterId)}
+                        title="View stat block"
+                      >
+                        📖
+                      </button>
+                    )}
+
+                    {/* Remove */}
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: "0.6rem", padding: "0.1rem 0.3rem", opacity: 0.4 }}
+                      onClick={() => removeCombatant(c.id)}
+                      title="Remove from tracker"
+                    >✕</button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {combatants.length === 0 && (
+              <p style={{ padding: "0.15rem 0.3rem", margin: 0, fontSize: "0.74rem", color: "var(--muted)" }}>
+                No combat yet — ＋ Add loads an encounter or one foe; 🎲 Roll Init sets the order.
+              </p>
+            )}
+          </div>
+          )}
         {/* ── CENTER: map control first; the script slides over on demand ── */}
-        <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+        <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", flex: 1, minHeight: 0 }}>
           <div style={{
             padding: "0.6rem 0.75rem",
             borderBottom: "1px solid var(--border)",
@@ -1862,71 +2362,27 @@ export default function SessionHud() {
           </div>
         </div>
 
-        {/* ── RIGHT: Combat Tracker ─────────────────────────────────────── */}
-        <div style={{
-          borderLeft: "1px solid var(--border)",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}>
-          {/* Plan 39 — public dice roller; broadcasts to player phones */}
-          {sessionId && <TableRollStrip sessionId={sessionId} />}
-          <div style={{
-            padding: "0.6rem 0.75rem",
-            borderBottom: "1px solid var(--border)",
-            fontSize: "0.7rem",
-            fontWeight: 700,
-            color: "var(--muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.08em",
-            background: "var(--surface2)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}>
-            <span>Combat {combatActive ? `· Round ${round}` : ""}</span>
-            <div
-              style={{
-                display: "flex",
-                gap: "0.35rem",
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
-              }}
-            >
-              {combatActive && (
-                <button
-                  className="btn btn-primary"
-                  style={{ fontSize: "0.78rem", padding: "0.3rem 0.65rem", fontWeight: 700 }}
-                  onClick={nextTurn}
-                  title="Advance to the next combatant's turn"
-                >
-                  End Turn →
-                </button>
-              )}
-              <button
-                className="btn btn-secondary"
-                style={{ fontSize: "0.65rem", padding: "0.2rem 0.55rem" }}
-                onClick={rollAllInitiative}
-              >
-                🎲 Roll Init
-              </button>
-              {combatActive && (
-                <button
-                  className="btn btn-danger"
-                  style={{ fontSize: "0.7rem", padding: "0.2rem 0.55rem", fontWeight: 600 }}
-                  onClick={() => {
-                    if (window.confirm("End combat? Clears the initiative tracker and resets the round counter.")) {
-                      void resetCombat();
-                    }
-                  }}
-                  title="End combat — clears the initiative tracker"
-                >
-                  🛑 End Combat
-                </button>
-              )}
+          {/* ── Under the board: tonight's notes + the beats ── */}
+          <div
+            onPointerDown={startNotesResize}
+            title="Drag to resize the notes"
+            style={{ height: 6, cursor: "row-resize", background: "var(--border)", flexShrink: 0 }}
+          />
+          <div
+            className="ql-hud-bottom"
+            style={{
+              height: notesH,
+              flexShrink: 0,
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(300px, 380px)",
+              minHeight: 0,
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ minWidth: 0, minHeight: 0 }}>
+              {sessionId && <SessionNotesEditor sessionId={sessionId} fontSize="0.88rem" />}
             </div>
-          </div>
-
+            <div style={{ borderLeft: "1px solid var(--border)", overflowY: "auto", minHeight: 0 }}>
           {/* Plan 40 Change 3 — state-triggered beats. Banner-on-fire,
               attach-by-HP / attach-by-round forms, pending list. */}
           {sessionId && (
@@ -1941,340 +2397,12 @@ export default function SessionHud() {
             />
           )}
 
-          {/* Load Encounter */}
-          {adventureEncounters.length > 0 && (
-            <div style={{
-              padding: "0.4rem 0.75rem",
-              borderBottom: "1px solid var(--border)",
-              background: "var(--surface2)",
-              display: "flex",
-              gap: "0.4rem",
-              alignItems: "center",
-            }}>
-              <select
-                value={loadEncounterId}
-                onChange={(e) => setLoadEncounterId(e.target.value)}
-                style={{ flex: 1, fontSize: "0.72rem" }}
-              >
-                <option value="">Load Encounter…</option>
-                {adventureEncounters.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name} ({e.difficulty})
-                  </option>
-                ))}
-              </select>
-              <button
-                className="btn btn-secondary"
-                style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem", whiteSpace: "nowrap" }}
-                disabled={!loadEncounterId}
-                onClick={loadEncounter}
-              >
-                ⚔️ Load
-              </button>
             </div>
-          )}
-
-          {/* Add combatant form — grid layout so inputs grow with the column */}
-          <div
-            style={{
-              padding: "0.5rem 0.75rem",
-              borderBottom: "1px solid var(--border)",
-              background: "var(--surface2)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "0.35rem",
-            }}
-          >
-            {/* Plan 38 P4-1/9 — Add-from-roster shortcut. Pre-fills the
-                manual form from a known PC or NPC; the DM can still
-                tweak HP / AC / init before clicking + Add. */}
-            {(party.length > 0 || campaignNpcs.length > 0) && (
-              <select
-                value=""
-                onChange={(e) => {
-                  pickFromRoster(e.target.value);
-                  e.target.value = "";
-                }}
-                style={{ fontSize: "0.72rem", padding: "0.2rem 0.35rem", minWidth: 0 }}
-                title="Pre-fill the form from a campaign PC or NPC"
-              >
-                <option value="">+ Add from roster…</option>
-                {party.length > 0 && (
-                  <optgroup label="Party">
-                    {party
-                      .filter(
-                        (p) => !persistedCombatants.some((c) => c.character_id === p.id),
-                      )
-                      .map((p) => (
-                        <option key={p.id} value={`pc:${p.id}`}>
-                          {p.character_name} (Lv {p.level} {p.character_class})
-                        </option>
-                      ))}
-                  </optgroup>
-                )}
-                {campaignNpcs.length > 0 && (
-                  <optgroup label="NPCs">
-                    {campaignNpcs.map((n) => (
-                      <option key={n.id} value={`npc:${n.id}`}>
-                        {n.name}
-                        {n.role ? ` — ${n.role}` : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            )}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)",
-                gap: "0.35rem",
-              }}
-            >
-              <input
-                placeholder="Name"
-                value={newCName}
-                onChange={(e) => setNewCName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addCombatant()}
-                style={{ fontSize: "0.78rem", padding: "0.25rem 0.4rem", minWidth: 0 }}
-              />
-              <select
-                value={newCType}
-                onChange={(e) =>
-                  setNewCType(e.target.value as "pc" | "monster" | "npc")
-                }
-                style={{ fontSize: "0.78rem", padding: "0.25rem 0.3rem", minWidth: 0 }}
-              >
-                <option value="monster">Monster</option>
-                <option value="npc">NPC</option>
-                <option value="pc">PC</option>
-              </select>
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto",
-                gap: "0.35rem",
-                alignItems: "end",
-              }}
-            >
-              <FormField label="HP">
-                <input
-                  type="number"
-                  value={newCHp}
-                  onChange={(e) => {
-                    setNewCHp(Number(e.target.value));
-                    setNewCHpMax(Number(e.target.value));
-                  }}
-                  onFocus={(e) => e.currentTarget.select()}
-                  style={{
-                    width: "100%",
-                    minWidth: 0,
-                    fontSize: "0.78rem",
-                    padding: "0.2rem 0.35rem",
-                    textAlign: "center",
-                  }}
-                />
-              </FormField>
-              <FormField label="AC">
-                <input
-                  type="number"
-                  value={newCAc}
-                  onChange={(e) => setNewCAc(Number(e.target.value))}
-                  onFocus={(e) => e.currentTarget.select()}
-                  style={{
-                    width: "100%",
-                    minWidth: 0,
-                    fontSize: "0.78rem",
-                    padding: "0.2rem 0.35rem",
-                    textAlign: "center",
-                  }}
-                />
-              </FormField>
-              <FormField label="Init">
-                <input
-                  type="number"
-                  value={newCInit}
-                  onChange={(e) => setNewCInit(Number(e.target.value))}
-                  onFocus={(e) => e.currentTarget.select()}
-                  style={{
-                    width: "100%",
-                    minWidth: 0,
-                    fontSize: "0.78rem",
-                    padding: "0.2rem 0.35rem",
-                    textAlign: "center",
-                  }}
-                />
-              </FormField>
-              <button
-                className="btn btn-secondary"
-                style={{
-                  fontSize: "0.72rem",
-                  padding: "0.3rem 0.65rem",
-                  whiteSpace: "nowrap",
-                  alignSelf: "end",
-                }}
-                onClick={addCombatant}
-                title="Add to initiative tracker"
-              >
-                + Add
-              </button>
-            </div>
-          </div>
-
-          {/* Combatant list */}
-          <div style={{ flex: 1, overflowY: "auto" }}>
-            {combatants.map((c) => {
-              // Plan 38 P4-2 — match by id since combatants is now sorted
-              // by initiative desc (which can differ from sort_index).
-              const isActive = combatActive && c.id === storeActiveId;
-              const pct = c.maxHp > 0 ? Math.max(0, (c.hp / c.maxHp) * 100) : 0;
-              const barColor = pct > 50 ? "#4caf50" : pct > 25 ? "#ff9800" : "#f44336";
-              const typeColor = c.type === "pc" ? "var(--gold)" : c.type === "npc" ? "#64b5f6" : "#ef5350";
-
-              return (
-                <div
-                  key={c.id}
-                  style={{
-                    padding: "0.5rem 0.75rem",
-                    borderBottom: "1px solid var(--border)",
-                    background: isActive
-                      ? "rgba(212,185,120,0.1)"
-                      : c.defeated
-                        ? "rgba(0,0,0,0.2)"
-                        : "transparent",
-                    opacity: c.defeated ? 0.5 : 1,
-                  }}
-                >
-                  <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div style={{ flex: 1 }}>
-                      <div className="flex" style={{ alignItems: "center", gap: "0.3rem" }}>
-                        {isActive && <span style={{ color: "var(--gold)", fontSize: "0.8rem" }}>▶</span>}
-                        <span style={{ fontWeight: 700, fontSize: "0.82rem", color: typeColor }}>
-                          {c.name}
-                        </span>
-                        <span style={{ fontSize: "0.65rem", color: "var(--muted)", display: "inline-flex", alignItems: "center", gap: "0.2rem" }}>
-                          init
-                          {/* Plan 38 P4-2 — click-to-edit initiative; PATCH on blur/Enter. */}
-                          <input
-                            type="number"
-                            defaultValue={c.initiative}
-                            key={`init-${c.id}-${c.initiative}`}
-                            onBlur={(e) => {
-                              const v = Number(e.target.value);
-                              if (!Number.isFinite(v) || v === c.initiative) return;
-                              // Plan 41 — persists immediately; server reseats
-                              // sort_index so End Turn follows the shown order.
-                              void setPersistedInitiative(c.id, v);
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-                            }}
-                            onFocus={(e) => e.currentTarget.select()}
-                            style={{
-                              width: 36,
-                              fontSize: "0.65rem",
-                              padding: "0 0.2rem",
-                              textAlign: "center",
-                              background: "var(--surface2)",
-                              border: "1px solid var(--border)",
-                              borderRadius: 3,
-                              color: "var(--muted)",
-                            }}
-                            title="Edit initiative — Enter or click out to save"
-                          />
-                          · AC {c.ac}
-                        </span>
-                      </div>
-
-                      {/* HP row — typed amount drives the −/+ buttons (Plan 38) */}
-                      <div className="flex" style={{ alignItems: "center", gap: "0.25rem", marginTop: "0.2rem" }}>
-                        <button
-                          className="btn btn-ghost"
-                          style={{ padding: "0 0.35rem", fontSize: "0.75rem", color: "var(--red, #ef5350)", fontWeight: 700 }}
-                          onClick={() => updateCombatantHp(c.id, c.hp - deltaFor(c.id))}
-                          disabled={c.defeated}
-                          title={`Apply ${deltaFor(c.id)} damage`}
-                        >−</button>
-                        <input
-                          type="number"
-                          min={1}
-                          value={deltaFor(c.id)}
-                          onChange={(e) => setDeltaFor(c.id, Number(e.target.value))}
-                          onFocus={(e) => e.currentTarget.select()}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") updateCombatantHp(c.id, c.hp - deltaFor(c.id));
-                          }}
-                          style={{
-                            width: 38,
-                            fontSize: "0.7rem",
-                            padding: "0.1rem 0.2rem",
-                            textAlign: "center",
-                          }}
-                          title="Damage/heal amount (Enter applies damage)"
-                        />
-                        <button
-                          className="btn btn-ghost"
-                          style={{ padding: "0 0.35rem", fontSize: "0.75rem", color: "var(--green2, #4caf50)", fontWeight: 700 }}
-                          onClick={() => updateCombatantHp(c.id, c.hp + deltaFor(c.id))}
-                          disabled={c.defeated}
-                          title={`Apply ${deltaFor(c.id)} healing`}
-                        >+</button>
-                        <span style={{ fontSize: "0.8rem", fontWeight: 700, color: barColor, minWidth: 28, marginLeft: "0.2rem" }}>
-                          {c.hp}
-                        </span>
-                        <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>/{c.maxHp}</span>
-                        <div style={{ flex: 1, height: 5, borderRadius: 3, background: "var(--surface2)", overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${pct}%`, background: barColor, transition: "width 0.2s" }} />
-                        </div>
-                      </div>
-
-                      {/* Conditions */}
-                      <div style={{ marginTop: "0.2rem" }}>
-                        <ConditionTags
-                          active={c.conditions}
-                          onToggle={(cond) => toggleCombatantCondition(c.id, cond)}
-                          immunities={
-                            c.monsterId ? immunitiesByMonsterId[c.monsterId] : undefined
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    {/* Stat block (monsters only) */}
-                    {c.monsterId && (
-                      <button
-                        className="btn btn-ghost"
-                        style={{ fontSize: "0.7rem", padding: "0.1rem 0.3rem", marginRight: "0.2rem" }}
-                        onClick={() => setStatBlockMonsterId(c.monsterId)}
-                        title="View stat block"
-                      >
-                        📖
-                      </button>
-                    )}
-
-                    {/* Remove */}
-                    <button
-                      className="btn btn-ghost"
-                      style={{ fontSize: "0.6rem", padding: "0.1rem 0.3rem", opacity: 0.4 }}
-                      onClick={() => removeCombatant(c.id)}
-                      title="Remove from tracker"
-                    >✕</button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {combatants.length === 0 && (
-              <p style={{ padding: "1rem", fontSize: "0.8rem", color: "var(--muted)" }}>
-                Add combatants above, then roll initiative.
-              </p>
-            )}
           </div>
         </div>
       </div>
 
-      {/* ── Bottom bar: Dice + Quick Rules ────────────────────────────── */}
+      {/* ── Bottom bar: Quick Rules ────────────────────────────── */}
       <div style={{
         borderTop: "1px solid var(--border)",
         background: "var(--surface2)",
@@ -2285,42 +2413,6 @@ export default function SessionHud() {
         alignItems: "flex-start",
         flexWrap: "wrap",
       }}>
-
-        {/* Dice roller */}
-        <div>
-          <div className="flex" style={{ gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase" }}>
-              Dice
-            </span>
-            {DICE.map((d) => (
-              <button
-                key={d}
-                className="btn btn-ghost"
-                style={{
-                  fontSize: "0.75rem", padding: "0.2rem 0.5rem",
-                  fontWeight: 700, color: "var(--gold)",
-                  border: "1px solid var(--gold)",
-                }}
-                onClick={() => rollDie(d)}
-              >
-                d{d}
-              </button>
-            ))}
-            {diceLog.length > 0 && (
-              <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginLeft: "0.5rem" }}>
-                {diceLog.map((r, i) => (
-                  <span key={i} style={{ marginRight: "0.5rem" }}>
-                    <span style={{ color: "var(--muted)", fontSize: "0.65rem" }}>d{r.die}:</span>
-                    {" "}
-                    <strong style={{ color: r.result === r.die ? "#4caf50" : r.result === 1 ? "#f44336" : "var(--text)" }}>
-                      {r.result}
-                    </strong>
-                  </span>
-                ))}
-              </span>
-            )}
-          </div>
-        </div>
 
         {/* Quick rules */}
         <div className="flex" style={{ gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>

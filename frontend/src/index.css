@@ -664,3 +664,17 @@ html, body { max-width: 100%; overflow-x: hidden; }
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Plan 76 — the HUD is a cockpit, not a page: bound it to the viewport so the
+   party column, the initiative strip and the board scroll inside their panes
+   and the notes strip under the board is always on screen. The <main> around
+   it pads 2rem top and bottom on desktop. Phones stack (see .ql-hud-body). */
+.ql-hud-root {
+  height: calc(100vh - 4rem);
+  height: calc(100dvh - 4rem);
+}
+@media (max-width: 900px) {
+  .ql-hud-root {
+    height: auto;
+  }
+}

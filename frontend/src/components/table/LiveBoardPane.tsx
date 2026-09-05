@@ -47,7 +47,7 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
   const tokens = t.state?.tokens ?? [];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%", minHeight: 0 }}>
       {/* Toolbar — everything the Table console offers, one row. */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
         <button className={t.mode === "ping" ? "btn" : "btn btn-ghost"} style={btn} onClick={() => t.setMode("ping")} title="Tap the map to ping the players' screens">
@@ -104,7 +104,8 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
       <div
         style={{
           background: "#06060b",
-          minHeight: 400,
+          flex: 1,
+          minHeight: 240,
           display: "flex",
           borderRadius: 8,
           overflow: "hidden",
