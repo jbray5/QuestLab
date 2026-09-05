@@ -43,7 +43,7 @@ export default function Campaigns() {
 
   function handleOpen(c: Campaign) {
     setActiveCampaign(c);
-    navigate(`/campaigns/${c.id}/adventures`);
+    navigate(`/campaigns/${c.id}/sessions`);
   }
 
   return (

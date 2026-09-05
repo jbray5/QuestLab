@@ -160,18 +160,13 @@ export default function Layout() {
             {activeCampaign.name.toUpperCase().slice(0, 24)}
           </p>
           {/* The nightly loop stays one click away; everything else folds. */}
-          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/adventures`)}>
-            🗺 Adventures
+          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/sessions`)}>
+            📅 Sessions
           </button>
           {activeAdventure && (
-            <>
-              <button className="nav-item" onClick={() => go(`/adventures/${activeAdventure.id}/sessions`)}>
-                📅 Sessions
-              </button>
-              <button className="nav-item" onClick={() => go(`/adventures/${activeAdventure.id}/encounters`)}>
-                💀 Encounters
-              </button>
-            </>
+            <button className="nav-item" onClick={() => go(`/adventures/${activeAdventure.id}/encounters`)}>
+              💀 Encounters
+            </button>
           )}
           <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/characters`)}>
             🧙 Characters

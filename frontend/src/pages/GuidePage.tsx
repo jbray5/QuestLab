@@ -53,8 +53,8 @@ export default function GuidePage() {
       <div className="step"><span className="k">2</span><b>Create a campaign.</b> Name, setting, tone. New here? Press <span className="btnref">🎲 Create a sample campaign</span> on the dashboard to get a ready-made adventure, four pregens, a map and an encounter you can run tonight.</div>
       <div className="step"><span className="k">3</span><b>Add your players.</b> Campaign → Characters → <span className="btnref">+ Character</span>. You only need a name and class; players fill the rest in from their phones. Then show the join code: open the session&rsquo;s table and tap the <span className="btnref">📱</span> chip (or <span className="btnref">📱 QR → projector</span> from the HUD). Each player scans, taps their name, and their live sheet is on their phone — it remembers them next time.</div>
       <div className="step"><span className="k">4</span><b>Add a map.</b> Campaign → Battle Maps → <span className="btnref">+ Import maps</span>. JPG, PNG, WebP — or an MP4/WebM loop for an animated map. Big files are fine (up to 80 MB). Set the grid size once and the board draws it for you. See <a href="#maps">maps and licensing</a> below.</div>
-      <div className="step"><span className="k">5</span><b>Build an encounter.</b> Adventure → Encounters → <span className="btnref">+ Encounter</span>, pick monsters from the SRD catalog; the difficulty meter updates as you add them.</div>
-      <div className="step"><span className="k">6</span><b>Run the night.</b> Adventure → Sessions → open the <b>HUD</b>. Stage a map (Maps tab), <span className="btnref">+ Party</span> and <span className="btnref">+ Foes (from combat)</span> to put tokens on it, start combat, and go. Damage you apply lands on players&rsquo; phones in about a second; conditions you set show on the board; players shake their phones to roll and everyone watches the die land on the shared board.</div>
+      <div className="step"><span className="k">5</span><b>Build an encounter.</b> Sessions → your arc → <span className="btnref">💀 Encounters</span> → <span className="btnref">+ Encounter</span>, pick monsters from the SRD catalog; the difficulty meter updates as you add them.</div>
+      <div className="step"><span className="k">6</span><b>Run the night.</b> Sessions → <b>HUD</b>. Stage a map (Maps tab), then in the 🎮 Live tab <span className="btnref">+ Party</span> and <span className="btnref">+ Foes (combat)</span> to put tokens on it, start combat, and go. Damage you apply lands on players&rsquo; phones in about a second; conditions you set show on the board; players shake their phones to roll and everyone watches the die land on the shared board.</div>
 
       <h2 id="setups">In person, online, or both</h2>
       <div className="setups">
@@ -62,6 +62,14 @@ export default function GuidePage() {
         <div className="setup"><h3>🎧 Online</h3>Share the projector link in your video call (or screen-share it). Every player opens the same link on their own screen — it updates live. Phones still carry the sheets.</div>
         <div className="setup"><h3>🔀 Hybrid</h3>TV for the room, link for the remote players. Same board, same second-by-second sync. The 3D table view is a great remote-player window.</div>
       </div>
+
+      <h2 id="cockpit">Two screens, one cockpit</h2>
+      <p>The setup most DMs land on: the players&rsquo; screen (a TV, a projector, or a shared link) shows the <b>3D table view</b>; your own screen shows the <b>HUD</b> — party HP on the left, the live board in the middle, combat on the right. You never have to leave it during play.</p>
+      <ul>
+        <li><b>Notes anywhere.</b> Press <b>N</b> on any DM page for the notes dock: tonight&rsquo;s notes (autosaved), the runbook script, and every NPC with their secrets. Drag it where you like, resize it from the corner, dim it to see the board through it.</li>
+        <li><b>Half a monitor?</b> If Discord takes the other half, hit <span className="btnref">↗ Pop out</span> on the dock: your notes open in a small window you can park over the Discord chat column.</li>
+        <li><b>Move tokens from the HUD.</b> The 🎮 Live tab is the same board the players see — drag, ping, drop markers, stand a faction down. Save the 3D Board page for set dressing before the night.</li>
+      </ul>
 
       <h2 id="maps">Maps and licensing</h2>
       <p>Upload maps you have the right to use at your own table. That covers:</p>

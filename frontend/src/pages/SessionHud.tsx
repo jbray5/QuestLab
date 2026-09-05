@@ -37,6 +37,7 @@ import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import DmScreen from "../components/dm-screen/DmScreen";
 import LootPanel from "../components/LootPanel";
 import TableConsole from "../components/table/TableConsole";
+import LiveBoardPane from "../components/table/LiveBoardPane";
 import { tableApi } from "../api/table";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import MonsterStatBlock from "../components/MonsterStatBlock";
@@ -626,7 +627,7 @@ export default function SessionHud() {
   // Plan 53 demoted the runbook to a tab; in practice sessions run from map
   // control and cards, so Maps is now the default and the script slides over
   // on demand instead of occupying a tab.
-  const [centerTab, setCenterTab] = useState<"maps" | "people">("maps");
+  const [centerTab, setCenterTab] = useState<"maps" | "live" | "people">("maps");
   const [scriptOpen, setScriptOpen] = useState(false);
   // Party owns the real estate by default; the center only claims it while
   // the DM is actively working a map. Auto-enters on staging a map, manual
@@ -1507,12 +1508,13 @@ export default function SessionHud() {
               {(
                 [
                   ["maps", "🗺 Maps"],
+                  ["live", "🎮 Live"],
                   ["people", "👥 People"],
                 ] as const
               ).map(([k, label]) => (
                 <button
                   key={k}
-                  onClick={() => setCenterTab(k)}
+                  onClick={() => { setCenterTab(k); if (k === "live") setMapFocus(true); }}
                   className={`btn ${centerTab === k ? "btn-primary" : "btn-ghost"}`}
                   style={{ fontSize: "0.68rem", padding: "0.15rem 0.55rem", textTransform: "none" }}
                 >
@@ -1724,6 +1726,7 @@ export default function SessionHud() {
                         onClick={() => {
                           setActiveMap.mutate(m.id);
                           setMapFocus(true);
+                          setCenterTab("live");
                         }}
                         disabled={setActiveMap.isPending}
                         title={active ? "Live on the table" : "Make this the active table map"}
@@ -1756,10 +1759,15 @@ export default function SessionHud() {
                   </p>
                 )}
                 <p style={{ fontSize: "0.72rem", color: "var(--muted)", marginTop: "0.7rem" }}>
-                  Click a map to put it on the table (players&rsquo; views switch live). Drive tokens
-                  from the <Link to={`/sessions/${sessionId}/board`}>🎲 3D Board</Link>.
+                  Click a map to put it on the table (players&rsquo; views switch live) and drive tokens
+                  from the 🎮 Live tab. The <Link to={`/sessions/${sessionId}/board`}>3D Board</Link> is for set dressing.
                 </p>
               </div>
+            )}
+
+            {/* ── 🎮 Live tab (Plan 75) — drive the projected table without leaving the HUD ── */}
+            {centerTab === "live" && sessionId && adventure && (
+              <LiveBoardPane sessionId={sessionId} campaignId={adventure.campaign_id} party={party} />
             )}
 
             {/* ── 👥 People tab (Plan 53) — full blocks one click away ── */}

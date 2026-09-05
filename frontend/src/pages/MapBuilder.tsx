@@ -1075,7 +1075,7 @@ export default function MapBuilder() {
         {activeCampaign && (
           <>
             {" / "}
-            <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate(`/campaigns/${activeCampaign.id}/adventures`)}>
+            <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate(`/campaigns/${activeCampaign.id}/sessions`)}>
               {activeCampaign.name}
             </span>
           </>

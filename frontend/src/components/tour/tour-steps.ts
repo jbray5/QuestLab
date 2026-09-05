@@ -25,14 +25,14 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Welcome to QuestLab",
     body:
       "Two-minute tour to show you where things live. You'll learn the " +
-      "mental model — campaign → adventure → session — and where to click " +
+      "mental model — campaign → arc → session — and where to click " +
       "when you're ready to run game night.",
   },
   {
     title: "The sidebar is your map",
     body:
       "Top-level pages on the left. Once you pick or create a campaign, " +
-      "more nav appears for that campaign and its adventures.",
+      "more nav appears for that campaign: Sessions, Characters, Battle Maps.",
     targetSelector: "[data-tour-id='sidebar']",
     placement: "right",
   },
@@ -47,11 +47,11 @@ export const TOUR_STEPS: TourStep[] = [
     placement: "right",
   },
   {
-    title: "Adventures live inside a campaign",
+    title: "Sessions, grouped by arc",
     body:
-      "Each adventure is a story arc with a synopsis and location notes. " +
-      "Sessions, encounters, and maps all belong to an adventure. Once a " +
-      "campaign is active you'll see 🗺 Adventures in the sidebar.",
+      "Open a campaign and you land on its Sessions page. Sessions are " +
+      "grouped by arc — a stretch of the story with its own encounters " +
+      "and maps. Make an arc, add tonight's session to it, and you're ready.",
     targetSelector: "[data-tour-id='sidebar']",
     placement: "right",
   },
@@ -106,7 +106,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     title: "Re-launch any time",
     body:
-      "That's the loop. Create a campaign, then an adventure, then a " +
+      "That's the loop. Create a campaign, then an arc, then a " +
       "session — and run it from the HUD with live sync to your players' " +
       "phones. Press 🎲 Create a sample campaign on the dashboard to get a " +
       "ready-made night, and read the 15-minute guide (📖 in the sidebar). " +

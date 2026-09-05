@@ -76,7 +76,7 @@ export default function Dashboard() {
 
   function open(c: Campaign) {
     setActiveCampaign(c);
-    navigate(`/campaigns/${c.id}/adventures`);
+    navigate(`/campaigns/${c.id}/sessions`);
   }
 
   return (

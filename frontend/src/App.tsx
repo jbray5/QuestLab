@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PaywallModal from "./components/PaywallModal";
 import Lightbox from "./components/Lightbox";
+import DmDock from "./components/dm/DmDock";
 
 // Eager — small, always-needed pages.
 import Layout from "./pages/Layout";
@@ -19,6 +20,8 @@ const Characters    = lazy(() => import("./pages/Characters"));
 const Encounters    = lazy(() => import("./pages/Encounters"));
 const MapBuilder    = lazy(() => import("./pages/MapBuilder"));
 const Sessions      = lazy(() => import("./pages/Sessions"));
+const CampaignSessions = lazy(() => import("./pages/CampaignSessions"));
+const NotesWindow   = lazy(() => import("./pages/NotesWindow"));
 const SessionRunner = lazy(() => import("./pages/SessionRunner"));
 const SessionHud    = lazy(() => import("./pages/SessionHud"));
 const Admin         = lazy(() => import("./pages/Admin"));
@@ -86,6 +89,7 @@ export default function App() {
     <>
     <PaywallModal />
     <Lightbox />
+    <DmDock />
     <Routes>
       {/* Plan 25 — Player view: standalone route with no DM chrome */}
       <Route path="/join/:campaignId" element={lazyRoute(<JoinView />)} />
@@ -100,6 +104,8 @@ export default function App() {
       <Route path="/table/:sessionId/3d" element={lazyRoute(<Table3DView />)} />
       {/* DM 3D tabletop (Plan 44) — full-screen, DM-driven */}
       <Route path="/sessions/:sessionId/board" element={lazyRoute(<BoardView />)} />
+      {/* Plan 75 — the DM notes dock as its own small window (DM-only). */}
+      <Route path="/sessions/:sessionId/notes" element={lazyRoute(<NotesWindow />)} />
 
       {/* Plan 55 — puzzle display: capability URL, projector-safe */}
       <Route path="/puzzle/:puzzleId" element={lazyRoute(<PuzzleView />)} />
@@ -166,6 +172,10 @@ export default function App() {
         <Route
           path="campaigns/:campaignId/restwater"
           element={lazyRoute(<RestwaterCompanion />)}
+        />
+        <Route
+          path="campaigns/:campaignId/sessions"
+          element={lazyRoute(<CampaignSessions />)}
         />
         <Route
           path="adventures/:adventureId/sessions"
