@@ -1,7 +1,7 @@
 # Plan 00078 — Landing page: a real d20, four pillars, one screen to sign up
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (v1, live-verified 2026-09-05)
 
 **Started:** 2026-09-05 · **Implemented by:** Claude Code
 
@@ -35,7 +35,12 @@ existed, and the sign-in card below the fold.
   notice. Phones: single column, the proof list yields to the pillars.
 
 ## Verification
-- pending
+- tsc, eslint, build clean. Local: personal and public (mocked providers)
+  states at 1440×900 and 390×844, die and card present, no horizontal scroll.
+- Prod (c46344b, bundle index-D6dLKMnN): same four captures on
+  quest-lab-tau.vercel.app; the live page shows the email-only card (personal
+  mode); the public card renders Discord / Patreon / Create account / Sign in
+  when the API reports accounts.
 
 ## Follow-ups
 - A 20-second board clip in the hero once there is a shippable
