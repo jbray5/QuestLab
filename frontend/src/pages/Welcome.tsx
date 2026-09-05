@@ -257,7 +257,10 @@ export default function Welcome() {
               notes in one cockpit.
             </li>
           </ul>
-          <p className="ql-w-price">Free, forever, for the table. AI prep for patrons from $5 a month.</p>
+          <p className="ql-w-price">
+            Free, forever, for the table. AI prep for patrons from $5 a month.{" "}
+            <Link to="/guide#watch" style={{ color: "var(--gold)" }}>Watch the two-minute walkthroughs →</Link>
+          </p>
         </div>
 
         <section id="account" className="ql-w-card" aria-label="Sign in or create an account">

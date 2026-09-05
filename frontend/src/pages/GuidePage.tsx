@@ -18,6 +18,11 @@ const CSS = `
 .gd .k { display: inline-block; min-width: 1.6em; text-align: center; background: #d6af36; color: #100c18; border-radius: 6px; margin-right: 0.5rem; font-family: Cinzel, serif; font-weight: 700; }
 .gd .btnref { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; background: #221a33; border: 1px solid #3a2f52; border-radius: 6px; padding: 0.05rem 0.45rem; color: #ffd76a; }
 .gd .note { border-left: 3px solid #c25f45; padding: 0.4rem 0.9rem; margin: 0.8rem 0; background: rgba(194,95,69,0.08); }
+.gd .watch { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin: 0.6rem 0 0.4rem; }
+.gd .watch figure { margin: 0; }
+.gd .watch video { width: 100%; aspect-ratio: 16 / 9; display: block; border-radius: 10px; border: 1px solid #3a2f52; background: #0b0b10; }
+.gd .watch figcaption { font-size: 0.85rem; color: #9a9078; margin-top: 0.45rem; line-height: 1.45; }
+.gd .watch figcaption b { color: #f4e9c3; }
 .gd .setups { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8rem; }
 .gd .setup { background: rgba(26,20,38,0.7); border: 1px solid #3a2f52; border-radius: 12px; padding: 0.9rem 1rem; }
 .gd .setup h3 { margin-top: 0; }
@@ -47,6 +52,23 @@ export default function GuidePage() {
         <li>Your players&rsquo; phones — no app install, no accounts. They open a link or scan a QR.</li>
         <li>Optional: a TV or projector for the shared board (or a screen-share, or nothing — the board also lives on phones).</li>
       </ul>
+
+      <h2 id="watch">Watch it done</h2>
+      <p>Two short captioned recordings of the real app. No narration yet; the captions carry it.</p>
+      <div className="watch">
+        <figure>
+          <video controls playsInline preload="metadata" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/7da2a586-4ab6-4d38-9883-29b408fcf118-SqFlJ8IvCtc0u8CraugiH9UlmklIDM.webp">
+            <source src="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/b8bd32de-4e22-4b46-aabc-493006e995fb-O2mfowdtRJS5JOVnfqQqNrH1LU28kR.mp4" type="video/mp4" />
+          </video>
+          <figcaption><b>Set up in five minutes</b> (1:47) — sign in, create a campaign, an arc and a session, upload a map, put the QR on the TV, and a player builds a character on their phone.</figcaption>
+        </figure>
+        <figure>
+          <video controls playsInline preload="metadata" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/33d9e27a-3db0-4bdc-aa9e-de476964fd62-LcZYFJ2Q7KBS3xtgVTsL5DCDvRxQaS.webp">
+            <source src="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/212a657f-6a08-476f-8726-872fe5df10a6-zMzVYWtBmxbgvoPbgQrwkrmgxlmxAM.mp4" type="video/mp4" />
+          </video>
+          <figcaption><b>Game night</b> (1:07) — the HUD, staging a map, adding foes and rolling initiative, dragging tokens, damage and conditions landing on a phone, a die landing on the TV.</figcaption>
+        </figure>
+      </div>
 
       <h2>The loop</h2>
       <div className="step"><span className="k">1</span><b>Sign in.</b> Continue with Discord (or Patreon). Your campaigns are tied to that account — nobody else can see them.</div>
