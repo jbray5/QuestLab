@@ -35,6 +35,18 @@ interface Providers {
   password_signup?: boolean;
 }
 
+const BLOB = "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/";
+const REEL = {
+  mp4: BLOB + "e1b8dab4-e40f-410c-86bc-3a48f2d00ab3-khtQVaoR7hj6gT0YhYlsl3zmdc3PQC.mp4",
+  webm: BLOB + "327cfc70-4c27-4148-baca-06eecf834062-d1hBrqdMEHXHXCcAVosEH9EdFE5IY1.webm",
+  poster: BLOB + "c95663fb-e304-4468-895c-e47d1b2b80bc-5eyLEhjvvmkObmgjVjGEqm9IbWTAHV.webp",
+};
+const STILL = {
+  board: BLOB + "ef84a836-06a9-4dfc-add1-f990310fe6dd-VWRtaAvoDneMrO8aPYpigxojnVH3Av.webp",
+  phone: BLOB + "4571fdd8-f3e4-45bd-83a1-9e47028c7a7b-30RrlUxGWrG6i0Z4KQAzGCSbhyOA1t.webp",
+  cockpit: BLOB + "b07c2faf-bc55-4b0a-98a9-d10c53e71953-sYAR0zY18gAIbmdMguDEPPloOBIvXO.webp",
+};
+
 const CSS = `
 .ql-welcome { min-height: 100vh; padding: 0 1.25rem 3rem; color: var(--text);
   background:
@@ -74,7 +86,14 @@ const CSS = `
 .ql-w-note a { color: var(--gold); }
 .ql-w-card details { margin-top: 0.9rem; color: var(--muted); font-size: 0.82rem; }
 .ql-w-card summary { cursor: pointer; }
-.ql-w-pillars { max-width: 1080px; margin: 3.5rem auto 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.ql-w-reel { max-width: 1080px; margin: 3.25rem auto 0; }
+.ql-w-tv { position: relative; border-radius: 14px; overflow: hidden; border: 1px solid rgba(201,168,76,0.45); background: #06060b; box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 6px rgba(22,22,26,0.9), 0 0 0 7px rgba(201,168,76,0.25); aspect-ratio: 16 / 9; }
+.ql-w-tv video { width: 100%; height: 100%; display: block; object-fit: cover; }
+.ql-w-reel figcaption { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; justify-content: center; margin-top: 0.9rem; font-size: 0.82rem; color: var(--muted); }
+.ql-w-reel figcaption b { color: var(--parch2); font-weight: 600; }
+.ql-w-pillar-img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 0.7rem; background: #0b0b10; }
+.ql-w-pillar-img.phone { object-position: center top; aspect-ratio: 16 / 10; }
+.ql-w-pillars { max-width: 1080px; margin: 3rem auto 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
 .ql-w-pillar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.1rem 1.2rem; transition: border-color 0.2s, transform 0.2s; }
 .ql-w-pillar:hover { border-color: rgba(201,168,76,0.55); transform: translateY(-2px); }
 .ql-w-pillar .ic { font-size: 1.5rem; margin-bottom: 0.45rem; line-height: 1; }
@@ -326,18 +345,37 @@ export default function Welcome() {
         </section>
       </section>
 
+      <figure className="ql-w-reel" aria-label="Twenty seconds at the table">
+        <div className="ql-w-tv">
+          <video autoPlay muted loop playsInline preload="metadata" poster={REEL.poster}>
+            <source src={REEL.webm} type="video/webm" />
+            <source src={REEL.mp4} type="video/mp4" />
+          </video>
+        </div>
+        <figcaption>
+          <span><b>What the TV shows.</b> A map arrives with a title card, the party&rsquo;s tokens are on it, a player&rsquo;s d20 tumbles across the board and lands.</span>
+          <span>Hand-inked maps, no AI art.</span>
+        </figcaption>
+      </figure>
+
       <section className="ql-w-pillars" aria-label="What QuestLab does">
         <Pillar
+          image={STILL.board}
+          alt="The 3D table view: an inked tavern map with lettered party and bandit tokens"
           icon="🗺"
           title="The board on the TV"
           text="Stage a map, reveal it with a cinematic, move tokens on a 3D table. HP, conditions and whose turn it is live right on it."
         />
         <Pillar
+          image={STILL.phone}
+          alt="A character sheet on a phone: HP, AC, saves, damage and heal buttons"
           icon="📱"
           title="A living sheet on every phone"
           text="Spells, slots, rests, inventory, death saves, all self-service. Shake to roll and the die lands on the shared board."
         />
         <Pillar
+          image={STILL.cockpit}
+          alt="The DM cockpit: party HP, initiative strip, the live board and notes on one screen"
           icon="🎬"
           title="A DM cockpit"
           text="Party HP, initiative and the live board over tonight's notes, on one screen. Press N for your notes anywhere."
@@ -390,12 +428,28 @@ export default function Welcome() {
   );
 }
 
-function Pillar({ icon, title, text }: { icon: string; title: string; text: string }) {
+function Pillar({
+  icon,
+  title,
+  text,
+  image,
+  alt,
+}: {
+  icon: string;
+  title: string;
+  text: string;
+  image?: string;
+  alt?: string;
+}) {
   return (
     <div className="ql-w-pillar">
-      <div className="ic" aria-hidden>
-        {icon}
-      </div>
+      {image ? (
+        <img className="ql-w-pillar-img" src={image} alt={alt ?? ""} loading="lazy" />
+      ) : (
+        <div className="ic" aria-hidden>
+          {icon}
+        </div>
+      )}
       <h3>{title}</h3>
       <p>{text}</p>
     </div>
