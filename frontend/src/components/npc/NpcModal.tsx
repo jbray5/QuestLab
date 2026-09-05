@@ -158,7 +158,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                 value={knowsText}
                 onChange={(e) => setKnowsText(e.target.value)}
                 rows={3}
-                placeholder={"Halve rented her loft three nights ago, paid in old coin.\nThe shrine's been yellowing for weeks.\nWenneth has not slept in a season."}
+                placeholder={"One line per thing they know.\nThe mill's been dark since the new moon.\nThe captain pays in foreign coin."}
               />
             </Field>
             <Field label="VOICE — one tic, writable so you can perform it">
@@ -182,7 +182,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                 value={relPingsText}
                 onChange={(e) => setRelPingsText(e.target.value)}
                 rows={2}
-                placeholder={"Recognizes Thane's fey-light; calls him Ae'lim.\nFears Halve on sight."}
+                placeholder={"Owes the party's cleric a favour.\nWon't speak to the rogue since the market."}
               />
             </Field>
           </section>

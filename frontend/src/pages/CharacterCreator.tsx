@@ -80,6 +80,16 @@ const CSS = `
 
 const STEPS = ["Name", "Species", "Class", "Background", "Abilities", "Skills & gear", "Spells", "Review"];
 
+/** Plan 82 — the standard array laid out for a class: primary abilities first, then CON, then the rest. */
+function arrayForClass(primary: string[]): Record<string, number> {
+  const order = [...primary];
+  for (const a of ["CON", "DEX", "WIS", "CHA", "INT", "STR"]) if (!order.includes(a)) order.push(a);
+  const values = [15, 14, 13, 12, 10, 8];
+  const out: Record<string, number> = {};
+  order.slice(0, 6).forEach((a, i) => { out[a] = values[i]; });
+  return out;
+}
+
 export default function CharacterCreator() {
   const { campaignId } = useParams<{ campaignId: string }>();
   const navigate = useNavigate();
@@ -184,6 +194,31 @@ export default function CharacterCreator() {
     if (klass === "Barbarian" && !k?.armor) ac = 10 + dex + con;
     return { hp: Math.max(1, hp), ac };
   }, [cls, opts, finalScores, level, species, bg, originFeat, kit, klass]);
+
+  /** Plan 82 — why Next is disabled, in one line, so nobody sits tapping a dead button. */
+  function nextHint(): string | null {
+    if (canNext()) return null;
+    switch (step) {
+      case 0: return !characterName.trim() ? "Give your character a name." : "Add your own name too.";
+      case 1: return species === "__other" ? "Type the species name." : "Pick a species.";
+      case 2: return klass === "" ? "Pick a class." : "Type the subclass name.";
+      case 3:
+        if (background === "") return "Pick a background.";
+        if (background === "__other") return "Type the background name.";
+        if (bonusMode === "21" && !bonusPlus2) return "Choose which ability gets the +2 (below).";
+        if (bonusMode === "21" && !bonusPlus1) return "Now choose the +1.";
+        return "Finish the ability bonus below.";
+      case 4: return `Point buy is over budget: ${pointsSpent} of ${opts?.point_buy_budget ?? 27}.`;
+      case 5: {
+        const left = skillPicksAllowed - classSkillPicks.length;
+        if (left > 0) return `Pick ${left} more skill${left === 1 ? "" : "s"} from your class list. Greyed ones already come from your background.`;
+        if (speciesRow?.bonus_origin_feat && originFeat === "") return "Humans pick an Origin feat — choose one below.";
+        if (cls?.kits.length && kit === "") return "Pick your starting gear.";
+        return null;
+      }
+      default: return null;
+    }
+  }
 
   function canNext(): boolean {
     switch (step) {
@@ -322,7 +357,7 @@ export default function CharacterCreator() {
             <h2>Background</h2>
             <div className="cards">
               {opts.backgrounds.map((b) => (
-                <button key={b.name} className={`card ${background === b.name ? "on" : ""}`} onClick={() => { setBackground(b.name); setBonusPlus2(""); setBonusPlus1(""); }}>
+                <button key={b.name} className={`card ${background === b.name ? "on" : ""}`} onClick={() => { setBackground(b.name); setBonusPlus2(""); setBonusPlus1(""); window.setTimeout(() => document.getElementById("cc-bonus")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); }}>
                   <b>{b.name}</b><small>{b.blurb}</small><small style={{ marginTop: 4 }}>{b.abilities.join(" / ")} · {b.feat} · {b.skills.join(", ")}</small>
                 </button>
               ))}
@@ -335,7 +370,7 @@ export default function CharacterCreator() {
             )}
             {bg && (
               <>
-                <label>Ability bonus from {bg.name}</label>
+                <label id="cc-bonus">Ability bonus from {bg.name} — pick where the +2 and +1 go</label>
                 <div className="chips" style={{ marginBottom: 8 }}>
                   <button className={`chip ${bonusMode === "21" ? "on" : ""}`} onClick={() => setBonusMode("21")}>+2 and +1</button>
                   <button className={`chip ${bonusMode === "111" ? "on" : ""}`} onClick={() => setBonusMode("111")}>+1 to all three</button>
@@ -360,7 +395,7 @@ export default function CharacterCreator() {
           <>
             <h2>Ability scores</h2>
             <div className="chips" style={{ marginBottom: 10 }}>
-              <button className={`chip ${method === "standard" ? "on" : ""}`} onClick={() => { setMethod("standard"); setScores({ STR: 15, DEX: 14, CON: 13, INT: 12, WIS: 10, CHA: 8 }); }}>Standard array</button>
+              <button className={`chip ${method === "standard" ? "on" : ""}`} onClick={() => { setMethod("standard"); setScores(arrayForClass(cls?.primary ?? [])); }}>Standard array</button>
               <button className={`chip ${method === "pointbuy" ? "on" : ""}`} onClick={() => { setMethod("pointbuy"); setScores({ STR: 8, DEX: 8, CON: 8, INT: 8, WIS: 8, CHA: 8 }); }}>Point buy</button>
               <button className={`chip ${method === "manual" ? "on" : ""}`} onClick={() => setMethod("manual")}>Rolled / manual</button>
             </div>
@@ -394,7 +429,7 @@ export default function CharacterCreator() {
         {step === 5 && cls && (
           <>
             <h2>Skills</h2>
-            <p className="note">Pick {skillPicksAllowed} from the {klass} list{bg ? `; ${bg.name} already gives ${bg.skills.join(" and ")}.` : "."}</p>
+            <p className="note">Pick {skillPicksAllowed} from the {klass} list — {classSkillPicks.length} of {skillPicksAllowed} picked{bg ? `. ${bg.name} already gives ${bg.skills.join(" and ")} (greyed).` : "."}</p>
             <div className="chips">
               {Object.keys(opts.skills).map((s) => {
                 const fromBg = (bg?.skills ?? []).includes(s);
@@ -404,14 +439,14 @@ export default function CharacterCreator() {
                 return (
                   <button key={s} className={`chip ${on ? "on" : ""}`} disabled={fromBg || !allowed || full}
                     onClick={() => setSkills(on ? skills.filter((x) => x !== s) : [...skills, s])}>
-                    {s} <small style={{ opacity: 0.6 }}>{opts.skills[s]}</small>
+                    {s} <small style={{ opacity: 0.6 }}>{fromBg ? "from background" : opts.skills[s]}</small>
                   </button>
                 );
               })}
             </div>
             {speciesRow?.bonus_origin_feat && (
               <>
-                <label>Versatile — your Origin feat</label>
+                <label>Versatile — pick your Origin feat (required)</label>
                 <div className="chips">
                   {opts.origin_feats.map((f) => (
                     <button key={f.name} className={`chip ${originFeat === f.name ? "on" : ""}`} title={f.blurb} onClick={() => setOriginFeat(f.name)}>{f.name}</button>
@@ -490,7 +525,10 @@ export default function CharacterCreator() {
           {step === 0 ? "Back" : "Previous"}
         </button>
         {step < STEPS.length - 1 ? (
-          <button className="btn primary" onClick={() => setStep(step + 1)} disabled={!canNext()}>Next</button>
+          <>
+            {nextHint() && <span className="note" style={{ flex: 1, alignSelf: "center", margin: 0, fontSize: "0.82rem" }}>{nextHint()}</span>}
+            <button className="btn primary" onClick={() => setStep(step + 1)} disabled={!canNext()}>Next</button>
+          </>
         ) : (
           <button className="btn primary" onClick={() => void submit()} disabled={busy}>{busy ? "Creating…" : "Create & open my sheet"}</button>
         )}

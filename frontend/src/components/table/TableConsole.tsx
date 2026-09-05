@@ -261,8 +261,8 @@ function TableConsoleModal({
               <button
                 className="btn btn-ghost"
                 style={{ fontSize: "0.7rem" }}
-                onClick={t.addFoesFromCombat}
-                disabled={!activeMap || !t.combat?.combatants?.length}
+                onClick={() => void t.addFoesFromCombat()}
+                disabled={!activeMap}
                 title="One token per non-PC combatant, linked for HP + turn glow"
               >
                 + Foes (combat)

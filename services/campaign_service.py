@@ -11,12 +11,18 @@ from typing import Optional
 from sqlmodel import Session
 
 from db.repos.adventure_repo import AdventureRepo
+from db.repos.battle_map_repo import BattleMapRepo
 from db.repos.campaign_repo import CampaignRepo
 from db.repos.character_repo import CharacterRepo
+from db.repos.crier_repo import CrierChannelRepo, CrierNpcRepo, CrierPostRepo
 from db.repos.encounter_repo import EncounterRepo
 from db.repos.item_repo import LootTableRepo
 from db.repos.map_repo import MapEdgeRepo, MapNodeRepo, MapRepo
+from db.repos.notebook_repo import NotebookPageRepo, NotebookRepo
+from db.repos.npc_repo import NpcRepo
+from db.repos.puzzle_repo import PuzzleRepo
 from db.repos.session_repo import SessionRepo, SessionRunbookRepo
+from db.repos.shop_repo import ShopItemRepo, ShopRepo
 from domain.campaign import Campaign, CampaignCreate, CampaignRead, CampaignUpdate
 
 MAX_CAMPAIGNS_PER_DM = 20
@@ -166,13 +172,34 @@ def delete_campaign(session: Session, campaign_id: uuid.UUID, dm_email: str) -> 
         raise ValueError(f"Campaign {campaign_id} not found.")
     _assert_owner(campaign, dm_email)
 
-    # Cascade: delete all child records in FK-safe order
-    for character in CharacterRepo.list_by_campaign(session, campaign_id):
-        CharacterRepo.delete(session, character)
-
+    # Cascade: delete all child records in FK-safe order. Plan 82 — every
+    # table that points at a campaign, adventure or session goes first; six
+    # of six field testers hit a 500 here because table state, combatants,
+    # beats, briefs, battle maps, NPCs, notebooks, shops, puzzles and the
+    # crier were left behind.
     for adventure in AdventureRepo.list_by_campaign(session, campaign_id):
         _delete_adventure_children(session, adventure.id)
         AdventureRepo.delete(session, adventure)
+
+    for battle_map in BattleMapRepo.list_for_campaign(session, campaign_id):
+        BattleMapRepo.delete(session, battle_map)
+    for npc in NpcRepo.list_by_campaign(session, campaign_id):
+        NpcRepo.delete(session, npc)
+    for notebook in NotebookRepo.list_for_campaign(session, campaign_id):
+        NotebookPageRepo.delete_for_notebook(session, notebook.id)
+        NotebookRepo.delete(session, notebook)
+    CrierPostRepo.delete_for_campaign(session, campaign_id)
+    for crier_npc in CrierNpcRepo.list_for_campaign(session, campaign_id):
+        CrierNpcRepo.delete(session, crier_npc)
+    for channel in CrierChannelRepo.list_for_campaign(session, campaign_id):
+        CrierChannelRepo.delete(session, channel)
+    for shop in ShopRepo.list_for_campaign(session, campaign_id):
+        ShopItemRepo.delete_for_shop(session, shop.id)
+        ShopRepo.delete(session, shop)
+    for puzzle in PuzzleRepo.list_for_campaign(session, campaign_id):
+        PuzzleRepo.delete(session, puzzle)
+    for character in CharacterRepo.list_by_campaign(session, campaign_id):
+        CharacterRepo.delete(session, character)
 
     CampaignRepo.delete(session, campaign)
 
@@ -184,7 +211,10 @@ def _delete_adventure_children(session: Session, adventure_id: uuid.UUID) -> Non
         session: Active database session.
         adventure_id: UUID of the adventure whose children to delete.
     """
+    from services import session_service
+
     for game_session in SessionRepo.list_by_adventure(session, adventure_id):
+        session_service.cascade_session_children(session, game_session.id)
         runbook = SessionRunbookRepo.get_by_session(session, game_session.id)
         if runbook:
             SessionRunbookRepo.delete(session, runbook)

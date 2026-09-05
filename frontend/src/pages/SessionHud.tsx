@@ -38,6 +38,7 @@ import DmScreen from "../components/dm-screen/DmScreen";
 import LootPanel from "../components/LootPanel";
 import TableConsole from "../components/table/TableConsole";
 import LiveBoardPane from "../components/table/LiveBoardPane";
+import { useIsCompactHeight } from "../hooks/useIsCompact";
 import SessionNotesEditor from "../components/dm/SessionNotesEditor";
 import { tableApi } from "../api/table";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
@@ -138,6 +139,18 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(String(hp));
   const inputRef = useRef<HTMLInputElement>(null);
+  // Plan 82 — rapid −/+ taps accumulate locally and save once the tapping
+  // stops; the old code read the stale prop each click and lost taps.
+  const [local, setLocal] = useState<{ base: number; value: number } | null>(null);
+  const saveTimer = useRef<number | undefined>(undefined);
+  const shown = local && local.base === hp ? local.value : hp;
+  function bump(delta: number) {
+    const next = Math.min(maxHp, Math.max(0, shown + delta));
+    setLocal({ base: hp, value: next });
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => onSave(next), 320);
+  }
+  useEffect(() => () => window.clearTimeout(saveTimer.current), []);
 
   useEffect(() => {
     if (editing) inputRef.current?.select();
@@ -149,7 +162,7 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
     setEditing(false);
   }
 
-  const pct = maxHp > 0 ? Math.max(0, Math.min(100, (hp / maxHp) * 100)) : 0;
+  const pct = maxHp > 0 ? Math.max(0, Math.min(100, (shown / maxHp) * 100)) : 0;
   const barColor = pct > 50 ? "#4caf50" : pct > 25 ? "#ff9800" : "#f44336";
 
   return (
@@ -167,7 +180,7 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
           />
         ) : (
           <button
-            onClick={() => { setVal(String(hp)); setEditing(true); }}
+            onClick={() => { setVal(String(shown)); setEditing(true); }}
             style={{
               background: "none", border: "none", cursor: "pointer",
               fontSize: "0.95rem", fontWeight: 700, color: barColor, padding: 0,
@@ -175,22 +188,22 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
             disabled={saving}
             title="Click to edit HP"
           >
-            {hp}
+            {shown}
           </button>
         )}
         <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>/ {maxHp}</span>
         <button
           className="btn btn-ghost"
           style={{ padding: "0.1rem 0.35rem", fontSize: "0.7rem" }}
-          onClick={() => { const n = Math.max(0, hp - 1); onSave(n); }}
-          disabled={saving || hp <= 0}
+          onClick={() => bump(-1)}
+          disabled={shown <= 0}
           title="−1 HP"
         >−</button>
         <button
           className="btn btn-ghost"
           style={{ padding: "0.1rem 0.35rem", fontSize: "0.7rem" }}
-          onClick={() => { const n = Math.min(maxHp, hp + 1); onSave(n); }}
-          disabled={saving || hp >= maxHp}
+          onClick={() => bump(1)}
+          disabled={shown >= maxHp}
           title="+1 HP"
         >+</button>
         <button
@@ -630,12 +643,16 @@ export default function SessionHud() {
   const [centerTab, setCenterTab] = useState<"maps" | "live" | "people">("maps");
   // Plan 76 — cockpit chrome: the ＋ Add / 📣 Table roll popover and the
   // height of the notes strip under the board (persisted).
+  // Plan 82 — a laptop at 1366×768 or 1280×800 has no room for the strip,
+  // a tall notes pane and the rules bar all at once; the board comes first.
+  const shortScreen = useIsCompactHeight(900);
   const [addOpen, setAddOpen] = useState(false);
   const [tableRollOpen, setTableRollOpen] = useState(false);
-  const [stripOpen, setStripOpen] = useState(true);
+  const [stripOpen, setStripOpen] = useState(!shortScreen);
   const [notesH, setNotesH] = useState<number>(() => {
     try {
-      return Math.min(520, Math.max(120, Number(localStorage.getItem("ql-hud-notes-h") ?? 200) || 200));
+      const fallback = window.matchMedia("(max-height: 900px)").matches ? 140 : 200;
+      return Math.min(520, Math.max(120, Number(localStorage.getItem("ql-hud-notes-h") ?? fallback) || fallback));
     } catch {
       return 200;
     }
@@ -683,7 +700,8 @@ export default function SessionHud() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["hud-table", sessionId] }),
   });
   const setActiveMap = useMutation({
-    mutationFn: (mapId: string) => tableApi.updateState(sessionId!, { active_map_id: mapId }),
+    // Plan 82 — staging a map is the start of play: the join QR steps aside.
+    mutationFn: (mapId: string) => tableApi.updateState(sessionId!, { active_map_id: mapId, join_qr_on: false }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["hud-table", sessionId] }),
   });
   // Distinct monsters across tonight's encounter rosters (for 👥 People).
@@ -2403,6 +2421,7 @@ export default function SessionHud() {
       </div>
 
       {/* ── Bottom bar: Quick Rules ────────────────────────────── */}
+      {!shortScreen && (
       <div style={{
         borderTop: "1px solid var(--border)",
         background: "var(--surface2)",
@@ -2454,6 +2473,7 @@ export default function SessionHud() {
           ))}
         </div>
       </div>
+      )}
 
       {/* Monster stat block modal (Plan 00015 — wire stat blocks into HUD) */}
       {statBlockMonster && (

@@ -55,6 +55,20 @@ function readVideo(file: File): Promise<{ w: number; h: number; poster: File }> 
   });
 }
 
+/** Plan 82 — guess the 5-ft square size from the image: the common cell sizes
+ *  that divide both edges into a plausible battle-map count. Null if none fit. */
+function guessGrid(w: number, h: number): number | null {
+  const candidates = [70, 100, 96, 140, 50, 72, 128, 150, 200, 64, 80, 120, 60, 90, 75];
+  for (const g of candidates) {
+    if (w % g === 0 && h % g === 0) {
+      const cols = w / g;
+      const rows = h / g;
+      if (cols >= 8 && cols <= 80 && rows >= 6 && rows <= 60) return g;
+    }
+  }
+  return null;
+}
+
 function readDims(file: File): Promise<{ w: number; h: number }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -149,7 +163,8 @@ export default function BattleMaps() {
           continue;
         }
         const [{ w, h }, url] = await Promise.all([readDims(file), tableApi.uploadMap(file)]);
-        await createMut.mutateAsync({ name, image_url: url, width: w, height: h });
+        const grid = guessGrid(w, h);
+        await createMut.mutateAsync({ name, image_url: url, width: w, height: h, ...(grid ? { grid_size: grid } : {}) });
       }
     } catch (e) {
       setUploadError((e as Error).message);

@@ -263,6 +263,28 @@ def update_session(
     return SessionRepo.update(db, game_session, update)
 
 
+def cascade_session_children(db: DBSession, session_id: uuid.UUID) -> None:
+    """Delete everything that hangs off a session except its runbook (Plan 82).
+
+    Postgres FKs abort a bare session delete otherwise: beats reference
+    combatants, so beats go first; then combatants, the table state and the
+    brief. Shared by ``delete_session`` and the campaign cascade so a campaign
+    with a fight in it can be deleted in one call.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the session.
+    """
+    for beat in CombatBeatRepo.list_for_session(db, session_id):
+        CombatBeatRepo.delete(db, beat)
+    for combatant in SessionCombatantRepo.list_for_session(db, session_id):
+        SessionCombatantRepo.delete_one(db, combatant)
+    TableStateRepo.delete_for_session(db, session_id)
+    brief = SessionBriefRepo.get_by_session(db, session_id)
+    if brief:
+        SessionBriefRepo.delete(db, brief)
+
+
 def delete_session(db: DBSession, session_id: uuid.UUID, dm_email: str) -> bool:
     """Delete a session and its runbook.
 
@@ -282,16 +304,7 @@ def delete_session(db: DBSession, session_id: uuid.UUID, dm_email: str) -> bool:
     if game_session is None:
         raise ValueError(f"Session {session_id} not found.")
     _assert_session_owner(db, game_session, dm_email)
-    # Cascade every child table first — Postgres FKs abort the delete
-    # otherwise (beats reference combatants, so beats go first).
-    for beat in CombatBeatRepo.list_for_session(db, session_id):
-        CombatBeatRepo.delete(db, beat)
-    for combatant in SessionCombatantRepo.list_for_session(db, session_id):
-        SessionCombatantRepo.delete_one(db, combatant)
-    TableStateRepo.delete_for_session(db, session_id)
-    brief = SessionBriefRepo.get_by_session(db, session_id)
-    if brief:
-        SessionBriefRepo.delete(db, brief)
+    cascade_session_children(db, session_id)
     runbook = SessionRunbookRepo.get_by_session(db, session_id)
     if runbook:
         SessionRunbookRepo.delete(db, runbook)
@@ -915,6 +928,10 @@ def update_combatant(
     # event so the player's phone refetches the conditions strip + temp HP.
     if updated.character_id and campaign_id is not None:
         publish_pc_combat_updated(updated.character_id, campaign_id)
+    # Plan 82 — the projected table carries conditions, HP bars and defeat
+    # state from these rows; tell every table screen to re-pull so a condition
+    # set from the strip shows on the TV and the remote link, not just the HUD.
+    publish_table_updated(session_id)
     return updated
 
 

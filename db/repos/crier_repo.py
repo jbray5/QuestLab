@@ -260,3 +260,20 @@ class CrierPostRepo:
             row.npc_id = None
             session.add(row)
         session.commit()
+
+    @staticmethod
+    def delete_for_campaign(session: Session, campaign_id: uuid.UUID) -> int:
+        """Delete every post in a campaign (campaign cascade, Plan 82).
+
+        Args:
+            session: Active database session.
+            campaign_id: UUID of the owning campaign.
+
+        Returns:
+            Number of rows deleted.
+        """
+        rows = session.exec(select(CrierPost).where(CrierPost.campaign_id == campaign_id)).all()
+        for row in rows:
+            session.delete(row)
+        session.commit()
+        return len(rows)

@@ -71,7 +71,7 @@ export default function GuidePage() {
       </div>
 
       <h2>The loop</h2>
-      <div className="step"><span className="k">1</span><b>Sign in.</b> Continue with Discord (or Patreon). Your campaigns are tied to that account — nobody else can see them.</div>
+      <div className="step"><span className="k">1</span><b>Sign in.</b> With your email on a personal setup, or Continue with Discord (or Patreon) on the public one — whichever the sign-in page shows. Your campaigns are tied to that identity; nobody else can see them.</div>
       <div className="step"><span className="k">2</span><b>Create a campaign.</b> Name, setting, tone. New here? Press <span className="btnref">🎲 Create a sample campaign</span> on the dashboard to get a ready-made adventure, four pregens, a map and an encounter you can run tonight.</div>
       <div className="step"><span className="k">3</span><b>Add your players.</b> Campaign → Characters → <span className="btnref">+ Character</span>. You only need a name and class; players fill the rest in from their phones. Then show the join code: open the session&rsquo;s table and tap the <span className="btnref">📱</span> chip (or <span className="btnref">📱 QR → projector</span> from the HUD). Each player scans, taps their name, and their live sheet is on their phone — it remembers them next time.</div>
       <div className="step"><span className="k">4</span><b>Add a map.</b> Campaign → Battle Maps → <span className="btnref">+ Import maps</span>. JPG, PNG, WebP — or an MP4/WebM loop for an animated map. Big files are fine (up to 80 MB). Set the grid size once and the board draws it for you. See <a href="#maps">maps and licensing</a> below.</div>

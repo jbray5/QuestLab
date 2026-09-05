@@ -66,8 +66,7 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
         <button
           className="btn btn-ghost"
           style={btn}
-          onClick={t.addFoesFromCombat}
-          disabled={!t.combat?.combatants?.length}
+          onClick={() => void t.addFoesFromCombat()}
           title="One token per non-PC combatant, linked for HP + turn glow"
         >
           + Foes (combat)
@@ -105,7 +104,7 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
         style={{
           background: "#06060b",
           flex: 1,
-          minHeight: 240,
+          minHeight: 280,
           display: "flex",
           borderRadius: 8,
           overflow: "hidden",

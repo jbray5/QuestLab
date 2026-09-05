@@ -105,11 +105,16 @@ export function useTableController(sessionId: string, campaignId: string, party:
     patchNow({ tokens: [...state.tokens, t] });
   }
 
-  function addFoesFromCombat() {
-    if (!activeMap || !state || !combat) return;
+  async function addFoesFromCombat() {
+    if (!activeMap || !state) return;
+    // Plan 82 — the HUD edits combat through its own query; read the server's
+    // current roster instead of a possibly stale cache so foes land first time.
+    const live = await sessionsApi.getCombatState(sessionId).catch(() => combat);
+    if (!live) return;
+    qc.setQueryData(["board-combat", sessionId], live);
     const existingRefs = new Set(state.tokens.map((t) => t.ref_id).filter(Boolean));
     // ref_id = SessionCombatant.id so HP bars + turn glow track monsters too (Plan 44).
-    const fresh: TableToken[] = combat.combatants
+    const fresh: TableToken[] = live.combatants
       .filter((c) => !c.character_id && !existingRefs.has(c.id))
       .map((c, i) => ({
         id: `foe-${c.id}`,

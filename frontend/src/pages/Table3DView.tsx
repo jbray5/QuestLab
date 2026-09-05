@@ -165,7 +165,7 @@ export default function Table3DView() {
   // Plan 59 / P3 — the DECK sea. DISABLED 8/5 (DM call): overlaps the hex
   // grid; no 3D-engine surgery this close to the freeze. Revisit after 8/8.
   const seaMode = "off" as const;
-  const effectiveGrid: GridKind = gridKind ?? (map?.grid_size ? "hex" : "off");
+  const effectiveGrid: GridKind = gridKind ?? (map?.grid_size ? "square" : "off");
 
   const torchCount = useMemo(
     () => (proj?.tokens ?? []).filter((t) => t.kind === "light").length,

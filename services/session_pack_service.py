@@ -14,6 +14,7 @@ guesswork.
 """
 
 import logging
+import re
 import uuid
 from typing import Any, Optional
 
@@ -106,6 +107,19 @@ class _PackOutput(BaseModel):
     xp_awards: dict[str, int] = Field(default_factory=dict)
 
 
+_ROUND_PREFIX = re.compile(r"^\s*(?:round\s*\d+\s*[:.\-—–]\s*)+", re.IGNORECASE)
+
+
+def _strip_round_prefix(line: str) -> str:
+    """Drop any leading "Round N:" the model added — the app labels rounds itself (Plan 82)."""
+    return _ROUND_PREFIX.sub("", line or "").strip()
+
+
+def _clean_name(name: str) -> str:
+    """An NPC name without status parentheticals, e.g. "Hessa Cleft (absent)" → "Hessa Cleft"."""
+    return re.sub(r"\s*\([^)]*\)\s*$", "", name or "").strip() or (name or "").strip()
+
+
 def _cr_value(cr: str) -> float:
     """Numeric CR from the string form ('1/4' → 0.25)."""
     try:
@@ -157,7 +171,14 @@ def generate_session_pack(
     # the campaign's map library, and the magic-item catalog.
     tier = getattr(adventure.tier, "value", str(adventure.tier))
     cr_cap = _TIER_CR_CAP.get(tier, 5.0)
-    monsters = [m for m in MonsterRepo.list_all(db) if _cr_value(m.challenge_rating) <= cr_cap]
+    # Plan 82 — catalog monsters only. A DM's custom reskins (and their art)
+    # belong to the campaign that made them and must never wander into a
+    # pack for another one.
+    monsters = [
+        m
+        for m in MonsterRepo.list_all(db)
+        if _cr_value(m.challenge_rating) <= cr_cap and not getattr(m, "is_custom", False)
+    ]
 
     def _ctype(m: Any) -> str:
         return str(getattr(m.creature_type, "value", m.creature_type))
@@ -201,7 +222,16 @@ World notes: {campaign.world_notes or 'None'}
 - Prefer loot item_name values from this catalog (invent sparingly):
   {item_names}
 - Respect the campaign's established lore. Invent scene detail freely,
-  but never contradict the premise or world notes."""
+  but never contradict the premise or world notes.
+- Every named person or creature who drives the plot — the antagonist
+  above all — MUST appear in "npcs" with a full entry. Never name a villain
+  the DM cannot find on the roster.
+- NPC "name" is a name only: no parentheticals, no status notes like
+  "(absent)"; put that in "quick_who".
+- Honour explicit DM constraints in the premise (one location, a remote
+  player, no combat, a time limit) — they outrank the defaults below.
+- "round_by_round" entries are the round's events only; do not prefix them
+  with "Round N:" — the app labels rounds."""
 
     user = f"""Tonight's premise from the DM:
 
@@ -306,7 +336,7 @@ lines. Make read-alouds atmospheric and the tactics concrete."""
                 is_revealed=False,
             ),
         )
-        created_npcs.append({"name": n.name, "role": n.role})
+        created_npcs.append({"name": _clean_name(n.name), "role": n.role})
 
     # ── Loot: resolve against the item catalog. ──
     item_by_name = {i.name.lower(): i for i in items}
@@ -333,7 +363,7 @@ lines. Make read-alouds atmospheric and the tactics concrete."""
         encounter_flows=[
             {
                 "encounter_name": e.name,
-                "round_by_round": e.round_by_round,
+                "round_by_round": [_strip_round_prefix(line) for line in e.round_by_round],
                 "tactics": e.tactics,
                 "terrain_notes": e.terrain_notes,
             }

@@ -10,6 +10,20 @@ import { useSyncExternalStore } from "react";
  *
  * Breakpoints in use: 900 (nav / general chrome), 820 (the HUD three-panel body).
  */
+/** useIsCompactHeight — true when the viewport is at or below `maxHeight` px (Plan 82: laptop HUD). */
+export function useIsCompactHeight(maxHeight = 900): boolean {
+  const query = `(max-height: ${maxHeight}px)`;
+  return useSyncExternalStore(
+    (onChange) => {
+      const mql = window.matchMedia(query);
+      mql.addEventListener("change", onChange);
+      return () => mql.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
+  );
+}
+
 export function useIsCompact(breakpoint = 820): boolean {
   const query = `(max-width: ${breakpoint}px)`;
   return useSyncExternalStore(
