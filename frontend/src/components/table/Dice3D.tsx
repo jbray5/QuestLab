@@ -109,7 +109,17 @@ function collectFaces(geo: THREE.BufferGeometry): Face[] {
       if (d > best) { best = d; tip = p; }
     }
     f.radius = best;
-    f.v.subVectors(tip, f.centroid).normalize();
+    if (verts.length === 4 && verts.every((p) => Math.abs(p.distanceTo(f.centroid) - best) < 1e-4)) {
+      // A square face (d6): the numeral's top points at an edge, not a corner.
+      const tmpU = new THREE.Vector3().subVectors(verts[0], f.centroid).normalize();
+      const tmpV = new THREE.Vector3().crossVectors(f.normal, tmpU);
+      const ang = (p: THREE.Vector3) => Math.atan2(p.clone().sub(f.centroid).dot(tmpV), p.clone().sub(f.centroid).dot(tmpU));
+      const ring = [...verts].sort((p, q) => ang(p) - ang(q));
+      const mid = new THREE.Vector3().addVectors(ring[0], ring[1]).multiplyScalar(0.5);
+      f.v.subVectors(mid, f.centroid).normalize();
+    } else {
+      f.v.subVectors(tip, f.centroid).normalize();
+    }
     f.u.crossVectors(f.v, f.normal).normalize();
   }
   return faces;
