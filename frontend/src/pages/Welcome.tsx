@@ -37,8 +37,8 @@ interface Providers {
 
 const BLOB = "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/";
 const REEL = {
-  mp4: BLOB + "e1b8dab4-e40f-410c-86bc-3a48f2d00ab3-khtQVaoR7hj6gT0YhYlsl3zmdc3PQC.mp4",
-  webm: BLOB + "327cfc70-4c27-4148-baca-06eecf834062-d1hBrqdMEHXHXCcAVosEH9EdFE5IY1.webm",
+  mp4: BLOB + "688df2c4-223d-4800-9da5-b102c5dc9378-96r39eJXX0cwzGt0w50hAn3VQGu5U9.mp4",
+  webm: BLOB + "923164da-af76-470b-8bc5-0bb74c1f097e-pphxbbyxS8xdEFerhxFEKeopNFu8RK.webm",
   poster: BLOB + "c95663fb-e304-4468-895c-e47d1b2b80bc-5eyLEhjvvmkObmgjVjGEqm9IbWTAHV.webp",
 };
 const STILL = {
@@ -360,8 +360,8 @@ export default function Welcome() {
       <figure className="ql-w-reel" aria-label="Twenty seconds at the table">
         <div className="ql-w-tv">
           <video ref={reelRef} autoPlay muted loop playsInline preload="auto" poster={REEL.poster}>
-            <source src={REEL.webm} type="video/webm" />
             <source src={REEL.mp4} type="video/mp4" />
+            <source src={REEL.webm} type="video/webm" />
           </video>
         </div>
         <figcaption>
