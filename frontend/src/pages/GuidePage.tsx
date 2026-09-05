@@ -57,16 +57,16 @@ export default function GuidePage() {
       <p>Two short recordings of the real app, narrated and captioned, with a music bed that was synthesized rather than sampled.</p>
       <div className="watch">
         <figure>
-          <video controls playsInline preload="metadata" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/e0bac1fe-262f-47c1-a9d0-695a1d2afa11-r7on1kmw2X1g0edKT5s19opVn4TtJi.webp">
-            <source src="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/dc36ec8e-1b9f-4e06-bd81-720706181374-PkV86wli3ERl1EBxqiGhShneJldyfY.mp4" type="video/mp4" />
+          <video controls playsInline preload="metadata" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/4a9cca77-4e09-4b72-b89a-6872c0cfad32-S8uwH2Fz58NVmKITk2rEOrJdb156UK.webp">
+            <source src="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/9f95b463-1ecc-4ae5-8524-2a4009d2ec5c-cmFuWog2RaFHfvDPREPFbVo4DcQ8rm.mp4" type="video/mp4" />
           </video>
           <figcaption><b>Set up in five minutes</b> (2:48) — sign in, create a campaign, an arc and a session, upload a map, put the QR on the TV, and a player builds a character on their phone.</figcaption>
         </figure>
         <figure>
-          <video controls playsInline preload="metadata" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/3d16299f-bb5d-4767-923c-ffa976a8af15-diTf9OdQ2J95Y3C7d3NZRJ5GB0nmzV.webp">
-            <source src="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/1f6d333b-e0e8-4af3-b478-c646d5641fd6-tPhvAzt3xjfAnWa37GW8Sw83OXqBPl.mp4" type="video/mp4" />
+          <video controls playsInline preload="metadata" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/c2e69ec2-3b6d-4adb-8621-b000521fe3c5-Y5l32FHFaHSmRDu1rvhNGmOuxzMy58.webp">
+            <source src="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/56033677-3a7b-4e96-b880-8961c47909da-xeWFrIogpJBy3jQoFPzaH7p83H8W8v.mp4" type="video/mp4" />
           </video>
-          <figcaption><b>Game night</b> (2:10) — the HUD, staging a map, adding foes and rolling initiative, dragging tokens, damage and conditions landing on a phone, a die landing on the TV.</figcaption>
+          <figcaption><b>Game night</b> (2:09) — the HUD, staging a map, adding foes and rolling initiative, dragging tokens, damage and conditions landing on a phone, a die landing on the TV.</figcaption>
         </figure>
       </div>
 
