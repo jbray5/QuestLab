@@ -1,7 +1,7 @@
 # Plan 00079 — The showcase reel: hand-inked maps, lettered tokens, no AI art
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (v1, live-verified 2026-09-05)
 
 **Started:** 2026-09-05 · **Implemented by:** Claude Code
 
@@ -39,7 +39,15 @@ on a public surface.
   text-only on purpose.
 
 ## Verification
-- pending
+- tsc, eslint, build clean. Prod (f488317, bundle index-66VjDTkG): on both a
+  1440×900 desktop and a 390×844 phone the reel picks the MP4 source, reports
+  no media error and is 5 s in after 5 s on screen; the three pillar stills
+  load at their full width. The first WebM/MP4 cut (full-range JPEG colour)
+  failed to decode in Chrome — re-encoded limited-range yuv420p/bt709, MP4
+  listed first, and the hosted files replaced.
+- Reel assets and stills are on Vercel Blob under `maps/` (uploaded through
+  the app's own map upload); the showcase campaign stays on Justin's account
+  as the source for future captures.
 
 ## Follow-ups
 - Move `procgen_ink_maps.py` into `scripts/` and offer the three maps as
