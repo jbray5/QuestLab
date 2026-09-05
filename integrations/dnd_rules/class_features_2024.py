@@ -12,6 +12,12 @@ Sources:
 from domain.character import ClassFeatureCreate
 from domain.enums import CharacterClass, RecoveryType, UsesFormula
 
+# Plan 77 — these subclasses are not in SRD 5.2.1; their feature text is
+# seeded for the deployment owner's own table and never granted to, or
+# listed for, anyone else (see feature_service + entitlement_service).
+NON_SRD_SUBCLASSES: frozenset[str] = frozenset({"Circle of Stars", "Soulknife"})
+
+
 CLASS_FEATURES_2024: list[ClassFeatureCreate] = [
     # ── Barbarian ────────────────────────────────────────────────────────
     ClassFeatureCreate(

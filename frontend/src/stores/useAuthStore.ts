@@ -12,6 +12,8 @@ export interface DmProfile {
   ai_allowed: boolean;
   ai_reason: string | null;
   ai_remaining_today: number | null;
+  tier?: string;
+  ai_daily_limit?: number | null;
 }
 
 interface AuthState {

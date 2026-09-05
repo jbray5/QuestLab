@@ -12,7 +12,15 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
 from api.deps import DB, CurrentUser
-from domain.user import AuthProviders, LoginRequest, SessionResponse, SignupRequest, UserRead
+from domain.user import (
+    AiPlan,
+    AiPlans,
+    AuthProviders,
+    LoginRequest,
+    SessionResponse,
+    SignupRequest,
+    UserRead,
+)
 from integrations import oauth
 from services import auth_service, entitlement_service
 
@@ -40,6 +48,20 @@ def providers() -> AuthProviders:
         mode=auth_service.auth_mode(),
         patreon_url=os.environ.get("PATREON_URL", "").strip() or None,
         ai_gate=entitlement_service.gate_mode(),
+    )
+
+
+@router.get("/auth/plans", response_model=AiPlans)
+def plans() -> AiPlans:
+    """The AI tier table (Plan 77) — public, for the paywall and the guide.
+
+    Returns:
+        Gate mode, the Patreon page, and every tier with price, allowance and scope.
+    """
+    return AiPlans(
+        gate=entitlement_service.gate_mode(),
+        patreon_url=os.environ.get("PATREON_URL", "").strip() or None,
+        plans=[AiPlan(**p) for p in entitlement_service.plans()],
     )
 
 

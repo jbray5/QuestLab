@@ -313,7 +313,7 @@ def forge_hero(pc_id: uuid.UUID, db: DB) -> dict:
     Returns:
         ``{"hero_url": <url>}``.
     """
-    gate_ai_for_pc(db, pc_id)  # Plan 73 — charged to the campaign owner
+    gate_ai_for_pc(db, pc_id, "art")  # Plan 73 — charged to the campaign owner
     try:
         return player_service.forge_hero(db, pc_id)
     except ValueError as exc:
@@ -441,7 +441,7 @@ def forge_identity(pc_id: uuid.UUID, db: DB) -> dict:
     Returns:
         ``{"hero_url", "loadout_url", "portrait_url", "figure_url"}``.
     """
-    gate_ai_for_pc(db, pc_id)  # Plan 73 — charged to the campaign owner
+    gate_ai_for_pc(db, pc_id, "art")  # Plan 73 — charged to the campaign owner
     try:
         return player_service.forge_identity(db, pc_id)
     except ValueError as exc:
@@ -467,7 +467,7 @@ def dress_model(pc_id: uuid.UUID, db: DB) -> dict:
     Returns:
         ``{"loadout_url": <url>}``.
     """
-    gate_ai_for_pc(db, pc_id)  # Plan 73 — charged to the campaign owner
+    gate_ai_for_pc(db, pc_id, "art")  # Plan 73 — charged to the campaign owner
     try:
         return player_service.dress_model(db, pc_id)
     except ValueError as exc:

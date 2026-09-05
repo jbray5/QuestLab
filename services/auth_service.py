@@ -250,4 +250,6 @@ def me(db: DBSession, email: str, *, is_admin: bool = False) -> UserRead:
         ai_allowed=ent.allowed,
         ai_reason=ent.reason,
         ai_remaining_today=ent.remaining_today,
+        tier=ent.tier,
+        ai_daily_limit=ent.daily_limit,
     )

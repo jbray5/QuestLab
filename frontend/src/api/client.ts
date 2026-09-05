@@ -57,8 +57,18 @@ async function request<T>(
     // Plan 73 — the AI paywall / quota answers with a structured detail;
     // surface it as a dedicated event so one modal serves every AI button.
     if (typeof window !== "undefined" && (res.status === 402 || res.status === 429) && detail && typeof detail === "object" && "code" in detail) {
+      if (detail.code === "rate_limited") {
+        // Plan 77 — per-IP throttle, not the paywall.
+        throw new Error("Slow down a moment — too many requests. Try again in a few seconds.");
+      }
       window.dispatchEvent(new CustomEvent("ql:paywall", { detail }));
-      throw new Error(detail.code === "daily_limit" ? "Today's AI allowance is spent." : "AI features are for QuestLab patrons.");
+      throw new Error(
+        detail.code === "daily_limit"
+          ? "Today's AI allowance is spent."
+          : detail.code === "tier_required"
+            ? "This needs a higher Patreon tier."
+            : "AI features are for QuestLab patrons.",
+      );
     }
     if (typeof window !== "undefined" && res.status === 401 && localStorage.getItem("ql_token")) {
       // Expired session in oauth mode — clear it so the guard sends them to sign in.

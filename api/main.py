@@ -13,8 +13,9 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.routers import (
@@ -47,6 +48,7 @@ from api.routers import (
     uploads,
     waitlist,
 )
+from integrations import rate_limit
 
 load_dotenv()
 
@@ -100,7 +102,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="QuestLab API",
     description="AI-powered D&D 5e campaign planning tool — REST API.",
-    version="1.4.3",
+    version="1.5.0",
     lifespan=lifespan,
 )
 
@@ -116,6 +118,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# ── Rate limiting (Plan 77) — per-IP windows on auth + writes; reads untouched ──
+@app.middleware("http")
+async def _throttle(request: Request, call_next):
+    """Answer 429 (with Retry-After) when a client IP exceeds its per-minute bucket."""
+    wait = rate_limit.check(
+        request.url.path,
+        request.method,
+        request.headers,
+        request.client.host if request.client else "?",
+    )
+    if wait is not None:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": {"code": "rate_limited", "retry_after": wait}},
+            headers={"Retry-After": str(wait)},
+        )
+    return await call_next(request)
+
 
 # ── Routers ────────────────────────────────────────────────────────────────────
 _PREFIX = "/api"

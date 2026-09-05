@@ -61,6 +61,9 @@ class UserRead(BaseModel):
     ai_allowed: bool = True
     ai_reason: Optional[str] = None
     ai_remaining_today: Optional[int] = None
+    # Plan 77 — "open" (gate off), "free", a tier name, or "admin".
+    tier: str = "open"
+    ai_daily_limit: Optional[int] = None
 
 
 class SignupRequest(BaseModel):
@@ -94,3 +97,22 @@ class AuthProviders(BaseModel):
     mode: str  # "oauth" | "header"
     patreon_url: Optional[str] = None
     ai_gate: str  # "off" | "patreon"
+
+
+class AiPlan(BaseModel):
+    """One Patreon tier as shown in the paywall and the guide (Plan 77)."""
+
+    name: str
+    label: str
+    price_cents: int
+    daily: int
+    scope: str  # "text" | "all"
+    blurb: str
+
+
+class AiPlans(BaseModel):
+    """The public tier table."""
+
+    gate: str  # "off" | "patreon"
+    patreon_url: Optional[str] = None
+    plans: list[AiPlan]

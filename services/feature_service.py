@@ -23,8 +23,9 @@ from domain.character import (
     PlayerCharacter,
 )
 from domain.enums import CharacterClass, UsesFormula
+from integrations.dnd_rules.class_features_2024 import NON_SRD_SUBCLASSES
 from integrations.event_bus import publish_pc_updated
-from services import character_service
+from services import character_service, entitlement_service
 
 
 def _ability_mod(score: int) -> int:
@@ -151,6 +152,7 @@ def list_catalog(
     db: Session,
     character_class: CharacterClass | None = None,
     max_level: int = 20,
+    dm_email: str | None = None,
 ) -> list[ClassFeatureRead]:
     """Return catalog features for a class (or all classes).
 
@@ -158,12 +160,18 @@ def list_catalog(
         db: Active database session.
         character_class: Optional class filter.
         max_level: Inclusive upper bound on level_acquired.
+        dm_email: The requesting DM; non-SRD entries are shown only to admins (Plan 77).
 
     Returns:
         ClassFeatureRead list.
     """
     rows = ClassFeatureRepo.list_all(db, character_class=character_class, max_level=max_level)
-    return [ClassFeatureRead.model_validate(r) for r in rows]
+    personal = bool(dm_email) and entitlement_service.personal_content_allowed(dm_email)
+    return [
+        ClassFeatureRead.model_validate(r)
+        for r in rows
+        if personal or r.subclass not in NON_SRD_SUBCLASSES
+    ]
 
 
 def seed_catalog(db: Session, payloads: list) -> int:
@@ -338,6 +346,12 @@ def sync_for_level(db: Session, character_id: uuid.UUID, dm_email: str) -> list[
         if feature.subclass:
             fsub = feature.subclass.strip().lower()
             if not subclass or (fsub not in subclass and subclass not in fsub):
+                continue
+            # Plan 77 — PHB-only subclass text never leaves the owner's table.
+            if (
+                feature.subclass in NON_SRD_SUBCLASSES
+                and not entitlement_service.personal_content_allowed(dm_email)
+            ):
                 continue
         CharacterFeatureRepo.create(db, character_id, CharacterFeatureCreate(feature_id=feature.id))
         granted.append(feature.name)

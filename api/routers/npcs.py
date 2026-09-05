@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 
-from api.deps import DB, AiUser, CurrentUser
+from api.deps import DB, AiArtUser, AiUser, CurrentUser
 from domain.npc import NpcCreate, NpcGenerate, NpcRead, NpcUpdate
 from services import npc_service
 
@@ -144,7 +144,7 @@ def delete_npc(npc_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
 
 
 @router.post("/npcs/{npc_id}/portrait", response_model=NpcRead)
-def generate_npc_portrait(npc_id: uuid.UUID, body: dict, db: DB, user: AiUser) -> NpcRead:
+def generate_npc_portrait(npc_id: uuid.UUID, body: dict, db: DB, user: AiArtUser) -> NpcRead:
     """Generate an AI portrait for an NPC and persist the URL (Plan 00034).
 
     Body: ``{"style_hints": "optional extra style"}``.

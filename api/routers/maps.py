@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from api.deps import DB, AiUser, CurrentUser
+from api.deps import DB, AiArtUser, CurrentUser
 from domain.map import (
     Map,
     MapCreate,
@@ -345,7 +345,7 @@ class _GenerateWorldResponse(BaseModel):
 
 @router.post("/maps/{map_id}/generate", response_model=_GenerateWorldResponse)
 def generate_world(
-    map_id: uuid.UUID, body: _GenerateWorldRequest, db: DB, user: AiUser
+    map_id: uuid.UUID, body: _GenerateWorldRequest, db: DB, user: AiArtUser
 ) -> _GenerateWorldResponse:
     """Generate a world-scale map using Claude AI.
 

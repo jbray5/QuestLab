@@ -10,7 +10,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from api.deps import DB, AiUser, CurrentUser
+from api.deps import DB, AiArtUser, AiUser, CurrentUser
 from domain.shop import (
     MarketRead,
     ShopCreate,
@@ -236,7 +236,7 @@ def remove_item(shop_id: uuid.UUID, shop_item_id: uuid.UUID, db: DB, user: Curre
 
 @router.post("/shops/{shop_id}/items/{shop_item_id}/image", response_model=ItemImageResponse)
 def generate_item_image(
-    shop_id: uuid.UUID, shop_item_id: uuid.UUID, db: DB, user: AiUser
+    shop_id: uuid.UUID, shop_item_id: uuid.UUID, db: DB, user: AiArtUser
 ) -> ItemImageResponse:
     """Generate catalog art for one stocked item.
 

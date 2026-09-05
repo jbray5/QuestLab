@@ -92,45 +92,59 @@ def current_user(request: Request) -> str:
 CurrentUser = Annotated[str, Depends(current_user)]
 
 
-def ai_user(user: CurrentUser, db: DB) -> str:
-    """Resolve the DM AND check they may run an AI generation right now (Plan 73).
+def _ai_dep(kind: str):
+    """Build a dependency that resolves the DM AND checks an AI entitlement of ``kind``.
 
     Args:
-        user: Authenticated DM email.
-        db: Database session.
+        kind: ``text``, ``art`` or ``pack`` (Plan 77 tiers gate art and packs).
 
     Returns:
-        The DM email, when entitled.
-
-    Raises:
-        HTTPException 402: When the AI gate requires Patreon membership.
-        HTTPException 429: When today's generation quota is spent.
+        A FastAPI dependency returning the DM email when entitled.
     """
-    from services import entitlement_service
 
-    ent = entitlement_service.check_ai(db, user)
-    if not ent.allowed:
-        raise HTTPException(
-            status_code=(
-                status.HTTP_429_TOO_MANY_REQUESTS
-                if ent.reason == "daily_limit"
-                else status.HTTP_402_PAYMENT_REQUIRED
-            ),
-            detail={"code": ent.reason, "patreon_url": ent.patreon_url},
-        )
-    entitlement_service.record_ai(db, user)
-    return user
+    def dep(user: CurrentUser, db: DB) -> str:
+        """Resolve the DM and check they may run this generation right now (Plan 73).
+
+        Raises:
+            HTTPException 402: Patreon membership or a higher tier is required.
+            HTTPException 429: Today's generation quota is spent.
+        """
+        from services import entitlement_service
+
+        ent = entitlement_service.check_ai(db, user, kind)
+        if not ent.allowed:
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_429_TOO_MANY_REQUESTS
+                    if ent.reason == "daily_limit"
+                    else status.HTTP_402_PAYMENT_REQUIRED
+                ),
+                detail={
+                    "code": ent.reason,
+                    "patreon_url": ent.patreon_url,
+                    "tier": ent.tier,
+                    "required_tier": ent.required_tier,
+                },
+            )
+        entitlement_service.record_ai(db, user)
+        return user
+
+    return dep
 
 
+ai_user = _ai_dep("text")
 AiUser = Annotated[str, Depends(ai_user)]
+AiArtUser = Annotated[str, Depends(_ai_dep("art"))]
+AiPackUser = Annotated[str, Depends(_ai_dep("pack"))]
 
 
-def gate_ai_for_pc(db: Session, pc_id) -> str:
+def gate_ai_for_pc(db: Session, pc_id, kind: str = "art") -> str:
     """Player-facing AI (the forge) is charged to, and gated on, the campaign owner.
 
     Args:
         db: Database session.
         pc_id: UUID of the player character.
+        kind: ``text``, ``art`` or ``pack`` (the forge is art).
 
     Returns:
         The owner's email.
@@ -144,7 +158,7 @@ def gate_ai_for_pc(db: Session, pc_id) -> str:
     owner = entitlement_service.owner_email_for_pc(db, pc_id)
     if owner is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found.")
-    ent = entitlement_service.check_ai(db, owner)
+    ent = entitlement_service.check_ai(db, owner, kind)
     if not ent.allowed:
         raise HTTPException(
             status_code=(
@@ -152,7 +166,12 @@ def gate_ai_for_pc(db: Session, pc_id) -> str:
                 if ent.reason == "daily_limit"
                 else status.HTTP_402_PAYMENT_REQUIRED
             ),
-            detail={"code": ent.reason, "patreon_url": ent.patreon_url},
+            detail={
+                "code": ent.reason,
+                "patreon_url": ent.patreon_url,
+                "tier": ent.tier,
+                "required_tier": ent.required_tier,
+            },
         )
     entitlement_service.record_ai(db, owner)
     return owner

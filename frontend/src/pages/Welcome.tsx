@@ -128,8 +128,8 @@ export default function Welcome() {
           />
           <Feature
             icon="✨"
-            title="AI everywhere"
-            desc="Themed monster suggestions for encounters. Auto-generated NPCs with secrets. Portrait generation. Session runbooks."
+            title="AI for patrons"
+            desc="NPCs with secrets, encounters, runbooks and full Session Packs for prep; portraits, standees and maps for the table. Included with a Patreon membership from $5 a month. Everything else is free."
           />
           <Feature
             icon="🎲"

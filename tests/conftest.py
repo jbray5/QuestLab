@@ -5,11 +5,15 @@ Provides:
 - ``dev_env`` — sets environment variables to simulate local dev mode.
 """
 
+import os
+
 import pytest
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
 from db.base import _json_serializer
+
+os.environ.setdefault("RATE_LIMIT", "off")  # Plan 77 — the throttle is exercised by its own tests
 
 
 @pytest.fixture(scope="session")

@@ -44,7 +44,9 @@ DISCORD_CLIENT_ID=…  DISCORD_CLIENT_SECRET=…
 PATREON_CLIENT_ID=…  PATREON_CLIENT_SECRET=…  PATREON_CAMPAIGN_ID=…
 PATREON_URL=https://www.patreon.com/<you>
 AI_GATE=patreon                 # off = everyone; patreon = patrons/admins/allowlist
-AI_DAILY_LIMIT=50               # per user per UTC day; 0 = unlimited
+AI_DAILY_LIMIT=50               # per user per UTC day while AI_GATE=off; 0 = unlimited
+AI_TIERS=                       # leave unset for the default ladder (see Pricing below)
+RATE_LIMIT=on                   # per-IP throttle: 20/min auth + join, 120/min writes
 AI_FREE_EMAILS=friend@x.com     # playtesters who get AI without Patreon
 BOOTSTRAP_ADMIN_EMAILS=justinray5@outlook.com   # admins always get AI
 ```
@@ -57,6 +59,29 @@ identity key. If your Discord email differs, sign in first with header mode
 Order of operations: set `APP_SECRET` + provider vars first (deploy), sign in
 with Discord while still in header mode to confirm, THEN set `AUTH_MODE=oauth`.
 
+## Pricing (decided 2026-09-05, Plan 77)
+
+Everything at the table is free forever. AI is what patrons pay for, and the
+app enforces it by *kind*: text, art, pack.
+
+| Patreon tier | Pledge | Unlocks | Allowance |
+|---|---|---|---|
+| **Hearth** | $5 / month | Text AI — NPCs with secrets, monster picks, briefs, runbooks, shop stock, item lore | 15 / day |
+| **Lantern** | $12 / month | Hearth + art (portraits, standees, backdrops, props, world maps, the players' forge) + full Session Packs | 40 / day |
+| **Table** | $25 / month | Lantern with 120 / day, a seat in the Discord, name in the credits | 120 / day |
+
+**Set up the Patreon page with exactly these three tiers at $5, $12 and $25.**
+The app reads the pledge amount from Patreon (`patron_tier_cents`) and maps
+it to the highest tier whose minimum the pledge meets, so custom higher
+pledges land correctly and you never have to paste tier ids anywhere. To
+change the ladder later, set `AI_TIERS=cents:name:daily:scope,…` (scope is
+`text` or `all`) and update the Guide copy to match. Admins and
+`AI_FREE_EMAILS` bypass tiers and allowances. `GET /api/auth/plans` shows the
+live table the paywall renders.
+
+Cost basis: a text generation is cents; a session pack or an image is
+$0.10–$1.50. Daily caps mean one heavy night can't exceed the month's pledge.
+
 ## 3. Frontend (Vercel)
 No new env needed. `/welcome` shows the provider buttons automatically once the
 API reports them at `/api/auth/providers`. Remove `VITE_DM_EMAIL` if set.
@@ -65,11 +90,11 @@ API reports them at `/api/auth/providers`. Remove `VITE_DM_EMAIL` if set.
 - [ ] Custom domain on Vercel + Render (the `*.vercel.app` URL screams "side project").
 - [ ] Render: paid instance (no cold starts), Postgres backups on, disk for `uploads/` off (Blob is the store).
 - [ ] Vercel Blob: Pro tier is on; watch the store size (`scripts/` has the orphan sweep on the tech-debt list).
-- [ ] Rate limits: Render/Cloudflare-level per-IP limits on `/api/play/*` and `/api/uploads/*` (no in-app limiter yet).
+- [x] Rate limits: in-app per-IP throttle (Plan 77) on sign-in/sign-up/join (20/min) and every write (120/min). Cloudflare in front is still a good idea for the raw flood case.
 - [ ] The demo service (`questlab-demo`) either fixed (new free Postgres, re-point PG*, redeploy, `scripts/seed_demo_world.py`) or its links removed from `/try`.
 - [ ] Support channel: a Discord server invite in the Guide footer, or an email.
 - [ ] Try the full new-DM path yourself in a private window: sign in → sample campaign → QR join from a phone → stage a map → roll.
-- [ ] Compendium check: the character creator ships SRD 5.2.1 only. The class-feature catalog (`integrations/dnd_rules/class_features_2024.py`) still seeds two PHB subclasses' feature text (Circle of Stars, Soulknife) for Justin's table — strip or mark them `source="PHB"` and skip in public seeds before launch.
+- [x] Compendium check: the character creator ships SRD 5.2.1 only. The two PHB subclasses' feature text (Circle of Stars, Soulknife) is listed and granted only to `BOOTSTRAP_ADMIN_EMAILS` (Plan 77) — everyone else sees the SRD catalog.
 - [ ] Shippable art check: the sample campaign and demo use AI-generated maps only. Your Czepeku/Dynamic-Dungeons imports live in *your* campaign and never seed anyone else's.
 
 ## 5. The post (draft)

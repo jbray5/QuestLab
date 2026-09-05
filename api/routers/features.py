@@ -40,7 +40,9 @@ def list_class_features(
     Returns:
         Filtered feature list.
     """
-    return feature_service.list_catalog(db, character_class=character_class, max_level=max_level)
+    return feature_service.list_catalog(
+        db, character_class=character_class, max_level=max_level, dm_email=_user
+    )
 
 
 @router.get(

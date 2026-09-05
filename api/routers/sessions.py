@@ -7,7 +7,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from api.deps import DB, AiUser, CurrentUser
+from api.deps import DB, AiPackUser, AiUser, CurrentUser
 from domain.session import (
     DiceRollBroadcast,
 )
@@ -268,7 +268,7 @@ def generate_runbook(
 
 @router.post("/sessions/{session_id}/pack")
 def generate_session_pack(
-    session_id: uuid.UUID, db: DB, user: AiUser, body: dict[str, str] | None = None
+    session_id: uuid.UUID, db: DB, user: AiPackUser, body: dict[str, str] | None = None
 ) -> dict:
     """Generate a fully LINKED session pack from a premise (Plan 70).
 
