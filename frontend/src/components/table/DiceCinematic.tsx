@@ -34,7 +34,7 @@ const CSS = `
   animation: qlDiceOut 0.5s ease ${(HOLD_MS - 500) / 1000}s forwards;
 }
 .ql-dicecine-arena {
-  position: relative; width: min(74vw, 120vh); height: min(46vh, 420px);
+  position: relative; width: min(56vw, 90vh); height: min(40vh, 360px);
 }
 .ql-dicecine-num {
   position: absolute; left: 50%; top: 54%; transform: translate(-50%, -50%);
@@ -97,7 +97,7 @@ export default function DiceCinematic({ roll }: { roll: TableRoll | null }) {
   const detail =
     visible.rolls.length > 1 || visible.modifier !== 0
       ? `${visible.rolls.join(" + ")}${visible.modifier ? ` ${visible.modifier > 0 ? "+" : "−"} ${Math.abs(visible.modifier)}` : ""} = ${visible.total}`
-      : null;
+      : `${visible.total}`;
 
   return (
     <div className="ql-dicecine" key={visible.key} aria-live="polite">
@@ -109,14 +109,8 @@ export default function DiceCinematic({ roll }: { roll: TableRoll | null }) {
           {visible.label ? ` — ${visible.label}` : ""}
         </div>
         <div className="ql-dicecine-arena">
-          <Dice3D die={visible.die} rollKey={visible.key} durationMs={TUMBLE_MS} />
-          {landed && (
-            <div
-              className={["ql-dicecine-num", isCrit ? "crit" : "", isFumble ? "fumble" : ""].join(" ")}
-            >
-              {visible.rolls[0]}
-            </div>
-          )}
+          {/* Plan 80 — the rolled face lands toward the viewer; no stamp over the die. */}
+          <Dice3D die={visible.die} rollKey={visible.key} durationMs={TUMBLE_MS} result={visible.rolls[0]} />
         </div>
         {detail && landed && <div className="ql-dicecine-total">{detail}</div>}
         {landed && isCrit && <div className="ql-dicecine-callout crit">CRITICAL</div>}

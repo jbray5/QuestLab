@@ -366,7 +366,7 @@ export default function Welcome() {
         </div>
         <figcaption>
           <span><b>What the TV shows.</b> A map arrives with a title card, the party&rsquo;s tokens are on it, a player&rsquo;s d20 tumbles across the board and lands.</span>
-          <span>Hand-inked maps, no AI art.</span>
+          <span>Maps drawn by code in an ink style. No AI art.</span>
         </figcaption>
       </figure>
 
