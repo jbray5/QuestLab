@@ -37,9 +37,9 @@ interface Providers {
 
 const BLOB = "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/";
 const REEL = {
-  mp4: BLOB + "688df2c4-223d-4800-9da5-b102c5dc9378-96r39eJXX0cwzGt0w50hAn3VQGu5U9.mp4",
-  webm: BLOB + "923164da-af76-470b-8bc5-0bb74c1f097e-pphxbbyxS8xdEFerhxFEKeopNFu8RK.webm",
-  poster: BLOB + "c95663fb-e304-4468-895c-e47d1b2b80bc-5eyLEhjvvmkObmgjVjGEqm9IbWTAHV.webp",
+  mp4: BLOB + "a534c018-62a9-494b-a124-00670a3f5a3d-Mv1VDKRXCRQeE5J9qmU9kzp0itrCvM.mp4",
+  webm: BLOB + "ff162896-b22e-4043-9657-c2ea0c779f06-0lGNnVOR6ZK8nX3KVrECH2FNafpZb6.webm",
+  poster: BLOB + "2b875013-906a-4cdb-ac4b-0140fd08bc6e-r9Y7Qq74iN8xALz5q302r0n6GzBnym.webp",
 };
 const STILL = {
   board: BLOB + "ef84a836-06a9-4dfc-add1-f990310fe6dd-VWRtaAvoDneMrO8aPYpigxojnVH3Av.webp",
