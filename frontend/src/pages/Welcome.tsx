@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { api, apiBase } from "../api/client";
@@ -136,6 +136,18 @@ export default function Welcome() {
   const [tab, setTab] = useState<"signup" | "signin">("signup");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Plan 79 — muted autoplay is allowed everywhere, but a few browsers still
+  // wait for a nudge; kick the reel once it is on screen.
+  const reelRef = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const v = reelRef.current;
+    if (!v) return;
+    const kick = () => void v.play().catch(() => undefined);
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => (e.isIntersecting ? kick() : v.pause())), { threshold: 0.25 });
+    io.observe(v);
+    kick();
+    return () => io.disconnect();
+  }, []);
   useEffect(() => {
     api
       .get<Providers>("/auth/providers")
@@ -347,7 +359,7 @@ export default function Welcome() {
 
       <figure className="ql-w-reel" aria-label="Twenty seconds at the table">
         <div className="ql-w-tv">
-          <video autoPlay muted loop playsInline preload="metadata" poster={REEL.poster}>
+          <video ref={reelRef} autoPlay muted loop playsInline preload="auto" poster={REEL.poster}>
             <source src={REEL.webm} type="video/webm" />
             <source src={REEL.mp4} type="video/mp4" />
           </video>
