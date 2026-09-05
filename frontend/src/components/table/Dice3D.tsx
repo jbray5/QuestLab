@@ -217,17 +217,16 @@ function applyUvs(geo: THREE.BufferGeometry, faces: Face[]): void {
   geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
 }
 
-/** Orientation that presents `face` to the viewer with its numeral upright. */
+/** Orientation that lays `face` flat on top (normal straight up) with its numeral reading toward the camera. */
 function restOrientationFor(face: Face): THREE.Quaternion {
-  const target = new THREE.Vector3(0, 0.42, 1).normalize();
-  const q = new THREE.Quaternion().setFromUnitVectors(face.normal, target);
-  // Spin about the viewing axis until the face's "up" points to screen-up.
-  const up = face.v.clone().applyQuaternion(q);
-  const screenUp = new THREE.Vector3(0, 1, 0).projectOnPlane(target).normalize();
-  const upProj = up.projectOnPlane(target).normalize();
-  const angle = Math.atan2(upProj.clone().cross(screenUp).dot(target), upProj.dot(screenUp));
-  const fix = new THREE.Quaternion().setFromAxisAngle(target, angle);
-  return fix.multiply(q);
+  const up = new THREE.Vector3(0, 1, 0);
+  const q = new THREE.Quaternion().setFromUnitVectors(face.normal, up);
+  // Spin about the vertical until the numeral's top points away from the
+  // camera (-Z), so someone looking down from the near side reads it upright.
+  const top = face.v.clone().applyQuaternion(q).projectOnPlane(up).normalize();
+  const away = new THREE.Vector3(0, 0, -1);
+  const angle = Math.atan2(top.clone().cross(away).dot(up), top.dot(away));
+  return new THREE.Quaternion().setFromAxisAngle(up, angle).multiply(q);
 }
 
 export default function Dice3D({
@@ -257,8 +256,8 @@ export default function Dice3D({
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, w / h, 0.1, 50);
-    camera.position.set(0, 2.4, 8.5);
-    camera.lookAt(0, -0.2, 0);
+    camera.position.set(0, 7.2, 5.6);
+    camera.lookAt(0, -0.4, 0);
 
     scene.add(new THREE.AmbientLight(0xfff2d0, 0.6));
     const key = new THREE.DirectionalLight(0xffe9b0, 1.6);
@@ -304,7 +303,7 @@ export default function Dice3D({
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.35 }),
     );
     shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = -1.25;
+    shadow.position.y = -0.95;
     scene.add(shadow);
 
     // The face that must end up toward the viewer: the rolled number (d100
@@ -312,6 +311,8 @@ export default function Dice3D({
     const wanted = d100 && typeof result === "number" ? Math.floor(result / 10) * 10 : result;
     const landing = faces.find((f) => f.number === wanted) ?? faces[0];
     const rest = restOrientationFor(landing);
+    // Distance from the die's center to the face opposite the landing face (what touches the table).
+    const restHeight = Math.max(...faces.map((f) => f.centroid.length())) * 0.98;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // Deterministic-feeling randomness per roll.
@@ -336,7 +337,8 @@ export default function Dice3D({
       dieGroup.position.x = startX * (1 - ease);
       // Decaying bounce train.
       const bounce = Math.abs(Math.cos(t * Math.PI * bounces)) * Math.pow(1 - t, 2) * 2.0;
-      dieGroup.position.y = -0.7 + bounce;
+      // Resting height = the landing face's inradius, so the die sits on the plane.
+      dieGroup.position.y = -0.95 + restHeight + bounce;
       shadow.position.x = dieGroup.position.x;
       shadow.scale.setScalar(0.7 + 0.5 * (1 - bounce / 2.0));
       (shadow.material as THREE.MeshBasicMaterial).opacity = 0.12 + 0.26 * (1 - bounce / 2.0);
@@ -357,7 +359,7 @@ export default function Dice3D({
         raf = requestAnimationFrame(frame);
       } else {
         dieGroup.quaternion.copy(rest);
-        dieGroup.position.set(0, -0.7, 0);
+        dieGroup.position.set(0, -0.95 + restHeight, 0);
         renderer.render(scene, camera);
       }
     };

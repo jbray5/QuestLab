@@ -53,10 +53,13 @@ const CSS = `
 }
 .ql-dicecine-total {
   font-family: Cinzel, Georgia, serif; color: #f2e3ae;
-  font-size: clamp(1.1rem, 2.6vh, 1.7rem); letter-spacing: 0.08em;
-  text-shadow: 0 2px 12px rgba(0,0,0,0.9);
+  font-size: clamp(1.4rem, 3.4vh, 2.3rem); letter-spacing: 0.06em;
+  padding: 0.25em 0.9em; border-radius: 12px;
+  background: rgba(10,8,14,0.82); border: 1px solid rgba(214,175,54,0.7);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6), 0 0 24px rgba(214,175,54,0.18);
   opacity: 0; animation: qlDiceTotal 0.4s ease 0.12s forwards; /* mounts at landing */
 }
+.ql-dicecine-total small { font-size: 0.55em; color: #cfc2a4; letter-spacing: 0.1em; margin-right: 0.6em; }
 .ql-dicecine-callout {
   font-family: Cinzel, Georgia, serif; font-weight: 700; letter-spacing: 0.3em;
   font-size: clamp(0.8rem, 2vh, 1.2rem); padding-left: 0.3em;
@@ -98,6 +101,7 @@ export default function DiceCinematic({ roll }: { roll: TableRoll | null }) {
     visible.rolls.length > 1 || visible.modifier !== 0
       ? `${visible.rolls.join(" + ")}${visible.modifier ? ` ${visible.modifier > 0 ? "+" : "−"} ${Math.abs(visible.modifier)}` : ""} = ${visible.total}`
       : `${visible.total}`;
+  const dieLabel = visible.rolls.length > 1 ? `${visible.rolls.length}${visible.die}` : visible.die;
 
   return (
     <div className="ql-dicecine" key={visible.key} aria-live="polite">
@@ -112,7 +116,12 @@ export default function DiceCinematic({ roll }: { roll: TableRoll | null }) {
           {/* Plan 80 — the rolled face lands toward the viewer; no stamp over the die. */}
           <Dice3D die={visible.die} rollKey={visible.key} durationMs={TUMBLE_MS} result={visible.rolls[0]} />
         </div>
-        {detail && landed && <div className="ql-dicecine-total">{detail}</div>}
+        {detail && landed && (
+          <div className="ql-dicecine-total">
+            <small>{dieLabel.toUpperCase()}</small>
+            {detail}
+          </div>
+        )}
         {landed && isCrit && <div className="ql-dicecine-callout crit">CRITICAL</div>}
         {landed && isFumble && <div className="ql-dicecine-callout fumble">FUMBLE</div>}
       </div>
