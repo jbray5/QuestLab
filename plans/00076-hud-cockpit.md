@@ -1,7 +1,7 @@
 # Plan 00076 — HUD cockpit: no right column, a wide board, notes underneath
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (v1, live-verified 2026-09-04)
 
 **Started:** 2026-09-04 · **Implemented by:** Claude Code
 
@@ -42,7 +42,8 @@ not use or combat state that can live above and below the board instead.
   scroll. 1900×1250 — board 537 px tall. 1280×1000 — everything still
   reachable; the combat bar wraps to two rows. ＋ Add popover shows the
   encounter select and the manual form. No console errors.
-- Prod: pending deploy.
+- Prod (037859a, stylesheet index-CogJUu_s): identical numbers at 1900×1000,
+  1280×1000 and 1900×1250 (board 537 px). No console errors.
 
 ## Follow-ups
 - Collapse the Maps/Live/People tab row into the combat bar to buy ~45 px.
