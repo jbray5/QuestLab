@@ -1,7 +1,7 @@
 # Plan 00077 — Pricing tiers and launch hardening
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (v1, live-verified 2026-09-05)
 
 **Started:** 2026-09-05 · **Implemented by:** Claude Code
 
@@ -60,7 +60,16 @@ ships AI-made content, and playtesters get `AI_FREE_EMAILS`.
 - API version 1.5.0. Tests: `test_entitlement_tiers.py`, `test_rate_limit.py`.
 
 ## Verification
-- pending
+- Gate: black/isort/flake8/interrogate clean; pytest 810 passed; tsc, eslint, build clean.
+- Prod API 1.5.0 (20db9a7): `GET /auth/plans` returns the three-tier ladder;
+  `/auth/me` for the owner reports tier `admin`, no limit; Druid catalog as a
+  stranger omits Circle of Stars (1 row) while the owner sees it (2 rows);
+  21st `POST /auth/login` from one IP inside a minute answers 429 with
+  `Retry-After: 58`.
+- Prod frontend (bundle index-BhC51kNO): dispatching a `tier_required`
+  paywall renders "This one is a Lantern-tier feature" with Hearth $5 /
+  Lantern $12 / Table $25, Lantern marked "unlocks this", Hearth "your tier".
+- Prod stays in personal mode (gate off) until Justin flips it.
 
 ## Follow-ups (Justin's side, see docs/LAUNCH.md)
 - Create the Patreon page with three tiers at $5 / $12 / $25 (the app maps
