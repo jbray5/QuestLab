@@ -1,7 +1,7 @@
 # Plan 00075 — The DM cockpit: notes that follow you, a board you never leave, sessions by arc
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (v1, live-verified 2026-09-04)
 
 **Started:** 2026-09-04 · **Implemented by:** Claude Code
 
@@ -49,7 +49,9 @@ on one Sessions page.
   17 tokens and "✋ Stand down: house"; N opens the dock; People lists 18
   NPCs; dock follows to /npcs; absent on /table; arcs page lists the arc
   with six sessions; pop-out renders. No console errors.
-- Prod: pending deploy.
+- Prod (482df0c, bundle index-CvkDlgD2): same script, same results — Live tab with
+  17 tokens + stand-down, dock on N with 18 NPCs, follows to /npcs, absent on
+  /table, arcs page with six sessions, pop-out renders. No console errors.
 
 ## Follow-ups
 - Party HP strip inside the dock (for the 3D Board page).
