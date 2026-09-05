@@ -40,6 +40,20 @@ injected in-page, and the frames are cut together.
   posters; both play in Chrome (2.4 s and 2.5 s in after 2.5 s), no media
   error, durations 107 s and 67 s. Landing links to the section.
 
+## Round two (same day): voice, music, smoothness
+- **Narration**: every caption line is spoken by a Microsoft neural voice
+  (en-GB Ryan via `edge-tts`, no key). `narrate.py` synthesizes each line
+  once, measures it, and the recorder holds each beat at least as long as
+  its line; the assembler places clips at the recorded caption times.
+- **Music**: `synth_music.py` — a Karplus-Strong plucked-string arpeggio
+  over a detuned pad in D minor with a soft drum, convolution reverb and a
+  low-pass. Synthesized from nothing, ours to use anywhere, ducked under
+  speech with a sidechain compressor.
+- **Smoothness**: headless Chrome was rendering the 3D table in software
+  (SwiftShader, ~10 fps); `--use-angle=d3d11 --enable-gpu` uses the GTX
+  1080 and captures ~100 fps, encoded at 30 fps. Both walkthroughs and the
+  hero reel were re-recorded with it. Setup 2:48, Game night 2:10.
+
 ## Follow-ups
 - A voiced version once Justin records narration (the caption beats double
   as the script).

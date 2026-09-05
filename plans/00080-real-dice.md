@@ -32,6 +32,15 @@ the result stamped over it as HTML text.
   showcase table captured at 0.7 / 1.4 / 2.3 / 3.2 s — a numbered crimson
   d20 tumbles and settles showing the rolled 9; a d6 shows its 3 edge-up.
 
+## Round two (same day)
+Justin: "the die should always land with the number facing up to the sky,
+then you can show the player in a separate box… we take the number that's
+facing up." `restOrientationFor` now aligns the rolled face's normal to +Y
+and spins it so the numeral reads toward the camera; the camera looks down
+at the table from the near side; the die rests on the plane at its inradius.
+The result sits in a framed chip beside the die ("D20 18") instead of on it.
+Verified on prod with GPU rendering: d20 landing 18-up, d6 landing 3-up.
+
 ## Follow-ups
 - Clatter sound on the bounces (deferred by Justin earlier).
 - Physics-based settle instead of the slerp (the die still "floats" into
