@@ -1,7 +1,7 @@
 # Plan 00086 — No generative AI in the product
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (live-verified 2026-09-05)
 
 **Started:** 2026-09-05 · **Implemented by:** Claude Code
 
@@ -41,6 +41,15 @@ our own code is fine (the ink maps, the arena's referee, the dice).
 - Tests opt in (`AI_FEATURES=on` in `tests/conftest.py`) so the code paths
   stay covered; `tests/test_api/test_plan86_no_ai.py` pins the default-off
   behaviour.
+
+## Verification
+- Prod (API 1.9.0, 65eec3a + e1fa209): NPC generation and the shop banner
+  route answer 404 "Generative AI is not part of QuestLab"; `/auth/plans`
+  returns no tiers; `/auth/me` says `ai_allowed: false` (reason `disabled`);
+  a blank runbook starts (200, one scene) and a second attempt is 409; the
+  landing bundle says "No generative AI anywhere" and no longer carries the
+  AI pillar; the sample map is served as image/jpeg (415 KB) and Justin's
+  existing sample swapped to it on the next press (2304×1536, grid 96).
 
 ## Phase B — removal (needs Justin's go-ahead: deletes files and packages)
 Physically remove: `services/ai_service.py`, `services/session_pack_service.py`,

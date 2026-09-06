@@ -1,7 +1,7 @@
 # Plan 00085 — Fixes from the twelve-persona field test (run 2)
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (live-verified 2026-09-05)
 
 **Started:** 2026-09-05 · **Implemented by:** Claude Code
 
@@ -55,7 +55,13 @@ produced a new defect list. This plan is the part that fits one push.
 - Gate: pytest 845 passed (new arena tests: tamper refusal, Extra Attack,
   one-action foes); black / isort / flake8 / interrogate; tsc, eslint on
   touched files, vite build.
-- Prod: see the commit that flips this plan to Complete.
+- Prod (API 1.8.0, f5436f0 + 92d6b77): a dead table link is a 404; a Paladin
+  built through the join creator into a campaign with an open session came
+  back 201, attended that session, and had two level-1 slots; an arena fight
+  started sealed, a forged copy was refused (422), an honest turn ran; foe
+  tiers came back easy / fits / tough / deadly; a deleted campaign's
+  characters route is a 404. (The first pass hit a 500 on the attend step —
+  SessionStatus.COMPLETE, not COMPLETED — fixed the same hour.)
 
 ## Not in this plan
 The no-generative-AI pivot (Plan 86); the class-and-feature review of the

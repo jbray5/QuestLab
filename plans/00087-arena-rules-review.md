@@ -1,7 +1,7 @@
 # Plan 00087 — Practice Arena: the rules, class by class, through level 5
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (live-verified 2026-09-05)
 
 **Started:** 2026-09-05 · **Implemented by:** Claude Code
 
@@ -89,7 +89,14 @@ and the foe's conditions.
   Guiding Bolt then Healing Word; Sleep, a critical on the sleeper, Shield
   turning a 16 into a miss; Wild Shape from the catalog with temp HP.
   Plus the Plan 84/85 arena tests. Full suite 859 passed.
-- Prod: see the commit that flips this plan to Complete.
+- Prod (API 1.10.0, 64e0a84): a level-3 Soulknife rogue's arena offered
+  Unarmed Strike, Psychic Blade and the bonus-action second blade with Steady
+  Aim and Cunning Action; Steady Aim then a blade hit rolled with advantage
+  and carried Sneak Attack 2d6 in the log. A level-3 Paladin's Divine Smite
+  came back as a bonus-action rider and refused to fire before a melee hit
+  ("needs a melee hit first this turn"); the probe swung a javelin, which
+  the engine classed as ranged, so the smite itself is covered by the unit
+  test and the thrown-weapon fix that followed.
 
 ## Not modeled (yet)
 Two-Weapon Fighting, Weapon Mastery, Cunning Strike, Assassinate, Bardic

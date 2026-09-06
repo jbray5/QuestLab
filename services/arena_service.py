@@ -324,7 +324,10 @@ def _weapon_attacks(db: Session, pc: PlayerCharacter) -> list[ArenaAttack]:
         except ValueError:
             continue
         props = [str(p).lower() for p in (item.weapon_properties or [])]
-        ranged = bool(item.weapon_range) or "ranged" in (item.weapon_category or "").lower()
+        # A thrown weapon has a range but is a melee weapon (a javelin smites fine).
+        ranged = "ranged" in (item.weapon_category or "").lower() or (
+            bool(item.weapon_range) and "thrown" not in props
+        )
         two_handed = "two-handed" in props
         hit = prev.hit_bonus + (2 if ranged and _has_style(pc, "archery") else 0)
         damage = prev.damage_roll
