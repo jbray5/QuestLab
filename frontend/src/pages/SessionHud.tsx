@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AI_ON } from "../lib/flags";
 import { classEmoji } from "../lib/classEmoji";
 import { zoomable } from "../lib/lightbox";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
@@ -1271,7 +1272,7 @@ export default function SessionHud() {
           >
             🎲 3D Board
           </Link>
-          {sessionId && <BriefPanel sessionId={sessionId} />}
+          {AI_ON && sessionId && <BriefPanel sessionId={sessionId} />}
           <button
             className="btn btn-secondary"
             style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
@@ -2147,13 +2148,13 @@ export default function SessionHud() {
             </div>
             {!runbook && (
               <div style={{ color: "var(--muted)", textAlign: "center", marginTop: "2rem" }}>
-                <p>No runbook generated yet.</p>
+                <p>No runbook yet.</p>
                 <Link
                   to={`/sessions/${sessionId}/run`}
                   className="btn btn-secondary"
                   style={{ display: "inline-block", marginTop: "0.5rem" }}
                 >
-                  Generate Runbook →
+                  Write one →
                 </Link>
               </div>
             )}

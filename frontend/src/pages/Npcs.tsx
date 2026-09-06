@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { AI_ON } from "../lib/flags";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -76,6 +77,8 @@ export default function Npcs() {
           + New NPC
         </button>
 
+        {AI_ON && (
+          <>
         <span style={{ width: 1, height: 24, background: "var(--border)" }} />
 
         <input
@@ -98,6 +101,8 @@ export default function Npcs() {
         >
           {generate.isPending ? "Conjuring…" : "✨ Generate"}
         </button>
+          </>
+        )}
       </div>
 
       {/* Tag filter */}
@@ -144,8 +149,7 @@ export default function Npcs() {
             fontStyle: "italic",
           }}
         >
-          No NPCs yet. Click <strong>+ New NPC</strong> or type a role and
-          hit <strong>✨ Generate</strong> to begin.
+          No NPCs yet. Click <strong>+ New NPC</strong> to begin.
         </div>
       ) : (
         <div

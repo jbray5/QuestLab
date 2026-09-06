@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AI_ON } from "../lib/flags";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { itemsApi } from "../api/items";
 import type { MagicItem } from "../api/items";
@@ -267,7 +268,7 @@ export default function MagicItems() {
                       margin: 0,
                     }}
                   >
-                    ✨ AI Lore
+                    📜 Lore
                   </h3>
                   {activeAdventure && (
                     <label
@@ -289,14 +290,16 @@ export default function MagicItems() {
                       Tie to <em>{activeAdventure.title}</em>
                     </label>
                   )}
-                  <button
-                    className="btn-primary"
-                    style={{ marginLeft: "auto", fontSize: "0.8rem", padding: "0.35rem 0.9rem" }}
-                    disabled={loreMutation.isPending}
-                    onClick={() => loreMutation.mutate(selected.id)}
-                  >
-                    {loreMutation.isPending ? "Generating…" : "Generate Lore"}
-                  </button>
+                  {AI_ON && (
+                    <button
+                      className="btn-primary"
+                      style={{ marginLeft: "auto", fontSize: "0.8rem", padding: "0.35rem 0.9rem" }}
+                      disabled={loreMutation.isPending}
+                      onClick={() => loreMutation.mutate(selected.id)}
+                    >
+                      {loreMutation.isPending ? "Generating…" : "Generate Lore"}
+                    </button>
+                  )}
                 </div>
 
                 {loreMutation.isError && (
@@ -324,7 +327,9 @@ export default function MagicItems() {
 
                 {!lore && !loreMutation.isPending && (
                   <p className="text-muted text-sm" style={{ fontStyle: "italic" }}>
-                    Generate AI-crafted lore that ties this item to your campaign's story.
+                    {AI_ON
+                      ? "Generate AI-crafted lore that ties this item to your campaign's story."
+                      : "Write the item's story in its description; it shows here."}
                     {activeAdventure
                       ? " Check the box above to anchor it to your active adventure."
                       : " Select an adventure in the sidebar to tie lore to your campaign."}

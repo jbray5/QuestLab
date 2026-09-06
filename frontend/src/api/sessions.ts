@@ -29,6 +29,8 @@ export const sessionsApi = {
     api.post<Combatant[]>(`/sessions/${id}/initiative`, combatants),
   getRunbook: (id: string) =>
     api.get<SessionRunbook | null>(`/sessions/${id}/runbook`),
+  // Plan 86 — an empty runbook to write by hand.
+  createBlankRunbook: (id: string) => api.put<SessionRunbook>(`/sessions/${id}/runbook/blank`, {}),
   generateRunbook: (id: string, notes?: string) =>
     api.post<SessionRunbook>(`/sessions/${id}/runbook`, { notes: notes ?? "" }),
   generatePack: (id: string, premise: string) =>

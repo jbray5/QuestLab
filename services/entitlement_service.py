@@ -32,6 +32,7 @@ from sqlmodel import Session as DBSession
 from db.repos.campaign_repo import CampaignRepo
 from db.repos.character_repo import CharacterRepo
 from db.repos.user_repo import AiUsageRepo, UserRepo
+from integrations.feature_flags import ai_features_enabled
 
 DEFAULT_TIERS = "500:hearth:15:text,1200:lantern:40:all,2500:table:120:all"
 
@@ -180,6 +181,9 @@ def check_ai(db: DBSession, email: str, kind: str = "text") -> Entitlement:
     """
     email = email.strip().lower()
     patreon_url = os.environ.get("PATREON_URL", "").strip() or None
+    if not ai_features_enabled():
+        # Plan 86 — no generative AI in the product; nothing to entitle.
+        return Entitlement(False, "disabled", None, patreon_url, tier="off")
     if email in _free_emails():
         # Admins and the allowlist skip both the gate and the daily allowance —
         # the DM running the show shouldn't hit a wall mid-prep.

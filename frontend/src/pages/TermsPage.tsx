@@ -17,19 +17,19 @@ export default function TermsPage() {
       <p>Short version: your campaigns are yours, upload only what you have rights to, and we store the minimum needed to keep your account yours.</p>
 
       <h2>Your content</h2>
-      <p>Everything you create or upload — campaigns, characters, maps, notes, generated art — belongs to you. QuestLab stores it to run your table and never sells, shares, or trains on it.</p>
+      <p>Everything you create or upload — campaigns, characters, maps, notes, art you upload — belongs to you. QuestLab stores it to run your table and never sells, shares, or trains on it.</p>
 
       <h2>Map and image rights</h2>
       <p>You may only upload maps and images you own or are licensed to use at your own table (your own work, personal-use map packs you bought or back, free maps under their terms). Do not upload or redistribute other creators&rsquo; files. Uploads are private to your account. QuestLab ships no third-party map packs.</p>
 
-      <h2>AI features</h2>
-      <p>AI generation runs on third-party models and is offered to patrons with a daily allowance. Generated content is yours to use; AI output can be wrong or odd, so review it before it reaches your table.</p>
+      <h2>No generative AI</h2>
+      <p>QuestLab contains no generative AI. Nothing you write or upload is sent to a model, used to train one, or generated for you by one.</p>
 
       <h2>Rules content</h2>
       <p>Game rules content is from the System Reference Document 5.2.1, used under the Creative Commons Attribution 4.0 license. QuestLab is not affiliated with Wizards of the Coast.</p>
 
       <h2>Accounts and privacy</h2>
-      <p>Signing in with Discord or Patreon shares your account id, display name, avatar and email with QuestLab; the email identifies your campaigns and Patreon membership unlocks AI. Player links carry no personal data. We keep no payment details. Delete your campaigns any time from the app.</p>
+      <p>Signing in with Discord or Patreon shares your account id, display name, avatar and email with QuestLab; the email identifies your campaigns; a Patreon membership supports the project and unlocks nothing you need to play. Player links carry no personal data. We keep no payment details. Delete your campaigns any time from the app.</p>
 
       <h2>Reasonable use</h2>
       <p>Don&rsquo;t abuse the service, share other people&rsquo;s private data, or upload unlawful content. We may suspend accounts that do.</p>

@@ -61,6 +61,14 @@ with Discord while still in header mode to confirm, THEN set `AUTH_MODE=oauth`.
 
 ## Pricing (decided 2026-09-05, Plan 77)
 
+**Plan 86 — QuestLab ships with no generative AI.** `AI_FEATURES` defaults to
+`off`: every generation route answers 404, every generation control is hidden,
+and the copy says so. Patreon is plain support (Discord seat, credits), not a
+paywall. The tiers below are what a *private* deployment gets if it opts in
+with `AI_FEATURES=on` / `VITE_AI_FEATURES=on`; the public product does not.
+
+<details><summary>Legacy AI tier ladder (only with AI_FEATURES=on)</summary>
+
 Everything at the table is free forever. AI is what patrons pay for, and the
 app enforces it by *kind*: text, art, pack.
 
@@ -96,6 +104,8 @@ API reports them at `/api/auth/providers`. Remove `VITE_DM_EMAIL` if set.
 - [ ] Try the full new-DM path yourself in a private window: sign in → sample campaign → QR join from a phone → stage a map → roll.
 - [x] Compendium check: the character creator ships SRD 5.2.1 only. The two PHB subclasses' feature text (Circle of Stars, Soulknife) is listed and granted only to `BOOTSTRAP_ADMIN_EMAILS` (Plan 77) — everyone else sees the SRD catalog.
 - [ ] Shippable art check: the sample campaign and demo use AI-generated maps only. Your Czepeku/Dynamic-Dungeons imports live in *your* campaign and never seed anyone else's.
+
+</details>
 
 ## 5. The post (draft)
 **Title:** I built a free table tool for in-person and hybrid D&D — living sheets on phones, a shared board on the TV, dice you shake. Looking for DMs to break it.

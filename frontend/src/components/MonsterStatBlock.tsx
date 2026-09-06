@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AI_ON } from "../lib/flags";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Monster } from "../api/types";
 import { monstersApi } from "../api/monsters";
@@ -148,8 +149,8 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
               label="Monster Art"
               size={90}
             />
-            <MonsterPortraitButton monsterId={monster.id} />
-            <MonsterFigureButton monsterId={monster.id} hasFigure={!!monster.figure_url} />
+            {AI_ON && <MonsterPortraitButton monsterId={monster.id} />}
+            {AI_ON && <MonsterFigureButton monsterId={monster.id} hasFigure={!!monster.figure_url} />}
           </div>
           <div>
             <h2

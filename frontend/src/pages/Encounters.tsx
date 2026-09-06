@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { AI_ON } from "../lib/flags";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { encountersApi } from "../api/encounters";
@@ -171,11 +172,11 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
   return (
     <div style={{ marginTop: "1rem" }}>
       {/* Plan 31 — themed AI suggestions */}
-      <SuggestionsPanel
+      {AI_ON && (<SuggestionsPanel
         adventureId={adventureId}
         onAdd={addSuggestion}
         onAddAll={addAllSuggestions}
-      />
+      />)}
 
       {/* Plan 31 — live difficulty meter */}
       <div style={{ marginBottom: "0.75rem" }}>

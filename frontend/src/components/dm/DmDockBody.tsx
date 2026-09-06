@@ -171,7 +171,7 @@ export default function DmDockBody({ sessionId, onSessionChange }: Props) {
               <div style={{ color: "var(--muted)", textAlign: "center", marginTop: "1.5rem", fontSize: "0.85rem" }}>
                 <p>No runbook for this session yet.</p>
                 <Link to={`/sessions/${sessionId}/run`} className="btn btn-secondary" style={{ display: "inline-block", marginTop: 6 }}>
-                  Generate one →
+                  Write one →
                 </Link>
               </div>
             )}

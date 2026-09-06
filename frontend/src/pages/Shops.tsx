@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AI_ON } from "../lib/flags";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -102,23 +103,25 @@ function ItemRow({
         />
       </td>
       <td style={{ width: 96, whiteSpace: "nowrap" }}>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: "0.72rem" }}
-          disabled={busy}
-          title="Generate item art (gpt-image-1)"
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await shopsApi.generateItemImage(shopId, item.shop_item_id);
-              onChanged();
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy ? "…" : "🎨"}
-        </button>
+        {AI_ON && (
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: "0.72rem" }}
+            disabled={busy}
+            title="Generate item art (gpt-image-1)"
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await shopsApi.generateItemImage(shopId, item.shop_item_id);
+                onChanged();
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? "…" : "🎨"}
+          </button>
+        )}
         <button
           className="btn btn-ghost"
           style={{ fontSize: "0.72rem" }}
@@ -189,49 +192,53 @@ function ShopCard({ shop, onChanged }: { shop: ShopRead; onChanged: () => void }
         <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }} onClick={() => setOpen((v) => !v)}>
           {open ? "▾ close" : "▸ manage stock"}
         </button>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: "0.75rem" }}
-          disabled={stockBusy}
-          title="AI-stock: keeper, blurb, and priced inventory"
-          onClick={async () => {
-            const concept =
-              window.prompt(
-                "Shop concept for the AI (blank = infer from the name):",
-                "",
-              ) ?? undefined;
-            const countRaw = window.prompt("How many items?", "10");
-            if (countRaw === null) return;
-            setStockBusy(true);
-            setOpen(true);
-            try {
-              await shopsApi.stock(shop.id, concept || undefined, Math.min(24, Math.max(1, Number(countRaw) || 10)));
-              refresh();
-            } finally {
-              setStockBusy(false);
-            }
-          }}
-        >
-          {stockBusy ? "🪄 stocking…" : "🪄 AI stock"}
-        </button>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: "0.75rem" }}
-          disabled={bannerBusy}
-          title="Generate storefront banner art"
-          onClick={async () => {
-            setBannerBusy(true);
-            try {
-              await shopsApi.generateBanner(shop.id);
-              onChanged();
-            } finally {
-              setBannerBusy(false);
-            }
-          }}
-        >
-          {bannerBusy ? "🖼 painting…" : "🖼 banner"}
-        </button>
-        {open && missingArt.length > 0 && (
+        {AI_ON && (
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: "0.75rem" }}
+            disabled={stockBusy}
+            title="AI-stock: keeper, blurb, and priced inventory"
+            onClick={async () => {
+              const concept =
+                window.prompt(
+                  "Shop concept for the AI (blank = infer from the name):",
+                  "",
+                ) ?? undefined;
+              const countRaw = window.prompt("How many items?", "10");
+              if (countRaw === null) return;
+              setStockBusy(true);
+              setOpen(true);
+              try {
+                await shopsApi.stock(shop.id, concept || undefined, Math.min(24, Math.max(1, Number(countRaw) || 10)));
+                refresh();
+              } finally {
+                setStockBusy(false);
+              }
+            }}
+          >
+            {stockBusy ? "🪄 stocking…" : "🪄 AI stock"}
+          </button>
+        )}
+        {AI_ON && (
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: "0.75rem" }}
+            disabled={bannerBusy}
+            title="Generate storefront banner art"
+            onClick={async () => {
+              setBannerBusy(true);
+              try {
+                await shopsApi.generateBanner(shop.id);
+                onChanged();
+              } finally {
+                setBannerBusy(false);
+              }
+            }}
+          >
+            {bannerBusy ? "🖼 painting…" : "🖼 banner"}
+          </button>
+        )}
+        {AI_ON && open && missingArt.length > 0 && (
           <button
             className="btn btn-ghost"
             style={{ fontSize: "0.75rem" }}

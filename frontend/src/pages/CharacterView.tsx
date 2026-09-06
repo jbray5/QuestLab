@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AI_ON } from "../lib/flags";
 import { zoomable } from "../lib/lightbox";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -426,16 +427,18 @@ export default function CharacterView() {
 
         <Doll pcId={pcId as string} model={model} busy={busy} />
 
-        <button
-          className="forge-primary"
-          style={{ marginTop: 14 }}
-          disabled={busy}
-          onClick={() => identityMut.mutate()}
-        >
-          {identityMut.isPending
-            ? "🔥 Forging… model → gear → portrait → board mini (a minute or two)"
-            : "🔥 Forge my look — updates your model, portrait & board mini"}
-        </button>
+        {AI_ON && (
+          <button
+            className="forge-primary"
+            style={{ marginTop: 14 }}
+            disabled={busy}
+            onClick={() => identityMut.mutate()}
+          >
+            {identityMut.isPending
+              ? "🔥 Forging… model → gear → portrait → board mini (a minute or two)"
+              : "🔥 Forge my look — updates your model, portrait & board mini"}
+          </button>
+        )}
         {forgeError && (
           <div className="forge-note" style={{ color: "#e0a83c", marginTop: 6 }}>{forgeError}</div>
         )}
@@ -495,9 +498,11 @@ export default function CharacterView() {
           ))}
         </div>
         <div className="forge-row">
-          <button className="forge-save" disabled={busy} onClick={() => dressMut.mutate()}>
-            {dressMut.isPending ? "⚒ Dressing…" : "⚔ Gear only"}
-          </button>
+          {AI_ON && (
+            <button className="forge-save" disabled={busy} onClick={() => dressMut.mutate()}>
+              {dressMut.isPending ? "⚒ Dressing…" : "⚔ Gear only"}
+            </button>
+          )}
           <button
             className="forge-save"
             disabled={appearanceMut.isPending || draft === null}
@@ -505,7 +510,7 @@ export default function CharacterView() {
           >
             {saved ? "✓ saved" : "Save description"}
           </button>
-          {!pc.hero_locked && (
+          {!pc.hero_locked && AI_ON && (
             <button className="forge-save" disabled={busy} onClick={() => forgeMut.mutate()}>
               {forgeMut.isPending ? "⚒ Repainting…" : "🎭 New base look"}
             </button>

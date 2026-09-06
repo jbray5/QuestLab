@@ -1,4 +1,5 @@
 import { lazy, Suspense } from "react";
+import { AI_ON } from "./lib/flags";
 import { Routes, Route } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PaywallModal from "./components/PaywallModal";
@@ -89,7 +90,7 @@ function lazyRoute(node: React.ReactNode): React.ReactNode {
 export default function App() {
   return (
     <>
-    <PaywallModal />
+    {AI_ON && <PaywallModal />}
     <Lightbox />
     <DmDock />
     <Routes>

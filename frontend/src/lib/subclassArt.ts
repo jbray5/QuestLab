@@ -1,35 +1,31 @@
 /**
- * Subclass-flavored background art (Plan 60c) — generated dark abstract
- * textures, one per subclass, served from the blob store. Deliberately
- * dark: consumers lay a scrim over them so text stays readable.
- *
- * Regenerate / extend with scripts/gen_subclass_card_art.py.
+ * Subclass-flavored panel backgrounds (Plan 60c, redrawn under Plan 86):
+ * procedural gradients keyed by the subclass name. No generated images.
  */
-export const SUBCLASS_CARD_ART: Record<string, string> = {
-  "Soulknife":
-    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/9eb43275-c314-4adf-b9f5-917b729e3524-dtVEd2T3YDlwdMcWUoLONuRNoS544O.png",
-  "Circle of Stars":
-    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/2f2b9dcd-8f86-4846-84f3-beb8368b1d72-Q02z2WdW2WsjDg3VrZASH4wQ7cKUdY.png",
-  "Oath of the Ancients":
-    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/ba6bf3cc-8c71-469a-b171-0e3a2fc9efd8-wpUg89LhJgUEBoyZlj58KENJa7zSYd.png",
-  "Wild Magic":
-    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/cc01c109-6edb-42a0-a6c8-2138773321d8-7aEzqBbAmw8cH1zdof5bvmZfjcQDIm.png",
-};
+
+/** Kept for callers that keyed on it; there is no generated art any more (Plan 86). */
+export const SUBCLASS_CARD_ART: Record<string, string> = {};
+
+function hue(name: string): number {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return h;
+}
 
 /**
- * Layered CSS background for a panel: optional tint, readability scrim,
- * then the subclass art. Returns null when the subclass has no art.
+ * Layered CSS background for a panel: optional tint, readability scrim, then
+ * a two-tone gradient in the subclass's hue. Null when there is no subclass.
  */
 export function subclassPanelBackground(
   subclass: string | null | undefined,
   opts?: { tint?: string; scrim?: [number, number] },
 ): string | null {
-  const art = subclass ? SUBCLASS_CARD_ART[subclass] : undefined;
-  if (!art) return null;
+  if (!subclass) return null;
+  const h = hue(subclass);
   const [a, b] = opts?.scrim ?? [0.42, 0.66];
   const tint = opts?.tint ? `${opts.tint}, ` : "";
   return (
     `${tint}linear-gradient(rgba(10,11,15,${a}), rgba(10,11,15,${b})), ` +
-    `url(${art}) center/cover`
+    `linear-gradient(135deg, hsl(${h} 38% 16%) 0%, hsl(${(h + 40) % 360} 32% 9%) 60%, hsl(${(h + 300) % 360} 30% 12%) 100%)`
   );
 }

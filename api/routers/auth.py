@@ -22,6 +22,7 @@ from domain.user import (
     UserRead,
 )
 from integrations import oauth
+from integrations.feature_flags import ai_features_enabled
 from services import auth_service, entitlement_service
 
 router = APIRouter(tags=["auth"])
@@ -58,6 +59,11 @@ def plans() -> AiPlans:
     Returns:
         Gate mode, the Patreon page, and every tier with price, allowance and scope.
     """
+    if not ai_features_enabled():
+        # Plan 86 — no AI, so no AI tiers; Patreon is plain support.
+        return AiPlans(
+            gate="off", patreon_url=os.environ.get("PATREON_URL", "").strip() or None, plans=[]
+        )
     return AiPlans(
         gate=entitlement_service.gate_mode(),
         patreon_url=os.environ.get("PATREON_URL", "").strip() or None,

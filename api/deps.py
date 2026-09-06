@@ -106,11 +106,13 @@ def _ai_dep(kind: str):
         """Resolve the DM and check they may run this generation right now (Plan 73).
 
         Raises:
+            HTTPException 404: Generative AI is switched off for this deployment (Plan 86).
             HTTPException 402: Patreon membership or a higher tier is required.
             HTTPException 429: Today's generation quota is spent.
         """
         from services import entitlement_service
 
+        require_ai_features()
         ent = entitlement_service.check_ai(db, user, kind)
         if not ent.allowed:
             raise HTTPException(
@@ -138,6 +140,24 @@ AiArtUser = Annotated[str, Depends(_ai_dep("art"))]
 AiPackUser = Annotated[str, Depends(_ai_dep("pack"))]
 
 
+def require_ai_features() -> None:
+    """404 unless generative AI is explicitly switched on (Plan 86).
+
+    QuestLab ships without generative AI. The routes stay in the codebase for
+    a private deployment that opts in with ``AI_FEATURES=on``.
+
+    Raises:
+        HTTPException 404: When AI features are off (the default).
+    """
+    from integrations.feature_flags import ai_features_enabled
+
+    if not ai_features_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Generative AI is not part of QuestLab.",
+        )
+
+
 def gate_ai_for_pc(db: Session, pc_id, kind: str = "art") -> str:
     """Player-facing AI (the forge) is charged to, and gated on, the campaign owner.
 
@@ -155,6 +175,7 @@ def gate_ai_for_pc(db: Session, pc_id, kind: str = "art") -> str:
     """
     from services import entitlement_service
 
+    require_ai_features()
     owner = entitlement_service.owner_email_for_pc(db, pc_id)
     if owner is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found.")

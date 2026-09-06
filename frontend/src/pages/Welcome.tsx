@@ -258,7 +258,7 @@ export default function Welcome() {
             </li>
           </ul>
           <p className="ql-w-price">
-            Free, forever, for the table. AI prep for patrons from $5 a month.{" "}
+            Free, forever, for the table. No generative AI anywhere: maps drawn by code, rules by the book, art you bring.{" "}
             <Link to="/guide#watch" style={{ color: "var(--gold)" }}>Watch the two-minute walkthroughs →</Link>
           </p>
         </div>
@@ -396,9 +396,9 @@ export default function Welcome() {
           text="Party HP, initiative and the live board over tonight's notes, on one screen. Press N for your notes anywhere."
         />
         <Pillar
-          icon="✨"
-          title="AI prep for patrons"
-          text="NPCs with secrets, encounters, runbooks, full Session Packs, portraits and standees. From $5 a month; everything else is free."
+          icon="⚔️"
+          title="A practice arena"
+          text="Players spar with a catalog foe using their real sheet: every die shown, a coach's tip when it matters. Free, like everything else."
         />
       </section>
 

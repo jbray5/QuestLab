@@ -14,6 +14,9 @@ from sqlmodel.pool import StaticPool
 from db.base import _json_serializer
 
 os.environ.setdefault("RATE_LIMIT", "off")  # Plan 77 — the throttle is exercised by its own tests
+# Plan 86 — generative AI is off in the product; the suite opts in to keep the
+# code paths covered, and tests the default separately.
+os.environ.setdefault("AI_FEATURES", "on")
 
 
 @pytest.fixture(scope="session")

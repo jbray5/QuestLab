@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AI_ON } from "../lib/flags";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCampaignStore } from "../stores/useCampaignStore";
@@ -1177,7 +1178,7 @@ export default function MapBuilder() {
           )}
 
           {/* ── AI Generate panel (World maps only) ───────────────────── */}
-          {!isDungeon && (isEmpty || nodes.length > 0) && (
+          {AI_ON && !isDungeon && (isEmpty || nodes.length > 0) && (
             <div
               className="card"
               style={{
@@ -1308,7 +1309,7 @@ export default function MapBuilder() {
                 >
                   {isDungeon
                     ? "Add rooms above to start building your dungeon. Drag from room handles to connect with doors and passages."
-                    : "Describe your world above and click Generate, or add locations manually."}
+                    : AI_ON ? "Describe your world above and click Generate, or add locations manually." : "Add locations and roads to draw your world."}
                 </div>
               ) : nodes.length === 0 ? (
                 <div

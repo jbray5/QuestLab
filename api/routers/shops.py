@@ -10,7 +10,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from api.deps import DB, AiArtUser, AiUser, CurrentUser
+from api.deps import DB, AiArtUser, AiUser, CurrentUser, require_ai_features
 from domain.shop import (
     MarketRead,
     ShopCreate,
@@ -153,6 +153,7 @@ def generate_banner(shop_id: uuid.UUID, db: DB, user: CurrentUser) -> ShopRead:
     Returns:
         The refreshed shop with banner_url set.
     """
+    require_ai_features()
     try:
         return shop_service.generate_banner(db, shop_id, user)
     except ValueError as exc:

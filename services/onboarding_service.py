@@ -20,6 +20,7 @@ from domain.character_builder import CharacterBuild
 from domain.npc import NpcCreate
 from domain.session import SessionRunbookCreate
 from domain.table_state import TableStateUpdate
+from integrations.feature_flags import public_web_url
 from services import (
     adventure_service,
     battle_map_service,
@@ -180,11 +181,10 @@ _STARTER_RUNBOOK: dict[str, Any] = {
     "loot_awards": [{"name": "Goblin belt-bell (brass)", "note": "Rings on its own near water"}],
 }
 
-# AI-generated map from the demo world — ours to ship.
-_STARTER_MAP_URL = (
-    "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/"
-    "c708579c-70e1-4811-8f58-d92504868d0c-kDyq5ThugnkcHPxSHyt9aegBQgCHcG.png"
-)
+# Plan 86 — the sample map is drawn by code (scripts/procgen_ink_maps.py), served
+# with the frontend. No generative AI anywhere in the sample.
+_STARTER_MAP_PATH = "/maps/mill-road.png"
+_STARTER_MAP_W, _STARTER_MAP_H, _STARTER_MAP_GRID = 2304, 1536, 96
 
 # Plan 85 — the pregens go through the real character builder, so they have
 # gear, spells, features and the same math as a player-built character.
@@ -391,7 +391,11 @@ def seed_starter(db: DBSession, dm_email: str) -> dict[str, Any]:
         campaign.id,
         dm_email,
         BattleMapCreate(
-            name="The Mill Road", image_url=_STARTER_MAP_URL, width=1536, height=1024, grid_size=64
+            name="The Mill Road",
+            image_url=public_web_url() + _STARTER_MAP_PATH,
+            width=_STARTER_MAP_W,
+            height=_STARTER_MAP_H,
+            grid_size=_STARTER_MAP_GRID,
         ),
     )
     game_session = session_service.create_session(
@@ -410,8 +414,8 @@ def seed_starter(db: DBSession, dm_email: str) -> dict[str, Any]:
             "ref_id": str(pc.id),
             "label": pc.character_name,
             "image_url": None,
-            "x": 1536 * (0.28 + 0.11 * i),
-            "y": 1024 * 0.72,
+            "x": _STARTER_MAP_W * (0.28 + 0.11 * i),
+            "y": _STARTER_MAP_H * 0.72,
             "size": 1,
         }
         for i, pc in enumerate(pcs)

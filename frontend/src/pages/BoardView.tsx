@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AI_ON } from "../lib/flags";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
@@ -722,24 +723,28 @@ export default function BoardView() {
         >
           🎯 Follow
         </button>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
-          onClick={() => setBackdropOpen((v) => !v)}
-          disabled={!activeMap}
-          title="AI-generate a 360° horizon around the board"
-        >
-          🌌 Backdrop
-        </button>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
-          onClick={() => void dioramify()}
-          disabled={!activeMap || dioramaBusy}
-          title="Dioramify: AI removes the map's trees/stones from the paint and re-plants them as upright props (1-3 min). Works on ANY map."
-        >
-          {dioramaBusy ? "🌲 Growing…" : activeMap?.props?.length ? "🌲 Diorama ↻" : "🌲 Dioramify"}
-        </button>
+        {AI_ON && (
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
+            onClick={() => setBackdropOpen((v) => !v)}
+            disabled={!activeMap}
+            title="AI-generate a 360° horizon around the board"
+          >
+            🌌 Backdrop
+          </button>
+        )}
+        {AI_ON && (
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
+            onClick={() => void dioramify()}
+            disabled={!activeMap || dioramaBusy}
+            title="Dioramify: AI removes the map's trees/stones from the paint and re-plants them as upright props (1-3 min). Works on ANY map."
+          >
+            {dioramaBusy ? "🌲 Growing…" : activeMap?.props?.length ? "🌲 Diorama ↻" : "🌲 Dioramify"}
+          </button>
+        )}
         <a
           href={`${window.location.origin}/table/${sessionId}/3d`}
           target="_blank"
@@ -1089,15 +1094,17 @@ export default function BoardView() {
                 ✋ Stand down: {g}
               </button>
             ))}
-            <button
-              className="btn"
-              style={{ fontSize: "0.72rem" }}
-              onClick={() => void generateMinifig()}
-              disabled={figureBusy || !selectedToken || selectedToken.kind === "light"}
-              title="AI-generate a full-body standee for the selected token (~30s). You are asked for art direction first, and it is remembered for re-rolls."
-            >
-              {figureBusy ? "🧍 Generating…" : "🧍 Minifig"}
-            </button>
+            {AI_ON && (
+              <button
+                className="btn"
+                style={{ fontSize: "0.72rem" }}
+                onClick={() => void generateMinifig()}
+                disabled={figureBusy || !selectedToken || selectedToken.kind === "light"}
+                title="AI-generate a full-body standee for the selected token (~30s). You are asked for art direction first, and it is remembered for re-rolls."
+              >
+                {figureBusy ? "🧍 Generating…" : "🧍 Minifig"}
+              </button>
+            )}
           </div>
           <BoardTracker sessionId={sessionId!} combat={combat} />
         </aside>

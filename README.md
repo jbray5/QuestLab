@@ -1,8 +1,8 @@
 # QuestLab ⚔️
 
-**AI-powered D&D 5e (2024) campaign planning and session execution tool for Dungeon Masters.**
+**A table tool for D&D 5e (2024): living sheets on phones, a shared board on the TV, a HUD for the DM. No generative AI.**
 
-Build campaigns, adventures, encounters, and maps. Generate AI-authored session runbooks with quotable dialog,
+Build campaigns, arcs, encounters and maps; run the night from one screen with live sync to every phone and the projector.
 encounter flows, monster stat blocks, and loot tables. Run live sessions with initiative tracking and a real-time companion view.
 
 ---

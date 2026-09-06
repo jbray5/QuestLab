@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AI_ON } from "../../lib/flags";
 
 import type { Pin } from "../../api/notebooks";
 import { entityHref, monogram } from "./EntityPicker";
@@ -100,6 +101,7 @@ export function AiMarginControls({
   onAsk: (question: string) => void;
 }) {
   const [q, setQ] = useState("");
+  if (!AI_ON) return null;
   return (
     <div className="nb-ai-controls">
       <button

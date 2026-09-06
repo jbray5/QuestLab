@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AI_ON } from "../lib/flags";
 
 interface Props {
   /** Current portrait URL, if any. */
@@ -29,6 +30,8 @@ export default function PortraitGenerator({
   const [hints, setHints] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (!AI_ON) return null;
 
   async function handleClick() {
     setBusy(true);
@@ -71,7 +74,6 @@ export default function PortraitGenerator({
         }}
       >
         {displayUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={displayUrl}
             alt="Portrait"

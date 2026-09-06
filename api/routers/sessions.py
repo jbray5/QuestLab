@@ -20,6 +20,7 @@ from domain.session import (
     SessionCombatStateWrite,
     SessionCreate,
     SessionRunbook,
+    SessionRunbookCreate,
     SessionRunbookUpdate,
     SessionUpdate,
 )
@@ -229,6 +230,41 @@ def get_runbook(session_id: uuid.UUID, db: DB, user: CurrentUser) -> SessionRunb
     """
     try:
         return session_service.get_runbook(db, session_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.put("/sessions/{session_id}/runbook/blank", response_model=SessionRunbook)
+def create_blank_runbook(session_id: uuid.UUID, db: DB, user: CurrentUser) -> SessionRunbook:
+    """Start an empty runbook to write by hand (Plan 86 — no generative AI).
+
+    Args:
+        session_id: UUID of the session.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The new (empty) SessionRunbook; a 409 if one already exists.
+    """
+    try:
+        if session_service.get_runbook(db, session_id, user) is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="This session already has a runbook."
+            )
+        blank = SessionRunbookCreate(
+            session_id=session_id,
+            model_used="manual",
+            opening_scene="",
+            scenes=[
+                {"title": "Scene 1", "read_aloud": "", "dm_notes": "", "estimated_minutes": 20}
+            ],
+            npc_dialog=[],
+            encounter_flows=[],
+            closing_hooks="",
+        )
+        return session_service.save_runbook(db, session_id, user, blank)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:

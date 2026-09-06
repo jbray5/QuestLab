@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AI_ON } from "../lib/flags";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adventuresApi } from "../api/adventures";
@@ -399,6 +400,11 @@ export default function SessionRunner() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["runbook", sessionId] }),
   });
 
+  // Plan 86 — no generative AI: start an empty runbook and write it in the editor.
+  const createBlank = useMutation({
+    mutationFn: () => sessionsApi.createBlankRunbook(sessionId!),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["runbook", sessionId] }),
+  });
   // Plan 70 — AI Session Pack: premise in, LINKED session out (real
   // encounters with catalog monsters, campaign NPCs, loot, runbook).
   const generatePack = useMutation({
@@ -513,7 +519,27 @@ export default function SessionRunner() {
       >
         {/* ── Left: runbook ── */}
         <div>
-          {!runbook ? (
+          {!runbook && !AI_ON ? (
+            <div className="card" style={{ marginBottom: "1rem" }}>
+              <h3>✍️ Write tonight's runbook</h3>
+              <p className="text-muted text-sm" style={{ marginBottom: "1rem" }}>
+                Read-aloud text, your notes, the fight's flow — yours, in the editor. Start blank
+                and fill it in as you prep; the HUD's 🎬 Script reads it back to you at the table.
+              </p>
+              <button
+                className="btn btn-primary"
+                onClick={() => createBlank.mutate()}
+                disabled={createBlank.isPending}
+              >
+                {createBlank.isPending ? "Starting…" : "✍️ Start a blank runbook"}
+              </button>
+              {createBlank.isError && (
+                <p className="text-sm" style={{ color: "var(--crimson2)", marginTop: "0.5rem" }}>
+                  {(createBlank.error as Error).message}
+                </p>
+              )}
+            </div>
+          ) : !runbook ? (
             /* No runbook yet */
             <div className="card" style={{ marginBottom: "1rem" }}>
               <h3>✨ Plan tonight's session</h3>
@@ -585,14 +611,16 @@ export default function SessionRunner() {
                 style={{ justifyContent: "space-between", marginBottom: "1rem" }}
               >
                 <h2 style={{ margin: 0 }}>Session Runbook</h2>
-                <button
-                  className="btn btn-ghost"
-                  style={{ fontSize: "0.75rem" }}
-                  onClick={() => generateRunbook.mutate()}
-                  disabled={generateRunbook.isPending}
-                >
-                  ↺ Regenerate
-                </button>
+                {AI_ON && (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: "0.75rem" }}
+                    onClick={() => generateRunbook.mutate()}
+                    disabled={generateRunbook.isPending}
+                  >
+                    ↺ Regenerate
+                  </button>
+                )}
               </div>
               <RunbookView runbook={runbook} />
             </div>

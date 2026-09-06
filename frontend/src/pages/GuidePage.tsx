@@ -105,14 +105,8 @@ export default function GuidePage() {
       <div className="note"><b>QuestLab ships no third-party map packs.</b> Your uploads are private to your account and only appear on your own tables. Don&rsquo;t upload art you don&rsquo;t have rights to.</div>
       <p>Tips: keep maps under ~4000&nbsp;px on the long edge for fast loading; set the grid size to match your map&rsquo;s squares (most 4K packs are 140–160&nbsp;px); animated loops of 5–20&nbsp;MB stream smoothly.</p>
 
-      <h2>AI features</h2>
-      <p>Sheets, the table, the board, dice, the projector and phones are free, forever. AI generation runs on paid models, so it&rsquo;s included with a QuestLab Patreon membership. Three tiers, each with a daily allowance so costs stay sane; everything you generate is yours to keep, even if you stop.</p>
-      <ul>
-        <li><b>Hearth — $5 / month.</b> AI for prep: NPCs with secrets, monster picks, session briefs, runbooks, shop stock, item lore — and full Session Packs. 15 generations a day.</li>
-        <li><b>Lantern — $12 / month.</b> Everything in Hearth, plus art — portraits, standees, backdrops, props, world maps, the players&rsquo; forge. 40 a day.</li>
-        <li><b>Table — $25 / month.</b> Everything in Lantern with 120 a day, a seat in the Discord, and your name in the credits.</li>
-      </ul>
-      <p>Sign in with Patreon (or link it under your account) and the buttons unlock the moment your pledge is active.</p>
+      <h2>No generative AI</h2>
+      <p>QuestLab has no generative AI in it: no AI art, no AI-written NPCs, briefs or runbooks, no models behind any button. Maps are drawn by code in an ink style, the rules are the System Reference Document, and the art is yours &mdash; your uploads, your map packs, your players&rsquo; drawings. Everything is free. If it runs your table, back the project on Patreon; that keeps the servers on and gets you a seat in the Discord and your name in the credits.</p>
 
       <h2>Common questions</h2>
       <h3>Do my players need accounts?</h3><p>No. A player&rsquo;s link is their key; keep it in the group. They can reopen their sheet any time from the same phone.</p>

@@ -26,7 +26,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Welcome to QuestLab",
     body:
       "Ninety seconds. QuestLab is a table tool: living sheets on your players' " +
-      "phones, a shared board on the TV, and a HUD for you. None of it needs AI.",
+      "phones, a shared board on the TV, and a HUD for you. There is no AI in it.",
   },
   {
     title: "Run the sample night first",

@@ -10,7 +10,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from api.deps import DB, CurrentUser
+from api.deps import DB, CurrentUser, require_ai_features
 from domain.table_state import (
     TableProjection,
     TableStateRead,
@@ -122,6 +122,7 @@ def generate_token_figure(
     Returns:
         The generated cut-out's URL.
     """
+    require_ai_features()
     try:
         url = table_service.generate_token_figure(
             db, session_id, user, body.name, style_hints=body.style_hints
