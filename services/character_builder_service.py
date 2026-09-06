@@ -337,7 +337,7 @@ def _attend_newest_session(db: DBSession, campaign_id: uuid.UUID, pc_id: uuid.UU
     sessions = []
     for adventure in AdventureRepo.list_by_campaign(db, campaign_id):
         sessions.extend(SessionRepo.list_by_adventure(db, adventure.id))
-    open_sessions = [g for g in sessions if g.status != SessionStatus.COMPLETED]
+    open_sessions = [g for g in sessions if g.status != SessionStatus.COMPLETE]
     if not open_sessions:
         return
     target = max(open_sessions, key=lambda g: (g.session_number, g.id.hex))

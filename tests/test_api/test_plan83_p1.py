@@ -262,3 +262,32 @@ def test_arc_tier_is_inferred_from_the_party(client, api_engine):
     assert r.status_code == 201, r.text
     assert r.json()["tier"] == "Tier2"
     assert uuid.UUID(r.json()["id"])
+
+
+def test_join_built_character_attends_the_newest_open_session(client, api_engine):
+    """Plan 85 — a player who builds from the join link is on tonight's session."""
+    dm = "attend@example.com"
+    cid, sid, _pc = _seed(api_engine, dm)
+    r = client.post(
+        f"/api/play/join/{cid}/characters",
+        json={
+            "character_name": "Sera",
+            "player_name": "V",
+            "species": "Human",
+            "character_class": "Paladin",
+            "background": "Acolyte",
+            "level": 1,
+            "scores": {"STR": 15, "DEX": 8, "CON": 14, "INT": 10, "WIS": 12, "CHA": 13},
+            "score_method": "standard",
+            "background_bonus": {"CHA": 2, "WIS": 1},
+            "skills": ["Insight", "Religion", "Athletics", "Persuasion", "Intimidation"],
+            "origin_feat": "Tough",
+            "kit": "Chain mail, longsword & shield",
+        },
+    )
+    assert r.status_code == 201, r.text
+    gs = client.get(f"/api/sessions/{sid}", headers=auth(dm)).json()
+    assert r.json()["pc_id"] in [str(x) for x in (gs.get("attending_pc_ids") or [])]
+    # A level-1 Paladin has two first-level slots in 2024.
+    slots = client.get(f"/api/play/{r.json()['pc_id']}/spell-slots").json()
+    assert slots["levels"]["1"]["max"] == 2
