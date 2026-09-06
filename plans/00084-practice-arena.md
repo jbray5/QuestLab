@@ -1,7 +1,7 @@
 # Plan 00084 — Practice Arena: spar with your real sheet, no AI, free
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (live-verified 2026-09-05)
 
 **Started:** 2026-09-05 · **Implemented by:** Claude Code
 
@@ -52,7 +52,14 @@ not a model: every roll is shown, every tip is templated from the state.
   economy, foe turn, going down leaves the real sheet untouched, flee and
   the foe list) and `tests/test_api/test_plan84_arena.py` (routes; another
   PC's state is 403); tsc, eslint on touched files, vite build.
-- Prod: see the commit that flips this plan to Complete.
+- Prod (API 1.7.0, 3af2604): a level-2 Fighter built through the join creator
+  (chain mail, longsword, shield in the bag, no warnings) listed 68 catalog
+  foes with 25 flagged for its level, started a fight against a random one
+  (Gray Ooze, CR 1/2), attacked with Longsword +5 / 1d8+3 each round and won in
+  three rounds with 23 dealt and 0 taken; Second Wind and Action Surge were on
+  the button grid; acting after the fight returned 422 "The fight is over";
+  the real sheet's HP was unchanged afterwards; the campaign deleted (204).
+  The Vercel bundle carries the Arena chunk.
 
 ## Not in this plan
 Multiple foes; reactions (Opportunity Attack, Shield); conditions beyond
