@@ -91,3 +91,72 @@ class TestLongRestResidue:
         assert after.temp_hp == 0 and after.death_save_failures == 0
         assert after.concentration_on is None
         _cleanup(duckdb_session, str(pc_id), c.dm_email)
+
+
+class TestLevelPatchSyncsFeatures:
+    """A PATCHed level grants the class features the PC now qualifies for."""
+
+    def test_level_two_cleric_gets_channel_divinity(self, duckdb_session: Session):
+        # The shared engine may already hold a partial catalog from another test
+        # module (seed_catalog then only syncs formulas), so plant the one row
+        # this test is about if it's missing.
+        from db.repos.class_feature_repo import ClassFeatureRepo
+        from domain.character import PlayerCharacterUpdate
+        from domain.enums import CharacterClass
+        from integrations.dnd_rules.class_features_2024 import CLASS_FEATURES_2024
+        from services import character_service
+
+        feature_service.seed_catalog(duckdb_session, CLASS_FEATURES_2024)
+        cd_payload = next(
+            f
+            for f in CLASS_FEATURES_2024
+            if f.name == "Channel Divinity" and f.character_class == CharacterClass.CLERIC
+        )
+        if (
+            ClassFeatureRepo.find_by_name_class(
+                duckdb_session, "Channel Divinity", CharacterClass.CLERIC
+            )
+            is None
+        ):
+            ClassFeatureRepo.create(duckdb_session, cd_payload)
+        c = _campaign(duckdb_session)
+        pc = character_service.create_character(
+            duckdb_session,
+            campaign_id=c.id,
+            dm_email=c.dm_email,
+            player_name="P",
+            character_name="Sister Ode",
+            race="Human",
+            character_class=CharacterClass.CLERIC,
+            level=1,
+            score_str=10,
+            score_dex=10,
+            score_con=14,
+            score_int=10,
+            score_wis=16,
+            score_cha=12,
+            hp_max=10,
+            hp_current=10,
+            ac=16,
+            speed=30,
+        )
+        before = {
+            f.feature_name
+            for f in feature_service.list_for_character(duckdb_session, pc.id, c.dm_email)
+        }
+        assert "Channel Divinity" not in before
+        character_service.update_character(
+            duckdb_session, pc.id, c.dm_email, PlayerCharacterUpdate(level=2)
+        )
+        after = {
+            f.feature_name
+            for f in feature_service.list_for_character(duckdb_session, pc.id, c.dm_email)
+        }
+        assert "Channel Divinity" in after
+        cd = next(
+            f
+            for f in feature_service.list_for_character(duckdb_session, pc.id, c.dm_email)
+            if f.feature_name == "Channel Divinity"
+        )
+        assert cd.max_uses == 2
+        _cleanup(duckdb_session, str(pc.id), c.dm_email)

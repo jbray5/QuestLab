@@ -279,11 +279,46 @@ def find_starter(db: DBSession, dm_email: str) -> dict[str, Any] | None:
     adventure = adventures[0] if adventures else None
     sessions = SessionRepo.list_by_adventure(db, adventure.id) if adventure else []
     game_session = min(sessions, key=lambda g: g.session_number) if sessions else None
+    if game_session is not None:
+        _refresh_starter(db, campaign.id, game_session, dm_email)
     return {
         "campaign_id": str(campaign.id),
         "adventure_id": str(adventure.id) if adventure else None,
         "session_id": str(game_session.id) if game_session else None,
     }
+
+
+def _refresh_starter(
+    db: DBSession, campaign_id: uuid.UUID, game_session: Any, dm_email: str
+) -> None:
+    """Bring a sample built before Plan 83 up to date, without touching play state.
+
+    Adds the two NPCs and the runbook if they're missing and drops the doubled
+    "Session 1 —" from the title. Anything the DM changed themselves is left.
+
+    Args:
+        db: Active database session.
+        campaign_id: The sample campaign.
+        game_session: Its first session (a GameSession row).
+        dm_email: The owning DM.
+    """
+    from db.repos.npc_repo import NpcRepo
+
+    have = {n.name for n in NpcRepo.list_by_campaign(db, campaign_id)}
+    for npc in _STARTER_NPCS:
+        if npc["name"] not in have:
+            npc_service.create_npc(db, campaign_id, dm_email, NpcCreate(**npc))
+    if SessionRunbookRepo.get_by_session(db, game_session.id) is None:
+        SessionRunbookRepo.create(
+            db,
+            SessionRunbookCreate(
+                session_id=game_session.id, model_used="starter", **_STARTER_RUNBOOK
+            ),
+        )
+    if game_session.title == "Session 1 — The Millpond Bells":
+        game_session.title = "The Millpond Bells"
+        db.add(game_session)
+        db.commit()
 
 
 def seed_starter(db: DBSession, dm_email: str) -> dict[str, Any]:

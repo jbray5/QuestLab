@@ -524,6 +524,12 @@ def update_character(
     # PC greyed-out + with stale HP after a DM-side hp_current change.
     if "hp_current" in patch:
         _sync_combatant_for_pc(session, updated)
+    # Plan 83 — a level, class or subclass change grants the features the PC
+    # now qualifies for (idempotent), so a PATCHed level isn't a hollow number.
+    if "level" in patch or "character_class" in patch or "subclass" in patch:
+        from services import feature_service  # local: feature_service imports this module
+
+        feature_service.sync_for_level(session, updated.id, dm_email)
     publish_pc_updated(updated.id, updated.campaign_id)
     return PlayerCharacterRead.model_validate(updated)
 

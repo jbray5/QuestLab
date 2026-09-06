@@ -1,7 +1,7 @@
 # Plan 00083 — The P1 list from the six-DM field test, plus packs at $5
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (live-verified 2026-09-05)
 
 **Started:** 2026-09-05 · **Implemented by:** Claude Code
 
@@ -27,6 +27,9 @@ argued for.
 - The dashboard button reads **🎲 Run the sample night** and lands in the
   HUD with 🎬 Script open. A second press finds the existing sample (200
   with its ids) instead of a 409.
+- A sample built before this plan is upgraded in place on the next press:
+  the NPCs and runbook are added if missing and the doubled title fixed;
+  nothing the DM changed is touched.
 
 ### Remote-player window
 - The public projection now carries `combat_running`, `round` and an
@@ -54,6 +57,9 @@ argued for.
   every PC and NPC name as taken.
 
 ### Rules depth
+- A PATCHed level, class or subclass grants the features the PC now
+  qualifies for (`feature_service.sync_for_level`), so a level isn't a hollow
+  number.
 - Long rest clears temp HP, death saves and concentration.
 - Channel Divinity: 2 / 3 at 6 / 4 at 18 (`UsesFormula.CHANNEL_DIVINITY`);
   the catalog seeder now syncs formulas on existing rows.
@@ -82,11 +88,26 @@ argued for.
   campaign card. Import is a follow-up.
 
 ## Verification
-- Gate: black / isort / flake8 / interrogate; pytest (new:
-  `tests/test_api/test_plan83_p1.py`, `tests/test_services/test_plan83_rules.py`);
-  tsc, eslint on touched files, vite build.
-- Prod: see the commit that flips this plan to Complete.
+- Gate: black / isort / flake8 / interrogate (92.8%); pytest 830 passed (new:
+  `tests/test_api/test_plan83_p1.py`, `tests/test_services/test_plan83_rules.py`,
+  an onboarding upgrade test); pip-audit clean; tsc, eslint on touched files,
+  vite build. CI green on aedc5a2.
+- Prod (API 1.6.0, aedc5a2), driven through the real routes on a throwaway
+  campaign, then deleted (204): Hearth's plan blurb names Session Packs; the
+  sample button returns 200 with the same session twice; an arc posted
+  without a tier came back Tier2 for a level-7 party; join code "reed-7"
+  stored as REED7, join page 403 `join_code_required` without it and 200
+  with `?code=reed7`, options 403 too; roster rows carry `character_class`;
+  combat_state "active" landed as running and "brawling" was a 422; the
+  public projection listed Creed 40/58 and Wolf with no HP and `prone`;
+  the player's move landed at (300, 240) and the foe stayed put;
+  live-session resolved to the session; export returned the bundle as an
+  attachment and a stranger got 403; long rest cleared temp HP, a death
+  save and concentration; a Fighter built through the join creator got
+  chain mail, longsword and shield with no "not in the catalog" warning.
+  The Vercel bundle carries "Run the sample night" and the TableView chunk
+  carries the remote panel.
 
 ## Not in this plan
-Campaign import; a first-class session log; level PATCH recomputing HP and
-features; 2024 (SRD 5.2.1) monster blocks; the Practice Arena.
+Campaign import; a first-class session log; level PATCH recomputing HP;
+2024 (SRD 5.2.1) monster blocks; the Practice Arena (Plan 84).
