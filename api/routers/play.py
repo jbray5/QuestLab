@@ -16,6 +16,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.deps import DB, gate_ai_for_pc
+from domain.arena import ArenaActBody, ArenaFoeOption, ArenaStartBody, ArenaState
 from domain.character import HeroLockBody, PlayerCharacter, PlayerRollBody
 from domain.character_builder import BuilderOptions, BuildResult, CharacterBuild
 from domain.shop import (
@@ -27,7 +28,7 @@ from domain.shop import (
     TransferReceipt,
 )
 from domain.table_state import PlayerTokenMove
-from services import character_builder_service, player_service
+from services import arena_service, character_builder_service, player_service
 
 router = APIRouter(tags=["play"])
 
@@ -563,6 +564,71 @@ def join_roster(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.get("/play/{pc_id}/arena/foes", response_model=list[ArenaFoeOption])
+def arena_foes(pc_id: uuid.UUID, db: DB) -> list[ArenaFoeOption]:
+    """Catalog foes for the Practice Arena, flagged when they fit the level (Plan 84).
+
+    Args:
+        pc_id: UUID of the player character (the capability).
+        db: Database session.
+
+    Returns:
+        Foes sorted by CR then name.
+    """
+    try:
+        return arena_service.list_foes(db, pc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/arena/start", response_model=ArenaState)
+def arena_start(pc_id: uuid.UUID, body: ArenaStartBody, db: DB) -> ArenaState:
+    """Start a practice fight from the PC's real sheet (Plan 84). Nothing is written.
+
+    Args:
+        pc_id: UUID of the player character (the capability).
+        body: A specific foe, or none for one that fits the level.
+        db: Database session.
+
+    Returns:
+        The opening fight state.
+    """
+    try:
+        return arena_service.start(db, pc_id, body.monster_id)
+    except ValueError as exc:
+        code = (
+            status.HTTP_404_NOT_FOUND
+            if "not found" in str(exc)
+            else status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
+        raise HTTPException(status_code=code, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/arena/act", response_model=ArenaState)
+def arena_act(pc_id: uuid.UUID, body: ArenaActBody, db: DB) -> ArenaState:
+    """Take one action in a practice fight (Plan 84).
+
+    Args:
+        pc_id: UUID of the player character (the capability).
+        body: The state the phone holds plus the action.
+        db: Database session.
+
+    Returns:
+        The updated fight state.
+    """
+    if body.state.pc_id != pc_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="That fight isn't yours.")
+    try:
+        return arena_service.act(db, body.state, body.action)
+    except ValueError as exc:
+        code = (
+            status.HTTP_404_NOT_FOUND
+            if "not found" in str(exc)
+            else status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
+        raise HTTPException(status_code=code, detail=str(exc))
 
 
 @router.get("/play/{pc_id}/live-session")

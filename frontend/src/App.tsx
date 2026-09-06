@@ -19,6 +19,7 @@ const Adventures    = lazy(() => import("./pages/Adventures"));
 const Characters    = lazy(() => import("./pages/Characters"));
 const Encounters    = lazy(() => import("./pages/Encounters"));
 const CampaignEncounters = lazy(() => import("./pages/CampaignEncounters"));
+const Arena = lazy(() => import("./pages/Arena"));
 const MapBuilder    = lazy(() => import("./pages/MapBuilder"));
 const Sessions      = lazy(() => import("./pages/Sessions"));
 const CampaignSessions = lazy(() => import("./pages/CampaignSessions"));
@@ -98,6 +99,7 @@ export default function App() {
       <Route path="/play/:pcId" element={lazyRoute(<PlayerView />)} />
       {/* Plan 48 — Character Forge: the player's full-body character screen */}
       <Route path="/play/:pcId/character" element={lazyRoute(<CharacterView />)} />
+      <Route path="/play/:pcId/arena" element={lazyRoute(<Arena />)} />
 
       {/* Plan 42 — Table View: full-screen projected battle map, no DM chrome */}
       <Route path="/table/:sessionId" element={lazyRoute(<TableView />)} />

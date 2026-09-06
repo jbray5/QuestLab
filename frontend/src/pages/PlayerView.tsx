@@ -611,6 +611,23 @@ function HeaderBanner({
                 🗺 TABLE
               </Link>
             )}
+            <Link
+              to={`/play/${pc.id}/arena`}
+              style={{
+                display: "inline-block",
+                fontSize: "0.72rem",
+                letterSpacing: "0.06em",
+                color: "var(--gold)",
+                textDecoration: "none",
+                border: "1px solid var(--gold)",
+                borderRadius: 7,
+                padding: "1px 8px",
+                opacity: 0.9,
+              }}
+              title="Practice a fight with your real sheet — nothing here changes your character"
+            >
+              ⚔️ ARENA
+            </Link>
           </div>
         </div>
       </div>
