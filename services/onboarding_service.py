@@ -183,7 +183,7 @@ _STARTER_RUNBOOK: dict[str, Any] = {
 
 # Plan 86 — the sample map is drawn by code (scripts/procgen_ink_maps.py), served
 # with the frontend. No generative AI anywhere in the sample.
-_STARTER_MAP_PATH = "/maps/mill-road.png"
+_STARTER_MAP_PATH = "/sample/mill-road.jpg"
 _STARTER_MAP_W, _STARTER_MAP_H, _STARTER_MAP_GRID = 2304, 1536, 96
 
 # Plan 85 — the pregens go through the real character builder, so they have
@@ -322,6 +322,16 @@ def _refresh_starter(
                 session_id=game_session.id, model_used="starter", **_STARTER_RUNBOOK
             ),
         )
+    # Plan 86 — samples built before the pivot carried a generated map; swap in
+    # the procedural one (same name, new art and grid).
+    from db.repos.battle_map_repo import BattleMapRepo
+
+    for bm in BattleMapRepo.list_for_campaign(db, campaign_id):
+        if bm.name == "The Mill Road" and "blob.vercel-storage.com" in (bm.image_url or ""):
+            bm.image_url = public_web_url() + _STARTER_MAP_PATH
+            bm.width, bm.height, bm.grid_size = _STARTER_MAP_W, _STARTER_MAP_H, _STARTER_MAP_GRID
+            db.add(bm)
+            db.commit()
     if game_session.title == "Session 1 — The Millpond Bells":
         game_session.title = "The Millpond Bells"
         db.add(game_session)
