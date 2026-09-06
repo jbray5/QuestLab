@@ -1,9 +1,10 @@
-"""Practice Arena models (Plan 84).
+"""Practice Arena models (Plans 84, 85, 87).
 
 A one-on-one sparring match between a player's real sheet and an SRD foe,
 refereed by the rules engine in ``services/arena_service.py``. Nothing here
 touches the database: the whole fight is one JSON document the phone holds
-between turns, so a practice round never writes to the real character.
+between turns (HMAC-sealed), so a practice round never writes to the real
+character.
 """
 
 import uuid
@@ -11,32 +12,44 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
+Cost = Literal["action", "bonus", "reaction", "free"]
+
 
 class ArenaAttack(BaseModel):
-    """One thing the player can do with their action: a weapon, a cantrip, a spell."""
+    """One thing the player can do: a weapon, a cantrip, a spell, a feature with dice.
+
+    ``effect`` names the special handling the referee applies (``divine_smite``,
+    ``guiding_bolt``, ``hex``, ``sleep`` …); attacks without one are plain
+    attack-roll or save-based damage.
+    """
 
     key: str
     name: str
-    kind: Literal["weapon", "unarmed", "cantrip", "spell"]
-    # Attack-roll attacks carry a to-hit bonus; save-based spells a DC the foe rolls against.
+    kind: Literal["weapon", "unarmed", "cantrip", "spell", "heal", "buff", "feature"]
+    cost: Cost = "action"
     hit_bonus: Optional[int] = None
     save_ability: Optional[str] = None
     save_dc: Optional[int] = None
     half_on_save: bool = False
-    damage: str = Field(min_length=1, max_length=40)
+    damage: str = Field(default="0", max_length=40)
     damage_type: str = "bludgeoning"
     spell_level: int = Field(default=0, ge=0, le=9)
     melee: bool = True
+    finesse: bool = False
+    two_handed: bool = False
+    effect: Optional[str] = None
+    # Riders that need a hit this turn (Divine Smite, Searing Smite, Stunning Strike).
+    after_melee_hit: bool = False
     note: str = ""
 
 
 class ArenaFeature(BaseModel):
     """A modeled class feature with uses left in this fight."""
 
-    key: Literal["second_wind", "action_surge", "rage", "cunning_dodge", "lay_on_hands"]
+    key: str
     name: str
     uses_left: int = Field(ge=0)
-    cost: Literal["action", "bonus", "free"]
+    cost: Cost
     blurb: str
 
 
@@ -60,17 +73,40 @@ class ArenaSide(BaseModel):
     dex_mod: int = 0
 
 
+class ArenaBeast(BaseModel):
+    """A Wild Shape form: the beast's numbers over the druid's HP (Plan 87)."""
+
+    name: str
+    ac: int
+    temp_hp: int
+    attacks: list[ArenaFoeAttack] = Field(default_factory=list)
+
+
 class ArenaPc(ArenaSide):
     """The player's side, built from their real sheet at the start of the fight."""
 
     level: int = 1
     character_class: str = ""
+    subclass: str = ""
+    feats: list[str] = Field(default_factory=list)
     attacks: list[ArenaAttack] = Field(default_factory=list)
     features: list[ArenaFeature] = Field(default_factory=list)
     slots: dict[str, int] = Field(default_factory=dict)
     raging: bool = False
-    # Plan 85 — Extra Attack: weapon swings per Attack action.
     attacks_per_action: int = Field(default=1, ge=1, le=4)
+    # Plan 87 — the numbers riders need.
+    prof: int = 2
+    mods: dict[str, int] = Field(default_factory=dict)
+    spell_mod: int = 0
+    spell_dc: Optional[int] = None
+    spell_attack: Optional[int] = None
+    sneak_dice: int = 0
+    martial_die: int = 0
+    focus: int = 0
+    sorcery: int = 0
+    temp_hp: int = 0
+    ac_bonus: int = 0
+    beast: Optional[ArenaBeast] = None
 
 
 class ArenaFoe(ArenaSide):
@@ -81,6 +117,7 @@ class ArenaFoe(ArenaSide):
     creature_type: str = ""
     attacks: list[ArenaFoeAttack] = Field(default_factory=list)
     saves: dict[str, int] = Field(default_factory=dict)
+    conditions: list[str] = Field(default_factory=list)
     image_url: Optional[str] = None
 
 
@@ -111,31 +148,56 @@ class ArenaStats(BaseModel):
 class ArenaState(BaseModel):
     """The whole fight. The phone holds it; the server only ever transforms it."""
 
-    version: int = 1
+    version: int = 2
     pc_id: uuid.UUID
     round: int = Field(default=1, ge=1)
     phase: Literal["your_turn", "over"] = "your_turn"
     action_used: bool = False
     bonus_used: bool = False
     extra_action: bool = False
+    reaction_used: bool = False
     dodging: bool = False
-    # Plan 85 — swings left in the current Attack action (Extra Attack).
     attacks_left: int = Field(default=0, ge=0)
+    # Plan 87 — turn state the riders read.
+    hit_this_turn: bool = False
+    melee_hit_this_turn: bool = False
+    sneak_used: bool = False
+    stun_used: bool = False
+    reckless: bool = False
+    adv_next: bool = False
+    foe_disadv_next: bool = False
+    concentration: Optional[str] = None
+    marks: list[str] = Field(default_factory=list)
+    blessed: bool = False
+    faith: bool = False
+    innate_sorcery: int = 0
+    spiritual_weapon: bool = False
+    auto_reactions: bool = True
     result: Optional[Literal["won", "lost", "fled"]] = None
     pc: ArenaPc
     foe: ArenaFoe
     log: list[ArenaLogLine] = Field(default_factory=list)
     stats: ArenaStats = Field(default_factory=ArenaStats)
     tips: list[str] = Field(default_factory=list)
-    # Plan 85 — tamper seal; the server refuses a state it didn't hand out.
     sig: str = ""
 
 
 class ArenaAction(BaseModel):
     """What the player chose to do."""
 
-    kind: Literal["attack", "cast", "dodge", "feature", "end_turn", "flee"]
+    kind: Literal[
+        "attack",
+        "cast",
+        "dodge",
+        "feature",
+        "reckless",
+        "wild_shape",
+        "toggle_reactions",
+        "end_turn",
+        "flee",
+    ]
     key: Optional[str] = None
+    slot_level: Optional[int] = Field(default=None, ge=1, le=9)
 
 
 class ArenaStartBody(BaseModel):
@@ -161,6 +223,5 @@ class ArenaFoeOption(BaseModel):
     hp_average: int
     creature_type: str
     suggested: bool = False
-    # Plan 85 — "easy" | "fits" | "tough" | "deadly" against the PC's level.
     tier: str = "fits"
     image_url: Optional[str] = None

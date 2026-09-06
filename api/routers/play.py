@@ -583,6 +583,23 @@ def arena_foes(pc_id: uuid.UUID, db: DB) -> list[ArenaFoeOption]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
+@router.get("/play/{pc_id}/arena/beasts", response_model=list[ArenaFoeOption])
+def arena_beasts(pc_id: uuid.UUID, db: DB) -> list[ArenaFoeOption]:
+    """Wild Shape forms within the druid's CR cap (Plan 87).
+
+    Args:
+        pc_id: UUID of the player character (the capability).
+        db: Database session.
+
+    Returns:
+        Catalog beasts, strongest first.
+    """
+    try:
+        return arena_service.list_beasts(db, pc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
 @router.post("/play/{pc_id}/arena/start", response_model=ArenaState)
 def arena_start(pc_id: uuid.UUID, body: ArenaStartBody, db: DB) -> ArenaState:
     """Start a practice fight from the PC's real sheet (Plan 84). Nothing is written.

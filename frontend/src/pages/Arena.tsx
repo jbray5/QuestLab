@@ -4,18 +4,21 @@ import { Link, useParams } from "react-router-dom";
 import { apiBase } from "../api/client";
 
 /**
- * Arena (Plan 84) — the Practice Arena on the player's phone. A one-on-one
- * sparring match against a catalog foe, refereed by the server's rules engine
- * with the player's real sheet: their weapons, cantrips, spells, slots and a
- * few modeled features. Nothing here writes to the character; the whole fight
- * is one JSON document this page holds (and keeps in localStorage so a
- * pocket-refresh doesn't lose it). Free: no AI anywhere in the loop.
+ * Arena (Plans 84/85/87) — the Practice Arena on the player's phone. A
+ * one-on-one sparring match against a catalog foe, refereed by the server's
+ * rules engine with the player's real sheet: weapons, cantrips, spells, slots,
+ * and each class's level 1–5 kit as a real action economy (action, bonus
+ * action, reactions, riders like Divine Smite and Sneak Attack). Nothing here
+ * writes to the character; the fight is one sealed JSON document this page
+ * holds (and keeps in localStorage). Free: no AI anywhere in the loop.
  */
 
+type Cost = "action" | "bonus" | "reaction" | "free";
 interface ArenaAttack {
   key: string;
   name: string;
-  kind: "weapon" | "unarmed" | "cantrip" | "spell";
+  kind: "weapon" | "unarmed" | "cantrip" | "spell" | "heal" | "buff" | "feature";
+  cost: Cost;
   hit_bonus: number | null;
   save_ability: string | null;
   save_dc: number | null;
@@ -23,13 +26,15 @@ interface ArenaAttack {
   damage_type: string;
   spell_level: number;
   melee: boolean;
+  effect: string | null;
+  after_melee_hit: boolean;
   note: string;
 }
 interface ArenaFeature {
   key: string;
   name: string;
   uses_left: number;
-  cost: "action" | "bonus" | "free";
+  cost: Cost;
   blurb: string;
 }
 interface ArenaSide {
@@ -41,16 +46,25 @@ interface ArenaSide {
 interface ArenaPc extends ArenaSide {
   level: number;
   character_class: string;
+  subclass: string;
   attacks: ArenaAttack[];
   features: ArenaFeature[];
   slots: Record<string, number>;
   raging: boolean;
+  attacks_per_action: number;
+  focus: number;
+  sorcery: number;
+  sneak_dice: number;
+  temp_hp: number;
+  spell_dc: number | null;
+  beast: { name: string; ac: number; temp_hp: number } | null;
 }
 interface ArenaFoe extends ArenaSide {
   monster_id: string | null;
   cr: string;
   creature_type: string;
   image_url: string | null;
+  conditions: string[];
   attacks: { name: string; hit_bonus: number; damage: string; damage_type: string; count: number }[];
 }
 interface LogLine {
@@ -68,7 +82,20 @@ interface ArenaState {
   action_used: boolean;
   bonus_used: boolean;
   extra_action: boolean;
+  reaction_used: boolean;
   dodging: boolean;
+  attacks_left: number;
+  hit_this_turn: boolean;
+  melee_hit_this_turn: boolean;
+  reckless: boolean;
+  adv_next: boolean;
+  concentration: string | null;
+  marks: string[];
+  blessed: boolean;
+  faith: boolean;
+  innate_sorcery: number;
+  spiritual_weapon: boolean;
+  auto_reactions: boolean;
   result: "won" | "lost" | "fled" | null;
   pc: ArenaPc;
   foe: ArenaFoe;
@@ -92,7 +119,7 @@ const CSS = `
   background: radial-gradient(ellipse at 50% -10%, #2a1d1d 0%, #120c10 55%, #07050a 100%); }
 .ar-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 0.6rem; }
 .ar-title { font-family: Cinzel, Georgia, serif; color: #f0e6c8; font-size: 1.25rem; letter-spacing: 0.08em; margin: 0; }
-.ar-back { color: #e2c257; text-decoration: none; font-size: 0.8rem; letter-spacing: 0.06em; border: 1px solid rgba(214,175,54,0.5); border-radius: 999px; padding: 3px 10px; }
+.ar-back { color: #e2c257; text-decoration: none; font-size: 0.8rem; letter-spacing: 0.06em; border: 1px solid rgba(214,175,54,0.5); border-radius: 999px; padding: 3px 10px; background: none; cursor: pointer; font-family: inherit; }
 .ar-sub { color: #c2b89f; font-style: italic; margin: 0 0 1rem; font-size: 0.9rem; }
 .ar-big { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid #d6af36; background: rgba(214,175,54,0.12); color: #f0e6c8;
   font-family: Cinzel, Georgia, serif; font-size: 1rem; letter-spacing: 0.06em; cursor: pointer; }
@@ -110,7 +137,7 @@ const CSS = `
 .ar-card.foe { border-color: rgba(200,80,80,0.45); }
 .ar-card.you { border-color: rgba(214,175,54,0.45); }
 .ar-card .nm { font-family: Cinzel, Georgia, serif; font-size: 0.9rem; color: #f0e6c8; margin: 0 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ar-card .meta { font-size: 0.7rem; color: #9a9078; letter-spacing: 0.04em; }
+.ar-card .meta { font-size: 0.7rem; color: #b3a789; letter-spacing: 0.04em; }
 .ar-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 6px 0 3px; }
 .ar-bar i { display: block; height: 100%; background: #6fbf73; transition: width 0.35s ease; }
 .ar-bar i.low { background: #e0a030; } .ar-bar i.crit { background: #ef5350; }
@@ -118,30 +145,36 @@ const CSS = `
 .ar-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
 .ar-chips span { font-size: 0.64rem; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid rgba(214,175,54,0.4); color: #d6af36; border-radius: 999px; padding: 1px 7px; }
 .ar-chips span.cond { border-color: rgba(200,162,255,0.5); color: #c8a2ff; }
+.ar-chips span.bad { border-color: rgba(239,83,80,0.5); color: #ef8b80; }
 .ar-turn { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 6px; font-size: 0.8rem; color: #b3a789; }
 .ar-turn b { color: #f0e6c8; font-family: Cinzel, Georgia, serif; font-weight: 600; }
 .ar-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #d6af36; margin-left: 4px; vertical-align: middle; }
 .ar-dot.on { background: #d6af36; }
 .ar-tips { border-left: 3px solid #d6af36; background: rgba(214,175,54,0.08); padding: 8px 10px; border-radius: 0 10px 10px 0; font-size: 0.84rem; line-height: 1.4; margin-bottom: 8px; }
 .ar-tips p { margin: 0 0 4px; } .ar-tips p:last-child { margin: 0; }
+.ar-sec { font-family: Cinzel, Georgia, serif; font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: #b3a789; margin: 10px 0 4px; }
 .ar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .ar-btn { text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(240,230,200,0.18); background: rgba(30,24,40,0.85); color: #e6ddc8; cursor: pointer; font-family: inherit; display: grid; gap: 2px; }
 .ar-btn b { font-size: 0.92rem; color: #f0e6c8; font-weight: 600; }
-.ar-btn small { font-size: 0.7rem; color: #9a9078; font-variant-numeric: tabular-nums; }
-.ar-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.ar-btn small { font-size: 0.7rem; color: #b3a789; font-variant-numeric: tabular-nums; }
 .ar-btn .ar-why { color: #e0a030; font-size: 0.68rem; }
+.ar-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .ar-btn.primary { grid-column: 1 / -1; border-color: #d6af36; background: rgba(214,175,54,0.14); text-align: center; }
 .ar-btn.primary b { font-family: Cinzel, Georgia, serif; letter-spacing: 0.06em; }
 .ar-btn.ghost { background: transparent; }
+.ar-btn.wide { grid-column: 1 / -1; }
+.ar-slots { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.ar-slots button { border: 1px solid rgba(214,175,54,0.6); background: rgba(214,175,54,0.12); color: #f0e6c8; border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; cursor: pointer; font-family: inherit; }
+.ar-slots button:disabled { opacity: 0.4; cursor: not-allowed; }
 .ar-err { color: #ef8b80; font-size: 0.84rem; margin: 6px 0; }
 .ar-log { margin-top: 12px; display: flex; flex-direction: column; gap: 5px; }
 .ar-line { border-left: 3px solid rgba(240,230,200,0.2); padding: 4px 8px; font-size: 0.86rem; line-height: 1.35; }
-.ar-line.you { border-color: #d6af36; } .ar-line.foe { border-color: #c85050; } .ar-line.ref { border-color: #6c6480; color: #b3a789; font-style: italic; }
+.ar-line.you { border-color: #d6af36; } .ar-line.foe { border-color: #c85050; } .ar-line.ref { border-color: #6c6480; color: #c2b89f; font-style: italic; }
 .ar-line.crit { background: rgba(214,175,54,0.1); }
-.ar-line small { display: block; color: #8f8670; font-size: 0.68rem; font-variant-numeric: tabular-nums; margin-top: 1px; }
+.ar-line small { display: block; color: #a39a86; font-size: 0.68rem; font-variant-numeric: tabular-nums; margin-top: 1px; }
 .ar-over { text-align: center; padding: 14px 10px; border-radius: 14px; border: 1px solid rgba(214,175,54,0.5); background: rgba(20,16,30,0.8); margin-bottom: 10px; }
 .ar-over h2 { font-family: Cinzel, Georgia, serif; margin: 0 0 4px; color: #f0e6c8; letter-spacing: 0.08em; }
-.ar-over p { margin: 0; color: #b3a789; font-size: 0.85rem; }
+.ar-over p { margin: 0; color: #c2b89f; font-size: 0.85rem; }
 `;
 
 function hpClass(hp: number, max: number): string {
@@ -164,10 +197,21 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
+const KIND_ICON: Record<ArenaAttack["kind"], string> = {
+  weapon: "🗡",
+  unarmed: "👊",
+  cantrip: "✨",
+  spell: "✨",
+  heal: "💚",
+  buff: "🔆",
+  feature: "✦",
+};
+
 export default function Arena() {
   const { pcId } = useParams<{ pcId: string }>();
   const storeKey = `arena-${pcId}`;
   const [foes, setFoes] = useState<FoeOption[] | null>(null);
+  const [beasts, setBeasts] = useState<FoeOption[] | null>(null);
   const [state, setState] = useState<ArenaState | null>(() => {
     try {
       const raw = localStorage.getItem(`arena-${pcId}`);
@@ -187,6 +231,15 @@ export default function Arena() {
       .then((rows: FoeOption[]) => setFoes(rows))
       .catch(() => setFoes([]));
   }, [pcId]);
+
+  const hasWildShape = !!state?.pc.features.some((f) => f.key === "wild_shape");
+  useEffect(() => {
+    if (!pcId || !hasWildShape || beasts !== null) return;
+    fetch(`${apiBase()}/play/${pcId}/arena/beasts`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((rows: FoeOption[]) => setBeasts(rows))
+      .catch(() => setBeasts([]));
+  }, [pcId, hasWildShape, beasts]);
 
   useEffect(() => {
     try {
@@ -209,12 +262,17 @@ export default function Arena() {
       setBusy(false);
     }
   }
-  async function act(kind: string, key?: string) {
+  async function act(kind: string, key?: string, slotLevel?: number) {
     if (!pcId || !state) return;
     setBusy(true);
     setErr(null);
     try {
-      setState(await post<ArenaState>(`/play/${pcId}/arena/act`, { state, action: { kind, key: key ?? null } }));
+      setState(
+        await post<ArenaState>(`/play/${pcId}/arena/act`, {
+          state,
+          action: { kind, key: key ?? null, slot_level: slotLevel ?? null },
+        }),
+      );
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -224,8 +282,68 @@ export default function Arena() {
 
   const suggested = useMemo(() => (foes ?? []).filter((f) => f.suggested), [foes]);
   const others = useMemo(() => (foes ?? []).filter((f) => !f.suggested), [foes]);
-
   const logNewestFirst = useMemo(() => (state ? [...state.log].reverse() : []), [state]);
+
+  // Why an attack button is greyed, or "" when it's live.
+  function whyNot(a: ArenaAttack): string {
+    if (!state) return "";
+    const actionFree = !state.action_used || state.extra_action;
+    const bonusFree = !state.bonus_used;
+    const isSwing = (a.kind === "weapon" || a.kind === "unarmed") && a.cost === "action";
+    const slotsOk =
+      a.spell_level === 0 ||
+      Object.entries(state.pc.slots).some(([l, n]) => Number(l) >= a.spell_level && n > 0);
+    if (a.after_melee_hit) {
+      if (!state.melee_hit_this_turn) return "Needs a melee hit first this turn";
+      if (a.cost === "bonus" && !bonusFree) return "Bonus action already used";
+      if (a.effect === "divine_smite" && !slotsOk) return "No slots left";
+      if (a.effect === "stunning_strike" && state.pc.focus <= 0) return "No Focus Points left";
+      return "";
+    }
+    if (a.cost === "bonus") {
+      if (!bonusFree) return "Bonus action already used";
+      if (a.effect === "offhand_blade" && !state.action_used) return "Use the first blade first";
+      if (!slotsOk) return `No level-${a.spell_level} slots left`;
+      return "";
+    }
+    if (!(actionFree || (isSwing && state.attacks_left > 0))) return "Action already used";
+    if (!slotsOk) return `No level-${a.spell_level} slots left`;
+    return "";
+  }
+
+  function slotLevels(minLevel: number): number[] {
+    if (!state) return [];
+    return Object.entries(state.pc.slots)
+      .filter(([l, n]) => Number(l) >= minLevel && n > 0)
+      .map(([l]) => Number(l))
+      .sort((x, y) => x - y);
+  }
+
+  const you = state?.pc;
+  const foe = state?.foe;
+  const yourChips: { label: string; cls?: string }[] = [];
+  if (state && you) {
+    Object.entries(you.slots).forEach(([lvl, n]) => yourChips.push({ label: `L${lvl} slots ×${n}` }));
+    if (you.focus > 0) yourChips.push({ label: `Focus ×${you.focus}` });
+    if (you.sorcery > 0) yourChips.push({ label: `Sorcery ×${you.sorcery}` });
+    if (you.sneak_dice > 0) yourChips.push({ label: `Sneak Attack ${you.sneak_dice}d6` });
+    if (you.attacks_per_action > 1) yourChips.push({ label: `${you.attacks_per_action} attacks` });
+    if (you.beast) yourChips.push({ label: `${you.beast.name} form +${you.beast.temp_hp}`, cls: "cond" });
+    if (you.raging) yourChips.push({ label: "Raging", cls: "cond" });
+    if (state.dodging) yourChips.push({ label: "Dodging", cls: "cond" });
+    if (state.reckless) yourChips.push({ label: "Reckless", cls: "cond" });
+    if (state.adv_next) yourChips.push({ label: "Advantage next", cls: "cond" });
+    if (state.blessed) yourChips.push({ label: "Blessed +1d4", cls: "cond" });
+    if (state.faith) yourChips.push({ label: "Shield of Faith +2", cls: "cond" });
+    if (state.innate_sorcery > 0) yourChips.push({ label: `Innate Sorcery ${state.innate_sorcery}`, cls: "cond" });
+    if (state.spiritual_weapon) yourChips.push({ label: "Spiritual Weapon", cls: "cond" });
+    state.marks.filter((m) => m !== "quicken").forEach((m) => yourChips.push({ label: m, cls: "cond" }));
+    if (state.marks.includes("quicken")) yourChips.push({ label: "Quickened", cls: "cond" });
+    if (state.concentration) yourChips.push({ label: `Concentrating: ${state.concentration}`, cls: "cond" });
+  }
+  const cls = you?.character_class.toLowerCase() ?? "";
+  const hasAutoReactions =
+    !!you?.features.some((f) => f.cost === "reaction") || cls === "rogue" || cls === "monk" || cls === "wizard" || cls === "sorcerer" || cls === "warlock";
 
   return (
     <div className="ar-root">
@@ -240,8 +358,9 @@ export default function Arena() {
       {!state && (
         <>
           <p className="ar-sub">
-            Spar with a foe using your real sheet — your weapons, spells and features. Nothing here touches your
-            character. Learn the turn: one action, one bonus action, and when to Dodge.
+            Spar with a foe using your real sheet — your weapons, spells, slots and class features, run
+            by the rules. Nothing here touches your character. Learn the turn: one action, one bonus
+            action, when to Dodge, when to spend a slot.
           </p>
           <button className="ar-big" disabled={busy || !pcId} onClick={() => void start(null)}>
             🎲 Surprise me — a foe that fits my level
@@ -296,22 +415,27 @@ export default function Arena() {
         </>
       )}
 
-      {state && (
+      {state && you && foe && (
         <>
           <div className="ar-cards">
             <div className="ar-card foe">
-              <p className="nm">{state.foe.name}</p>
+              <p className="nm">{foe.name}</p>
               <div className="meta">
-                CR {state.foe.cr} · AC {state.foe.ac}
+                CR {foe.cr} · AC {foe.ac}
               </div>
               <div className="ar-bar">
-                <i className={hpClass(state.foe.hp, state.foe.hp_max)} style={{ width: `${(100 * state.foe.hp) / Math.max(1, state.foe.hp_max)}%` }} />
+                <i className={hpClass(foe.hp, foe.hp_max)} style={{ width: `${(100 * foe.hp) / Math.max(1, foe.hp_max)}%` }} />
               </div>
               <div className="ar-hp">
-                {state.foe.hp}/{state.foe.hp_max}
+                {foe.hp}/{foe.hp_max}
               </div>
               <div className="ar-chips">
-                {state.foe.attacks.map((a) => (
+                {foe.conditions.map((c) => (
+                  <span key={c} className="bad">
+                    {c}
+                  </span>
+                ))}
+                {foe.attacks.map((a) => (
                   <span key={a.name}>
                     {a.name} +{a.hit_bonus} · {a.damage}
                     {a.count > 1 ? ` ×${a.count}` : ""}
@@ -320,24 +444,23 @@ export default function Arena() {
               </div>
             </div>
             <div className="ar-card you">
-              <p className="nm">{state.pc.name}</p>
+              <p className="nm">{you.name}</p>
               <div className="meta">
-                Lv {state.pc.level} {state.pc.character_class} · AC {state.pc.ac}
+                Lv {you.level} {you.character_class}
+                {you.subclass ? ` · ${you.subclass}` : ""} · AC {you.beast ? you.beast.ac : you.ac}
               </div>
               <div className="ar-bar">
-                <i className={hpClass(state.pc.hp, state.pc.hp_max)} style={{ width: `${(100 * state.pc.hp) / Math.max(1, state.pc.hp_max)}%` }} />
+                <i className={hpClass(you.hp, you.hp_max)} style={{ width: `${(100 * you.hp) / Math.max(1, you.hp_max)}%` }} />
               </div>
               <div className="ar-hp">
-                {state.pc.hp}/{state.pc.hp_max}
+                {you.hp}/{you.hp_max}
               </div>
               <div className="ar-chips">
-                {Object.entries(state.pc.slots).map(([lvl, n]) => (
-                  <span key={lvl}>
-                    L{lvl} slots ×{n}
+                {yourChips.map((c) => (
+                  <span key={c.label} className={c.cls}>
+                    {c.label}
                   </span>
                 ))}
-                {state.pc.raging && <span className="cond">Raging</span>}
-                {state.dodging && <span className="cond">Dodging</span>}
               </div>
             </div>
           </div>
@@ -349,7 +472,7 @@ export default function Arena() {
                 <p key={i}>{t}</p>
               ))}
               <div className="ar-grid" style={{ marginTop: 10 }}>
-                <button className="ar-btn primary" disabled={busy} onClick={() => void start(state.foe.monster_id ?? null)}>
+                <button className="ar-btn primary" disabled={busy} onClick={() => void start(foe.monster_id ?? null)}>
                   <b>Again — same foe</b>
                 </button>
                 <button className="ar-btn" disabled={busy} onClick={() => setState(null)}>
@@ -370,6 +493,8 @@ export default function Arena() {
                   {state.extra_action && <i className="ar-dot on" />}
                   &nbsp; Bonus
                   <i className={`ar-dot ${state.bonus_used ? "" : "on"}`} />
+                  &nbsp; Reaction
+                  <i className={`ar-dot ${state.reaction_used || !state.auto_reactions ? "" : "on"}`} />
                 </span>
               </div>
               {state.tips.length > 0 && (
@@ -380,31 +505,35 @@ export default function Arena() {
                 </div>
               )}
               {err && <p className="ar-err">{err}</p>}
+
+              <div className="ar-sec">Action</div>
               <div className="ar-grid">
-                {state.pc.attacks.map((a) => {
-                  const actionFree = !state.action_used || state.extra_action;
-                  const slotsOk = a.spell_level === 0 || (state.pc.slots[String(a.spell_level)] ?? 0) > 0;
-                  const why = !actionFree ? "Action already used this turn" : !slotsOk ? `No level-${a.spell_level} slots left` : "";
-                  return (
-                    <button
-                      key={a.key}
-                      className="ar-btn"
-                      disabled={busy || !actionFree || !slotsOk}
-                      title={why || a.note}
-                      onClick={() => void act(a.kind === "weapon" || a.kind === "unarmed" ? "attack" : "cast", a.key)}
-                    >
-                      <b>
-                        {a.kind === "cantrip" ? "✨ " : a.kind === "spell" ? `✨L${a.spell_level} ` : "🗡 "}
-                        {a.name}
-                      </b>
-                      <small>
-                        {a.hit_bonus != null ? `+${a.hit_bonus} to hit · ` : a.save_dc ? `DC ${a.save_dc} ${a.save_ability?.toUpperCase()} · ` : ""}
-                        {a.damage} {a.damage_type}
-                      </small>
-                      {why && <small className="ar-why">{why}</small>}
-                    </button>
-                  );
-                })}
+                {you.attacks
+                  .filter((a) => a.cost === "action" && !a.after_melee_hit)
+                  .map((a) => {
+                    const why = whyNot(a);
+                    const leveled = a.spell_level > 0 && (a.kind === "spell" || a.kind === "heal" || a.kind === "buff");
+                    const levels = leveled ? slotLevels(a.spell_level) : [];
+                    return (
+                      <button
+                        key={a.key}
+                        className="ar-btn"
+                        disabled={busy || !!why}
+                        title={why || a.note}
+                        onClick={() => void act(a.kind === "weapon" || a.kind === "unarmed" ? "attack" : "cast", a.key, levels[0])}
+                      >
+                        <b>
+                          {KIND_ICON[a.kind]} {a.name}
+                        </b>
+                        <small>
+                          {a.hit_bonus != null ? `+${a.hit_bonus} to hit · ` : a.save_dc ? `DC ${a.save_dc} ${a.save_ability?.toUpperCase()} · ` : ""}
+                          {a.damage !== "0" ? `${a.damage} ${a.damage_type}` : a.note}
+                          {a.spell_level > 0 ? ` · L${a.spell_level}` : ""}
+                        </small>
+                        {why && <small className="ar-why">{why}</small>}
+                      </button>
+                    );
+                  })}
                 <button
                   className="ar-btn"
                   disabled={busy || (state.action_used && !state.extra_action)}
@@ -412,26 +541,129 @@ export default function Arena() {
                   onClick={() => void act("dodge")}
                 >
                   <b>🛡 Dodge</b>
-                  <small>action · foe attacks at disadvantage</small>
+                  <small>foe attacks at disadvantage</small>
                 </button>
-                {state.pc.features.map((f) => {
-                  const blocked =
-                    f.uses_left <= 0 ? "No uses left" : f.cost === "bonus" && state.bonus_used ? "Bonus action already used" : f.cost === "action" && state.action_used && !state.extra_action ? "Action already used" : "";
-                  return (
-                    <button key={f.key} className="ar-btn" disabled={busy || !!blocked} title={blocked || f.blurb} onClick={() => void act("feature", f.key)}>
-                      <b>
-                        {f.cost === "bonus" ? "⚡ " : f.cost === "free" ? "✦ " : "✚ "}
-                        {f.name}
-                      </b>
+                {you.features
+                  .filter((f) => f.cost === "action")
+                  .map((f) => {
+                    const blocked = f.uses_left <= 0 ? "No uses left" : state.action_used && !state.extra_action ? "Action already used" : "";
+                    return (
+                      <button key={f.key} className="ar-btn" disabled={busy || !!blocked} title={blocked || f.blurb} onClick={() => void act("feature", f.key)}>
+                        <b>✚ {f.name}</b>
+                        <small>
+                          {f.uses_left >= 99 ? "at will" : `${f.uses_left} left`} · {f.blurb}
+                        </small>
+                        {blocked && <small className="ar-why">{blocked}</small>}
+                      </button>
+                    );
+                  })}
+              </div>
+
+              <div className="ar-sec">Bonus action &amp; riders</div>
+              <div className="ar-grid">
+                {you.attacks
+                  .filter((a) => a.cost === "bonus" || a.after_melee_hit)
+                  .map((a) => {
+                    const why = whyNot(a);
+                    const pickSlot = a.effect === "divine_smite" || a.effect === "searing_smite";
+                    const levels = pickSlot ? slotLevels(1) : [];
+                    return (
+                      <div key={a.key} className={`ar-btn${pickSlot ? " wide" : ""}`} style={{ opacity: why ? 0.55 : 1 }} title={why || a.note}>
+                        <b>
+                          {KIND_ICON[a.kind]} {a.name}
+                        </b>
+                        <small>
+                          {a.hit_bonus != null ? `+${a.hit_bonus} to hit · ` : a.save_dc ? `DC ${a.save_dc} ${a.save_ability?.toUpperCase()} · ` : ""}
+                          {a.damage !== "0" ? `${a.damage} ${a.damage_type} · ` : ""}
+                          {a.note}
+                        </small>
+                        {why ? (
+                          <small className="ar-why">{why}</small>
+                        ) : pickSlot ? (
+                          <span className="ar-slots">
+                            {levels.map((lvl) => (
+                              <button key={lvl} disabled={busy} onClick={() => void act("cast", a.key, lvl)}>
+                                Slot L{lvl}
+                              </button>
+                            ))}
+                          </span>
+                        ) : (
+                          <span className="ar-slots">
+                            <button disabled={busy} onClick={() => void act(a.kind === "weapon" ? "attack" : "cast", a.key)}>
+                              Use
+                            </button>
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                {you.features
+                  .filter((f) => f.cost === "bonus" || f.cost === "free")
+                  .map((f) => {
+                    const blocked =
+                      f.uses_left <= 0 ? "No uses left" : f.cost === "bonus" && state.bonus_used ? "Bonus action already used" : f.key === "wild_shape" && you.beast ? "Already in a form" : "";
+                    if (f.key === "wild_shape") {
+                      return (
+                        <div key={f.key} className="ar-btn wide" style={{ opacity: blocked ? 0.55 : 1 }}>
+                          <b>🐾 {f.name}</b>
+                          <small>
+                            {f.uses_left} left · {f.blurb}
+                          </small>
+                          {blocked ? (
+                            <small className="ar-why">{blocked}</small>
+                          ) : (
+                            <span className="ar-slots">
+                              {(beasts ?? []).map((b) => (
+                                <button key={b.id} disabled={busy} onClick={() => void act("wild_shape", b.id)} title={`AC ${b.ac} · ${b.hp_average} HP · CR ${b.cr}`}>
+                                  {b.name}
+                                </button>
+                              ))}
+                              {beasts !== null && beasts.length === 0 && <small>No beasts in the catalog at your CR.</small>}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    }
+                    return (
+                      <button key={f.key} className="ar-btn" disabled={busy || !!blocked} title={blocked || f.blurb} onClick={() => void act("feature", f.key)}>
+                        <b>
+                          {f.cost === "bonus" ? "⚡ " : "✦ "}
+                          {f.name}
+                        </b>
+                        <small>
+                          {f.cost} · {f.uses_left >= 99 ? "at will" : `${f.uses_left} left`} · {f.blurb}
+                        </small>
+                        {blocked && <small className="ar-why">{blocked}</small>}
+                      </button>
+                    );
+                  })}
+              </div>
+
+              {hasAutoReactions && (
+                <>
+                  <div className="ar-sec">Reactions (automatic)</div>
+                  <div className="ar-grid">
+                    <button
+                      className="ar-btn wide ghost"
+                      disabled={busy}
+                      onClick={() => void act("toggle_reactions")}
+                      title="Shield, Uncanny Dodge, Deflect Attacks, Cutting Words and Hellish Rebuke fire on their own when they help"
+                    >
+                      <b>{state.auto_reactions ? "⏸ Reactions: on" : "▶ Reactions: off"}</b>
                       <small>
-                        {f.cost} · {f.uses_left >= 99 ? "at will" : `${f.uses_left} left`} · {f.blurb}
+                        {you.features
+                          .filter((f) => f.cost === "reaction")
+                          .map((f) => `${f.name} (${f.uses_left} left)`)
+                          .join(" · ") || "Shield / Uncanny Dodge / Deflect Attacks / Hellish Rebuke fire on their own"}
                       </small>
-                      {blocked && <small className="ar-why">{blocked}</small>}
                     </button>
-                  );
-                })}
+                  </div>
+                </>
+              )}
+
+              <div className="ar-grid" style={{ marginTop: 8 }}>
                 <button className="ar-btn primary" disabled={busy} onClick={() => void act("end_turn")}>
-                  <b>End turn → {state.foe.name} acts</b>
+                  <b>End turn → {foe.name} acts</b>
                 </button>
                 <button className="ar-btn ghost" disabled={busy} onClick={() => void act("flee")} style={{ gridColumn: "1 / -1", textAlign: "center" }}>
                   <small>Leave the ring</small>
