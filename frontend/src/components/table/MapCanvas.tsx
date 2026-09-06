@@ -23,6 +23,23 @@ export interface MapCanvasMap {
   video_url?: string | null;
 }
 
+/** Point-in-polygon (even-odd) plus the brush circles: is this spot lit? */
+function isRevealed(x: number, y: number, regions: number[][][], brushes: BrushReveal[]): boolean {
+  for (const b of brushes) {
+    if ((x - b.x) ** 2 + (y - b.y) ** 2 <= b.r * b.r) return true;
+  }
+  for (const poly of regions) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [xi, yi] = poly[i];
+      const [xj, yj] = poly[j];
+      if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    if (inside) return true;
+  }
+  return false;
+}
+
 interface Props {
   map: MapCanvasMap | null;
   fogOn: boolean;
@@ -254,8 +271,12 @@ export default function MapCanvas({
         <rect x="0" y="0" width={W} height={H} fill="transparent" onPointerDown={handleCanvasDown} />
       )}
 
-      {/* Tokens */}
+      {/* Tokens — Plan 85: on player-facing canvases, foes and markers under
+          unrevealed fog stay hidden; the party is always shown. */}
       {tokens.map((t) => {
+        if (fogOn && !editable && t.kind !== "pc" && !isRevealed(t.x, t.y, revealedRegions, brushReveals)) {
+          return null;
+        }
         const r = (tokenUnit * (t.size || 1)) / 2;
         const ref = t.ref_id ?? t.id;
         const isActive = activeTokenRef != null && ref === activeTokenRef;

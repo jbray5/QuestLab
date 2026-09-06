@@ -34,10 +34,28 @@ from domain.arena import (
     ArenaStats,
 )
 from domain.character import PlayerCharacter
+from integrations import arena_signing
 from services import attack_service, character_service, feature_service, spellcasting_service
 from services.item_service import is_weapon
 
 _RNG = random.SystemRandom()
+_MARTIAL = {"fighter", "barbarian", "paladin", "ranger", "monk"}
+_WEAPON_DAMAGE = {"", "bludgeoning", "piercing", "slashing"}
+
+
+def _seal(state: ArenaState) -> ArenaState:
+    """Sign the state so the next ``act`` can trust it (Plan 85)."""
+    state.sig = ""
+    state.sig = arena_signing.sign(state.model_dump_json(exclude={"sig"}))
+    return state
+
+
+def _check_seal(state: ArenaState) -> None:
+    """Refuse a state the server didn't hand out."""
+    if not arena_signing.verify(state.model_dump_json(exclude={"sig"}), state.sig):
+        raise ValueError("This fight's record was altered or expired — start another.")
+
+
 _DICE_RE = re.compile(r"(\d+)d(\d+)\s*([+-]\s*\d+)?")
 _HIT_RE = re.compile(r"([+-]\s*\d+)\s*to hit", re.I)
 _COUNT_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "twice": 2, "three times": 3}
@@ -57,7 +75,7 @@ _FEATURE_KEYS: dict[str, tuple[str, str, str]] = {
         "bonus",
         "Bonus action: +2 melee damage and you take half from weapon attacks.",
     ),
-    "lay on hands": ("lay_on_hands", "action", "Action: heal 5 HP from your pool."),
+    "lay on hands": ("lay_on_hands", "bonus", "Bonus action: heal 5 HP from your pool."),
 }
 
 
@@ -89,6 +107,18 @@ def roll_expr(expr: str, crit: bool = False) -> tuple[int, str]:
     shown = f"{count}d{sides}" + (f"{mod:+d}" if mod else "")
     mod_txt = f"{mod:+d}" if mod else ""
     return total, f"{shown} → [{', '.join(map(str, dice))}]{mod_txt} = {total}"
+
+
+def _avg(expr: str) -> float:
+    """Expected value of a dice expression (for the foe's choice of action)."""
+    m = _DICE_RE.search(expr or "")
+    if not m:
+        try:
+            return float(expr)
+        except (TypeError, ValueError):
+            return 0.0
+    mod = int((m.group(3) or "0").replace(" ", ""))
+    return int(m.group(1)) * (int(m.group(2)) + 1) / 2 + mod
 
 
 def d20(mode: Optional[str] = None) -> tuple[int, str]:
@@ -260,6 +290,8 @@ def _pc_attacks(db: Session, pc: PlayerCharacter, dm_email: str) -> list[ArenaAt
                 if spell.level == 0
                 else spell.damage_dice
             )
+            if spell.name.lower() == "magic missile":
+                dice = "3d4+3"  # three darts at first level, never miss
             attack_type = (spell.attack_type or "").lower()
             save = (spell.save_ability or "").lower()[:3] or None
             out.append(
@@ -353,6 +385,12 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
         attacks=_pc_attacks(db, pc, dm_email),
         features=_pc_features(db, pc, dm_email),
         slots=slots,
+        attacks_per_action=(
+            2
+            if getattr(pc.character_class, "value", str(pc.character_class)).lower() in _MARTIAL
+            and pc.level >= 5
+            else 1
+        ),
     )
 
 
@@ -410,6 +448,9 @@ def list_foes(db: Session, pc_id: uuid.UUID) -> list[ArenaFoeOption]:
         v = cr_value(m.challenge_rating)
         if v > max(hi * 3, 5.0):
             continue
+        tier = (
+            "fits" if lo <= v <= hi else "easy" if v < lo else "tough" if v <= hi * 2 else "deadly"
+        )
         rows.append(
             ArenaFoeOption(
                 id=m.id,
@@ -419,6 +460,7 @@ def list_foes(db: Session, pc_id: uuid.UUID) -> list[ArenaFoeOption]:
                 hp_average=m.hp_average,
                 creature_type=getattr(m.creature_type, "value", str(m.creature_type)),
                 suggested=lo <= v <= hi,
+                tier=tier,
                 image_url=m.image_url,
             )
         )
@@ -496,7 +538,7 @@ def start(db: Session, pc_id: uuid.UUID, monster_id: Optional[uuid.UUID] = None)
     if not first:
         _foe_turn(state)
     state.tips = _tips(state)
-    return state
+    return _seal(state)
 
 
 def _attack_cost_ok(state: ArenaState) -> Optional[str]:
@@ -593,7 +635,10 @@ def _resolve_player_attack(state: ArenaState, attack: ArenaAttack) -> None:
 def _foe_turn(state: ArenaState) -> None:
     """The foe attacks with everything it has; then a new round begins."""
     foe, pc = state.foe, state.pc
-    for atk in foe.attacks:
+    # Plan 85 — one action per turn: the attack with the best expected damage
+    # (Multiattack multiplies it), not every line on the block (Dev's Gnoll).
+    chosen = max(foe.attacks, key=lambda a: _avg(a.damage) * a.count) if foe.attacks else None
+    for atk in [chosen] if chosen else []:
         for _ in range(atk.count):
             if pc.hp <= 0:
                 break
@@ -612,7 +657,7 @@ def _foe_turn(state: ArenaState) -> None:
                 continue
             dmg, btxt = roll_expr(atk.damage, crit=crit)
             note = ""
-            if pc.raging:
+            if pc.raging and (atk.damage_type or "").lower() in _WEAPON_DAMAGE:
                 dmg = dmg // 2
                 note = " (halved by Rage)"
             pc.hp = max(0, pc.hp - dmg)
@@ -642,6 +687,7 @@ def _foe_turn(state: ArenaState) -> None:
     state.bonus_used = False
     state.extra_action = False
     state.dodging = False
+    state.attacks_left = 0
     _log(state, "ref", f"Round {state.round}. Your turn.")
 
 
@@ -658,6 +704,8 @@ def _feature(state: ArenaState, key: str) -> None:
         if why:
             raise ValueError(why)
     pc = state.pc
+    if key in ("second_wind", "lay_on_hands") and pc.hp >= pc.hp_max:
+        raise ValueError("You're at full HP — save it for when it matters.")
     if key == "second_wind":
         heal, btxt = roll_expr(f"1d10+{pc.level}")
         gained = min(heal, pc.hp_max - pc.hp)
@@ -767,23 +815,30 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
         ValueError: Illegal action for the current state (the text is for the player).
     """
     _pc_or_raise(db, state.pc_id)
+    _check_seal(state)
     if state.phase == "over":
         raise ValueError("The fight is over — start another.")
     kind = action.kind
     if kind in ("attack", "cast"):
-        why = _attack_cost_ok(state)
-        if why:
-            raise ValueError(why)
         attack = next((a for a in state.pc.attacks if a.key == action.key), None)
         if attack is None:
             raise ValueError("That attack isn't on your sheet.")
-        if attack.spell_level > 0:
-            lvl = str(attack.spell_level)
-            if state.pc.slots.get(lvl, 0) <= 0:
-                raise ValueError(f"No level-{lvl} slots left.")
-            state.pc.slots[lvl] -= 1
-            state.stats.slots_spent += 1
-        _spend_action(state)
+        swing = attack.kind in ("weapon", "unarmed")
+        if swing and state.attacks_left > 0:
+            # Plan 85 — Extra Attack: another swing inside the same action.
+            state.attacks_left -= 1
+        else:
+            why = _attack_cost_ok(state)
+            if why:
+                raise ValueError(why)
+            if attack.spell_level > 0:
+                lvl = str(attack.spell_level)
+                if state.pc.slots.get(lvl, 0) <= 0:
+                    raise ValueError(f"No level-{lvl} slots left.")
+                state.pc.slots[lvl] -= 1
+                state.stats.slots_spent += 1
+            _spend_action(state)
+            state.attacks_left = state.pc.attacks_per_action - 1 if swing else 0
         _resolve_player_attack(state, attack)
     elif kind == "dodge":
         why = _attack_cost_ok(state)
@@ -811,4 +866,4 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
         state.stats.rounds = state.round
         _log(state, "ref", f"{state.foe.name} goes down. Well fought.")
     state.tips = _tips(state)
-    return state
+    return _seal(state)

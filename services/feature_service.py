@@ -59,6 +59,10 @@ def resolve_max_uses(formula: UsesFormula, pc: PlayerCharacter) -> int:
         return 2 * character_service.proficiency_bonus(pc.level)
     if formula == UsesFormula.CHANNEL_DIVINITY:
         return 2 + (1 if pc.level >= 6 else 0) + (1 if pc.level >= 18 else 0)
+    if formula == UsesFormula.SECOND_WIND:
+        return 2 + (1 if pc.level >= 4 else 0) + (1 if pc.level >= 10 else 0)
+    if formula == UsesFormula.RAGE:
+        return 2 + sum(1 for lvl in (3, 6, 12, 17) if pc.level >= lvl)
     if formula == UsesFormula.WIS_MOD:
         return max(1, _ability_mod(pc.score_wis))
     if formula == UsesFormula.CHA_MOD:

@@ -25,7 +25,7 @@ from domain.character import (
 from domain.enums import CharacterClass
 from integrations.event_bus import publish_pc_updated
 
-MAX_CHARACTERS_PER_CAMPAIGN = 8
+MAX_CHARACTERS_PER_CAMPAIGN = 30  # Plan 85 — West Marches rosters
 
 # ── Ability modifier helpers ───────────────────────────────────────────────────
 
@@ -91,8 +91,9 @@ _FULL_CASTER_SLOTS: list[dict[str, int]] = [
 ]
 
 # Half-casters (Paladin, Ranger): no slots at level 1, start at level 2.
+# 2024: Paladins and Rangers cast from level 1 (Plan 85).
 _HALF_CASTER_SLOTS: list[dict[str, int]] = [
-    {},
+    {"1": 2},
     {"1": 2},
     {"1": 3},
     {"1": 3},
@@ -557,6 +558,11 @@ def delete_character(session: Session, character_id: uuid.UUID, dm_email: str) -
 # ---------------------------------------------------------------------------
 
 
+def sync_combatant_for_pc(session: Session, character: PlayerCharacter) -> None:
+    """Public alias: push a PC's HP / defeated state into the running fight (Plan 85)."""
+    _sync_combatant_for_pc(session, character)
+
+
 def _sync_combatant_for_pc(session: Session, character: PlayerCharacter) -> None:
     """Mirror the PC's HP / defeated flag onto its active-combat combatant row.
 
@@ -573,12 +579,12 @@ def _sync_combatant_for_pc(session: Session, character: PlayerCharacter) -> None
         character: The just-updated PlayerCharacter (must have current hp).
     """
     from db.repos.session_repo import SessionCombatantRepo
-    from integrations.event_bus import publish_pc_combat_updated
+    from integrations.event_bus import publish_pc_combat_updated, publish_table_updated
 
     found = SessionCombatantRepo.find_combatant_in_active_combat(session, character.id)
     if found is None:
         return
-    _, combatant = found
+    game_session, combatant = found
     changed = False
     if combatant.hp_current != character.hp_current:
         combatant.hp_current = character.hp_current
@@ -592,6 +598,8 @@ def _sync_combatant_for_pc(session: Session, character: PlayerCharacter) -> None
         session.commit()
         session.refresh(combatant)
         publish_pc_combat_updated(character.id, character.campaign_id)
+        # Plan 85 — the projector and the remote windows re-pull too (Priya).
+        publish_table_updated(game_session.id)
 
 
 def apply_damage(

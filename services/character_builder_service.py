@@ -312,6 +312,8 @@ def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> Buil
                 + ", ".join(missing)
             )
 
+    _attend_newest_session(db, campaign.id, pc.id)
+
     return BuildResult(
         pc_id=str(pc.id),
         character_name=pc.character_name,
@@ -320,6 +322,31 @@ def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> Buil
         features_granted=granted,
         warnings=warnings,
     )
+
+
+def _attend_newest_session(db: DBSession, campaign_id: uuid.UUID, pc_id: uuid.UUID) -> None:
+    """Put a freshly built PC on the newest session that hasn't been played yet (Plan 85).
+
+    A player who builds from the join link on Thursday should be in Thursday's
+    HUD without the DM ticking a box.
+    """
+    from db.repos.adventure_repo import AdventureRepo
+    from db.repos.session_repo import SessionRepo
+    from domain.enums import SessionStatus
+
+    sessions = []
+    for adventure in AdventureRepo.list_by_campaign(db, campaign_id):
+        sessions.extend(SessionRepo.list_by_adventure(db, adventure.id))
+    open_sessions = [g for g in sessions if g.status != SessionStatus.COMPLETED]
+    if not open_sessions:
+        return
+    target = max(open_sessions, key=lambda g: (g.session_number, g.id.hex))
+    ids = [str(x) for x in (target.attending_pc_ids or [])]
+    if str(pc_id) in ids:
+        return
+    target.attending_pc_ids = ids + [str(pc_id)]
+    db.add(target)
+    db.commit()
 
 
 def _notes(

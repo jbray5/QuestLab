@@ -208,6 +208,10 @@ class UsesFormula(str, Enum):
     PROF_X2 = "prof_x2"
     # 2024 Cleric Channel Divinity: 2 uses, 3 at level 6, 4 at level 18 (Plan 83).
     CHANNEL_DIVINITY = "channel_divinity"
+    # 2024 Fighter Second Wind: 2, 3 at level 4, 4 at level 10 (Plan 85).
+    SECOND_WIND = "second_wind"
+    # 2024 Barbarian Rage: 2, 3 at 3, 4 at 6, 5 at 12, 6 at 17 (Plan 85).
+    RAGE = "rage"
     WIS_MOD = "wis_mod"
     CHA_MOD = "cha_mod"
     INT_MOD = "int_mod"

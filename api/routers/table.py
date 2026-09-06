@@ -165,6 +165,10 @@ def get_table_projection(session_id: uuid.UUID, db: DB) -> TableProjection:
         db: Database session.
 
     Returns:
-        The TableProjection (empty-but-valid if no state exists yet).
+        The TableProjection (empty-but-valid if no state exists yet); 404 when
+        the session is gone (Plan 85).
     """
-    return table_service.get_projection(db, session_id)
+    try:
+        return table_service.get_projection(db, session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))

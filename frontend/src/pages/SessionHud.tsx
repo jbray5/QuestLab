@@ -19,6 +19,8 @@ import { zoomable } from "../lib/lightbox";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { sessionsApi } from "../api/sessions";
+import { apiBase } from "../api/client";
+import { useToast } from "../components/Toast";
 import { portraitSrc } from "../lib/portrait";
 import { subclassPanelBackground } from "../lib/subclassArt";
 import { adventuresApi } from "../api/adventures";
@@ -144,12 +146,20 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
   // stops; the old code read the stale prop each click and lost taps.
   const [local, setLocal] = useState<{ base: number; value: number } | null>(null);
   const saveTimer = useRef<number | undefined>(undefined);
+  const pending = useRef<number | null>(null);
   const shown = local && local.base === hp ? local.value : hp;
   function bump(delta: number) {
-    const next = Math.min(maxHp, Math.max(0, shown + delta));
+    // Plan 85 — read the pending value, not the rendered one, so taps that
+    // land in the same tick all count (Jess: three taps became one).
+    const cur = pending.current ?? shown;
+    const next = Math.min(maxHp, Math.max(0, cur + delta));
+    pending.current = next;
     setLocal({ base: hp, value: next });
     window.clearTimeout(saveTimer.current);
-    saveTimer.current = window.setTimeout(() => onSave(next), 320);
+    saveTimer.current = window.setTimeout(() => {
+      pending.current = null;
+      onSave(next);
+    }, 320);
   }
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
 
@@ -949,6 +959,45 @@ export default function SessionHud() {
   function nextTurn() {
     void advanceTurn();
   }
+  // Plan 85 — E ends the turn (Sam counted 34 tabs per turn). Not while typing,
+  // and only while someone actually has the turn.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "e" && e.key !== "E") return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      const tag = el?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
+      if (!storeActiveId) return;
+      e.preventDefault();
+      void advanceTurn();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeActiveId]);
+  // Plan 85 — players' phone rolls reach the DM as a toast (Theo ran blind).
+  const toast = useToast();
+  useEffect(() => {
+    if (!sessionId) return;
+    const es = new EventSource(`${apiBase()}/stream/table/${sessionId}`);
+    const onRoll = (e: MessageEvent) => {
+      try {
+        const d = JSON.parse(e.data) as { roller?: string; total?: number; label?: string; die?: string; rolls?: number[] };
+        if (typeof d.total !== "number" || d.roller === "DM") return;
+        const nat = d.rolls && d.rolls.length === 1 && d.die === "d20" ? d.rolls[0] : null;
+        toast.push(
+          `🎲 ${d.roller ?? "Someone"} rolled ${d.total}${d.label ? ` (${d.label})` : ""}${nat === 20 ? " — natural 20!" : nat === 1 ? " — natural 1" : ""}`,
+          nat === 20 ? "success" : nat === 1 ? "error" : "info",
+        );
+      } catch {
+        /* ignore */
+      }
+    };
+    es.addEventListener("table.roll", onRoll as EventListener);
+    return () => es.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
 
   function updateCombatantHp(id: string, newHp: number) {
     const target = persistedCombatants.find((c) => c.id === id);

@@ -46,6 +46,8 @@ const CSS = `
 .qj-player { color: #9a9078; font-size: 0.72rem; padding-bottom: 10px; }
 .qj-msg { text-align: center; color: #6b6b7a; margin-top: 4rem; font-style: italic; }
 .qj-code { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.qj-code button { border: 1px solid #d6af36; background: rgba(214,175,54,0.16); color: #f0e6c8; font-family: Cinzel, Georgia, serif;
+  letter-spacing: 0.08em; font-size: 0.95rem; border-radius: 999px; padding: 10px 26px; cursor: pointer; }
 .qj-code input { font-family: Cinzel, Georgia, serif; font-size: 1.4rem; letter-spacing: 0.3em; text-align: center;
   width: 11ch; padding: 10px 6px; border-radius: 12px; border: 1px solid rgba(214,175,54,0.55);
   background: rgba(20,16,30,0.75); color: #f0e6c8; text-transform: uppercase; }
@@ -144,9 +146,7 @@ export default function JoinView() {
             placeholder="CODE"
             aria-label="Join code"
           />
-          <button type="submit" className="qj-card" style={{ padding: "10px 18px" }}>
-            Join
-          </button>
+          <button type="submit">Join</button>
           {codeWrong && <p className="qj-msg" style={{ marginTop: "0.6rem", color: "#ef8b80" }}>That code didn&rsquo;t match.</p>}
         </form>
       )}

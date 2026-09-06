@@ -9,6 +9,7 @@ Rules enforced here:
 """
 
 import random
+import re
 import uuid
 from datetime import UTC, date, datetime
 from typing import Any, Optional
@@ -45,6 +46,7 @@ from integrations.event_bus import (
     publish_pc_turn_changed,
     publish_session_combat_updated,
     publish_table_fx,
+    publish_table_roll,
     publish_table_updated,
 )
 
@@ -411,6 +413,23 @@ def broadcast_dice_roll(
     else:
         pc_ids = [pc.id for pc in CharacterRepo.list_by_campaign(db, adventure.campaign_id)]
     publish_dice_rolled(pc_ids, adventure.campaign_id, roll)
+    # Plan 85 — the DM's roll lands on the projector and the remote windows too.
+    dice_m = re.search(r"(\d+)d(\d+)", roll.label or "")
+    faces = (
+        [int(x) for x in re.findall(r"-?\d+", roll.detail.split("]")[0])]
+        if "[" in roll.detail
+        else []
+    )
+    mod_m = re.search(r"\]\s*([+-]\s*\d+)", roll.detail or "")
+    publish_table_roll(
+        session_id,
+        roller=roll.roller or "DM",
+        die=f"d{dice_m.group(2)}" if dice_m else roll.label,
+        rolls=faces or [roll.total],
+        modifier=int(mod_m.group(1).replace(" ", "")) if mod_m else 0,
+        total=roll.total,
+        label=None if not dice_m else roll.label,
+    )
     return len(pc_ids)
 
 

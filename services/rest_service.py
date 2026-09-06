@@ -23,7 +23,7 @@ from db.repos.session_repo import SessionRepo
 from domain.character import PlayerCharacter, RestSummary
 from domain.enums import CharacterClass, RecoveryType
 from integrations.event_bus import publish_pc_updated
-from services import spellcasting_service
+from services import character_service, spellcasting_service
 
 
 def _assert_pc_owner(db: Session, character_id: uuid.UUID, dm_email: str) -> PlayerCharacter:
@@ -205,6 +205,9 @@ def long_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSum
         db.add(pc)
         db.commit()
         db.refresh(pc)
+
+    # Plan 85 — the fight tracker (and so the table) follows the rest (Dev).
+    character_service.sync_combatant_for_pc(db, pc)
 
     # Long rest changes many sub-systems (HP, slots, features, HD,
     # exhaustion). Emit a broad pc.updated so the player view and HUD

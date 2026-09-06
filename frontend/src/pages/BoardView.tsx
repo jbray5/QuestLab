@@ -133,7 +133,8 @@ export default function BoardView() {
   }, [combat]);
 
   const [gridKind, setGridKind] = useState<GridKind | null>(null);
-  const effectiveGrid: GridKind = gridKind ?? (activeMap?.grid_size ? "hex" : "off");
+  // Plan 85 — square by default on gridded maps; hex is a choice, not a surprise.
+  const effectiveGrid: GridKind = gridKind ?? (activeMap?.grid_size ? "square" : "off");
 
   // Weather is SYNCED table state (Plan 46) — the players' views render it.
   const weather = ((state?.weather ?? "none") as WeatherKind) || "none";

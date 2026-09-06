@@ -25,6 +25,8 @@ def list_characters(campaign_id: uuid.UUID, db: DB, user: CurrentUser) -> list[P
     """
     try:
         return character_service.list_characters(db, campaign_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 

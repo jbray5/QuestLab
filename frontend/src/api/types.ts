@@ -526,6 +526,7 @@ export interface TableProjection {
   combat_running: boolean;
   round: number;
   initiative: InitiativeEntry[];
+  recent_rolls: Record<string, unknown>[];
 }
 
 // ── DM brief (Plan 43) — the glanceable session-2 format ─────────────────────

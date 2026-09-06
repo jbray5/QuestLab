@@ -93,7 +93,8 @@ function NavGroup({
 }
 
 export default function Layout() {
-  const { dmEmail, signOut } = useAuthStore();
+  const { dmEmail, signOut, profile } = useAuthStore();
+  const isAdmin = !!profile?.is_admin;
   const { activeCampaign, activeAdventure, setActiveCampaign, setActiveAdventure } = useCampaignStore();
   const startTour = useTourStore((s) => s.start);
   const navigate = useNavigate();
@@ -281,14 +282,16 @@ export default function Layout() {
           >
             📖 Guide
           </a>
-          <button
-            onClick={() => go("/admin")}
-            className="btn btn-ghost"
-            title="Admin"
-            style={{ fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
-          >
-            🛡 Admin
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => go("/admin")}
+              className="btn btn-ghost"
+              title="Admin"
+              style={{ fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
+            >
+              🛡 Admin
+            </button>
+          )}
           <button
             onClick={() => {
               startTour();

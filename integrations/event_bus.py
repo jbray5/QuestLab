@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import queue
 import threading
+from collections import deque
 from collections.abc import Iterable
 from typing import Any
 
@@ -287,6 +288,9 @@ def publish_table_updated(session_id: Any) -> None:
     )
 
 
+_RECENT_ROLLS: dict[str, deque] = {}
+
+
 def publish_table_roll(
     session_id: Any,
     roller: str,
@@ -321,7 +325,21 @@ def publish_table_roll(
     }
     if label:
         payload["label"] = str(label)[:60]
+    # Plan 85 — keep the last few so a late joiner (or a refresh) sees them.
+    _RECENT_ROLLS.setdefault(str(session_id), deque(maxlen=20)).append(dict(payload))
     event_bus.publish(f"table:{session_id}", payload)
+
+
+def recent_table_rolls(session_id: Any) -> list[dict[str, Any]]:
+    """The last rolls on a table, oldest first (in-memory, per process).
+
+    Args:
+        session_id: UUID of the session.
+
+    Returns:
+        Up to 20 ``table.roll`` payloads.
+    """
+    return list(_RECENT_ROLLS.get(str(session_id), ()))
 
 
 def publish_table_ping(

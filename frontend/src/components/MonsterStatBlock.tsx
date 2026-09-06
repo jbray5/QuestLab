@@ -276,9 +276,11 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
               <strong style={{ color: "var(--crimson)" }}>Senses</strong>{" "}
               <span style={{ color: "var(--text)" }}>
                 {Object.entries(monster.senses)
-                  .map(([k, v]) =>
-                    typeof v === "number" ? `${capitalized(k)} ${v} ft.` : `${capitalized(k)} ${v}`
-                  )
+                  .map(([k, v]) => {
+                    const label = capitalized(k.replace(/_/g, " "));
+                    if (/passive/i.test(k)) return `${label} ${v}`;
+                    return typeof v === "number" ? `${label} ${v} ft.` : `${label} ${v}`;
+                  })
                   .join(", ")}
               </span>
             </p>

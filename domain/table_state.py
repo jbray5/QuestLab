@@ -177,6 +177,8 @@ class TableProjection(BaseModel):
     combat_running: bool = False
     round: int = 0
     initiative: list[InitiativeEntry] = PydField(default_factory=list)
+    # Plan 85 — the last rolls, so a refreshed or late window has a log.
+    recent_rolls: list[dict[str, Any]] = PydField(default_factory=list)
 
 
 class TableStateRead(BaseModel):

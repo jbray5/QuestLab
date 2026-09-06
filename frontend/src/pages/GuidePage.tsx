@@ -57,13 +57,13 @@ export default function GuidePage() {
       <p>Two short recordings of the real app, narrated and captioned, with a music bed that was synthesized rather than sampled.</p>
       <div className="watch">
         <figure>
-          <video controls playsInline preload="metadata" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/4a9cca77-4e09-4b72-b89a-6872c0cfad32-S8uwH2Fz58NVmKITk2rEOrJdb156UK.webp">
+          <video controls playsInline preload="none" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/4a9cca77-4e09-4b72-b89a-6872c0cfad32-S8uwH2Fz58NVmKITk2rEOrJdb156UK.webp">
             <source src="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/9f95b463-1ecc-4ae5-8524-2a4009d2ec5c-cmFuWog2RaFHfvDPREPFbVo4DcQ8rm.mp4" type="video/mp4" />
           </video>
           <figcaption><b>Set up in five minutes</b> (2:48) — sign in, create a campaign, an arc and a session, upload a map, put the QR on the TV, and a player builds a character on their phone.</figcaption>
         </figure>
         <figure>
-          <video controls playsInline preload="metadata" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/c2e69ec2-3b6d-4adb-8621-b000521fe3c5-Y5l32FHFaHSmRDu1rvhNGmOuxzMy58.webp">
+          <video controls playsInline preload="none" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/c2e69ec2-3b6d-4adb-8621-b000521fe3c5-Y5l32FHFaHSmRDu1rvhNGmOuxzMy58.webp">
             <source src="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/56033677-3a7b-4e96-b880-8961c47909da-xeWFrIogpJBy3jQoFPzaH7p83H8W8v.mp4" type="video/mp4" />
           </video>
           <figcaption><b>Game night</b> (2:09) — the HUD, staging a map, adding foes and rolling initiative, dragging tokens, damage and conditions landing on a phone, a die landing on the TV.</figcaption>
@@ -72,7 +72,7 @@ export default function GuidePage() {
 
       <h2>The loop</h2>
       <div className="step"><span className="k">1</span><b>Sign in.</b> With your email on a personal setup, or Continue with Discord (or Patreon) on the public one — whichever the sign-in page shows. Your campaigns are tied to that identity; nobody else can see them.</div>
-      <div className="step"><span className="k">2</span><b>Create a campaign.</b> Name, setting, tone. New here? Press <span className="btnref">🎲 Create a sample campaign</span> on the dashboard to get a ready-made adventure, four pregens, a map and an encounter you can run tonight.</div>
+      <div className="step"><span className="k">2</span><b>Create a campaign.</b> Name, setting, tone. New here? Press <span className="btnref">🎲 Run the sample night</span> on the dashboard to get a ready-made adventure, four pregens, a map and an encounter you can run tonight.</div>
       <div className="step"><span className="k">3</span><b>Add your players.</b> Campaign → Characters → <span className="btnref">+ Character</span>. You only need a name and class; players fill the rest in from their phones. Then show the join code: open the session&rsquo;s table and tap the <span className="btnref">📱</span> chip (or <span className="btnref">📱 QR → projector</span> from the HUD). Each player scans, taps their name, and their live sheet is on their phone — it remembers them next time.</div>
       <div className="note"><b>Optional join code.</b> On Characters, set a short code and the join page asks for it before it lists the party &mdash; say it out loud at the table, and a leaked link alone won&rsquo;t get in. <b>Remote players:</b> the <span className="btnref">🗺 Table</span> link on their sheet opens the live map with the initiative order, the party&rsquo;s HP and the roll log, and they can drag their own token (nobody else&rsquo;s).</div>
       <div className="note"><b>Practice Arena.</b> New player, or new class? The <span className="btnref">⚔️ Arena</span> link on the sheet runs a one-on-one sparring match against a catalog foe using their real weapons, spells, slots and features, with the dice shown and a coach&rsquo;s tip when it matters. Nothing in it touches the character, and it&rsquo;s free.</div>

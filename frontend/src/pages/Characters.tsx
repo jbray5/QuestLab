@@ -269,7 +269,7 @@ export default function Characters() {
               }}
               placeholder="none"
               maxLength={12}
-              style={{ width: 92, fontFamily: "monospace", letterSpacing: "0.12em", padding: "2px 6px" }}
+              style={{ width: 132, fontFamily: "monospace", letterSpacing: "0.12em", padding: "2px 6px" }}
             />
           </label>
           <button

@@ -69,6 +69,8 @@ class ArenaPc(ArenaSide):
     features: list[ArenaFeature] = Field(default_factory=list)
     slots: dict[str, int] = Field(default_factory=dict)
     raging: bool = False
+    # Plan 85 — Extra Attack: weapon swings per Attack action.
+    attacks_per_action: int = Field(default=1, ge=1, le=4)
 
 
 class ArenaFoe(ArenaSide):
@@ -117,12 +119,16 @@ class ArenaState(BaseModel):
     bonus_used: bool = False
     extra_action: bool = False
     dodging: bool = False
+    # Plan 85 — swings left in the current Attack action (Extra Attack).
+    attacks_left: int = Field(default=0, ge=0)
     result: Optional[Literal["won", "lost", "fled"]] = None
     pc: ArenaPc
     foe: ArenaFoe
     log: list[ArenaLogLine] = Field(default_factory=list)
     stats: ArenaStats = Field(default_factory=ArenaStats)
     tips: list[str] = Field(default_factory=list)
+    # Plan 85 — tamper seal; the server refuses a state it didn't hand out.
+    sig: str = ""
 
 
 class ArenaAction(BaseModel):
@@ -155,4 +161,6 @@ class ArenaFoeOption(BaseModel):
     hp_average: int
     creature_type: str
     suggested: bool = False
+    # Plan 85 — "easy" | "fits" | "tough" | "deadly" against the PC's level.
+    tier: str = "fits"
     image_url: Optional[str] = None

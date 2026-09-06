@@ -338,7 +338,7 @@ export default function CharacterCreator() {
             <h2>Class</h2>
             <div className="cards">
               {Object.entries(opts.classes).map(([name, c]) => (
-                <button key={name} className={`card ${klass === name ? "on" : ""}`} onClick={() => { setKlass(name); setSubclass(""); setSkills([]); setKit(c.kits[0]?.name ?? ""); setCantrips([]); setSpells([]); }}>
+                <button key={name} className={`card ${klass === name ? "on" : ""}`} onClick={() => { setKlass(name); setSubclass(""); setSkills([]); setKit(c.kits[0]?.name ?? ""); setCantrips([]); setSpells([]); if (method === "standard") setScores(arrayForClass(c.primary ?? [])); }}>
                   <b>{name}</b><small>d{c.hit_die} · {c.primary.join("/")} · saves {c.saves.join(", ")}{c.spellcasting ? " · caster" : ""}</small>
                 </button>
               ))}

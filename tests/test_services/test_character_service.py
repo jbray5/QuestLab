@@ -130,10 +130,10 @@ class TestComputeSpellSlots:
             CharacterClass.WIZARD, 5
         )
 
-    def test_paladin_level1_no_slots(self):
-        """Paladin level 1 → no spell slots (half-caster starts at level 2)."""
+    def test_paladin_level1_has_slots(self):
+        """Paladin level 1 → two first-level slots (2024 half-casters cast from L1)."""
         slots = svc.compute_spell_slots(CharacterClass.PALADIN, 1)
-        assert slots == {}
+        assert slots == {"1": 2}
 
     def test_paladin_level2_has_slots(self):
         """Paladin level 2 → 2 first-level slots."""

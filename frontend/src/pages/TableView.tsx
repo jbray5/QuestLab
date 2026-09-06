@@ -44,7 +44,7 @@ export default function TableView() {
   const rollCounter = useRef(0);
   const lastActive = useRef<string | null>(null);
 
-  const { data, refetch, isLoading, isError } = useQuery({
+  const { data, refetch, isLoading, isError, error } = useQuery({
     queryKey: ["table-projection", sessionId],
     queryFn: () => tableApi.getProjection(sessionId as string),
     enabled: !!sessionId,
@@ -155,6 +155,24 @@ export default function TableView() {
       .catch(() => void refetchRef.current());
   }
   const lastRoll = rollLog[0] ?? null;
+  // Plan 85 — a refreshed or late window starts with the last rolls.
+  useEffect(() => {
+    if (!data?.recent_rolls?.length) return;
+    setRollLog((cur) => {
+      if (cur.length) return cur;
+      return [...data.recent_rolls]
+        .reverse()
+        .map((r, i) => ({
+          key: `seed-${i}`,
+          roller: String(r.roller ?? "Someone"),
+          die: String(r.die ?? "d20"),
+          rolls: Array.isArray(r.rolls) ? (r.rolls as number[]) : [],
+          modifier: Number(r.modifier ?? 0),
+          total: Number(r.total ?? 0),
+          label: (r.label as string | undefined) ?? null,
+        }));
+    });
+  }, [data?.recent_rolls]);
 
   // Plan 64 — staging a new map mid-session plays the scene card.
   // The map's own name rides the same payload object as the art, so it
@@ -181,7 +199,11 @@ export default function TableView() {
     >
       {isLoading && <div className="ql-table-msg">Setting the scene…</div>}
       {isError && (
-        <div className="ql-table-msg">The DM&rsquo;s link is quiet. Waiting for the table to reconnect…</div>
+        <div className="ql-table-msg">
+          {String(error?.message ?? "").toLowerCase().includes("not found")
+            ? "This table link isn’t active any more — ask your DM for a fresh one."
+            : "The DM’s link is quiet. Waiting for the table to reconnect…"}
+        </div>
       )}
 
       {data && (

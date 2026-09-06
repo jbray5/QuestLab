@@ -183,7 +183,7 @@ def test_delete_session_cascades_table_and_combat(client, api_engine):
 
     resp = client.delete(f"/api/sessions/{sid}", headers=auth(dm))
     assert resp.status_code == 204
-    assert client.get(f"/api/table/{sid}").json()["map"] is None  # empty projection
+    assert client.get(f"/api/table/{sid}").status_code == 404  # Plan 85 — a dead link is a 404
 
 
 def test_join_qr_toggle_reaches_projection(client, api_engine):

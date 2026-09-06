@@ -468,7 +468,15 @@ function ConditionsStrip({ combatState }: { combatState: CombatState | undefined
 }
 
 function TurnBanner({ turnState }: { turnState: TurnState | undefined }) {
-  if (!turnState?.active) return null;
+  // Plan 85 — when it isn't your turn, say whose it is instead of nothing.
+  if (!turnState?.active) {
+    if (!turnState?.active_combatant_name) return null;
+    return (
+      <div role="status" aria-live="polite" style={{ textAlign: "center", fontSize: "0.78rem", color: "var(--muted)", padding: "0.3rem 0.6rem", letterSpacing: "0.06em" }}>
+        ⏳ {turnState.active_combatant_name}&rsquo;s turn{turnState.round !== undefined ? ` · round ${turnState.round}` : ""}
+      </div>
+    );
+  }
   const round = turnState.round;
   return (
     <div

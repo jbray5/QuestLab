@@ -74,7 +74,7 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Game night lives in the HUD",
     body:
       "Every session has a HUD: initiative, the party, the live board, your notes " +
-      "(press N), and 🎬 Script for read-aloud text. 📺 opens the TV link; " +
+      "(press N), and 🎬 Script for read-aloud text. 🗺 Table opens the TV link; " +
       "the QR on it gets phones in.",
   },
   {

@@ -193,16 +193,20 @@ class TestFight:
         state = arena.act(duckdb_session, state, ArenaAction(kind="feature", key="action_surge"))
         state = arena.act(duckdb_session, state, ArenaAction(kind="attack", key="unarmed"))
         assert state.stats.misses == 2
-        # Second Wind is a bonus action and heals even at full (0 gained).
+        # Second Wind at full HP is refused (Plan 85); wounded, it's a bonus action.
+        with pytest.raises(ValueError, match="full HP"):
+            arena.act(duckdb_session, state, ArenaAction(kind="feature", key="second_wind"))
+        state.pc.hp = 10
+        arena._seal(state)
         state = arena.act(duckdb_session, state, ArenaAction(kind="feature", key="second_wind"))
-        assert state.bonus_used
+        assert state.bonus_used and state.pc.hp > 10
         with pytest.raises(ValueError, match="bonus action"):
             arena.act(duckdb_session, state, ArenaAction(kind="feature", key="second_wind"))
         # End turn: the foe swings (and misses on min rolls), a new round begins.
         state = arena.act(duckdb_session, state, ArenaAction(kind="end_turn"))
         assert state.round == 2 and not state.action_used and not state.bonus_used
         assert any(line.who == "foe" and line.hit is False for line in state.log)
-        assert state.pc.hp == 28
+        assert state.pc.hp == 14  # 10 + Second Wind's minimum (1 + level 3)
 
     def test_foe_can_drop_you_and_the_sheet_is_untouched(
         self, duckdb_session: Session, monkeypatch
@@ -233,3 +237,36 @@ class TestFight:
         state = arena.start(duckdb_session, pc.id, None)
         state = arena.act(duckdb_session, state, ArenaAction(kind="flee"))
         assert state.result == "fled" and state.phase == "over"
+
+    def test_tampered_state_is_refused(self, duckdb_session: Session, monkeypatch):
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=False))
+        pc, _dm = _pc(duckdb_session)
+        foe = _goblin(duckdb_session, hp=50)
+        state = arena.start(duckdb_session, pc.id, foe.id)
+        state.foe.hp = 1  # the phone "edits" the foe
+        with pytest.raises(ValueError, match="altered"):
+            arena.act(duckdb_session, state, ArenaAction(kind="attack", key="unarmed"))
+
+    def test_extra_attack_at_level_five(self, duckdb_session: Session, monkeypatch):
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=False))
+        pc, _dm = _pc(duckdb_session, level=5, hp=40)
+        foe = _goblin(duckdb_session, hp=50)
+        state = arena.start(duckdb_session, pc.id, foe.id)
+        assert state.pc.attacks_per_action == 2
+        state = arena.act(duckdb_session, state, ArenaAction(kind="attack", key="unarmed"))
+        assert state.action_used and state.attacks_left == 1
+        state = arena.act(duckdb_session, state, ArenaAction(kind="attack", key="unarmed"))
+        assert state.attacks_left == 0 and state.stats.misses == 2
+        with pytest.raises(ValueError, match="used your action"):
+            arena.act(duckdb_session, state, ArenaAction(kind="attack", key="unarmed"))
+
+    def test_foe_takes_one_action_per_turn(self):
+        atks = arena.parse_foe_attacks(
+            [
+                {"name": "Bite", "desc": "+4 to hit, 1d4 piercing"},
+                {"name": "Spear", "desc": "+4 to hit, 1d6+2 piercing"},
+                {"name": "Longbow", "desc": "+4 to hit, 1d8+2 piercing"},
+            ]
+        )
+        best = max(atks, key=lambda a: arena._avg(a.damage) * a.count)
+        assert best.name == "Longbow"

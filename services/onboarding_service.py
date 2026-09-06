@@ -12,10 +12,11 @@ from typing import Any
 from sqlmodel import Session as DBSession
 
 from db.repos.campaign_repo import CampaignRepo
+from db.repos.character_repo import CharacterRepo
 from db.repos.monster_repo import MonsterRepo
 from db.repos.session_repo import SessionRunbookRepo
 from domain.battle_map import BattleMapCreate
-from domain.enums import CharacterClass
+from domain.character_builder import CharacterBuild
 from domain.npc import NpcCreate
 from domain.session import SessionRunbookCreate
 from domain.table_state import TableStateUpdate
@@ -23,7 +24,7 @@ from services import (
     adventure_service,
     battle_map_service,
     campaign_service,
-    character_service,
+    character_builder_service,
     encounter_service,
     npc_service,
     session_service,
@@ -185,58 +186,64 @@ _STARTER_MAP_URL = (
     "c708579c-70e1-4811-8f58-d92504868d0c-kDyq5ThugnkcHPxSHyt9aegBQgCHcG.png"
 )
 
+# Plan 85 — the pregens go through the real character builder, so they have
+# gear, spells, features and the same math as a player-built character.
 _PREGENS: list[dict[str, Any]] = [
     dict(
         character_name="Bram Oakhelm",
-        race="Human",
-        character_class=CharacterClass.FIGHTER,
-        score_str=16,
-        score_dex=12,
-        score_con=15,
-        score_int=10,
-        score_wis=13,
-        score_cha=8,
-        hp_max=12,
-        ac=16,
+        species="Human",
+        character_class="Fighter",
+        background="Soldier",
+        scores={"STR": 15, "DEX": 13, "CON": 14, "INT": 10, "WIS": 12, "CHA": 8},
+        background_bonus={"STR": 2, "CON": 1},
+        skills=["Athletics", "Intimidation", "Perception", "Survival", "Insight"],
+        origin_feat="Tough",
+        kit="Chain mail, longsword & shield",
+        appearance="Broad, sunburnt, a soldier's stillness.",
     ),
     dict(
         character_name="Lira Vell",
-        race="Elf",
-        character_class=CharacterClass.WIZARD,
-        score_str=8,
-        score_dex=14,
-        score_con=13,
-        score_int=16,
-        score_wis=12,
-        score_cha=10,
-        hp_max=8,
-        ac=12,
+        species="Elf",
+        character_class="Wizard",
+        background="Sage",
+        scores={"STR": 8, "DEX": 14, "CON": 13, "INT": 15, "WIS": 12, "CHA": 10},
+        background_bonus={"INT": 2, "CON": 1},
+        skills=["Arcana", "History", "Investigation", "Insight", "Perception"],
+        cantrips=["Fire Bolt", "Mage Hand", "Light"],
+        spells=["Magic Missile", "Shield", "Sleep", "Burning Hands"],
+        kit="Quarterstaff & dagger",
+        appearance="Ink on her fingers, a satchel heavier than she is.",
     ),
     dict(
         character_name="Tessa Quickfoot",
-        race="Halfling",
-        character_class=CharacterClass.ROGUE,
-        score_str=10,
-        score_dex=16,
-        score_con=12,
-        score_int=13,
-        score_wis=10,
-        score_cha=14,
-        hp_max=10,
-        ac=14,
+        species="Halfling",
+        character_class="Rogue",
+        background="Criminal",
+        scores={"STR": 8, "DEX": 15, "CON": 14, "INT": 13, "WIS": 10, "CHA": 12},
+        background_bonus={"DEX": 2, "CON": 1},
+        skills=[
+            "Sleight of Hand",
+            "Stealth",
+            "Acrobatics",
+            "Deception",
+            "Perception",
+            "Investigation",
+        ],
+        kit="Leather, shortsword, shortbow, daggers",
+        appearance="Small, quick, always near a door.",
     ),
     dict(
         character_name="Brother Aldous",
-        race="Dwarf",
-        character_class=CharacterClass.CLERIC,
-        score_str=13,
-        score_dex=10,
-        score_con=14,
-        score_int=10,
-        score_wis=16,
-        score_cha=12,
-        hp_max=11,
-        ac=16,
+        species="Dwarf",
+        character_class="Cleric",
+        background="Acolyte",
+        scores={"STR": 13, "DEX": 8, "CON": 14, "INT": 10, "WIS": 15, "CHA": 12},
+        background_bonus={"WIS": 2, "CHA": 1},
+        skills=["Insight", "Religion", "Medicine", "Persuasion"],
+        cantrips=["Sacred Flame", "Guidance", "Thaumaturgy"],
+        spells=["Cure Wounds", "Bless", "Guiding Bolt", "Healing Word"],
+        kit="Chain shirt, shield, mace",
+        appearance="A beard braided with prayer beads, a mace that has seen use.",
     ),
 ]
 
@@ -352,18 +359,12 @@ def seed_starter(db: DBSession, dm_email: str) -> dict[str, Any]:
     )
     pcs = []
     for i, pre in enumerate(_PREGENS):
-        pcs.append(
-            character_service.create_character(
-                db,
-                campaign_id=campaign.id,
-                dm_email=dm_email,
-                player_name=f"Player {i + 1}",
-                level=1,
-                hp_current=pre["hp_max"],
-                speed=25 if pre["race"] in ("Dwarf", "Halfling") else 30,
-                **pre,
-            )
+        built = character_builder_service.create(
+            db, campaign.id, CharacterBuild(player_name=f"Player {i + 1}", level=1, **pre)
         )
+        row = CharacterRepo.get_by_id(db, uuid.UUID(str(built.pc_id)))
+        if row is not None:
+            pcs.append(row)
     for npc in _STARTER_NPCS:
         npc_service.create_npc(db, campaign.id, dm_email, NpcCreate(**npc))
     monsters = {m.name: m for m in MonsterRepo.list_all(db)}

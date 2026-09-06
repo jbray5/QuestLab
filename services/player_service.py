@@ -288,6 +288,29 @@ def turn_state(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
 
     found = SessionCombatantRepo.find_active_for_character(db, pc_id)
     if found is None:
+        # Plan 85 — not your turn: say whose it is, so the sheet isn't silent.
+        pc = _get_pc_or_raise(db, pc_id)
+        target = _live_session_for(db, pc.campaign_id)
+        if (
+            target is not None
+            and getattr(target, "combat_state", "idle") == "running"
+            and target.combat_active_combatant_id
+        ):
+            active = next(
+                (
+                    c
+                    for c in SessionCombatantRepo.list_for_session(db, target.id)
+                    if c.id == target.combat_active_combatant_id
+                ),
+                None,
+            )
+            if active is not None:
+                return {
+                    "active": False,
+                    "session_id": str(target.id),
+                    "round": target.combat_round,
+                    "active_combatant_name": active.name,
+                }
         return {"active": False}
     game_session, combatant = found
     return {
@@ -711,6 +734,23 @@ def throw_dice(
         modifier=modifier,
         total=total,
         label=label,
+    )
+    # Plan 85 — the rest of the party sees it on their phones too (Priya).
+    from db.repos.character_repo import CharacterRepo
+    from integrations.event_bus import publish_dice_rolled
+
+    mates = [p.id for p in CharacterRepo.list_by_campaign(db, pc.campaign_id) if p.id != pc.id]
+    publish_dice_rolled(
+        mates,
+        pc.campaign_id,
+        {
+            "label": (label or f"{count}{die}")[:40],
+            "detail": f"[{', '.join(map(str, rolls))}]" + (f" {modifier:+d}" if modifier else ""),
+            "total": total,
+            "crit": count == 1 and sides == 20 and rolls[0] == 20,
+            "fumble": count == 1 and sides == 20 and rolls[0] == 1,
+            "roller": pc.character_name,
+        },
     )
     return {
         "die": die,

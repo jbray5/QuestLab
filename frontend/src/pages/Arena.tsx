@@ -84,6 +84,7 @@ interface FoeOption {
   hp_average: number;
   creature_type: string;
   suggested: boolean;
+  tier: "easy" | "fits" | "tough" | "deadly";
 }
 
 const CSS = `
@@ -91,8 +92,8 @@ const CSS = `
   background: radial-gradient(ellipse at 50% -10%, #2a1d1d 0%, #120c10 55%, #07050a 100%); }
 .ar-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 0.6rem; }
 .ar-title { font-family: Cinzel, Georgia, serif; color: #f0e6c8; font-size: 1.25rem; letter-spacing: 0.08em; margin: 0; }
-.ar-back { color: #d6af36; text-decoration: none; font-size: 0.78rem; letter-spacing: 0.06em; border: 1px solid rgba(214,175,54,0.5); border-radius: 999px; padding: 3px 10px; }
-.ar-sub { color: #b3a789; font-style: italic; margin: 0 0 1rem; font-size: 0.9rem; }
+.ar-back { color: #e2c257; text-decoration: none; font-size: 0.8rem; letter-spacing: 0.06em; border: 1px solid rgba(214,175,54,0.5); border-radius: 999px; padding: 3px 10px; }
+.ar-sub { color: #c2b89f; font-style: italic; margin: 0 0 1rem; font-size: 0.9rem; }
 .ar-big { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid #d6af36; background: rgba(214,175,54,0.12); color: #f0e6c8;
   font-family: Cinzel, Georgia, serif; font-size: 1rem; letter-spacing: 0.06em; cursor: pointer; }
 .ar-h { font-family: Cinzel, Georgia, serif; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: #d6af36; margin: 1rem 0 0.4rem; }
@@ -100,7 +101,9 @@ const CSS = `
 .ar-foe { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; text-align: left; padding: 8px 12px; border-radius: 10px;
   border: 1px solid rgba(240,230,200,0.14); background: rgba(20,16,30,0.7); color: #e6ddc8; cursor: pointer; font-family: inherit; }
 .ar-foe b { font-size: 0.95rem; color: #f0e6c8; font-weight: 600; }
-.ar-foe small { color: #9a9078; font-size: 0.72rem; }
+.ar-foe small { color: #b3a789; font-size: 0.72rem; }
+.ar-foe.tough small em { color: #e0a030; font-style: normal; }
+.ar-foe.deadly small em { color: #ef5350; font-style: normal; }
 .ar-foe .cr { font-family: Cinzel, Georgia, serif; color: #d6af36; font-size: 0.8rem; grid-row: 1 / span 2; align-self: center; }
 .ar-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .ar-card { border: 1px solid rgba(240,230,200,0.14); border-radius: 12px; padding: 10px 12px; background: rgba(20,16,30,0.72); }
@@ -125,7 +128,8 @@ const CSS = `
 .ar-btn { text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(240,230,200,0.18); background: rgba(30,24,40,0.85); color: #e6ddc8; cursor: pointer; font-family: inherit; display: grid; gap: 2px; }
 .ar-btn b { font-size: 0.92rem; color: #f0e6c8; font-weight: 600; }
 .ar-btn small { font-size: 0.7rem; color: #9a9078; font-variant-numeric: tabular-nums; }
-.ar-btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.ar-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.ar-btn .ar-why { color: #e0a030; font-size: 0.68rem; }
 .ar-btn.primary { grid-column: 1 / -1; border-color: #d6af36; background: rgba(214,175,54,0.14); text-align: center; }
 .ar-btn.primary b { font-family: Cinzel, Georgia, serif; letter-spacing: 0.06em; }
 .ar-btn.ghost { background: transparent; }
@@ -271,11 +275,12 @@ export default function Arena() {
               {showAll && (
                 <div className="ar-foe-list">
                   {others.map((f) => (
-                    <button key={f.id} className="ar-foe" disabled={busy} onClick={() => void start(f.id)}>
+                    <button key={f.id} className={`ar-foe ${f.tier}`} disabled={busy} onClick={() => void start(f.id)}>
                       <b>{f.name}</b>
                       <span className="cr">CR {f.cr}</span>
                       <small>
-                        {f.creature_type} · AC {f.ac} · {f.hp_average} HP
+                        {f.creature_type} · AC {f.ac} · {f.hp_average} HP ·{" "}
+                        <em>{f.tier === "easy" ? "easy" : f.tier === "tough" ? "above your level" : "way above your level"}</em>
                       </small>
                     </button>
                   ))}
@@ -396,6 +401,7 @@ export default function Arena() {
                         {a.hit_bonus != null ? `+${a.hit_bonus} to hit · ` : a.save_dc ? `DC ${a.save_dc} ${a.save_ability?.toUpperCase()} · ` : ""}
                         {a.damage} {a.damage_type}
                       </small>
+                      {why && <small className="ar-why">{why}</small>}
                     </button>
                   );
                 })}
@@ -420,6 +426,7 @@ export default function Arena() {
                       <small>
                         {f.cost} · {f.uses_left >= 99 ? "at will" : `${f.uses_left} left`} · {f.blurb}
                       </small>
+                      {blocked && <small className="ar-why">{blocked}</small>}
                     </button>
                   );
                 })}

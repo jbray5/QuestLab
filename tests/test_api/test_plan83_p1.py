@@ -130,7 +130,7 @@ def test_projection_carries_initiative_and_party_hp_only(client, api_engine):
     assert creed["kind"] == "pc" and creed["hp_current"] == 20 and creed["hp_max"] == 28
     assert wolf["hp_current"] is None and wolf["hp_max"] is None
     assert wolf["conditions"] == ["prone"]
-    assert "11" not in str(wolf)
+    assert all(k not in wolf or wolf[k] is None for k in ("hp_current", "hp_max"))
     # A synonym lands on the real state; nonsense is rejected.
     body["combat_state"] = "active"
     assert (

@@ -22,6 +22,11 @@ def test_seed_starter_builds_a_runnable_night(duckdb_session: Session):
     proj = table_service.get_projection(duckdb_session, sid)
     assert proj.map is not None and proj.map.name == "The Mill Road"
     assert len(proj.tokens) == 4 and all(t.kind == "pc" for t in proj.tokens)
+    # The pregens learn spells and carry gear; clear them so catalog fixtures
+    # elsewhere stay free of foreign keys.
+    from services import campaign_service
+
+    campaign_service.delete_campaign(duckdb_session, camp.id, dm)
 
 
 def test_find_starter_upgrades_an_old_sample(duckdb_session: Session):
@@ -57,3 +62,6 @@ def test_find_starter_upgrades_an_old_sample(duckdb_session: Session):
     # Idempotent: a second look adds nothing.
     onboarding_service.find_starter(duckdb_session, dm)
     assert len(NpcRepo.list_by_campaign(duckdb_session, cid)) == 2
+    from services import campaign_service
+
+    campaign_service.delete_campaign(duckdb_session, cid, dm)

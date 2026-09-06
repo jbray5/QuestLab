@@ -28,7 +28,7 @@ from domain.table_state import (
     Token,
 )
 from integrations import blob_storage, image_tools
-from integrations.event_bus import publish_table_ping, publish_table_updated
+from integrations.event_bus import publish_table_ping, publish_table_updated, recent_table_rolls
 from integrations.openai_client import generate_image
 from services import portrait_service, session_service
 
@@ -203,6 +203,9 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     Returns:
         A TableProjection (empty-but-valid if no table state exists yet).
     """
+    # Plan 85 — a dead link is a 404, not a forever-empty table.
+    if SessionRepo.get_by_id(db, session_id) is None:
+        raise ValueError(f"Session {session_id} not found.")
     state = TableStateRepo.get_by_session(db, session_id)
 
     table_map = None
@@ -322,4 +325,5 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
         combat_running=combat_running,
         round=combat_round if combat_running else 0,
         initiative=initiative,
+        recent_rolls=recent_table_rolls(session_id),
     )

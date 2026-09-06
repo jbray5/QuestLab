@@ -129,7 +129,9 @@ class TestTurnStateLookup:
         _seed_combat(duckdb_session, game_session.id, dm, pc.id, active_is_pc=False)
 
         result = play_svc.turn_state(duckdb_session, pc.id)
-        assert result == {"active": False}
+        # Plan 85 — not your turn still says whose turn it is.
+        assert result["active"] is False
+        assert result.get("active_combatant_name")
 
     def test_unknown_pc_raises(self, duckdb_session: Session):
         """Bad pcId raises ValueError → 404 at the API layer."""

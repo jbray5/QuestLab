@@ -396,6 +396,19 @@ def generate_dm_brief(
         or "  None listed"
     )
 
+    # Plan 85 — stored NPC records are canon for the brief too (the runbook
+    # already had this; the brief is what DMs actually run from).
+    record_lines = (
+        "\n".join(
+            f"  - {n.name}"
+            + (f" ({n.role})" if n.role else "")
+            + (f": wants {n.want_now or n.motivation}" if (n.want_now or n.motivation) else "")
+            + (f". SECRET (players don't know): {n.secret}" if n.secret else "")
+            + (f". Status: {getattr(n.status, 'value', n.status)}" if n.status else "")
+            for n in NpcRepo.list_by_campaign(db, campaign.id)
+        )
+        or "  None yet"
+    )
     notes_block = f"\n## DM Planning Notes (weave these in)\n{extra_notes}" if extra_notes else ""
 
     system = f"""You are an expert D&D 5e (2024 rules) Dungeon Master's assistant. You write \
@@ -430,7 +443,16 @@ one-line secret) — never a wall of backstory.
 
 ### NPCs in play
 {npc_lines}
+
+### NPC records (canon — never contradict)
+{record_lines}
 {notes_block}
+
+### Rules
+- NPC records above are canon: keep their secrets and motives exactly as written; \
+never invent a different secret for them. A secret_short must be a shortening of the \
+stored secret, not a new one.
+- Player characters are players, not NPCs: never give a PC's name to anyone else.
 """
 
     user = f"""Write the DM brief for Session {game_session.session_number}: \

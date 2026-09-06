@@ -25,7 +25,7 @@ CLASS_FEATURES_2024: list[ClassFeatureCreate] = [
         character_class=CharacterClass.BARBARIAN,
         level_acquired=1,
         recovery=RecoveryType.LONG,
-        uses_formula=UsesFormula.FIXED_2,  # 2 at L1, scales with level — see PHB table
+        uses_formula=UsesFormula.RAGE,
         description=(
             "Bonus action: enter a rage. Advantage on STR checks/saves, +rage damage on melee, "
             "resistance to B/P/S damage. Lasts 1 minute; ends if Incapacitated or you put on "
@@ -97,7 +97,7 @@ CLASS_FEATURES_2024: list[ClassFeatureCreate] = [
         character_class=CharacterClass.FIGHTER,
         level_acquired=1,
         recovery=RecoveryType.SHORT_ONE,
-        uses_formula=UsesFormula.FIXED_2,  # 2 at L1, 3 at L10, 4 at L17
+        uses_formula=UsesFormula.SECOND_WIND,
         description=(
             "Bonus action: regain Hit Points equal to 1d10 + Fighter level. Two uses. "
             "2024 RAW: regain one use on a short rest, all uses on a long rest."
