@@ -28,6 +28,8 @@ class Campaign(CampaignBase, table=True):
     dm_email: str = Field(index=True, description="Email of the owning DM")
     # Plan 74 — anyone with the join link may create their own character.
     allow_player_signup: bool = Field(default=True)
+    # Plan 83 — optional short code the join page asks for before listing the party.
+    join_code: Optional[str] = Field(default=None, max_length=12)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -48,6 +50,7 @@ class CampaignRead(CampaignBase):
     id: uuid.UUID
     dm_email: str
     allow_player_signup: bool = True
+    join_code: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -62,4 +65,5 @@ class CampaignUpdate(BaseModel):
     tone: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = None
     allow_player_signup: Optional[bool] = None
+    join_code: Optional[str] = Field(default=None, max_length=12)
     world_notes: Optional[str] = None

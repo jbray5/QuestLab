@@ -1,9 +1,24 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { api } from "../api/client";
 import { campaignsApi } from "../api/campaigns";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Campaign } from "../api/types";
+
+// Plan 83 — the whole campaign as one JSON file, named after it.
+async function exportCampaign(c: Campaign): Promise<void> {
+  const bundle = await api.get<unknown>(`/campaigns/${c.id}/export`);
+  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `questlab-${c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "campaign"}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
 
 export default function Campaigns() {
   const qc = useQueryClient();
@@ -124,6 +139,14 @@ export default function Campaigns() {
               <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                 <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }} onClick={() => handleOpen(c)}>
                   Open
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: "0.75rem" }}
+                  title="Download everything in this campaign as one JSON file (Plan 83)"
+                  onClick={() => void exportCampaign(c)}
+                >
+                  Export
                 </button>
                 <button
                   className="btn btn-danger"

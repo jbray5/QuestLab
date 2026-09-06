@@ -191,7 +191,17 @@ def long_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSum
     if exhaustion_dropped:
         pc.exhaustion = max(0, pc.exhaustion - 1)
 
-    if hp_restored > 0 or hd_recovered > 0 or exhaustion_dropped:
+    # Plan 83 — the rest wipes the residue too: temp HP, death saves and
+    # concentration don't survive eight hours of sleep.
+    residue_cleared = bool(
+        pc.temp_hp or pc.death_save_successes or pc.death_save_failures or pc.concentration_on
+    )
+    pc.temp_hp = 0
+    pc.death_save_successes = 0
+    pc.death_save_failures = 0
+    pc.concentration_on = None
+
+    if hp_restored > 0 or hd_recovered > 0 or exhaustion_dropped or residue_cleared:
         db.add(pc)
         db.commit()
         db.refresh(pc)

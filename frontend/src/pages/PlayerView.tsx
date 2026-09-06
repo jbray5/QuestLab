@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { classEmoji } from "../lib/classEmoji";
 import { zoomable } from "../lib/lightbox";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -528,6 +529,12 @@ function HeaderBanner({
   spellStats: { ability: string | null; save_dc: number | null; attack_bonus: number | null } | null;
   initMod: number;
 }) {
+  // Plan 83 — the Table link needs tonight's session id.
+  const { data: live } = useQuery({
+    queryKey: ["live-session", pc.id],
+    queryFn: () => playApi.liveSession(pc.id),
+    staleTime: 60_000,
+  });
   // Derived 5e values players reference constantly.
   const profBonus = Math.floor((pc.level - 1) / 4) + 2;
   const percProf =
@@ -542,7 +549,7 @@ function HeaderBanner({
           <img src={portraitSrc(pc.portrait_url, pc.updated_at)} {...zoomable(portraitSrc(pc.portrait_url, pc.updated_at), pc.character_name)} alt={pc.character_name} style={portraitStyle} />
         ) : (
           <div style={{ ...portraitStyle, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.6rem" }}>
-            🧙
+            {classEmoji(pc.character_class)}
           </div>
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -585,6 +592,25 @@ function HeaderBanner({
             >
               🏪 MARKET
             </Link>
+            {live?.session_id && (
+              <Link
+                to={`/table/${live.session_id}?pc=${pc.id}`}
+                style={{
+                  display: "inline-block",
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.06em",
+                  color: "var(--gold)",
+                  textDecoration: "none",
+                  border: "1px solid var(--gold)",
+                  borderRadius: 7,
+                  padding: "1px 8px",
+                  opacity: 0.9,
+                }}
+                title="The live map with the initiative order, party HP and rolls — drag your own token"
+              >
+                🗺 TABLE
+              </Link>
+            )}
           </div>
         </div>
       </div>

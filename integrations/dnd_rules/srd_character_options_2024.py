@@ -73,6 +73,9 @@ SPECIES: list[dict[str, Any]] = [
             "Keen Senses — proficiency in Insight, Perception, or Survival.",
             "Trance — a 4-hour trance counts as a long rest.",
         ],
+        # Keen Senses (Plan 83): one more skill, from these three only.
+        "bonus_skill_choices": 1,
+        "bonus_skill_from": ["Insight", "Perception", "Survival"],
     },
     {
         "name": "Gnome",

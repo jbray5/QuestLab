@@ -62,6 +62,8 @@ Top-level container owned by a DM.
 | tone | VARCHAR(200) | No | | Narrative tone |
 | world_notes | TEXT | Yes | | Free-form world-building |
 | dm_email | VARCHAR | No | INDEX | Owning DM email (lowercased) |
+| allow_player_signup | BOOLEAN | No | default true | Plan 74 — anyone with the join link may build a character |
+| join_code | VARCHAR(12) | Yes | | Plan 83 — upper-case code the join page asks for before listing the party; NULL = open |
 | created_at | TIMESTAMP | No | | UTC creation time |
 | updated_at | TIMESTAMP | No | | Updated on every PATCH |
 

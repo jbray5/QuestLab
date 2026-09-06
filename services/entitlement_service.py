@@ -13,7 +13,8 @@ Policy is env-driven so a personal deployment stays wide open:
 Three kinds of generation are metered: ``text`` (NPCs, monster suggestions,
 briefs, runbooks, shop stock, item lore), ``art`` (portraits, standees,
 backdrops, props, world maps, item images, the player forge) and ``pack`` (a
-full Session Pack). A tier's scope is ``text`` or ``all``. A patron's tier is
+full Session Pack). A tier's scope is ``text`` (text AI and Session Packs) or ``all``
+(art too). A patron's tier is
 the highest whose minimum pledge they meet; an active patron below the lowest
 minimum (a legacy pledge) counts as the lowest tier.
 
@@ -37,11 +38,12 @@ DEFAULT_TIERS = "500:hearth:15:text,1200:lantern:40:all,2500:table:120:all"
 TIER_LABELS = {"hearth": "Hearth", "lantern": "Lantern", "table": "Table"}
 TIER_BLURBS = {
     "hearth": (
-        "AI for prep: NPCs with secrets, monster picks, briefs, runbooks, shop stock, item lore."
+        "AI for prep: NPCs with secrets, monster picks, briefs, runbooks, shop stock, item lore "
+        "— and full Session Packs."
     ),
     "lantern": (
         "Everything in Hearth, plus art — portraits, standees, backdrops, props, world maps, "
-        "the players' forge — and full Session Packs."
+        "the players' forge."
     ),
     "table": (
         "Everything in Lantern with a much bigger daily allowance, a seat in the Discord, "
@@ -61,7 +63,7 @@ class Tier:
 
     def allows(self, kind: str) -> bool:
         """Whether this tier may run a generation of ``kind``."""
-        return self.scope == "all" or kind == "text"
+        return self.scope == "all" or kind in ("text", "pack")
 
 
 @dataclass(frozen=True)

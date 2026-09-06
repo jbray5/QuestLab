@@ -48,7 +48,7 @@ class TestTierTable:
 
 
 class TestScope:
-    """Text is the floor; art and packs need the all-scope tiers."""
+    """Text and Session Packs are the floor; art needs the all-scope tiers."""
 
     def test_hearth_gets_text_not_art(self, duckdb_session: Session):
         _patron(duckdb_session, "hearth@example.com", 500)
@@ -57,7 +57,7 @@ class TestScope:
         pack = ent.check_ai(duckdb_session, "hearth@example.com", "pack")
         assert text.allowed and text.tier == "hearth" and text.daily_limit == 15
         assert not art.allowed and art.reason == "tier_required" and art.required_tier == "lantern"
-        assert not pack.allowed and pack.required_tier == "lantern"
+        assert pack.allowed and pack.tier == "hearth"
 
     def test_lantern_gets_everything(self, duckdb_session: Session):
         _patron(duckdb_session, "lantern@example.com", 1200)

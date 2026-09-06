@@ -7,6 +7,8 @@ import type { BattleMap, PlayerCharacter, TableStateRead, TableToken } from "../
 
 export type CanvasMode = "ping" | "place";
 
+const ID_SALT = Date.now().toString(36);
+
 /**
  * useTableController — one brain for every DM surface that drives the projected
  * table (Plan 75). The Table console modal and the HUD's inline 🎮 Live pane both
@@ -21,8 +23,8 @@ export function useTableController(sessionId: string, campaignId: string, party:
   const [mode, setMode] = useState<CanvasMode>("ping");
   const darkTimer = useRef<number | undefined>(undefined);
   const idc = useRef(0);
-  // Time-salted so a reload never re-mints an id already on the board.
-  const genId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(idc.current += 1)}`;
+  // Salted per page load so a reload never re-mints an id already on the board.
+  const genId = (prefix: string) => `${prefix}-${ID_SALT}-${(idc.current += 1)}`;
 
   const { data: state } = useQuery({
     queryKey: key,
@@ -69,19 +71,38 @@ export function useTableController(sessionId: string, campaignId: string, party:
   function addPartyTokens() {
     if (!activeMap || !state) return;
     const existingRefs = new Set(state.tokens.map((t) => t.ref_id).filter(Boolean));
-    const fresh: TableToken[] = party
-      .filter((pc) => !existingRefs.has(pc.id))
-      .map((pc, i) => ({
-        id: `pc-${pc.id}`,
-        kind: "pc" as const,
-        ref_id: pc.id,
-        label: pc.character_name,
-        image_url: pc.portrait_url ?? null,
-        x: activeMap.width * (0.28 + 0.11 * i),
-        y: activeMap.height * 0.72,
-        size: 1,
-      }));
-    if (fresh.length) patchNow({ tokens: [...state.tokens, ...fresh] });
+    const newcomers = party.filter((pc) => !existingRefs.has(pc.id));
+    if (!newcomers.length) return;
+    // Plan 83 — with fog on, the party lands inside the first revealed region
+    // instead of somewhere in the dark.
+    const unit = activeMap.grid_size && activeMap.grid_size > 0 ? activeMap.grid_size : Math.min(activeMap.width, activeMap.height) / 20;
+    let cx = activeMap.width * 0.5;
+    let cy = activeMap.height * 0.72;
+    let step = activeMap.width * 0.11;
+    const lit = state.fog_on
+      ? (state.revealed_region_ids ?? [])
+          .map((id) => activeMap.regions.find((r) => r.id === id)?.points)
+          .find((p): p is number[][] => Array.isArray(p) && p.length >= 3)
+      : undefined;
+    if (lit) {
+      const xs = lit.map((p) => p[0]);
+      const ys = lit.map((p) => p[1]);
+      cx = xs.reduce((a, b) => a + b, 0) / xs.length;
+      cy = ys.reduce((a, b) => a + b, 0) / ys.length;
+      const w = Math.max(...xs) - Math.min(...xs);
+      step = Math.max(unit, Math.min(unit * 1.4, w / (newcomers.length + 1)));
+    }
+    const fresh: TableToken[] = newcomers.map((pc, i) => ({
+      id: `pc-${pc.id}`,
+      kind: "pc" as const,
+      ref_id: pc.id,
+      label: pc.character_name,
+      image_url: pc.portrait_url ?? null,
+      x: Math.round(cx + (i - (newcomers.length - 1) / 2) * step),
+      y: Math.round(cy),
+      size: 1,
+    }));
+    patchNow({ tokens: [...state.tokens, ...fresh] });
   }
 
   function addToken(kind: "monster" | "custom") {

@@ -3,6 +3,16 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api/client";
 
+// Plan 83 — the join page stored the campaign's code; carry it into the creator's calls.
+function joinCodeQuery(cid: string): string {
+  try {
+    const code = sessionStorage.getItem(`qj-code-${cid}`);
+    return code ? `?code=${encodeURIComponent(code)}` : "";
+  } catch {
+    return "";
+  }
+}
+
 /**
  * CharacterCreator (Plan 74) — /join/:campaignId/new
  *
@@ -18,7 +28,7 @@ const ABILITY_NAMES: Record<Ability, string> = {
 
 interface Options {
   campaign_name: string;
-  species: { name: string; size: string; speed: number; traits: string[]; bonus_skill_choices?: number; bonus_origin_feat?: boolean }[];
+  species: { name: string; size: string; speed: number; traits: string[]; bonus_skill_choices?: number; bonus_skill_from?: string[]; bonus_origin_feat?: boolean }[];
   backgrounds: { name: string; abilities: Ability[]; feat: string; skills: string[]; tool: string; blurb: string }[];
   origin_feats: { name: string; blurb: string }[];
   classes: Record<string, {
@@ -125,7 +135,7 @@ export default function CharacterCreator() {
   useEffect(() => {
     if (!campaignId) return;
     api
-      .get<Options>(`/play/join/${campaignId}/options`)
+      .get<Options>(`/play/join/${campaignId}/options${joinCodeQuery(campaignId)}`)
       .then(setOpts)
       .catch((e: Error) => setLoadError(e.message));
   }, [campaignId]);
@@ -237,7 +247,7 @@ export default function CharacterCreator() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api.post<{ pc_id: string; warnings: string[] }>(`/play/join/${campaignId}/characters`, {
+      const res = await api.post<{ pc_id: string; warnings: string[] }>(`/play/join/${campaignId}/characters${joinCodeQuery(campaignId)}`, {
         character_name: characterName.trim(),
         player_name: playerName.trim(),
         species: speciesName,
@@ -429,11 +439,25 @@ export default function CharacterCreator() {
         {step === 5 && cls && (
           <>
             <h2>Skills</h2>
-            <p className="note">Pick {skillPicksAllowed} from the {klass} list — {classSkillPicks.length} of {skillPicksAllowed} picked{bg ? `. ${bg.name} already gives ${bg.skills.join(" and ")} (greyed).` : "."}</p>
+            <p className="note">
+              Pick {skillPicksAllowed} from the {klass} list — {classSkillPicks.length} of {skillPicksAllowed} picked
+              {bg ? `. ${bg.name} already gives ${bg.skills.join(" and ")} (greyed).` : "."}
+              {(speciesRow?.bonus_skill_choices ?? 0) > 0 && (
+                <> {species} adds one more{speciesRow?.bonus_skill_from ? ` from ${speciesRow.bonus_skill_from.join(", ")}` : ", any skill"}.</>
+              )}
+            </p>
             <div className="chips">
               {Object.keys(opts.skills).map((s) => {
                 const fromBg = (bg?.skills ?? []).includes(s);
-                const allowed = cls.skills.from.includes(s) || (speciesRow?.bonus_skill_choices ?? 0) > 0;
+                // Plan 83 — the species bonus is one pick, off-list only if the
+                // species allows it (Human: any; Elf: Insight/Perception/Survival).
+                const bonusN = speciesRow?.bonus_skill_choices ?? 0;
+                const bonusFrom = speciesRow?.bonus_skill_from;
+                const offListPicked = classSkillPicks.filter((x) => !cls.skills.from.includes(x)).length;
+                const allowed =
+                  cls.skills.from.includes(s) ||
+                  skills.includes(s) ||
+                  (bonusN > offListPicked && (!bonusFrom || bonusFrom.includes(s)));
                 const on = skills.includes(s) || fromBg;
                 const full = classSkillPicks.length >= skillPicksAllowed && !skills.includes(s);
                 return (

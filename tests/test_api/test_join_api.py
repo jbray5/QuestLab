@@ -49,7 +49,13 @@ def test_join_roster_is_public_and_sorted(client, api_engine):
     assert resp.status_code == 200
     rows = resp.json()
     assert [r["character_name"] for r in rows] == ["Creed", "Willa"]
-    assert set(rows[0].keys()) == {"id", "character_name", "player_name", "portrait_url"}
+    assert set(rows[0].keys()) == {
+        "id",
+        "character_name",
+        "player_name",
+        "portrait_url",
+        "character_class",
+    }
     # No sheet data leaks through the join roster.
     assert "hp" not in resp.text.lower()
     assert "score" not in resp.text.lower()

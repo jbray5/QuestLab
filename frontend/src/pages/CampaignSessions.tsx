@@ -107,7 +107,7 @@ export default function CampaignSessions() {
       adventuresApi.create(campaignId!, {
         title: arcTitle.trim(),
         synopsis: arcSynopsis.trim() || undefined,
-        tier: "Tier1",
+        // Plan 83 — no tier: the server infers it from the party's levels.
         act_count: 3,
       }),
     onSuccess: (a: Adventure) => {

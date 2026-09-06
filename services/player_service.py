@@ -625,6 +625,43 @@ def get_campaign_name(db: Session, pc_id: uuid.UUID) -> dict[str, str]:
     return {"name": campaign.name}
 
 
+def _live_session_for(db: Session, campaign_id: uuid.UUID):
+    """The session a player's phone should talk to (Plans 66/83).
+
+    The campaign's newest IN_PROGRESS session, else its newest session, else None.
+    """
+    from db.repos.adventure_repo import AdventureRepo
+    from db.repos.session_repo import SessionRepo
+    from domain.enums import SessionStatus
+
+    sessions = []
+    for adventure in AdventureRepo.list_by_campaign(db, campaign_id):
+        sessions.extend(SessionRepo.list_by_adventure(db, adventure.id))
+    if not sessions:
+        return None
+    live = [g for g in sessions if g.status == SessionStatus.IN_PROGRESS]
+    pool = live or sessions
+    return max(pool, key=lambda g: (g.session_number, g.id.hex))
+
+
+def live_session(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
+    """Where the table is tonight, for the phone's "open the table" link (Plan 83).
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the player character.
+
+    Returns:
+        ``{"session_id", "title"}`` — both None when the campaign has no sessions.
+    """
+    pc = _get_pc_or_raise(db, pc_id)
+    target = _live_session_for(db, pc.campaign_id)
+    return {
+        "session_id": str(target.id) if target else None,
+        "title": target.title if target else None,
+    }
+
+
 def throw_dice(
     db: Session,
     pc_id: uuid.UUID,
@@ -655,21 +692,12 @@ def throw_dice(
     """
     import random
 
-    from db.repos.adventure_repo import AdventureRepo
-    from db.repos.session_repo import SessionRepo
-    from domain.enums import SessionStatus
     from integrations.event_bus import publish_table_roll
 
     pc = _get_pc_or_raise(db, pc_id)
-
-    sessions = []
-    for adventure in AdventureRepo.list_by_campaign(db, pc.campaign_id):
-        sessions.extend(SessionRepo.list_by_adventure(db, adventure.id))
-    if not sessions:
+    target = _live_session_for(db, pc.campaign_id)
+    if target is None:
         raise ValueError("No sessions in this campaign yet — ask your DM.")
-    live = [g for g in sessions if g.status == SessionStatus.IN_PROGRESS]
-    pool = live or sessions
-    target = max(pool, key=lambda g: (g.session_number, g.id.hex))
 
     rng = random.SystemRandom()
     sides = int(die[1:])
@@ -943,6 +971,7 @@ def join_roster(db: Session, campaign_id: uuid.UUID) -> list[dict[str, Any]]:
                 "character_name": pc.character_name,
                 "player_name": pc.player_name,
                 "portrait_url": pc.portrait_url,
+                "character_class": getattr(pc.character_class, "value", str(pc.character_class)),
             }
             for pc in pcs
         ),
@@ -1159,3 +1188,71 @@ def use_item(
         "target_exhaustion": refreshed.exhaustion,
         "quantity_left": left,
     }
+
+
+def check_join_code(db: Session, campaign_id: uuid.UUID, code: str | None) -> None:
+    """Fail closed when a campaign requires a join code and it wasn't given (Plan 83).
+
+    Args:
+        db: Active database session.
+        campaign_id: UUID of the campaign.
+        code: The code the player typed (or carried in the link), if any.
+
+    Raises:
+        ValueError: If the campaign doesn't exist.
+        PermissionError: ``join_code_required`` when the code is missing or wrong.
+    """
+    campaign = CampaignRepo.get_by_id(db, campaign_id)
+    if campaign is None:
+        raise ValueError(f"Campaign {campaign_id} not found.")
+    wanted = (getattr(campaign, "join_code", None) or "").strip().lower()
+    if wanted and (code or "").strip().lower() != wanted:
+        raise PermissionError("join_code_required")
+
+
+def move_own_token(
+    db: Session, pc_id: uuid.UUID, session_id: uuid.UUID, x: float, y: float
+) -> dict[str, Any]:
+    """A player drags their own token on the remote table (Plan 83).
+
+    Only the token whose ``ref_id`` is this PC may move, and only on a table in
+    the PC's own campaign. The DM's board and the projector re-pull on the
+    ``table.updated`` event exactly as they do for a DM move.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the player character.
+        session_id: The session whose table the player is looking at.
+        x: New x in image pixels.
+        y: New y in image pixels.
+
+    Returns:
+        ``{"id", "x", "y"}`` of the moved token.
+
+    Raises:
+        PermissionError: If the session isn't in the PC's campaign.
+        ValueError: If the PC is unknown, the table is unset, or the PC has no token.
+    """
+    from db.repos.adventure_repo import AdventureRepo
+    from db.repos.session_repo import SessionRepo
+    from db.repos.table_state_repo import TableStateRepo
+    from integrations.event_bus import publish_table_updated
+
+    pc = _get_pc_or_raise(db, pc_id)
+    game_session = SessionRepo.get_by_id(db, session_id)
+    adventure = AdventureRepo.get_by_id(db, game_session.adventure_id) if game_session else None
+    if adventure is None or adventure.campaign_id != pc.campaign_id:
+        raise PermissionError("That table isn't in your campaign.")
+    state = TableStateRepo.get_by_session(db, session_id)
+    if state is None:
+        raise ValueError("The table isn't set up yet.")
+    tokens = [dict(t) for t in (state.tokens or [])]
+    mine = next((t for t in tokens if t.get("ref_id") == str(pc.id)), None)
+    if mine is None:
+        raise ValueError("Your token isn't on the table yet — ask your DM to place the party.")
+    mine["x"] = float(x)
+    mine["y"] = float(y)
+    state.tokens = tokens
+    TableStateRepo.save(db, state)
+    publish_table_updated(session_id)
+    return {"id": mine.get("id"), "x": mine["x"], "y": mine["y"]}

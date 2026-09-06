@@ -77,11 +77,17 @@ async def lifespan(app: FastAPI):
 
     from db.base import create_db_and_tables, get_engine, patch_duckdb_schema
     from integrations.dnd_rules.class_features_2024 import CLASS_FEATURES_2024
+    from integrations.dnd_rules.srd_armor_2024 import SRD_ARMOR_2024
     from integrations.dnd_rules.srd_spells_2024 import SRD_SPELLS_2024
     from integrations.dnd_rules.srd_weapons_2024 import SRD_WEAPONS_2024
     from integrations.dnd_rules.stat_blocks import seed_monsters
     from services.feature_service import seed_catalog as seed_class_features
-    from services.item_service import backfill_weapon_stats, seed_magic_items, seed_weapons
+    from services.item_service import (
+        backfill_weapon_stats,
+        seed_armor,
+        seed_magic_items,
+        seed_weapons,
+    )
     from services.spell_service import seed_spells
 
     create_db_and_tables()
@@ -91,6 +97,7 @@ async def lifespan(app: FastAPI):
         seed_monsters(db)
         seed_magic_items(db)
         seed_weapons(db, SRD_WEAPONS_2024)
+        seed_armor(db, SRD_ARMOR_2024)
         seed_spells(db, SRD_SPELLS_2024)
         seed_class_features(db, CLASS_FEATURES_2024)
         # After all seeds, backfill magic-weapon items with stats from the
@@ -102,7 +109,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="QuestLab API",
     description="AI-powered D&D 5e campaign planning tool — REST API.",
-    version="1.5.0",
+    version="1.6.0",
     lifespan=lifespan,
 )
 

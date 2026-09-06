@@ -17,99 +17,70 @@ export interface TourStep {
   placement?: "right" | "bottom" | "top" | "left";
 }
 
-// Tag a couple of nav items + the dice tray with data-tour-id so the
-// tour can find them regardless of label tweaks. The selectors below
-// match those tags — see Layout.tsx and DiceTray.tsx for the hooks.
+// Tag nav items, the sample button and the dice tray with data-tour-id so
+// the tour can find them regardless of label tweaks (Layout.tsx, Dashboard.tsx,
+// DiceTray.tsx). A step whose target isn't on the current page renders centered
+// with no spotlight, never a spotlight on the wrong thing (Plan 83).
 export const TOUR_STEPS: TourStep[] = [
   {
     title: "Welcome to QuestLab",
     body:
-      "Two-minute tour to show you where things live. You'll learn the " +
-      "mental model — campaign → arc → session — and where to click " +
-      "when you're ready to run game night.",
+      "Ninety seconds. QuestLab is a table tool: living sheets on your players' " +
+      "phones, a shared board on the TV, and a HUD for you. None of it needs AI.",
   },
   {
-    title: "The sidebar is your map",
+    title: "Run the sample night first",
     body:
-      "Top-level pages on the left. Once you pick or create a campaign, " +
-      "more nav appears for that campaign: Sessions, Characters, Battle Maps.",
+      "One click builds a campaign with four pregens, a staged map, an ambush " +
+      "and a runbook with read-aloud text. It opens straight into the HUD, so " +
+      "you can see a session before you write one.",
+    targetSelector: "[data-tour-id='sample-campaign']",
+    placement: "top",
+  },
+  {
+    title: "Campaign → arc → session",
+    body:
+      "That's the whole model. Pick a campaign and its pages appear here: " +
+      "Sessions (grouped by arc), Characters, Battle Maps, NPCs.",
     targetSelector: "[data-tour-id='sidebar']",
     placement: "right",
   },
   {
-    title: "Start with a Campaign",
+    title: "Your own campaigns",
     body:
-      "A campaign is the whole world — setting, tone, recurring NPCs. " +
-      "Click 📜 Campaigns in the sidebar to create your first one. The " +
-      "AI uses your tone (\"gothic\", \"swashbuckling\", etc.) when " +
-      "generating runbooks and NPCs later.",
+      "Setting and tone are the only fields that matter. Delete is safe: it " +
+      "takes every session, map and NPC with it, and nothing else.",
     targetSelector: "[data-tour-id='nav-campaigns']",
     placement: "right",
   },
   {
-    title: "Sessions, grouped by arc",
+    title: "Players bring their own sheets",
     body:
-      "Open a campaign and you land on its Sessions page. Sessions are " +
-      "grouped by arc — a stretch of the story with its own encounters " +
-      "and maps. Make an arc, add tonight's session to it, and you're ready.",
-    targetSelector: "[data-tour-id='sidebar']",
+      "Add a character per player, or turn on player sign-up and share the join " +
+      "link: they build a 2024 character on their phone in five minutes, and " +
+      "that phone becomes a live sheet with dice that land on the TV.",
+    targetSelector: "[data-tour-id='nav-characters']",
     placement: "right",
   },
   {
-    title: "Player Characters",
+    title: "Dice are one tap away",
     body:
-      "Add a PC for every player. Each gets a full 2024 sheet — spells, " +
-      "weapons, hit dice, death saves, the works. Click 🔗 Share to send " +
-      "the PC's URL to that player; their phone becomes a live, " +
-      "self-service sheet.",
-    targetSelector: "[data-tour-id='sidebar']",
-    placement: "right",
-  },
-  {
-    title: "NPCs — Recurring story characters",
-    body:
-      "Track patrons, antagonists, shopkeepers. AI can generate names + " +
-      "personalities + secrets for you. 🎨 Generate a portrait when you " +
-      "want art for the table.",
-    targetSelector: "[data-tour-id='sidebar']",
-    placement: "right",
-  },
-  {
-    title: "Build encounters with live difficulty",
-    body:
-      "The encounter editor has a 2024 XP meter that updates as you tune " +
-      "the roster. Click ✨ Themed suggestions and Claude will pick " +
-      "monsters that match the adventure's vibe and the difficulty you " +
-      "want.",
-    targetSelector: "[data-tour-id='sidebar']",
-    placement: "right",
-  },
-  {
-    title: "Sessions + the HUD",
-    body:
-      "A session is one night of play. Opening a session's HUD gives " +
-      "you a three-pane cockpit: party tracker, scene navigator, combat. " +
-      "The 📖 DM Screen button on the HUD opens 11 tabs of 2024 rules — " +
-      "conditions, actions, cover, hazards.",
-    targetSelector: "[data-tour-id='sidebar']",
-    placement: "right",
-  },
-  {
-    title: "Dice are always one tap away",
-    body:
-      "Floating 🎲 button at the bottom-right of every DM page. Roll any " +
-      "die with count + modifier. Crit / fumble sounds are togglable in " +
-      "the tray header.",
+      "The 🎲 at the bottom-right of every DM page rolls anything. Most tables " +
+      "still roll real dice, and that's fine: the HUD never needs a digital roll.",
     targetSelector: "[data-tour-id='dice-tray']",
     placement: "top",
   },
   {
-    title: "Re-launch any time",
+    title: "Game night lives in the HUD",
     body:
-      "That's the loop. Create a campaign, then an arc, then a " +
-      "session — and run it from the HUD with live sync to your players' " +
-      "phones. Press 🎲 Create a sample campaign on the dashboard to get a " +
-      "ready-made night, and read the 15-minute guide (📖 in the sidebar). " +
-      "Click 🧭 to replay this tour later.",
+      "Every session has a HUD: initiative, the party, the live board, your notes " +
+      "(press N), and 🎬 Script for read-aloud text. 📺 opens the TV link; " +
+      "the QR on it gets phones in.",
+  },
+  {
+    title: "Two screens, one loop",
+    body:
+      "TV or projector for the players, your laptop for the HUD. The guide (📖 in " +
+      "the sidebar) walks through the setup in fifteen minutes. 🧭 replays this tour.",
   },
 ];

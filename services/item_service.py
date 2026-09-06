@@ -113,6 +113,29 @@ def seed_weapons(db: Session, payloads: list[ItemCreate]) -> int:
     return inserted
 
 
+def seed_armor(db: Session, payloads: list[ItemCreate]) -> int:
+    """Seed SRD armor and the shield into the items table, by name. Idempotent.
+
+    Unlike weapons this is per-row: a catalog that already has "Shield" but not
+    "Chain Mail" gets the missing rows only (Plan 83).
+
+    Args:
+        db: Active database session.
+        payloads: Validated ItemCreate payloads.
+
+    Returns:
+        Number of rows inserted.
+    """
+    have = {i.name for i in ItemRepo.list_all(db)}
+    inserted = 0
+    for payload in payloads:
+        if payload.name in have:
+            continue
+        ItemRepo.create(db, payload)
+        inserted += 1
+    return inserted
+
+
 def create_item(db: Session, payload: ItemCreate) -> Item:
     """Persist a new item to the shared catalog.
 

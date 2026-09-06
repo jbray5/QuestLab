@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useToast } from "../components/Toast";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -91,6 +92,7 @@ function toImageCoords(svg: SVGSVGElement, clientX: number, clientY: number) {
 export default function BattleMaps() {
   const { campaignId } = useParams<{ campaignId: string }>();
   const qc = useQueryClient();
+  const toast = useToast();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -211,7 +213,10 @@ export default function BattleMaps() {
           map={selected}
           onBack={() => setSelectedId(null)}
           onDelete={() => deleteMut.mutate(selected.id)}
-          onSaved={() => void qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] })}
+          onSaved={() => {
+            void qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
+            toast.push("Map saved", "success");
+          }}
         />
       )}
     </div>

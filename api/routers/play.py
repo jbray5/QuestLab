@@ -13,7 +13,7 @@ allowed table-state scope.
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from api.deps import DB, gate_ai_for_pc
 from domain.character import HeroLockBody, PlayerCharacter, PlayerRollBody
@@ -26,6 +26,7 @@ from domain.shop import (
     SellRequest,
     TransferReceipt,
 )
+from domain.table_state import PlayerTokenMove
 from services import character_builder_service, player_service
 
 router = APIRouter(tags=["play"])
@@ -330,17 +331,21 @@ def forge_hero(pc_id: uuid.UUID, db: DB) -> dict:
 
 
 @router.get("/play/join/{campaign_id}/options", response_model=BuilderOptions)
-def join_options(campaign_id: uuid.UUID, db: DB) -> BuilderOptions:
+def join_options(
+    campaign_id: uuid.UUID, db: DB, code: str | None = Query(default=None, max_length=12)
+) -> BuilderOptions:
     """The SRD compendium the character creator renders (Plan 74).
 
     Args:
         campaign_id: UUID of the campaign (capability URL).
         db: Database session.
+        code: The campaign's join code, when it has one (Plan 83).
 
     Returns:
         BuilderOptions.
     """
     try:
+        player_service.check_join_code(db, campaign_id, code)
         return character_builder_service.options(db, campaign_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
@@ -353,18 +358,25 @@ def join_options(campaign_id: uuid.UUID, db: DB) -> BuilderOptions:
     response_model=BuildResult,
     status_code=status.HTTP_201_CREATED,
 )
-def join_create_character(campaign_id: uuid.UUID, body: CharacterBuild, db: DB) -> BuildResult:
+def join_create_character(
+    campaign_id: uuid.UUID,
+    body: CharacterBuild,
+    db: DB,
+    code: str | None = Query(default=None, max_length=12),
+) -> BuildResult:
     """A player creates their own character in the campaign (Plan 74).
 
     Args:
         campaign_id: UUID of the campaign (capability URL).
         body: The finished build.
         db: Database session.
+        code: The campaign's join code, when it has one (Plan 83).
 
     Returns:
         BuildResult with the new pc_id.
     """
     try:
+        player_service.check_join_code(db, campaign_id, code)
         return character_builder_service.create(db, campaign_id, body)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
@@ -531,20 +543,63 @@ def sell_item(pc_id: uuid.UUID, body: SellRequest, db: DB) -> SellReceipt:
 
 
 @router.get("/play/join/{campaign_id}")
-def join_roster(campaign_id: uuid.UUID, db: DB) -> list[dict]:
+def join_roster(
+    campaign_id: uuid.UUID, db: DB, code: str | None = Query(default=None, max_length=12)
+) -> list[dict]:
     """Party roster for the QR join page (Plan 63) — names + portraits only.
 
     Args:
         campaign_id: UUID of the campaign (the capability).
         db: Database session.
+        code: The campaign's join code, when it has one (Plan 83).
 
     Returns:
         Player-safe roster rows.
     """
     try:
+        player_service.check_join_code(db, campaign_id, code)
         return player_service.join_roster(db, campaign_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.get("/play/{pc_id}/live-session")
+def live_session(pc_id: uuid.UUID, db: DB) -> dict:
+    """The session the phone's table link should open (Plan 83).
+
+    Args:
+        pc_id: UUID of the player character (the capability).
+        db: Database session.
+
+    Returns:
+        ``{"session_id", "title"}``; both None when there are no sessions yet.
+    """
+    try:
+        return player_service.live_session(db, pc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/table/move")
+def move_own_token(pc_id: uuid.UUID, body: PlayerTokenMove, db: DB) -> dict:
+    """A player drags their own token on the remote table (Plan 83).
+
+    Args:
+        pc_id: UUID of the player character (the capability).
+        body: Session id and the new position in image pixels.
+        db: Database session.
+
+    Returns:
+        ``{"id", "x", "y"}`` of the moved token.
+    """
+    try:
+        return player_service.move_own_token(db, pc_id, body.session_id, body.x, body.y)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
 
 @router.get("/play/{pc_id}/party")

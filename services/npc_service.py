@@ -16,6 +16,7 @@ import uuid
 from sqlmodel import Session
 
 from db.repos.campaign_repo import CampaignRepo
+from db.repos.character_repo import CharacterRepo
 from db.repos.npc_repo import NpcRepo
 from domain.npc import Npc, NpcCreate, NpcRead, NpcUpdate
 
@@ -204,7 +205,10 @@ def generate_npc_from_ai(
     setting = campaign.setting if campaign and campaign.setting else "a fantasy world"
     tone = campaign.tone if campaign and campaign.tone else "heroic fantasy"
 
-    ai_result = ai_service.generate_npc(role=role, setting=setting, tone=tone)
+    # Plan 83 — never hand a PC's name (or an existing NPC's) to a new face.
+    taken = [pc.character_name for pc in CharacterRepo.list_by_campaign(session, campaign_id)]
+    taken += [n.name for n in NpcRepo.list_by_campaign(session, campaign_id)]
+    ai_result = ai_service.generate_npc(role=role, setting=setting, tone=tone, avoid_names=taken)
 
     payload = NpcCreate(
         name=ai_result.get("name", role.title()),

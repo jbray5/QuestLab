@@ -40,7 +40,8 @@ class AdventureCreate(BaseModel):
     campaign_id: Optional[uuid.UUID] = None
     title: str = Field(min_length=1, max_length=200)
     synopsis: Optional[str] = None
-    tier: AdventureTier = AdventureTier.TIER1
+    # Plan 83 — omitted: the server infers the tier from the party's levels.
+    tier: Optional[AdventureTier] = None
     act_count: int = Field(default=3, ge=1, le=5)
     npc_roster: Optional[list[dict[str, Any]]] = None
     location_notes: Optional[str] = None

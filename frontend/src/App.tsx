@@ -18,6 +18,7 @@ const Campaigns     = lazy(() => import("./pages/Campaigns"));
 const Adventures    = lazy(() => import("./pages/Adventures"));
 const Characters    = lazy(() => import("./pages/Characters"));
 const Encounters    = lazy(() => import("./pages/Encounters"));
+const CampaignEncounters = lazy(() => import("./pages/CampaignEncounters"));
 const MapBuilder    = lazy(() => import("./pages/MapBuilder"));
 const Sessions      = lazy(() => import("./pages/Sessions"));
 const CampaignSessions = lazy(() => import("./pages/CampaignSessions"));
@@ -140,6 +141,10 @@ export default function App() {
         <Route
           path="adventures/:adventureId/encounters"
           element={lazyRoute(<Encounters />)}
+        />
+        <Route
+          path="campaigns/:campaignId/encounters"
+          element={lazyRoute(<CampaignEncounters />)}
         />
         <Route
           path="adventures/:adventureId/maps"

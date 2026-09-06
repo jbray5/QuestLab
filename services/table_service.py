@@ -19,7 +19,14 @@ from db.repos.battle_map_repo import BattleMapRepo
 from db.repos.character_repo import CharacterRepo
 from db.repos.session_repo import SessionCombatantRepo, SessionRepo
 from db.repos.table_state_repo import TableStateRepo
-from domain.table_state import TableMap, TableProjection, TableStateRead, TableStateUpdate, Token
+from domain.table_state import (
+    InitiativeEntry,
+    TableMap,
+    TableProjection,
+    TableStateRead,
+    TableStateUpdate,
+    Token,
+)
 from integrations import blob_storage, image_tools
 from integrations.event_bus import publish_table_ping, publish_table_updated
 from integrations.openai_client import generate_image
@@ -186,8 +193,8 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
 
     Resolves the active map, the revealed fog geometry (points only — unrevealed
     regions and all region names are omitted), tokens, darkness/title, and the
-    turn glow derived from the running combat state. No HP or initiative ever
-    crosses this boundary.
+    turn glow derived from the running combat state. Foe HP never crosses this
+    boundary; the initiative order and the party's own HP do (Plan 83).
 
     Args:
         db: Active database session.
@@ -249,12 +256,28 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     # Conditions flow whenever combatant rows exist — the DM marks poison
     # during setup or lulls too (Plan 69). Turn glow/defeat stay gated on a
     # RUNNING combat so nothing leaks between fights.
+    initiative: list[InitiativeEntry] = []
+    combat_round = int(getattr(game_session, "combat_round", 0) or 0) if game_session else 0
     for c in SessionCombatantRepo.list_for_session(db, session_id):
         ref = str(c.character_id) if c.character_id else str(c.id)
         if combat_running and c.defeated:
             defeated_refs.append(ref)
         if combat_running and c.id == game_session.combat_active_combatant_id:
             active_ref = ref
+        if combat_running:
+            is_pc = bool(c.character_id) or str(c.type).lower() == "pc"
+            initiative.append(
+                InitiativeEntry(
+                    ref=ref,
+                    name=c.name,
+                    kind="pc" if is_pc else str(c.type).lower(),
+                    active=c.id == game_session.combat_active_combatant_id,
+                    defeated=bool(c.defeated),
+                    hp_current=c.hp_current if is_pc else None,
+                    hp_max=c.hp_max if is_pc else None,
+                    conditions=list(c.conditions or []),
+                )
+            )
         if c.conditions:
             # Both keys: HUD tokens ref combatant ids, PC tokens ref
             # character ids (Plan 65).
@@ -296,4 +319,7 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
         weather=weather,
         active_token_ref=active_ref,
         defeated_refs=defeated_refs,
+        combat_running=combat_running,
+        round=combat_round if combat_running else 0,
+        initiative=initiative,
     )

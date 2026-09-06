@@ -53,7 +53,7 @@ def create_adventure(
             db,
             campaign_id=campaign_id,
             title=body.title,
-            tier=body.tier,
+            tier=body.tier or adventure_service.infer_tier(db, campaign_id),
             dm_email=user,
             synopsis=body.synopsis,
             act_count=body.act_count,

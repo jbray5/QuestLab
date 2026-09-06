@@ -219,7 +219,7 @@ class TestProjectionSafety:
         assert "Undercroft" not in blob  # revealed region's NAME still never sent
 
     def test_projection_carries_no_hp(self, duckdb_session: Session):
-        """No HP / initiative fields ever appear in the projection payload."""
+        """Idle tables carry no HP or order; foe HP never crosses (Plan 83)."""
         dm = _dm()
         campaign, _adv, gs = _campaign_and_session(duckdb_session, dm)
         pc = _make_pc(duckdb_session, campaign.id, dm)
@@ -233,9 +233,12 @@ class TestProjectionSafety:
                 tokens=[Token(id="t1", kind="pc", ref_id=str(pc.id), label="Willa")],
             ),
         )
-        blob = table_svc.get_projection(duckdb_session, gs.id).model_dump_json()
-        assert "hp" not in blob.lower()
-        assert "initiative" not in blob.lower()
+        proj = table_svc.get_projection(duckdb_session, gs.id)
+        blob = proj.model_dump_json()
+        # Plan 83 — the order and the party's HP ride along only while a fight
+        # runs; idle tables carry no numbers at all, and foe HP never does.
+        assert proj.combat_running is False and proj.initiative == []
+        assert "hp_current" not in blob and "hp_max" not in blob
 
     def test_glow_only_while_running(self, duckdb_session: Session):
         """active_token_ref resolves to the active PC only while combat runs."""

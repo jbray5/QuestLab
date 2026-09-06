@@ -54,9 +54,23 @@ MAX_SESSIONS_PER_ADVENTURE = 20
 _COMBAT_STATES = {"idle", "running", "ended"}
 
 
+_COMBAT_STATE_ALIASES = {
+    "setup": "idle",
+    "active": "running",
+    "started": "running",
+    "over": "ended",
+}
+
+
 def _normalize_combat_state(value: Optional[str]) -> str:
-    """Coerce an incoming combat_state to a known value, defaulting to 'idle'."""
-    return value if value in _COMBAT_STATES else "idle"
+    """Coerce an incoming combat_state to a known value, defaulting to 'idle'.
+
+    Plan 83 — common synonyms map to the real states instead of silently
+    becoming "idle" ("active" is what every other tool calls a running fight).
+    """
+    v = (value or "idle").strip().lower()
+    v = _COMBAT_STATE_ALIASES.get(v, v)
+    return v if v in _COMBAT_STATES else "idle"
 
 
 def _emit_turn_change(

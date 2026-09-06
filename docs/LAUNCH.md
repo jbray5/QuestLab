@@ -66,8 +66,8 @@ app enforces it by *kind*: text, art, pack.
 
 | Patreon tier | Pledge | Unlocks | Allowance |
 |---|---|---|---|
-| **Hearth** | $5 / month | Text AI — NPCs with secrets, monster picks, briefs, runbooks, shop stock, item lore | 15 / day |
-| **Lantern** | $12 / month | Hearth + art (portraits, standees, backdrops, props, world maps, the players' forge) + full Session Packs | 40 / day |
+| **Hearth** | $5 / month | Text AI — NPCs with secrets, monster picks, briefs, runbooks, shop stock, item lore — and full Session Packs | 15 / day |
+| **Lantern** | $12 / month | Hearth + art (portraits, standees, backdrops, props, world maps, the players' forge) | 40 / day |
 | **Table** | $25 / month | Lantern with 120 / day, a seat in the Discord, name in the credits | 120 / day |
 
 **Set up the Patreon page with exactly these three tiers at $5, $12 and $25.**

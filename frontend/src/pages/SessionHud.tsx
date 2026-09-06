@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { classEmoji } from "../lib/classEmoji";
 import { zoomable } from "../lib/lightbox";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -988,6 +989,11 @@ export default function SessionHud() {
   // mid-session doesn't close the modal.
   const [searchParams, setSearchParams] = useSearchParams();
   const sheetPcId = searchParams.get("sheet");
+  // Plan 83 — the dashboard's sample button lands here with the script open.
+  useEffect(() => {
+    if (searchParams.get("script") === "1") setScriptOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const setSheetPcId = useCallback(
     (id: string | null) => {
       setSearchParams(
@@ -1418,7 +1424,7 @@ export default function SessionHud() {
                         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                       />
                     ) : (
-                      <span style={{ fontSize: "1.6rem", lineHeight: "50px" }}>🧙</span>
+                      <span style={{ fontSize: "1.6rem", lineHeight: "50px" }}>{classEmoji(pc.character_class)}</span>
                     )}
                   </button>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -2308,7 +2314,7 @@ export default function SessionHud() {
                       {pc.portrait_url ? (
                         <img src={pc.portrait_url} {...zoomable(pc.portrait_url, pc.character_name)} alt="" style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover", flex: "none" }} />
                       ) : (
-                        <span style={{ fontSize: "1.3rem", flex: "none" }}>🧙</span>
+                        <span style={{ fontSize: "1.3rem", flex: "none" }}>{classEmoji(pc.character_class)}</span>
                       )}
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: "0.8rem", color: "var(--gold)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pc.character_name}</div>

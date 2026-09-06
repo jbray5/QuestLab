@@ -95,8 +95,8 @@ export default function PaywallModal() {
         )}
         {upgrade && (
           <p>
-            You&rsquo;re on {haveLabel || "a text-only tier"}. Art, standees, backdrops, world maps
-            and full Session Packs run on image models and long generations, so they live in the{" "}
+            You&rsquo;re on {haveLabel || "a text-only tier"}. Art — portraits, standees, backdrops, props and world maps — runs on image models, so it
+            lives in the{" "}
             {needLabel} tier and up.
           </p>
         )}
@@ -123,7 +123,7 @@ export default function PaywallModal() {
                   <span className="blurb">{p.blurb}</span>
                   <span className="daily">
                     {p.daily ? `${p.daily} generations a day` : "Unlimited"} ·{" "}
-                    {p.scope === "all" ? "text + art + packs" : "text only"}
+                    {p.scope === "all" ? "text + packs + art" : "text + packs"}
                   </span>
                 </div>
               );

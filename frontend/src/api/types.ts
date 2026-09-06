@@ -10,6 +10,8 @@ export interface Campaign {
   dm_email: string;
   // Plan 74 — players may build their own characters from the join link.
   allow_player_signup?: boolean;
+  // Plan 83 — optional code the join page asks for.
+  join_code?: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -494,6 +496,18 @@ export interface TableMapSummary {
   video_url?: string | null;
 }
 
+// Plan 83 — one row of the remote-player window's initiative panel.
+export interface InitiativeEntry {
+  ref: string;
+  name: string;
+  kind: string;
+  active: boolean;
+  defeated: boolean;
+  hp_current: number | null;
+  hp_max: number | null;
+  conditions: string[];
+}
+
 export interface TableProjection {
   session_id: string;
   map: TableMapSummary | null;
@@ -508,6 +522,10 @@ export interface TableProjection {
   defeated_refs: string[];
   campaign_id: string | null;
   join_qr_on: boolean;
+  // Plan 83 — the remote-player window: order, whose turn, the party's HP.
+  combat_running: boolean;
+  round: number;
+  initiative: InitiativeEntry[];
 }
 
 // ── DM brief (Plan 43) — the glanceable session-2 format ─────────────────────

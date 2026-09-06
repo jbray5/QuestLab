@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { classEmoji } from "../../lib/classEmoji";
 import { zoomable } from "../../lib/lightbox";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -197,7 +198,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                   fontSize: "1.5rem",
                 }}
               >
-                🧙
+                {classEmoji(pc.character_class)}
               </div>
             )}
             <div style={{ flex: 1, minWidth: 0 }}>

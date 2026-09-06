@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useParams, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { apiBase } from "../api/client";
+import { api, apiBase } from "../api/client";
+import type { TableProjection } from "../api/types";
+import RemotePanel from "../components/table/RemotePanel";
 import { tableApi } from "../api/table";
 import MapCanvas from "../components/table/MapCanvas";
 import JoinQr from "../components/table/JoinQr";
@@ -15,11 +17,21 @@ import { useMapReveal } from "../hooks/useMapReveal";
  * TableView — the full-screen battle-map surface the remote table projects
  * (Plan 42). A capability URL (/table/:sessionId, no auth, no DM chrome). It
  * polls the player-safe projection, subscribes to the table SSE topic for live
- * pushes, crossfades between scenes, and floats a cinematic title card. No HP,
- * initiative, or DM notes ever reach this component.
+ * pushes, crossfades between scenes, and floats a cinematic title card. No foe
+ * HP or DM notes ever reach this component.
+ *
+ * Plan 83 — with ``?pc=<id>`` it is also the remote-player window: a side panel
+ * with the initiative order, the party's HP and a roll log, and the player's
+ * own token becomes draggable (the server refuses any other token).
  */
 export default function TableView() {
   const { sessionId } = useParams<{ sessionId: string }>();
+  const [params] = useSearchParams();
+  const pcId = params.get("pc");
+  const panelWanted = !!pcId || params.get("panel") === "1";
+  const [panelOpen, setPanelOpen] = useState(panelWanted);
+  const [rollLog, setRollLog] = useState<TableRoll[]>([]);
+  const qc = useQueryClient();
   const [ping, setPing] = useState<{ x: number; y: number; key: number } | null>(null);
   const pingCounter = useRef(0);
   // Combat cinema (Plan 61): floating numbers + the turn splash.
@@ -86,7 +98,7 @@ export default function TableView() {
         };
         if (!d.die || !Array.isArray(d.rolls) || typeof d.total !== "number") return;
         rollCounter.current += 1;
-        setTableRoll({
+        const roll: TableRoll = {
           key: `roll-${rollCounter.current}`,
           roller: d.roller || "Someone",
           die: d.die,
@@ -94,7 +106,9 @@ export default function TableView() {
           modifier: d.modifier ?? 0,
           total: d.total,
           label: d.label ?? null,
-        });
+        };
+        setTableRoll(roll);
+        setRollLog((cur) => [roll, ...cur].slice(0, 14));
       } catch {
         /* ignore malformed */
       }
@@ -125,6 +139,22 @@ export default function TableView() {
 
   const mapId = data?.map?.id ?? "none";
   const title = data?.title ?? "";
+
+  // Plan 83 — the player's own token: drag locally, commit on release.
+  const myToken = pcId ? (data?.tokens.find((t) => t.ref_id === pcId) ?? null) : null;
+  function moveMine(id: string, x: number, y: number) {
+    if (!myToken || id !== myToken.id) return;
+    qc.setQueryData<TableProjection>(["table-projection", sessionId], (prev) =>
+      prev ? { ...prev, tokens: prev.tokens.map((t) => (t.id === id ? { ...t, x, y } : t)) } : prev,
+    );
+  }
+  function dropMine(id: string, x: number, y: number) {
+    if (!myToken || !pcId || id !== myToken.id) return;
+    void api
+      .post(`/play/${pcId}/table/move`, { session_id: sessionId, x, y })
+      .catch(() => void refetchRef.current());
+  }
+  const lastRoll = rollLog[0] ?? null;
 
   // Plan 64 — staging a new map mid-session plays the scene card.
   // The map's own name rides the same payload object as the art, so it
@@ -167,7 +197,28 @@ export default function TableView() {
             defeatedRefs={data.defeated_refs}
             ping={ping}
             fx={fx}
+            editable={!!myToken}
+            onTokenMove={moveMine}
+            onTokenDragEnd={dropMine}
           />
+        </div>
+      )}
+
+      {data && panelWanted && (
+        <RemotePanel
+          projection={data}
+          rolls={rollLog}
+          pcId={pcId}
+          open={panelOpen}
+          onToggle={() => setPanelOpen((v) => !v)}
+          canDrag={!!myToken}
+        />
+      )}
+      {lastRoll && !panelOpen && (
+        <div className="ql-last-roll" title={`${lastRoll.rolls.join(" + ")}${lastRoll.modifier ? ` ${lastRoll.modifier > 0 ? "+" : "−"} ${Math.abs(lastRoll.modifier)}` : ""}`}>
+          <span className="ql-last-roll-who">{lastRoll.roller}</span>
+          <span className="ql-last-roll-what">{lastRoll.label || lastRoll.die}</span>
+          <span className="ql-last-roll-total">{lastRoll.total}</span>
         </div>
       )}
 

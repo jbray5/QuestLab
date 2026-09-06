@@ -113,7 +113,7 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
           >
             {npc.name}
           </div>
-          {npc.quick_who && (
+          {(npc.quick_who || npc.role) && (
             <div
               style={{
                 fontSize: compact ? "0.85rem" : "0.92rem",
@@ -123,10 +123,19 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
                 opacity: 0.92,
               }}
             >
-              {npc.quick_who}
+              {npc.quick_who || npc.role}
             </div>
           )}
         </div>
+        {!npc.is_revealed && (
+          <span
+            className="badge badge-draft"
+            style={{ fontSize: "0.6rem", alignSelf: "flex-start", flexShrink: 0 }}
+            title="Players haven't met them yet — flip the switch in the prep face when they do"
+          >
+            hidden
+          </span>
+        )}
       </div>
 
       {/* Empty-state nudge so the DM knows to author Table-face content. */}
@@ -140,7 +149,17 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
             borderTop: "1px dashed var(--border)",
           }}
         >
-          No table-face filled yet — tap to add WANT / KNOWS / VOICE / SECRET.
+          {npc.motivation || npc.personality || npc.secret ? (
+            // Plan 83 — the record is the source of truth: prep fields stand in
+            // until the table face is written.
+            <span style={{ fontStyle: "normal" }}>
+              {npc.motivation && <span>🎯 {npc.motivation} </span>}
+              {npc.personality && <span style={{ color: "var(--text)" }}>{npc.personality} </span>}
+              {npc.secret && <span style={{ color: "#c8a2ff" }}>🔒 {npc.secret}</span>}
+            </span>
+          ) : (
+            <>No table-face filled yet — tap to add WANT / KNOWS / VOICE / SECRET.</>
+          )}
         </div>
       )}
 

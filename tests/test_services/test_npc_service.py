@@ -188,7 +188,7 @@ class TestGenerateFromAi:
         dm = _dm()
         c = _campaign(duckdb_session, dm)
 
-        def fake_ai(role, setting, tone):
+        def fake_ai(role, setting, tone, **_kw):
             return {
                 "name": "Branwen the Patient",
                 "appearance": "Gray robes, owl on her shoulder.",
@@ -215,7 +215,7 @@ class TestGenerateFromAi:
         dm = _dm()
         c = _campaign(duckdb_session, dm)
 
-        def fake_ai(role, setting, tone):
+        def fake_ai(role, setting, tone, **_kw):
             return {
                 "name": "Preview Pete",
                 "personality": "Theoretical.",

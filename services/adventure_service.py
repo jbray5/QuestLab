@@ -13,6 +13,7 @@ from sqlmodel import Session
 
 from db.repos.adventure_repo import AdventureRepo
 from db.repos.campaign_repo import CampaignRepo
+from db.repos.character_repo import CharacterRepo
 from db.repos.encounter_repo import EncounterRepo
 from db.repos.item_repo import LootTableRepo
 from db.repos.map_repo import MapEdgeRepo, MapNodeRepo, MapRepo
@@ -108,6 +109,30 @@ def get_adventure(session: Session, adventure_id: uuid.UUID, dm_email: str) -> A
         raise ValueError(f"Adventure {adventure_id} not found.")
     _assert_adventure_owner(session, adventure, dm_email)
     return AdventureRead.model_validate(adventure)
+
+
+def infer_tier(session: Session, campaign_id: uuid.UUID) -> AdventureTier:
+    """The play tier that fits the campaign's party right now (Plan 83).
+
+    Average party level → 2024 tier bands (1–4, 5–10, 11–16, 17–20). An empty
+    party is Tier 1.
+
+    Args:
+        session: Active database session.
+        campaign_id: UUID of the campaign.
+
+    Returns:
+        The inferred AdventureTier.
+    """
+    levels = [pc.level for pc in CharacterRepo.list_by_campaign(session, campaign_id)]
+    avg = (sum(levels) / len(levels)) if levels else 1
+    if avg >= 17:
+        return AdventureTier.TIER4
+    if avg >= 11:
+        return AdventureTier.TIER3
+    if avg >= 5:
+        return AdventureTier.TIER2
+    return AdventureTier.TIER1
 
 
 def create_adventure(

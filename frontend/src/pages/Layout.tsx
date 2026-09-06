@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useCampaignStore } from "../stores/useCampaignStore";
+import { campaignsApi } from "../api/campaigns";
+import { adventuresApi } from "../api/adventures";
 import { useTourStore } from "../stores/useTourStore";
 import { useIsCompact } from "../hooks/useIsCompact";
 import DiceTray from "../components/dice-tray/DiceTray";
@@ -92,7 +94,7 @@ function NavGroup({
 
 export default function Layout() {
   const { dmEmail, signOut } = useAuthStore();
-  const { activeCampaign, activeAdventure } = useCampaignStore();
+  const { activeCampaign, activeAdventure, setActiveCampaign, setActiveAdventure } = useCampaignStore();
   const startTour = useTourStore((s) => s.start);
   const navigate = useNavigate();
   const location = useLocation();
@@ -107,6 +109,28 @@ export default function Layout() {
       navigate(`/welcome?next=${next}`, { replace: true });
     }
   }, [dmEmail, navigate, location.pathname, location.search]);
+
+  // Plan 83 — a pasted campaign or arc URL selects it in the sidebar, so the
+  // campaign pages are reachable by link (and bookmark), not only by clicking.
+  useEffect(() => {
+    if (!dmEmail) return;
+    const c = location.pathname.match(/^\/campaigns\/([0-9a-f-]{36})/i);
+    const a = location.pathname.match(/^\/adventures\/([0-9a-f-]{36})/i);
+    if (c && activeCampaign?.id !== c[1]) {
+      campaignsApi.get(c[1]).then(setActiveCampaign).catch(() => undefined);
+    } else if (a && activeAdventure?.id !== a[1]) {
+      adventuresApi
+        .get(a[1])
+        .then((adv) => {
+          setActiveAdventure(adv);
+          if (activeCampaign?.id !== adv.campaign_id) {
+            campaignsApi.get(adv.campaign_id).then(setActiveCampaign).catch(() => undefined);
+          }
+        })
+        .catch(() => undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, dmEmail]);
 
   function handleSignOut() {
     signOut();
@@ -168,7 +192,7 @@ export default function Layout() {
               💀 Encounters
             </button>
           )}
-          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/characters`)}>
+          <button className="nav-item" data-tour-id="nav-characters" onClick={() => go(`/campaigns/${activeCampaign.id}/characters`)}>
             🧙 Characters
           </button>
           <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/battle-maps`)}>

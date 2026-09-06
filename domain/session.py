@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import UTC, date, datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, field_validator
 from sqlalchemy import Column
@@ -281,6 +281,7 @@ class SessionCombatStateWrite(BaseModel):
     # Caller intent for the lifecycle. "idle" = seed the roster for prep (no
     # turn pings); "running" = combat started (ping the active PC). Defaults to
     # "idle" so an omitted value can never fire a false turn banner (Plan 41).
-    combat_state: str = Field(default="idle", max_length=20)
+    # Plan 83 — typed: "setup"/"active" are accepted aliases, anything else is a 422.
+    combat_state: Literal["idle", "running", "ended", "setup", "active", "started", "over"] = "idle"
     active_combatant_id: Optional[uuid.UUID] = None
     combatants: list[SessionCombatantCreate] = Field(default_factory=list)

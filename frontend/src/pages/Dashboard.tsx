@@ -117,14 +117,16 @@ export default function Dashboard() {
         className="btn"
         style={{ marginRight: "0.5rem" }}
         title="A ready-made adventure, four pregens, a staged map and an encounter — run it tonight"
+        data-tour-id="sample-campaign"
         onClick={() => {
+          // Plan 83 — build it (or find it) and land in the HUD with the script open.
           void api
-            .post<{ campaign_id: string }>("/onboarding/starter")
-            .then(() => window.location.assign("/campaigns"))
+            .post<{ campaign_id: string; session_id?: string | null }>("/onboarding/starter")
+            .then((r) => navigate(r.session_id ? `/sessions/${r.session_id}/hud?script=1` : "/campaigns"))
             .catch(() => navigate("/campaigns"));
         }}
       >
-        🎲 Create a sample campaign
+        🎲 Run the sample night
       </button>
       <button className="btn btn-primary" onClick={() => navigate("/campaigns")}>
         + Manage Campaigns

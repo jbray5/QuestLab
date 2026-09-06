@@ -120,7 +120,11 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
           darkness={t.state?.darkness ?? 0}
           activeTokenRef={t.activeTokenRef}
           editable
-          onCanvasPointerDown={t.onCanvasDown}
+          onCanvasPointerDown={(x, y) => {
+            // Plan 83 — a board click drops focus from the notes so N / hotkeys work.
+            (document.activeElement as HTMLElement | null)?.blur?.();
+            t.onCanvasDown(x, y);
+          }}
           onTokenMove={t.moveTokenLocal}
           onTokenDragEnd={() => t.commitTokens()}
         />

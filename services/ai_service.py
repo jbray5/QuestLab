@@ -26,6 +26,7 @@ from db.repos.character_repo import CharacterRepo
 from db.repos.encounter_repo import EncounterRepo
 from db.repos.item_repo import ItemRepo
 from db.repos.map_repo import MapRepo
+from db.repos.npc_repo import NpcRepo
 from db.repos.session_repo import SessionRepo
 from domain.enums import AdventureTier, MapNodeType
 from domain.map import MapEdge, MapNode
@@ -196,6 +197,20 @@ def generate_session_runbook(
         or "  None listed"
     )
 
+    # Plan 83 — stored NPC records are canon. The brief may use them but must
+    # never contradict a secret or a motive the DM already wrote down.
+    record_lines = (
+        "\n".join(
+            f"  - {n.name}"
+            + (f" ({n.role})" if n.role else "")
+            + (f": wants {n.want_now or n.motivation}" if (n.want_now or n.motivation) else "")
+            + (f". SECRET (players don't know): {n.secret}" if n.secret else "")
+            + (f". Status: {getattr(n.status, 'value', n.status)}" if n.status else "")
+            for n in NpcRepo.list_by_campaign(db, campaign.id)
+        )
+        or "  None yet"
+    )
+
     # Build PC roster text
     pc_lines = (
         "\n".join(
@@ -251,10 +266,18 @@ You write vivid, practical session runbooks that DMs can use at the table.
 ### NPC Roster
 {npc_lines}
 
+### Campaign NPC records (canon — never contradict)
+{record_lines}
+
 ### Encounters
 {enc_lines}
 
 {dm_notes_block}
+
+### Rules
+- NPC records above are canon: keep their secrets and motives exactly as written;
+  never invent a different secret for them.
+- Player characters are players, not NPCs: never give a PC's name to anyone else.
 """
 
     session_ref = f'Session {game_session.session_number}: "{game_session.title}"'
@@ -568,6 +591,7 @@ def generate_npc(
     role: str,
     setting: str,
     tone: str = "dark fantasy",
+    avoid_names: Optional[list[str]] = None,
 ) -> dict[str, Any]:
     """Generate a complete NPC with name, personality, secret, and dialog hooks.
 
@@ -575,6 +599,7 @@ def generate_npc(
         role: NPC role (e.g. 'innkeeper', 'corrupt guard captain').
         setting: Campaign setting context.
         tone: Campaign tone.
+        avoid_names: Names already taken in the campaign — PCs and NPCs (Plan 83).
 
     Returns:
         Dict with keys: name, appearance, personality, secret, dialog_hooks.
@@ -583,8 +608,14 @@ def generate_npc(
         f"You are an expert D&D 5e DM creating memorable NPCs for a "
         f"{tone} campaign set in {setting}."
     )
+    taken = ""
+    if avoid_names:
+        taken = (
+            " These names are already taken in this campaign — do not use them or close "
+            f"variants: {', '.join(sorted(set(avoid_names))[:40])}."
+        )
     user = (
-        f"Create a {role} NPC. Return JSON:\n"
+        f"Create a {role} NPC.{taken} Return JSON:\n"
         '{"name": "...", "appearance": "...", "personality": "...", '
         '"secret": "...", "dialog_hooks": ["hook1", "hook2", "hook3", "hook4", "hook5"]}'
     )

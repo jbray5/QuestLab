@@ -61,7 +61,7 @@ CLASS_FEATURES_2024: list[ClassFeatureCreate] = [
         character_class=CharacterClass.CLERIC,
         level_acquired=2,
         recovery=RecoveryType.SHORT_ONE,
-        uses_formula=UsesFormula.PROF_BONUS,
+        uses_formula=UsesFormula.CHANNEL_DIVINITY,
         description=(
             "Use a Channel Divinity option (Turn Undead at L2; others granted by subclass). "
             "2024 RAW: regain one use on a short rest, all uses on a long rest."

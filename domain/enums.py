@@ -206,6 +206,8 @@ class UsesFormula(str, Enum):
     PROF_BONUS = "prof_bonus"
     # 2024 Soulknife Psionic Energy Dice: pool = 2 × proficiency bonus.
     PROF_X2 = "prof_x2"
+    # 2024 Cleric Channel Divinity: 2 uses, 3 at level 6, 4 at level 18 (Plan 83).
+    CHANNEL_DIVINITY = "channel_divinity"
     WIS_MOD = "wis_mod"
     CHA_MOD = "cha_mod"
     INT_MOD = "int_mod"

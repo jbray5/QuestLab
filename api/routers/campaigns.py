@@ -3,6 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
+from fastapi.responses import JSONResponse
 from sqlmodel import func, select
 
 from api.deps import DB, CurrentUser
@@ -114,6 +115,32 @@ def delete_campaign(campaign_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.get("/{campaign_id}/export")
+def export_campaign(campaign_id: uuid.UUID, db: DB, user: CurrentUser) -> JSONResponse:
+    """Download the whole campaign as one JSON file (Plan 83).
+
+    Args:
+        campaign_id: UUID of the campaign.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The bundle, served as an attachment.
+    """
+    try:
+        bundle = campaign_service.export_campaign(db, campaign_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    slug = "".join(ch if ch.isalnum() else "-" for ch in bundle["campaign"]["name"].lower())
+    slug = "-".join(p for p in slug.split("-") if p)[:60] or "campaign"
+    return JSONResponse(
+        content=bundle,
+        headers={"Content-Disposition": f'attachment; filename="questlab-{slug}.json"'},
+    )
 
 
 @router.get("/{campaign_id}/stats")

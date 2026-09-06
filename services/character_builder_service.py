@@ -156,16 +156,29 @@ def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> Buil
         )
 
     # Skills: class picks must come from the class list, in the allowed number.
+    # A species bonus (Human's Skillful, Elf's Keen Senses) adds exactly one more
+    # pick, and only that one may sit off the class list (Plan 83).
     allowed = set(cls["skills"]["from"])
     class_picks = [s for s in build.skills if s in srd.SKILLS]
     bg_skills = set(bg["skills"]) if bg else set()
-    extra_allowed = (species_row or {}).get("bonus_skill_choices", 0)
+    extra_allowed = int((species_row or {}).get("bonus_skill_choices", 0) or 0)
+    extra_from = set((species_row or {}).get("bonus_skill_from") or [])
     class_only = [s for s in class_picks if s not in bg_skills]
-    if len([s for s in class_only if s in allowed]) > cls["skills"]["choose"] + extra_allowed:
-        raise ValueError(f"{class_name} picks {cls['skills']['choose']} skills from its list.")
-    for s in class_only:
-        if s not in allowed and extra_allowed == 0:
-            raise ValueError(f"{s} isn't on the {class_name} skill list.")
+    off_list = [s for s in class_only if s not in allowed]
+    if len(off_list) > extra_allowed:
+        raise ValueError(f"{off_list[-1]} isn't on the {class_name} skill list.")
+    if len(class_only) > cls["skills"]["choose"] + extra_allowed:
+        raise ValueError(
+            f"{class_name} picks {cls['skills']['choose']} skills from its list"
+            + (f", plus {extra_allowed} more from your species." if extra_allowed else ".")
+        )
+    if extra_from:
+        bad = [s for s in off_list if s not in extra_from]
+        over = len(class_only) > cls["skills"]["choose"]
+        if bad or (over and not any(s in extra_from for s in class_only)):
+            raise ValueError(
+                "Your species' extra skill must be one of " + ", ".join(sorted(extra_from)) + "."
+            )
     skill_profs: dict[str, int] = {s: 1 for s in class_picks}
     for s in bg_skills:
         skill_profs[s] = 1

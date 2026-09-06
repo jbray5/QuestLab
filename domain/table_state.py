@@ -125,6 +125,31 @@ class TableMap(BaseModel):
     video_url: Optional[str] = None
 
 
+class InitiativeEntry(BaseModel):
+    """One row of the player-facing initiative order (Plan 83).
+
+    The party's HP is shown (players can see each other's sheets anyway). Foes
+    carry no numbers at all — a name, whose turn it is, whether they're down.
+    """
+
+    ref: str
+    name: str
+    kind: str = "monster"
+    active: bool = False
+    defeated: bool = False
+    hp_current: Optional[int] = None
+    hp_max: Optional[int] = None
+    conditions: list[str] = PydField(default_factory=list)
+
+
+class PlayerTokenMove(BaseModel):
+    """A player dragging their own token on the remote table (Plan 83)."""
+
+    session_id: uuid.UUID
+    x: float = PydField(ge=0, le=50000)
+    y: float = PydField(ge=0, le=50000)
+
+
 class TableProjection(BaseModel):
     """Player-safe table surface — everything the projector needs, nothing else."""
 
@@ -148,6 +173,10 @@ class TableProjection(BaseModel):
     # to dim. Resolved from the running combat state; no HP ever crosses.
     active_token_ref: Optional[str] = None
     defeated_refs: list[str] = PydField(default_factory=list)
+    # Plan 83 — the remote-player window: order, whose turn, the party's HP.
+    combat_running: bool = False
+    round: int = 0
+    initiative: list[InitiativeEntry] = PydField(default_factory=list)
 
 
 class TableStateRead(BaseModel):

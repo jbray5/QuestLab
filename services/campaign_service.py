@@ -147,6 +147,10 @@ def update_campaign(
     if campaign is None:
         raise ValueError(f"Campaign {campaign_id} not found.")
     _assert_owner(campaign, dm_email)
+    if "join_code" in update.model_fields_set:
+        # Plan 83 — codes are short, upper-case, and "" clears them.
+        code = "".join(ch for ch in (update.join_code or "").upper() if ch.isalnum())[:12]
+        update.join_code = code or None
     updated = CampaignRepo.update(session, campaign, update)
     return CampaignRead.model_validate(updated)
 
@@ -232,3 +236,74 @@ def _delete_adventure_children(session: Session, adventure_id: uuid.UUID) -> Non
         for node in MapNodeRepo.list_by_map(session, map_obj.id):
             MapNodeRepo.delete(session, node)
         MapRepo.delete(session, map_obj)
+
+
+def _row(obj: object) -> dict:
+    """JSON-safe dump of a SQLModel row."""
+    return obj.model_dump(mode="json")  # type: ignore[attr-defined]
+
+
+def export_campaign(session: Session, campaign_id: uuid.UUID, dm_email: str) -> dict:
+    """Everything the DM wrote, as one JSON bundle (Plan 83).
+
+    Rows only — art stays at its URLs. Sessions carry their runbook; notebooks
+    their pages; shops their stock. Combat rosters and table state are live
+    state, not prep, and are left out.
+
+    Args:
+        session: Active database session.
+        campaign_id: UUID of the campaign.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        A dict with ``format``, the campaign, and its children.
+
+    Raises:
+        ValueError: If the campaign does not exist.
+        PermissionError: If the DM does not own the campaign.
+    """
+    from datetime import UTC, datetime
+
+    campaign = CampaignRepo.get_by_id(session, campaign_id)
+    if campaign is None:
+        raise ValueError(f"Campaign {campaign_id} not found.")
+    _assert_owner(campaign, dm_email)
+
+    adventures = []
+    for adventure in AdventureRepo.list_by_campaign(session, campaign_id):
+        sessions = []
+        for game_session in SessionRepo.list_by_adventure(session, adventure.id):
+            runbook = SessionRunbookRepo.get_by_session(session, game_session.id)
+            sessions.append({**_row(game_session), "runbook": _row(runbook) if runbook else None})
+        adventures.append(
+            {
+                **_row(adventure),
+                "encounters": [
+                    _row(e) for e in EncounterRepo.list_by_adventure(session, adventure.id)
+                ],
+                "sessions": sessions,
+            }
+        )
+    notebooks = [
+        {
+            **_row(nb),
+            "pages": [_row(p) for p in NotebookPageRepo.list_for_notebook(session, nb.id)],
+        }
+        for nb in NotebookRepo.list_for_campaign(session, campaign_id)
+    ]
+    shops = [
+        {**_row(shop), "items": [_row(i) for i in ShopItemRepo.list_for_shop(session, shop.id)]}
+        for shop in ShopRepo.list_for_campaign(session, campaign_id)
+    ]
+    return {
+        "format": "questlab-campaign/1",
+        "exported_at": datetime.now(UTC).isoformat(),
+        "campaign": _row(campaign),
+        "characters": [_row(c) for c in CharacterRepo.list_by_campaign(session, campaign_id)],
+        "npcs": [_row(n) for n in NpcRepo.list_by_campaign(session, campaign_id)],
+        "adventures": adventures,
+        "battle_maps": [_row(m) for m in BattleMapRepo.list_for_campaign(session, campaign_id)],
+        "notebooks": notebooks,
+        "shops": shops,
+        "puzzles": [_row(p) for p in PuzzleRepo.list_for_campaign(session, campaign_id)],
+    }

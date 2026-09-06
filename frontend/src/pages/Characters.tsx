@@ -89,6 +89,17 @@ export default function Characters() {
       campaignsApi.update(campaignId as string, { allow_player_signup: on } as Record<string, unknown>),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["campaign", campaignId] }),
   });
+  // Plan 83 — an optional join code: the join page asks for it before it lists the party.
+  const [joinCodeDraft, setJoinCodeDraft] = useState<string | null>(null);
+  const joinCode = joinCodeDraft ?? (campaign?.join_code ?? "");
+  const codeMut = useMutation({
+    mutationFn: (code: string) =>
+      campaignsApi.update(campaignId as string, { join_code: code } as Record<string, unknown>),
+    onSuccess: () => {
+      setJoinCodeDraft(null);
+      void qc.invalidateQueries({ queryKey: ["campaign", campaignId] });
+    },
+  });
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<PlayerCharacter | null>(null);
@@ -241,6 +252,25 @@ export default function Characters() {
               disabled={signupMut.isPending}
             />
             Players can create their own characters
+          </label>
+          <label
+            style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8rem", color: "var(--muted)" }}
+            title="When set, the join page asks for this code before it shows the party. Say it out loud at the table; leave empty for no code."
+          >
+            Join code
+            <input
+              value={joinCode}
+              onChange={(e) => setJoinCodeDraft(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12))}
+              onBlur={() => {
+                if ((campaign?.join_code ?? "") !== joinCode) codeMut.mutate(joinCode);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              placeholder="none"
+              maxLength={12}
+              style={{ width: 92, fontFamily: "monospace", letterSpacing: "0.12em", padding: "2px 6px" }}
+            />
           </label>
           <button
             className="btn btn-primary"

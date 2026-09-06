@@ -57,6 +57,8 @@ def resolve_max_uses(formula: UsesFormula, pc: PlayerCharacter) -> int:
         return character_service.proficiency_bonus(pc.level)
     if formula == UsesFormula.PROF_X2:
         return 2 * character_service.proficiency_bonus(pc.level)
+    if formula == UsesFormula.CHANNEL_DIVINITY:
+        return 2 + (1 if pc.level >= 6 else 0) + (1 if pc.level >= 18 else 0)
     if formula == UsesFormula.WIS_MOD:
         return max(1, _ability_mod(pc.score_wis))
     if formula == UsesFormula.CHA_MOD:
@@ -185,6 +187,17 @@ def seed_catalog(db: Session, payloads: list) -> int:
         Number of features inserted (0 if catalog already populated).
     """
     if ClassFeatureRepo.count(db) > 0:
+        # Plan 83 — the catalog exists; keep max-uses formulas current with the
+        # rules module (Channel Divinity moved off proficiency bonus).
+        changed = 0
+        for payload in payloads:
+            row = ClassFeatureRepo.find_by_name_class(db, payload.name, payload.character_class)
+            if row is not None and row.uses_formula != payload.uses_formula:
+                row.uses_formula = payload.uses_formula
+                db.add(row)
+                changed += 1
+        if changed:
+            db.commit()
         return 0
     inserted = 0
     for payload in payloads:

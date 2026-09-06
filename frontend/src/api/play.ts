@@ -93,6 +93,9 @@ export const playApi = {
     api.post<GearRow>(`/play/${pcId}/gear/${characterItemId}/equip`, { equipped }),
   forgeHero: (pcId: string) => api.post<{ hero_url: string }>(`/play/${pcId}/hero`),
   campaignName: (pcId: string) => api.get<{ name: string }>(`/play/${pcId}/campaign`),
+  // Plan 83 — where the table is tonight, for the phone's Table link.
+  liveSession: (pcId: string) =>
+    api.get<{ session_id: string | null; title: string | null }>(`/play/${pcId}/live-session`),
   throwDice: (pcId: string, die: string, modifier = 0, label?: string) =>
     api.post<{ die: string; rolls: number[]; modifier: number; total: number; session_id: string }>(
       `/play/${pcId}/roll`,
