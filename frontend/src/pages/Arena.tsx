@@ -284,6 +284,26 @@ export default function Arena() {
       setBusy(false);
     }
   }
+  // Ending the fight must always work, even when the referee no longer trusts the
+  // record (a deploy rotated the seal) — fall back to closing it locally.
+  async function endFight() {
+    if (!pcId || !state) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      setState(
+        await post<ArenaState>(`/play/${pcId}/arena/act`, {
+          state,
+          action: { kind: "flee", key: null, slot_level: null },
+        }),
+      );
+    } catch {
+      setState(null);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const sealExpired = !!err && /altered or expired/i.test(err);
 
   const suggested = useMemo(() => (foes ?? []).filter((f) => f.suggested), [foes]);
   const others = useMemo(() => (foes ?? []).filter((f) => !f.suggested), [foes]);
@@ -516,6 +536,13 @@ export default function Arena() {
                 </div>
               )}
               {err && <p className="ar-err">{err}</p>}
+              {sealExpired && (
+                <div className="ar-grid" style={{ marginBottom: 8 }}>
+                  <button className="ar-btn primary" disabled={busy} onClick={() => setState(null)}>
+                    <b>Start over — this fight expired</b>
+                  </button>
+                </div>
+              )}
 
               <div className="ar-sec">Action</div>
               <div className="ar-grid">
@@ -676,8 +703,9 @@ export default function Arena() {
                 <button className="ar-btn primary" disabled={busy} onClick={() => void act("end_turn")}>
                   <b>End turn → {foe.name} acts</b>
                 </button>
-                <button className="ar-btn ghost" disabled={busy} onClick={() => void act("flee")} style={{ gridColumn: "1 / -1", textAlign: "center" }}>
-                  <small>Leave the ring</small>
+                <button className="ar-btn wide" disabled={busy} onClick={() => void endFight()} title="Stop here. Nothing is saved to your sheet either way.">
+                  <b>🏳 End the fight</b>
+                  <small>leave the ring — the referee logs it as a retreat</small>
                 </button>
               </div>
             </>
