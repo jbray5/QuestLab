@@ -230,7 +230,12 @@ def list_visible_npcs(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
             "appearance": npc.appearance,
             "location": npc.location,
             "status": npc.status.value if hasattr(npc.status, "value") else npc.status,
-            "portrait_url": npc.portrait_url,
+            # Plan 91 — the true form replaces the disguise once the DM reveals it.
+            "portrait_url": (
+                npc.true_form_url
+                if getattr(npc, "true_form_revealed", False) and npc.true_form_url
+                else npc.portrait_url
+            ),
         }
         for npc in sorted(visible, key=lambda n: n.name)
     ]

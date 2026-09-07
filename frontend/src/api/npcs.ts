@@ -26,6 +26,9 @@ export interface Npc {
   location: string | null;
   monster_stat_block_id: string | null;
   portrait_url: string | null;
+  // Plan 91 — the portrait after the reveal, and whether it's showing.
+  true_form_url?: string | null;
+  true_form_revealed?: boolean;
   notes: string | null;
   is_revealed: boolean;
   // ── Table face — short, scannable lines for at-the-table use (Plan 40).
@@ -55,6 +58,8 @@ export interface NpcCreate {
   location?: string | null;
   monster_stat_block_id?: string | null;
   portrait_url?: string | null;
+  true_form_url?: string | null;
+  true_form_revealed?: boolean;
   notes?: string | null;
   is_revealed?: boolean;
   // ── Table face — Plan 40.

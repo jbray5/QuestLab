@@ -10,6 +10,7 @@ import {
 } from "../../api/npcs";
 import PortraitGenerator from "../PortraitGenerator";
 import { portraitSrc } from "../../lib/portrait";
+import { tableApi } from "../../api/table";
 
 const STATUSES: NpcStatus[] = [
   "Alive",
@@ -203,6 +204,12 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
           {/* Portrait + AI generation (only for persisted NPCs) */}
           {initial && (
             <Field label="Portrait">
+              <ImageSlot
+                url={form.portrait_url ?? null}
+                stamp={initial?.updated_at}
+                empty="No portrait yet — upload one."
+                onChange={(url) => set("portrait_url", url)}
+              />
               <PortraitGenerator
                 currentUrl={portraitSrc(form.portrait_url, initial?.updated_at) ?? null}
                 onGenerate={async (hints) => {
@@ -211,6 +218,43 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                   return updated.portrait_url ?? "";
                 }}
               />
+            </Field>
+          )}
+          {initial && (
+            <Field label="True form — the portrait after the reveal">
+              <ImageSlot
+                url={form.true_form_url ?? null}
+                stamp={initial?.updated_at}
+                empty="No true form. Give a disguised NPC the face under the mask."
+                onChange={(url) => set("true_form_url", url)}
+              />
+              {form.true_form_url && (
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    fontSize: "0.85rem",
+                    marginTop: "0.4rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.true_form_revealed ?? false}
+                    onChange={(e) => set("true_form_revealed", e.target.checked)}
+                    style={{ width: "auto" }}
+                  />
+                  <span>
+                    {form.true_form_revealed ? (
+                      <strong style={{ color: "var(--green2, #4caf50)" }}>True form showing</strong>
+                    ) : (
+                      <strong style={{ color: "var(--muted)" }}>Disguise showing</strong>
+                    )}
+                    {" — players and the table swap to the true form when this is on (or hit Reveal on the table face)"}
+                  </span>
+                </label>
+              )}
             </Field>
           )}
 
@@ -435,6 +479,8 @@ function fromInitial(initial: Npc | null): NpcCreate {
     location: initial.location,
     monster_stat_block_id: initial.monster_stat_block_id,
     portrait_url: initial.portrait_url,
+    true_form_url: initial.true_form_url ?? null,
+    true_form_revealed: initial.true_form_revealed ?? false,
     notes: initial.notes,
     is_revealed: initial.is_revealed ?? false,
     // Plan 40 — Table face
@@ -445,6 +491,61 @@ function fromInitial(initial: Npc | null): NpcCreate {
     secret_short: initial.secret_short,
     relationship_pings: initial.relationship_pings,
   };
+}
+
+/** Plan 91 — preview + upload for a portrait slot; stores to the art bucket via the map uploader. */
+function ImageSlot({
+  url,
+  stamp,
+  empty,
+  onChange,
+}: {
+  url: string | null;
+  stamp?: string;
+  empty: string;
+  onChange: (url: string | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const src = url ? portraitSrc(url, stamp) : null;
+  return (
+    <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
+      {src ? (
+        <img
+          src={src}
+          alt=""
+          style={{ width: 56, height: 56, borderRadius: 6, objectFit: "cover", border: "1px solid var(--border)" }}
+        />
+      ) : (
+        <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{empty}</span>
+      )}
+      <input
+        type="file"
+        accept="image/*"
+        disabled={busy}
+        style={{ width: "auto", fontSize: "0.8rem" }}
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          if (!f) return;
+          setBusy(true);
+          setErr(null);
+          try {
+            onChange(await tableApi.uploadMap(f));
+          } catch (ex) {
+            setErr((ex as Error).message);
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      {url && (
+        <button type="button" className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => onChange(null)}>
+          Remove
+        </button>
+      )}
+      {err && <span style={{ fontSize: "0.75rem", color: "var(--danger, #e57373)" }}>{err}</span>}
+    </div>
+  );
 }
 
 function Row({ children }: { children: React.ReactNode }) {

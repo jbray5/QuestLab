@@ -47,6 +47,10 @@ class Npc(SQLModel, table=True):
     )
     portrait_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = Field(default=None)
+    # Plan 91 — the portrait after the reveal (the hag under the kindly aunt).
+    # Players and the table see it only once the DM flips true_form_revealed.
+    true_form_url: Optional[str] = Field(default=None, max_length=500)
+    true_form_revealed: bool = Field(default=False)
     # Plan 38 — DM-controlled visibility on the player view. Defaults to
     # True so existing NPCs stay visible; the DM flips this to False to
     # hide an NPC (villain reveal, plot twist, future-session character)
@@ -101,6 +105,8 @@ class NpcCreate(BaseModel):
     portrait_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = None
     is_revealed: bool = False
+    true_form_url: Optional[str] = Field(default=None, max_length=500)
+    true_form_revealed: bool = False
     # Plan 40 — Table-face
     quick_who: Optional[str] = Field(default=None, max_length=120)
     want_now: Optional[str] = Field(default=None, max_length=200)
@@ -132,6 +138,8 @@ class NpcRead(BaseModel):
     portrait_url: Optional[str] = None
     notes: Optional[str] = None
     is_revealed: bool = False
+    true_form_url: Optional[str] = None
+    true_form_revealed: bool = False
     # Plan 40 — Table-face
     quick_who: Optional[str] = None
     want_now: Optional[str] = None
@@ -165,6 +173,8 @@ class NpcUpdate(BaseModel):
     portrait_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = None
     is_revealed: Optional[bool] = None
+    true_form_url: Optional[str] = Field(default=None, max_length=500)
+    true_form_revealed: Optional[bool] = None
     # Plan 40 — Table-face
     quick_who: Optional[str] = Field(default=None, max_length=120)
     want_now: Optional[str] = Field(default=None, max_length=200)

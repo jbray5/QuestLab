@@ -11,6 +11,10 @@ import EditableRunbookText from "../runbook/EditableRunbookText";
 import { rememberDockSession } from "./dmSession";
 import SessionNotesEditor from "./SessionNotesEditor";
 
+// Plan 91 — the face the DM's dock shows: the true form once revealed, else the disguise.
+const npcFace = (n: { portrait_url: string | null; true_form_url?: string | null; true_form_revealed?: boolean }) =>
+  n.true_form_revealed && n.true_form_url ? n.true_form_url : n.portrait_url;
+
 /**
  * DmDockBody — the contents of the DM notes dock (Plan 75).
  *
@@ -303,10 +307,10 @@ export default function DmDockBody({ sessionId, onSessionChange }: Props) {
                   }}
                 >
                   <summary style={{ cursor: "pointer", listStyle: "none", display: "flex", gap: 8, alignItems: "center" }}>
-                    {n.portrait_url ? (
+                    {npcFace(n) ? (
                       <img
-                        src={n.portrait_url}
-                        {...zoomable(n.portrait_url, n.name)}
+                        src={npcFace(n) ?? undefined}
+                        {...zoomable(npcFace(n) ?? "", n.name)}
                         alt=""
                         style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0, cursor: "zoom-in" }}
                       />

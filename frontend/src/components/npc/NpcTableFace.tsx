@@ -1,4 +1,5 @@
-import { type Npc, NPC_STATUS_COLORS } from "../../api/npcs";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { type Npc, NPC_STATUS_COLORS, npcsApi } from "../../api/npcs";
 import { zoomable } from "../../lib/lightbox";
 import { portraitSrc } from "../../lib/portrait";
 
@@ -32,6 +33,13 @@ interface Props {
 }
 
 export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props) {
+  // Plan 91 — the face the table sees: the true form once revealed, else the disguise.
+  const face = npc.true_form_revealed && npc.true_form_url ? npc.true_form_url : npc.portrait_url;
+  const qc = useQueryClient();
+  const reveal = useMutation({
+    mutationFn: (v: boolean) => npcsApi.update(npc.id, { true_form_revealed: v }),
+    onSuccess: () => void qc.invalidateQueries(),
+  });
   const statusColor = NPC_STATUS_COLORS[npc.status];
   const hasAnyTableContent =
     npc.quick_who ||
@@ -70,9 +78,9 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
     >
       {/* Identity row — portrait + name + who-they-are */}
       <div style={{ display: "flex", gap: "0.7rem", alignItems: "center" }}>
-        {npc.portrait_url ? (
+        {face ? (
           <img
-            src={portraitSrc(npc.portrait_url)} {...zoomable(portraitSrc(npc.portrait_url), npc.name)}
+            src={portraitSrc(face)} {...zoomable(portraitSrc(face), npc.name)}
             alt={npc.name}
             style={{
               width: compact ? 40 : 52,
@@ -135,6 +143,22 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
           >
             hidden
           </span>
+        )}
+        {npc.true_form_url && (
+          <button
+            type="button"
+            className={`btn ${npc.true_form_revealed ? "btn-ghost" : "btn-danger"}`}
+            style={{ fontSize: "0.62rem", padding: "0.15rem 0.45rem", alignSelf: "flex-start", flexShrink: 0 }}
+            disabled={reveal.isPending}
+            onClick={() => reveal.mutate(!npc.true_form_revealed)}
+            title={
+              npc.true_form_revealed
+                ? "Back to the disguise"
+                : "Swap the portrait to the true form — players' phones and the table see it at once"
+            }
+          >
+            {npc.true_form_revealed ? "↩ Disguise" : "🎭 Reveal true form"}
+          </button>
         )}
       </div>
 
