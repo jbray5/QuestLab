@@ -740,6 +740,7 @@ export default function SessionHud() {
   const replaceFromRoll = useInitiativeStore((s) => s.replaceFromRoll);
   const patchPersistedCombatant = useInitiativeStore((s) => s.patchCombatant);
   const advanceTurn = useInitiativeStore((s) => s.nextTurn);
+  const rewindTurn = useInitiativeStore((s) => s.prevTurn);
   const resetCombat = useInitiativeStore((s) => s.reset);
   const addPersistedCombatant = useInitiativeStore((s) => s.addCombatant);
   const removePersistedCombatant = useInitiativeStore((s) => s.removeCombatant);
@@ -961,7 +962,7 @@ export default function SessionHud() {
     void advanceTurn();
   }
   // Plan 85 — E ends the turn (Sam counted 34 tabs per turn). Not while typing,
-  // and only while someone actually has the turn.
+  // and only while someone actually has the turn. Plan 90 — Shift+E steps back.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "e" && e.key !== "E") return;
@@ -971,7 +972,8 @@ export default function SessionHud() {
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
       if (!storeActiveId) return;
       e.preventDefault();
-      void advanceTurn();
+      if (e.shiftKey) void rewindTurn();
+      else void advanceTurn();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -1646,10 +1648,20 @@ export default function SessionHud() {
               </button>
               {combatActive && (
                 <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: "0.65rem", padding: "0.2rem 0.55rem" }}
+                  onClick={() => void rewindTurn()}
+                  title="Undo an accidental End Turn — step back one combatant (Shift+E)"
+                >
+                  ← Back
+                </button>
+              )}
+              {combatActive && (
+                <button
                   className="btn btn-primary"
                   style={{ fontSize: "0.78rem", padding: "0.3rem 0.65rem", fontWeight: 700 }}
                   onClick={nextTurn}
-                  title="Advance to the next combatant's turn"
+                  title="Advance to the next combatant's turn (E)"
                 >
                   End Turn →
                 </button>

@@ -31,6 +31,10 @@ export default function BoardTracker({ sessionId, combat }: Props) {
     await sessionsApi.advanceCombatTurn(sessionId);
     refresh();
   }
+  async function prevTurn() {
+    await sessionsApi.rewindCombatTurn(sessionId);
+    refresh();
+  }
 
   const running = combat?.combat_state === "running";
   const combatants = [...(combat?.combatants ?? [])].sort((a, b) => a.sort_index - b.sort_index);
@@ -41,9 +45,14 @@ export default function BoardTracker({ sessionId, combat }: Props) {
         <strong style={{ fontFamily: "Cinzel, serif", color: "var(--gold)", fontSize: "0.85rem" }}>
           Combat {running ? `· Round ${combat?.round ?? 1}` : combat?.combat_state === "ended" ? "· ended" : "· idle"}
         </strong>
-        <button className="btn" style={{ fontSize: "0.72rem", padding: "0.2rem 0.55rem" }} onClick={nextTurn} disabled={!running}>
-          Next turn ▶
-        </button>
+        <span style={{ display: "flex", gap: "0.3rem" }}>
+          <button className="btn" style={{ fontSize: "0.72rem", padding: "0.2rem 0.55rem" }} onClick={prevTurn} disabled={!running} title="Step back one combatant">
+            ◀ Back
+          </button>
+          <button className="btn" style={{ fontSize: "0.72rem", padding: "0.2rem 0.55rem" }} onClick={nextTurn} disabled={!running}>
+            Next turn ▶
+          </button>
+        </span>
       </div>
 
       {combatants.length === 0 && (

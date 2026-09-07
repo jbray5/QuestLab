@@ -1138,3 +1138,66 @@ def advance_combat_turn(
     _emit_turn_change(db, previous_active_id, next_combatant.id, session_id, new_round)
 
     return load_combat_state(db, session_id, dm_email)
+
+
+def rewind_combat_turn(
+    db: DBSession, session_id: uuid.UUID, dm_email: str
+) -> SessionCombatStateRead:
+    """Step the turn pointer back to the previous non-defeated combatant (Plan 90).
+
+    The undo for an accidental End Turn. Stepping back past the top of the
+    initiative order steps the round back too; the first turn of round 1 has
+    nothing before it and is refused.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        Updated combat state.
+
+    Raises:
+        ValueError: If the session has no combatants, or this is the first turn.
+        PermissionError: If the DM does not own the campaign.
+    """
+    game_session = get_session(db, session_id, dm_email)
+    combatants = SessionCombatantRepo.list_for_session(db, session_id)
+    if not combatants:
+        raise ValueError("No combatants in tracker — roll initiative first.")
+    alive = [c for c in combatants if not c.defeated]
+    if not alive:
+        return load_combat_state(db, session_id, dm_email)
+
+    current_id = game_session.combat_active_combatant_id
+    n = len(combatants)
+    cur_pos = next((i for i, c in enumerate(combatants) if c.id == current_id), None)
+    if cur_pos is None:
+        prev_combatant = alive[-1]
+        wrapped = False
+    else:
+        prev_combatant = None
+        wrapped = False
+        for step in range(1, n + 1):
+            idx = cur_pos - step
+            probe = combatants[idx % n]
+            if not probe.defeated:
+                prev_combatant = probe
+                wrapped = idx < 0
+                break
+        if prev_combatant is None:  # defensive — `alive` is non-empty
+            prev_combatant = alive[-1]
+
+    if wrapped and game_session.combat_round <= 1:
+        raise ValueError("This is the first turn of round 1 — nothing to go back to.")
+    new_round = game_session.combat_round - (1 if wrapped else 0)
+    previous_active_id = current_id
+    game_session.combat_round = new_round
+    game_session.combat_active_combatant_id = prev_combatant.id
+    db.add(game_session)
+    db.commit()
+    db.refresh(game_session)
+
+    _emit_turn_change(db, previous_active_id, prev_combatant.id, session_id, new_round)
+
+    return load_combat_state(db, session_id, dm_email)

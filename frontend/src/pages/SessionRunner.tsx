@@ -22,6 +22,7 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
     patchCombatant,
     toggleDefeated,
     nextTurn,
+    prevTurn,
     reset,
   } = useInitiativeStore();
 
@@ -190,13 +191,18 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
       </div>
 
       {combatants.length > 0 && (
-        <button
-          className="btn btn-primary"
-          style={{ marginTop: "0.75rem", width: "100%" }}
-          onClick={() => void nextTurn()}
-        >
-          Next Turn →
-        </button>
+        <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
+          <button
+            className="btn"
+            onClick={() => void prevTurn()}
+            title="Undo an accidental Next Turn — step back one combatant"
+          >
+            ← Back
+          </button>
+          <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => void nextTurn()}>
+            Next Turn →
+          </button>
+        </div>
       )}
     </div>
   );

@@ -77,6 +77,9 @@ export const sessionsApi = {
     ),
   advanceCombatTurn: (id: string) =>
     api.post<SessionCombatStateRead>(`/sessions/${id}/combat/advance`),
+  // Plan 90 — the undo for an accidental End Turn.
+  rewindCombatTurn: (id: string) =>
+    api.post<SessionCombatStateRead>(`/sessions/${id}/combat/rewind`),
   // Plan 41 — incremental roster ops that preserve round/turn/conditions/beats.
   addCombatant: (id: string, payload: SessionCombatantCreate) =>
     api.post<SessionCombatStateRead>(

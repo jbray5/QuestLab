@@ -927,3 +927,56 @@ class TestRecordItemHandout:
         item = _make_item(duckdb_session)
         with pytest.raises(PermissionError):
             sess_svc.record_item_handout(duckdb_session, gs.id, pc.id, item.id, dm2)
+
+
+class TestRewindCombatTurn:
+    """Plan 90 — the undo for an accidental End Turn."""
+
+    def _running(self, db, names):
+        dm = _unique_dm()
+        c = _make_campaign(db, dm)
+        adv = _make_adventure(db, c.id, dm)
+        gs = _make_session(db, adv.id, dm)
+        state = sess_svc.save_combat_state(
+            db,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                combat_state="running",
+                combatants=[_persist_combatant(i, n) for i, n in enumerate(names)],
+            ),
+        )
+        return dm, gs, state
+
+    def test_steps_back_to_the_previous_combatant(self, duckdb_session: Session):
+        """Advance then rewind lands on the combatant that had the turn."""
+        dm, gs, state = self._running(duckdb_session, ["First", "Second", "Third"])
+        sess_svc.advance_combat_turn(duckdb_session, gs.id, dm)
+        back = sess_svc.rewind_combat_turn(duckdb_session, gs.id, dm)
+        assert back.active_combatant_id == state.combatants[0].id and back.round == 1
+
+    def test_wrapping_back_past_the_top_steps_the_round_back(self, duckdb_session: Session):
+        """Round 2, first combatant → round 1, last combatant."""
+        dm, gs, state = self._running(duckdb_session, ["Alpha", "Beta"])
+        sess_svc.advance_combat_turn(duckdb_session, gs.id, dm)  # Beta
+        wrapped = sess_svc.advance_combat_turn(duckdb_session, gs.id, dm)  # Alpha, round 2
+        assert wrapped.round == 2
+        back = sess_svc.rewind_combat_turn(duckdb_session, gs.id, dm)
+        assert back.round == 1 and back.active_combatant_id == state.combatants[1].id
+
+    def test_the_first_turn_of_round_one_is_refused(self, duckdb_session: Session):
+        """Nothing precedes round 1's opening turn."""
+        dm, gs, _state = self._running(duckdb_session, ["Alpha", "Beta"])
+        with pytest.raises(ValueError, match="first turn of round 1"):
+            sess_svc.rewind_combat_turn(duckdb_session, gs.id, dm)
+
+    def test_skips_defeated_going_backwards(self, duckdb_session: Session):
+        """A defeated combatant is skipped on the way back, without touching the round."""
+        dm, gs, state = self._running(duckdb_session, ["First", "Second", "Third"])
+        sess_svc.advance_combat_turn(duckdb_session, gs.id, dm)  # Second
+        sess_svc.advance_combat_turn(duckdb_session, gs.id, dm)  # Third
+        sess_svc.update_combatant(
+            duckdb_session, gs.id, state.combatants[1].id, dm, SessionCombatantUpdate(defeated=True)
+        )
+        back = sess_svc.rewind_combat_turn(duckdb_session, gs.id, dm)
+        assert back.active_combatant_id == state.combatants[0].id and back.round == 1

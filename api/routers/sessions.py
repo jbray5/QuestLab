@@ -596,6 +596,28 @@ def advance_combat_turn(session_id: uuid.UUID, db: DB, user: CurrentUser) -> Ses
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
+@router.post("/sessions/{session_id}/combat/rewind", response_model=SessionCombatStateRead)
+def rewind_combat_turn(session_id: uuid.UUID, db: DB, user: CurrentUser) -> SessionCombatStateRead:
+    """Step the turn pointer back one combatant — the undo for an accidental End Turn.
+
+    Steps the round back when it wraps past the top of the order (Plan 90).
+
+    Args:
+        session_id: UUID of the session.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Updated combat state.
+    """
+    try:
+        return session_service.rewind_combat_turn(db, session_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
 # ── DM brief (Plan 43 — the glanceable session-2 format) ────────────────────────
 
 

@@ -64,6 +64,8 @@ interface InitiativeState {
 
   /** Advance the turn pointer (skips defeated, increments round on wrap). */
   nextTurn: () => Promise<void>;
+  /** Undo an accidental End Turn: step back to the previous combatant (Plan 90). */
+  prevTurn: () => Promise<void>;
 
   /** Clear all combatants and reset round/turn state. */
   reset: () => Promise<void>;
@@ -305,6 +307,25 @@ export const useInitiativeStore = create<InitiativeState>((set, get) => ({
       set({
         saving: false,
         error: err instanceof Error ? err.message : "Failed to advance turn",
+      });
+    }
+  },
+
+  prevTurn: async () => {
+    const { sessionId } = get();
+    if (!sessionId) return;
+    set({ saving: true, error: null });
+    try {
+      const state = await sessionsApi.rewindCombatTurn(sessionId);
+      set({
+        round: state.round,
+        activeCombatantId: state.active_combatant_id,
+        saving: false,
+      });
+    } catch (err) {
+      set({
+        saving: false,
+        error: err instanceof Error ? err.message : "Failed to step back",
       });
     }
   },
