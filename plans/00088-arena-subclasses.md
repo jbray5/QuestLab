@@ -1,7 +1,7 @@
 # Plan 00088 — Practice Arena: the table's subclasses
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (live-verified 2026-09-06)
 
 **Started:** 2026-09-06 · **Implemented by:** Claude Code
 
@@ -53,7 +53,16 @@ the same gate the sheet uses for subclass text. The SRD build never shows them.
   slot heal; Ensnaring Strike restrains after a hit and spends the slot;
   Command's Grovel knocks the foe prone; Faerie Fire then Charm Person. Full
   suite green.
-- Prod: see the commit that flips this plan to Complete.
+- Prod (API 1.11.0, 3c39d4d), against the real sheets in The Severance, a
+  fight started and fled for each: **Nya** — wild_magic on, metamagic
+  Seeking + Twinned, 3 sorcery points from the sheet, Tides of Chaos (1) and
+  Innate Sorcery (2), Fire Bolt / Magic Missile / Sorcerous Burst / Shocking
+  Grasp / Aganazzar's Scorcher on the grid, no Quickened. **Willa** — Wild
+  Shape (2), Star Map (2), the three Starry Forms, the free Star Map bolt
+  beside Guiding Bolt, Faerie Fire, Cure Wounds, Produce Flame, Scimitar.
+  **Creed** — Divine Smite, Searing Smite and Ensnaring Strike as bonus-action
+  riders, Command, Bless, Shield of Faith, Nature's Wrath (2), Lay on Hands (3),
+  Longsword.
 
 ## Not modeled
 Twinned Spell (nothing to twin in a duel), Font of Magic slot conversion,
