@@ -44,10 +44,14 @@ Magic, the phone showed a bare count with no maximum, and the Wild Magic
   Magic make/convert with the level gate, the point cost, and the cap; slots
   spent on the sheet arrive spent; regain-a-slot needs a spent slot. All
   arena suites: 41 passed. Full suite green.
-- Prod: see the commit's verification note in the session report (Nya's
-  sheet: Font of Magic cards and the Magic Missile slot picker on the phone;
-  a level-2 Magic Missile logged as four darts; Willa's Cure Wounds at
-  level 2 logged as 4d8).
+- Prod (41cddee, API live 60 s after push), against the real sheets: **Nya**
+  — slots 4/4 and 2/2 with sorcery 3/3; features innate_sorcery, create_slot,
+  convert_slot, tides_of_chaos; Font of Magic turned 2 points into a fifth
+  level-1 slot; Magic Missile's note reads "one more per slot level up" and a
+  level-2 cast spent the level-2 slot (2 → 1). **Willa** — Cure Wounds
+  upcast 2d8; a level-2 cast logged "Cure Wounds (level 2 slot)" with
+  4d8+3. A hand-edited HP value was refused (422, altered or expired). The
+  Arena bundle on Vercel carries the Font of Magic cards and slot pickers.
 
 ## Not modeled
 Spiritual Weapon's +1d8 per two levels; Sleep is still the 2014 HP pool;
