@@ -455,6 +455,16 @@ def _spell_attacks(
         if effect == "sorcerous_burst":
             is_attack = True
             damage = _cantrip_scale("1d8", pc.level)
+        upcast = (
+            ""
+            if spell.level == 0
+            else (_UPCAST_BY_NAME.get(name) or _parse_upcast(spell.higher_levels or ""))
+        )
+        hint = (
+            " · one more per slot level up"
+            if upcast == "count"
+            else (f" · +{upcast} per slot level up" if upcast else "")
+        )
         out.append(
             ArenaAttack(
                 key=f"s-{spell.id}",
@@ -471,9 +481,11 @@ def _spell_attacks(
                 melee=attack_type == "melee",
                 effect=effect,
                 after_melee_hit=bool(rule.get("rider")),
+                upcast=upcast,
                 note=(f"level {spell.level}" if spell.level else "cantrip")
                 + (f" · {spell.save_ability} save" if save and not is_attack else "")
-                + (" · concentration" if spell.is_concentration else ""),
+                + (" · concentration" if spell.is_concentration else "")
+                + hint,
             )
         )
     return out, reactions
@@ -624,6 +636,26 @@ def _class_extras(
                 blurb="Bonus action: +1 spell DC and advantage on spell attacks for 3 rounds.",
             )
         )
+        if lvl >= 2:
+            feats.append(
+                ArenaFeature(
+                    key="create_slot",
+                    name="Font of Magic: make a slot",
+                    uses_left=99,
+                    cost="bonus",
+                    blurb="Sorcery points into a spell slot: L1 for 2, L2 for 3 (level 3+), "
+                    "L3 for 5 (level 5+), L4 for 6 (level 7+), L5 for 7 (level 9+).",
+                )
+            )
+            feats.append(
+                ArenaFeature(
+                    key="convert_slot",
+                    name="Font of Magic: slot to points",
+                    uses_left=99,
+                    cost="bonus",
+                    blurb="A spell slot into sorcery points equal to its level.",
+                )
+            )
         metamagic = _metamagic(pc)
         if lvl >= 2 and (not metamagic or "quickened spell" in metamagic):
             feats.append(
@@ -731,9 +763,11 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
     cls = _class_of(pc)
     stats = character_service.spellcasting_stats(pc)
     slots: dict[str, int] = {}
+    slots_max: dict[str, int] = {}
     try:
         state = spellcasting_service.slot_state(db, pc.id, dm_email)
         slots = {lvl: int(s.remaining) for lvl, s in state.levels.items() if s.max > 0}
+        slots_max = {lvl: int(s.max) for lvl, s in state.levels.items() if s.max > 0}
     except Exception:  # noqa: BLE001 — non-casters and odd sheets simply have no slots
         slots = {}
     martial = (6 if pc.level < 5 else 8) if cls == "monk" else 0
@@ -747,9 +781,11 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
     attacks += extra_attacks
     features = _pc_features(db, pc, dm_email, personal) + extra_feats
     sorcery = pc.level if cls == "sorcerer" and pc.level >= 2 else 0
+    sorcery_max = sorcery
     for row in feature_service.list_for_character(db, pc.id, dm_email):
         if (row.feature_name or "").strip().lower() == "sorcery points":
             sorcery = max(0, (row.max_uses or 0) - (row.uses_spent or 0))
+            sorcery_max = max(sorcery_max, row.max_uses or 0)
     feats = _feats(pc) + [f"reaction:{r}" for r in reactions]
     return ArenaPc(
         name=pc.character_name,
@@ -764,6 +800,7 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
         attacks=attacks,
         features=features,
         slots=slots,
+        slots_max=slots_max,
         attacks_per_action=2 if cls in _MARTIAL and pc.level >= 5 else 1,
         prof=prof,
         mods=mods,
@@ -774,6 +811,7 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
         martial_die=martial,
         focus=pc.level if cls == "monk" and pc.level >= 2 else 0,
         sorcery=sorcery,
+        sorcery_max=sorcery_max,
         ac_bonus=1 if _has_style(pc, "defense") else 0,
         metamagic=_metamagic(pc),
         wild_magic=bool(personal and cls == "sorcerer" and "wild" in (pc.subclass or "").lower()),
@@ -983,13 +1021,57 @@ def _spend_bonus(state: ArenaState) -> None:
     state.bonus_used = True
 
 
-def _spend_slot(state: ArenaState, level: int) -> None:
-    """Spend a slot of ``level``, or the lowest higher one (a warlock's pact slots)."""
+# Plan 89 — Font of Magic (2024): sorcery points → a slot, and the sorcerer level it needs.
+_FONT_COST = {1: 2, 2: 3, 3: 5, 4: 6, 5: 7}
+_FONT_MIN_LEVEL = {1: 2, 2: 3, 3: 5, 4: 7, 5: 9}
+# Upcast rules the catalog text doesn't state cleanly enough to parse.
+_UPCAST_BY_NAME = {
+    "cure wounds": "2d8",
+    "healing word": "2d4",
+    "guiding bolt": "1d6",
+    "magic missile": "count",
+    "scorching ray": "count",
+    "searing smite": "1d6",
+    "ensnaring strike": "1d6",
+}
+_UPCAST_DIE_RE = re.compile(r"increases by (\d+d\d+) for each spell slot level above", re.I)
+_UPCAST_COUNT_RE = re.compile(r"one (?:more|additional) (?:dart|ray|beam)", re.I)
+
+
+def _parse_upcast(text: str) -> str:
+    """The per-level scaling a spell's "higher levels" text describes, or ""."""
+    m = _UPCAST_DIE_RE.search(text or "")
+    if m:
+        return m.group(1)
+    if _UPCAST_COUNT_RE.search(text or ""):
+        return "count"
+    return ""
+
+
+def _upcast_expr(expr: str, upcast: str, extra: int) -> str:
+    """``2d8+3`` with ``2d8`` per level, two levels up → ``6d8+3`` (same die size only)."""
+    if extra <= 0 or not upcast or upcast == "count":
+        return expr
+    base = _DICE_RE.search(expr or "")
+    up = _DICE_RE.search(upcast)
+    if not base or not up or base.group(2) != up.group(2):
+        return expr
+    count = int(base.group(1)) + int(up.group(1)) * extra
+    return f"{count}d{base.group(2)}" + (base.group(3) or "").replace(" ", "")
+
+
+def _has_slot(pc: ArenaPc, level: int = 1) -> bool:
+    """Any slot of ``level`` or higher left (pact slots count)."""
+    return any(int(lvl) >= level and n > 0 for lvl, n in pc.slots.items())
+
+
+def _spend_slot(state: ArenaState, level: int) -> int:
+    """Spend a slot of ``level`` or the lowest higher one (pact slots); returns the level spent."""
     for lvl in sorted(state.pc.slots, key=int):
         if int(lvl) >= level and state.pc.slots[lvl] > 0:
             state.pc.slots[lvl] -= 1
             state.stats.slots_spent += 1
-            return
+            return int(lvl)
     raise ValueError(f"No level-{level} slots left.")
 
 
@@ -1120,7 +1202,7 @@ def _resolve_rider(state: ArenaState, attack: ArenaAttack, slot_level: Optional[
         )
         return
     if attack.effect == "ensnaring":
-        _spend_slot(state, slot_level or 1)
+        lvl = _spend_slot(state, slot_level or 1)
         nat, dtxt = d20()
         mod = foe.saves.get("str", 0)
         dc = pc.spell_dc or 10
@@ -1133,7 +1215,7 @@ def _resolve_rider(state: ArenaState, attack: ArenaAttack, slot_level: Optional[
                 hit=False,
             )
         else:
-            dmg, btxt = roll_expr("1d6")
+            dmg, btxt = roll_expr(f"{lvl}d6")
             _damage_dealt(state, dmg)
             _foe_add(state, "restrained")
             _log(
@@ -1146,13 +1228,14 @@ def _resolve_rider(state: ArenaState, attack: ArenaAttack, slot_level: Optional[
             )
         return
     if attack.effect == "searing_smite":
-        _spend_slot(state, slot_level or 1)
-        dmg, btxt = roll_expr("1d6")
+        lvl = _spend_slot(state, slot_level or 1)
+        dmg, btxt = roll_expr(f"{lvl}d6")
         _damage_dealt(state, dmg)
         _log(
             state,
             "you",
-            f"Searing Smite: {dmg} fire. {foe.name} is at {foe.hp}/{foe.hp_max}.",
+            f"Searing Smite (level {lvl} slot): {dmg} fire. "
+            f"{foe.name} is at {foe.hp}/{foe.hp_max}.",
             dice=btxt,
             hit=True,
         )
@@ -1189,11 +1272,13 @@ def _resolve_rider(state: ArenaState, attack: ArenaAttack, slot_level: Optional[
     raise ValueError("That rider isn't modeled.")
 
 
-def _resolve_buff(state: ArenaState, attack: ArenaAttack) -> None:
-    """Heals, concentration buffs, summons, Sleep."""
+def _resolve_buff(
+    state: ArenaState, attack: ArenaAttack, extra: int = 0, up_note: str = ""
+) -> None:
+    """Heals, concentration buffs, summons, Sleep. ``extra`` = slot levels above the spell's."""
     foe, pc = state.foe, state.pc
     if attack.effect == "heal":
-        dmg, btxt = roll_expr(attack.damage)
+        dmg, btxt = roll_expr(_upcast_expr(attack.damage, attack.upcast, extra))
         if pc.starry_form == "chalice" and attack.spell_level > 0:
             more, mtxt = roll_expr(f"1d8+{pc.mods.get('wis', 0)}")
             dmg += more
@@ -1202,7 +1287,10 @@ def _resolve_buff(state: ArenaState, attack: ArenaAttack) -> None:
         pc.hp += gained
         state.stats.healed += gained
         _log(
-            state, "you", f"{attack.name}: +{gained} HP. You're at {pc.hp}/{pc.hp_max}.", dice=btxt
+            state,
+            "you",
+            f"{attack.name}{up_note}: +{gained} HP. You're at {pc.hp}/{pc.hp_max}.",
+            dice=btxt,
         )
     elif attack.effect == "bless":
         _concentrate(state, "Bless")
@@ -1293,13 +1381,16 @@ def _resolve_buff(state: ArenaState, attack: ArenaAttack) -> None:
 def _resolve_player_attack(
     state: ArenaState, attack: ArenaAttack, slot_level: Optional[int] = None
 ) -> None:
-    """Attack roll or saving throw, riders, then damage."""
+    """Attack roll or saving throw, riders, then damage — scaled to the slot spent."""
     foe, pc = state.foe, state.pc
+    lvl = slot_level or attack.spell_level
+    extra = max(0, lvl - attack.spell_level) if attack.spell_level > 0 else 0
+    up_note = f" (level {lvl} slot)" if extra else ""
     if attack.after_melee_hit:
         _resolve_rider(state, attack, slot_level)
         return
     if attack.kind in ("heal", "buff"):
-        _resolve_buff(state, attack)
+        _resolve_buff(state, attack, extra, up_note)
         return
     gwf = (
         attack.two_handed
@@ -1307,8 +1398,8 @@ def _resolve_player_attack(
         and any("great weapon" in f.lower() for f in pc.feats)
     )
     if attack.hit_bonus is not None:
-        shots = 3 if attack.effect == "scorching_ray" else 1
-        per = attack.damage
+        shots = 3 + extra if attack.effect == "scorching_ray" else 1
+        per = _upcast_expr(attack.damage, attack.upcast, extra)
         if attack.effect == "eldritch_blast" and "×" in attack.damage:
             n, per = attack.damage.split("×", 1)
             shots = int(n)
@@ -1320,7 +1411,7 @@ def _resolve_player_attack(
                 _log(
                     state,
                     "you",
-                    f"{attack.name}: {total} vs AC {foe.ac} — miss.",
+                    f"{attack.name}{up_note}: {total} vs AC {foe.ac} — miss.",
                     dice=dtxt,
                     hit=False,
                 )
@@ -1353,7 +1444,7 @@ def _resolve_player_attack(
             _log(
                 state,
                 "you",
-                f"{attack.name}: {'CRITICAL HIT' if crit else 'hit'} for {dmg} "
+                f"{attack.name}{up_note}: {'CRITICAL HIT' if crit else 'hit'} for {dmg} "
                 f"{attack.damage_type}. "
                 f"{foe.name} is at {foe.hp}/{foe.hp_max}.",
                 dice=f"{dtxt} vs AC {foe.ac} · {btxt}"
@@ -1362,7 +1453,11 @@ def _resolve_player_attack(
                 crit=crit,
             )
         return
-    dmg, btxt = roll_expr(attack.damage)
+    per = _upcast_expr(attack.damage, attack.upcast, extra)
+    if attack.effect == "magic_missile" and extra:
+        darts = 3 + extra
+        per = f"{darts}d4+{darts}"
+    dmg, btxt = roll_expr(per)
     if attack.save_ability and attack.save_dc:
         nat, dtxt = d20("dis" if state.effects.pop("foe_disadv_save", None) else None)
         mod = foe.saves.get(attack.save_ability, 0)
@@ -1382,7 +1477,8 @@ def _resolve_player_attack(
         _log(
             state,
             "you",
-            f"{attack.name}: {foe.name} {'saves' if saved else 'fails'} ({total} vs DC {dc}) — "
+            f"{attack.name}{up_note}: {foe.name} {'saves' if saved else 'fails'} "
+            f"({total} vs DC {dc}) — "
             f"{dmg} {attack.damage_type}. {foe.name} is at {foe.hp}/{foe.hp_max}."
             + (
                 " Its next attack is at disadvantage."
@@ -1398,7 +1494,7 @@ def _resolve_player_attack(
     _log(
         state,
         "you",
-        f"{attack.name} lands for {dmg} {attack.damage_type}. "
+        f"{attack.name}{up_note} lands for {dmg} {attack.damage_type}. "
         f"{foe.name} is at {foe.hp}/{foe.hp_max}.",
         dice=btxt,
         hit=True,
@@ -1501,11 +1597,10 @@ def _reaction_reduces(
     cls = pc.character_class.lower()
     ac = _pc_ac(state)
     # Shield: +5 AC, if that turns the hit into a miss.
-    if "reaction:shield" in pc.feats and pc.slots.get("1", 0) > 0 and total < ac + 5 and not crit:
-        pc.slots["1"] -= 1
-        state.stats.slots_spent += 1
+    if "reaction:shield" in pc.feats and _has_slot(pc) and total < ac + 5 and not crit:
+        lvl = _spend_slot(state, 1)
         state.reaction_used = True
-        return True, 0, "Shield (reaction, a level-1 slot): +5 AC turns it into a miss"
+        return True, 0, f"Shield (reaction, a level-{lvl} slot): +5 AC turns it into a miss"
     # Cutting Words: a d6 off the roll, if that turns it into a miss.
     cw = next((f for f in pc.features if f.key == "cutting_words" and f.uses_left > 0), None)
     if cw and total - 6 < ac and not crit:
@@ -1530,12 +1625,11 @@ def _hellish_rebuke(state: ArenaState) -> None:
     pc, foe = state.pc, state.foe
     if not state.auto_reactions or state.reaction_used:
         return
-    if "reaction:hellish_rebuke" not in pc.feats or pc.slots.get("1", 0) <= 0:
+    if "reaction:hellish_rebuke" not in pc.feats or not _has_slot(pc):
         return
-    pc.slots["1"] -= 1
-    state.stats.slots_spent += 1
+    lvl = _spend_slot(state, 1)
     state.reaction_used = True
-    dmg, btxt = roll_expr("2d10")
+    dmg, btxt = roll_expr(f"{1 + lvl}d10")
     nat, dtxt = d20()
     total = nat + foe.saves.get("dex", 0)
     if total >= (pc.spell_dc or 10):
@@ -1544,7 +1638,8 @@ def _hellish_rebuke(state: ArenaState) -> None:
     _log(
         state,
         "you",
-        f"Hellish Rebuke (reaction): {dmg} fire. {foe.name} is at {foe.hp}/{foe.hp_max}.",
+        f"Hellish Rebuke (reaction, level {lvl} slot): {dmg} fire. "
+        f"{foe.name} is at {foe.hp}/{foe.hp_max}.",
         dice=f"foe {dtxt} vs DC {pc.spell_dc} · {btxt}",
         hit=True,
     )
@@ -1684,7 +1779,13 @@ def _unarmed_of(pc: ArenaPc) -> ArenaAttack:
     return strike
 
 
-def _feature(state: ArenaState, key: str, db: Session, beast_id: Optional[str] = None) -> None:
+def _feature(
+    state: ArenaState,
+    key: str,
+    db: Session,
+    beast_id: Optional[str] = None,
+    slot_level: Optional[int] = None,
+) -> None:
     feat = next((f for f in state.pc.features if f.key == key), None)
     if feat is None:
         raise ValueError("You don't have that feature.")
@@ -1707,6 +1808,19 @@ def _feature(state: ArenaState, key: str, db: Session, beast_id: Optional[str] =
         raise ValueError("You're already in a beast form.")
     if key == "cutting_words":
         raise ValueError("Cutting Words happens on its own when the foe would just hit you.")
+    if key == "create_slot":
+        lvl = slot_level or 1
+        if lvl not in _FONT_COST:
+            raise ValueError("Font of Magic makes slots of levels 1 to 5.")
+        if pc.level < _FONT_MIN_LEVEL[lvl]:
+            raise ValueError(f"A level-{lvl} slot needs sorcerer level {_FONT_MIN_LEVEL[lvl]}.")
+        if pc.sorcery < _FONT_COST[lvl]:
+            raise ValueError(f"A level-{lvl} slot costs {_FONT_COST[lvl]} sorcery points.")
+    if key == "convert_slot":
+        if pc.slots.get(str(slot_level or 0), 0) <= 0:
+            raise ValueError("Pick a slot you still have.")
+        if pc.sorcery >= pc.sorcery_max:
+            raise ValueError("Your sorcery points are already full.")
     if feat.cost == "bonus":
         _spend_bonus(state)
     elif feat.cost == "action":
@@ -1799,6 +1913,28 @@ def _feature(state: ArenaState, key: str, db: Session, beast_id: Optional[str] =
             "you",
             f"Starry Form — {form.title()}: "
             "constellations trace your skin for the rest of the fight.",
+        )
+    elif key == "create_slot":
+        lvl = slot_level or 1
+        pc.sorcery -= _FONT_COST[lvl]
+        pc.slots[str(lvl)] = pc.slots.get(str(lvl), 0) + 1
+        pc.slots_max[str(lvl)] = pc.slots_max.get(str(lvl), 0) + 1
+        _log(
+            state,
+            "you",
+            f"Font of Magic: {_FONT_COST[lvl]} sorcery points become a level-{lvl} slot "
+            f"({pc.sorcery}/{pc.sorcery_max} points left).",
+        )
+    elif key == "convert_slot":
+        lvl = slot_level or 1
+        pc.slots[str(lvl)] -= 1
+        gained = min(lvl, pc.sorcery_max - pc.sorcery)
+        pc.sorcery += gained
+        _log(
+            state,
+            "you",
+            f"Font of Magic: a level-{lvl} slot becomes {gained} sorcery points "
+            f"({pc.sorcery}/{pc.sorcery_max}).",
         )
     elif key == "innate_sorcery":
         state.innate_sorcery = 3
@@ -1954,6 +2090,10 @@ def _tips(state: ArenaState) -> list[str]:
         )
     if pc.hp <= pc.hp_max // 4 and not state.action_used:
         out.append("Very low? Dodge: every attack on you has disadvantage until your next turn.")
+    if "create_slot" in keys and not state.bonus_used and pc.sorcery >= 2 and not _has_slot(pc):
+        out.append(
+            "Out of slots with sorcery points left: Font of Magic makes a level-1 slot for 2."
+        )
     if state.tides_primed:
         out.append("Tides of Chaos is primed: your next leveled spell surges — plan for it.")
     if pc.starry_form == "archer" and not state.bonus_used:
@@ -2013,9 +2153,10 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
             _spend_bonus(state)
             if quickened:
                 state.marks = [m for m in state.marks if m != "quicken"]
+            spent = None
             if leveled:
-                _spend_slot(state, action.slot_level or attack.spell_level)
-            _resolve_player_attack(state, attack, action.slot_level)
+                spent = _spend_slot(state, action.slot_level or attack.spell_level)
+            _resolve_player_attack(state, attack, spent)
         elif swing and state.attacks_left > 0:
             state.attacks_left -= 1
             _resolve_player_attack(state, attack)
@@ -2023,11 +2164,12 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
             why = _action_free(state)
             if why:
                 raise ValueError(why)
+            spent = None
             if leveled:
-                _spend_slot(state, action.slot_level or attack.spell_level)
+                spent = _spend_slot(state, action.slot_level or attack.spell_level)
             _spend_action(state)
             state.attacks_left = state.pc.attacks_per_action - 1 if swing else 0
-            _resolve_player_attack(state, attack, action.slot_level)
+            _resolve_player_attack(state, attack, spent)
         if "invisible" in state.effects:
             state.effects.pop("invisible", None)
         if leveled or (attack.after_melee_hit and attack.spell_level > 0):
@@ -2040,7 +2182,7 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
         state.dodging = True
         _log(state, "you", "You Dodge: attacks against you have disadvantage until your next turn.")
     elif kind == "feature":
-        _feature(state, action.key or "", db)
+        _feature(state, action.key or "", db, slot_level=action.slot_level)
     elif kind == "reckless":
         _feature(state, "reckless", db)
     elif kind == "wild_shape":
@@ -2223,8 +2365,11 @@ def _surge(state: ArenaState) -> None:
         _log(state, "ref", f"  Lightning: {dmg} to {foe.name} ({foe.hp}/{foe.hp_max}).", dice=btxt)
         return
     if effect == "regain_slot":
-        if pc.slots:
-            lowest = min(pc.slots, key=int)
+        spent = [lvl for lvl, n in pc.slots.items() if n < pc.slots_max.get(lvl, n)]
+        if spent:
+            lowest = min(spent, key=int)
             pc.slots[lowest] += 1
             _log(state, "ref", f"  A level-{lowest} slot returns to you.")
+        else:
+            _log(state, "ref", "  No slot was spent — nothing to regain.")
         return

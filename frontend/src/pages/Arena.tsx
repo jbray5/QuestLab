@@ -29,6 +29,7 @@ interface ArenaAttack {
   effect: string | null;
   after_melee_hit: boolean;
   note: string;
+  upcast: string;
 }
 interface ArenaFeature {
   key: string;
@@ -50,10 +51,12 @@ interface ArenaPc extends ArenaSide {
   attacks: ArenaAttack[];
   features: ArenaFeature[];
   slots: Record<string, number>;
+  slots_max: Record<string, number>;
   raging: boolean;
   attacks_per_action: number;
   focus: number;
   sorcery: number;
+  sorcery_max: number;
   sneak_dice: number;
   temp_hp: number;
   spell_dc: number | null;
@@ -202,6 +205,12 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return data as T;
 }
 
+// Font of Magic (2024): points per created slot, and the sorcerer level it needs.
+const FONT_COST: Record<number, number> = { 1: 2, 2: 3, 3: 5, 4: 6, 5: 7 };
+const FONT_MIN_LEVEL: Record<number, number> = { 1: 2, 2: 3, 3: 5, 4: 7, 5: 9 };
+const upcastHint = (a: ArenaAttack, levels: number[]) =>
+  a.upcast && levels.length > 1 ? (a.upcast === "count" ? " · one more per slot level" : ` · +${a.upcast} per slot level`) : "";
+
 const KIND_ICON: Record<ArenaAttack["kind"], string> = {
   weapon: "🗡",
   unarmed: "👊",
@@ -348,9 +357,11 @@ export default function Arena() {
   const foe = state?.foe;
   const yourChips: { label: string; cls?: string }[] = [];
   if (state && you) {
-    Object.entries(you.slots).forEach(([lvl, n]) => yourChips.push({ label: `L${lvl} slots ×${n}` }));
+    Object.entries(you.slots).forEach(([lvl, n]) =>
+      yourChips.push({ label: you.slots_max?.[lvl] ? `L${lvl} slots ${n}/${you.slots_max[lvl]}` : `L${lvl} slots ×${n}` }),
+    );
     if (you.focus > 0) yourChips.push({ label: `Focus ×${you.focus}` });
-    if (you.sorcery > 0) yourChips.push({ label: `Sorcery ×${you.sorcery}` });
+    if (you.sorcery > 0 || you.sorcery_max > 0) yourChips.push({ label: `Sorcery ${you.sorcery}/${Math.max(you.sorcery_max, you.sorcery)}` });
     if (you.sneak_dice > 0) yourChips.push({ label: `Sneak Attack ${you.sneak_dice}d6` });
     if (you.attacks_per_action > 1) yourChips.push({ label: `${you.attacks_per_action} attacks` });
     if (you.beast) yourChips.push({ label: `${you.beast.name} form +${you.beast.temp_hp}`, cls: "cond" });
@@ -552,6 +563,31 @@ export default function Arena() {
                     const why = whyNot(a);
                     const leveled = a.spell_level > 0 && (a.kind === "spell" || a.kind === "heal" || a.kind === "buff");
                     const levels = leveled ? slotLevels(a.spell_level) : [];
+                    const detail = (
+                      <small>
+                        {a.hit_bonus != null ? `+${a.hit_bonus} to hit · ` : a.save_dc ? `DC ${a.save_dc} ${a.save_ability?.toUpperCase()} · ` : ""}
+                        {a.damage !== "0" ? `${a.damage} ${a.damage_type}` : a.note}
+                        {a.spell_level > 0 ? ` · L${a.spell_level}` : ""}
+                        {upcastHint(a, levels)}
+                      </small>
+                    );
+                    if (leveled && levels.length > 1 && !why) {
+                      return (
+                        <div key={a.key} className="ar-btn wide" title={a.note}>
+                          <b>
+                            {KIND_ICON[a.kind]} {a.name}
+                          </b>
+                          {detail}
+                          <span className="ar-slots">
+                            {levels.map((lvl) => (
+                              <button key={lvl} disabled={busy} onClick={() => void act("cast", a.key, lvl)}>
+                                Slot L{lvl}
+                              </button>
+                            ))}
+                          </span>
+                        </div>
+                      );
+                    }
                     return (
                       <button
                         key={a.key}
@@ -563,11 +599,7 @@ export default function Arena() {
                         <b>
                           {KIND_ICON[a.kind]} {a.name}
                         </b>
-                        <small>
-                          {a.hit_bonus != null ? `+${a.hit_bonus} to hit · ` : a.save_dc ? `DC ${a.save_dc} ${a.save_ability?.toUpperCase()} · ` : ""}
-                          {a.damage !== "0" ? `${a.damage} ${a.damage_type}` : a.note}
-                          {a.spell_level > 0 ? ` · L${a.spell_level}` : ""}
-                        </small>
+                        {detail}
                         {why && <small className="ar-why">{why}</small>}
                       </button>
                     );
@@ -603,8 +635,8 @@ export default function Arena() {
                   .filter((a) => a.cost === "bonus" || a.after_melee_hit)
                   .map((a) => {
                     const why = whyNot(a);
-                    const pickSlot = a.effect === "divine_smite" || a.effect === "searing_smite";
-                    const levels = pickSlot ? slotLevels(1) : [];
+                    const levels = a.spell_level > 0 ? slotLevels(a.spell_level) : [];
+                    const pickSlot = a.effect === "divine_smite" || a.effect === "searing_smite" || levels.length > 1;
                     return (
                       <div key={a.key} className={`ar-btn${pickSlot ? " wide" : ""}`} style={{ opacity: why ? 0.55 : 1 }} title={why || a.note}>
                         <b>
@@ -614,6 +646,7 @@ export default function Arena() {
                           {a.hit_bonus != null ? `+${a.hit_bonus} to hit · ` : a.save_dc ? `DC ${a.save_dc} ${a.save_ability?.toUpperCase()} · ` : ""}
                           {a.damage !== "0" ? `${a.damage} ${a.damage_type} · ` : ""}
                           {a.note}
+                          {upcastHint(a, levels)}
                         </small>
                         {why ? (
                           <small className="ar-why">{why}</small>
@@ -657,6 +690,40 @@ export default function Arena() {
                                 </button>
                               ))}
                               {beasts !== null && beasts.length === 0 && <small>No beasts in the catalog at your CR.</small>}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    }
+                    if (f.key === "create_slot" || f.key === "convert_slot") {
+                      const make = f.key === "create_slot";
+                      const options = make
+                        ? [1, 2, 3, 4, 5].filter((l) => you.level >= FONT_MIN_LEVEL[l] && you.sorcery >= FONT_COST[l])
+                        : you.sorcery < you.sorcery_max
+                          ? slotLevels(1)
+                          : [];
+                      const stuck =
+                        blocked ||
+                        (options.length === 0
+                          ? make
+                            ? "Not enough sorcery points"
+                            : you.sorcery >= you.sorcery_max
+                              ? "Sorcery points are full"
+                              : "No slots to convert"
+                          : "");
+                      return (
+                        <div key={f.key} className="ar-btn wide" style={{ opacity: stuck ? 0.55 : 1 }} title={f.blurb}>
+                          <b>⚡ {f.name}</b>
+                          <small>{f.blurb}</small>
+                          {stuck ? (
+                            <small className="ar-why">{stuck}</small>
+                          ) : (
+                            <span className="ar-slots">
+                              {options.map((l) => (
+                                <button key={l} disabled={busy} onClick={() => void act("feature", f.key, l)}>
+                                  {make ? `L${l} for ${FONT_COST[l]} pts` : `L${l} → ${l} pts`}
+                                </button>
+                              ))}
                             </span>
                           )}
                         </div>

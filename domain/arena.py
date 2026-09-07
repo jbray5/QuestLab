@@ -41,6 +41,8 @@ class ArenaAttack(BaseModel):
     # Riders that need a hit this turn (Divine Smite, Searing Smite, Stunning Strike).
     after_melee_hit: bool = False
     note: str = ""
+    # Plan 89 — per-slot-level scaling: a die ("1d8"), "count" (one more dart/ray), or "".
+    upcast: str = ""
 
 
 class ArenaFeature(BaseModel):
@@ -92,6 +94,8 @@ class ArenaPc(ArenaSide):
     attacks: list[ArenaAttack] = Field(default_factory=list)
     features: list[ArenaFeature] = Field(default_factory=list)
     slots: dict[str, int] = Field(default_factory=dict)
+    # Plan 89 — the sheet's maximum per level: the phone shows 3/4, a regained slot is real.
+    slots_max: dict[str, int] = Field(default_factory=dict)
     raging: bool = False
     attacks_per_action: int = Field(default=1, ge=1, le=4)
     # Plan 87 — the numbers riders need.
@@ -104,6 +108,7 @@ class ArenaPc(ArenaSide):
     martial_die: int = 0
     focus: int = 0
     sorcery: int = 0
+    sorcery_max: int = 0
     temp_hp: int = 0
     ac_bonus: int = 0
     beast: Optional[ArenaBeast] = None
