@@ -53,6 +53,13 @@ class _Seq:
 
 
 _MADE: list[tuple[uuid.UUID, str]] = []
+_SPELLS_MADE: list[uuid.UUID] = []
+
+
+@pytest.fixture(autouse=True)
+def _owners_table(monkeypatch):
+    """The suite plays at the owner's table: PHB subclass mechanics are allowed."""
+    monkeypatch.setattr(arena.entitlement_service, "personal_content_allowed", lambda email: True)
 
 
 @pytest.fixture(autouse=True)
@@ -63,6 +70,25 @@ def _tidy(duckdb_session: Session):
         cid, dm = _MADE.pop()
         try:
             camp_svc.delete_campaign(duckdb_session, cid, dm)
+        except Exception:  # noqa: BLE001 — best effort
+            duckdb_session.rollback()
+    # Spells this test planted in the shared catalog go too (their learned rows first),
+    # so the builder's and the spell service's own fixtures see a clean catalog.
+    from sqlmodel import select
+
+    from domain.character import CharacterSpell
+
+    while _SPELLS_MADE:
+        sid = _SPELLS_MADE.pop()
+        try:
+            for row in duckdb_session.exec(
+                select(CharacterSpell).where(CharacterSpell.spell_id == sid)
+            ):
+                duckdb_session.delete(row)
+            duckdb_session.commit()
+            spell = SpellRepo.get_by_id(duckdb_session, sid)
+            if spell is not None:
+                SpellRepo.delete(duckdb_session, spell)
         except Exception:  # noqa: BLE001 — best effort
             duckdb_session.rollback()
 
@@ -106,6 +132,12 @@ def _spell(db, name, level, classes, **kw):
     existing = next((s for s in SpellRepo.list_all(db) if s.name == name), None)
     if existing:
         return existing
+    made = _make_spell(db, name, level, classes, **kw)
+    _SPELLS_MADE.append(made.id)
+    return made
+
+
+def _make_spell(db, name, level, classes, **kw):
     return SpellRepo.create(
         db,
         SpellCreate(

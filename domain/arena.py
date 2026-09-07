@@ -107,6 +107,10 @@ class ArenaPc(ArenaSide):
     temp_hp: int = 0
     ac_bonus: int = 0
     beast: Optional[ArenaBeast] = None
+    # Plan 88 — subclass layer.
+    metamagic: list[str] = Field(default_factory=list)
+    wild_magic: bool = False
+    starry_form: Optional[str] = None
 
 
 class ArenaFoe(ArenaSide):
@@ -173,6 +177,9 @@ class ArenaState(BaseModel):
     innate_sorcery: int = 0
     spiritual_weapon: bool = False
     auto_reactions: bool = True
+    # Plan 88 — timed effects (surges, forms): key → rounds left.
+    effects: dict[str, int] = Field(default_factory=dict)
+    tides_primed: bool = False
     result: Optional[Literal["won", "lost", "fled"]] = None
     pc: ArenaPc
     foe: ArenaFoe

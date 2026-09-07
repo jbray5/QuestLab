@@ -40,7 +40,14 @@ from domain.arena import (
 )
 from domain.character import PlayerCharacter
 from integrations import arena_signing
-from services import attack_service, character_service, feature_service, spellcasting_service
+from integrations.dnd_rules.wild_magic_2024 import RANDOM_SPELLS, surge_entry
+from services import (
+    attack_service,
+    character_service,
+    entitlement_service,
+    feature_service,
+    spellcasting_service,
+)
 from services.item_service import is_weapon
 
 _RNG = random.SystemRandom()
@@ -74,6 +81,11 @@ _FEATURE_KEYS: dict[str, tuple[str, str, str]] = {
         "bonus",
         "Hunter's Mark without a slot: +1d6 on every hit while you concentrate.",
     ),
+    "star map — free guiding bolt": (
+        "star_map",
+        "free",
+        "Guiding Bolt without a slot, from the Star Map (automatic when you use the bolt).",
+    ),
     "bardic inspiration": (
         "cutting_words",
         "reaction",
@@ -99,6 +111,12 @@ _SPELL_EFFECTS: dict[str, dict[str, Any]] = {
     "scorching ray": {"effect": "scorching_ray"},
     "magic missile": {"effect": "magic_missile"},
     "shield": {"skip": True, "reaction": "shield"},
+    # Plan 88 — the owner's table.
+    "ensnaring strike": {"kind": "feature", "cost": "bonus", "effect": "ensnaring", "rider": True},
+    "command": {"effect": "command"},
+    "faerie fire": {"kind": "buff", "cost": "action", "effect": "faerie_fire"},
+    "charm person": {"kind": "buff", "cost": "action", "effect": "charm"},
+    "sorcerous burst": {"effect": "sorcerous_burst"},
     "hellish rebuke": {"skip": True, "reaction": "hellish_rebuke"},
 }
 
@@ -434,6 +452,9 @@ def _spell_attacks(
         if effect == "heal":
             damage = f"{rule['dice']}+{pc_spell_mod(stats, mods)}"
         is_attack = attack_type in ("melee", "ranged") and kind in ("cantrip", "spell")
+        if effect == "sorcerous_burst":
+            is_attack = True
+            damage = _cantrip_scale("1d8", pc.level)
         out.append(
             ArenaAttack(
                 key=f"s-{spell.id}",
@@ -459,7 +480,11 @@ def _spell_attacks(
 
 
 def _class_extras(
-    pc: PlayerCharacter, mods: dict[str, int], prof: int
+    pc: PlayerCharacter,
+    mods: dict[str, int],
+    prof: int,
+    personal: bool = False,
+    stats: Optional[dict[str, Any]] = None,
 ) -> tuple[list[ArenaAttack], list[ArenaFeature]]:
     """Level 1–5 class mechanics that aren't spells or sheet rows."""
     cls = _class_of(pc)
@@ -543,7 +568,7 @@ def _class_extras(
                     blurb="Bonus action: advantage on your next attack this turn (you don't move).",
                 )
             )
-        if "soulknife" in sub and lvl >= 3:
+        if personal and "soulknife" in sub and lvl >= 3:
             dex = mods["dex"]
             attacks.append(
                 ArenaAttack(
@@ -599,7 +624,8 @@ def _class_extras(
                 blurb="Bonus action: +1 spell DC and advantage on spell attacks for 3 rounds.",
             )
         )
-        if lvl >= 2:
+        metamagic = _metamagic(pc)
+        if lvl >= 2 and (not metamagic or "quickened spell" in metamagic):
             feats.append(
                 ArenaFeature(
                     key="quicken",
@@ -609,10 +635,70 @@ def _class_extras(
                     blurb="2 sorcery points: your next spell is cast as a bonus action.",
                 )
             )
+        if personal and "wild" in sub:
+            feats.append(
+                ArenaFeature(
+                    key="tides_of_chaos",
+                    name="Tides of Chaos",
+                    uses_left=1,
+                    cost="free",
+                    blurb="Advantage on your next attack. "
+                    "Your next leveled spell then surges for sure "
+                    "— and that gives Tides back.",
+                )
+            )
+    if cls == "druid" and personal and "stars" in sub and lvl >= 3 and stats:
+        wis = mods["wis"]
+        attacks.append(
+            ArenaAttack(
+                key="star_bolt",
+                name="Guiding Bolt (Star Map)",
+                kind="spell",
+                hit_bonus=stats.get("attack_bonus"),
+                damage="4d6",
+                damage_type="radiant",
+                spell_level=0,
+                melee=False,
+                effect="guiding_bolt",
+                note="no slot — a Star Map use; advantage on your next attack after a hit",
+            )
+        )
+        for key, name, blurb in (
+            (
+                "starry_archer",
+                "Starry Form: Archer",
+                "Bonus action, a Wild Shape use: a luminous arrow each turn "
+                "as a bonus action (1d8 + WIS radiant).",
+            ),
+            (
+                "starry_chalice",
+                "Starry Form: Chalice",
+                "Bonus action, a Wild Shape use: healing spells cast with a slot "
+                "heal you 1d8 + WIS more.",
+            ),
+            (
+                "starry_dragon",
+                "Starry Form: Dragon",
+                "Bonus action, a Wild Shape use: concentration checks can't roll below 10.",
+            ),
+        ):
+            feats.append(ArenaFeature(key=key, name=name, uses_left=99, cost="bonus", blurb=blurb))
+        _ = wis
     return attacks, feats
 
 
-def _pc_features(db: Session, pc: PlayerCharacter, dm_email: str) -> list[ArenaFeature]:
+def _metamagic(pc: PlayerCharacter) -> list[str]:
+    """Metamagic options the sheet lists as feats ("Metamagic: Seeking Spell")."""
+    out = []
+    for f in _feats(pc):
+        if f.lower().startswith("metamagic"):
+            out.append(f.split(":", 1)[-1].strip().lower())
+    return out
+
+
+def _pc_features(
+    db: Session, pc: PlayerCharacter, dm_email: str, personal: bool = False
+) -> list[ArenaFeature]:
     """The modeled sheet features, with uses left."""
     out: list[ArenaFeature] = []
     sub = (pc.subclass or "").lower()
@@ -626,7 +712,9 @@ def _pc_features(db: Session, pc: PlayerCharacter, dm_email: str) -> list[ArenaF
             uses = max(uses, pc.level)  # a pool of 5 × level, spent 5 at a time
         if key == "cutting_words" and "lore" not in sub:
             continue
-        if key == "natures_wrath" and "ancients" not in sub:
+        if key == "natures_wrath" and ("ancients" not in sub or not personal):
+            continue
+        if key == "star_map" and ("stars" not in sub or not personal):
             continue
         out.append(
             ArenaFeature(  # type: ignore[arg-type]
@@ -654,9 +742,14 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
         attacks.insert(0, _unarmed(pc, mods, martial))
     spells, reactions = _spell_attacks(db, pc, dm_email, stats, mods)
     attacks += spells
-    extra_attacks, extra_feats = _class_extras(pc, mods, prof)
+    personal = entitlement_service.personal_content_allowed(dm_email)
+    extra_attacks, extra_feats = _class_extras(pc, mods, prof, personal, stats)
     attacks += extra_attacks
-    features = _pc_features(db, pc, dm_email) + extra_feats
+    features = _pc_features(db, pc, dm_email, personal) + extra_feats
+    sorcery = pc.level if cls == "sorcerer" and pc.level >= 2 else 0
+    for row in feature_service.list_for_character(db, pc.id, dm_email):
+        if (row.feature_name or "").strip().lower() == "sorcery points":
+            sorcery = max(0, (row.max_uses or 0) - (row.uses_spent or 0))
     feats = _feats(pc) + [f"reaction:{r}" for r in reactions]
     return ArenaPc(
         name=pc.character_name,
@@ -680,8 +773,10 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
         sneak_dice=(pc.level + 1) // 2 if cls == "rogue" else 0,
         martial_die=martial,
         focus=pc.level if cls == "monk" and pc.level >= 2 else 0,
-        sorcery=pc.level if cls == "sorcerer" and pc.level >= 2 else 0,
+        sorcery=sorcery,
         ac_bonus=1 if _has_style(pc, "defense") else 0,
+        metamagic=_metamagic(pc),
+        wild_magic=bool(personal and cls == "sorcerer" and "wild" in (pc.subclass or "").lower()),
     )
 
 
@@ -799,7 +894,7 @@ def _log(state: ArenaState, who: str, text: str, dice: Optional[str] = None, **k
 def _pc_ac(state: ArenaState) -> int:
     pc = state.pc
     base = pc.beast.ac if pc.beast else pc.ac + pc.ac_bonus
-    return base + (2 if state.faith else 0)
+    return base + (2 if state.faith else 0) + (2 if "shield2" in state.effects else 0)
 
 
 def start(db: Session, pc_id: uuid.UUID, monster_id: Optional[uuid.UUID] = None) -> ArenaState:
@@ -922,7 +1017,11 @@ def _player_mode(state: ArenaState, attack: ArenaAttack) -> Optional[str]:
     adv = adv or _foe_has(state, "asleep") or _foe_has(state, "stunned")
     adv = adv or _foe_has(state, "restrained") or (_foe_has(state, "prone") and attack.melee)
     adv = adv or (state.innate_sorcery > 0 and attack.kind in ("cantrip", "spell"))
+    adv = adv or _foe_has(state, "faerie fire") or "invisible" in state.effects
+    adv = adv or "radiance" in state.effects
     dis = _foe_has(state, "prone") and not attack.melee
+    dis = dis or "frightened" in state.effects or "fog" in state.effects
+    dis = dis or "poisoned" in state.effects
     return _mode(adv, dis)
 
 
@@ -933,6 +1032,9 @@ def _damage_dealt(state: ArenaState, dmg: int) -> None:
     if dmg > 0 and _foe_has(state, "asleep"):
         _foe_clear(state, "asleep")
         _log(state, "ref", f"{foe.name} jolts awake.")
+    if dmg > 0 and _foe_has(state, "charmed"):
+        _foe_clear(state, "charmed")
+        _log(state, "ref", f"{foe.name} snaps out of the charm.")
 
 
 def _attack_roll(
@@ -948,6 +1050,25 @@ def _attack_roll(
     total = nat + hit_bonus + bless
     crit = nat == 20 or (_foe_has(state, "asleep") and attack.melee and nat != 1)
     hit = crit or (nat != 1 and total >= state.foe.ac)
+    pc = state.pc
+    if (
+        not hit
+        and attack.kind in ("cantrip", "spell")
+        and "seeking spell" in pc.metamagic
+        and pc.sorcery >= 1
+    ):
+        # Plan 88 — Seeking Spell: one sorcery point to reroll a missed spell attack.
+        pc.sorcery -= 1
+        nat2, dtxt2 = d20(mode)
+        total = nat2 + hit_bonus + bless
+        crit = nat2 == 20
+        hit = crit or (nat2 != 1 and total >= state.foe.ac)
+        return (
+            hit,
+            crit,
+            total,
+            f"{dtxt} → Seeking Spell reroll {dtxt2}{hit_bonus:+d}{btxt} = {total}",
+        )
     return hit, crit, total, f"{dtxt}{hit_bonus:+d}{btxt} = {total}"
 
 
@@ -998,6 +1119,32 @@ def _resolve_rider(state: ArenaState, attack: ArenaAttack, slot_level: Optional[
             hit=True,
         )
         return
+    if attack.effect == "ensnaring":
+        _spend_slot(state, slot_level or 1)
+        nat, dtxt = d20()
+        mod = foe.saves.get("str", 0)
+        dc = pc.spell_dc or 10
+        if nat + mod >= dc:
+            _log(
+                state,
+                "you",
+                f"Ensnaring Strike: {foe.name} tears free ({nat + mod} vs DC {dc}).",
+                dice=f"foe {dtxt}{mod:+d}",
+                hit=False,
+            )
+        else:
+            dmg, btxt = roll_expr("1d6")
+            _damage_dealt(state, dmg)
+            _foe_add(state, "restrained")
+            _log(
+                state,
+                "you",
+                f"Ensnaring Strike: thorny vines bind {foe.name} — Restrained, {dmg} piercing. "
+                f"{foe.name} is at {foe.hp}/{foe.hp_max}.",
+                dice=f"foe {dtxt}{mod:+d} · {btxt}",
+                hit=True,
+            )
+        return
     if attack.effect == "searing_smite":
         _spend_slot(state, slot_level or 1)
         dmg, btxt = roll_expr("1d6")
@@ -1047,6 +1194,10 @@ def _resolve_buff(state: ArenaState, attack: ArenaAttack) -> None:
     foe, pc = state.foe, state.pc
     if attack.effect == "heal":
         dmg, btxt = roll_expr(attack.damage)
+        if pc.starry_form == "chalice" and attack.spell_level > 0:
+            more, mtxt = roll_expr(f"1d8+{pc.mods.get('wis', 0)}")
+            dmg += more
+            btxt += f" + Chalice {mtxt}"
         gained = min(dmg, pc.hp_max - pc.hp)
         pc.hp += gained
         state.stats.healed += gained
@@ -1091,6 +1242,50 @@ def _resolve_buff(state: ArenaState, attack: ArenaAttack) -> None:
                 dice=btxt,
                 hit=False,
             )
+    elif attack.effect == "faerie_fire":
+        nat, dtxt = d20()
+        mod = foe.saves.get("dex", 0)
+        if nat + mod >= (attack.save_dc or pc.spell_dc or 10):
+            _log(
+                state,
+                "you",
+                f"Faerie Fire: {foe.name} slips the light "
+                f"({nat + mod} vs DC {attack.save_dc or pc.spell_dc}).",
+                dice=f"foe {dtxt}{mod:+d}",
+                hit=False,
+            )
+        else:
+            _concentrate(state, "Faerie Fire")
+            _foe_add(state, "faerie fire")
+            _log(
+                state,
+                "you",
+                f"Faerie Fire: {foe.name} is outlined in light — "
+                "your attacks on it have advantage while you concentrate.",
+                dice=f"foe {dtxt}{mod:+d}",
+                hit=True,
+            )
+    elif attack.effect == "charm":
+        nat, dtxt = d20("adv")  # it's being fought: advantage on the save
+        mod = foe.saves.get("wis", 0)
+        if nat + mod >= (attack.save_dc or pc.spell_dc or 10):
+            _log(
+                state,
+                "you",
+                f"Charm Person: {foe.name} shakes it off "
+                f"({nat + mod} vs DC {attack.save_dc or pc.spell_dc}).",
+                dice=f"foe {dtxt}{mod:+d}",
+                hit=False,
+            )
+        else:
+            _foe_add(state, "charmed")
+            _log(
+                state,
+                "you",
+                f"Charm Person: {foe.name} is Charmed — it won't attack you until you hurt it.",
+                dice=f"foe {dtxt}{mod:+d}",
+                hit=True,
+            )
     else:
         raise ValueError("That spell isn't modeled in a one-on-one.")
 
@@ -1131,6 +1326,17 @@ def _resolve_player_attack(
                 )
                 continue
             dmg, btxt = roll_expr(per, crit=crit, gwf=gwf)
+            if "maximize_next" in state.effects and attack.kind in ("cantrip", "spell"):
+                dmg = _max_of(per, crit)
+                btxt += f" → maximized {dmg}"
+                state.effects.pop("maximize_next", None)
+            if attack.effect == "sorcerous_burst":
+                boom, ttxt = _burst_extra(per, crit, pc.mods.get("cha", 0))
+                dmg += boom
+                if boom:
+                    btxt += f" · burst {ttxt}"
+            if "vuln_piercing" in state.effects and attack.damage_type == "piercing":
+                dmg *= 2
             extra, notes = _rider_dice(state, attack, crit, mode)
             dmg += extra
             state.stats.hits += 1
@@ -1158,7 +1364,7 @@ def _resolve_player_attack(
         return
     dmg, btxt = roll_expr(attack.damage)
     if attack.save_ability and attack.save_dc:
-        nat, dtxt = d20()
+        nat, dtxt = d20("dis" if state.effects.pop("foe_disadv_save", None) else None)
         mod = foe.saves.get(attack.save_ability, 0)
         total = nat + mod
         dc = attack.save_dc + (1 if state.innate_sorcery > 0 else 0)
@@ -1167,6 +1373,9 @@ def _resolve_player_attack(
             dmg = dmg // 2 if attack.half_on_save else 0
         elif attack.effect == "mockery":
             state.foe_disadv_next = True
+        elif attack.effect == "command":
+            _foe_add(state, "prone")
+            _log(state, "you", f"Command — Grovel: {foe.name} drops Prone until its turn.")
         _damage_dealt(state, dmg)
         state.stats.hits += int(not saved)
         state.stats.misses += int(saved and dmg == 0)
@@ -1255,11 +1464,18 @@ def _take_damage(state: ArenaState, dmg: int) -> int:
         absorbed = min(pc.temp_hp, dmg)
         pc.temp_hp -= absorbed
         dmg -= absorbed
+    if "resist_all" in state.effects:
+        dmg //= 2
+    if "plant" in state.effects:
+        dmg *= 2
     pc.hp = max(0, pc.hp - dmg)
     state.stats.taken += dmg
     if dmg > 0 and state.concentration:
         dc = max(10, dmg // 2)
         nat, dtxt = d20()
+        if pc.starry_form == "dragon" and nat < 10:
+            nat = 10
+            dtxt += " → Dragon form 10"
         con_prof = pc.character_class.lower() in ("barbarian", "fighter", "sorcerer")
         total = nat + pc.mods.get("con", 0) + (pc.prof if con_prof else 0)
         if total < dc:
@@ -1339,6 +1555,10 @@ def _foe_turn(state: ArenaState) -> None:
     foe, pc = state.foe, state.pc
     if _foe_has(state, "asleep"):
         _log(state, "foe", f"{foe.name} is asleep and does nothing.")
+    elif _foe_has(state, "charmed"):
+        _log(state, "foe", f"{foe.name} is Charmed and won't raise a hand against you.")
+    elif "astral" in state.effects:
+        _log(state, "foe", f"{foe.name} swings at the place you were. You aren't there.")
     elif _foe_has(state, "stunned"):
         _log(state, "foe", f"{foe.name} is Stunned and loses its turn.")
         _foe_clear(state, "stunned")
@@ -1353,6 +1573,11 @@ def _foe_turn(state: ArenaState) -> None:
                 if pc.hp <= 0:
                     break
                 dis = state.dodging or state.foe_disadv_next or restrained
+                dis = dis or _foe_has(state, "poisoned") or "radiance" in state.effects
+                dis = dis or "fog" in state.effects or "invisible" in state.effects
+                if state.effects.get("mirror", 0) > 0:
+                    dis = True
+                    state.effects["mirror"] -= 1
                 state.foe_disadv_next = False
                 nat, dtxt = d20(_mode(state.reckless, dis))
                 total = nat + atk.hit_bonus
@@ -1426,7 +1651,21 @@ def _foe_turn(state: ArenaState) -> None:
     state.reckless = False
     if state.innate_sorcery > 0:
         state.innate_sorcery -= 1
+    for key in list(state.effects):
+        state.effects[key] -= 1
+        if state.effects[key] <= 0:
+            del state.effects[key]
+            if key == "starry_form":
+                pc.starry_form = None
+                pc.attacks = [a for a in pc.attacks if a.key != "luminous_arrow"]
     _log(state, "ref", f"Round {state.round}. Your turn.")
+    if "regen5" in state.effects and pc.hp < pc.hp_max:
+        gained = min(5, pc.hp_max - pc.hp)
+        pc.hp += gained
+        state.stats.healed += gained
+        _log(state, "ref", f"The surge knits you back together: +{gained} HP.")
+    if "surge_each_turn" in state.effects:
+        _surge(state)
 
 
 def _heal_feature(state: ArenaState, name: str, expr: str) -> None:
@@ -1483,6 +1722,9 @@ def _feature(state: ArenaState, key: str, db: Session, beast_id: Optional[str] =
         "martial_bonus",
         "reckless",
         "quicken",
+        "starry_archer",
+        "starry_chalice",
+        "starry_dragon",
     )
     if key == "second_wind":
         _heal_feature(state, "Second Wind", f"1d10+{pc.level}")
@@ -1518,6 +1760,45 @@ def _feature(state: ArenaState, key: str, db: Session, beast_id: Optional[str] =
             "you",
             "Reckless Attack: advantage on your melee attacks this turn — "
             "and the foe gets it back on you.",
+        )
+    elif key == "tides_of_chaos":
+        state.adv_next = True
+        state.tides_primed = True
+        _log(
+            state,
+            "you",
+            "Tides of Chaos: advantage on your next attack. "
+            "The weave frays — your next leveled spell will surge.",
+        )
+    elif key in ("starry_archer", "starry_chalice", "starry_dragon"):
+        ws = next((f for f in pc.features if f.key == "wild_shape" and f.uses_left > 0), None)
+        if ws is None:
+            raise ValueError("Starry Form needs a Wild Shape use.")
+        ws.uses_left -= 1
+        spend_use = False
+        form = key.split("_", 1)[1]
+        pc.starry_form = form
+        state.effects["starry_form"] = 10
+        pc.attacks = [a for a in pc.attacks if a.key != "luminous_arrow"]
+        if form == "archer":
+            pc.attacks.append(
+                ArenaAttack(
+                    key="luminous_arrow",
+                    name="Luminous Arrow",
+                    kind="spell",
+                    cost="bonus",
+                    hit_bonus=pc.spell_attack or 0,
+                    damage=f"1d8+{pc.mods.get('wis', 0)}",
+                    damage_type="radiant",
+                    melee=False,
+                    note="Starry Form: Archer — a bonus action each turn",
+                )
+            )
+        _log(
+            state,
+            "you",
+            f"Starry Form — {form.title()}: "
+            "constellations trace your skin for the rest of the fight.",
         )
     elif key == "innate_sorcery":
         state.innate_sorcery = 3
@@ -1673,6 +1954,10 @@ def _tips(state: ArenaState) -> list[str]:
         )
     if pc.hp <= pc.hp_max // 4 and not state.action_used:
         out.append("Very low? Dodge: every attack on you has disadvantage until your next turn.")
+    if state.tides_primed:
+        out.append("Tides of Chaos is primed: your next leveled spell surges — plan for it.")
+    if pc.starry_form == "archer" and not state.bonus_used:
+        out.append("Archer form: the Luminous Arrow is a free bonus action every turn.")
     if state.round == 1 and not out:
         out.append(
             "One action, one bonus action, one move per turn. "
@@ -1708,7 +1993,13 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
             raise ValueError("That attack isn't on your sheet.")
         swing = attack.kind in ("weapon", "unarmed") and attack.cost == "action"
         quickened = "quicken" in state.marks and attack.kind in ("cantrip", "spell")
-        cost = "bonus" if quickened else attack.cost
+        surged_bonus = "bonus_casting" in state.effects and attack.kind in ("cantrip", "spell")
+        cost = "bonus" if (quickened or surged_bonus) and attack.cost == "action" else attack.cost
+        if attack.key == "star_bolt":
+            star = next((f for f in state.pc.features if f.key == "star_map"), None)
+            if star is None or star.uses_left <= 0:
+                raise ValueError("No Star Map uses left today.")
+            star.uses_left -= 1
         leveled = attack.spell_level > 0 and attack.kind in ("spell", "heal", "buff")
         if attack.after_melee_hit:
             if attack.cost == "bonus":
@@ -1737,6 +2028,10 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
             _spend_action(state)
             state.attacks_left = state.pc.attacks_per_action - 1 if swing else 0
             _resolve_player_attack(state, attack, action.slot_level)
+        if "invisible" in state.effects:
+            state.effects.pop("invisible", None)
+        if leveled or (attack.after_melee_hit and attack.spell_level > 0):
+            _wild_magic_check(state)
     elif kind == "dodge":
         why = _action_free(state)
         if why:
@@ -1773,3 +2068,163 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
         _log(state, "ref", f"{state.foe.name} goes down. Well fought.")
     state.tips = _tips(state)
     return _seal(state)
+
+
+# ── Plan 88 — surges and bursts ──────────────────────────────────────────────
+
+
+def _max_of(expr: str, crit: bool) -> int:
+    """The maximum a dice expression can roll (a maximized surge)."""
+    m = _DICE_RE.search(expr or "")
+    if not m:
+        try:
+            return int(expr)
+        except (TypeError, ValueError):
+            return 0
+    count = int(m.group(1)) * (2 if crit else 1)
+    mod = int((m.group(3) or "0").replace(" ", ""))
+    return count * int(m.group(2)) + mod
+
+
+def _burst_extra(expr: str, crit: bool, cha_mod: int) -> tuple[int, str]:
+    """Sorcerous Burst: an 8 explodes into another d8, up to your CHA modifier times."""
+    m = _DICE_RE.search(expr or "")
+    if not m or int(m.group(2)) != 8:
+        return 0, ""
+    extra = 0
+    rolled: list[int] = []
+    # The base dice already rolled; approximate the explosions by rolling the
+    # same count again only when the referee's die shows an 8.
+    count = int(m.group(1)) * (2 if crit else 1)
+    for _ in range(count):
+        chain = 0
+        probe = _RNG.randint(1, 8)
+        while probe == 8 and chain < max(0, cha_mod):
+            more = _RNG.randint(1, 8)
+            rolled.append(more)
+            extra += more
+            chain += 1
+            probe = more
+    return extra, ("[" + ", ".join(map(str, rolled)) + "]") if rolled else ""
+
+
+def _wild_magic_check(state: ArenaState) -> None:
+    """After a leveled spell: Tides' guaranteed surge, or a 1 on the d20."""
+    if not state.pc.wild_magic:
+        return
+    if state.tides_primed:
+        state.tides_primed = False
+        tides = next((f for f in state.pc.features if f.key == "tides_of_chaos"), None)
+        if tides is not None:
+            tides.uses_left = max(tides.uses_left, 1)
+        _log(state, "ref", "The frayed weave gives way — Tides of Chaos returns to you.")
+        _surge(state)
+        return
+    nat, dtxt = d20()
+    if nat == 1:
+        _surge(state)
+    else:
+        _log(state, "ref", f"Wild Magic check: {nat} — the weave holds.", dice=dtxt)
+
+
+def _surge(state: ArenaState) -> None:
+    """Roll on the Wild Magic Surge table and apply what matters in a duel."""
+    pc, foe = state.pc, state.foe
+    roll = _RNG.randint(1, 100)
+    text, effect, params = surge_entry(roll)
+    _log(state, "ref", f"WILD MAGIC SURGE ({roll}): {text}", dice=f"d100 [{roll}]")
+    timed = {
+        "surge_each_turn",
+        "regen5",
+        "foe_disadv_save",
+        "bonus_casting",
+        "astral",
+        "maximize_next",
+        "resist_all",
+        "plant",
+        "invisible",
+        "shield2",
+        "frightened",
+        "radiance",
+        "vuln_piercing",
+    }
+    if effect in timed:
+        state.effects[effect] = int(params.get("rounds", 10))
+        return
+    if effect == "extra_action":
+        state.extra_action = True
+        if not state.action_used:
+            state.action_used = False
+        return
+    if effect == "random_spell":
+        idx = _RNG.randint(1, 10)
+        line, sub = RANDOM_SPELLS[idx - 1]
+        _log(state, "ref", f"  … a random spell: {line}")
+        if sub == "plant":
+            state.effects["plant"] = 1
+        elif sub == "astral":
+            state.effects["astral"] = 1
+        elif sub == "fog":
+            state.effects["fog"] = 10
+        elif sub == "mirror":
+            state.effects["mirror"] = 3
+        elif sub == "grease":
+            nat, dtxt = d20()
+            if nat + foe.saves.get("dex", 0) < (pc.spell_dc or 10):
+                _foe_add(state, "prone")
+                _log(state, "ref", f"  {foe.name} slips and falls Prone.", dice=f"foe {dtxt}")
+        elif sub == "missiles7":
+            dmg, btxt = roll_expr("7d4+7")
+            _damage_dealt(state, dmg)
+            _log(
+                state,
+                "ref",
+                f"  Seven darts: {dmg} force to {foe.name} ({foe.hp}/{foe.hp_max}).",
+                dice=btxt,
+            )
+        elif sub == "fireball_self":
+            fdmg, ftxt = roll_expr("8d6")
+            nat, dtxt = d20()
+            if nat + foe.saves.get("dex", 0) >= (pc.spell_dc or 10):
+                fdmg //= 2
+            _damage_dealt(state, fdmg)
+            you, ytxt = roll_expr("8d6")
+            nat2, dtxt2 = d20()
+            if nat2 + pc.mods.get("dex", 0) >= (pc.spell_dc or 10):
+                you //= 2
+            _take_damage(state, you)
+            _log(
+                state,
+                "ref",
+                f"  Fireball on your own square: {fdmg} to {foe.name} ({foe.hp}/{foe.hp_max}), "
+                f"{you} to you ({pc.hp}/{pc.hp_max}).",
+                dice=f"{ftxt} · you {ytxt}",
+            )
+        return
+    if effect == "poison_random":
+        if _RNG.randint(1, 2) == 1:
+            _foe_add(state, "poisoned")
+            _log(state, "ref", f"  {foe.name} is Poisoned: disadvantage on its attacks.")
+        else:
+            state.effects["poisoned"] = 10
+            _log(state, "ref", "  You are Poisoned: disadvantage on your attacks for a minute.")
+        return
+    if effect == "necrotic_drain":
+        dmg, btxt = roll_expr("1d10")
+        _damage_dealt(state, dmg)
+        gained = min(dmg, pc.hp_max - pc.hp)
+        pc.hp += gained
+        state.stats.healed += gained
+        _log(state, "ref", f"  {dmg} necrotic to {foe.name}; you regain {gained}.", dice=btxt)
+        return
+    if effect == "lightning":
+        dmg, btxt = roll_expr("4d10")
+        _damage_dealt(state, dmg)
+        _log(state, "ref", f"  Lightning: {dmg} to {foe.name} ({foe.hp}/{foe.hp_max}).", dice=btxt)
+        return
+    if effect == "regain_slot":
+        if pc.slots:
+            lowest = min(pc.slots, key=int)
+            pc.slots[lowest] += 1
+            _log(state, "ref", f"  A level-{lowest} slot returns to you.")
+        return

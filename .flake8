@@ -13,3 +13,4 @@ per-file-ignores =
     integrations/dnd_rules/stat_blocks.py: E501
     integrations/dnd_rules/srd_spells_2024.py: E501
     integrations/dnd_rules/class_features_2024.py: E501
+    integrations/dnd_rules/wild_magic_2024.py:E501

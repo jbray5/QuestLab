@@ -58,6 +58,9 @@ interface ArenaPc extends ArenaSide {
   temp_hp: number;
   spell_dc: number | null;
   beast: { name: string; ac: number; temp_hp: number } | null;
+  metamagic: string[];
+  wild_magic: boolean;
+  starry_form: string | null;
 }
 interface ArenaFoe extends ArenaSide {
   monster_id: string | null;
@@ -96,6 +99,8 @@ interface ArenaState {
   innate_sorcery: number;
   spiritual_weapon: boolean;
   auto_reactions: boolean;
+  effects: Record<string, number>;
+  tides_primed: boolean;
   result: "won" | "lost" | "fled" | null;
   pc: ArenaPc;
   foe: ArenaFoe;
@@ -340,6 +345,12 @@ export default function Arena() {
     state.marks.filter((m) => m !== "quicken").forEach((m) => yourChips.push({ label: m, cls: "cond" }));
     if (state.marks.includes("quicken")) yourChips.push({ label: "Quickened", cls: "cond" });
     if (state.concentration) yourChips.push({ label: `Concentrating: ${state.concentration}`, cls: "cond" });
+    if (you.starry_form) yourChips.push({ label: `Starry Form: ${you.starry_form}`, cls: "cond" });
+    if (state.tides_primed) yourChips.push({ label: "Tides primed: next spell surges", cls: "bad" });
+    if (you.wild_magic) yourChips.push({ label: "Wild Magic", cls: "cond" });
+    Object.entries(state.effects ?? {}).forEach(([k, n]) =>
+      yourChips.push({ label: `${k.replace(/_/g, " ")} (${n})`, cls: ["plant", "frightened", "poisoned", "fog", "vuln piercing"].includes(k.replace(/_/g, " ")) ? "bad" : "cond" }),
+    );
   }
   const cls = you?.character_class.toLowerCase() ?? "";
   const hasAutoReactions =
