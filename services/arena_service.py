@@ -52,7 +52,7 @@ from services.item_service import is_weapon
 
 _RNG = random.SystemRandom()
 _DICE_RE = re.compile(r"(\d+)d(\d+)\s*([+-]\s*\d+)?")
-_HIT_RE = re.compile(r"([+-]\s*\d+)\s*to hit", re.I)
+_HIT_RE = re.compile(r"([+-]\s*\d+)\s*to hit|attack roll:\s*([+-]\s*\d+)", re.I)
 _COUNT_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "twice": 2, "three times": 3}
 _ABILITIES = ("str", "dex", "con", "int", "wis", "cha")
 _MARTIAL = {"fighter", "barbarian", "paladin", "ranger", "monk"}
@@ -256,13 +256,14 @@ def parse_foe_attacks(actions: Optional[list[dict[str, Any]]]) -> list[ArenaFoeA
         if not hit or not dice:
             continue
         dtype = ""
-        tail = desc[dice.end() :].strip().split(" ")
+        # 2024 blocks wrap the dice: "Hit: 8 (1d8 + 4) Slashing damage" — step past the paren.
+        tail = desc[dice.end() :].lstrip(" )").strip().split(" ")
         if tail and tail[0].isalpha():
-            dtype = tail[0].strip(".,")
+            dtype = tail[0].strip(".,").lower()
         out.append(
             ArenaFoeAttack(
                 name=name or "Attack",
-                hit_bonus=int(hit.group(1).replace(" ", "")),
+                hit_bonus=int((hit.group(1) or hit.group(2)).replace(" ", "")),
                 damage=dice.group(0).replace(" ", ""),
                 damage_type=dtype,
             )

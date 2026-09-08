@@ -331,24 +331,63 @@ _SRD_MONSTERS: list[dict] = [
         "creature_type": "Fey",
         "alignment": "neutral evil",
         "ac": 17,
-        "ac_notes": "natural armor",
         "hp_average": 82,
         "hp_formula": "11d8+33",
-        "speed": {"walk": 30},
+        "speed": {"walk": 30, "swim": 30},
         "score_str": 18,
         "score_dex": 12,
         "score_con": 16,
         "score_int": 13,
         "score_wis": 14,
         "score_cha": 14,
-        "skills": {"arcana": 3, "deception": 4, "perception": 4, "stealth": 3},
+        "skills": {"arcana": 5, "deception": 4, "perception": 4, "stealth": 3},
         "senses": {"darkvision": 60, "passive_perception": 14},
-        "languages": "Common, Draconic, Sylvan",
+        "languages": "Common, Elvish, Sylvan",
         "challenge_rating": "3",
         "xp": 700,
         "proficiency_bonus": 2,
-        "damage_resistances": ["Bludgeoning", "Piercing", "Slashing"],
-        "actions": [{"name": "Claws", "desc": "+6 to hit, 2d8+4 slashing"}],
+        "traits": [
+            {"name": "Amphibious", "desc": "The hag can breathe air and water."},
+            {
+                "name": "Coven Magic",
+                "desc": (
+                    "While within 30 feet of at least two hag allies, the hag can cast one of "
+                    "the following spells, requiring no Material components, using the spell's "
+                    "normal casting time, and using Intelligence as the spellcasting ability "
+                    "(spell save DC 11): Augury, Find Familiar, Identify, Locate Object, "
+                    "Scrying, or Unseen Servant. The hag must finish a Long Rest before using "
+                    "this trait to cast that spell again."
+                ),
+            },
+            {
+                "name": "Mimicry",
+                "desc": (
+                    "The hag can mimic animal sounds and humanoid voices. A creature that hears "
+                    "the sounds can tell they are imitations only with a successful DC 14 "
+                    "Wisdom (Insight) check."
+                ),
+            },
+        ],
+        "actions": [
+            {"name": "Multiattack", "desc": "The hag makes two Claw attacks."},
+            {
+                "name": "Claw",
+                "desc": (
+                    "Melee Attack Roll: +6, reach 5 ft. Hit: 8 (1d8 + 4) Slashing damage plus "
+                    "3 (1d6) Poison damage."
+                ),
+            },
+            {
+                "name": "Spellcasting",
+                "desc": (
+                    "The hag casts one of the following spells, requiring no Material "
+                    "components and using Wisdom as the spellcasting ability (spell save DC 12, "
+                    "+4 to hit with spell attacks): At Will: Dancing Lights, Disguise Self "
+                    "(24-hour duration), Invisibility (self only, and the hag leaves no tracks "
+                    "while Invisible), Minor Illusion, Ray of Sickness (level 3 version)."
+                ),
+            },
+        ],
     },
     {
         "name": "Werewolf",
