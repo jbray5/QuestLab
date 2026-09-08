@@ -210,6 +210,16 @@ class MonsterStatBlockUpdate(BaseModel):
     score_cha: Optional[int] = Field(default=None, ge=1, le=30)
     saving_throws: Optional[dict[str, Any]] = None
     skills: Optional[dict[str, Any]] = None
+    # Plan 92 — the descriptive half of a block was read-only until now: a DM
+    # could not fix a monster's languages, senses, or damage lists.
+    alignment: Optional[str] = None
+    size: Optional[CreatureSize] = None
+    creature_type: Optional[CreatureType] = None
+    senses: Optional[dict[str, Any]] = None
+    languages: Optional[str] = None
+    damage_resistances: Optional[list[DamageType]] = None
+    damage_immunities: Optional[list[DamageType]] = None
+    condition_immunities: Optional[list[str]] = None
     challenge_rating: Optional[str] = None
     xp: Optional[int] = Field(default=None, ge=0)
     proficiency_bonus: Optional[int] = Field(default=None, ge=2, le=9)
