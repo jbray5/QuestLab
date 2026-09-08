@@ -57,6 +57,7 @@ function TableConsoleModal({
   const compact = useIsCompact(720);
   const [titleDraft, setTitleDraft] = useState("");
   const t = useTableController(sessionId, campaignId, party);
+  const [npcPickerOpen, setNpcPickerOpen] = useState(false);
   const { state, maps, activeMap } = t;
 
   const tableUrl = `${window.location.origin}/table/${sessionId}`;
@@ -261,12 +262,48 @@ function TableConsoleModal({
               <button
                 className="btn btn-ghost"
                 style={{ fontSize: "0.7rem" }}
+                onClick={() => setNpcPickerOpen((v) => !v)}
+                disabled={!activeMap}
+                title="Stand an NPC up on the board using their standee"
+              >
+                + NPC
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: "0.7rem" }}
                 onClick={() => void t.addFoesFromCombat()}
                 disabled={!activeMap}
                 title="One token per non-PC combatant, linked for HP + turn glow"
               >
                 + Foes (combat)
               </button>
+              {npcPickerOpen &&
+                t.npcs
+                  .filter((n) => n.figure_url || n.portrait_url)
+                  .map((n) => (
+                    <button
+                      key={n.id}
+                      className="btn btn-ghost"
+                      style={{ fontSize: "0.7rem", display: "flex", alignItems: "center", gap: 4 }}
+                      onClick={() => {
+                        t.addNpcToken(n);
+                        setNpcPickerOpen(false);
+                      }}
+                      title={n.figure_url ? "Standee" : "Portrait — no standee yet"}
+                    >
+                      <img
+                        src={(n.figure_url ?? n.portrait_url) as string}
+                        alt=""
+                        style={{ width: 18, height: 18, objectFit: "cover", borderRadius: 3 }}
+                      />
+                      {n.name}
+                    </button>
+                  ))}
+              {npcPickerOpen && !t.npcs.some((n) => n.figure_url || n.portrait_url) && (
+                <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>
+                  No NPC has art yet.
+                </span>
+              )}
               {t.groups.map((g) => (
                 <button
                   key={g}

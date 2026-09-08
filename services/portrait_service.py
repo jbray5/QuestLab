@@ -230,6 +230,53 @@ def generate_npc_portrait(
     return NpcRead.model_validate(updated)
 
 
+def _build_npc_figure_prompt(npc: Npc, style_hints: Optional[str]) -> str:
+    """Build a full-body minifig prompt from an NPC's identity fields (Plan 94).
+
+    Args:
+        npc: The NPC.
+        style_hints: Optional extra prompt text.
+
+    Returns:
+        The full prompt for the transparent standee image.
+    """
+    bits = [npc.name]
+    for value in (npc.race, npc.gender, npc.age, npc.role, npc.appearance):
+        if value:
+            bits.append(str(value))
+    return build_figure_prompt(", ".join(bits), style_hints)
+
+
+def generate_npc_figure(
+    session: Session,
+    npc_id: uuid.UUID,
+    dm_email: str,
+    style_hints: Optional[str] = None,
+) -> NpcRead:
+    """Generate a transparent full-body standee for an NPC (Plan 94).
+
+    Args:
+        session: Active database session.
+        npc_id: UUID of the NPC.
+        dm_email: Email of the requesting DM.
+        style_hints: Optional extra prompt text.
+
+    Returns:
+        Updated ``NpcRead`` with ``figure_url`` set.
+
+    Raises:
+        ValueError: If the NPC is not found.
+        PermissionError: If the DM does not own the campaign or keys are missing.
+        RuntimeError: If the upstream API calls fail.
+    """
+    npc = _assert_npc_owner(session, npc_id, dm_email)
+    prompt = _build_npc_figure_prompt(npc, style_hints)
+    png_bytes = image_tools.key_chroma(generate_image(prompt, size="1024x1536", quality="high"))
+    url = blob_storage.upload(path=f"figures/npc-{npc.id}.png", data=png_bytes)
+    updated = NpcRepo.update(session, npc, NpcUpdate(figure_url=url))
+    return NpcRead.model_validate(updated)
+
+
 def _build_monster_prompt(monster: MonsterStatBlock, style_hints: Optional[str]) -> str:
     """Build an image prompt from a monster's identity fields."""
     size = monster.size.value if hasattr(monster.size, "value") else str(monster.size)

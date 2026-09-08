@@ -184,3 +184,33 @@ def generate_npc_portrait(npc_id: uuid.UUID, body: dict, db: DB, user: AiArtUser
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Portrait generation failed: {type(exc).__name__}: {exc}",
         )
+
+
+@router.post("/npcs/{npc_id}/figure", response_model=NpcRead)
+def generate_npc_figure_endpoint(npc_id: uuid.UUID, body: dict, db: DB, user: AiArtUser) -> NpcRead:
+    """Generate the transparent board standee for an NPC (Plan 94).
+
+    Body: ``{"style_hints": "optional extra style"}``. The cut-out URL is
+    saved to ``figure_url`` for the 3D board.
+
+    Args:
+        npc_id: UUID of the NPC.
+        body: JSON with optional ``style_hints``.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Updated NpcRead.
+    """
+    from services import portrait_service
+
+    try:
+        return portrait_service.generate_npc_figure(
+            db, npc_id, user, style_hints=(body.get("style_hints") or None)
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))

@@ -46,6 +46,9 @@ class Npc(SQLModel, table=True):
         default=None, foreign_key="monster_stat_blocks.id"
     )
     portrait_url: Optional[str] = Field(default=None, max_length=500)
+    # Plan 94 — the transparent full-body cut-out the 3D board stands up,
+    # the same shape PCs and monsters already carry.
+    figure_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = Field(default=None)
     # Plan 91 — the portrait after the reveal (the hag under the kindly aunt).
     # Players and the table see it only once the DM flips true_form_revealed.
@@ -107,6 +110,7 @@ class NpcCreate(BaseModel):
     location: Optional[str] = Field(default=None, max_length=200)
     monster_stat_block_id: Optional[uuid.UUID] = None
     portrait_url: Optional[str] = Field(default=None, max_length=500)
+    figure_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = None
     is_revealed: bool = False
     true_form_url: Optional[str] = Field(default=None, max_length=500)
@@ -141,6 +145,7 @@ class NpcRead(BaseModel):
     location: Optional[str] = None
     monster_stat_block_id: Optional[uuid.UUID] = None
     portrait_url: Optional[str] = None
+    figure_url: Optional[str] = None
     notes: Optional[str] = None
     is_revealed: bool = False
     true_form_url: Optional[str] = None
@@ -177,6 +182,7 @@ class NpcUpdate(BaseModel):
     location: Optional[str] = Field(default=None, max_length=200)
     monster_stat_block_id: Optional[uuid.UUID] = None
     portrait_url: Optional[str] = Field(default=None, max_length=500)
+    figure_url: Optional[str] = Field(default=None, max_length=500)
     notes: Optional[str] = None
     is_revealed: Optional[bool] = None
     true_form_url: Optional[str] = Field(default=None, max_length=500)

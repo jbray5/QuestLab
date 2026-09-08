@@ -26,6 +26,8 @@ export interface Npc {
   location: string | null;
   monster_stat_block_id: string | null;
   portrait_url: string | null;
+  /** Plan 94 — transparent board standee, as PCs and monsters carry. */
+  figure_url?: string | null;
   // Plan 91 — the portrait after the reveal, and whether it's showing.
   true_form_url?: string | null;
   true_form_revealed?: boolean;
@@ -60,6 +62,7 @@ export interface NpcCreate {
   location?: string | null;
   monster_stat_block_id?: string | null;
   portrait_url?: string | null;
+  figure_url?: string | null;
   true_form_url?: string | null;
   true_form_revealed?: boolean;
   /** Plan 93 — Obsidian vault path. DM-only; never rendered on a shared surface. */

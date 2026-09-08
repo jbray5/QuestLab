@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { type Npc, npcsApi } from "../../api/npcs";
 import { sessionsApi } from "../../api/sessions";
 import { tableApi } from "../../api/table";
 import type { BattleMap, PlayerCharacter, TableStateRead, TableToken } from "../../api/types";
@@ -126,6 +127,31 @@ export function useTableController(sessionId: string, campaignId: string, party:
     patchNow({ tokens: [...state.tokens, t] });
   }
 
+  // Plan 94 — the campaign's NPCs, so the DM can stand one up on the board.
+  const { data: npcs = [] } = useQuery({
+    queryKey: ["npcs", campaignId],
+    queryFn: () => npcsApi.list(campaignId),
+    enabled: !!campaignId,
+  });
+
+  /** Drop an NPC on the map using its standee, falling back to its portrait. */
+  function addNpcToken(npc: Npc) {
+    if (!activeMap || !state) return;
+    const art = npc.figure_url ?? npc.portrait_url ?? null;
+    const t: TableToken = {
+      id: genId("custom"),
+      kind: "custom",
+      ref_id: null,
+      label: npc.name.slice(0, 60),
+      image_url: art,
+      style: npc.figure_url ? "figure" : null,
+      x: activeMap.width * 0.5,
+      y: activeMap.height * 0.4,
+      size: 1,
+    };
+    patchNow({ tokens: [...state.tokens, t] });
+  }
+
   async function addFoesFromCombat() {
     if (!activeMap || !state) return;
     // Plan 82 — the HUD edits combat through its own query; read the server's
@@ -218,6 +244,8 @@ export function useTableController(sessionId: string, campaignId: string, party:
     toggleRegion,
     addPartyTokens,
     addToken,
+    addNpcToken,
+    npcs,
     addFoesFromCombat,
     removeToken,
     moveTokenLocal,
