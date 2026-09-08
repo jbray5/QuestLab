@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Monster } from "../api/types";
 import { monstersApi } from "../api/monsters";
 import ImageUpload from "./ImageUpload";
+import ObsidianLink, { ObsidianNoteInput } from "./dm/ObsidianLink";
 
 interface Props {
   monster: Monster;
@@ -85,6 +86,12 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
     mutationFn: (url: string) => monstersApi.updateImage(monster.id, url),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["monsters"] }),
   });
+  // Plan 93 — the DM's Obsidian path. Saved on blur so it isn't a PATCH per keystroke.
+  const [note, setNote] = useState<string | null>(monster.dm_note ?? null);
+  const saveNote = useMutation({
+    mutationFn: (dm_note: string | null) => monstersApi.update(monster.id, { dm_note }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["monsters"] }),
+  });
 
   const scores: Array<{ label: string; value: number }> = [
     { label: "STR", value: monster.score_str },
@@ -153,17 +160,20 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
             {AI_ON && <MonsterFigureButton monsterId={monster.id} hasFigure={!!monster.figure_url} />}
           </div>
           <div>
-            <h2
-              style={{
-                fontFamily: "var(--font-serif)",
-                color: "var(--gold)",
-                fontSize: "1.6rem",
-                marginBottom: "0.2rem",
-                lineHeight: 1.2,
-              }}
-            >
-              {monster.name}
-            </h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <h2
+                style={{
+                  fontFamily: "var(--font-serif)",
+                  color: "var(--gold)",
+                  fontSize: "1.6rem",
+                  marginBottom: "0.2rem",
+                  lineHeight: 1.2,
+                }}
+              >
+                {monster.name}
+              </h2>
+              <ObsidianLink dmNote={monster.dm_note} />
+            </div>
             <p style={{ fontStyle: "italic", color: "var(--text-muted)", fontSize: "0.9rem" }}>
               {monster.size} {monster.creature_type}
               {monster.alignment ? `, ${monster.alignment}` : ""}
@@ -172,6 +182,21 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
         </div>
 
         <Divider />
+
+        {/* Plan 93 — DM-only: the vault path for this monster's page. */}
+        <label
+          style={{
+            display: "block",
+            fontSize: "0.72rem",
+            color: "var(--muted)",
+            marginBottom: "0.5rem",
+          }}
+        >
+          Obsidian note
+          <span onBlur={() => saveNote.mutate(note)}>
+            <ObsidianNoteInput value={note} onChange={setNote} />
+          </span>
+        </label>
 
         {/* AC / HP / Speed */}
         <div style={{ marginBottom: "0.5rem" }}>

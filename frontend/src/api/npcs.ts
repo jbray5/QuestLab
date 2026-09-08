@@ -29,6 +29,8 @@ export interface Npc {
   // Plan 91 — the portrait after the reveal, and whether it's showing.
   true_form_url?: string | null;
   true_form_revealed?: boolean;
+  /** Plan 93 — Obsidian vault path. DM-only; never rendered on a shared surface. */
+  dm_note?: string | null;
   notes: string | null;
   is_revealed: boolean;
   // ── Table face — short, scannable lines for at-the-table use (Plan 40).
@@ -60,6 +62,8 @@ export interface NpcCreate {
   portrait_url?: string | null;
   true_form_url?: string | null;
   true_form_revealed?: boolean;
+  /** Plan 93 — Obsidian vault path. DM-only; never rendered on a shared surface. */
+  dm_note?: string | null;
   notes?: string | null;
   is_revealed?: boolean;
   // ── Table face — Plan 40.

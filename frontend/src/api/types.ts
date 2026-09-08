@@ -292,6 +292,8 @@ export interface Monster {
   created_by_email: string | null;
   image_url: string | null;
   figure_url: string | null;
+  /** Plan 93 — Obsidian vault path. DM-only; never rendered on a shared surface. */
+  dm_note?: string | null;
 }
 
 export interface RosterEntry {
@@ -405,6 +407,8 @@ export interface BattleMap {
   props: MapProp[] | null;
   // Plan 71 — animated map surface (looping MP4/WebM); image_url is the poster.
   video_url?: string | null;
+  /** Plan 93 — Obsidian vault path. DM-only; never rendered on a shared surface. */
+  dm_note?: string | null;
 }
 
 export interface MapProp {
@@ -427,6 +431,7 @@ export interface BattleMapCreate {
 
 export interface BattleMapUpdate {
   name?: string;
+  dm_note?: string | null;
   grid_size?: number | null;
   regions?: FogRegion[];
   backdrop_url?: string | null;

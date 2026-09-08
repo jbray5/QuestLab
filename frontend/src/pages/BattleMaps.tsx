@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { tableApi } from "../api/table";
 import type { BattleMap, FogRegion } from "../api/types";
 import { useIsCompact } from "../hooks/useIsCompact";
+import ObsidianLink, { ObsidianNoteInput } from "../components/dm/ObsidianLink";
 
 /**
  * BattleMaps — the campaign's battle-map library + fog-region editor (Plan 42).
@@ -310,6 +311,7 @@ function MapEditor({
   const compact = useIsCompact(720);
   const [name, setName] = useState(map.name);
   const [grid, setGrid] = useState<string>(map.grid_size ? String(map.grid_size) : "");
+  const [dmNote, setDmNote] = useState<string | null>(map.dm_note ?? null);
   const [regions, setRegions] = useState<FogRegion[]>(map.regions ?? []);
   const [tool, setTool] = useState<Tool>("rect");
   const [draftPoly, setDraftPoly] = useState<number[][]>([]);
@@ -323,6 +325,7 @@ function MapEditor({
         name: name.trim() || map.name,
         grid_size: grid ? Math.max(8, parseInt(grid, 10)) : null,
         regions,
+        dm_note: dmNote,
       }),
     onSuccess: onSaved,
   });
@@ -475,6 +478,14 @@ function MapEditor({
         <label style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
           Map name
           <input value={name} onChange={(e) => setName(e.target.value)} style={{ width: "100%", marginTop: 4 }} />
+        </label>
+        {/* Plan 93 — DM-only: this location's page in the vault. Saved with the map. */}
+        <label style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            Obsidian note
+            <ObsidianLink dmNote={dmNote} compact />
+          </span>
+          <ObsidianNoteInput value={dmNote} onChange={setDmNote} />
         </label>
         <label style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
           Grid size (px per square) — blank = gridless

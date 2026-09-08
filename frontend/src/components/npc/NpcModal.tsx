@@ -11,6 +11,7 @@ import {
 import PortraitGenerator from "../PortraitGenerator";
 import { portraitSrc } from "../../lib/portrait";
 import { tableApi } from "../../api/table";
+import { ObsidianNoteInput } from "../dm/ObsidianLink";
 
 const STATUSES: NpcStatus[] = [
   "Alive",
@@ -258,6 +259,10 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
             </Field>
           )}
 
+          <Field label="Obsidian note">
+            <ObsidianNoteInput value={form.dm_note} onChange={(v) => set("dm_note", v)} />
+          </Field>
+
           {/* Identity */}
           <Row>
             <Field label="Name" required>
@@ -480,6 +485,7 @@ function fromInitial(initial: Npc | null): NpcCreate {
     monster_stat_block_id: initial.monster_stat_block_id,
     portrait_url: initial.portrait_url,
     true_form_url: initial.true_form_url ?? null,
+    dm_note: initial.dm_note ?? null,
     true_form_revealed: initial.true_form_revealed ?? false,
     notes: initial.notes,
     is_revealed: initial.is_revealed ?? false,

@@ -51,6 +51,10 @@ class Npc(SQLModel, table=True):
     # Players and the table see it only once the DM flips true_form_revealed.
     true_form_url: Optional[str] = Field(default=None, max_length=500)
     true_form_revealed: bool = Field(default=False)
+    # Plan 93 — Obsidian vault path ("People/Auntie Sorrel"). DM-only: it is a
+    # spoiler, so it never crosses a player-facing boundary (no /play payload,
+    # no table projection) and renders on DM-private surfaces alone.
+    dm_note: Optional[str] = Field(default=None, max_length=300)
     # Plan 38 — DM-controlled visibility on the player view. Defaults to
     # True so existing NPCs stay visible; the DM flips this to False to
     # hide an NPC (villain reveal, plot twist, future-session character)
@@ -107,6 +111,7 @@ class NpcCreate(BaseModel):
     is_revealed: bool = False
     true_form_url: Optional[str] = Field(default=None, max_length=500)
     true_form_revealed: bool = False
+    dm_note: Optional[str] = Field(default=None, max_length=300)
     # Plan 40 — Table-face
     quick_who: Optional[str] = Field(default=None, max_length=120)
     want_now: Optional[str] = Field(default=None, max_length=200)
@@ -140,6 +145,7 @@ class NpcRead(BaseModel):
     is_revealed: bool = False
     true_form_url: Optional[str] = None
     true_form_revealed: bool = False
+    dm_note: Optional[str] = None
     # Plan 40 — Table-face
     quick_who: Optional[str] = None
     want_now: Optional[str] = None
@@ -175,6 +181,7 @@ class NpcUpdate(BaseModel):
     is_revealed: Optional[bool] = None
     true_form_url: Optional[str] = Field(default=None, max_length=500)
     true_form_revealed: Optional[bool] = None
+    dm_note: Optional[str] = Field(default=None, max_length=300)
     # Plan 40 — Table-face
     quick_who: Optional[str] = Field(default=None, max_length=120)
     want_now: Optional[str] = Field(default=None, max_length=200)

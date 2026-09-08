@@ -51,6 +51,10 @@ class BattleMap(SQLModel, table=True):
     # Animated map surface (Plan 71): a looping MP4/WebM played under the
     # table layers. image_url stays the poster / thumbnail / fallback.
     video_url: Optional[str] = Field(default=None, max_length=1000)
+    # Plan 93 — Obsidian vault path ("People/Auntie Sorrel"). DM-only: it is a
+    # spoiler, so it never crosses a player-facing boundary (no /play payload,
+    # no table projection) and renders on DM-private surfaces alone.
+    dm_note: Optional[str] = Field(default=None, max_length=300)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -72,6 +76,7 @@ class BattleMapCreate(BaseModel):
     grid_size: Optional[int] = PydField(default=None, ge=8, le=1000)
     regions: list[FogRegion] = PydField(default_factory=list)
     video_url: Optional[str] = PydField(default=None, max_length=1000)
+    dm_note: Optional[str] = PydField(default=None, max_length=300)
 
 
 class BattleMapUpdate(BaseModel):
@@ -93,6 +98,7 @@ class BattleMapUpdate(BaseModel):
     ground_url: Optional[str] = PydField(default=None, max_length=1000)
     props: Optional[list[dict[str, Any]]] = None
     video_url: Optional[str] = PydField(default=None, max_length=1000)
+    dm_note: Optional[str] = PydField(default=None, max_length=300)
 
 
 class BattleMapRead(BaseModel):
@@ -111,5 +117,6 @@ class BattleMapRead(BaseModel):
     ground_url: Optional[str] = None
     props: Optional[list[dict[str, Any]]] = None
     video_url: Optional[str] = None
+    dm_note: Optional[str] = None
 
     model_config = {"from_attributes": True}

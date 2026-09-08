@@ -17,6 +17,8 @@ export const monstersApi = {
     return api.get<Monster[]>(`/monsters${query ? `?${query}` : ""}`);
   },
   get: (id: string) => api.get<Monster>(`/monsters/${id}`),
+  update: (id: string, data: Partial<Monster>) =>
+    api.patch<Monster>(`/monsters/${id}`, data),
   updateImage: (id: string, image_url: string) =>
     api.patch<Monster>(`/monsters/${id}`, { image_url }),
   generatePortrait: (id: string, styleHints?: string) =>

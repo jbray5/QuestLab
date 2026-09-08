@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type Npc, NPC_STATUS_COLORS, npcsApi } from "../../api/npcs";
 import { zoomable } from "../../lib/lightbox";
 import { portraitSrc } from "../../lib/portrait";
+import ObsidianLink from "../dm/ObsidianLink";
 
 /**
  * NPC Table-face — the at-the-table glance read (Plan 40).
@@ -144,6 +145,7 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
             hidden
           </span>
         )}
+        <ObsidianLink dmNote={npc.dm_note} compact />
         {npc.true_form_url && (
           <button
             type="button"
