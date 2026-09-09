@@ -31,6 +31,9 @@ export function subclassPanelBackground(
 }
 
 
+/** Veil over a real background image — light enough that the art still reads. */
+const ART_SCRIM: [number, number] = [0.34, 0.6];
+
 /**
  * The full-bleed backdrop for a player's sheet (Plan 97).
  *
@@ -43,12 +46,17 @@ export function sheetBackground(
   subclass: string | null | undefined,
   opts?: { scrim?: [number, number] },
 ): string | null {
-  const [a, b] = opts?.scrim ?? [0.62, 0.86];
   if (backgroundUrl) {
+    // Real art needs a far lighter veil than a flat gradient does: the gradient
+    // scrim exists to make a cheap fill look deliberate, but at that strength it
+    // crushes a painting to black. Panels and chips carry their own opaque
+    // backgrounds, so this only has to protect the loose header text.
+    const [a, b] = ART_SCRIM;
     return (
       `linear-gradient(rgba(10,11,15,${a}), rgba(10,11,15,${b})), ` +
       `url("${backgroundUrl}")`
     );
   }
+  const [a, b] = opts?.scrim ?? [0.62, 0.86];
   return subclassPanelBackground(subclass, { scrim: [a, b] });
 }
