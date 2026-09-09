@@ -72,6 +72,8 @@ export interface PlayerCharacter {
   // Plan 00048 — Character Forge
   appearance?: string | null;
   hero_url?: string | null;
+  /** Plan 97 — full-bleed background behind the player's phone sheet. */
+  background_url?: string | null;
   loadout_url?: string | null;
   hero_locked?: boolean;
   // Plan 00023 — combat state

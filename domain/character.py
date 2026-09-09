@@ -57,6 +57,9 @@ class PlayerCharacter(SQLModel, table=True):
     # The "dressed" render: the base model painted wearing the equipped
     # loadout (image-to-image from hero_url, so identity is preserved).
     loadout_url: Optional[str] = Field(default=None, max_length=500)
+    # Plan 97 — full-bleed art behind the player's phone sheet. Campaign
+    # data, not shipped art; the subclass gradient is the fallback.
+    background_url: Optional[str] = Field(default=None, max_length=500)
     hero_generated_at: Optional[datetime] = Field(default=None)
     # Golden base (Plan 62 follow-up): a locked hero is never re-rolled;
     # every variant (loadout, portrait, minifig) derives from it.
@@ -191,6 +194,7 @@ class PlayerCharacterRead(BaseModel):
     # Plan 00048 — Character Forge
     appearance: Optional[str] = None
     hero_url: Optional[str] = None
+    background_url: Optional[str] = None
     loadout_url: Optional[str] = None
     hero_locked: bool = False
     created_at: datetime
@@ -253,6 +257,7 @@ class PlayerCharacterUpdate(BaseModel):
     # alongside hero_url to anchor the forge cooldown)
     appearance: Optional[str] = None
     hero_url: Optional[str] = None
+    background_url: Optional[str] = None
     loadout_url: Optional[str] = None
     hero_generated_at: Optional[datetime] = None
     hero_locked: Optional[bool] = None

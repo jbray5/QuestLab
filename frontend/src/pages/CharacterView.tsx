@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { playApi, type GearRow } from "../api/play";
 import { RARITY_COLORS, typeEmoji } from "../components/store/storeTheme";
-import { subclassPanelBackground } from "../lib/subclassArt";
+import { sheetBackground } from "../lib/subclassArt";
 import { renderLegendCard, shareLegendCard } from "../lib/legendCard";
 
 /**
@@ -414,9 +414,21 @@ export default function CharacterView() {
   // changes when they deliberately press "Render me wearing this".
   const model = pc.loadout_url || pc.hero_url || pc.figure_url || pc.portrait_url || null;
 
-  const artBg = subclassPanelBackground(pc.subclass, { scrim: [0.62, 0.88] });
+  const artBg = sheetBackground(pc.background_url, pc.subclass, { scrim: [0.62, 0.88] });
   return (
-    <div className="forge-root" style={artBg ? { background: artBg, backgroundAttachment: "fixed" } : undefined}>
+    <div
+      className="forge-root"
+      style={
+        artBg
+          ? {
+              background: artBg,
+              backgroundSize: "cover",
+              backgroundPosition: "center top",
+              backgroundAttachment: "fixed",
+            }
+          : undefined
+      }
+    >
       <style>{FORGE_CSS}</style>
       <div className="forge-inner">
         <h1 className="forge-title">{pc.character_name}</h1>

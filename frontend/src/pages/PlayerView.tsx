@@ -6,7 +6,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { playApi, type CombatState, type GearRow, type TurnState } from "../api/play";
 import { portraitSrc } from "../lib/portrait";
-import { subclassPanelBackground } from "../lib/subclassArt";
+import { sheetBackground, subclassPanelBackground } from "../lib/subclassArt";
 import type { PlayerCharacter } from "../api/types";
 import InfoTip from "../components/character-sheet/InfoTip";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
@@ -253,8 +253,21 @@ function PlayerSheet({ pcId }: { pcId: string }) {
         ? "ql-sheet-flash-heal"
         : "";
 
+  const pageBg = sheetBackground(pc.background_url, pc.subclass);
   return (
-    <div style={pageStyle}>
+    <div
+      style={
+        pageBg
+          ? {
+              ...pageStyle,
+              background: pageBg,
+              backgroundSize: "cover",
+              backgroundPosition: "center top",
+              backgroundAttachment: "fixed",
+            }
+          : pageStyle
+      }
+    >
       {/* Plan 37 — full-viewport flash so a DM-applied HP change can't be
           missed even when the user is scrolled past the HP chip. */}
       {sheetFlash && (
@@ -548,8 +561,11 @@ function HeaderBanner({
   const percProf =
     (pc.skill_proficiencies as Record<string, number> | null | undefined)?.["Perception"] ?? 0;
   const passivePerception = 10 + mod(pc.score_wis) + profBonus * percProf;
-  // Plan 60c — the sheet header wears the subclass art (scrimmed for text).
-  const artBg = subclassPanelBackground(pc.subclass);
+  // Plan 97 — the page wears the art now; the header keeps a subtler tint so
+  // it still reads as a panel on top of it.
+  const artBg = pc.background_url
+    ? undefined
+    : subclassPanelBackground(pc.subclass);
   return (
     <div style={artBg ? { ...headerStyle, background: artBg } : headerStyle}>
       <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
