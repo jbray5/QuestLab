@@ -1147,47 +1147,6 @@ export default function SessionHud() {
     return map;
   }, [monsterQueries, distinctMonsterIds]);
 
-  // ── Quick rules accordion ──────────────────────────────────────────────────
-  const [rulesOpen, setRulesOpen] = useState<string | null>(null);
-
-  const QUICK_RULES: Record<string, string[]> = {
-    "Actions": [
-      "Action: Attack, Cast a Spell, Dash, Disengage, Dodge, Help, Hide, Ready, Search, Use Object",
-      "Bonus Action: Class features, some spells (requires explicit 'bonus action' tag)",
-      "Reaction: Opportunity attack, Shield, Absorb Elements, Counterspell — triggered by a condition",
-      "Free: Communicate, Drop an object, Open an unlocked door (DM discretion)",
-    ],
-    "Death Saves": [
-      "Roll d20 at start of turn when at 0 HP. 10+ = success, 9 or less = failure.",
-      "3 successes = stable (0 HP, unconscious). 3 failures = dead.",
-      "Nat 1 = 2 failures. Nat 20 = regain 1 HP.",
-      "Taking any damage = 1 failure. Taking a crit = 2 failures.",
-      "Another creature using the Help action (Medicine check DC 10) = stable.",
-    ],
-    "Concentration": [
-      "Only one concentration spell at a time. New one drops the old one.",
-      "Taking damage: CON save DC = max(10, half damage taken).",
-      "Incapacitated or killed: concentration drops immediately.",
-      "Spells tagged [concentration] in spell description.",
-    ],
-    "Conditions": CONDITIONS.map((c) => `${c}: ${CONDITION_RULES[c]}`),
-    "Advantage / Disadv": [
-      "Advantage: roll 2d20, take higher.",
-      "Disadvantage: roll 2d20, take lower.",
-      "They cancel out. Multiple sources of each don't stack.",
-      "Nat 20 on attack = crit (regardless of modifiers). Roll damage dice twice.",
-      "Nat 1 on attack = automatic miss.",
-    ],
-    "Exhaustion (2024)": [
-      "0–6 scale. Each level applies a cumulative −2 to ALL D20 Tests",
-      "(attack rolls, ability checks, saving throws).",
-      "Level 6 = death. Long rest reduces by 1.",
-      "Common triggers: forced march, going without food/water, failed CON",
-      "save vs harmful effect, certain spells (Ray of Sickness).",
-      "Note: 2024 rules — different from 2014's per-level distinct effects.",
-    ],
-  };
-
   // ── Render ─────────────────────────────────────────────────────────────────
 
   if (!session) {
@@ -2487,61 +2446,6 @@ export default function SessionHud() {
           </div>
         </div>
       </div>
-
-      {/* ── Bottom bar: Quick Rules ────────────────────────────── */}
-      {!shortScreen && (
-      <div style={{
-        borderTop: "1px solid var(--border)",
-        background: "var(--surface2)",
-        padding: "0.5rem 1rem",
-        flexShrink: 0,
-        display: "flex",
-        gap: "2rem",
-        alignItems: "flex-start",
-        flexWrap: "wrap",
-      }}>
-
-        {/* Quick rules */}
-        <div className="flex" style={{ gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-          <span style={{ fontSize: "0.7rem", color: "var(--muted)", fontWeight: 700, textTransform: "uppercase" }}>
-            Rules
-          </span>
-          {Object.entries(QUICK_RULES).map(([title, rules]) => (
-            <div key={title} style={{ position: "relative" }}>
-              <button
-                className="btn btn-ghost"
-                style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}
-                onClick={() => setRulesOpen(rulesOpen === title ? null : title)}
-              >
-                {title} {rulesOpen === title ? "▲" : "▾"}
-              </button>
-              {rulesOpen === title && (
-                <div style={{
-                  position: "absolute", bottom: "110%", left: 0, zIndex: 60,
-                  background: "var(--surface)", border: "1px solid var(--border)",
-                  borderRadius: 8, padding: "0.75rem 1rem",
-                  maxWidth: 360, maxHeight: 280, overflowY: "auto",
-                  boxShadow: "0 -4px 20px rgba(0,0,0,0.5)",
-                  fontSize: "0.78rem", lineHeight: 1.6,
-                }}>
-                  <div style={{
-                    fontWeight: 700, color: "var(--gold)",
-                    marginBottom: "0.5rem", fontSize: "0.8rem",
-                  }}>
-                    {title}
-                  </div>
-                  {rules.map((r, i) => (
-                    <div key={i} style={{ marginBottom: "0.4rem", color: "var(--muted)" }}>
-                      {r}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-      )}
 
       {/* Monster stat block modal (Plan 00015 — wire stat blocks into HUD) */}
       {statBlockMonster && (
