@@ -28,6 +28,29 @@ sign the bracket and the art agree.
 City Hall (§1f) has no board by design. Nothing was built from the §1h
 reserved set.
 
+### Animated variants
+The purchased library has loops for exactly three maps — Fey Tavern, Chained
+Dragon and Elven Magitech Portal — and they sit *beside* the zips, not inside
+them. Only the Fey Tavern is a Session 7 board.
+
+Two catches, both now handled:
+
+1. **Czepeku renders these loops sideways.** All three are 3840-wide landscape
+   files whose aspect is the exact inverse of their portrait map, with an
+   identity display matrix — so a player draws the map on its side. Confirmed
+   by pulling a frame in headless Chrome. Fixed by rewriting the video track's
+   3×3 display matrix to 270° and swapping the track's display dimensions
+   (`scratchpad/rotate_mp4.py`): a container edit, no re-encode, no quality
+   loss. Re-checked in Chrome — the moth is back at the top over the bar.
+2. **The loop is the *Original* variant, not Luna.** Czepeku only animated
+   Original Day/Night, and that variant's moth is a blue eyespot moth, not the
+   pale green luna moth the club is named after. So the animated version went
+   in as a **second board**, `Greenreef — LUNA (animated)`, beside the still —
+   the still keeps the right moth, the animated one moves. DM's pick.
+
+The same rotation trick will be needed for Chained Dragon (Session 8+) and the
+Magitech Portal if either is ever built.
+
 ## Restwater (§1a) — verified, two gaps closed
 Verified working: three sealable doorways (the HOUSE ACTIONS beat), Sorrel's
 REGEN card with its dismiss button, Mira flagged Large (token size 2.0), and
