@@ -69,6 +69,42 @@ export function useTableController(sessionId: string, campaignId: string, party:
     });
   }
 
+  /** Where a party should stand when it arrives on this map. */
+  function partyAnchor(count: number) {
+    const unit =
+      activeMap!.grid_size && activeMap!.grid_size > 0
+        ? activeMap!.grid_size
+        : Math.min(activeMap!.width, activeMap!.height) / 20;
+    return {
+      cx: activeMap!.width * 0.5,
+      cy: activeMap!.height * 0.72,
+      step: Math.max(unit * 1.2, Math.min(activeMap!.width * 0.11, activeMap!.width / (count + 1))),
+    };
+  }
+
+  /**
+   * Plan 96 — lay the party out in a line again. "+ Party" only ever adds PCs
+   * who are missing, so after a map swap the DM had no way to un-clump them
+   * short of dragging four tokens.
+   */
+  function regroupParty() {
+    if (!activeMap || !state) return;
+    const pcTokens = state.tokens.filter((t) => t.kind === "pc");
+    if (!pcTokens.length) {
+      addPartyTokens();
+      return;
+    }
+    const { cx, cy, step } = partyAnchor(pcTokens.length);
+    let i = 0;
+    const moved = state.tokens.map((t) => {
+      if (t.kind !== "pc") return t;
+      const x = Math.round(cx + (i - (pcTokens.length - 1) / 2) * step);
+      i += 1;
+      return { ...t, x, y: Math.round(cy) };
+    });
+    patchNow({ tokens: moved });
+  }
+
   function addPartyTokens() {
     if (!activeMap || !state) return;
     const existingRefs = new Set(state.tokens.map((t) => t.ref_id).filter(Boolean));
@@ -243,6 +279,7 @@ export function useTableController(sessionId: string, campaignId: string, party:
     setDarknessLive,
     toggleRegion,
     addPartyTokens,
+    regroupParty,
     addToken,
     addNpcToken,
     npcs,

@@ -256,6 +256,15 @@ function TableConsoleModal({
               <button className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={t.addPartyTokens} disabled={!activeMap}>
                 + Party
               </button>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: "0.7rem" }}
+                onClick={t.regroupParty}
+                disabled={!activeMap}
+                title="Line the party up again on this map — use it after switching boards"
+              >
+                ⤢ Regroup
+              </button>
               <button className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => t.addToken("monster")} disabled={!activeMap}>
                 + Foe
               </button>

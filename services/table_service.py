@@ -87,6 +87,47 @@ def get_table_state(db: DBSession, session_id: uuid.UUID, dm_email: str) -> Tabl
     return TableStateRead.model_validate(state)
 
 
+def _rescale_tokens_for_map(
+    tokens: list[dict],
+    old_map: Optional[object],
+    new_map: object,
+) -> list[dict]:
+    """Move tokens to the same *relative* spot on a differently-sized map (Plan 96).
+
+    Token coordinates are absolute image pixels, so switching from a small map
+    to a large one used to leave every token inside the old map's footprint —
+    the whole party clumped in one corner. Carrying the fractional position
+    across keeps the arrangement and puts it on the new board.
+
+    Args:
+        tokens: The stored token dicts.
+        old_map: The battle map the coordinates were authored against, if any.
+        new_map: The map being switched to.
+
+    Returns:
+        The tokens with x/y rescaled and clamped inside the new map.
+    """
+    ow = float(getattr(old_map, "width", 0) or 0)
+    oh = float(getattr(old_map, "height", 0) or 0)
+    nw = float(getattr(new_map, "width", 0) or 0)
+    nh = float(getattr(new_map, "height", 0) or 0)
+    if not (ow and oh and nw and nh) or (ow == nw and oh == nh):
+        return tokens
+    # Copy rather than mutate: the caller's list holds the rows SQLAlchemy
+    # loaded, and editing those in place leaves old and new looking identical,
+    # so no UPDATE is ever emitted.
+    moved: list[dict] = []
+    for token in tokens:
+        fresh = dict(token)
+        try:
+            fresh["x"] = round(min(max(float(fresh.get("x", 0)) / ow, 0.0), 1.0) * nw, 2)
+            fresh["y"] = round(min(max(float(fresh.get("y", 0)) / oh, 0.0), 1.0) * nh, 2)
+        except (TypeError, ValueError):  # a malformed token keeps its coords
+            pass
+        moved.append(fresh)
+    return moved
+
+
 def update_table_state(
     db: DBSession, session_id: uuid.UUID, dm_email: str, update: TableStateUpdate
 ) -> TableStateRead:
@@ -110,15 +151,27 @@ def update_table_state(
     state = TableStateRepo.get_or_create(db, session_id)
     patch = update.model_dump(exclude_unset=True)
 
+    switched_to = None
     if "active_map_id" in patch and patch["active_map_id"] is not None:
         battle_map = BattleMapRepo.get_by_id(db, patch["active_map_id"])
         campaign_id = session_service.get_campaign_id_for_adventure(db, game_session.adventure_id)
         if battle_map is None or battle_map.campaign_id != campaign_id:
             raise ValueError("Battle map not found in this session's campaign.")
+        if patch["active_map_id"] != state.active_map_id:
+            switched_to = battle_map
 
     # Normalize nested pydantic models (tokens) to plain JSON-able dicts.
     if "tokens" in patch and patch["tokens"] is not None:
         patch["tokens"] = [t if isinstance(t, dict) else t.model_dump() for t in patch["tokens"]]
+
+    # Plan 96 — a map swap carries the tokens over by fraction, so the party
+    # never lands clumped inside the old map's footprint. Only when the caller
+    # is not already setting positions itself.
+    if switched_to is not None and "tokens" not in patch:
+        old_map = BattleMapRepo.get_by_id(db, state.active_map_id) if state.active_map_id else None
+        carried = _rescale_tokens_for_map(list(state.tokens or []), old_map, switched_to)
+        if carried:
+            patch["tokens"] = carried
 
     for field, value in patch.items():
         setattr(state, field, value)
