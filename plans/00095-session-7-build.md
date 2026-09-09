@@ -57,14 +57,31 @@ REGEN card with its dismiss button, Mira flagged Large (token size 2.0), and
 **Stand Down: House** — both Dryads *and* all three Attendants carry
 `group: "house"`, so one click flips the whole staff.
 
-Closed: the **spring-gate had a stat block but no token**, so it was not
-selectable or damageable on the board. Added as its own Large token, not
-tagged `house` (an object does not stand down with the staff). Sitting at
-bottom-centre — drag it to the sluice.
+The **spring-gate is deliberately not on the board.** It was added as a token
+(the handoff's verify list asked for one) and then removed at Justin's call: a
+big labelled object on the shared screen telegraphs "attack this" and gives the
+puzzle away. He tracks its 25 HP on paper. The `Spring-gate (sluice)` stat
+block stays in the catalog as the DM's reference for AC 15 / HP 25 / immune to
+poison and psychic — it is DM-facing only and never renders to players.
 
 Also wired the standees made in Plan 94 onto the Mira, Edrik and Tinkerman
 tokens, put Sorrel's hag art on hers (she has revealed herself by the time
 this board is up), and set **Tinkerman to Tiny** (0.5) per §3.
+
+### Art re-cuts (post-build, at the table's request)
+- **Mira** re-cut swashbuckling: cutlass drawn, laced vest, sash, cuffed
+  boots, hand on hip, smirking.
+- **The Dryad** re-cut striking and otherworldly: bark-toned skin, leaf-fall
+  hair, flowering branch, knowing half-smile.
+- **The Attendants** modelled on a cultist reference Justin supplied —
+  charcoal sackcloth robes, deep hoods, crescent mark on brow and breast,
+  bare wet feet. Three *different* townspeople, one per token, since all three
+  stand together. Their hands are open and empty rather than holding the
+  reference's sickle: they deal no damage and apologise while they grapple, so
+  a raised blade would read as a threat at exactly the wrong moment.
+
+Every token bakes its art URL in at placement time, so re-cutting a standee
+means repointing the tokens too — done for all of the above.
 
 ## Stat blocks (§2)
 - **Attendant** — created, CR 1/8, AC 12, HP 16. Get In The Way (+3, no
