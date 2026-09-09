@@ -278,9 +278,9 @@ function TableConsoleModal({
                 + Foes (combat)
               </button>
               {npcPickerOpen &&
-                t.npcs
-                  .filter((n) => n.figure_url || n.portrait_url)
-                  .map((n) => (
+                /* Every NPC, art or not — a slot whose art hasn't arrived yet
+                   places as a neutral labelled token rather than nothing. */
+                t.npcs.map((n) => (
                     <button
                       key={n.id}
                       className="btn btn-ghost"
@@ -289,19 +289,32 @@ function TableConsoleModal({
                         t.addNpcToken(n);
                         setNpcPickerOpen(false);
                       }}
-                      title={n.figure_url ? "Standee" : "Portrait — no standee yet"}
+                      title={n.figure_url ? "Standee" : n.portrait_url ? "Portrait — no standee yet" : "No art yet — places as a labelled token"}
                     >
-                      <img
-                        src={(n.figure_url ?? n.portrait_url) as string}
-                        alt=""
-                        style={{ width: 18, height: 18, objectFit: "cover", borderRadius: 3 }}
-                      />
+                      {n.figure_url ?? n.portrait_url ? (
+                        <img
+                          src={(n.figure_url ?? n.portrait_url) as string}
+                          alt=""
+                          style={{ width: 18, height: 18, objectFit: "cover", borderRadius: 3 }}
+                        />
+                      ) : (
+                        <span
+                          aria-hidden
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: 3,
+                            border: "1px dashed var(--border)",
+                            display: "inline-block",
+                          }}
+                        />
+                      )}
                       {n.name}
                     </button>
                   ))}
-              {npcPickerOpen && !t.npcs.some((n) => n.figure_url || n.portrait_url) && (
+              {npcPickerOpen && t.npcs.length === 0 && (
                 <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>
-                  No NPC has art yet.
+                  No NPCs in this campaign yet.
                 </span>
               )}
               {t.groups.map((g) => (
