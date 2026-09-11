@@ -35,7 +35,21 @@ already had all 23 items with the rules text verbatim in the descriptions and
 `cost_text` carrying the three barter prices — the "price type the marketplace
 may not have" turned out to exist.
 
-## The four conflicts with the 9/9 handoff
+## Justin's rulings, 9/10 — all four conflicts closed
+- **The Attendants are Cultists.** Neither the Thug nor the custom obstacle:
+  the printed 2024 Cultist. AC 12, HP 9 (2d8), CR 1/8, Ritual Sickle +3 for
+  1d4+1 slashing plus 1 necrotic, Deception and Religion +2, DEX +1 and WIS +2
+  saves, leather and a sickle. Kept as traits because no printed block carries
+  them: "She Has Our Years" (the whole house sits down when the gate opens)
+  and who they are. The three board tokens are renamed Cultist; they keep
+  `group: "house"` so Stand Down still takes them.
+- **Reeve Damson is a man.** Changed at the table's request.
+- **Sorrel runs as the printed Green Hag, straight up.** No regeneration. The
+  card now reads: she cannot die while the pools hold water — damage takes her
+  to 1 HP and stops — and opening the gate makes her killable normally.
+- **Margarita-shire** is the dockside tavern, night and day (below).
+
+## The original four conflicts, for the record
 1. **The Attendant block.** This document says use the Thug (CR 1/2, AC 11,
    HP 32). The 9/9 document says explicitly **do not**, because three Thugs
    with Pack Tactics against four level-3 PCs killed the party in simulation,
@@ -50,11 +64,25 @@ may not have" turned out to exist.
    Marketplace Bridge Sunset; the 9/9 doc offered Mossy Steps or Secret Cove.
    The placeholder is Mossy Steps.
 
+## Margarita-shire
+The purchased library has exactly three taverns: Fey Tavern (LUNA), Fey
+Vineyard (reserved for Session 9), and **Haunted Dockside Tavern**, which was
+unused and is not reserved. Its `The_Amber_Serene` variant is the un-haunted
+one — a warm amber bar with string lights and an open deck of round tables out
+over the water, a cobbled street at the bottom. Built as **Margarita-shire
+(Night)**, with **(Day)** from `Original_Day` beside it. The Mossy Steps
+placeholder is renamed "Mossy Steps (spare terrace)" so the name is
+unambiguous at the table; the art stays in the library.
+
+## The shop's reveal
+Players get it on the night. `hidden` only filters a shop off the town market
+page — the direct storefront link always works — so Greenreef Market is now
+hidden and the reveal is one toggle on the shop.
+
 ## Open, needing Justin
 - **#blackreef-cove is not a configured crier channel** (only #test,
   #the-hearth, #the-market). It needs a Discord webhook URL, which only he can
   create. The "Blackreef Harbor" identity exists with an avatar.
-- **Margarita-shire** final art.
 - **Restwater below the floor** and the handout letters: no player-facing
   document surface exists, and neither referenced file is in the repo, so both
   run from Discord/paper as the handoff allows.
