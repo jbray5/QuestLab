@@ -492,6 +492,84 @@ def _spell_attacks(
     return out, reactions
 
 
+_BREATH_TYPES = ("acid", "cold", "fire", "lightning", "poison")
+_BREATH_RE = re.compile(
+    r"(acid|cold|fire|lightning|poison)[^.]{0,24}breath"
+    r"|breath[^.]{0,24}(acid|cold|fire|lightning|poison)",
+    re.I,
+)
+
+
+def _breath_type(pc: PlayerCharacter) -> str:
+    """The dragonborn's draconic ancestry, read off the sheet.
+
+    There is no ancestry column, so the damage type lives in whatever the DM
+    wrote ("Species: Fire breath weapon, Fire resistance"). Fire is the
+    fallback — the most common pick, and visibly wrong rather than silently
+    absent if the sheet says nothing.
+
+    Args:
+        pc: The player character.
+
+    Returns:
+        One of the five draconic damage types.
+    """
+    blob = f"{pc.notes or ''} {pc.appearance or ''}"
+    m = _BREATH_RE.search(blob)
+    if m:
+        return (m.group(1) or m.group(2)).lower()
+    return "fire"
+
+
+def _species_extras(
+    pc: PlayerCharacter, mods: dict[str, int], prof: int
+) -> tuple[list[ArenaAttack], list[ArenaFeature]]:
+    """Species traits with dice. Dragonborn Breath Weapon (2024) for now.
+
+    Args:
+        pc: The player character.
+        mods: Ability modifiers.
+        prof: Proficiency bonus.
+
+    Returns:
+        ``(attacks, features)`` to fold into the fight.
+    """
+    attacks: list[ArenaAttack] = []
+    feats: list[ArenaFeature] = []
+    race = (pc.race or "").lower()
+    if "dragonborn" in race:
+        dice = 1 + (pc.level >= 5) + (pc.level >= 11) + (pc.level >= 17)
+        dtype = _breath_type(pc)
+        attacks.append(
+            ArenaAttack(
+                key="breath_weapon",
+                name=f"Breath Weapon ({dtype})",
+                kind="feature",
+                cost="action",
+                save_ability="dex",
+                save_dc=8 + mods.get("con", 0) + prof,
+                half_on_save=True,
+                damage=f"{dice}d10",
+                damage_type=dtype,
+                melee=False,
+                note=(
+                    f"15-ft cone, DEX save DC {8 + mods.get('con', 0) + prof} for half. "
+                    f"{prof} uses per long rest."
+                ),
+            )
+        )
+        feats.append(
+            ArenaFeature(
+                key="breath_weapon",
+                name="Breath Weapon uses",
+                uses_left=prof,
+                cost="free",
+                blurb=f"{prof} per long rest — spent by the Breath Weapon attack above.",
+            )
+        )
+    return attacks, feats
+
+
 def _class_extras(
     pc: PlayerCharacter,
     mods: dict[str, int],
@@ -780,6 +858,9 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
     personal = entitlement_service.personal_content_allowed(dm_email)
     extra_attacks, extra_feats = _class_extras(pc, mods, prof, personal, stats)
     attacks += extra_attacks
+    species_attacks, species_feats = _species_extras(pc, mods, prof)
+    attacks += species_attacks
+    extra_feats += species_feats
     features = _pc_features(db, pc, dm_email, personal) + extra_feats
     sorcery = pc.level if cls == "sorcerer" and pc.level >= 2 else 0
     sorcery_max = sorcery
@@ -1809,6 +1890,8 @@ def _feature(
         raise ValueError("You're already in a beast form.")
     if key == "cutting_words":
         raise ValueError("Cutting Words happens on its own when the foe would just hit you.")
+    if key == "breath_weapon":
+        raise ValueError("Use the Breath Weapon attack — this just counts what is left.")
     if key == "create_slot":
         lvl = slot_level or 1
         if lvl not in _FONT_COST:
@@ -2136,6 +2219,11 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
         quickened = "quicken" in state.marks and attack.kind in ("cantrip", "spell")
         surged_bonus = "bonus_casting" in state.effects and attack.kind in ("cantrip", "spell")
         cost = "bonus" if (quickened or surged_bonus) and attack.cost == "action" else attack.cost
+        if attack.key == "breath_weapon":
+            breath = next((f for f in state.pc.features if f.key == "breath_weapon"), None)
+            if breath is None or breath.uses_left <= 0:
+                raise ValueError("No Breath Weapon uses left today.")
+            breath.uses_left -= 1
         if attack.key == "star_bolt":
             star = next((f for f in state.pc.features if f.key == "star_map"), None)
             if star is None or star.uses_left <= 0:
