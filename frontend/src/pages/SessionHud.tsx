@@ -2286,9 +2286,10 @@ export default function SessionHud() {
                         }}
                       >
                         <img
-                          src={m.image_url}
+                          src={m.thumb_url ?? m.image_url}
                           alt={m.name}
                           loading="lazy"
+                          decoding="async"
                           style={{ width: "100%", aspectRatio: "16/10", objectFit: "cover", display: "block" }}
                         />
                         <div style={{ padding: "0.35rem 0.5rem", fontSize: "0.78rem", color: active ? "var(--gold)" : "var(--text)" }}>

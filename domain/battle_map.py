@@ -54,6 +54,9 @@ class BattleMap(SQLModel, table=True):
     # Plan 93 — Obsidian vault path ("People/Auntie Sorrel"). DM-only: it is a
     # spoiler, so it never crosses a player-facing boundary (no /play payload,
     # no table projection) and renders on DM-private surfaces alone.
+    # Plan 99 — small JPEG for pickers and grids. Rendering the full board
+    # into a 200px box decodes tens of megapixels per card and stalls the HUD.
+    thumb_url: Optional[str] = Field(default=None, max_length=1000)
     dm_note: Optional[str] = Field(default=None, max_length=300)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -76,6 +79,7 @@ class BattleMapCreate(BaseModel):
     grid_size: Optional[int] = PydField(default=None, ge=8, le=1000)
     regions: list[FogRegion] = PydField(default_factory=list)
     video_url: Optional[str] = PydField(default=None, max_length=1000)
+    thumb_url: Optional[str] = PydField(default=None, max_length=1000)
     dm_note: Optional[str] = PydField(default=None, max_length=300)
 
 
@@ -98,6 +102,7 @@ class BattleMapUpdate(BaseModel):
     ground_url: Optional[str] = PydField(default=None, max_length=1000)
     props: Optional[list[dict[str, Any]]] = None
     video_url: Optional[str] = PydField(default=None, max_length=1000)
+    thumb_url: Optional[str] = PydField(default=None, max_length=1000)
     dm_note: Optional[str] = PydField(default=None, max_length=300)
 
 
@@ -117,6 +122,7 @@ class BattleMapRead(BaseModel):
     ground_url: Optional[str] = None
     props: Optional[list[dict[str, Any]]] = None
     video_url: Optional[str] = None
+    thumb_url: Optional[str] = None
     dm_note: Optional[str] = None
 
     model_config = {"from_attributes": True}

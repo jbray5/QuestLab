@@ -411,6 +411,8 @@ export interface BattleMap {
   video_url?: string | null;
   /** Plan 93 — Obsidian vault path. DM-only; never rendered on a shared surface. */
   dm_note?: string | null;
+  /** Plan 99 — small JPEG for pickers; the full image is the fallback. */
+  thumb_url?: string | null;
 }
 
 export interface MapProp {
@@ -438,6 +440,8 @@ export interface BattleMapUpdate {
   regions?: FogRegion[];
   backdrop_url?: string | null;
   heightmap_url?: string | null;
+  /** Plan 99 — small JPEG for pickers; the full image is the fallback. */
+  thumb_url?: string | null;
 }
 
 export interface BrushReveal {

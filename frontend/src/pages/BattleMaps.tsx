@@ -277,7 +277,9 @@ function MapGrid({
         >
           <div style={{ aspectRatio: "16 / 10", background: "#0a0a10", overflow: "hidden" }}>
             <img
-              src={m.image_url}
+              src={m.thumb_url ?? m.image_url}
+              loading="lazy"
+              decoding="async"
               alt={m.name}
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
