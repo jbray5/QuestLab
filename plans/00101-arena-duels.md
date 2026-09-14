@@ -1,7 +1,7 @@
 # Plan 00101 — Arena duels: hot-seat PvP for the whole table
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (live-verified 2026-09-13)
 
 **Started:** 2026-09-13
 **Last updated:** 2026-09-13
@@ -27,16 +27,16 @@ document the device holds, exactly as the solo arena is.
 ## Progress
 - [x] Step 0: Measure the asymmetry (2026-09-13) — 141 reads of top-level turn
       state vs 32 `state.pc` / 27 `state.foe`. This is the whole cost.
-- [ ] Step 1: `ArenaCombatant` — one shape for a PC side and a monster side
-- [ ] Step 2: `ArenaState` becomes a combatant list + initiative order
-- [ ] Step 3: Move the 141 turn flags onto the active combatant
-- [ ] Step 4: `start_duel()` — build N sides from PCs, roll initiative
-- [ ] Step 5: Auto-play stays for monster sides only
-- [ ] Step 6: Routes — `POST /arena/duel/start`, reuse `/arena/act`
-- [ ] Step 7: The landing page and the hot-seat UI
-- [ ] Step 9: Paced log playback (Cory's ask — frontend only)
-- [ ] Step 10: `auto` sides — party vs boss with allies played by the referee
-- [ ] Step 8: Tests, prod verification
+- [x] Step 1: `ArenaCombatant` — one shape for a PC side and a monster side
+- [x] Step 2: `ArenaState` becomes a combatant list + initiative order
+- [x] Step 3: Move the 141 turn flags onto the active combatant
+- [x] Step 4: `start_duel()` — build N sides from PCs, roll initiative
+- [x] Step 5: Auto-play stays for monster sides only
+- [x] Step 6: Routes — `POST /arena/duel/start`, reuse `/arena/act`
+- [x] Step 7: The landing page and the hot-seat UI
+- [x] Step 9: Paced log playback (Cory's ask — frontend only)
+- [x] Step 10: `auto` sides — party vs boss with allies played by the referee
+- [x] Step 8: Tests, prod verification
 
 ---
 
@@ -208,4 +208,40 @@ models every class, subclass, species and weapon the table uses.
 ---
 
 ## Outcomes and Retrospective
-_To be filled in on completion._
+
+**The 141-call-site rewrite never happened, and that was the whole win.** Step 0
+measured the asymmetry and concluded the engine had to become symmetric. It
+didn't. The engine only ever holds one actor and one target, so a fight of any
+size runs by *stowing* the acting creature back onto a roster at the end of its
+turn and *drawing* the next one into the same working set. Every rule already
+written — smites, sneak attack, wild magic, breath weapons, thrown javelins —
+keeps applying with no edit at all, and a solo fight has an empty roster and
+takes its old path byte for byte. The arena suites stayed green through every
+step, which they would not have through a rewrite.
+
+The decision-log row "Turn state location: move it onto the combatant" was
+therefore wrong, and the rejected option (a) was right after all — but only
+because the stow/draw pair carries the *persistent* state too, which is the
+part option (a) would have dropped.
+
+**A monster's turn reuses the solo shape.** Loading the monster as the attacker
+and its quarry as the defender is exactly how the solo fight is arranged, so
+the defender's Shield, Uncanny Dodge and Hellish Rebuke fire for free in a boss
+battle with no new code.
+
+### Known limits, honestly
+- **PC-versus-PC reactions do not fire.** In a duel the attacker's whole kit
+  resolves, but the defender's automatic reactions don't, because they hang off
+  the monster-attacks-character path. Thane's Uncanny Dodge works against a
+  boss and not against Nya. The fix is a defender-scoped call in
+  `_resolve_player_attack`; it wanted more care than a late night deserved.
+- **The auto-ally is deliberately plain**: biggest average damage it can pay
+  for. It does not buff, heal, hide or position, because there is no position.
+- **No positioning at all**, by Justin's ruling. Every attack is valid.
+
+### Bugs this work surfaced and fixed
+- A referee-played ally cast a level-2 spell every round without spending a
+  slot (caught by driving a real boss battle on prod, not by a test).
+- The roster only synced at end of turn, so mid-turn health was stale.
+- After a monster's swing the working set held the defender as `pc`, and the
+  next stow would have copied the monster's hit points onto them.
