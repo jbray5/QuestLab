@@ -11,6 +11,7 @@ from domain.character import CharacterSpell as CharacterSpell  # noqa: F401
 from domain.character import ClassFeature as ClassFeature  # noqa: F401
 from domain.character import PlayerCharacter as PlayerCharacter  # noqa: F401
 from domain.combat_beat import CombatBeat as CombatBeat  # noqa: F401
+from domain.duel import Duel as Duel  # noqa: F401
 from domain.encounter import Encounter as Encounter  # noqa: F401
 from domain.item import Item as Item  # noqa: F401
 from domain.item import LootTable as LootTable  # noqa: F401

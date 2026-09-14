@@ -27,6 +27,7 @@ from api.routers import (
     characters,
     combat_beats,
     crier,
+    duels,
     encounters,
     features,
     inventory,
@@ -166,6 +167,7 @@ app.include_router(rest.router, prefix=_PREFIX)
 app.include_router(uploads.router, prefix=_PREFIX)
 app.include_router(admin.router, prefix=_PREFIX)
 app.include_router(play.router, prefix=_PREFIX)
+app.include_router(duels.router, prefix=_PREFIX)
 app.include_router(stream.router, prefix=_PREFIX)
 app.include_router(npcs.router, prefix=_PREFIX)
 app.include_router(combat_beats.router, prefix=_PREFIX)

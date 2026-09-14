@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { apiBase } from "../api/client";
+import { useEventStream } from "../hooks/useEventStream";
 
 /**
  * Arena (Plans 84/85/87) — the Practice Arena on the player's phone. A
@@ -84,11 +85,38 @@ interface LogLine {
 interface ArenaSlot {
   kind: "pc" | "monster";
   label: string;
+  pc_id: string | null;
   team: number;
   auto: boolean;
   pc: ArenaPc | null;
   foe: ArenaFoe | null;
   initiative: number;
+}
+// Plan 104 — a duel the server holds, so everybody can be on their own phone.
+interface DuelSeat {
+  pc_id: string;
+  name: string;
+  hp: number;
+  hp_max: number;
+  up: boolean;
+}
+interface DuelRead {
+  id: string;
+  host_pc_id: string;
+  phase: string;
+  seats: DuelSeat[];
+  up_pc_id: string | null;
+  your_turn: boolean;
+  updated_at: string;
+  state: ArenaState;
+}
+interface DuelSummary {
+  id: string;
+  host_pc_id: string;
+  host_name: string;
+  phase: string;
+  seats: string[];
+  your_turn: boolean;
 }
 interface PartyRow {
   id: string;
@@ -150,6 +178,26 @@ interface FoeOption {
 }
 
 const CSS = `
+.ar-calls { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 4px; }
+.ar-call { text-align: left; padding: 10px 12px; border-radius: 12px; font: inherit; cursor: pointer;
+  border: 1px solid #d6af36; background: rgba(214,175,54,0.14); color: #f0e6c8; }
+.ar-call b { display: block; font-size: 0.86rem; }
+.ar-call small { opacity: 0.78; font-size: 0.72rem; }
+.ar-big.ghost { background: rgba(255,255,255,0.03); color: #cfcfd8; border: 1px solid var(--border, #3a3a46); }
+@keyframes ar-shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-7px); }
+  40%, 60% { transform: translateX(7px); }
+}
+@keyframes ar-flash {
+  from { box-shadow: 0 0 0 0 rgba(220,70,70,0.6); background-color: rgba(220,70,70,0.20); }
+  to { box-shadow: 0 0 0 14px rgba(220,70,70,0); }
+}
+.ar-hit { animation: ar-shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both,
+  ar-flash 0.56s ease-out both; }
+.ar-seat.hurt { animation: ar-flash 0.56s ease-out both; border-color: #b45050; }
+@media (prefers-reduced-motion: reduce) { .ar-hit, .ar-seat.hurt { animation: none; } }
 .ar-modes { display: flex; gap: 6px; margin: 10px 0; }
 .ar-mode { flex: 1; padding: 10px 6px; border-radius: 10px; border: 1px solid var(--border, #3a3a46);
   background: rgba(255,255,255,0.03); color: #cfcfd8; font: inherit; font-size: 0.78rem; cursor: pointer; }
@@ -286,6 +334,10 @@ export default function Arena() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // act() and endFight() are declared before the duel state below; these refs
+  // are how they reach it without reordering the whole component.
+  const duelIdRef = useRef<string | null>(null);
+  const takeRef = useRef<(d: DuelRead) => void>(() => {});
 
   useEffect(() => {
     if (!pcId) return;
@@ -329,18 +381,20 @@ export default function Arena() {
     if (!pcId || !state) return;
     setBusy(true);
     setErr(null);
+    const action = {
+      kind,
+      key: key ?? null,
+      slot_level: slotLevel ?? null,
+      target: target ?? null,
+    };
     try {
-      setState(
-        await post<ArenaState>(`/play/${pcId}/arena/act`, {
-          state,
-          action: {
-            kind,
-            key: key ?? null,
-            slot_level: slotLevel ?? null,
-            target: target ?? null,
-          },
-        }),
-      );
+      if (duelIdRef.current) {
+        takeRef.current(
+          await post<DuelRead>(`/play/${pcId}/duels/${duelIdRef.current}/act`, { action }),
+        );
+      } else {
+        setState(await post<ArenaState>(`/play/${pcId}/arena/act`, { state, action }));
+      }
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -354,13 +408,21 @@ export default function Arena() {
     setBusy(true);
     setErr(null);
     try {
-      setState(
-        await post<ArenaState>(`/play/${pcId}/arena/act`, {
-          state,
-          action: { kind: "flee", key: null, slot_level: null },
-        }),
-      );
+      if (duelIdRef.current) {
+        const d = await post<DuelRead>(`/play/${pcId}/duels/${duelIdRef.current}/end`, {});
+        setDuelId(null);
+        setDuel(d);
+        setState(d.state);
+      } else {
+        setState(
+          await post<ArenaState>(`/play/${pcId}/arena/act`, {
+            state,
+            action: { kind: "flee", key: null, slot_level: null },
+          }),
+        );
+      }
     } catch {
+      setDuelId(null);
       setState(null);
     } finally {
       setBusy(false);
@@ -405,6 +467,101 @@ export default function Arena() {
     roster.length && state?.order && state.turn !== undefined
       ? roster[state.order[state.turn]]
       : null;
+
+  // Plan 104 — a duel fought on separate devices. The fight lives on the
+  // server; this page watches it and may only act on its own turn. Everything
+  // else about the arena is unchanged: a solo spar and a hot-seat duel still
+  // never leave the phone.
+  const [duelId, setDuelId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(`duel-${pcId}`);
+    } catch {
+      return null;
+    }
+  });
+  const [duel, setDuel] = useState<DuelRead | null>(null);
+  const [calls, setCalls] = useState<DuelSummary[]>([]);
+  useEffect(() => {
+    try {
+      if (duelId) localStorage.setItem(`duel-${pcId}`, duelId);
+      else localStorage.removeItem(`duel-${pcId}`);
+    } catch {
+      /* storage blocked — the duel just won't survive a refresh */
+    }
+  }, [duelId, pcId]);
+
+  // A finished duel lets go of the server: the end screen reads the last state
+  // we were handed, and the buttons on it start something new.
+  const take = useCallback((d: DuelRead) => {
+    setDuel(d);
+    setState(d.state);
+    if (d.state.phase === "over") setDuelId(null);
+  }, []);
+
+  const loadDuel = useCallback(
+    async (id: string) => {
+      if (!pcId) return;
+      try {
+        const r = await fetch(`${apiBase()}/play/${pcId}/duels/${id}`);
+        if (!r.ok) {
+          setDuelId(null);
+          setDuel(null);
+          return;
+        }
+        take((await r.json()) as DuelRead);
+      } catch {
+        /* the stream will bring the next one */
+      }
+    },
+    [pcId, take],
+  );
+  useEffect(() => {
+    if (duelId) void loadDuel(duelId);
+  }, [duelId, loadDuel]);
+
+  const refreshCalls = useCallback(() => {
+    if (!pcId) return;
+    fetch(`${apiBase()}/play/${pcId}/duels`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: DuelSummary[]) => setCalls(rows))
+      .catch(() => setCalls([]));
+  }, [pcId]);
+  useEffect(() => {
+    refreshCalls();
+  }, [refreshCalls]);
+
+  // Both phones watch the same fight. One push per turn; each refetches.
+  useEventStream("duel", duelId ?? undefined, () => {
+    if (duelId) void loadDuel(duelId);
+  });
+  useEventStream("pc", pcId, (e) => {
+    if (e.type === "duel.called") refreshCalls();
+  });
+
+  // It is your turn, or it is nobody's business but the person holding this
+  // phone. The server checks this too — the UI only saves them the round trip.
+  const locked = !!duelId && !(duel?.your_turn ?? false);
+  const waiting = busy || locked;
+
+  duelIdRef.current = duelId;
+  takeRef.current = take;
+
+  async function startLive() {
+    if (!pcId) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const ids = Array.from(new Set([pcId, ...picked]));
+      const d = await post<DuelRead>(`/play/${pcId}/duels`, { pc_ids: ids });
+      setDuelId(d.id);
+      setDuel(d);
+      setState(d.state);
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function startDuel() {
     if (!pcId) return;
@@ -480,7 +637,10 @@ export default function Arena() {
       .sort((x, y) => x - y);
   }
 
-  const you = state?.pc;
+  // On a live duel this phone always shows its own sheet — the working set
+  // belongs to whoever is acting, which on their turn is not you.
+  const mySeat = duelId ? roster.find((sl) => sl.pc_id === pcId) : undefined;
+  const you = mySeat?.pc ?? state?.pc;
   const foe = state?.foe;
   const yourChips: { label: string; cls?: string }[] = [];
   if (state && you) {
@@ -510,6 +670,44 @@ export default function Arena() {
       yourChips.push({ label: `${k.replace(/_/g, " ")} (${n})`, cls: ["plant", "frightened", "poisoned", "fog", "vuln piercing"].includes(k.replace(/_/g, " ")) ? "bad" : "cond" }),
     );
   }
+  // Plan 104 — a hit you can feel. Android buzzes; iOS Safari has no
+  // vibrate at all, so the flinch is the real effect and the buzz is a bonus.
+  const hpKey = state
+    ? roster.length
+      ? roster.map((sl) => (sl.pc ?? sl.foe)?.hp ?? 0).join(",")
+      : `${state.pc.hp},${state.foe.hp}`
+    : "";
+  const myIndex = roster.length
+    ? duelId
+      ? roster.findIndex((sl) => sl.pc_id === pcId)
+      : (state?.order?.[state.turn ?? 0] ?? -1)
+    : 0;
+  const prevHp = useRef("");
+  const [hurt, setHurt] = useState<number[]>([]);
+  const [ouch, setOuch] = useState(0);
+  useEffect(() => {
+    const before = prevHp.current;
+    prevHp.current = hpKey;
+    if (!before || !hpKey || before === hpKey) return;
+    const was = before.split(",").map(Number);
+    const now = hpKey.split(",").map(Number);
+    if (was.length !== now.length) return;
+    const dropped = now.map((hp, i) => (hp < was[i] ? i : -1)).filter((i) => i >= 0);
+    if (dropped.length === 0) return;
+    const mine = dropped.includes(myIndex);
+    try {
+      // Two thumps when it's you, one tick when it's somebody else.
+      navigator.vibrate?.(mine ? [0, 38, 45, 80] : 18);
+    } catch {
+      /* some browsers throw while the page is hidden */
+    }
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    setHurt(dropped);
+    if (mine) setOuch((n) => n + 1);
+    const t = window.setTimeout(() => setHurt([]), 560);
+    return () => window.clearTimeout(t);
+  }, [hpKey, myIndex]);
+
   const cls = you?.character_class.toLowerCase() ?? "";
   const hasAutoReactions =
     !!you?.features.some((f) => f.cost === "reaction") || cls === "rogue" || cls === "monk" || cls === "wizard" || cls === "sorcerer" || cls === "warlock";
@@ -523,6 +721,20 @@ export default function Arena() {
           ← Sheet
         </Link>
       </div>
+
+      {(!state || state.phase === "over") && calls.length > 0 && (
+        <div className="ar-calls">
+          {calls.map((c) => (
+            <button key={c.id} className="ar-call" onClick={() => setDuelId(c.id)}>
+              <b>⚔️ {c.host_name || "Someone"} called you out</b>
+              <small>
+                {c.seats.join(" vs ")}
+                {c.your_turn ? " · you're up" : ""}
+              </small>
+            </button>
+          ))}
+        </div>
+      )}
 
       {!state && (
         <>
@@ -551,7 +763,7 @@ export default function Arena() {
             <>
               <p className="ar-sub">
                 {hall === "duel"
-                  ? "Everyone for themselves. Initiative is rolled fresh, and the device passes round the table — it always says whose turn it is."
+                  ? "Everyone for themselves, initiative rolled fresh. On your own devices the fight is kept live for everyone and each phone can only act on its own turn."
                   : "Your party against one monster. You pick your own actions; the referee plays everybody else."}
               </p>
               <div className="ar-h">Who's in</div>
@@ -585,15 +797,24 @@ export default function Arena() {
                   })}
               </div>
               {hall === "duel" && (
-                <button
-                  className="ar-big"
-                  disabled={busy || picked.length === 0}
-                  onClick={() => void startDuel()}
-                >
-                  {picked.length === 0
-                    ? "Pick at least one opponent"
-                    : `⚔️ Roll initiative — ${picked.length + 1} in the ring`}
-                </button>
+                <>
+                  <button
+                    className="ar-big"
+                    disabled={busy || picked.length === 0}
+                    onClick={() => void startLive()}
+                  >
+                    {picked.length === 0
+                      ? "Pick at least one opponent"
+                      : `📱 Each on your own device — ${picked.length + 1} in the ring`}
+                  </button>
+                  <button
+                    className="ar-big ghost"
+                    disabled={busy || picked.length === 0}
+                    onClick={() => void startDuel()}
+                  >
+                    🤝 One device, passed round
+                  </button>
+                </>
               )}
               {hall === "boss" && (
                 <p className="ar-sub">
@@ -661,7 +882,22 @@ export default function Arena() {
       {state && you && foe && (
         <>
           <div className="ar-cards">
-            <div className="ar-card foe">
+            {locked && upNow ? (
+              <div className={`ar-card foe${hurt.includes(state.order?.[state.turn ?? 0] ?? -1) ? " ar-hit" : ""}`}>
+                <p className="nm">{upNow.label}</p>
+                <div className="meta">taking their turn</div>
+                <div className="ar-bar">
+                  <i
+                    className={hpClass((upNow.pc ?? upNow.foe)?.hp ?? 0, (upNow.pc ?? upNow.foe)?.hp_max ?? 1)}
+                    style={{ width: `${(100 * ((upNow.pc ?? upNow.foe)?.hp ?? 0)) / Math.max(1, (upNow.pc ?? upNow.foe)?.hp_max ?? 1)}%` }}
+                  />
+                </div>
+                <div className="ar-hp">
+                  {(upNow.pc ?? upNow.foe)?.hp}/{(upNow.pc ?? upNow.foe)?.hp_max}
+                </div>
+              </div>
+            ) : (
+            <div className={`ar-card foe${hurt.includes(roster.length ? (state.target_index ?? -1) : 1) ? " ar-hit" : ""}`}>
               <p className="nm">{foe.name}</p>
               <div className="meta">
                 CR {foe.cr} · AC {foe.ac}
@@ -686,7 +922,11 @@ export default function Arena() {
                 ))}
               </div>
             </div>
-            <div className="ar-card you">
+            )}
+            <div
+              key={`you-${ouch}`}
+              className={`ar-card you${hurt.includes(myIndex) ? " ar-hit" : ""}`}
+            >
               <p className="nm">{you.name}</p>
               <div className="meta">
                 Lv {you.level} {you.character_class}
@@ -748,9 +988,20 @@ export default function Arena() {
                 </div>
               )}
               {upNow && (
-                <div className={`ar-turn${upNow.auto ? " auto" : ""}`}>
-                  <b>{upNow.auto ? `${upNow.label} is acting…` : `${upNow.label}, you're up`}</b>
-                  {!upNow.auto && roster.length > 2 && <small>pass the device</small>}
+                <div className={`ar-turn${upNow.auto || locked ? " auto" : ""}`}>
+                  <b>
+                    {locked
+                      ? `${upNow.label} is taking their turn…`
+                      : upNow.auto
+                        ? `${upNow.label} is acting…`
+                        : duelId
+                          ? "You're up"
+                          : `${upNow.label}, you're up`}
+                  </b>
+                  {locked && <small>live · this updates itself</small>}
+                  {!locked && !upNow.auto && !duelId && roster.length > 2 && (
+                    <small>pass the device</small>
+                  )}
                 </div>
               )}
               {roster.length > 0 && (
@@ -765,8 +1016,10 @@ export default function Arena() {
                     return (
                       <button
                         key={i}
-                        className={`ar-seat${isUp ? " up" : ""}${isTarget ? " aimed" : ""}`}
-                        disabled={busy || mine || side.hp <= 0}
+                        className={`ar-seat${isUp ? " up" : ""}${isTarget ? " aimed" : ""}${
+                          hurt.includes(i) ? " hurt" : ""
+                        }`}
+                        disabled={waiting || mine || side.hp <= 0}
                         title={mine ? "On your side" : "Aim at this one"}
                         onClick={() => void act("aim", undefined, undefined, i)}
                       >
@@ -819,7 +1072,7 @@ export default function Arena() {
                           {detail}
                           <span className="ar-slots">
                             {levels.map((lvl) => (
-                              <button key={lvl} disabled={busy} onClick={() => void act("cast", a.key, lvl)}>
+                              <button key={lvl} disabled={waiting} onClick={() => void act("cast", a.key, lvl)}>
                                 Slot L{lvl}
                               </button>
                             ))}
@@ -831,7 +1084,7 @@ export default function Arena() {
                       <button
                         key={a.key}
                         className="ar-btn"
-                        disabled={busy || !!why}
+                        disabled={waiting || !!why}
                         title={why || a.note}
                         onClick={() => void act(a.kind === "weapon" || a.kind === "unarmed" ? "attack" : "cast", a.key, levels[0])}
                       >
@@ -845,7 +1098,7 @@ export default function Arena() {
                   })}
                 <button
                   className="ar-btn"
-                  disabled={busy || (state.action_used && !state.extra_action)}
+                  disabled={waiting || (state.action_used && !state.extra_action)}
                   title="Attacks against you have disadvantage until your next turn"
                   onClick={() => void act("dodge")}
                 >
@@ -857,7 +1110,7 @@ export default function Arena() {
                   .map((f) => {
                     const blocked = f.uses_left <= 0 ? "No uses left" : state.action_used && !state.extra_action ? "Action already used" : "";
                     return (
-                      <button key={f.key} className="ar-btn" disabled={busy || !!blocked} title={blocked || f.blurb} onClick={() => void act("feature", f.key)}>
+                      <button key={f.key} className="ar-btn" disabled={waiting || !!blocked} title={blocked || f.blurb} onClick={() => void act("feature", f.key)}>
                         <b>✚ {f.name}</b>
                         <small>
                           {f.uses_left >= 99 ? "at will" : `${f.uses_left} left`} · {f.blurb}
@@ -892,14 +1145,14 @@ export default function Arena() {
                         ) : pickSlot ? (
                           <span className="ar-slots">
                             {levels.map((lvl) => (
-                              <button key={lvl} disabled={busy} onClick={() => void act("cast", a.key, lvl)}>
+                              <button key={lvl} disabled={waiting} onClick={() => void act("cast", a.key, lvl)}>
                                 Slot L{lvl}
                               </button>
                             ))}
                           </span>
                         ) : (
                           <span className="ar-slots">
-                            <button disabled={busy} onClick={() => void act(a.kind === "weapon" ? "attack" : "cast", a.key)}>
+                            <button disabled={waiting} onClick={() => void act(a.kind === "weapon" ? "attack" : "cast", a.key)}>
                               Use
                             </button>
                           </span>
@@ -924,7 +1177,7 @@ export default function Arena() {
                           ) : (
                             <span className="ar-slots">
                               {(beasts ?? []).map((b) => (
-                                <button key={b.id} disabled={busy} onClick={() => void act("wild_shape", b.id)} title={`AC ${b.ac} · ${b.hp_average} HP · CR ${b.cr}`}>
+                                <button key={b.id} disabled={waiting} onClick={() => void act("wild_shape", b.id)} title={`AC ${b.ac} · ${b.hp_average} HP · CR ${b.cr}`}>
                                   {b.name}
                                 </button>
                               ))}
@@ -959,7 +1212,7 @@ export default function Arena() {
                           ) : (
                             <span className="ar-slots">
                               {options.map((l) => (
-                                <button key={l} disabled={busy} onClick={() => void act("feature", f.key, l)}>
+                                <button key={l} disabled={waiting} onClick={() => void act("feature", f.key, l)}>
                                   {make ? `L${l} for ${FONT_COST[l]} pts` : `L${l} → ${l} pts`}
                                 </button>
                               ))}
@@ -969,7 +1222,7 @@ export default function Arena() {
                       );
                     }
                     return (
-                      <button key={f.key} className="ar-btn" disabled={busy || !!blocked} title={blocked || f.blurb} onClick={() => void act("feature", f.key)}>
+                      <button key={f.key} className="ar-btn" disabled={waiting || !!blocked} title={blocked || f.blurb} onClick={() => void act("feature", f.key)}>
                         <b>
                           {f.cost === "bonus" ? "⚡ " : "✦ "}
                           {f.name}
@@ -989,7 +1242,7 @@ export default function Arena() {
                   <div className="ar-grid">
                     <button
                       className="ar-btn wide ghost"
-                      disabled={busy}
+                      disabled={waiting}
                       onClick={() => void act("toggle_reactions")}
                       title="Shield, Uncanny Dodge, Deflect Attacks, Cutting Words and Hellish Rebuke fire on their own when they help"
                     >
@@ -1006,10 +1259,10 @@ export default function Arena() {
               )}
 
               <div className="ar-grid" style={{ marginTop: 8 }}>
-                <button className="ar-btn primary" disabled={busy} onClick={() => void act("end_turn")}>
+                <button className="ar-btn primary" disabled={waiting} onClick={() => void act("end_turn")}>
                   <b>End turn → {foe.name} acts</b>
                 </button>
-                <button className="ar-btn wide" disabled={busy} onClick={() => void endFight()} title="Stop here. Nothing is saved to your sheet either way.">
+                <button className="ar-btn wide" disabled={waiting} onClick={() => void endFight()} title="Stop here. Nothing is saved to your sheet either way.">
                   <b>🏳 End the fight</b>
                   <small>leave the ring — the referee logs it as a retreat</small>
                 </button>

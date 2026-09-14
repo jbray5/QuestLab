@@ -2443,7 +2443,7 @@ def _slot_for_pc(db: Session, pc_id: uuid.UUID, team: int, auto: bool) -> ArenaS
     """Build one roster slot from a real character sheet."""
     pc_row = _pc_or_raise(db, pc_id)
     built = _build_pc(db, pc_row, _dm_email_for(db, pc_row))
-    return ArenaSlot(kind="pc", label=built.name, team=team, auto=auto, pc=built)
+    return ArenaSlot(kind="pc", label=built.name, team=team, auto=auto, pc=built, pc_id=pc_id)
 
 
 def start_duel(db: Session, pc_ids: list[uuid.UUID]) -> ArenaState:

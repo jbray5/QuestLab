@@ -1,10 +1,11 @@
 """Server-Sent Events streams for live sync (Plan 00026).
 
-Two endpoints:
+Endpoints:
   GET /api/stream/pc/{pc_id}            — events scoped to one PC
   GET /api/stream/campaign/{campaign_id} — events for any PC in a campaign
+  GET /api/stream/duel/{duel_id}        — a duel fought on separate devices
 
-Both are long-lived HTTP responses with ``Content-Type: text/event-stream``.
+All of them are long-lived HTTP responses with ``Content-Type: text/event-stream``.
 Clients use the browser's ``EventSource`` API to receive pushes; reconnection
 + backoff are handled by the browser automatically.
 
@@ -139,6 +140,31 @@ async def stream_puzzle(puzzle_id: uuid.UUID):
     """
     return StreamingResponse(
         _stream([f"puzzle:{puzzle_id}"]),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.get("/stream/duel/{duel_id}")
+async def stream_duel(duel_id: uuid.UUID):
+    """SSE stream for a duel fought on separate devices (Plan 104).
+
+    Same capability-URL trust model as /play — the duel UUID is the implicit
+    secret, and it only reaches the phones already holding a seat in the fight.
+    Carries ``duel.updated`` pings; each client refetches the fight.
+
+    Args:
+        duel_id: UUID of the duel.
+
+    Returns:
+        StreamingResponse with ``text/event-stream`` media type.
+    """
+    return StreamingResponse(
+        _stream([f"duel:{duel_id}"]),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache, no-transform",

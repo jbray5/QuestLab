@@ -59,6 +59,8 @@ Import rules (enforced by the `boundary-checker` subagent and `.claude/rules/lay
 | [`item.py`](domain/item.py) | `Item` (magic items) |
 | [`map.py`](domain/map.py) | `Map` (world + dungeon) |
 | [`session.py`](domain/session.py) | `Session` (live play) |
+| [`arena.py`](domain/arena.py) | `ArenaState` — a Practice Arena fight (no table; the phone holds it) |
+| [`duel.py`](domain/duel.py) | `Duel` — a duel the server holds so each player can be on their own device |
 | [`enums.py`](domain/enums.py) | Shared enums (ChallengeRating, ItemRarity, ...) |
 
 ### Repos ([`db/repos/`](db/repos/))
@@ -76,6 +78,8 @@ One per aggregate above. Each exposes `get`, `list`, `create`, `update`, `delete
 | [`item_service.py`](services/item_service.py) | Magic items compendium |
 | [`map_service.py`](services/map_service.py) | World + dungeon maps |
 | [`session_service.py`](services/session_service.py) | Live session state, initiative |
+| [`arena_service.py`](services/arena_service.py) | The 5e rules engine: turns, attacks, saves, slots, class features |
+| [`duel_service.py`](services/duel_service.py) | Who may act in a multi-device duel, and where the fight rests between turns |
 | [`ai_service.py`](services/ai_service.py) | Claude-driven runbook, dialog, stat block, loot generation |
 
 ### Integrations ([`integrations/`](integrations/))
@@ -122,7 +126,7 @@ Subagents, slash commands, hooks, rules. See [`.claude/README.md`](.claude/READM
 
 ## Key invariants
 
-1. **Postgres is the schema source of truth.** DuckDB is for local dev + tests only and gets its schema from SQLModel `create_all`. Alembic never targets DuckDB.
+1. **Postgres is the schema source of truth.** DuckDB is for local dev + tests only and gets its schema from SQLModel `create_all`. Alembic never targets DuckDB. The two backends do not agree on timestamps: Postgres returns the aware UTC value that was written, DuckDB converts to local time *and* drops the tzinfo. Normalize a timestamp you read back (`value.astimezone(UTC)` when naive) before comparing it to `datetime.now(UTC)`.
 2. **No in-app auth.** Azure Front Door + Entra ID inject identity via a trusted HTTP header. Missing header = deny.
 3. **Authorization lives in `services/`**, never in pages alone. Every public service method's first line is a role check.
 4. **No SQL string concatenation.** ORM or `text()` with bound params. Pydantic-validate every external input.

@@ -142,6 +142,9 @@ class ArenaSlot(BaseModel):
 
     kind: Literal["pc", "monster"]
     label: str = ""
+    # Which real character sits here. A monster has none. On a duel fought
+    # across several devices this is how the server knows whose turn it is.
+    pc_id: Optional[uuid.UUID] = None
     # 0 is the party's side. In a free-for-all duel every combatant gets its
     # own team number, so everyone is everyone else's enemy.
     team: int = 0

@@ -288,6 +288,49 @@ def publish_table_updated(session_id: Any) -> None:
     )
 
 
+def publish_duel_updated(duel_id: Any, up_pc_id: Any = None) -> None:
+    """Notify both phones in a duel that the fight moved on (Plan 104).
+
+    Published on the ``duel:{duel_id}`` topic. Carries only the id and whose
+    turn it is — everyone in the duel refetches the fight itself, which the
+    server has been holding all along.
+
+    Args:
+        duel_id: UUID of the duel.
+        up_pc_id: The character whose turn it now is, if the fight is still on.
+    """
+    event_bus.publish(
+        f"duel:{duel_id}",
+        {
+            "type": "duel.updated",
+            "duel_id": str(duel_id),
+            "up_pc_id": str(up_pc_id) if up_pc_id else None,
+        },
+    )
+
+
+def publish_duel_called(pc_id: Any, duel_id: Any, host_name: str = "") -> None:
+    """Tell one character's phone it has been called out to a duel (Plan 104).
+
+    Published on that character's own ``pc:{pc_id}`` topic, which their sheet
+    and arena are already listening to.
+
+    Args:
+        pc_id: UUID of the character being called out.
+        duel_id: UUID of the duel they have a seat in.
+        host_name: Who called it, for the banner.
+    """
+    event_bus.publish(
+        f"pc:{pc_id}",
+        {
+            "type": "duel.called",
+            "pc_id": str(pc_id),
+            "duel_id": str(duel_id),
+            "host_name": host_name,
+        },
+    )
+
+
 _RECENT_ROLLS: dict[str, deque] = {}
 
 

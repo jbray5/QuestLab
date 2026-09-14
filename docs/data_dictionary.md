@@ -294,6 +294,28 @@ AI-generated session runbook. One-to-one with Session (unique constraint on sess
 | xp_awards | JSON | Yes | | `{pc_id: xp_amount}` |
 | loot_awards | JSON | Yes | | `[{item_name, recipient_pc_id}]` |
 
+### duels
+
+A duel fought across separate devices (Plan 104). The Practice Arena is
+otherwise stateless — a solo spar and a hot-seat duel live entirely on one
+phone as a sealed JSON document — but two phones need an authority, so that
+kind of fight gets a row. The rules engine is unchanged; this is only where the
+document rests between turns.
+
+| Column | Type | Null | Default | Notes |
+|---|---|---|---|---|
+| id | UUID | No | uuid4 | PK |
+| campaign_id | UUID | No | | FK → campaigns.id, ON DELETE CASCADE |
+| host_pc_id | UUID | No | | FK → player_characters.id, ON DELETE CASCADE — who called it |
+| seat_ids | JSON | Yes | | `list[str]` of character ids in the ring. Holding one of those characters' links is what grants read and act |
+| state | JSON | Yes | | The HMAC-sealed `ArenaState`, exactly as the referee last signed it |
+| phase | VARCHAR(12) | No | `live` | `live` \| `over` |
+| created_at | TIMESTAMPTZ | No | now | |
+| updated_at | TIMESTAMPTZ | No | now | Bumped on every turn; a duel untouched for 4h stops showing as a challenge |
+
+Authorization: a seat may read; only the seat whose turn it is may act. Enforced
+in `services/duel_service.py`, never in the UI alone.
+
 ---
 
 ## PII Fields
@@ -322,3 +344,5 @@ Do not log, export without authorisation, or include in error messages.
 | map_edges | ix_map_edges_map_id | map_id |
 | sessions | ix_sessions_adventure_id | adventure_id |
 | session_runbooks | ix_session_runbooks_session_id | session_id |
+| duels | ix_duels_campaign_id | campaign_id |
+| duels | ix_duels_host_pc_id | host_pc_id |
