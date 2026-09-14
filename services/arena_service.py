@@ -1520,10 +1520,7 @@ def _resolve_player_attack(
                 )
                 continue
             dmg, btxt = roll_expr(per, crit=crit, gwf=gwf)
-            if "maximize_next" in state.effects and attack.kind in ("cantrip", "spell"):
-                dmg = _max_of(per, crit)
-                btxt += f" → maximized {dmg}"
-                state.effects.pop("maximize_next", None)
+            dmg, btxt = _maximize(state, attack, per, dmg, btxt, crit=crit)
             if attack.effect == "sorcerous_burst":
                 boom, ttxt = _burst_extra(per, crit, pc.mods.get("cha", 0))
                 dmg += boom
@@ -1561,6 +1558,10 @@ def _resolve_player_attack(
         darts = 3 + extra
         per = f"{darts}d4+{darts}"
     dmg, btxt = roll_expr(per)
+    # Magic Missile and the save spells land here. Maximize before the save
+    # halves it — a maximized spell that is saved against still deals half of
+    # the maximum, not half of a fresh roll.
+    dmg, btxt = _maximize(state, attack, per, dmg, btxt)
     if attack.save_ability and attack.save_dc:
         nat, dtxt = d20("dis" if state.effects.pop("foe_disadv_save", None) else None)
         mod = foe.saves.get(attack.save_ability, 0)
@@ -2323,6 +2324,34 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
 
 
 # ── Plan 88 — surges and bursts ──────────────────────────────────────────────
+
+
+def _maximize(
+    state: ArenaState, attack: ArenaAttack, expr: str, dmg: int, btxt: str, crit: bool = False
+) -> tuple[int, str]:
+    """Spend a pending maximize surge on this spell's damage, if one is held.
+
+    Wild Magic's "maximize the damage" surge used to be applied only on the
+    attack-roll path, so it silently did nothing to a spell that auto-hits
+    (Magic Missile) or calls for a save (Thunderwave) — the log announced the
+    surge and the dice came up normal. Every damage path now runs through here.
+
+    Args:
+        state: The fight.
+        attack: The spell being resolved.
+        expr: The dice expression actually rolled, after any upcast.
+        dmg: The rolled total.
+        btxt: The dice breakdown shown to the player.
+        crit: Whether the dice were doubled.
+
+    Returns:
+        ``(damage, breakdown)`` — unchanged when no surge is pending.
+    """
+    if "maximize_next" not in state.effects or attack.kind not in ("cantrip", "spell"):
+        return dmg, btxt
+    state.effects.pop("maximize_next", None)
+    best = _max_of(expr, crit)
+    return best, f"{btxt} → maximized {best}"
 
 
 def _max_of(expr: str, crit: bool) -> int:
