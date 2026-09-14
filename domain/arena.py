@@ -250,6 +250,8 @@ class ArenaAction(BaseModel):
         "toggle_reactions",
         "end_turn",
         "flee",
+        # Plan 101 — switch which enemy you are swinging at. Costs nothing.
+        "aim",
     ]
     key: Optional[str] = None
     slot_level: Optional[int] = Field(default=None, ge=1, le=9)

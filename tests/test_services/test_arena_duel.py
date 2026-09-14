@@ -137,3 +137,32 @@ class TestABossBattle:
         assert st.order[st.turn] == controlled
         assert any("acts" in line.text for line in st.log)
         assert st.phase == "your_turn"
+
+
+class TestAiming:
+    """With more than one enemy you choose which to swing at."""
+
+    def test_switching_target_and_refusing_a_friend(self, duckdb_session, monkeypatch):
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
+        nya, thane = _two(duckdb_session)
+        creed, _ = _pc(duckdb_session, CharacterClass.PALADIN, level=3, score_str=16)
+        st = arena.start_duel(duckdb_session, [nya.id, thane.id, creed.id])
+
+        me = st.order[st.turn]
+        enemies = [i for i in range(len(st.roster)) if i != me]
+        assert st.target_index in enemies
+
+        other = next(i for i in enemies if i != st.target_index)
+        st = arena.act(duckdb_session, st, ArenaAction(kind="aim", target=other))
+        assert st.target_index == other
+        assert st.foe.name == st.roster[other].pc.name
+
+        with pytest.raises(ValueError, match="on your side"):
+            arena.act(duckdb_session, st, ArenaAction(kind="aim", target=me))
+
+    def test_a_solo_fight_has_nothing_to_aim_at(self, duckdb_session, monkeypatch):
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
+        pc, _dm = _pc(duckdb_session, CharacterClass.PALADIN, level=3)
+        st = arena.start(duckdb_session, pc.id, _foe(duckdb_session).id)
+        with pytest.raises(ValueError, match="only one opponent"):
+            arena.act(duckdb_session, st, ArenaAction(kind="aim", target=1))

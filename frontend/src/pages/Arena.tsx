@@ -81,6 +81,27 @@ interface LogLine {
   hit: boolean | null;
   crit: boolean;
 }
+interface ArenaSlot {
+  kind: "pc" | "monster";
+  label: string;
+  team: number;
+  auto: boolean;
+  pc: ArenaPc | null;
+  foe: ArenaFoe | null;
+  initiative: number;
+}
+interface PartyRow {
+  id: string;
+  character_name: string;
+  player_name: string;
+  character_class: string;
+  subclass: string | null;
+  level: number;
+  hp_max: number;
+  ac: number;
+  portrait_url: string | null;
+  figure_url: string | null;
+}
 interface ArenaState {
   pc_id: string;
   round: number;
@@ -104,6 +125,12 @@ interface ArenaState {
   auto_reactions: boolean;
   effects: Record<string, number>;
   tides_primed: boolean;
+  // Plan 101 — a fight of more than two. Empty for the solo arena.
+  mode?: "solo" | "duel" | "boss";
+  roster?: ArenaSlot[];
+  order?: number[];
+  turn?: number;
+  target_index?: number | null;
   result: "won" | "lost" | "fled" | null;
   pc: ArenaPc;
   foe: ArenaFoe;
@@ -123,6 +150,25 @@ interface FoeOption {
 }
 
 const CSS = `
+.ar-modes { display: flex; gap: 6px; margin: 10px 0; }
+.ar-mode { flex: 1; padding: 10px 6px; border-radius: 10px; border: 1px solid var(--border, #3a3a46);
+  background: rgba(255,255,255,0.03); color: #cfcfd8; font: inherit; font-size: 0.78rem; cursor: pointer; }
+.ar-mode.on { border-color: #d6af36; background: rgba(214,175,54,0.14); color: #f0e6c8; }
+.ar-foe.picked { border-color: #d6af36; background: rgba(214,175,54,0.12); }
+.ar-turn { margin: 10px 0; padding: 10px 12px; border-radius: 12px; border: 1px solid #d6af36;
+  background: rgba(214,175,54,0.14); color: #f0e6c8; display: flex; justify-content: space-between; align-items: baseline; }
+.ar-turn.auto { border-color: #3a3a46; background: rgba(255,255,255,0.03); color: #b9b9c4; }
+.ar-turn small { opacity: 0.7; }
+.ar-roster { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ar-seat { flex: 1 1 44%; text-align: left; padding: 7px 9px; border-radius: 10px; font: inherit;
+  border: 1px solid var(--border, #3a3a46); background: rgba(255,255,255,0.03); color: #cfcfd8; cursor: pointer; }
+.ar-seat:disabled { cursor: default; opacity: 0.75; }
+.ar-seat.up { border-color: #d6af36; }
+.ar-seat.aimed { background: rgba(220,80,80,0.14); border-color: #b45050; }
+.ar-seat b { display: block; font-size: 0.78rem; }
+.ar-seat small { font-size: 0.68rem; opacity: 0.75; }
+.ar-seat .bar { display: block; height: 4px; border-radius: 3px; background: rgba(255,255,255,0.09); margin: 4px 0 2px; }
+.ar-seat .bar i { display: block; height: 100%; border-radius: 3px; background: #6fbf73; }
 .ar-root { min-height: 100vh; padding: 1rem 0.9rem 4rem; color: #e6ddc8; font-family: Georgia, 'Palatino Linotype', serif;
   background: radial-gradient(ellipse at 50% -10%, #2a1d1d 0%, #120c10 55%, #07050a 100%); }
 .ar-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 0.6rem; }
@@ -279,7 +325,7 @@ export default function Arena() {
       setBusy(false);
     }
   }
-  async function act(kind: string, key?: string, slotLevel?: number) {
+  async function act(kind: string, key?: string, slotLevel?: number, target?: number) {
     if (!pcId || !state) return;
     setBusy(true);
     setErr(null);
@@ -287,7 +333,12 @@ export default function Arena() {
       setState(
         await post<ArenaState>(`/play/${pcId}/arena/act`, {
           state,
-          action: { kind, key: key ?? null, slot_level: slotLevel ?? null },
+          action: {
+            kind,
+            key: key ?? null,
+            slot_level: slotLevel ?? null,
+            target: target ?? null,
+          },
         }),
       );
     } catch (e) {
@@ -338,6 +389,57 @@ export default function Arena() {
     return () => window.clearTimeout(t);
   }, [revealed, total]);
   const playing = revealed !== null && revealed < total;
+  // Plan 101 — the duelling hall.
+  const [hall, setHall] = useState<"monster" | "duel" | "boss">("monster");
+  const [picked, setPicked] = useState<string[]>([]);
+  const [party, setParty] = useState<PartyRow[]>([]);
+  useEffect(() => {
+    if (!pcId) return;
+    fetch(`${apiBase()}/play/${pcId}/arena/party`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: PartyRow[]) => setParty(rows))
+      .catch(() => setParty([]));
+  }, [pcId]);
+  const roster = state?.roster ?? [];
+  const upNow =
+    roster.length && state?.order && state.turn !== undefined
+      ? roster[state.order[state.turn]]
+      : null;
+
+  async function startDuel() {
+    if (!pcId) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const ids = Array.from(new Set([pcId, ...picked]));
+      setState(await post<ArenaState>(`/play/${pcId}/arena/duel`, { pc_ids: ids }));
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startBoss(monsterId: string) {
+    if (!pcId) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const ids = Array.from(new Set([pcId, ...picked]));
+      setState(
+        await post<ArenaState>(`/play/${pcId}/arena/boss`, {
+          pc_ids: ids,
+          monster_id: monsterId,
+          controlled: pcId,
+        }),
+      );
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const logNewestFirst = useMemo(
     () => (state ? state.log.slice(0, revealed ?? total).reverse() : []),
     [state, revealed, total],
@@ -425,13 +527,87 @@ export default function Arena() {
       {!state && (
         <>
           <p className="ar-sub">
-            Spar with a foe using your real sheet — your weapons, spells, slots and class features, run
-            by the rules. Nothing here touches your character. Learn the turn: one action, one bonus
-            action, when to Dodge, when to spend a slot.
+            Spar using your real sheet — your weapons, spells, slots and class features, run by the
+            rules. Nothing here touches anybody's character.
           </p>
-          <button className="ar-big" disabled={busy || !pcId} onClick={() => void start(null)}>
-            🎲 Surprise me — a foe that fits my level
-          </button>
+          <div className="ar-modes">
+            {(
+              [
+                ["monster", "🐉 Fight a monster"],
+                ["duel", "⚔️ Duel a friend"],
+                ["boss", "🛡 Boss battle"],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                className={`ar-mode${hall === key ? " on" : ""}`}
+                onClick={() => setHall(key)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {hall !== "monster" && (
+            <>
+              <p className="ar-sub">
+                {hall === "duel"
+                  ? "Everyone for themselves. Initiative is rolled fresh, and the device passes round the table — it always says whose turn it is."
+                  : "Your party against one monster. You pick your own actions; the referee plays everybody else."}
+              </p>
+              <div className="ar-h">Who's in</div>
+              <div className="ar-foe-list">
+                {party
+                  .filter((row) => row.id !== pcId)
+                  .map((row) => {
+                    const on = picked.includes(row.id);
+                    return (
+                      <button
+                        key={row.id}
+                        className={`ar-foe${on ? " picked" : ""}`}
+                        onClick={() =>
+                          setPicked((cur) =>
+                            cur.includes(row.id)
+                              ? cur.filter((x) => x !== row.id)
+                              : [...cur, row.id],
+                          )
+                        }
+                      >
+                        <b>
+                          {on ? "✓ " : ""}
+                          {row.character_name}
+                        </b>
+                        <small>
+                          {row.player_name} · Lv {row.level} {row.character_class}
+                          {row.subclass ? ` (${row.subclass})` : ""} · AC {row.ac} · {row.hp_max} HP
+                        </small>
+                      </button>
+                    );
+                  })}
+              </div>
+              {hall === "duel" && (
+                <button
+                  className="ar-big"
+                  disabled={busy || picked.length === 0}
+                  onClick={() => void startDuel()}
+                >
+                  {picked.length === 0
+                    ? "Pick at least one opponent"
+                    : `⚔️ Roll initiative — ${picked.length + 1} in the ring`}
+                </button>
+              )}
+              {hall === "boss" && (
+                <p className="ar-sub">
+                  Now choose the boss from the list below and the fight starts.
+                </p>
+              )}
+              {err && <p className="ar-err">{err}</p>}
+            </>
+          )}
+          {hall === "monster" && (
+            <button className="ar-big" disabled={busy || !pcId} onClick={() => void start(null)}>
+              🎲 Surprise me — a foe that fits my level
+            </button>
+          )}
           {err && <p className="ar-err">{err}</p>}
           {foes === null && <p className="ar-sub" style={{ marginTop: "1rem" }}>Sizing up the catalog…</p>}
           {suggested.length > 0 && (
@@ -439,7 +615,7 @@ export default function Arena() {
               <div className="ar-h">Fits your level</div>
               <div className="ar-foe-list">
                 {suggested.map((f) => (
-                  <button key={f.id} className="ar-foe" disabled={busy} onClick={() => void start(f.id)}>
+                  <button key={f.id} className="ar-foe" disabled={busy} onClick={() => void (hall === "boss" ? startBoss(f.id) : start(f.id))}>
                     <b>{f.name}</b>
                     <span className="cr">CR {f.cr}</span>
                     <small>
@@ -461,7 +637,7 @@ export default function Arena() {
               {showAll && (
                 <div className="ar-foe-list">
                   {others.map((f) => (
-                    <button key={f.id} className={`ar-foe ${f.tier}`} disabled={busy} onClick={() => void start(f.id)}>
+                    <button key={f.id} className={`ar-foe ${f.tier}`} disabled={busy} onClick={() => void (hall === "boss" ? startBoss(f.id) : start(f.id))}>
                       <b>{f.name}</b>
                       <span className="cr">CR {f.cr}</span>
                       <small>
@@ -569,6 +745,44 @@ export default function Arena() {
                   {state.tips.map((t, i) => (
                     <p key={i}>💡 {t}</p>
                   ))}
+                </div>
+              )}
+              {upNow && (
+                <div className={`ar-turn${upNow.auto ? " auto" : ""}`}>
+                  <b>{upNow.auto ? `${upNow.label} is acting…` : `${upNow.label}, you're up`}</b>
+                  {!upNow.auto && roster.length > 2 && <small>pass the device</small>}
+                </div>
+              )}
+              {roster.length > 0 && (
+                <div className="ar-roster">
+                  {roster.map((slot, i) => {
+                    const side = slot.pc ?? slot.foe;
+                    if (!side) return null;
+                    const pct = Math.max(0, Math.round((side.hp / side.hp_max) * 100));
+                    const isUp = state.order?.[state.turn ?? 0] === i;
+                    const isTarget = state.target_index === i;
+                    const mine = upNow ? slot.team === upNow.team : false;
+                    return (
+                      <button
+                        key={i}
+                        className={`ar-seat${isUp ? " up" : ""}${isTarget ? " aimed" : ""}`}
+                        disabled={busy || mine || side.hp <= 0}
+                        title={mine ? "On your side" : "Aim at this one"}
+                        onClick={() => void act("aim", undefined, undefined, i)}
+                      >
+                        <b>
+                          {side.hp <= 0 ? "💀 " : isTarget ? "🎯 " : ""}
+                          {slot.label}
+                        </b>
+                        <span className="bar">
+                          <i style={{ width: `${pct}%` }} />
+                        </span>
+                        <small>
+                          {side.hp}/{side.hp_max}
+                        </small>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
               {err && <p className="ar-err">{err}</p>}

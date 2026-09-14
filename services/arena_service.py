@@ -2605,6 +2605,11 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
     elif kind == "toggle_reactions":
         state.auto_reactions = not state.auto_reactions
         _log(state, "ref", "Automatic reactions " + ("on." if state.auto_reactions else "off."))
+    elif kind == "aim":
+        # The aiming already happened at the top of this function; picking a
+        # target is free and ends nothing.
+        if not state.roster:
+            raise ValueError("This fight has only one opponent.")
     elif kind == "flee":
         state.phase = "over"
         state.result = "fled"
