@@ -80,7 +80,7 @@ def test_an_attack_roll_spell_still_works(duckdb_session: Session, monkeypatch):
         dm,
         _spell(
             duckdb_session,
-            "Fire Bolt",
+            "Ember Bolt (max test)",
             0,
             ["Sorcerer"],
             damage_dice="1d10",
@@ -93,7 +93,7 @@ def test_an_attack_roll_spell_still_works(duckdb_session: Session, monkeypatch):
     st.effects["maximize_next"] = 10
     arena._seal(st)
 
-    bolt = next(a for a in st.pc.attacks if a.name == "Fire Bolt")
+    bolt = next(a for a in st.pc.attacks if a.name == "Ember Bolt (max test)")
     st = arena.act(duckdb_session, st, ArenaAction(kind="cast", key=bolt.key))
     assert st.foe.hp == 200 - 10
     assert any("maximized 10" in (line.dice or "") for line in st.log)
