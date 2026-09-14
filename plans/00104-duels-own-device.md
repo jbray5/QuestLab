@@ -1,7 +1,7 @@
 # Plan 00104 — Duels on your own device, and feeling the hit
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
 
 **Started:** 2026-09-14
 **Last updated:** 2026-09-14
@@ -27,7 +27,7 @@ server and both phones watch it.
 - [x] Step 5: Frontend — challenge banner, live sync, turn gating
 - [x] Step 6: Hit feedback — vibrate + flinch animation
 - [x] Step 7: Tests (13 new), full gate green
-- [ ] Step 8: Verify on prod once deployed
+- [x] Step 8: Verified on prod — a real duel between Nya and Thane, driven end to end
 
 ---
 
@@ -104,8 +104,12 @@ knows nothing about storage.
 - [x] Acting out of turn is refused by the server, not just hidden by the UI
       (`test_plan104_duels.py` drives it over HTTP and gets a 403)
 - [x] A stranger holding neither seat's link is refused both read and act
-- [ ] Two browsers, two characters: each sees the other's turn land live
-- [ ] A hit buzzes the defender's phone (Android) and flinches on any device
+- [x] On prod: Nya starts, Thane reads the same fight and sees `your_turn: false`,
+      is refused with 403 "It's Nya Ashwyn's turn.", a third character is refused
+      the read entirely, the turn passes, the challenge shows on Thane's phone and
+      clears when the duel ends, and neither real sheet moved (26/26, 23/23)
+- [ ] Two real browsers side by side, and a hit buzzing an actual Android phone —
+      the last mile only a person at the table can check
 
 ---
 
@@ -117,4 +121,30 @@ multi-device later.
 ---
 
 ## Outcomes and Retrospective
-_To be filled in on completion._
+
+**What shipped.** A duel can now be fought on separate phones. The hot-seat
+duel and the solo spar are untouched — they still keep the whole fight on the
+device as a sealed document and never write a row.
+
+**The finding worth carrying forward:** none of this needed a new fight engine.
+Plan 101's roster already modelled a fight of any size, and the *only* thing
+missing for multi-device play was identity — a seat that knows which real
+character sits in it. One optional `pc_id` on `ArenaSlot` turned "run the fight"
+and "decide who may act" into separate problems, and the second one is about
+twenty lines. The temptation was to make the engine turn-aware and
+authorization-aware; the engine stayed exactly as dumb as it was.
+
+**The second finding:** the persistence layer needed no special handling for a
+sealed document. The HMAC is taken over `model_dump_json`, so a fight stored as
+a JSON column and revalidated verifies unchanged. That meant one code path for
+sealing, whether the fight rests on a phone or in Postgres.
+
+**What cost the most time** was neither of those — it was DuckDB and Postgres
+disagreeing about what a timestamp is. See Surprises. The lesson is narrow and
+reusable: never compare a timestamp read back from the database against
+`datetime.now(UTC)` without normalizing it first.
+
+**Known limit, carried from Plan 101 and still open:** a defender's reactions
+(Shield, Uncanny Dodge) only fire on the monster-attacks-character path, so
+they do not trigger in PC-vs-PC. The fix is a defender-scoped call inside
+`_resolve_player_attack`; it is its own plan.
