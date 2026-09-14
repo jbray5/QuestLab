@@ -1,0 +1,139 @@
+"""Plan 101 — fights of more than two: hot-seat duels and boss battles.
+
+The engine holds one actor and one target at a time. A bigger fight stows the
+acting creature back onto the roster and draws the next, so every rule already
+written keeps applying. These tests hold that contract down.
+"""
+
+import pytest
+from sqlmodel import Session
+
+from domain.arena import ArenaAction
+from domain.enums import CharacterClass
+from services import arena_service as arena
+from tests.test_services.test_arena_rules import (  # noqa: F401 — fixtures
+    _Fixed,
+    _foe,
+    _learn,
+    _owners_table,
+    _pc,
+    _Seq,
+    _spell,
+    _tidy,
+)
+
+
+def _two(db):
+    """A sorcerer and a rogue — Chelsea's ask, in miniature."""
+    nya, _ = _pc(db, CharacterClass.SORCERER, level=3, subclass="Wild Magic", score_cha=16)
+    thane, _ = _pc(db, CharacterClass.ROGUE, level=3, subclass="Soulknife", score_dex=16)
+    return nya, thane
+
+
+class TestADuel:
+    """Two characters, one device, passed back and forth."""
+
+    def test_initiative_is_rolled_and_everyone_is_on_the_roster(self, duckdb_session, monkeypatch):
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
+        nya, thane = _two(duckdb_session)
+        st = arena.start_duel(duckdb_session, [nya.id, thane.id])
+
+        assert st.mode == "duel" and len(st.roster) == 2
+        assert sorted(st.order) == [0, 1] and st.turn == 0
+        assert all(slot.kind == "pc" and not slot.auto for slot in st.roster)
+        # Free-for-all: each side is its own team, so each is the other's enemy.
+        assert st.roster[0].team != st.roster[1].team
+        assert any("Initiative" in line.text for line in st.log)
+
+    def test_fewer_than_two_is_refused(self, duckdb_session: Session, monkeypatch):
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
+        nya, _thane = _two(duckdb_session)
+        with pytest.raises(ValueError, match="at least two"):
+            arena.start_duel(duckdb_session, [nya.id])
+
+    def test_ending_a_turn_hands_over_instead_of_auto_playing(self, duckdb_session, monkeypatch):
+        """Nobody is auto in a duel, so the turn stops at the next human."""
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
+        nya, thane = _two(duckdb_session)
+        st = arena.start_duel(duckdb_session, [nya.id, thane.id])
+        first = st.order[st.turn]
+
+        st = arena.act(duckdb_session, st, ArenaAction(kind="end_turn"))
+        second = st.order[st.turn]
+        assert second != first, "the turn passed to the other character"
+        assert st.phase == "your_turn"
+        assert any("you're up" in line.text for line in st.log)
+
+        # And back again, which is a new round.
+        st = arena.act(duckdb_session, st, ArenaAction(kind="end_turn"))
+        assert st.order[st.turn] == first and st.round == 2
+
+    def test_each_side_keeps_its_own_hit_points(self, duckdb_session: Session, monkeypatch):
+        """Damage lands on the target's own record, not the working copy."""
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
+        nya, thane = _two(duckdb_session)
+        st = arena.start_duel(duckdb_session, [nya.id, thane.id])
+
+        actor = st.order[st.turn]
+        target_index = st.target_index
+        before = st.roster[target_index].pc.hp
+        swing = next(a for a in st.pc.attacks if a.cost == "action" and a.damage != "0")
+        st = arena.act(duckdb_session, st, ArenaAction(kind="attack", key=swing.key))
+
+        after = st.roster[target_index].pc.hp
+        assert after < before, "the target took the hit"
+        assert st.order[st.turn] == actor, "still the attacker's turn"
+
+    def test_a_characters_own_slots_survive_the_other_turn(self, duckdb_session, monkeypatch):
+        """Spend a slot, hand over, come back — it is still spent."""
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
+        nya, thane = _two(duckdb_session)
+        st = arena.start_duel(duckdb_session, [nya.id, thane.id])
+        # Put the sorcerer up first whichever way initiative fell.
+        while st.roster[st.order[st.turn]].pc.character_class.lower() != "sorcerer":
+            st = arena.act(duckdb_session, st, ArenaAction(kind="end_turn"))
+
+        me = st.order[st.turn]
+        before = dict(st.pc.slots)
+        st = arena.act(
+            duckdb_session, st, ArenaAction(kind="feature", key="create_slot", slot_level=1)
+        )
+        spent = dict(st.roster[me].pc.slots) if st.roster[me].pc else {}
+        assert spent != before, "Font of Magic changed the sorcerer's slots"
+
+        st = arena.act(duckdb_session, st, ArenaAction(kind="end_turn"))
+        st = arena.act(duckdb_session, st, ArenaAction(kind="end_turn"))
+        assert st.order[st.turn] == me, "back round to the sorcerer"
+        assert dict(st.pc.slots) == spent, "their own slots came back with them"
+
+
+class TestABossBattle:
+    """Cory's ask: pick your own actions, the referee plays your friends."""
+
+    def test_the_party_stands_with_you_and_only_you_choose(self, duckdb_session, monkeypatch):
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
+        nya, thane = _two(duckdb_session)
+        boss = _foe(duckdb_session, hp=90, ac=10, name="The Revelmaster")
+        st = arena.start_boss(duckdb_session, [nya.id, thane.id], boss.id, controlled=nya.id)
+
+        assert st.mode == "boss" and len(st.roster) == 3
+        party = [s for s in st.roster if s.kind == "pc"]
+        assert {s.team for s in party} == {0}, "the party shares a side"
+        assert sum(1 for s in party if not s.auto) == 1, "exactly one character is yours"
+        assert st.roster[-1].kind == "monster" and st.roster[-1].auto
+
+    def test_it_stops_on_your_turn_and_plays_everyone_else(self, duckdb_session, monkeypatch):
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
+        nya, thane = _two(duckdb_session)
+        boss = _foe(duckdb_session, hp=400, ac=10, name="The Revelmaster")
+        st = arena.start_boss(duckdb_session, [nya.id, thane.id], boss.id, controlled=nya.id)
+
+        # Whoever is up when the fight opens must be the one character we drive.
+        assert not st.roster[st.order[st.turn]].auto
+        controlled = st.order[st.turn]
+
+        st = arena.act(duckdb_session, st, ArenaAction(kind="end_turn"))
+        # The ally and the boss both acted before control came back.
+        assert st.order[st.turn] == controlled
+        assert any("acts" in line.text for line in st.log)
+        assert st.phase == "your_turn"

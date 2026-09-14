@@ -130,6 +130,40 @@ class ArenaFoe(ArenaSide):
     image_url: Optional[str] = None
 
 
+class ArenaSlot(BaseModel):
+    """One combatant's record for the turns when it is not acting (Plan 101).
+
+    The engine only ever has one actor and one target in play, so a fight of
+    any size is run by stowing the acting creature back here at the end of its
+    turn and drawing the next one into the working set. Everything that has to
+    survive somebody else's turn lives on the slot: hit points and slots ride
+    on ``pc``/``foe``, and the rest is listed out below.
+    """
+
+    kind: Literal["pc", "monster"]
+    label: str = ""
+    # 0 is the party's side. In a free-for-all duel every combatant gets its
+    # own team number, so everyone is everyone else's enemy.
+    team: int = 0
+    # True when the referee decides this side's turns: a monster always, and an
+    # ally in a boss battle that the player is not controlling.
+    auto: bool = False
+    pc: Optional[ArenaPc] = None
+    foe: Optional[ArenaFoe] = None
+    # Carried across other creatures' turns.
+    concentration: Optional[str] = None
+    marks: list[str] = Field(default_factory=list)
+    blessed: bool = False
+    faith: bool = False
+    innate_sorcery: int = 0
+    spiritual_weapon: bool = False
+    effects: dict[str, int] = Field(default_factory=dict)
+    tides_primed: bool = False
+    # A reaction comes back at the start of your own turn, so it belongs here.
+    reaction_used: bool = False
+    initiative: int = 0
+
+
 class ArenaLogLine(BaseModel):
     """One line of the fight log, with the dice that produced it."""
 
@@ -188,6 +222,15 @@ class ArenaState(BaseModel):
     result: Optional[Literal["won", "lost", "fled"]] = None
     pc: ArenaPc
     foe: ArenaFoe
+    # Plan 101 — a fight of more than two. Empty for the solo arena, which
+    # keeps exactly its old shape and its old code path.
+    mode: Literal["solo", "duel", "boss"] = "solo"
+    # Who the working set is aimed at. A real field: the whole state round
+    # trips to the phone between turns.
+    target_index: Optional[int] = None
+    roster: list[ArenaSlot] = Field(default_factory=list)
+    order: list[int] = Field(default_factory=list)
+    turn: int = 0
     log: list[ArenaLogLine] = Field(default_factory=list)
     stats: ArenaStats = Field(default_factory=ArenaStats)
     tips: list[str] = Field(default_factory=list)
@@ -210,6 +253,8 @@ class ArenaAction(BaseModel):
     ]
     key: Optional[str] = None
     slot_level: Optional[int] = Field(default=None, ge=1, le=9)
+    # Roster index to aim at. None means the first living enemy.
+    target: Optional[int] = Field(default=None, ge=0)
 
 
 class ArenaStartBody(BaseModel):
@@ -237,3 +282,17 @@ class ArenaFoeOption(BaseModel):
     suggested: bool = False
     tier: str = "fits"
     image_url: Optional[str] = None
+
+
+class ArenaDuelBody(BaseModel):
+    """Start a hot-seat duel between two or more characters (Plan 101)."""
+
+    pc_ids: list[uuid.UUID] = Field(min_length=2, max_length=8)
+
+
+class ArenaBossBody(BaseModel):
+    """Start a boss battle: the party, one monster, one character you drive."""
+
+    pc_ids: list[uuid.UUID] = Field(min_length=1, max_length=8)
+    monster_id: uuid.UUID
+    controlled: uuid.UUID

@@ -35,6 +35,7 @@ from domain.arena import (
     ArenaFoeOption,
     ArenaLogLine,
     ArenaPc,
+    ArenaSlot,
     ArenaState,
     ArenaStats,
 )
@@ -1749,8 +1750,12 @@ def _hellish_rebuke(state: ArenaState) -> None:
     )
 
 
-def _foe_turn(state: ArenaState) -> None:
-    """The foe acts (or can't), then a new round begins."""
+def _foe_turn(state: ArenaState, rollover: bool = True) -> None:
+    """The foe acts (or can't). With ``rollover``, a new round then begins.
+
+    A roster fight (Plan 101) hands the turn on itself, so it asks for the
+    attack without the rollover tail.
+    """
     foe, pc = state.foe, state.pc
     if _foe_has(state, "asleep"):
         _log(state, "foe", f"{foe.name} is asleep and does nothing.")
@@ -1836,35 +1841,36 @@ def _foe_turn(state: ArenaState) -> None:
             "to reach you — and the foe has to choose to keep hitting. Try again with a plan.",
         )
         return
-    state.round += 1
-    state.action_used = False
-    state.bonus_used = False
-    state.extra_action = False
-    state.reaction_used = False
-    state.dodging = False
-    state.attacks_left = 0
-    state.hit_this_turn = False
-    state.melee_hit_this_turn = False
-    state.sneak_used = False
-    state.stun_used = False
-    state.reckless = False
-    if state.innate_sorcery > 0:
-        state.innate_sorcery -= 1
-    for key in list(state.effects):
-        state.effects[key] -= 1
-        if state.effects[key] <= 0:
-            del state.effects[key]
-            if key == "starry_form":
-                pc.starry_form = None
-                pc.attacks = [a for a in pc.attacks if a.key != "luminous_arrow"]
-    _log(state, "ref", f"Round {state.round}. Your turn.")
-    if "regen5" in state.effects and pc.hp < pc.hp_max:
-        gained = min(5, pc.hp_max - pc.hp)
-        pc.hp += gained
-        state.stats.healed += gained
-        _log(state, "ref", f"The surge knits you back together: +{gained} HP.")
-    if "surge_each_turn" in state.effects:
-        _surge(state)
+    if rollover:
+        state.round += 1
+        state.action_used = False
+        state.bonus_used = False
+        state.extra_action = False
+        state.reaction_used = False
+        state.dodging = False
+        state.attacks_left = 0
+        state.hit_this_turn = False
+        state.melee_hit_this_turn = False
+        state.sneak_used = False
+        state.stun_used = False
+        state.reckless = False
+        if state.innate_sorcery > 0:
+            state.innate_sorcery -= 1
+        for key in list(state.effects):
+            state.effects[key] -= 1
+            if state.effects[key] <= 0:
+                del state.effects[key]
+                if key == "starry_form":
+                    pc.starry_form = None
+                    pc.attacks = [a for a in pc.attacks if a.key != "luminous_arrow"]
+        _log(state, "ref", f"Round {state.round}. Your turn.")
+        if "regen5" in state.effects and pc.hp < pc.hp_max:
+            gained = min(5, pc.hp_max - pc.hp)
+            pc.hp += gained
+            state.stats.healed += gained
+            _log(state, "ref", f"The surge knits you back together: +{gained} HP.")
+        if "surge_each_turn" in state.effects:
+            _surge(state)
 
 
 def _heal_feature(state: ArenaState, name: str, expr: str) -> None:
@@ -2212,6 +2218,302 @@ def _tips(state: ArenaState) -> list[str]:
     return out[:3]
 
 
+# ── Plan 101: fights of more than two ────────────────────────────────────────
+#
+# The engine only ever holds one actor and one target. A fight of any size is
+# run by stowing the acting creature back onto the roster at the end of its
+# turn and drawing the next one into that same working set, so every rule
+# already written keeps working untouched.
+#
+# Everything that has to survive somebody else's turn is listed here. Hit
+# points, spell slots and feature uses ride on the ArenaPc object itself.
+_PERSIST = (
+    "concentration",
+    "marks",
+    "blessed",
+    "faith",
+    "innate_sorcery",
+    "spiritual_weapon",
+    "effects",
+    "tides_primed",
+)
+
+
+def _side_of(slot: ArenaSlot) -> Optional[Any]:
+    """Whichever of the two payloads this slot carries."""
+    return slot.pc if slot.kind == "pc" else slot.foe
+
+
+def _living(state: ArenaState, index: int) -> bool:
+    """Is the combatant at ``index`` still standing?"""
+    side = _side_of(state.roster[index])
+    return bool(side and side.hp > 0)
+
+
+def _enemies_of(state: ArenaState, index: int) -> list[int]:
+    """Living combatants on a different team from ``index``."""
+    team = state.roster[index].team
+    return [i for i, slot in enumerate(state.roster) if slot.team != team and _living(state, i)]
+
+
+def _as_foe(slot: ArenaSlot) -> ArenaFoe:
+    """Show a character to the engine the way it shows a monster."""
+    if slot.kind == "monster" and slot.foe is not None:
+        return slot.foe
+    pc = slot.pc
+    assert pc is not None
+    return ArenaFoe(
+        name=pc.name,
+        ac=pc.ac + pc.ac_bonus,
+        hp=pc.hp,
+        hp_max=pc.hp_max,
+        dex_mod=pc.dex_mod,
+        creature_type="humanoid",
+        saves=dict(pc.mods or {}),
+        conditions=[],
+    )
+
+
+def _stow(state: ArenaState) -> None:
+    """Write the working set back onto the roster."""
+    if not state.roster:
+        return
+    slot = state.roster[state.order[state.turn]]
+    if slot.kind == "pc":
+        slot.pc = state.pc
+    for field in _PERSIST:
+        setattr(slot, field, getattr(state, field))
+    slot.reaction_used = state.reaction_used
+    target = state.target_index
+    if target is not None and 0 <= target < len(state.roster):
+        other = state.roster[target]
+        if other.kind == "monster":
+            other.foe = state.foe
+        elif other.pc is not None:
+            # Only the damage crosses back; the rest of a character's record is
+            # theirs and must not be overwritten by the attacker's view of them.
+            other.pc.hp = state.foe.hp
+
+
+def _draw(state: ArenaState) -> None:
+    """Load whoever is up into the working set and aim them at an enemy."""
+    index = state.order[state.turn]
+    slot = state.roster[index]
+    if slot.kind == "pc" and slot.pc is not None:
+        state.pc = slot.pc
+    for field in _PERSIST:
+        setattr(state, field, getattr(slot, field))
+    enemies = _enemies_of(state, index)
+    state.target_index = enemies[0] if enemies else None
+    if state.target_index is not None:
+        state.foe = _as_foe(state.roster[state.target_index])
+    state.action_used = False
+    state.bonus_used = False
+    state.reaction_used = slot.reaction_used = False
+    state.extra_action = False
+    state.dodging = False
+    state.attacks_left = 0
+    state.hit_this_turn = False
+    state.melee_hit_this_turn = False
+    state.sneak_used = False
+    state.stun_used = False
+    state.reckless = False
+    if state.innate_sorcery > 0:
+        state.innate_sorcery -= 1
+    for key in list(state.effects):
+        state.effects[key] -= 1
+        if state.effects[key] <= 0:
+            del state.effects[key]
+
+
+def aim(state: ArenaState, target: int) -> None:
+    """Point the acting creature at a different enemy."""
+    if not state.roster:
+        raise ValueError("This fight has only one opponent.")
+    if not (0 <= target < len(state.roster)) or not _living(state, target):
+        raise ValueError("That one isn't standing.")
+    index = state.order[state.turn]
+    if state.roster[target].team == state.roster[index].team:
+        raise ValueError("That one is on your side.")
+    _stow(state)
+    state.target_index = target
+    state.foe = _as_foe(state.roster[target])
+
+
+def _auto_swing(state: ArenaState) -> None:
+    """A referee-played character takes its best swing.
+
+    Deliberately plain: the biggest average damage its action can buy. This is
+    a sparring partner, not an opponent worth outsmarting.
+    """
+    pc = state.pc
+    options = [
+        a
+        for a in pc.attacks
+        if a.cost == "action" and not a.after_melee_hit and a.kind != "buff" and a.damage != "0"
+    ]
+    if not options:
+        _log(state, "ref", f"{pc.name} holds the line.")
+        return
+    best = max(options, key=lambda a: _avg(a.damage))
+    _spend_action(state)
+    _resolve_player_attack(state, best)
+
+
+def _one_team_left(state: ArenaState) -> bool:
+    """True when everybody still standing is on the same side."""
+    return len({state.roster[i].team for i in range(len(state.roster)) if _living(state, i)}) <= 1
+
+
+def advance_turn(state: ArenaState) -> None:
+    """Hand the turn on, playing referee-run sides until a human is up."""
+    for _ in range(len(state.order) * 4 + 4):
+        _stow(state)
+        if _one_team_left(state):
+            break
+        state.turn += 1
+        if state.turn >= len(state.order):
+            state.turn = 0
+            state.round += 1
+        if not _living(state, state.order[state.turn]):
+            continue
+        _draw(state)
+        slot = state.roster[state.order[state.turn]]
+        if state.target_index is None:
+            break
+        if not slot.auto:
+            _log(state, "ref", f"Round {state.round} — {slot.label}, you're up.")
+            return
+        if slot.kind == "monster":
+            # foe attacks pc: load the monster as the attacker and its quarry as
+            # the defender, which is exactly the shape the solo fight uses — so
+            # the defender's Shield and Uncanny Dodge fire for free.
+            victim = state.target_index
+            attacker = _as_foe(slot)
+            defender = state.roster[victim]
+            if defender.pc is not None:
+                state.pc, state.foe = defender.pc, attacker
+                state.reaction_used = defender.reaction_used
+                _foe_turn(state, rollover=False)
+                defender.pc.hp = state.pc.hp
+                defender.reaction_used = state.reaction_used
+                slot.foe = state.foe
+                # The working set now holds the defender as `pc` and the monster
+                # as `foe`. Drop the aim so the next stow does not copy the
+                # monster's hit points onto the character it just hit.
+                state.target_index = None
+                state.phase = "your_turn"
+                state.result = None
+        else:
+            _log(state, "ref", f"{slot.label} acts.")
+            _auto_swing(state)
+        if _one_team_left(state):
+            break
+    _stow(state)
+    if _one_team_left(state):
+        state.phase = "over"
+        standing = {state.roster[i].team for i in range(len(state.roster)) if _living(state, i)}
+        state.result = "won" if standing else "fled"
+        state.stats.rounds = state.round
+        names = [state.roster[i].label for i in range(len(state.roster)) if _living(state, i)]
+        _log(state, "ref", f"It's over. Still standing: {', '.join(names) or 'nobody'}.")
+
+
+def _roll_initiative(state: ArenaState) -> None:
+    """d20 + DEX for everyone, highest first. Rolled fresh every fight."""
+    rolls: list[tuple[int, int, int]] = []
+    for i, slot in enumerate(state.roster):
+        side = _side_of(slot)
+        dex = side.dex_mod if side else 0
+        nat, _ = d20()
+        slot.initiative = nat + dex
+        rolls.append((slot.initiative, dex, i))
+    rolls.sort(key=lambda r: (-r[0], -r[1], r[2]))
+    state.order = [r[2] for r in rolls]
+    state.turn = 0
+    for total, _dex, i in rolls:
+        _log(state, "ref", f"Initiative {total} — {state.roster[i].label}")
+
+
+def _slot_for_pc(db: Session, pc_id: uuid.UUID, team: int, auto: bool) -> ArenaSlot:
+    """Build one roster slot from a real character sheet."""
+    pc_row = _pc_or_raise(db, pc_id)
+    built = _build_pc(db, pc_row, _dm_email_for(db, pc_row))
+    return ArenaSlot(kind="pc", label=built.name, team=team, auto=auto, pc=built)
+
+
+def start_duel(db: Session, pc_ids: list[uuid.UUID]) -> ArenaState:
+    """A hot-seat duel: every character for themselves, one device passed round.
+
+    Args:
+        db: Active database session.
+        pc_ids: Two or more characters, in any combination.
+
+    Returns:
+        A sealed fight with initiative rolled and the first player up.
+
+    Raises:
+        ValueError: With fewer than two characters, or an unknown one.
+    """
+    if len(pc_ids) < 2:
+        raise ValueError("A duel needs at least two characters.")
+    roster = [_slot_for_pc(db, pc_id, team=team, auto=False) for team, pc_id in enumerate(pc_ids)]
+    state = ArenaState(
+        pc_id=pc_ids[0],
+        mode="duel",
+        roster=roster,
+        pc=roster[0].pc,
+        foe=_as_foe(roster[1]),
+    )
+    _log(state, "ref", "A friendly bout. Nothing here touches a real sheet.")
+    _roll_initiative(state)
+    _draw(state)
+    _log(state, "ref", f"Round 1 — {state.roster[state.order[0]].label}, you're up.")
+    state.tips = _tips(state)
+    return _seal(state)
+
+
+def start_boss(
+    db: Session, pc_ids: list[uuid.UUID], monster_id: uuid.UUID, controlled: uuid.UUID
+) -> ArenaState:
+    """The party against one monster, with the other characters played for you.
+
+    Args:
+        db: Active database session.
+        pc_ids: The party.
+        monster_id: The boss's stat block.
+        controlled: Which character the person holding the device plays.
+
+    Returns:
+        A sealed fight with initiative rolled.
+
+    Raises:
+        ValueError: If the boss or a character is missing.
+    """
+    if not pc_ids:
+        raise ValueError("A boss battle needs a party.")
+    roster = [_slot_for_pc(db, pc_id, team=0, auto=(pc_id != controlled)) for pc_id in pc_ids]
+    monster = MonsterRepo.get_by_id(db, monster_id)
+    if monster is None:
+        raise ValueError("Boss not found.")
+    boss = _foe_from_monster(monster)
+    roster.append(ArenaSlot(kind="monster", label=boss.name, team=1, auto=True, foe=boss))
+    state = ArenaState(
+        pc_id=controlled,
+        mode="boss",
+        roster=roster,
+        pc=roster[0].pc,
+        foe=boss,
+    )
+    _log(state, "ref", f"{boss.name} rises. Nothing here touches a real sheet.")
+    _roll_initiative(state)
+    _draw(state)
+    if state.roster[state.order[state.turn]].auto:
+        advance_turn(state)
+    state.tips = _tips(state)
+    return _seal(state)
+
+
 def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
     """Apply one player action to the state and, on end of turn, run the foe's.
 
@@ -2233,6 +2535,8 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
     # Work on a copy: a refused action must leave the sealed state untouched.
     state = state.model_copy(deep=True)
     kind = action.kind
+    if action.target is not None and state.roster:
+        aim(state, action.target)
     if kind in ("attack", "cast"):
         attack = next((a for a in state.pc.attacks if a.key == action.key), None)
         if attack is None:
@@ -2313,12 +2617,33 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
     elif kind == "end_turn":
         if state.spiritual_weapon and not state.bonus_used:
             _spiritual_strike(state)
-        _foe_turn(state)
-    if state.phase != "over" and state.foe.hp <= 0:
+        if state.roster:
+            advance_turn(state)
+        else:
+            _foe_turn(state)
+    if state.roster:
+        if state.phase != "over" and state.target_index is not None and state.foe.hp <= 0:
+            _log(state, "ref", f"{state.foe.name} goes down.")
+            _stow(state)
+            if _one_team_left(state):
+                state.phase = "over"
+                state.result = "won"
+                state.stats.rounds = state.round
+            else:
+                # Somebody else is still up: aim at them and fight on.
+                others = _enemies_of(state, state.order[state.turn])
+                if others:
+                    state.target_index = others[0]
+                    state.foe = _as_foe(state.roster[others[0]])
+    elif state.phase != "over" and state.foe.hp <= 0:
         state.phase = "over"
         state.result = "won"
         state.stats.rounds = state.round
         _log(state, "ref", f"{state.foe.name} goes down. Well fought.")
+    if state.roster:
+        # Keep every combatant's record current: the screen shows the whole
+        # roster's health, not only the one being swung at.
+        _stow(state)
     state.tips = _tips(state)
     return _seal(state)
 

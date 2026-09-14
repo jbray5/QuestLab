@@ -1301,3 +1301,38 @@ def move_own_token(
     TableStateRepo.save(db, state)
     publish_table_updated(session_id)
     return {"id": mine.get("id"), "x": mine["x"], "y": mine["y"]}
+
+
+def party_for_arena(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
+    """The campaign's characters, for the arena's opponent picker (Plan 101).
+
+    Player-facing, so it carries only what a picker needs — no sheets, no
+    secrets. Everyone at a table already knows who the other characters are.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the player character whose link opened the arena.
+
+    Returns:
+        One dict per character, ordered by name.
+
+    Raises:
+        ValueError: If the character does not exist.
+    """
+    pc = _get_pc_or_raise(db, pc_id)
+    rows = CharacterRepo.list_by_campaign(db, pc.campaign_id)
+    return [
+        {
+            "id": str(row.id),
+            "character_name": row.character_name,
+            "player_name": row.player_name,
+            "character_class": getattr(row.character_class, "value", str(row.character_class)),
+            "subclass": row.subclass,
+            "level": row.level,
+            "hp_max": row.hp_max,
+            "ac": row.ac,
+            "portrait_url": row.portrait_url,
+            "figure_url": row.figure_url,
+        }
+        for row in sorted(rows, key=lambda r: r.character_name)
+    ]

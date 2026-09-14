@@ -16,7 +16,14 @@ import uuid
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.deps import DB, gate_ai_for_pc
-from domain.arena import ArenaActBody, ArenaFoeOption, ArenaStartBody, ArenaState
+from domain.arena import (
+    ArenaActBody,
+    ArenaBossBody,
+    ArenaDuelBody,
+    ArenaFoeOption,
+    ArenaStartBody,
+    ArenaState,
+)
 from domain.character import HeroLockBody, PlayerCharacter, PlayerRollBody
 from domain.character_builder import BuilderOptions, BuildResult, CharacterBuild
 from domain.shop import (
@@ -621,6 +628,80 @@ def arena_start(pc_id: uuid.UUID, body: ArenaStartBody, db: DB) -> ArenaState:
             else status.HTTP_422_UNPROCESSABLE_ENTITY
         )
         raise HTTPException(status_code=code, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/arena/duel", response_model=ArenaState)
+def arena_duel(pc_id: uuid.UUID, body: ArenaDuelBody, db: DB) -> ArenaState:
+    """Start a hot-seat duel between the table's own characters (Plan 101).
+
+    One device, passed round. Initiative is rolled fresh. Nothing is written to
+    anybody's sheet.
+
+    Args:
+        pc_id: The character whose link opened the arena (the capability).
+        body: Two or more characters to put in the ring.
+        db: Database session.
+
+    Returns:
+        The opening fight state, with the first player up.
+    """
+    if pc_id not in body.pc_ids:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="You have to be in your own duel."
+        )
+    try:
+        return arena_service.start_duel(db, body.pc_ids)
+    except ValueError as exc:
+        code = (
+            status.HTTP_404_NOT_FOUND
+            if "not found" in str(exc)
+            else status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
+        raise HTTPException(status_code=code, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/arena/boss", response_model=ArenaState)
+def arena_boss(pc_id: uuid.UUID, body: ArenaBossBody, db: DB) -> ArenaState:
+    """The party against one monster, your friends played by the referee (Plan 101).
+
+    Args:
+        pc_id: The character whose link opened the arena (the capability).
+        body: The party, the boss, and which character you drive.
+        db: Database session.
+
+    Returns:
+        The opening fight state.
+    """
+    if pc_id != body.controlled or pc_id not in body.pc_ids:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="You can only drive your own character."
+        )
+    try:
+        return arena_service.start_boss(db, body.pc_ids, body.monster_id, body.controlled)
+    except ValueError as exc:
+        code = (
+            status.HTTP_404_NOT_FOUND
+            if "not found" in str(exc)
+            else status.HTTP_422_UNPROCESSABLE_ENTITY
+        )
+        raise HTTPException(status_code=code, detail=str(exc))
+
+
+@router.get("/play/{pc_id}/arena/party")
+def arena_party(pc_id: uuid.UUID, db: DB) -> list[dict]:
+    """The characters in this campaign, for the duelling hall's picker (Plan 101).
+
+    Args:
+        pc_id: UUID of the player character (the capability).
+        db: Database session.
+
+    Returns:
+        One row per character: id, name, class, level and portrait.
+    """
+    try:
+        return player_service.party_for_arena(db, pc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
 @router.post("/play/{pc_id}/arena/act", response_model=ArenaState)
