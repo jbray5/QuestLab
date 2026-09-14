@@ -211,6 +211,9 @@ const FONT_MIN_LEVEL: Record<number, number> = { 1: 2, 2: 3, 3: 5, 4: 7, 5: 9 };
 const upcastHint = (a: ArenaAttack, levels: number[]) =>
   a.upcast && levels.length > 1 ? (a.upcast === "count" ? " · one more per slot level" : ` · +${a.upcast} per slot level`) : "";
 
+/** How long each log line holds the floor before the next one lands. */
+const PACE_MS = 650;
+
 const KIND_ICON: Record<ArenaAttack["kind"], string> = {
   weapon: "🗡",
   unarmed: "👊",
@@ -316,7 +319,29 @@ export default function Arena() {
 
   const suggested = useMemo(() => (foes ?? []).filter((f) => f.suggested), [foes]);
   const others = useMemo(() => (foes ?? []).filter((f) => !f.suggested), [foes]);
-  const logNewestFirst = useMemo(() => (state ? [...state.log].reverse() : []), [state]);
+  // Plan 103 — the referee narrates. Cory: "I press buttons and it all resolves
+  // instantly. I'd like the thinking and anticipation!" New lines arrive one at
+  // a time; a fight restored from storage appears whole, and a tap skips ahead.
+  const total = state?.log.length ?? 0;
+  const [revealed, setRevealed] = useState<number | null>(null);
+  useEffect(() => {
+    // First sight of a fight, or a new one started: show what is already there.
+    if (revealed === null || total < revealed) setRevealed(total);
+  }, [total, revealed]);
+  useEffect(() => {
+    if (revealed === null || revealed >= total) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setRevealed(total);
+      return;
+    }
+    const t = window.setTimeout(() => setRevealed((n) => Math.min(total, (n ?? 0) + 1)), PACE_MS);
+    return () => window.clearTimeout(t);
+  }, [revealed, total]);
+  const playing = revealed !== null && revealed < total;
+  const logNewestFirst = useMemo(
+    () => (state ? state.log.slice(0, revealed ?? total).reverse() : []),
+    [state, revealed, total],
+  );
 
   // Why an attack button is greyed, or "" when it's live.
   function whyNot(a: ArenaAttack): string {
@@ -778,6 +803,15 @@ export default function Arena() {
             </>
           )}
 
+          {playing && (
+            <button
+              className="ar-btn ghost"
+              style={{ width: "100%", marginTop: 10 }}
+              onClick={() => setRevealed(total)}
+            >
+              <small>▸ tap to skip ahead</small>
+            </button>
+          )}
           <div className="ar-log" aria-live="polite">
             {logNewestFirst.map((l, i) => (
               <div key={`${l.round}-${i}`} className={`ar-line ${l.who}${l.crit ? " crit" : ""}`}>
