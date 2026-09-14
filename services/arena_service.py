@@ -371,6 +371,27 @@ def _weapon_attacks(db: Session, pc: PlayerCharacter) -> list[ArenaAttack]:
                 note=note,
             )
         )
+        # Thrown weapons get a second entry. The swing above is a melee attack
+        # and smites ride it; the throw is a ranged attack and they do not.
+        # Dueling wants a melee weapon too, so the throw uses the plain roll.
+        if "thrown" in props and not ranged:
+            reach = f" · {item.weapon_range} ft" if item.weapon_range else ""
+            out.append(
+                ArenaAttack(
+                    key=f"wt-{item.id}",
+                    name=f"{item.name} (thrown)",
+                    kind="weapon",
+                    hit_bonus=prev.hit_bonus,
+                    damage=prev.damage_roll,
+                    damage_type=prev.damage_type,
+                    melee=False,
+                    finesse=True,
+                    note=(
+                        f"{prev.ability.upper()} · {prev.damage_type}{reach}"
+                        " · no smite on a throw"
+                    ),
+                )
+            )
     return out
 
 
