@@ -34,9 +34,35 @@ document the device holds, exactly as the solo arena is.
 - [ ] Step 5: Auto-play stays for monster sides only
 - [ ] Step 6: Routes — `POST /arena/duel/start`, reuse `/arena/act`
 - [ ] Step 7: The landing page and the hot-seat UI
+- [ ] Step 9: Paced log playback (Cory's ask — frontend only)
+- [ ] Step 10: `auto` sides — party vs boss with allies played by the referee
 - [ ] Step 8: Tests, prod verification
 
 ---
+
+## Scope answered and widened (2026-09-13)
+Justin's rulings:
+- **Initiative rolled fresh each fight.** No persistent ladder.
+- **No positioning, and that is deliberate** — assume every attack is valid.
+  Ranged spell attacks are fine, melee sneak attacks are fine. This closes the
+  open question below; v1 ships abstract and stays abstract.
+- **Hit points are the characters' real ones**, not normalised for fairness.
+  `_build_pc` already does this.
+
+Two more asks came back from the table's Discord:
+- **Cory (Creed): paced playback.** *"I press buttons and it all resolves
+  instantly. I'd like the thinking and anticipation!"* The log should reveal a
+  line at a time rather than dumping the whole turn. Frontend only — the engine
+  already returns an ordered log; `Arena.tsx` just renders it all at once.
+- **Cory (Creed): a boss battle.** *"Could it simulate all of us in a battle?
+  I only get to pick my stuff but the AI picks what Hayley Parker and Chelsea
+  do."* This is nearly free once Steps 1–3 land: an ally side is a PC-backed
+  combatant that the referee plays, which is the same machinery as a monster
+  side that the referee plays. It becomes a flag on the combatant
+  (`auto: bool`) rather than a second engine.
+
+That makes three modes out of one refactor: solo vs monster (today), hot-seat
+duel, and party vs boss with allies auto-played.
 
 ## Surprises and Discoveries
 - **The arena has no positioning at all.** No distance, movement, cover or
