@@ -2351,12 +2351,16 @@ def _auto_swing(state: ArenaState) -> None:
         a
         for a in pc.attacks
         if a.cost == "action" and not a.after_melee_hit and a.kind != "buff" and a.damage != "0"
+        # Only what it can actually pay for — an ally with no slots left swings.
+        and (a.spell_level == 0 or _has_slot(pc, a.spell_level))
     ]
     if not options:
         _log(state, "ref", f"{pc.name} holds the line.")
         return
     best = max(options, key=lambda a: _avg(a.damage))
     _spend_action(state)
+    if best.spell_level > 0 and best.kind in ("spell", "heal", "buff"):
+        _spend_slot(state, best.spell_level)
     _resolve_player_attack(state, best)
 
 

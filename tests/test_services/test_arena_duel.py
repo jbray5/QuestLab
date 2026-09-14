@@ -166,3 +166,37 @@ class TestAiming:
         st = arena.start(duckdb_session, pc.id, _foe(duckdb_session).id)
         with pytest.raises(ValueError, match="only one opponent"):
             arena.act(duckdb_session, st, ArenaAction(kind="aim", target=1))
+
+    def test_an_auto_ally_pays_for_its_spells(self, duckdb_session: Session, monkeypatch):
+        """A referee-played caster spends slots like anyone else, and runs dry."""
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
+        nya, dm = _pc(
+            duckdb_session, CharacterClass.SORCERER, level=3, subclass="Wild Magic", score_cha=16
+        )
+        _learn(
+            duckdb_session,
+            nya,
+            dm,
+            _spell(
+                duckdb_session,
+                "Scorch (auto test)",
+                2,
+                ["Sorcerer"],
+                damage_dice="3d8",
+                damage_type="fire",
+                save_ability="DEX",
+            ),
+        )
+        creed, _ = _pc(duckdb_session, CharacterClass.PALADIN, level=3, score_str=16)
+        boss = _foe(duckdb_session, hp=4000, ac=30, name="The Wall")
+        st = arena.start_boss(duckdb_session, [creed.id, nya.id], boss.id, controlled=creed.id)
+
+        ally = next(i for i, s in enumerate(st.roster) if s.auto and s.kind == "pc")
+        opening = sum((st.roster[ally].pc.slots or {}).values())
+        for _ in range(6):
+            if st.phase == "over":
+                break
+            st = arena.act(duckdb_session, st, ArenaAction(kind="end_turn"))
+        remaining = sum((st.roster[ally].pc.slots or {}).values())
+        assert remaining < opening, "the ally spent slots casting"
+        assert remaining >= 0
