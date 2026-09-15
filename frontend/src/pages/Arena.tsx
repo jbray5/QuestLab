@@ -949,6 +949,14 @@ export default function Arena() {
           </div>
 
           {state.phase === "over" ? (
+            // Plan 103 paced the log so a turn has some anticipation in it; the
+            // result must not outrun it. The server settles the whole fight in
+            // one reply — in a boss battle that is the ally's turn and the
+            // boss's — so announcing the winner the moment the reply lands
+            // spoils every line still queued behind it. Wait for the referee to
+            // finish talking. "Tap to skip ahead" is right below, and takes you
+            // straight here.
+            playing ? null : (
             <div className="ar-over" style={{ marginTop: 12 }}>
               <h2>{state.result === "won" ? "🏆 You win" : state.result === "lost" ? "💀 You're down" : "🏃 You fled"}</h2>
               {state.tips.map((t, i) => (
@@ -966,6 +974,7 @@ export default function Arena() {
                 </Link>
               </div>
             </div>
+            )
           ) : (
             <>
               <div className="ar-turn">
