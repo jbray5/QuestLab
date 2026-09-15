@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { apiBase } from "../api/client";
 import { useEventStream } from "../hooks/useEventStream";
+import { classEmoji } from "../lib/classEmoji";
 
 /**
  * Arena (Plans 84/85/87) — the Practice Arena on the player's phone. A
@@ -49,6 +50,7 @@ interface ArenaPc extends ArenaSide {
   level: number;
   character_class: string;
   subclass: string;
+  portrait_url: string | null;
   attacks: ArenaAttack[];
   features: ArenaFeature[];
   slots: Record<string, number>;
@@ -242,6 +244,21 @@ const CSS = `
 .ar-card { border: 1px solid rgba(240,230,200,0.14); border-radius: 12px; padding: 10px 12px; background: rgba(20,16,30,0.72); }
 .ar-card.foe { border-color: rgba(200,80,80,0.45); }
 .ar-card.you { border-color: rgba(214,175,54,0.45); }
+.ar-face { display: flex; align-items: center; justify-content: center; flex: none;
+  border-radius: 50%; overflow: hidden; line-height: 1;
+  border: 1px solid rgba(240,230,200,0.22); background: rgba(240,230,200,0.06); }
+/* The sheets' portraits are square busts with the face high in the frame, so a
+   plain circular crop of one shows chest. Zoom to the head instead. */
+.ar-face img { width: 100%; height: 100%; object-fit: cover;
+  transform: scale(1.55); transform-origin: 50% 0%; }
+.ar-face.down { filter: grayscale(1); opacity: 0.62; }
+.ar-card .ar-face { margin: 0 auto 6px; }
+.ar-card.foe .ar-face { border-color: rgba(200,80,80,0.55); }
+.ar-card.you .ar-face { border-color: rgba(214,175,54,0.55); }
+.ar-card { text-align: center; }
+.ar-card .ar-chips { justify-content: center; }
+.ar-seat { display: flex; align-items: center; gap: 8px; }
+.ar-seat .who { flex: 1; min-width: 0; }
 .ar-card .nm { font-family: Cinzel, Georgia, serif; font-size: 0.9rem; color: #f0e6c8; margin: 0 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ar-card .meta { font-size: 0.7rem; color: #b3a789; letter-spacing: 0.04em; }
 .ar-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 6px 0 3px; }
@@ -282,6 +299,65 @@ const CSS = `
 .ar-over h2 { font-family: Cinzel, Georgia, serif; margin: 0 0 4px; color: #f0e6c8; letter-spacing: 0.08em; }
 .ar-over p { margin: 0; color: #c2b89f; font-size: 0.85rem; }
 `;
+
+/** What a monster wears when it has no portrait of its own. */
+const TYPE_EMOJI: Record<string, string> = {
+  aberration: "👁️",
+  beast: "🐺",
+  celestial: "😇",
+  construct: "🗿",
+  dragon: "🐉",
+  elemental: "🔥",
+  fey: "🧚",
+  fiend: "😈",
+  giant: "🗿",
+  humanoid: "🧍",
+  monstrosity: "🐙",
+  ooze: "🫧",
+  plant: "🌱",
+  undead: "💀",
+};
+
+/**
+ * A combatant's face. Plan 106 — Justin: "can we have headshots of the
+ * monsters/characters at the top?"
+ *
+ * Falls back to the class emoji a sheet already wears before it has a
+ * portrait, so a fight never shows an empty frame. Goes grey when the
+ * creature drops, in step with the narration like every other figure.
+ */
+function Headshot({
+  src,
+  fallback,
+  size,
+  down,
+  alt,
+}: {
+  src: string | null | undefined;
+  fallback: string;
+  size: number;
+  down?: boolean;
+  alt: string;
+}) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <span className={`ar-face${down ? " down" : ""}`} style={{ width: size, height: size }}>
+      {src && !broken ? (
+        <img
+          src={src}
+          alt={alt}
+          loading="lazy"
+          decoding="async"
+          onError={() => setBroken(true)}
+        />
+      ) : (
+        <span style={{ fontSize: Math.round(size * 0.5) }} aria-hidden="true">
+          {fallback}
+        </span>
+      )}
+    </span>
+  );
+}
 
 function hpClass(hp: number, max: number): string {
   const f = max > 0 ? hp / max : 1;
@@ -913,6 +989,17 @@ export default function Arena() {
           <div className="ar-cards">
             {locked && upNow ? (
               <div className={`ar-card foe${hurt.includes(state.order?.[state.turn ?? 0] ?? -1) ? " ar-hit" : ""}`}>
+                <Headshot
+                  src={upNow.pc?.portrait_url ?? upNow.foe?.image_url}
+                  fallback={
+                    upNow.pc
+                      ? classEmoji(upNow.pc.character_class)
+                      : (TYPE_EMOJI[upNow.foe?.creature_type?.toLowerCase() ?? ""] ?? "👹")
+                  }
+                  size={64}
+                  down={upHp <= 0}
+                  alt={upNow.label}
+                />
                 <p className="nm">{upNow.label}</p>
                 <div className="meta">taking their turn</div>
                 <div className="ar-bar">
@@ -927,6 +1014,13 @@ export default function Arena() {
               </div>
             ) : (
             <div className={`ar-card foe${hurt.includes(roster.length ? (state.target_index ?? -1) : 1) ? " ar-hit" : ""}`}>
+              <Headshot
+                src={foe.image_url}
+                fallback={TYPE_EMOJI[foe.creature_type?.toLowerCase()] ?? "👹"}
+                size={64}
+                down={foeHp <= 0}
+                alt={foe.name}
+              />
               <p className="nm">{foe.name}</p>
               <div className="meta">
                 CR {foe.cr} · AC {foe.ac}
@@ -956,6 +1050,13 @@ export default function Arena() {
               key={`you-${ouch}`}
               className={`ar-card you${hurt.includes(myIndex) ? " ar-hit" : ""}`}
             >
+              <Headshot
+                src={you.portrait_url}
+                fallback={classEmoji(you.character_class)}
+                size={64}
+                down={youHp <= 0}
+                alt={you.name}
+              />
               <p className="nm">{you.name}</p>
               <div className="meta">
                 Lv {you.level} {you.character_class}
@@ -1064,16 +1165,29 @@ export default function Arena() {
                         title={mine ? "On your side" : "Aim at this one"}
                         onClick={() => void act("aim", undefined, undefined, i)}
                       >
-                        <b>
-                          {hp <= 0 ? "💀 " : isTarget ? "🎯 " : ""}
-                          {slot.label}
-                        </b>
-                        <span className="bar">
-                          <i style={{ width: `${pct}%` }} />
+                        <Headshot
+                          src={slot.pc?.portrait_url ?? slot.foe?.image_url}
+                          fallback={
+                            slot.pc
+                              ? classEmoji(slot.pc.character_class)
+                              : (TYPE_EMOJI[slot.foe?.creature_type?.toLowerCase() ?? ""] ?? "👹")
+                          }
+                          size={34}
+                          down={hp <= 0}
+                          alt={slot.label}
+                        />
+                        <span className="who">
+                          <b>
+                            {hp <= 0 ? "💀 " : isTarget ? "🎯 " : ""}
+                            {slot.label}
+                          </b>
+                          <span className="bar">
+                            <i style={{ width: `${pct}%` }} />
+                          </span>
+                          <small>
+                            {hp}/{side.hp_max}
+                          </small>
                         </span>
-                        <small>
-                          {hp}/{side.hp_max}
-                        </small>
                       </button>
                     );
                   })}

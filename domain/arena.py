@@ -90,6 +90,9 @@ class ArenaPc(ArenaSide):
     level: int = 1
     character_class: str = ""
     subclass: str = ""
+    # Plan 106 — the face at the top of the card. The sheet's portrait, copied
+    # in at the start of the fight like every other number here.
+    portrait_url: Optional[str] = None
     feats: list[str] = Field(default_factory=list)
     attacks: list[ArenaAttack] = Field(default_factory=list)
     features: list[ArenaFeature] = Field(default_factory=list)

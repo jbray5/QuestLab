@@ -900,6 +900,7 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
         level=pc.level,
         character_class=getattr(pc.character_class, "value", str(pc.character_class)),
         subclass=pc.subclass or "",
+        portrait_url=pc.portrait_url,
         feats=feats,
         attacks=attacks,
         features=features,
@@ -2312,6 +2313,7 @@ def _as_foe(slot: ArenaSlot) -> ArenaFoe:
         creature_type="humanoid",
         saves=dict(pc.mods or {}),
         conditions=[],
+        image_url=pc.portrait_url,
     )
 
 
