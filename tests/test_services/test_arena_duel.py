@@ -200,3 +200,51 @@ class TestAiming:
         remaining = sum((st.roster[ally].pc.slots or {}).values())
         assert remaining < opening, "the ally spent slots casting"
         assert remaining >= 0
+
+
+class TestAFallenCombatant:
+    """A creature at 0 HP is skipped — and its seat must stay its own."""
+
+    def test_a_downed_character_does_not_inherit_somebody_elses_sheet(
+        self, duckdb_session, monkeypatch
+    ):
+        """Found by Plan 105's per-line snapshot; the bug predates it.
+
+        ``_stow`` writes the working set into ``roster[order[turn]]``, which is
+        only correct while those name the same creature. Skipping a fallen
+        combatant moved the turn without drawing anybody, so the next stow put
+        the *previous* creature's sheet into the dead one's seat — both seats
+        then held one character, and the downed player's bar showed somebody
+        else's hit points.
+
+        A paladin and a sorcerer, so a seat that changes hands says so.
+        """
+        monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
+        creed, _ = _pc(duckdb_session, CharacterClass.PALADIN, level=3, score_str=16)
+        nya, _ = _pc(duckdb_session, CharacterClass.SORCERER, level=3, score_cha=16)
+        boss = _foe(duckdb_session, hp=120, ac=13, name="The Revelmaster")
+        st = arena.start_boss(duckdb_session, [creed.id, nya.id], boss.id, controlled=creed.id)
+
+        seated = {
+            i: slot.pc.character_class for i, slot in enumerate(st.roster) if slot.kind == "pc"
+        }
+        assert len(set(seated.values())) == 2, "the two seats start out distinguishable"
+
+        swing = next(a for a in st.pc.attacks if a.cost == "action" and a.damage != "0")
+        floored = False
+        for _ in range(5):
+            if st.phase == "over":
+                break
+            st = arena.act(duckdb_session, st, ArenaAction(kind="attack", key=swing.key))
+            if st.phase == "over":
+                break
+            st = arena.act(duckdb_session, st, ArenaAction(kind="end_turn"))
+            for i, want in seated.items():
+                slot = st.roster[i]
+                assert slot.pc is not None and slot.pc.character_class == want, (
+                    f"seat {i} was a {want} and is now holding a "
+                    f"{slot.pc and slot.pc.character_class}'s sheet"
+                )
+                floored = floored or slot.pc.hp <= 0
+
+        assert floored, "somebody went down, which is what the test is about"

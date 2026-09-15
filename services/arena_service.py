@@ -1027,9 +1027,49 @@ def list_beasts(db: Session, pc_id: uuid.UUID) -> list[ArenaFoeOption]:
 # ── The fight ────────────────────────────────────────────────────────────────
 
 
+def _hp_now(state: ArenaState) -> list[int]:
+    """Everybody's hit points at this instant, for the line being written.
+
+    The roster holds the very objects the engine is working on, so reading it
+    is live — with one exception. A *character* being swung at is shown to the
+    engine through a converted copy (``_as_foe``), so their slot stays stale
+    until the next stow and the working set's ``foe`` is the true figure.
+
+    That override is only safe because the aim is cleared before a monster's
+    turn runs: on that path the roles invert (the working set holds the
+    defender as ``pc`` and the monster as ``foe``), and reading ``state.foe``
+    for the target would put the monster's hit points on its victim — the same
+    trap that had to be fixed in Plan 101.
+
+    Args:
+        state: The fight, mid-turn.
+
+    Returns:
+        Hit points in roster order, or ``[you, foe]`` in a solo fight.
+    """
+    if not state.roster:
+        return [state.pc.hp, state.foe.hp]
+    out: list[int] = []
+    for i, slot in enumerate(state.roster):
+        if i == state.target_index and slot.kind == "pc":
+            out.append(state.foe.hp)
+            continue
+        side = slot.pc if slot.kind == "pc" else slot.foe
+        out.append(side.hp if side else 0)
+    return out
+
+
 def _log(state: ArenaState, who: str, text: str, dice: Optional[str] = None, **kw: Any) -> None:
-    """Append one line to the fight log."""
-    line = ArenaLogLine(round=state.round, who=who, text=text, dice=dice, **kw)  # type: ignore
+    """Append one line to the fight log, stamped with the turn and the score."""
+    line = ArenaLogLine(
+        round=state.round,
+        who=who,
+        text=text,
+        dice=dice,
+        beat=state.beat,
+        hp=_hp_now(state),
+        **kw,  # type: ignore[arg-type]
+    )
     state.log.append(line)
 
 
@@ -1842,6 +1882,7 @@ def _foe_turn(state: ArenaState, rollover: bool = True) -> None:
         )
         return
     if rollover:
+        state.beat += 1
         state.round += 1
         state.action_used = False
         state.bonus_used = False
@@ -2297,6 +2338,7 @@ def _stow(state: ArenaState) -> None:
 
 def _draw(state: ArenaState) -> None:
     """Load whoever is up into the working set and aim them at an enemy."""
+    state.beat += 1
     index = state.order[state.turn]
     slot = state.roster[index]
     if slot.kind == "pc" and slot.pc is not None:
@@ -2370,9 +2412,19 @@ def _one_team_left(state: ArenaState) -> bool:
 
 
 def advance_turn(state: ArenaState) -> None:
-    """Hand the turn on, playing referee-run sides until a human is up."""
+    """Hand the turn on, playing referee-run sides until a human is up.
+
+    ``_stow`` writes the working set into ``roster[order[turn]]``, so it is only
+    correct while those two refer to the same creature. Skipping a fallen
+    combatant moves the turn without drawing anybody, and stowing after that
+    wrote the *previous* creature's sheet into the dead one's seat — their bar
+    would climb back up wearing somebody else's hit points. So the working set
+    is put away the moment its owner is done, and ``drawn`` tracks whether
+    there is anything to put away at all.
+    """
+    _stow(state)
+    drawn = True
     for _ in range(len(state.order) * 4 + 4):
-        _stow(state)
         if _one_team_left(state):
             break
         state.turn += 1
@@ -2380,8 +2432,10 @@ def advance_turn(state: ArenaState) -> None:
             state.turn = 0
             state.round += 1
         if not _living(state, state.order[state.turn]):
+            drawn = False
             continue
         _draw(state)
+        drawn = True
         slot = state.roster[state.order[state.turn]]
         if state.target_index is None:
             break
@@ -2396,24 +2450,30 @@ def advance_turn(state: ArenaState) -> None:
             attacker = _as_foe(slot)
             defender = state.roster[victim]
             if defender.pc is not None:
+                # For this swing the working set holds the defender as `pc` and
+                # the monster as `foe` — the same shape a solo fight uses, so
+                # the defender's Shield and Uncanny Dodge fire for free. Drop
+                # the aim first: while the roles are inverted, `target_index`
+                # would otherwise name the victim while `foe` is the monster,
+                # and both the per-line snapshot and the stow would copy the
+                # monster's hit points onto the character it just hit.
+                state.target_index = None
                 state.pc, state.foe = defender.pc, attacker
                 state.reaction_used = defender.reaction_used
                 _foe_turn(state, rollover=False)
                 defender.pc.hp = state.pc.hp
                 defender.reaction_used = state.reaction_used
                 slot.foe = state.foe
-                # The working set now holds the defender as `pc` and the monster
-                # as `foe`. Drop the aim so the next stow does not copy the
-                # monster's hit points onto the character it just hit.
-                state.target_index = None
                 state.phase = "your_turn"
                 state.result = None
         else:
             _log(state, "ref", f"{slot.label} acts.")
             _auto_swing(state)
+        _stow(state)
         if _one_team_left(state):
             break
-    _stow(state)
+    if drawn:
+        _stow(state)
     if _one_team_left(state):
         state.phase = "over"
         standing = {state.roster[i].team for i in range(len(state.roster)) if _living(state, i)}
@@ -2629,6 +2689,7 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
         if state.roster:
             advance_turn(state)
         else:
+            state.beat += 1
             _foe_turn(state)
     if state.roster:
         if state.phase != "over" and state.target_index is not None and state.foe.hp <= 0:

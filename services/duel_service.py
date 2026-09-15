@@ -268,9 +268,15 @@ def end(db: Session, duel_id: uuid.UUID, pc_id: uuid.UUID) -> DuelRead:
     _require_seat(duel, pc_id)
     state = _load(duel)
     if state.phase != "over":
-        # Flee is the engine's own way to close a fight, and it reseals — no
-        # hand-editing a sealed document from out here.
-        state = arena_service.act(db, state, ArenaAction(kind="flee"))
+        try:
+            # Flee is the engine's own way to close a fight, and it reseals —
+            # no hand-editing a sealed document from out here.
+            state = arena_service.act(db, state, ArenaAction(kind="flee"))
+        except ValueError:
+            # A deploy that changes the fight's shape invalidates the seal on
+            # anything already in flight. Walking out has to work anyway, or
+            # the row is a live duel nobody can ever close.
+            pass
     duel.state = state_to_json(state)
     duel.phase = "over"
     duel = DuelRepo.save(db, duel)

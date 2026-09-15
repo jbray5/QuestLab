@@ -81,6 +81,10 @@ interface LogLine {
   dice: string | null;
   hit: boolean | null;
   crit: boolean;
+  // Plan 105 — which creature's turn wrote this, and what everybody's hit
+  // points were at that moment (roster order, or [you, foe] in a solo fight).
+  beat: number;
+  hp: number[] | null;
 }
 interface ArenaSlot {
   kind: "pc" | "monster";
@@ -305,8 +309,8 @@ const FONT_MIN_LEVEL: Record<number, number> = { 1: 2, 2: 3, 3: 5, 4: 7, 5: 9 };
 const upcastHint = (a: ArenaAttack, levels: number[]) =>
   a.upcast && levels.length > 1 ? (a.upcast === "count" ? " · one more per slot level" : ` · +${a.upcast} per slot level`) : "";
 
-/** How long each log line holds the floor before the next one lands. */
-const PACE_MS = 650;
+/** How long one creature's turn holds the floor before the next lands. */
+const CHUNK_MS = 1150;
 
 const KIND_ICON: Record<ArenaAttack["kind"], string> = {
   weapon: "🗡",
@@ -433,24 +437,42 @@ export default function Arena() {
   const suggested = useMemo(() => (foes ?? []).filter((f) => f.suggested), [foes]);
   const others = useMemo(() => (foes ?? []).filter((f) => !f.suggested), [foes]);
   // Plan 103 — the referee narrates. Cory: "I press buttons and it all resolves
-  // instantly. I'd like the thinking and anticipation!" New lines arrive one at
-  // a time; a fight restored from storage appears whole, and a tap skips ahead.
+  // instantly. I'd like the thinking and anticipation!"
+  //
+  // Plan 105 — a turn at a time rather than a line at a time. The server
+  // settles a whole batch in one reply (in a boss battle, the ally's turn and
+  // the boss's), and each line now says which creature's turn wrote it, so the
+  // page shows one creature's turn, pauses for it to land, then the next.
   const total = state?.log.length ?? 0;
   const [revealed, setRevealed] = useState<number | null>(null);
   useEffect(() => {
     // First sight of a fight, or a new one started: show what is already there.
     if (revealed === null || total < revealed) setRevealed(total);
   }, [total, revealed]);
+  // The first chunk of a batch is nearly always your own action — waiting a
+  // beat to watch your own sword swing is the snappiness Plan 103 kept.
+  const lastTotal = useRef(0);
   useEffect(() => {
-    if (revealed === null || revealed >= total) return;
+    if (!state || revealed === null || revealed >= total) return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       setRevealed(total);
       return;
     }
-    const t = window.setTimeout(() => setRevealed((n) => Math.min(total, (n ?? 0) + 1)), PACE_MS);
+    const first = lastTotal.current !== total;
+    lastTotal.current = total;
+    const beat = state.log[revealed]?.beat ?? 0;
+    let end = revealed + 1;
+    while (end < total && (state.log[end]?.beat ?? 0) === beat) end += 1;
+    const t = window.setTimeout(() => setRevealed(end), first ? 0 : CHUNK_MS);
     return () => window.clearTimeout(t);
-  }, [revealed, total]);
+  }, [revealed, total, state]);
   const playing = revealed !== null && revealed < total;
+  // The score as of the last line on screen. Until something has been revealed
+  // we have nothing to draw from, so the live figures stand in.
+  const shownHp =
+    state && revealed !== null && revealed > 0 ? (state.log[revealed - 1]?.hp ?? null) : null;
+  /** Hit points to draw for roster seat `i` — what the narration has reached. */
+  const hpAt = (i: number, live: number) => shownHp?.[i] ?? live;
   // Plan 101 — the duelling hall.
   const [hall, setHall] = useState<"monster" | "duel" | "boss">("monster");
   const [picked, setPicked] = useState<string[]>([]);
@@ -674,8 +696,8 @@ export default function Arena() {
   // vibrate at all, so the flinch is the real effect and the buzz is a bonus.
   const hpKey = state
     ? roster.length
-      ? roster.map((sl) => (sl.pc ?? sl.foe)?.hp ?? 0).join(",")
-      : `${state.pc.hp},${state.foe.hp}`
+      ? roster.map((sl, i) => hpAt(i, (sl.pc ?? sl.foe)?.hp ?? 0)).join(",")
+      : `${hpAt(0, state.pc.hp)},${hpAt(1, state.foe.hp)}`
     : "";
   const myIndex = roster.length
     ? duelId
@@ -707,6 +729,13 @@ export default function Arena() {
     const t = window.setTimeout(() => setHurt([]), 560);
     return () => window.clearTimeout(t);
   }, [hpKey, myIndex]);
+
+  // Plan 105 — the figures the cards draw, held to the narration.
+  const upSide = upNow ? (upNow.pc ?? upNow.foe) : null;
+  const upHp = upSide ? hpAt(state?.order?.[state.turn ?? 0] ?? -1, upSide.hp) : 0;
+  const upMax = upSide?.hp_max ?? 1;
+  const foeHp = foe ? hpAt(roster.length ? (state?.target_index ?? -1) : 1, foe.hp) : 0;
+  const youHp = you ? hpAt(myIndex, you.hp) : 0;
 
   const cls = you?.character_class.toLowerCase() ?? "";
   const hasAutoReactions =
@@ -888,12 +917,12 @@ export default function Arena() {
                 <div className="meta">taking their turn</div>
                 <div className="ar-bar">
                   <i
-                    className={hpClass((upNow.pc ?? upNow.foe)?.hp ?? 0, (upNow.pc ?? upNow.foe)?.hp_max ?? 1)}
-                    style={{ width: `${(100 * ((upNow.pc ?? upNow.foe)?.hp ?? 0)) / Math.max(1, (upNow.pc ?? upNow.foe)?.hp_max ?? 1)}%` }}
+                    className={hpClass(upHp, upMax)}
+                    style={{ width: `${(100 * upHp) / Math.max(1, upMax)}%` }}
                   />
                 </div>
                 <div className="ar-hp">
-                  {(upNow.pc ?? upNow.foe)?.hp}/{(upNow.pc ?? upNow.foe)?.hp_max}
+                  {upHp}/{upMax}
                 </div>
               </div>
             ) : (
@@ -903,10 +932,10 @@ export default function Arena() {
                 CR {foe.cr} · AC {foe.ac}
               </div>
               <div className="ar-bar">
-                <i className={hpClass(foe.hp, foe.hp_max)} style={{ width: `${(100 * foe.hp) / Math.max(1, foe.hp_max)}%` }} />
+                <i className={hpClass(foeHp, foe.hp_max)} style={{ width: `${(100 * foeHp) / Math.max(1, foe.hp_max)}%` }} />
               </div>
               <div className="ar-hp">
-                {foe.hp}/{foe.hp_max}
+                {foeHp}/{foe.hp_max}
               </div>
               <div className="ar-chips">
                 {foe.conditions.map((c) => (
@@ -933,10 +962,10 @@ export default function Arena() {
                 {you.subclass ? ` · ${you.subclass}` : ""} · AC {you.beast ? you.beast.ac : you.ac}
               </div>
               <div className="ar-bar">
-                <i className={hpClass(you.hp, you.hp_max)} style={{ width: `${(100 * you.hp) / Math.max(1, you.hp_max)}%` }} />
+                <i className={hpClass(youHp, you.hp_max)} style={{ width: `${(100 * youHp) / Math.max(1, you.hp_max)}%` }} />
               </div>
               <div className="ar-hp">
-                {you.hp}/{you.hp_max}
+                {youHp}/{you.hp_max}
               </div>
               <div className="ar-chips">
                 {yourChips.map((c) => (
@@ -1018,7 +1047,10 @@ export default function Arena() {
                   {roster.map((slot, i) => {
                     const side = slot.pc ?? slot.foe;
                     if (!side) return null;
-                    const pct = Math.max(0, Math.round((side.hp / side.hp_max) * 100));
+                    // Plan 105 — what the narration has reached, not the end of
+                    // the fight. A seat goes dark when the log says it does.
+                    const hp = hpAt(i, side.hp);
+                    const pct = Math.max(0, Math.round((hp / side.hp_max) * 100));
                     const isUp = state.order?.[state.turn ?? 0] === i;
                     const isTarget = state.target_index === i;
                     const mine = upNow ? slot.team === upNow.team : false;
@@ -1033,14 +1065,14 @@ export default function Arena() {
                         onClick={() => void act("aim", undefined, undefined, i)}
                       >
                         <b>
-                          {side.hp <= 0 ? "💀 " : isTarget ? "🎯 " : ""}
+                          {hp <= 0 ? "💀 " : isTarget ? "🎯 " : ""}
                           {slot.label}
                         </b>
                         <span className="bar">
                           <i style={{ width: `${pct}%` }} />
                         </span>
                         <small>
-                          {side.hp}/{side.hp_max}
+                          {hp}/{side.hp_max}
                         </small>
                       </button>
                     );

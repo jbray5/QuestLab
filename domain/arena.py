@@ -176,6 +176,14 @@ class ArenaLogLine(BaseModel):
     dice: Optional[str] = None
     hit: Optional[bool] = None
     crit: bool = False
+    # Plan 105 — which creature's turn wrote this line. Every line of one turn
+    # shares a beat, and the phone reveals a whole beat at a time.
+    beat: int = 0
+    # Everybody's hit points the moment this line was written, in roster order
+    # (or ``[you, foe]`` in a solo fight). The bars are drawn from the line
+    # being shown, so they fall in step with the narration instead of jumping
+    # to the end of the fight.
+    hp: Optional[list[int]] = None
 
 
 class ArenaStats(BaseModel):
@@ -234,6 +242,9 @@ class ArenaState(BaseModel):
     roster: list[ArenaSlot] = Field(default_factory=list)
     order: list[int] = Field(default_factory=list)
     turn: int = 0
+    # Plan 105 — bumped whenever a new creature takes over, so the log can say
+    # where one turn's lines end and the next begin.
+    beat: int = 0
     log: list[ArenaLogLine] = Field(default_factory=list)
     stats: ArenaStats = Field(default_factory=ArenaStats)
     tips: list[str] = Field(default_factory=list)
