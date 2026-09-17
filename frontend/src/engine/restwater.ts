@@ -57,6 +57,7 @@ const BOTTOM_ROOMS: Seg[] = [
 export const RESTWATER: MapDef = {
   id: "restwater",
   name: "Restwater",
+  battleMapIds: ["6284f67e-99ff-4dc2-b98e-de8898d8fb4e"],
   url: "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/2abdfdd4-43c4-4928-8d6a-fa3919a13349-xwsFJmQw0QpVkOjDRoJLzdUKyUCX40.png",
   w: 24,
   h: 16,

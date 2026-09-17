@@ -4,32 +4,26 @@ import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Component, type ReactNode, Suspense, useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 
-import { BuiltFloor } from "./BuiltScene";
-import { Exits } from "./Exits";
-import { CellMarker, GridOverlay } from "./grid";
-import { HybridFloor } from "./HybridScene";
+import { preloadProps } from "./assets";
 import { lintMap } from "./lint";
 import { snapToCell, toWorld } from "./maps";
-import { preloadProps } from "./assets";
-import { Pools } from "./Pools";
-import { MapProps } from "./Props";
 import { MAPS } from "./registry";
-import { Torch } from "./Torch";
+import { MapScene } from "./Scene";
 import { Walker } from "./Walker";
-import { Walls } from "./Walls";
 
 /**
  * The immersive spike (Plan 108): a map rendered in the engine, so Justin can
- * judge it with his own eyes on the TV. Third pass: any map in the registry,
- * and the built scene — full 3D with furniture — is the standard now.
+ * judge it with his own eyes on the TV. Any map in the registry; the built
+ * scene — full 3D with furniture — is the standard.
  *
- *   /engine/spike?map=tavern|restwater     which map
- *   &scene=hybrid                          the painted floor instead, for comparison
- *   &grid=1                                the combat grid
- *   &look=<preset>                         a camera preset the map defines
+ *   /engine/spike?map=tavern|restwater|abode  which map
+ *   &scene=hybrid                              the painted floor instead, for comparison
+ *   &grid=1  &check=1                          the combat grid; the sanity check
+ *   &look=<preset>                             a camera preset the map defines
  *
  * Click a cell and the character walks there. Drag to orbit, wheel to zoom.
- * Nothing here touches the existing board.
+ * The live table is /table/:sessionId/engine (Plan 109); this page is where
+ * a map is looked at on its own.
  */
 type Scene = "hybrid" | "built";
 
@@ -210,39 +204,22 @@ export default function ImmersiveSpike() {
           gl.toneMappingExposure = 1.05;
         }}
       >
-        <color attach="background" args={["#05060a"]} />
-        <fogExp2 attach="fog" args={["#05060a", map.fog ?? 0.03]} />
-        {/* Moonlight through the gaps, faint. The torches do the work. */}
-        <hemisphereLight args={["#3b4a6b", "#0b0908", 0.14]} />
-        <ambientLight intensity={0.05} />
         <SceneBoundary onError={(e) => setErr(e.message)}>
           <Suspense fallback={null}>
-            {scene === "hybrid" && map.url ? (
-              <HybridFloor map={map} url={map.url} onClick={send} />
-            ) : (
-              <BuiltFloor map={map} onClick={send} />
-            )}
-            <Walls map={map} />
-            {map.torches.map(([u, v, shadow, kind, color], i) => {
-              const [x, z] = toWorld(map, u, v);
-              return <Torch key={i} position={[x, 1.55, z]} shadow={shadow} post={kind === "post"} color={color} />;
-            })}
-            {props && <MapProps map={map} />}
-            {(map.pools || map.basins) && <Pools map={map} />}
-            {map.exits && <Exits map={map} onExit={takeExit} />}
-            {grid && <GridOverlay map={map} />}
-            {target && <CellMarker at={target} />}
-            <Walker start={[start.x, start.z]} target={target} />
+            <MapScene
+              map={map}
+              painted={scene === "hybrid"}
+              furniture={props}
+              grid={grid}
+              target={target}
+              onFloorClick={send}
+              onExit={takeExit}
+            >
+              <Walker cell={target ?? start} />
+            </MapScene>
           </Suspense>
         </SceneBoundary>
-        <OrbitControls
-          target={look}
-          enablePan
-          minDistance={3}
-          maxDistance={40}
-          maxPolarAngle={Math.PI / 2 - 0.06}
-          makeDefault
-        />
+        <OrbitControls target={look} enablePan minDistance={3} maxDistance={40} maxPolarAngle={Math.PI / 2 - 0.06} makeDefault />
         <EffectComposer multisampling={4}>
           <Bloom luminanceThreshold={1} mipmapBlur intensity={0.85} radius={0.7} />
           <Vignette eskil={false} offset={0.22} darkness={0.8} />

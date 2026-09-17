@@ -40,6 +40,7 @@ const BoardView     = lazy(() => import("./pages/BoardView"));
 const Table3DView   = lazy(() => import("./pages/Table3DView"));
 // Plan 107 — the immersive table, stood up alongside the board. Nothing above changes.
 const ImmersiveSpike = lazy(() => import("./engine/ImmersiveSpike"));
+const EngineTable = lazy(() => import("./engine/EngineTable"));
 const Shops         = lazy(() => import("./pages/Shops"));
 const MarketView    = lazy(() => import("./pages/MarketView"));
 const StorefrontView = lazy(() => import("./pages/StorefrontView"));
@@ -109,6 +110,7 @@ export default function App() {
       {/* Players' 3D table (Plan 45) — read-only capability URL, no auth */}
       <Route path="/table/:sessionId/3d" element={lazyRoute(<Table3DView />)} />
       <Route path="/engine/spike" element={lazyRoute(<ImmersiveSpike />)} />
+      <Route path="/table/:sessionId/engine" element={lazyRoute(<EngineTable />)} />
       {/* DM 3D tabletop (Plan 44) — full-screen, DM-driven */}
       <Route path="/sessions/:sessionId/board" element={lazyRoute(<BoardView />)} />
       {/* Plan 75 — the DM notes dock as its own small window (DM-only). */}

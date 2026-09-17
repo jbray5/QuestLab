@@ -40,8 +40,14 @@ export interface Pool {
 export interface MapDef {
   id: string;
   name: string;
+  /** The battle maps in the catalog this definition is the scene for (Plan 109). */
+  battleMapIds?: string[];
   /** The painted picture, when there is one. A place with no picture is built only. */
   url?: string;
+  /** Render the picture as the floor — a map with no scene data yet (Plan 109). */
+  painted?: boolean;
+  /** Torches unless said otherwise; "day" is a lit outdoor rig for a painted map. */
+  light?: "torches" | "day";
   /** Size in cells. */
   w: number;
   h: number;
