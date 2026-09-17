@@ -1,21 +1,24 @@
 import { OrbitControls, useProgress } from "@react-three/drei";
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { useQuery } from "@tanstack/react-query";
-import { Component, type ReactNode, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Component, type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import * as THREE from "three";
 
 import { tableApi } from "../api/table";
 import { useEventStream } from "../hooks/useEventStream";
 import { preloadProps } from "./assets";
+import { Director } from "./Director";
+import { buildFog } from "./fogOfWar";
+import { Ping, TitleCard } from "./Fx";
 import { toWorld } from "./maps";
-import { Party } from "./Party";
+import { type HitFx, Party } from "./Party";
 import { MapScene } from "./Scene";
-import { figures, resolveMap } from "./session";
+import { figures, pixelToCell, resolveMap } from "./session";
 
 /**
- * The immersive table (Plan 109, Milestone 1).
+ * The immersive table (Plan 109, Milestone 1; Plan 110, Milestone 2).
  *
  *   /table/:sessionId/engine
  *
@@ -24,7 +27,9 @@ import { figures, resolveMap } from "./session";
  * the DM has active is rendered — built, if the engine has scene data for
  * it; the picture, lit, if not — with every token standing on its cell.
  * When a token is moved in the HUD, the figure walks there. When the turn
- * advances, the ring moves. Nothing here writes anything.
+ * advances, the camera glides to whoever is up. What the DM has not revealed
+ * is dark; the weather the DM picked is in the air; pings and hits land.
+ * Nothing here writes anything.
  */
 class SceneBoundary extends Component<{ onError: (e: Error) => void; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -49,17 +54,6 @@ function Loading() {
   );
 }
 
-/** Swing the camera to look at a point — "frame the turn". */
-function Frame({ at, nonce }: { at: THREE.Vector3 | null; nonce: number }) {
-  const controls = useThree((s) => s.controls) as { target: THREE.Vector3; update: () => void } | null;
-  useEffect(() => {
-    if (!at || !controls) return;
-    controls.target.copy(at);
-    controls.update();
-  }, [at, nonce, controls]);
-  return null;
-}
-
 const CSS = `
 .et-root { position: fixed; inset: 0; background: #05060a; }
 .et-hud { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 2; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
@@ -75,7 +69,17 @@ const CSS = `
 .et-hud .et-loading { color: #d6af36; opacity: 1; }
 .et-empty { position: absolute; inset: 0; display: grid; place-items: center; color: #9a93a5;
   font: 15px system-ui, sans-serif; text-align: center; padding: 24px; }
+.et-title { position: absolute; inset: 0; display: grid; place-items: center; z-index: 3; pointer-events: none;
+  animation: et-title 4.2s ease-in-out both; }
+.et-title div { font: 600 clamp(28px, 4vw, 54px) "Cinzel Decorative", Cinzel, Georgia, serif; color: #f0e6c8;
+  letter-spacing: 0.12em; text-align: center; padding: 18px 36px; text-shadow: 0 0 24px rgba(0,0,0,0.9), 0 2px 4px #000;
+  border-top: 1px solid rgba(214,175,54,0.5); border-bottom: 1px solid rgba(214,175,54,0.5); }
+@keyframes et-title { 0% { opacity: 0; transform: translateY(8px); } 12% { opacity: 1; transform: none; }
+  82% { opacity: 1; } 100% { opacity: 0; } }
 `;
+
+type PingFx = { id: string; at: THREE.Vector3 };
+type StreamPayload = { type: string; x?: number; y?: number; kind?: string; ref_id?: string; amount?: number };
 
 export default function EngineTable() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -89,15 +93,47 @@ export default function EngineTable() {
   useEffect(() => {
     refetchRef.current = refetch;
   }, [refetch]);
-  useEventStream("table", sessionId, () => {
-    void refetchRef.current();
-  });
 
   const map = useMemo(() => (data?.map ? resolveMap(data.map) : null), [data]);
   useEffect(() => {
     if (map) preloadProps(map);
   }, [map]);
+  const fog = useMemo(() => (data ? buildFog(data) : null), [data]);
+
+  // Pings and hits arrive on the stream, not the projection: transient, played once.
+  const [pings, setPings] = useState<PingFx[]>([]);
+  const [fx, setFx] = useState<HitFx[]>([]);
+  const counter = useRef(0);
+  const mapRef = useRef(map);
+  const dataRef = useRef(data);
+  useEffect(() => {
+    mapRef.current = map;
+    dataRef.current = data;
+  }, [map, data]);
+  useEventStream("table", sessionId, (raw) => {
+    const e = raw as unknown as StreamPayload;
+    if (e.type === "table.ping" && typeof e.x === "number" && typeof e.y === "number") {
+      const m = mapRef.current;
+      const d = dataRef.current;
+      if (!m || !d?.map) return;
+      counter.current += 1;
+      setPings((cur) => [...cur, { id: `p${counter.current}`, at: pixelToCell(m, d.map!, e.x!, e.y!) }]);
+      return;
+    }
+    if (e.type === "table.fx") {
+      if (!e.ref_id || (e.kind !== "damage" && e.kind !== "heal")) return;
+      counter.current += 1;
+      setFx((cur) => [...cur, { id: `f${counter.current}`, ref: e.ref_id!, kind: e.kind as "damage" | "heal", amount: typeof e.amount === "number" ? Math.abs(e.amount) : null }]);
+      return;
+    }
+    if (e.type === "table.roll") return;
+    void refetchRef.current();
+  });
+  const dropPing = useCallback((id: string) => setPings((cur) => cur.filter((p) => p.id !== id)), []);
+  const dropFx = useCallback((id: string) => setFx((cur) => cur.filter((f) => f.id !== id)), []);
+
   const [grid, setGrid] = useState(true);
+  const [follow, setFollow] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [frameNonce, setFrameNonce] = useState(0);
 
@@ -137,11 +173,10 @@ export default function EngineTable() {
         <button className={grid ? "on" : ""} onClick={() => setGrid((v) => !v)}>
           Grid
         </button>
-        <button
-          disabled={!active}
-          onClick={() => setFrameNonce((n) => n + 1)}
-          title={active ? `Look at ${active.label}` : "Nobody's turn yet"}
-        >
+        <button className={follow ? "on" : ""} onClick={() => setFollow((v) => !v)} title="Glide to whoever's turn it is">
+          Follow the turn
+        </button>
+        <button disabled={!active} onClick={() => setFrameNonce((n) => n + 1)} title={active ? `Look at ${active.label}` : "Nobody's turn yet"}>
           Frame the turn
         </button>
         <Loading />
@@ -153,6 +188,7 @@ export default function EngineTable() {
           </span>
         )}
       </div>
+      <TitleCard title={data.title} />
       <Canvas
         key={map.id}
         shadows={{ type: THREE.PCFShadowMap }}
@@ -166,13 +202,16 @@ export default function EngineTable() {
       >
         <SceneBoundary onError={(e) => setErr(e.message)}>
           <Suspense fallback={null}>
-            <MapScene map={map} grid={grid} darkness={data.darkness}>
-              <Party map={map} projection={data} />
+            <MapScene map={map} grid={grid} darkness={data.darkness} fog={fog} weather={data.weather}>
+              <Party map={map} projection={data} fog={fog} fx={fx} onFxDone={dropFx} />
+              {pings.map((p) => (
+                <Ping key={p.id} at={p.at} onDone={() => dropPing(p.id)} />
+              ))}
             </MapScene>
           </Suspense>
         </SceneBoundary>
         <OrbitControls target={look} enablePan minDistance={3} maxDistance={80} maxPolarAngle={Math.PI / 2 - 0.06} makeDefault />
-        <Frame at={active?.cell ?? null} nonce={frameNonce} />
+        <Director at={active?.cell ?? null} nonce={frameNonce} follow={follow} />
         <EffectComposer multisampling={4}>
           <Bloom luminanceThreshold={1} mipmapBlur intensity={0.85} radius={0.7} />
           <Vignette eskil={false} offset={0.22} darkness={0.8} />

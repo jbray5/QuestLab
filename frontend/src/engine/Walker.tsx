@@ -31,6 +31,7 @@ export function Walker({
   down = false,
   size = 1,
   label,
+  hit,
 }: {
   /** Where this figure should be. Changing it makes the figure walk there. */
   cell: THREE.Vector3;
@@ -40,7 +41,17 @@ export function Walker({
   /** In grid squares — a Large creature is 2. */
   size?: number;
   label?: string;
+  /** Changes when this figure takes damage; it flinches. */
+  hit?: string;
 }) {
+  const flinch = useRef<{ t: number } | null>(null);
+  const lastHit = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (hit && hit !== lastHit.current) {
+      lastHit.current = hit;
+      flinch.current = { t: 0 };
+    }
+  }, [hit]);
   const group = useRef<THREE.Group>(null);
   const ring = useRef<THREE.Mesh>(null);
   const { scene, animations } = useGLTF(SOLDIER);
@@ -90,6 +101,20 @@ export function Walker({
     }
     g.position.copy(p);
     g.rotation.y = yaw.current;
+    // The flinch: a short, sharp recoil and a stagger back to standing.
+    const f = flinch.current;
+    if (f) {
+      f.t += dt;
+      const k = Math.min(1, f.t / 0.38);
+      const punch = Math.sin(k * Math.PI);
+      g.position.y = -0.04 * punch;
+      g.rotation.x = -0.18 * punch;
+      if (k >= 1) {
+        flinch.current = null;
+        g.rotation.x = 0;
+        g.position.y = 0;
+      }
+    }
     if (ring.current && active) {
       const t = performance.now() / 1000;
       ring.current.scale.setScalar(1 + 0.08 * Math.sin(t * 4));

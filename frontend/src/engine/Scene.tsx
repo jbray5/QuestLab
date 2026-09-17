@@ -1,8 +1,9 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 import * as THREE from "three";
 
 import { BuiltFloor } from "./BuiltScene";
 import { Exits } from "./Exits";
+import type { Fog } from "./fogOfWar";
 import { CellMarker, GridOverlay } from "./grid";
 import { HybridFloor } from "./HybridScene";
 import type { MapDef } from "./maps";
@@ -11,6 +12,7 @@ import { Pools } from "./Pools";
 import { MapProps } from "./Props";
 import { Torch } from "./Torch";
 import { Walls } from "./Walls";
+import { Weather } from "./Weather";
 
 /**
  * A map, rendered (Plan 109).
@@ -20,7 +22,32 @@ import { Walls } from "./Walls";
  * when that is all there is), the walls, the lights, what stands in it, the
  * water, the ways out, the grid. Whoever is standing on it comes in as
  * children. The camera and the post stay with the page.
+ *
+ * Under fog of war (Plan 110) only what the DM has revealed is built; the
+ * rest of the floor lies under a soft-edged dark, and nothing stands there.
  */
+function midpoint(seg: [number, number, number, number]): [number, number] {
+  return [(seg[0] + seg[2]) / 2, (seg[1] + seg[3]) / 2];
+}
+
+/** The parts of a map the players may see. */
+function visiblePart(map: MapDef, fog: Fog | null): MapDef {
+  if (!fog) return map;
+  const ok = (u: number, v: number) => fog.revealed(u, v);
+  return {
+    ...map,
+    walls: map.walls.filter((s) => ok(...midpoint(s))),
+    torches: map.torches.filter(([u, v]) => ok(u, v)),
+    props: map.props.filter((p) => ok(p.u, p.v)),
+    pools: map.pools?.filter((p) => ok(p.u, p.v)),
+    basins: map.basins?.filter((b) => ok(b.u, b.v)),
+    exits: map.exits?.filter((e) => ok(e.u, e.v)),
+    hearth: map.hearth && ok(...map.hearth) ? map.hearth : undefined,
+    bar: map.bar && ok(...map.bar) ? map.bar : undefined,
+    fires: map.fires?.filter(([u, v]) => ok(u, v)),
+  };
+}
+
 export function MapScene({
   map,
   painted = false,
@@ -28,6 +55,8 @@ export function MapScene({
   grid = false,
   target,
   darkness = 0,
+  fog = null,
+  weather = null,
   onFloorClick,
   onExit,
   children,
@@ -40,28 +69,32 @@ export function MapScene({
   target?: THREE.Vector3 | null;
   /** The DM's darkness dial, 0–1. */
   darkness?: number;
+  fog?: Fog | null;
+  weather?: string | null;
   onFloorClick?: (p: THREE.Vector3) => void;
   onExit?: (label: string, to?: string) => void;
   children?: ReactNode;
 }) {
   const day = map.light === "day";
-  const dim = 1 - 0.85 * Math.min(1, Math.max(0, darkness));
+  const overcast = weather === "rain" || weather === "snow";
+  const dim = (1 - 0.85 * Math.min(1, Math.max(0, darkness))) * (overcast ? 0.8 : 1);
   const click = onFloorClick ?? (() => {});
   const usePicture = (painted || map.painted) && !!map.url;
-  const bg = day ? "#10141c" : "#05060a";
+  const bg = day ? (overcast ? "#0c0f14" : "#10141c") : "#05060a";
+  const shown = useMemo(() => visiblePart(map, fog), [map, fog]);
   return (
     <>
       <color attach="background" args={[bg]} />
-      <fogExp2 attach="fog" args={[bg, map.fog ?? (day ? 0.012 : 0.03)]} />
+      <fogExp2 attach="fog" args={[bg, map.fog ?? (day ? (overcast ? 0.02 : 0.012) : 0.03)]} />
       {day ? (
         <>
           {/* A lit outdoor rig for a map with no scene data: a low sun and sky. */}
-          <hemisphereLight args={["#b9c8e6", "#4a3a2a", 0.55 * dim]} />
+          <hemisphereLight args={[overcast ? "#8f9aad" : "#b9c8e6", "#4a3a2a", 0.55 * dim]} />
           <ambientLight intensity={0.22 * dim} />
           <directionalLight
             position={[map.w * 0.35, map.w * 0.8, map.h * 0.3]}
-            intensity={1.7 * dim}
-            color="#ffe2b8"
+            intensity={(overcast ? 1.0 : 1.7) * dim}
+            color={overcast ? "#c9d2e0" : "#ffe2b8"}
             castShadow
             shadow-mapSize={[2048, 2048]}
             shadow-camera-left={-map.w * 0.6}
@@ -84,14 +117,21 @@ export function MapScene({
       ) : (
         <BuiltFloor map={map} onClick={click} />
       )}
-      <Walls map={map} />
-      {map.torches.map(([u, v, shadow, kind, color], i) => {
+      {fog && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.035, 0]} renderOrder={5}>
+          <planeGeometry args={[map.w, map.h]} />
+          <meshBasicMaterial color="#020306" transparent alphaMap={fog.mask} opacity={0.985} depthWrite={false} />
+        </mesh>
+      )}
+      <Walls map={shown} />
+      {shown.torches.map(([u, v, shadow, kind, color], i) => {
         const [x, z] = toWorld(map, u, v);
         return <Torch key={i} position={[x, 1.55, z]} shadow={shadow} post={kind === "post"} color={color} />;
       })}
-      {furniture && <MapProps map={map} />}
-      {(map.pools || map.basins) && <Pools map={map} />}
-      {map.exits && <Exits map={map} onExit={onExit ?? (() => {})} />}
+      {furniture && <MapProps map={shown} />}
+      {!!(shown.pools?.length || shown.basins?.length) && <Pools map={shown} />}
+      {!!shown.exits?.length && <Exits map={shown} onExit={onExit ?? (() => {})} />}
+      <Weather map={map} kind={weather} />
       {grid && <GridOverlay map={map} />}
       {target && <CellMarker at={target} />}
       {children}

@@ -42,19 +42,27 @@ export function resolveMap(m: TableMapSummary): MapDef {
   };
 }
 
-/** The cell a token stands on. Tokens are image pixels; the engine is cells. */
-export function tokenCell(map: MapDef, m: TableMapSummary, t: TableToken): THREE.Vector3 {
-  const u = Math.min(1, Math.max(0, t.x / Math.max(1, m.width)));
-  const v = Math.min(1, Math.max(0, t.y / Math.max(1, m.height)));
-  const [x, z] = toWorld(map, u, v);
-  return snapToCell(map, new THREE.Vector3(x, 0, z));
+/** A picture-pixel point as fractions of the picture, clamped onto it. */
+export function pixelToUV(m: TableMapSummary, x: number, y: number): [number, number] {
+  return [Math.min(1, Math.max(0, x / Math.max(1, m.width))), Math.min(1, Math.max(0, y / Math.max(1, m.height)))];
+}
+
+/** The cell under a picture-pixel point. Tokens are image pixels; the engine is cells. */
+export function pixelToCell(map: MapDef, m: TableMapSummary, x: number, y: number): THREE.Vector3 {
+  const [u, v] = pixelToUV(m, x, y);
+  const [wx, wz] = toWorld(map, u, v);
+  return snapToCell(map, new THREE.Vector3(wx, 0, wz));
 }
 
 /** Everything the engine draws for one token. */
 export interface Figure {
   id: string;
+  /** The combatant this token stands for — what turn glow and hit effects name. */
+  ref: string | null;
   label: string;
   kind: TableToken["kind"];
+  u: number;
+  v: number;
   cell: THREE.Vector3;
   size: number;
   active: boolean;
@@ -66,13 +74,31 @@ export function figures(map: MapDef, p: TableProjection): Figure[] {
   const m = p.map;
   return p.tokens
     .filter((t) => t.kind !== "light")
-    .map((t) => ({
-      id: t.id,
-      label: t.label,
-      kind: t.kind,
-      cell: tokenCell(map, m, t),
-      size: Math.min(2.2, Math.max(1, t.size || 1)),
-      active: !!p.active_token_ref && t.ref_id === p.active_token_ref,
-      down: !!t.ref_id && p.defeated_refs.includes(t.ref_id),
-    }));
+    .map((t) => {
+      const [u, v] = pixelToUV(m, t.x, t.y);
+      return {
+        id: t.id,
+        ref: t.ref_id ?? null,
+        label: t.label,
+        kind: t.kind,
+        u,
+        v,
+        cell: pixelToCell(map, m, t.x, t.y),
+        size: Math.min(2.2, Math.max(1, t.size || 1)),
+        active: !!p.active_token_ref && t.ref_id === p.active_token_ref,
+        down: !!t.ref_id && p.defeated_refs.includes(t.ref_id),
+      };
+    });
+}
+
+/** The DM's light tokens — torches they placed on the table (Plan 110). */
+export function lights(map: MapDef, p: TableProjection): { id: string; u: number; v: number; cell: THREE.Vector3 }[] {
+  if (!p.map) return [];
+  const m = p.map;
+  return p.tokens
+    .filter((t) => t.kind === "light")
+    .map((t) => {
+      const [u, v] = pixelToUV(m, t.x, t.y);
+      return { id: t.id, u, v, cell: pixelToCell(map, m, t.x, t.y) };
+    });
 }
