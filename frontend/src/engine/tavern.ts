@@ -1,3 +1,5 @@
+import * as THREE from "three";
+
 /**
  * The Haunted Dockside Tavern (Margarita-shire), traced for the spike (Plan 108).
  *
@@ -52,6 +54,9 @@ export const TAVERN_WALLS: Seg[] = [...TAPROOM, ...WING, ...LOWER];
 export const TAVERN_TORCHES: [number, number, boolean][] = [
   [0.125, 0.33, true],
   [0.4, 0.258, true],
+  // Two flanking the bar's cabinet.
+  [0.535, 0.252, false],
+  [0.615, 0.252, false],
   [0.665, 0.395, false],
   [0.86, 0.15, false],
   [0.86, 0.35, false],
@@ -64,6 +69,23 @@ export const TAVERN_TORCHES: [number, number, boolean][] = [
 /** Normalized map coords → world (x, z). Map centre is the origin; +z is down the map. */
 export function toWorld(u: number, v: number): [number, number] {
   return [(u - 0.5) * TAVERN_W, (v - 0.5) * TAVERN_H];
+}
+
+/**
+ * The cell under a point. The game lives on cells — a move is a cell-to-cell
+ * decision and the walk is how the engine plays it. The map is centred on the
+ * origin: 33 cells wide (odd) puts cell centres on integer x; 46 tall (even)
+ * puts them on z + 0.5.
+ */
+export function snapToCell(p: THREE.Vector3): THREE.Vector3 {
+  const x = clamp(Math.round(p.x), -Math.floor(TAVERN_W / 2), Math.floor(TAVERN_W / 2));
+  const z = clamp(Math.floor(p.z) + 0.5, -TAVERN_H / 2 + 0.5, TAVERN_H / 2 - 0.5);
+  return new THREE.Vector3(x, 0, z);
+}
+
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.min(hi, Math.max(lo, n));
 }
 
 /** Where the character starts and where the camera looks: the taproom floor. */

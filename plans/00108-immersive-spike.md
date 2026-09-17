@@ -30,7 +30,11 @@ the library he owns.)
 - [x] Step 4: `HybridScene` + `BuiltScene` sharing the layout, lights and post
 - [x] Step 5: `/engine/spike` route; `Board3D` untouched (one lazy import + one route line in `App.tsx`)
 - [x] Step 6: Screenshots of both and a mid-walk frame; one tuning pass (camera lower and closer, brick cooled, sconces)
-- [ ] Step 7: Deploy; Justin looks on the TV
+- [x] Step 7: Deploy; Justin looks on the TV — "FUCK YES"
+- [x] Step 8 (second pass): furniture and a bar in both scenes (Poly Haven CC0 photoscans off their
+      CDN), a hearth with fire, the combat grid with cell-snapped walking — Justin: "I really want
+      the second one to be the standard, but I don't want to lose all the cool details from the map"
+      and "will I still be controlling movement on a grid?"
 
 ---
 
@@ -57,6 +61,14 @@ the library he owns.)
   only a second GPU upload). And tiling by cloning textures per wall would have
   been ~48 GPU textures — scaling each wall's UVs against one shared material
   is the right way.
+- **Poly Haven's glTFs point at textures that aren't where the glTF says.** The
+  files reference `textures/x.jpg` beside the model; the CDN keeps them in a
+  separate `Models/jpg/1k/<model>/` tree. Every prop loaded untextured and
+  silently flat — the cabinet included, though its base colour hid it. A
+  scoped `setURLModifier` on the loading manager rewrites just that host and
+  path shape. Found because the harness echoes the page console.
+- **Every `Barrel_0x` on Poly Haven is an oil drum.** Tags say so; the render
+  said so louder. Only `wine_barrel_01` is wood.
 - **The built scene is empty, and that is the finding.** Same walls, same
   torches, same character: the hybrid has a hearth, tables, a rug and barrels
   because the painter drew them; the built floor has boards. Full-3D without a
@@ -80,6 +92,9 @@ the library he owns.)
       character's shadow falls on the painted boards
 - [x] The character turns, walks where the floor is clicked, and idles on arrival
       (mid-walk frame captured by the harness)
+- [x] The same furniture stands in both scenes, so "hybrid + props" and "built + props" are
+      compared directly — Justin's "torn" is now a look, not a guess
+- [x] Movement snaps to cells; the destination cell is marked; the walk plays between cells
 - [ ] Justin can say which direction Milestone 4 takes
 
 ---

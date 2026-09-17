@@ -5,8 +5,10 @@ import { Component, type ReactNode, Suspense, useEffect, useState } from "react"
 import * as THREE from "three";
 
 import { BuiltFloor } from "./BuiltScene";
+import { CellMarker, GridOverlay } from "./grid";
 import { HybridFloor } from "./HybridScene";
-import { TAPROOM_CENTRE, TAVERN_TORCHES, TAVERN_WALLS, toWorld } from "./tavern";
+import { TavernProps } from "./Props";
+import { TAPROOM_CENTRE, TAVERN_TORCHES, TAVERN_WALLS, snapToCell, toWorld } from "./tavern";
 import { Torch } from "./Torch";
 import { Walker } from "./Walker";
 import { Walls } from "./Walls";
@@ -71,6 +73,10 @@ export default function ImmersiveSpike() {
   const fromUrl = new URLSearchParams(window.location.search).get("scene");
   const [scene, setScene] = useState<Scene>(fromUrl === "built" ? "built" : "hybrid");
   const [target, setTarget] = useState<THREE.Vector3 | null>(null);
+  // Second pass — furniture, and the combat grid. Both work in either scene.
+  const [props, setProps] = useState(true);
+  const [grid, setGrid] = useState(new URLSearchParams(window.location.search).get("grid") === "1");
+  const send = (p: THREE.Vector3) => setTarget(snapToCell(p));
   const [err, setErr] = useState<string | null>(null);
   // Whatever the browser would have said in its console, said in the corner.
   const [logs, setLogs] = useState<string[]>([]);
@@ -91,7 +97,13 @@ export default function ImmersiveSpike() {
       window.removeEventListener("unhandledrejection", onRej);
     };
   }, []);
-  const look = new THREE.Vector3(TAPROOM_CENTRE[0], 0.6, TAPROOM_CENTRE[1]);
+  // ?look=bar frames the bar; otherwise the middle of the taproom.
+  const atBar = new URLSearchParams(window.location.search).get("look") === "bar";
+  const [lx, lz] = atBar ? toWorld(0.575, 0.268) : TAPROOM_CENTRE;
+  const look = new THREE.Vector3(lx, 0.6, lz);
+  const eye: [number, number, number] = atBar
+    ? [look.x + 0.6, look.y + 2.4, look.z + 4.6]
+    : [look.x + 1.2, look.y + 3.4, look.z + 6.8];
 
   return (
     <div className="sp-root">
@@ -103,7 +115,13 @@ export default function ImmersiveSpike() {
         <button className={scene === "built" ? "on" : ""} onClick={() => setScene("built")}>
           Built — full 3D, no painted pixel
         </button>
-        <small>click the floor to walk · drag to orbit · wheel to zoom</small>
+        <button className={props ? "on" : ""} onClick={() => setProps((v) => !v)}>
+          Furniture
+        </button>
+        <button className={grid ? "on" : ""} onClick={() => setGrid((v) => !v)}>
+          Grid
+        </button>
+        <small>click a cell to walk there · drag to orbit · wheel to zoom</small>
         <Loading />
         {err && <small className="sp-err">⚠ {err}</small>}
       </div>
@@ -118,7 +136,7 @@ export default function ImmersiveSpike() {
         shadows={{ type: THREE.PCFShadowMap }}
         dpr={[1, 1.5]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
-        camera={{ fov: 42, near: 0.1, far: 220, position: [look.x + 1.2, look.y + 3.4, look.z + 6.8] }}
+        camera={{ fov: 42, near: 0.1, far: 220, position: eye }}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.05;
@@ -131,13 +149,16 @@ export default function ImmersiveSpike() {
         <ambientLight intensity={0.05} />
         <SceneBoundary onError={(e) => setErr(e.message)}>
         <Suspense fallback={null}>
-          {scene === "hybrid" ? <HybridFloor onClick={setTarget} /> : <BuiltFloor onClick={setTarget} />}
+          {scene === "hybrid" ? <HybridFloor onClick={send} /> : <BuiltFloor onClick={send} />}
+          {props && <TavernProps />}
+          {grid && <GridOverlay />}
+          {target && <CellMarker at={target} />}
           <Walls segs={TAVERN_WALLS} />
           {TAVERN_TORCHES.map(([u, v, shadow], i) => {
             const [x, z] = toWorld(u, v);
             return <Torch key={i} position={[x, 1.55, z]} shadow={shadow} />;
           })}
-          <Walker start={TAPROOM_CENTRE} target={target} />
+          <Walker start={[Math.round(TAPROOM_CENTRE[0]), Math.floor(TAPROOM_CENTRE[1]) + 0.5]} target={target} />
         </Suspense>
         </SceneBoundary>
         <OrbitControls
