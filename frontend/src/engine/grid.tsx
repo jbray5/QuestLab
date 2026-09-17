@@ -1,7 +1,8 @@
 import { Grid } from "@react-three/drei";
 import * as THREE from "three";
 
-import { TAVERN_H, TAVERN_W } from "./tavern";
+import type { MapDef } from "./maps";
+import { gridOffset } from "./maps";
 
 /**
  * The combat grid (Plan 108, second pass).
@@ -9,16 +10,17 @@ import { TAVERN_H, TAVERN_W } from "./tavern";
  * Justin: "will I still be controlling movement on a grid? For combat
  * purposes." Yes. The engine draws continuous positions, but the *game* lives
  * on cells: a move is a cell-to-cell decision and the walk is how the engine
- * plays the transition. One cell is one world unit — five feet.
- *
- * Snapping lives in tavern.ts with the rest of the geometry; this file draws.
+ * plays the transition. One cell is one world unit — five feet. Snapping lives
+ * in maps.ts with the rest of the geometry; this file draws.
  */
-/** Faint cell lines, fading with distance so the far room stays dark. */
-export function GridOverlay() {
+
+/** Faint cell lines on the map's cell edges, fading with distance so the far room stays dark. */
+export function GridOverlay({ map }: { map: MapDef }) {
+  const [ox, oz] = gridOffset(map);
   return (
     <Grid
-      position={[0.5, 0.015, 0]}
-      args={[TAVERN_W, TAVERN_H]}
+      position={[ox, 0.015, oz]}
+      args={[map.w, map.h]}
       cellSize={1}
       cellThickness={0.6}
       cellColor="#6f6a5a"

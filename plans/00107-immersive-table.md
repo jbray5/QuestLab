@@ -57,7 +57,7 @@ on selection), and DoF only as a cinematic accent.
 
 | # | Milestone | Plan | What the players see |
 |---|---|---|---|
-| 0 | **Spike** — the same tavern both ways, in the browser | [00108](00108-immersive-spike.md) | A choice to make |
+| 0 | **Spike** — the same tavern both ways, in the browser; then Restwater, its pools, the abode below, furniture, the grid, the sanity check | [00108](00108-immersive-spike.md) | A choice made: built + props |
 | 1 | Parity — engine joins a session, renders today's map + tokens live | 00109 | The table, in the new renderer |
 | 2 | Atmosphere — lights, fog, post, a cinematic camera that cuts to whoever's turn it is | 00110 | "Whoa" |
 | 3 | Characters — animated models for the party and monster types; a move becomes a walk | 00111 | Their character walking across the room |
@@ -79,6 +79,9 @@ Milestone 2 is where it lands. Aim there first, then 3.
 | 2026-09-17 | Player likenesses | (a) parametric builder (b) commission (c) generate | Humanoids: (a) Reallusion Character Creator, driven by Justin. Creed (dragonborn) and Steven (gnome): buy a rigged model or commission first; generate last. | Justin: "In, but as non-AI as possible." Four of six are humanoid and a person with the portraits does that better than code. |
 | 2026-09-17 | Animation | Mixamo rigs + clips → Blender → glTF | — | Free, hundreds of clips, the standard pipeline. |
 | 2026-09-17 | Remote players | Screen share vs. direct URL | Both; URL is better | Justin: "screen share is fine." A browser engine gives them the URL for free. |
+| 2026-09-17 | **The standard, after the spike** | hybrid + props vs. built + props | **built + props** | Justin, on seeing both furnished: "I want the built scene not hybrid with furniture." The painted map is the blueprint the props are placed from, not the floor. Hybrid stays as a comparison toggle only. |
+| 2026-09-17 | Scene data | hardcoded per page vs. a definition per map | a `MapDef` per map, normalized on load, linted | "Let me see you do this with Restwater" made it two maps; the sanity check made the definitions honest. This is the seed of Milestone 4's editor and of the per-map scene row. |
+| 2026-09-17 | Linked maps | flat vs. exits between maps | exits (`down`/`up`) | "A ladder down to her creepy abode." A map names another; click the hatch and the engine switches. Levels are just maps with exits. |
 
 ---
 

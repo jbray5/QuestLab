@@ -1,24 +1,28 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 
+import type { MapDef } from "./maps";
+import { toWorld } from "./maps";
 import { usePbr } from "./materials";
-import { toWorld, type Seg } from "./tavern";
 
 /**
- * Wall segments extruded to height (Plan 108).
+ * A map's wall segments extruded to height (Plan 108).
  *
- * Each traced segment becomes a box standing on the map's own wall line, so it
- * occludes the painted wall beneath it. One brick material is shared by every
- * wall; each wall's UVs are scaled to its length so long walls tile instead of
- * stretching — one material and one set of textures, however many walls.
+ * Each traced segment becomes a box standing on the picture's own wall line,
+ * so it occludes the painted wall beneath it. One brick material is shared by
+ * every wall; each wall's UVs are scaled to its length so long walls tile
+ * instead of stretching — one material and one set of textures, however many
+ * walls.
  */
-export function Walls({ segs, height = 2.1, thick = 0.3 }: { segs: Seg[]; height?: number; thick?: number }) {
-  const brick = usePbr("wall", [1, 1]);
+export function Walls({ map, thick = 0.3 }: { map: MapDef; thick?: number }) {
+  const spec = map.wall ?? { material: "wall" as const, height: 2.1, tint: "#8f8983" };
+  const height = spec.height;
+  const brick = usePbr(spec.material, [1, 1]);
   const walls = useMemo(
     () =>
-      segs.map(([u0, v0, u1, v1]) => {
-        const [x0, z0] = toWorld(u0, v0);
-        const [x1, z1] = toWorld(u1, v1);
+      map.walls.map(([u0, v0, u1, v1]) => {
+        const [x0, z0] = toWorld(map, u0, v0);
+        const [x1, z1] = toWorld(map, u1, v1);
         const len = Math.hypot(x1 - x0, z1 - z0) + thick;
         const angle = Math.atan2(z1 - z0, x1 - x0);
         const geom = new THREE.BoxGeometry(len, height, thick);
@@ -36,7 +40,7 @@ export function Walls({ segs, height = 2.1, thick = 0.3 }: { segs: Seg[]; height
           rot: -angle,
         };
       }),
-    [segs, height, thick],
+    [map, height, thick],
   );
   return (
     <group>
@@ -46,7 +50,7 @@ export function Walls({ segs, height = 2.1, thick = 0.3 }: { segs: Seg[]; height
             map={brick.map}
             normalMap={brick.normalMap}
             roughnessMap={brick.roughnessMap}
-            color="#8f8983"
+            color={spec.tint}
             normalScale={new THREE.Vector2(0.9, 0.9)}
             roughness={1}
             metalness={0}

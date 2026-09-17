@@ -1,27 +1,35 @@
 import { OrbitControls, useProgress } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
-import { Component, type ReactNode, Suspense, useEffect, useState } from "react";
+import { Component, type ReactNode, Suspense, useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 
 import { BuiltFloor } from "./BuiltScene";
+import { Exits } from "./Exits";
 import { CellMarker, GridOverlay } from "./grid";
 import { HybridFloor } from "./HybridScene";
-import { TavernProps } from "./Props";
-import { TAPROOM_CENTRE, TAVERN_TORCHES, TAVERN_WALLS, snapToCell, toWorld } from "./tavern";
+import { lintMap } from "./lint";
+import { snapToCell, toWorld } from "./maps";
+import { preloadProps } from "./assets";
+import { Pools } from "./Pools";
+import { MapProps } from "./Props";
+import { MAPS } from "./registry";
 import { Torch } from "./Torch";
 import { Walker } from "./Walker";
 import { Walls } from "./Walls";
 
 /**
- * The immersive spike (Plan 108): the same tavern two ways, so Justin can
- * choose with his own eyes on the TV.
+ * The immersive spike (Plan 108): a map rendered in the engine, so Justin can
+ * judge it with his own eyes on the TV. Third pass: any map in the registry,
+ * and the built scene — full 3D with furniture — is the standard now.
  *
- *   /engine/spike            — hybrid: the painted Czepeku map, lit
- *   /engine/spike?scene=built — full-3D: photoscanned stone, no painted pixel
+ *   /engine/spike?map=tavern|restwater     which map
+ *   &scene=hybrid                          the painted floor instead, for comparison
+ *   &grid=1                                the combat grid
+ *   &look=<preset>                         a camera preset the map defines
  *
- * Everything but the floor is shared. Click the floor and the character walks
- * there. Drag to orbit, wheel to zoom. Nothing here touches the existing board.
+ * Click a cell and the character walks there. Drag to orbit, wheel to zoom.
+ * Nothing here touches the existing board.
  */
 type Scene = "hybrid" | "built";
 
@@ -55,29 +63,59 @@ function Loading() {
 
 const CSS = `
 .sp-root { position: fixed; inset: 0; background: #05060a; }
-.sp-hud { position: absolute; top: 14px; left: 14px; z-index: 2; display: flex; gap: 8px; align-items: center;
-  font: 13px system-ui, sans-serif; color: #cfcfd8; }
+.sp-hud { position: absolute; top: 14px; left: 14px; z-index: 2; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  font: 13px system-ui, sans-serif; color: #cfcfd8; max-width: calc(100vw - 28px); }
 .sp-hud button { font: inherit; padding: 7px 12px; border-radius: 9px; cursor: pointer;
   border: 1px solid #3a3a46; background: rgba(20,16,30,0.8); color: #cfcfd8; }
 .sp-hud button.on { border-color: #d6af36; background: rgba(214,175,54,0.16); color: #f0e6c8; }
+.sp-hud .sep { width: 1px; height: 22px; background: #3a3a46; }
 .sp-hud small { opacity: 0.7; margin-left: 6px; }
 .sp-hud .sp-err { color: #ff8a8a; opacity: 1; }
 .sp-hud .sp-loading { color: #d6af36; opacity: 1; }
+.sp-check { position: absolute; right: 14px; top: 56px; z-index: 2; width: min(440px, calc(100vw - 28px)); max-height: 70vh;
+  overflow: auto; font: 12px system-ui, sans-serif; color: #cfcfd8; background: rgba(12,10,18,0.88);
+  border: 1px solid #3a3a46; border-radius: 10px; padding: 10px 12px; }
+.sp-check b { display: block; color: #f0e6c8; margin-bottom: 6px; }
+.sp-check div { padding: 3px 0; border-top: 1px solid rgba(255,255,255,0.05); }
+.sp-check .error { color: #ff8a8a; } .sp-check .warn { color: #e6c46a; } .sp-check .note { color: #8fb7a8; }
+.sp-check em { color: #7f7a8a; font-style: normal; }
 .sp-log { position: absolute; left: 14px; bottom: 12px; z-index: 2; font: 11px monospace; color: #ff9a9a;
   background: rgba(0,0,0,0.55); padding: 6px 8px; border-radius: 6px; max-width: 70vw; }
-.sp-load { position: absolute; inset: 0; display: grid; place-items: center; color: #9a93a5;
-  font: 14px system-ui, sans-serif; pointer-events: none; }
 `;
 
 export default function ImmersiveSpike() {
-  const fromUrl = new URLSearchParams(window.location.search).get("scene");
-  const [scene, setScene] = useState<Scene>(fromUrl === "built" ? "built" : "hybrid");
+  const params = useMemo(() => new URLSearchParams(window.location.search), []);
+  const wanted = params.get("map") ?? "";
+  const [mapId, setMapId] = useState(MAPS[wanted] ? wanted : "tavern");
+  const map = MAPS[mapId];
+  const [scene, setScene] = useState<Scene>(params.get("scene") === "hybrid" ? "hybrid" : "built");
   const [target, setTarget] = useState<THREE.Vector3 | null>(null);
-  // Second pass — furniture, and the combat grid. Both work in either scene.
-  const [props, setProps] = useState(true);
-  const [grid, setGrid] = useState(new URLSearchParams(window.location.search).get("grid") === "1");
-  const send = (p: THREE.Vector3) => setTarget(snapToCell(p));
   const [err, setErr] = useState<string | null>(null);
+  const [props, setProps] = useState(true);
+  const [grid, setGrid] = useState(params.get("grid") === "1");
+  useEffect(() => {
+    preloadProps(map);
+  }, [map]);
+  // The sanity check: what a builder would know about this map without looking.
+  const [check, setCheck] = useState(params.get("check") === "1");
+  const findings = useMemo(() => lintMap(map), [map]);
+  useEffect(() => {
+    for (const f of findings) {
+      const where = f.at ? ` @ u${f.at[0]} v${f.at[1]}` : "";
+      console.info(`[lint:${map.id}] ${f.level}: ${f.what}${where}`);
+    }
+  }, [findings, map.id]);
+  // What the table is told when a way off the map is taken.
+  const [note, setNote] = useState<string | null>(null);
+  const pickMap = (id: string) => {
+    setMapId(id);
+    setTarget(null);
+    setNote(null);
+  };
+  const takeExit = (label: string, to?: string) => {
+    if (to && MAPS[to]) pickMap(to);
+    else setNote(`${label} — the map below isn't built yet.`);
+  };
   // Whatever the browser would have said in its console, said in the corner.
   const [logs, setLogs] = useState<string[]>([]);
   useEffect(() => {
@@ -97,34 +135,62 @@ export default function ImmersiveSpike() {
       window.removeEventListener("unhandledrejection", onRej);
     };
   }, []);
-  // ?look=bar frames the bar; otherwise the middle of the taproom.
-  const atBar = new URLSearchParams(window.location.search).get("look") === "bar";
-  const [lx, lz] = atBar ? toWorld(0.575, 0.268) : TAPROOM_CENTRE;
+
+  // The camera: a preset the map names, or its default.
+  const preset = map.looks?.[params.get("look") ?? ""];
+  const [lx, lz] = toWorld(map, ...(preset?.at ?? map.look));
   const look = new THREE.Vector3(lx, 0.6, lz);
-  const eye: [number, number, number] = atBar
-    ? [look.x + 0.6, look.y + 2.4, look.z + 4.6]
-    : [look.x + 1.2, look.y + 3.4, look.z + 6.8];
+  const off = preset?.eye ?? map.eye;
+  const eye: [number, number, number] = [look.x + off[0], look.y + off[1], look.z + off[2]];
+  const [sx, sz] = toWorld(map, ...map.start);
+  const start = snapToCell(map, new THREE.Vector3(sx, 0, sz));
+  const send = (p: THREE.Vector3) => setTarget(snapToCell(map, p));
 
   return (
     <div className="sp-root">
       <style>{CSS}</style>
       <div className="sp-hud">
-        <button className={scene === "hybrid" ? "on" : ""} onClick={() => setScene("hybrid")}>
-          Hybrid — your painted map, lit
+        {Object.values(MAPS).map((m) => (
+          <button key={m.id} className={mapId === m.id ? "on" : ""} onClick={() => pickMap(m.id)}>
+            {m.name}
+          </button>
+        ))}
+        <span className="sep" />
+        <button className={scene === "built" || !map.url ? "on" : ""} onClick={() => setScene("built")}>
+          Built — full 3D
         </button>
-        <button className={scene === "built" ? "on" : ""} onClick={() => setScene("built")}>
-          Built — full 3D, no painted pixel
-        </button>
+        {map.url && (
+          <button className={scene === "hybrid" ? "on" : ""} onClick={() => setScene("hybrid")}>
+            Painted map, for comparison
+          </button>
+        )}
+        <span className="sep" />
         <button className={props ? "on" : ""} onClick={() => setProps((v) => !v)}>
           Furniture
         </button>
         <button className={grid ? "on" : ""} onClick={() => setGrid((v) => !v)}>
           Grid
         </button>
+        <button className={check ? "on" : ""} onClick={() => setCheck((v) => !v)}>
+          Check{findings.some((f) => f.level !== "note") ? ` (${findings.filter((f) => f.level !== "note").length})` : " ✓"}
+        </button>
         <small>click a cell to walk there · drag to orbit · wheel to zoom</small>
         <Loading />
+        {note && <small className="sp-loading">{note}</small>}
         {err && <small className="sp-err">⚠ {err}</small>}
       </div>
+      {check && (
+        <div className="sp-check">
+          <b>{map.name} — what a builder would say</b>
+          {findings.length === 0 && <div>Nothing to report.</div>}
+          {findings.map((f, i) => (
+            <div key={i} className={f.level}>
+              {f.what}
+              {f.at && <em> · u{f.at[0]} v{f.at[1]}</em>}
+            </div>
+          ))}
+        </div>
+      )}
       {logs.length > 0 && (
         <div className="sp-log">
           {logs.map((l, i) => (
@@ -132,7 +198,9 @@ export default function ImmersiveSpike() {
           ))}
         </div>
       )}
+      {/* Keyed by map so the camera, the character and the loaded scene start over on a switch. */}
       <Canvas
+        key={map.id}
         shadows={{ type: THREE.PCFShadowMap }}
         dpr={[1, 1.5]}
         gl={{ antialias: true, powerPreference: "high-performance" }}
@@ -143,23 +211,29 @@ export default function ImmersiveSpike() {
         }}
       >
         <color attach="background" args={["#05060a"]} />
-        <fogExp2 attach="fog" args={["#05060a", 0.03]} />
+        <fogExp2 attach="fog" args={["#05060a", map.fog ?? 0.03]} />
         {/* Moonlight through the gaps, faint. The torches do the work. */}
         <hemisphereLight args={["#3b4a6b", "#0b0908", 0.14]} />
         <ambientLight intensity={0.05} />
         <SceneBoundary onError={(e) => setErr(e.message)}>
-        <Suspense fallback={null}>
-          {scene === "hybrid" ? <HybridFloor onClick={send} /> : <BuiltFloor onClick={send} />}
-          {props && <TavernProps />}
-          {grid && <GridOverlay />}
-          {target && <CellMarker at={target} />}
-          <Walls segs={TAVERN_WALLS} />
-          {TAVERN_TORCHES.map(([u, v, shadow], i) => {
-            const [x, z] = toWorld(u, v);
-            return <Torch key={i} position={[x, 1.55, z]} shadow={shadow} />;
-          })}
-          <Walker start={[Math.round(TAPROOM_CENTRE[0]), Math.floor(TAPROOM_CENTRE[1]) + 0.5]} target={target} />
-        </Suspense>
+          <Suspense fallback={null}>
+            {scene === "hybrid" && map.url ? (
+              <HybridFloor map={map} url={map.url} onClick={send} />
+            ) : (
+              <BuiltFloor map={map} onClick={send} />
+            )}
+            <Walls map={map} />
+            {map.torches.map(([u, v, shadow, kind, color], i) => {
+              const [x, z] = toWorld(map, u, v);
+              return <Torch key={i} position={[x, 1.55, z]} shadow={shadow} post={kind === "post"} color={color} />;
+            })}
+            {props && <MapProps map={map} />}
+            {(map.pools || map.basins) && <Pools map={map} />}
+            {map.exits && <Exits map={map} onExit={takeExit} />}
+            {grid && <GridOverlay map={map} />}
+            {target && <CellMarker at={target} />}
+            <Walker start={[start.x, start.z]} target={target} />
+          </Suspense>
         </SceneBoundary>
         <OrbitControls
           target={look}

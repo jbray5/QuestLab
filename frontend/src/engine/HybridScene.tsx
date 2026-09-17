@@ -2,8 +2,8 @@ import { useTexture } from "@react-three/drei";
 import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 
+import type { MapDef } from "./maps";
 import { normalMapFromImage } from "./normalMap";
-import { TAVERN_H, TAVERN_MAP_URL, TAVERN_W } from "./tavern";
 
 /**
  * The painted map as the ground — the hybrid's floor (Plan 108).
@@ -13,10 +13,10 @@ import { TAVERN_H, TAVERN_MAP_URL, TAVERN_W } from "./tavern";
  * the image itself lets the light catch on the flagstones. Walls, torches and
  * the character are shared with the built scene; only this floor differs.
  */
-export function HybridFloor({ onClick }: { onClick: (p: THREE.Vector3) => void }) {
-  const loaded = useTexture(TAVERN_MAP_URL);
+export function HybridFloor({ map, url, onClick }: { map: MapDef; url: string; onClick: (p: THREE.Vector3) => void }) {
+  const loaded = useTexture(url);
   // The loader caches its texture; configure a clone and leave the cache alone.
-  const map = useMemo(() => {
+  const tex = useMemo(() => {
     const c = loaded.clone();
     c.colorSpace = THREE.SRGBColorSpace;
     c.anisotropy = 8;
@@ -26,7 +26,7 @@ export function HybridFloor({ onClick }: { onClick: (p: THREE.Vector3) => void }
   const [normal, setNormal] = useState<THREE.CanvasTexture | null>(null);
   useEffect(() => {
     let live = true;
-    normalMapFromImage(TAVERN_MAP_URL, 1024, 1.4)
+    normalMapFromImage(url, 1024, 1.4)
       .then((t) => {
         if (live) setNormal(t);
       })
@@ -36,7 +36,7 @@ export function HybridFloor({ onClick }: { onClick: (p: THREE.Vector3) => void }
     return () => {
       live = false;
     };
-  }, []);
+  }, [url]);
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
@@ -46,9 +46,9 @@ export function HybridFloor({ onClick }: { onClick: (p: THREE.Vector3) => void }
         onClick(e.point);
       }}
     >
-      <planeGeometry args={[TAVERN_W, TAVERN_H]} />
+      <planeGeometry args={[map.w, map.h]} />
       <meshStandardMaterial
-        map={map}
+        map={tex}
         normalMap={normal ?? undefined}
         normalScale={new THREE.Vector2(0.45, 0.45)}
         roughness={0.92}

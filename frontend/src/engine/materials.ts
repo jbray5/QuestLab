@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import * as THREE from "three";
 
 /** The CC0 Poly Haven sets in public/engine/tex — diffuse, normal (GL), roughness. */
-export type PbrName = "wall" | "floor" | "planks";
+export type PbrName = "wall" | "floor" | "planks" | "rock" | "dirt";
 
 export interface PbrSet {
   map: THREE.Texture;

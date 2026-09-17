@@ -1,23 +1,23 @@
-import * as THREE from "three";
+import type { MapDef, Piece, Seg } from "./maps";
 
 /**
- * The Haunted Dockside Tavern (Margarita-shire), traced for the spike (Plan 108).
- *
- * Coordinates are normalized to the map (u across, v down), so they hold at
- * any resolution. Walls are segments; a gap between two segments is a doorway.
- * One unit of world space is one grid cell — five feet.
+ * The Haunted Dockside Tavern (Margarita-shire), a Czepeku interior, traced by
+ * hand for the spike (Plan 108). 4620×6440 at a 140px grid: 33 by 46 cells.
  */
 
-/** A 2K derivative of the 4620×6440 Czepeku map — the full one is 30 MP. */
-export const TAVERN_MAP_URL =
-  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/14fad705-0fd7-43b6-876b-31783625163e-QDH6Xt3CJQti4xWEMUfjffNbdKAeLE.jpg";
+/** Three seats round a table, in map units (0.6 of a cell out). */
+const seats = (u: number, v: number): Piece[] => [
+  { model: "wooden_stool_01", u: u - 0.018, v, rot: Math.PI / 2 },
+  { model: "wooden_stool_01", u: u + 0.018, v, rot: -Math.PI / 2 },
+  { model: "wooden_stool_01", u, v: v + 0.013, rot: Math.PI },
+];
 
-/** Map size in grid cells: 4620/140 by 6440/140. */
-export const TAVERN_W = 33;
-export const TAVERN_H = 46;
-
-/** [u0, v0, u1, v1] */
-export type Seg = [number, number, number, number];
+const ROUND_TABLES: [number, number][] = [
+  [0.335, 0.301],
+  [0.45, 0.306],
+  [0.359, 0.386],
+  [0.6, 0.384],
+];
 
 // Taproom — the big hall with the hearth. Doorways: one to the dock at the
 // top, the arch into the central hall at the bottom, a door into the wing.
@@ -30,7 +30,6 @@ const TAPROOM: Seg[] = [
   [0.69, 0.24, 0.69, 0.3],
   [0.69, 0.34, 0.69, 0.415],
 ];
-
 // The right wing — the lounge with the round rug and the red sofas.
 const WING: Seg[] = [
   [0.69, 0.075, 0.88, 0.075],
@@ -38,7 +37,6 @@ const WING: Seg[] = [
   [0.69, 0.075, 0.69, 0.24],
   [0.69, 0.415, 0.88, 0.415],
 ];
-
 // The lower block — kitchen, the central hall with the barrels, the rooms.
 const LOWER: Seg[] = [
   [0.105, 0.415, 0.105, 0.81],
@@ -48,45 +46,65 @@ const LOWER: Seg[] = [
   [0.585, 0.415, 0.585, 0.75],
 ];
 
-export const TAVERN_WALLS: Seg[] = [...TAPROOM, ...WING, ...LOWER];
-
-/** Where the torches hang: [u, v, castsShadow]. Three shadow casters is the budget. */
-export const TAVERN_TORCHES: [number, number, boolean][] = [
-  [0.125, 0.33, true],
-  [0.4, 0.258, true],
-  // Two flanking the bar's cabinet.
-  [0.535, 0.252, false],
-  [0.615, 0.252, false],
-  [0.665, 0.395, false],
-  [0.86, 0.15, false],
-  [0.86, 0.35, false],
-  [0.13, 0.6, false],
-  [0.375, 0.6, true],
-  [0.565, 0.6, false],
-  [0.86, 0.6, false],
-];
-
-/** Normalized map coords → world (x, z). Map centre is the origin; +z is down the map. */
-export function toWorld(u: number, v: number): [number, number] {
-  return [(u - 0.5) * TAVERN_W, (v - 0.5) * TAVERN_H];
-}
-
-/**
- * The cell under a point. The game lives on cells — a move is a cell-to-cell
- * decision and the walk is how the engine plays it. The map is centred on the
- * origin: 33 cells wide (odd) puts cell centres on integer x; 46 tall (even)
- * puts them on z + 0.5.
- */
-export function snapToCell(p: THREE.Vector3): THREE.Vector3 {
-  const x = clamp(Math.round(p.x), -Math.floor(TAVERN_W / 2), Math.floor(TAVERN_W / 2));
-  const z = clamp(Math.floor(p.z) + 0.5, -TAVERN_H / 2 + 0.5, TAVERN_H / 2 - 0.5);
-  return new THREE.Vector3(x, 0, z);
-}
-
-
-function clamp(n: number, lo: number, hi: number): number {
-  return Math.min(hi, Math.max(lo, n));
-}
-
-/** Where the character starts and where the camera looks: the taproom floor. */
-export const TAPROOM_CENTRE = toWorld(0.4, 0.33);
+export const TAVERN: MapDef = {
+  id: "tavern",
+  name: "Margarita-shire — the tavern",
+  // A 2K derivative; the full picture is 30 MP.
+  url: "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/14fad705-0fd7-43b6-876b-31783625163e-QDH6Xt3CJQti4xWEMUfjffNbdKAeLE.jpg",
+  w: 33,
+  h: 46,
+  walls: [...TAPROOM, ...WING, ...LOWER],
+  torches: [
+    [0.125, 0.33, true],
+    [0.4, 0.258, true],
+    [0.535, 0.252, false],
+    [0.615, 0.252, false],
+    [0.665, 0.395, false],
+    [0.86, 0.15, false],
+    [0.86, 0.35, false],
+    [0.13, 0.6, false],
+    [0.375, 0.6, true],
+    [0.565, 0.6, false],
+    [0.86, 0.6, false],
+  ],
+  props: [
+    ...ROUND_TABLES.map(([u, v]) => ({ model: "round_wooden_table_01", u, v })),
+    ...ROUND_TABLES.flatMap(([u, v]) => seats(u, v)),
+    // Long tables with stools along them, down the left side and on the right.
+    { model: "wooden_table_02", u: 0.185, v: 0.286, rot: Math.PI / 2 },
+    { model: "wooden_stool_01", u: 0.206, v: 0.28, rot: -Math.PI / 2 },
+    { model: "wooden_stool_01", u: 0.206, v: 0.293, rot: -Math.PI / 2 },
+    { model: "wooden_table_02", u: 0.185, v: 0.372, rot: Math.PI / 2 },
+    { model: "wooden_stool_01", u: 0.206, v: 0.366, rot: -Math.PI / 2 },
+    { model: "wooden_stool_01", u: 0.206, v: 0.379, rot: -Math.PI / 2 },
+    { model: "wooden_table_02", u: 0.607, v: 0.281, rot: Math.PI / 2 },
+    { model: "wooden_stool_01", u: 0.586, v: 0.275, rot: Math.PI / 2 },
+    { model: "wooden_stool_01", u: 0.586, v: 0.288, rot: Math.PI / 2 },
+    // Barrels and crates: the cluster bottom-left, a loose one, two by the hearth.
+    { model: "wine_barrel_01", u: 0.27, v: 0.395, rot: 0.4 },
+    { model: "wooden_crate_02", u: 0.292, v: 0.402, rot: 1.1 },
+    { model: "wine_barrel_01", u: 0.312, v: 0.39, rot: 2.3 },
+    { model: "wine_barrel_01", u: 0.338, v: 0.372, rot: 1.7 },
+    { model: "wooden_crate_02", u: 0.29, v: 0.291, rot: 0.2 },
+    { model: "wine_barrel_01", u: 0.495, v: 0.294, rot: 2.9 },
+    // The bar: a cabinet against the wall, barrels beside it, stools in front.
+    { model: "GothicCabinet_01", u: 0.575, v: 0.2455, rot: 0 },
+    { model: "wine_barrel_01", u: 0.518, v: 0.247, rot: 0.9 },
+    { model: "wine_barrel_01", u: 0.632, v: 0.247, rot: 2.2 },
+    { model: "wooden_stool_01", u: 0.55, v: 0.266, rot: 0 },
+    { model: "wooden_stool_01", u: 0.575, v: 0.266, rot: 0 },
+    { model: "wooden_stool_01", u: 0.6, v: 0.266, rot: 0 },
+    { model: "jug_01", u: 0.562, v: 0.257, y: 0.7 },
+    { model: "wooden_bowl_01", u: 0.59, v: 0.257, y: 0.7 },
+  ],
+  planks: [
+    [0.105, 0.24, 0.69, 0.415],
+    [0.69, 0.075, 0.88, 0.415],
+  ],
+  hearth: [0.389, 0.253],
+  bar: [0.575, 0.257],
+  look: [0.4, 0.33],
+  eye: [1.2, 3.4, 6.8],
+  looks: { bar: { at: [0.575, 0.268], eye: [0.6, 2.4, 4.6] } },
+  start: [0.4, 0.33],
+};

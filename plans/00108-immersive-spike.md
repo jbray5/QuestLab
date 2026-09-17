@@ -69,6 +69,46 @@ the library he owns.)
   path shape. Found because the harness echoes the page console.
 - **Every `Barrel_0x` on Poly Haven is an oil drum.** Tags say so; the render
   said so louder. Only `wine_barrel_01` is wood.
+- **The sanity check found what the eye can't.** Justin: "we need like a
+  sanity check for each map — what is normal spacing for doorways, what makes
+  sense for a building." The first run on Restwater: every interior door I had
+  traced from the painted door arcs was 2–3 ft wide, so the flood fill reported
+  320 of 384 cells unreachable from the hall — the house was sealed. Both maps'
+  walls sat ~2 ft off their cell edges because the painted buildings were never
+  aligned to their own grids. In the built route the picture is only a
+  blueprint, so the fix is free: walls snap to cell edges, a door is one cell,
+  a sconce hugs its wall. Restwater's walls are now written *on the grid*
+  (column/row fractions) rather than traced, which is what a builder would do
+  and what Milestone 4's editor should produce.
+- **A floating-point crumb sealed a bedroom.** With the walls written on the
+  grid, one room still came back unreachable while the check also reported a
+  5 ft doorway right there. A wall end of `-5.000000000000001` was landing in
+  the cell before it under `Math.floor`. The rasterizer needs a tolerance.
+- **Fewer rooms, and a way down.** Justin: "fewer rooms in the bathhouse and
+  ideally would love a ladder down to her creepy abode." The bathhouse is now
+  a store, two bedrooms, the hall, a kitchen and a back room, with a trapdoor
+  and ladder in the back room's corner and a sickly green light seeping up.
+  The abode below is built from the Session 7 notes and only from them — the
+  hidden floor door, the ladder, a cache, the letters to and from Tavish — as
+  one low green-lit chamber with an inner room. The notes say the door is
+  hidden under abjuration until found; the engine shows it for now, and
+  revealing it becomes a DM control later. Maps now link: click the hatch and
+  the engine switches to the map below; the ladder there comes back up.
+- **"More cave like. Full of green hag trinkets and decor. More menacing."**
+  The abode is a cavern now: a ring of rock at odd angles (walls take
+  diagonals), a rock floor, fog more than twice as thick as a night outdoors,
+  root clusters hung upside down through the roof, a stone fire pit with her
+  pot on it throwing red against her green lamps, jars, baskets, a bucket, a
+  dead branch or two, a mossy boulder, the letters on a table with a dagger
+  stuck upright in it, the cache in a nook at the back. All Poly Haven, all
+  CC0, ~50 MB from their CDN on first open — Milestone 4 hosts optimized props
+  ourselves. Two things it taught: a model with no 1K glTF (`decorative_book_
+  set_01`) would have blanked the whole scene through the error boundary, so
+  the registry is worth validating at build time; and the check needed to
+  know that beyond a cave's walls is rock (`solid`), or it reports the earth
+  as unreachable rooms.
+- **A picture's lanterns are not sconces.** The three lamps beside the pools
+  are posts standing on their own; the check needed a `kind` to know that.
 - **The built scene is empty, and that is the finding.** Same walls, same
   torches, same character: the hybrid has a hearth, tables, a rug and barrels
   because the painter drew them; the built floor has boards. Full-3D without a
@@ -95,7 +135,13 @@ the library he owns.)
 - [x] The same furniture stands in both scenes, so "hybrid + props" and "built + props" are
       compared directly — Justin's "torn" is now a look, not a guess
 - [x] Movement snaps to cells; the destination cell is marked; the walk plays between cells
-- [ ] Justin can say which direction Milestone 4 takes
+- [x] Justin can say which direction Milestone 4 takes — "I've seen enough. Let's go this
+      route." Then, sharper: "I want the built scene not hybrid with furniture." **Built, with
+      furniture, is the standard.** The painted map is the blueprint the props are placed from.
+- [x] Third pass: the scene is data (`MapDef`), Restwater is the second map, the pools are
+      reflective water with ripples and steam ("I love the steam"), and a sanity check lints
+      every map the way a builder would — doorway widths, walls meeting at corners, walls on
+      cell edges, sconces on walls, props out of walls, every cell reachable from the start
 
 ---
 

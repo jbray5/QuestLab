@@ -1,34 +1,31 @@
 import * as THREE from "three";
 
+import type { MapDef } from "./maps";
+import { toWorld } from "./maps";
 import { usePbr } from "./materials";
-import { TAVERN_H, TAVERN_W, toWorld } from "./tavern";
 
 /**
  * The full-3D floor — the built scene's ground (Plan 108).
  *
  * Same layout, same walls, same torches, same character as the hybrid; the
  * only thing that changes is the floor: photoscanned cobbles everywhere, and
- * worn planks laid over the taproom and the wing where the painted map has
- * boards. This is what "built from tiles" looks like with real materials and
- * without a single painted pixel.
+ * worn planks laid where the map's definition says there are boards. This is
+ * what "built from tiles" looks like with real materials and without a single
+ * painted pixel.
  */
 function Patch({
-  u0,
-  v0,
-  u1,
-  v1,
+  map,
+  seg,
   set,
   onClick,
 }: {
-  u0: number;
-  v0: number;
-  u1: number;
-  v1: number;
+  map: MapDef;
+  seg: [number, number, number, number];
   set: ReturnType<typeof usePbr>;
   onClick: (p: THREE.Vector3) => void;
 }) {
-  const [x0, z0] = toWorld(u0, v0);
-  const [x1, z1] = toWorld(u1, v1);
+  const [x0, z0] = toWorld(map, seg[0], seg[1]);
+  const [x1, z1] = toWorld(map, seg[2], seg[3]);
   return (
     <mesh
       position={[(x0 + x1) / 2, 0.012, (z0 + z1) / 2]}
@@ -51,8 +48,8 @@ function Patch({
   );
 }
 
-export function BuiltFloor({ onClick }: { onClick: (p: THREE.Vector3) => void }) {
-  const cobble = usePbr("floor", [TAVERN_W / 2.2, TAVERN_H / 2.2]);
+export function BuiltFloor({ map, onClick }: { map: MapDef; onClick: (p: THREE.Vector3) => void }) {
+  const cobble = usePbr(map.ground ?? "floor", [map.w / 2.2, map.h / 2.2]);
   const planks = usePbr("planks", [7, 3]);
   return (
     <group>
@@ -64,7 +61,7 @@ export function BuiltFloor({ onClick }: { onClick: (p: THREE.Vector3) => void })
           onClick(e.point);
         }}
       >
-        <planeGeometry args={[TAVERN_W, TAVERN_H]} />
+        <planeGeometry args={[map.w, map.h]} />
         <meshStandardMaterial
           map={cobble.map}
           normalMap={cobble.normalMap}
@@ -74,9 +71,9 @@ export function BuiltFloor({ onClick }: { onClick: (p: THREE.Vector3) => void })
           metalness={0}
         />
       </mesh>
-      {/* Boards where the tavern has boards: the taproom and the wing. */}
-      <Patch u0={0.105} v0={0.24} u1={0.69} v1={0.415} set={planks} onClick={onClick} />
-      <Patch u0={0.69} v0={0.075} u1={0.88} v1={0.415} set={planks} onClick={onClick} />
+      {map.planks?.map((seg, i) => (
+        <Patch key={i} map={map} seg={seg} set={planks} onClick={onClick} />
+      ))}
     </group>
   );
 }

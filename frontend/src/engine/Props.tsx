@@ -3,99 +3,87 @@ import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import * as THREE from "three";
 
+import { modelUrl } from "./assets";
+import type { MapDef, Piece } from "./maps";
+import { toWorld } from "./maps";
 import { usePbr } from "./materials";
-import { toWorld } from "./tavern";
 
 /**
- * Furniture for the tavern (Plan 108, second pass).
+ * What stands in a map (Plan 108).
  *
- * Justin: "show me some furniture or a bar in the second one." The pieces are
- * Poly Haven photoscans — CC0, real materials, loaded from their CDN for the
- * spike the way the placeholder character is. Placed where the painter put
- * them, so the same layout can stand on the painted floor or the built one.
- *
- * Poly Haven models are in metres; one world unit is five feet.
+ * A map's definition says what goes where; this file only knows how to stand
+ * things up. The models come from assets.ts. Poly Haven models are in metres;
+ * one world unit is five feet.
  */
 const M = 1 / 1.524;
-const CDN = "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k";
-const url = (name: string) => `${CDN}/${name}/${name}_1k.gltf`;
 
-// Poly Haven's glTFs reference `textures/x.jpg` beside the model, but the CDN
-// keeps the JPEGs in a separate tree (Models/jpg/1k/<model>/x.jpg). Without
-// this every prop loads untextured and silently flat. Scoped to that one host
-// and path shape, so nothing else the app loads is touched.
-const PH_TEXTURE = /^(https:\/\/dl\.polyhaven\.org\/file\/ph-assets\/Models)\/gltf\/\dk\/([^/]+)\/textures\/(.+)$/;
-THREE.DefaultLoadingManager.setURLModifier((u) => u.replace(PH_TEXTURE, "$1/jpg/1k/$2/$3"));
+/** Letters left on a table: a few sheets, not quite squared up. */
+function Papers({ map, piece }: { map: MapDef; piece: Piece }) {
+  const [x, z] = toWorld(map, piece.u, piece.v);
+  return (
+    <group position={[x, (piece.y ?? 0) + 0.004, z]} rotation={[0, piece.rot ?? 0, 0]}>
+      {[
+        [0, 0, 0.0],
+        [0.06, 0.03, 0.35],
+        [-0.05, 0.05, -0.22],
+        [0.02, -0.07, 0.12],
+      ].map(([dx, dz, r], i) => (
+        <mesh key={i} position={[dx, i * 0.002, dz]} rotation={[-Math.PI / 2, 0, r]} receiveShadow>
+          <planeGeometry args={[0.2, 0.28]} />
+          <meshStandardMaterial color="#e9dcc2" roughness={0.9} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
 
-type Piece = { model: string; u: number; v: number; rot?: number; y?: number };
+function Prop({ map, piece }: { map: MapDef; piece: Piece }) {
+  if (piece.model === "papers") return <Papers map={map} piece={piece} />;
+  return <Model map={map} piece={piece} />;
+}
 
-/** Three seats round a table, in map units (0.6 of a cell out). */
-const seatsAround = (u: number, v: number): Piece[] => [
-  { model: "wooden_stool_01", u: u - 0.018, v, rot: Math.PI / 2 },
-  { model: "wooden_stool_01", u: u + 0.018, v, rot: -Math.PI / 2 },
-  { model: "wooden_stool_01", u, v: v + 0.013, rot: Math.PI },
-];
-
-const ROUND_TABLES: [number, number][] = [
-  [0.335, 0.301],
-  [0.45, 0.306],
-  [0.359, 0.386],
-  [0.6, 0.384],
-];
-
-const TAVERN_PROPS: Piece[] = [
-  ...ROUND_TABLES.map(([u, v]) => ({ model: "round_wooden_table_01", u, v })),
-  ...ROUND_TABLES.flatMap(([u, v]) => seatsAround(u, v)),
-  // Long tables with stools along them, down the left side and on the right.
-  { model: "wooden_table_02", u: 0.185, v: 0.286, rot: Math.PI / 2 },
-  { model: "wooden_stool_01", u: 0.206, v: 0.28, rot: -Math.PI / 2 },
-  { model: "wooden_stool_01", u: 0.206, v: 0.293, rot: -Math.PI / 2 },
-  { model: "wooden_table_02", u: 0.185, v: 0.372, rot: Math.PI / 2 },
-  { model: "wooden_stool_01", u: 0.206, v: 0.366, rot: -Math.PI / 2 },
-  { model: "wooden_stool_01", u: 0.206, v: 0.379, rot: -Math.PI / 2 },
-  { model: "wooden_table_02", u: 0.607, v: 0.281, rot: Math.PI / 2 },
-  { model: "wooden_stool_01", u: 0.586, v: 0.275, rot: Math.PI / 2 },
-  { model: "wooden_stool_01", u: 0.586, v: 0.288, rot: Math.PI / 2 },
-  // Barrels and crates: the cluster bottom-left, a loose one, two by the hearth.
-  { model: "wine_barrel_01", u: 0.27, v: 0.395, rot: 0.4 },
-  { model: "wooden_crate_02", u: 0.292, v: 0.402, rot: 1.1 },
-  { model: "wine_barrel_01", u: 0.312, v: 0.39, rot: 2.3 },
-  { model: "wine_barrel_01", u: 0.338, v: 0.372, rot: 1.7 },
-  { model: "wooden_crate_02", u: 0.29, v: 0.291, rot: 0.2 },
-  { model: "wine_barrel_01", u: 0.495, v: 0.294, rot: 2.9 },
-  // The bar: a cabinet against the wall, barrels beside it, stools in front.
-  { model: "GothicCabinet_01", u: 0.575, v: 0.2455, rot: 0 },
-  { model: "wine_barrel_01", u: 0.518, v: 0.247, rot: 0.9 },
-  { model: "wine_barrel_01", u: 0.632, v: 0.247, rot: 2.2 },
-  { model: "wooden_stool_01", u: 0.55, v: 0.266, rot: 0 },
-  { model: "wooden_stool_01", u: 0.575, v: 0.266, rot: 0 },
-  { model: "wooden_stool_01", u: 0.6, v: 0.266, rot: 0 },
-  { model: "jug_01", u: 0.562, v: 0.257, y: 0.7 },
-  { model: "wooden_bowl_01", u: 0.59, v: 0.257, y: 0.7 },
-];
-
-for (const name of new Set(TAVERN_PROPS.map((p) => p.model))) useGLTF.preload(url(name));
-
-function Prop({ model, u, v, rot = 0, y = 0 }: Piece) {
-  const { scene } = useGLTF(url(model));
-  const [x, z] = toWorld(u, v);
+function Model({ map, piece }: { map: MapDef; piece: Piece }) {
+  const { scene } = useGLTF(modelUrl(piece.model));
+  const [x, z] = toWorld(map, piece.u, piece.v);
   return (
     <Clone
       object={scene}
-      position={[x, y, z]}
-      rotation={[0, rot, 0]}
-      scale={M}
+      position={[x, piece.y ?? 0, z]}
+      rotation={[piece.flip ? Math.PI : 0, piece.rot ?? 0, 0]}
+      scale={M * (piece.scale ?? 1)}
       castShadow
       receiveShadow
     />
   );
 }
 
+/** An open fire: embers that bloom and a red light that never sits still. */
+function Fire({ map, at }: { map: MapDef; at: [number, number] }) {
+  const light = useRef<THREE.PointLight>(null);
+  const coals = useRef<THREE.Mesh>(null);
+  const [x, z] = toWorld(map, at[0], at[1]);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime * 7 + x;
+    const f = 0.75 + 0.25 * (Math.sin(t * 1.3) * 0.5 + Math.sin(t * 3.7) * 0.3 + Math.sin(t * 8.1) * 0.2);
+    if (light.current) light.current.intensity = 30 * f;
+    if (coals.current) (coals.current.material as THREE.MeshBasicMaterial).color.setRGB(1.9 * f, 0.42 * f, 0.08);
+  });
+  return (
+    <group position={[x, 0, z]}>
+      <mesh ref={coals} position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.18, 16]} />
+        <meshBasicMaterial color={[1.9, 0.42, 0.08]} toneMapped={false} />
+      </mesh>
+      <pointLight ref={light} position={[0, 0.7, 0]} color="#ff4a12" intensity={30} distance={12} decay={2} castShadow shadow-mapSize={[1024, 1024]} shadow-bias={-0.003} />
+    </group>
+  );
+}
+
 /** The bar counter itself: nothing on Poly Haven is a bar, so this one is built. */
-function BarCounter() {
+function BarCounter({ map, at }: { map: MapDef; at: [number, number] }) {
   const planks = usePbr("planks", [3, 1]);
-  const [x, z] = toWorld(0.575, 0.257);
-  const len = 0.14 * 33; // 4.6 units, along the wall
+  const [x, z] = toWorld(map, at[0], at[1]);
+  const len = 0.14 * map.w;
   return (
     <group position={[x, 0, z]}>
       <mesh position={[0, 0.34, 0]} castShadow receiveShadow>
@@ -122,15 +110,15 @@ function BarCounter() {
 }
 
 /**
- * The hearth: a stone semicircle against the top wall where the painter put
- * one, with coals that bloom and a fire that flickers red where the torches
- * flicker orange. The light is the point; the stone is there to catch it.
+ * A hearth: a stone semicircle against a wall, coals that bloom, logs across
+ * them, and a fire that flickers red where the torches flicker orange. The
+ * light is the point; the stone is there to catch it.
  */
-export function Hearth() {
+function Hearth({ map, at }: { map: MapDef; at: [number, number] }) {
   const stone = usePbr("wall", [2, 1]);
   const fire = useRef<THREE.PointLight>(null);
   const coals = useRef<THREE.Mesh>(null);
-  const [x, z] = toWorld(0.389, 0.253);
+  const [x, z] = toWorld(map, at[0], at[1]);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime * 7;
     const f = 0.8 + 0.2 * (Math.sin(t * 1.3) * 0.5 + Math.sin(t * 3.7) * 0.3 + Math.sin(t * 8.1) * 0.2);
@@ -139,17 +127,14 @@ export function Hearth() {
   });
   return (
     <group position={[x, 0, z]}>
-      {/* chimney breast against the wall */}
       <mesh position={[0, 1.0, -0.42]} castShadow receiveShadow>
         <boxGeometry args={[3.6, 2.0, 0.5]} />
         <meshStandardMaterial map={stone.map} normalMap={stone.normalMap} roughnessMap={stone.roughnessMap} color="#7d7770" roughness={1} />
       </mesh>
-      {/* the low semicircular hearth */}
       <mesh position={[0, 0.16, 0]} rotation={[0, Math.PI, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[1.5, 1.6, 0.32, 24, 1, false, 0, Math.PI]} />
         <meshStandardMaterial map={stone.map} normalMap={stone.normalMap} roughnessMap={stone.roughnessMap} color="#6f6a63" roughness={1} />
       </mesh>
-      {/* coals, with logs lying across them */}
       <mesh ref={coals} position={[0, 0.33, 0.42]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.42, 20]} />
         <meshBasicMaterial color={[2.4, 0.8, 0.2]} toneMapped={false} />
@@ -165,15 +150,18 @@ export function Hearth() {
   );
 }
 
-/** Every piece in the taproom, plus the bar and the hearth. */
-export function TavernProps() {
+/** Everything a map's definition says stands in it. */
+export function MapProps({ map }: { map: MapDef }) {
   return (
     <group>
-      {TAVERN_PROPS.map((p, i) => (
-        <Prop key={i} {...p} />
+      {map.props.map((piece, i) => (
+        <Prop key={i} map={map} piece={piece} />
       ))}
-      <BarCounter />
-      <Hearth />
+      {map.bar && <BarCounter map={map} at={map.bar} />}
+      {map.hearth && <Hearth map={map} at={map.hearth} />}
+      {map.fires?.map((f, i) => (
+        <Fire key={i} map={map} at={f} />
+      ))}
     </group>
   );
 }
