@@ -534,6 +534,12 @@ function dressMaterial(m: THREE.Material): void {
   if (!std.isMeshStandardMaterial || std.userData.dressed) return;
   std.userData.dressed = true;
   const n = m.name || "";
+  // A colour with alpha 0 and no map is a layer the export lost the alpha mask for
+  // (Genesis eyelash cards, the tear line): opaque brown strips across the face. Off.
+  if (std.opacity === 0 && !std.transparent && !std.map) {
+    std.visible = false;
+    return;
+  }
   if (EYE_GLASS.test(n)) {
     // The wet layer over the eye: nearly invisible, all highlight.
     std.transparent = true;
