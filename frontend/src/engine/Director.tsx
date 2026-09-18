@@ -15,19 +15,39 @@ const GLIDE_S = 1.2;
 const DISTANCE = 7.5;
 const HEIGHT = 3.6;
 
-export function Director({ at, nonce, follow }: { at: THREE.Vector3 | null; nonce: number; follow: boolean }) {
+export function Director({
+  at,
+  nonce,
+  follow,
+  focus = null,
+}: {
+  at: THREE.Vector3 | null;
+  nonce: number;
+  follow: boolean;
+  /** A spot the viewer asked to look at (a double-click on the floor); glides there when its nonce changes. */
+  focus?: { at: THREE.Vector3; nonce: number } | null;
+}) {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as { target: THREE.Vector3; update: () => void } | null;
   const glide = useRef<{ t: number; fromPos: THREE.Vector3; fromTgt: THREE.Vector3; toPos: THREE.Vector3; toTgt: THREE.Vector3 } | null>(null);
   const last = useRef<string>("");
+  const lastFocus = useRef(0);
 
   useEffect(() => {
-    if (!at || !controls) return;
-    const key = `${at.x},${at.z},${nonce}`;
-    if (key === last.current) return;
-    last.current = key;
-    if (!follow && nonce === 0) return;
-    const toTgt = new THREE.Vector3(at.x, 0.7, at.z);
+    if (!controls) return;
+    let target: THREE.Vector3 | null = null;
+    if (focus && focus.nonce !== lastFocus.current) {
+      lastFocus.current = focus.nonce;
+      target = focus.at;
+    } else {
+      if (!at) return;
+      const key = `${at.x},${at.z},${nonce}`;
+      if (key === last.current) return;
+      last.current = key;
+      if (!follow && nonce === 0) return;
+      target = at;
+    }
+    const toTgt = new THREE.Vector3(target.x, 0.7, target.z);
     // Keep the DM's current bearing; only the distance and height are ours.
     const dir = new THREE.Vector3().subVectors(camera.position, controls.target);
     dir.y = 0;
@@ -36,7 +56,7 @@ export function Director({ at, nonce, follow }: { at: THREE.Vector3 | null; nonc
     const toPos = toTgt.clone().addScaledVector(dir, DISTANCE);
     toPos.y = HEIGHT;
     glide.current = { t: 0, fromPos: camera.position.clone(), fromTgt: controls.target.clone(), toPos, toTgt };
-  }, [at, nonce, follow, camera, controls]);
+  }, [at, nonce, follow, focus, camera, controls]);
 
   useFrame((_, dt) => {
     const g = glide.current;

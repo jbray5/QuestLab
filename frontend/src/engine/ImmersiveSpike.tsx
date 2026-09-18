@@ -5,6 +5,7 @@ import { Component, type ReactNode, Suspense, useEffect, useMemo, useState } fro
 import * as THREE from "three";
 
 import { preloadProps } from "./assets";
+import { CameraKeys } from "./Controls";
 import { DEFAULT_HEIGHT_FT } from "./heights";
 import { lintMap } from "./lint";
 import { snapToCell, toWorld } from "./maps";
@@ -228,7 +229,16 @@ export default function ImmersiveSpike() {
             </MapScene>
           </Suspense>
         </SceneBoundary>
-        <OrbitControls target={look} enablePan minDistance={3} maxDistance={40} maxPolarAngle={Math.PI / 2 - 0.06} makeDefault />
+        <OrbitControls
+          target={look}
+          enablePan
+          minDistance={3}
+          maxDistance={40}
+          maxPolarAngle={Math.PI / 2 - 0.06}
+          mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN }}
+          makeDefault
+        />
+        <CameraKeys home={{ eye, look }} homeNonce={0} />
         <EffectComposer multisampling={4}>
           <Bloom luminanceThreshold={1} mipmapBlur intensity={0.85} radius={0.7} />
           <Vignette eskil={false} offset={0.22} darkness={0.8} />

@@ -3,6 +3,8 @@ import { Canvas } from "@react-three/fiber";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { useQuery } from "@tanstack/react-query";
 import { Component, type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CameraKeys } from "./Controls";
+import { KEY_HELP } from "./keys";
 import { useParams } from "react-router-dom";
 import * as THREE from "three";
 
@@ -66,6 +68,12 @@ const CSS = `
 .et-hud .turn { margin-left: auto; padding: 6px 12px; border-radius: 9px; border: 1px solid #d6af36;
   background: rgba(214,175,54,0.14); color: #f0e6c8; }
 .et-hud small { opacity: 0.7; }
+.et-hud.hidden { display: none; }
+.et-help { position: absolute; right: 12px; top: 52px; z-index: 3; font: 13px system-ui, sans-serif; color: #cfcfd8;
+  background: rgba(12,10,18,0.9); border: 1px solid #3a3a46; border-radius: 10px; padding: 10px 14px; }
+.et-help table { border-collapse: collapse; }
+.et-help td { padding: 2px 10px 2px 0; }
+.et-help td:first-child { color: #f0e6c8; font-weight: 600; white-space: nowrap; }
 .et-hud .et-err { color: #ff8a8a; opacity: 1; }
 .et-hud .et-loading { color: #d6af36; opacity: 1; }
 .et-empty { position: absolute; inset: 0; display: grid; place-items: center; color: #9a93a5;
@@ -140,6 +148,69 @@ export default function EngineTable() {
   const [follow, setFollow] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [frameNonce, setFrameNonce] = useState(0);
+  // TaleSpire's keys (Plan 111 follow-up): Space hides the interface (hold to peek),
+  // Tab turns names off and on, F1 shows the card, F2 returns to the board's view,
+  // a double-click on the floor looks there. The camera keys live in <CameraKeys>.
+  const [hud, setHud] = useState(true);
+  const [peek, setPeek] = useState(false);
+  const [labels, setLabels] = useState(true);
+  const [help, setHelp] = useState(false);
+  const [homeNonce, setHomeNonce] = useState(0);
+  const [focus, setFocus] = useState<{ at: THREE.Vector3; nonce: number } | null>(null);
+  const lastClick = useRef<{ t: number; p: THREE.Vector3 } | null>(null);
+  const spaceDown = useRef<number | null>(null);
+  useEffect(() => {
+    const typing = () => {
+      const el = document.activeElement as HTMLElement | null;
+      return el?.tagName === "INPUT" || el?.tagName === "TEXTAREA" || !!el?.isContentEditable;
+    };
+    const down = (e: KeyboardEvent) => {
+      if (typing() || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === "F1") {
+        e.preventDefault();
+        setHelp((v) => !v);
+      } else if (e.key === "F2") {
+        e.preventDefault();
+        setHomeNonce((n) => n + 1);
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        if (!e.repeat) setLabels((v) => !v);
+      } else if (e.key === " ") {
+        e.preventDefault();
+        if (e.repeat) return;
+        spaceDown.current = performance.now();
+        setHud((v) => {
+          if (v) return false;
+          setPeek(true);
+          return v;
+        });
+      }
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.key !== " " || spaceDown.current === null) return;
+      const held = performance.now() - spaceDown.current;
+      spaceDown.current = null;
+      setPeek((wasPeek) => {
+        if (wasPeek && held < 300) setHud(true);
+        return false;
+      });
+    };
+    window.addEventListener("keydown", down);
+    window.addEventListener("keyup", up);
+    return () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+    };
+  }, []);
+  const onFloorClick = useCallback((p: THREE.Vector3) => {
+    const now = performance.now();
+    const prev = lastClick.current;
+    lastClick.current = { t: now, p: p.clone() };
+    if (prev && now - prev.t < 400 && prev.p.distanceTo(p) < 0.6) {
+      lastClick.current = null;
+      setFocus((f) => ({ at: p.clone(), nonce: (f?.nonce ?? 0) + 1 }));
+    }
+  }, []);
 
   const active = useMemo(() => {
     if (!map || !data) return null;
@@ -172,7 +243,7 @@ export default function EngineTable() {
   return (
     <div className="et-root">
       <style>{CSS}</style>
-      <div className="et-hud">
+      <div className={hud || peek ? "et-hud" : "et-hud hidden"}>
         <h1>{data.title || map.name}</h1>
         <button className={grid ? "on" : ""} onClick={() => setGrid((v) => !v)}>
           Grid
@@ -183,6 +254,9 @@ export default function EngineTable() {
         <button disabled={!active} onClick={() => setFrameNonce((n) => n + 1)} title={active ? `Look at ${active.label}` : "Nobody's turn yet"}>
           Frame the turn
         </button>
+        <button className={help ? "on" : ""} onClick={() => setHelp((v) => !v)} title="The keys (F1)">
+          ?
+        </button>
         <Loading />
         {err && <small className="et-err">⚠ {err}</small>}
         {data.combat_running && (
@@ -192,6 +266,20 @@ export default function EngineTable() {
           </span>
         )}
       </div>
+      {help && (
+        <div className="et-help">
+          <table>
+            <tbody>
+              {KEY_HELP.map(([k, v]) => (
+                <tr key={k}>
+                  <td>{k}</td>
+                  <td>{v}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <TitleCard title={data.title} />
       <Canvas
         key={map.id}
@@ -206,16 +294,25 @@ export default function EngineTable() {
       >
         <SceneBoundary onError={(e) => setErr(e.message)}>
           <Suspense fallback={null}>
-            <MapScene map={map} grid={grid} darkness={data.darkness} fog={fog} weather={data.weather}>
-              <Party map={map} projection={data} fog={fog} fx={fx} onFxDone={dropFx} />
+            <MapScene map={map} grid={grid} darkness={data.darkness} fog={fog} weather={data.weather} onFloorClick={onFloorClick}>
+              <Party map={map} projection={data} fog={fog} fx={fx} onFxDone={dropFx} labels={labels} />
               {pings.map((p) => (
                 <Ping key={p.id} at={p.at} onDone={() => dropPing(p.id)} />
               ))}
             </MapScene>
           </Suspense>
         </SceneBoundary>
-        <OrbitControls target={look} enablePan minDistance={3} maxDistance={80} maxPolarAngle={Math.PI / 2 - 0.06} makeDefault />
-        <Director at={active?.cell ?? null} nonce={frameNonce} follow={follow} />
+        <OrbitControls
+          target={look}
+          enablePan
+          minDistance={3}
+          maxDistance={80}
+          maxPolarAngle={Math.PI / 2 - 0.06}
+          mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN }}
+          makeDefault
+        />
+        <CameraKeys home={{ eye, look }} homeNonce={homeNonce} />
+        <Director at={active?.cell ?? null} nonce={frameNonce} follow={follow} focus={focus} />
         <EffectComposer multisampling={4}>
           <Bloom luminanceThreshold={1} mipmapBlur intensity={0.85} radius={0.7} />
           <Vignette eskil={false} offset={0.22} darkness={0.8} />

@@ -51,12 +51,15 @@ export function Party({
   fog = null,
   fx = [],
   onFxDone,
+  labels = true,
 }: {
   map: MapDef;
   projection: TableProjection;
   fog?: Fog | null;
   fx?: HitFx[];
   onFxDone?: (id: string) => void;
+  /** Nameplates on (the default) or off — Tab on the table. */
+  labels?: boolean;
 }) {
   const figs = figures(map, projection).filter((f) => !fog || f.kind === "pc" || fog.revealed(f.u, f.v));
   const lamps = lights(map, projection).filter((l) => !fog || fog.revealed(l.u, l.v));
@@ -66,7 +69,7 @@ export function Party({
         const mine = f.ref ? fx.filter((x) => x.ref === f.ref) : [];
         const hits = mine.filter((x) => x.kind === "damage");
         const lastHit = hits.length ? hits[hits.length - 1].id : undefined;
-        const common = { cell: f.cell, tint: TINT[f.kind] ?? TINT.custom, active: f.active, down: f.down, size: f.size, label: f.label, hit: lastHit };
+        const common = { cell: f.cell, tint: TINT[f.kind] ?? TINT.custom, active: f.active, down: f.down, size: f.size, label: labels ? f.label : undefined, hit: lastHit };
         return (
           <group key={f.id}>
             {f.model ? (
