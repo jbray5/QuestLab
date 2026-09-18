@@ -43,6 +43,28 @@ That installs the FBX converter and the glTF packer here, not in the app.
    7.5) or the monster's size category; the model is scaled to it whatever the
    file says.
 
+## A character from Daz Studio — no Mixamo needed
+
+The engine knows the Genesis 9 and Genesis 8 skeletons and lines their
+A-pose rest up with the shared clips itself, so a Daz export goes straight
+through the packer:
+
+1. Select the figure in the **Scene** pane. **Parameters → Mesh Resolution**:
+   *Resolution Level* Base, *SubDivision Level* 0.
+2. **File → Export… → Autodesk FBX**. Tick *Figures*; untick *Animations* and
+   *Morphs*; tick **Merge Clothing into Figure Skeleton** (eyes, mouth, lashes,
+   hair and clothes fold onto the one skeleton); tick *Embed Textures*.
+3. `node pack.mjs "C:\DnD\Figures\Willa.fbx" -o willa.glb` — a 70 MB export
+   lands around 7 MB.
+4. Drop it on the character. The preview reads *Daz Genesis rig — the table's
+   walk, hit and fall apply*.
+
+Daz Studio is also scriptable: `DAZStudio.exe -instanceName Builder -noPrompt
+"build.dsa"` runs a DAZ Script that loads Genesis 9, sets dials by label,
+applies material/hair/wardrobe presets by path, captures viewport previews and
+exports the FBX with the same options — which is how the party's first figures
+were built without touching the UI.
+
 ## The shared clips
 
 Every figure walks with the same clips. Today those are the Soldier's Idle,
