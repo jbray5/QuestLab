@@ -232,6 +232,25 @@ export function useTableController(sessionId: string, campaignId: string, party:
   function clearReveals() {
     patchNow({ brush_reveals: [], revealed_region_ids: [] });
   }
+  /** Plan 112 — a hidden exit is found (or hidden again): an "exit:<key>" reveal. */
+  function revealExit(key: string, on: boolean) {
+    const tag = "exit:" + key;
+    const ids = (state?.revealed_region_ids ?? []).filter((i) => i !== tag);
+    patchNow({ revealed_region_ids: on ? [...ids, tag] : ids });
+  }
+  /** The party goes through: the far map becomes active and the PCs stand at its landing. */
+  function descend(mapId: string, x: number, y: number) {
+    if (!state) return;
+    const pcs = state.tokens.filter((t) => t.kind === "pc");
+    let i = 0;
+    const moved = state.tokens.map((t) => {
+      if (t.kind !== "pc") return t;
+      const nx = Math.round(x + (i - (pcs.length - 1) / 2) * 72);
+      i += 1;
+      return { ...t, x: nx, y: Math.round(y) };
+    });
+    patchNow({ active_map_id: mapId, tokens: moved });
+  }
 
   function onCanvasDown(x: number, y: number) {
     if (mode === "ping") {
@@ -299,6 +318,8 @@ export function useTableController(sessionId: string, campaignId: string, party:
     removeToken,
     revealAt,
     clearReveals,
+    revealExit,
+    descend,
     moveTokenLocal,
     commitTokens,
     onCanvasDown,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { PlayerCharacter } from "../../api/types";
+import { EXITS } from "../../engine/passages";
 import MapCanvas from "./MapCanvas";
 import { useTableController } from "./useTableController";
 
@@ -47,6 +48,9 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
   }
 
   const tokens = t.state?.tokens ?? [];
+  // Plan 112 — a hidden way out on this map: reveal it when they find it, then take them through.
+  const exits = EXITS.filter((e) => e.from === t.activeMap?.id);
+  const found = (key: string) => (t.state?.revealed_region_ids ?? []).includes("exit:" + key);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%", minHeight: 0 }}>
@@ -146,6 +150,18 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
           />
           Fog
         </label>
+        {exits.map((e) => (
+          <span key={e.key} style={{ display: "inline-flex", gap: 4 }}>
+            <button className={found(e.key) ? "btn" : "btn btn-ghost"} style={btn} onClick={() => t.revealExit(e.key, !found(e.key))} title={found(e.key) ? "Hide it again" : "They found it — show it on the table"}>
+              {found(e.key) ? "🚪 Found: " : "🚪 Reveal "}{e.label}
+            </button>
+            {found(e.key) && (
+              <button className="btn btn-ghost" style={{ ...btn, color: "var(--gold)" }} onClick={() => t.descend(e.to, e.landing[0], e.landing[1])} title="Switch the table to the far map and stand the party at the landing">
+                ⬇ Take the party to {e.arrive}
+              </button>
+            )}
+          </span>
+        ))}
         {(t.state?.brush_reveals?.length ?? 0) > 0 && (
           <button className="btn btn-ghost" style={btn} onClick={t.clearReveals} title="Hide everything again">
             🌫 Hide all ({t.state?.brush_reveals?.length})

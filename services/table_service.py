@@ -422,6 +422,7 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     darkness = 0.0
     title = ""
     weather: str | None = None
+    revealed_exits: list[str] = []
 
     join_qr_on = False
     if state is not None:
@@ -431,6 +432,11 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
         title = state.title
         weather = state.weather
         join_qr_on = bool(getattr(state, "join_qr_on", False))
+        revealed_exits = [
+            i.split(":", 1)[1]
+            for i in (state.revealed_region_ids or [])
+            if isinstance(i, str) and i.startswith("exit:")
+        ]
         tokens = [Token.model_validate(t) for t in (state.tokens or [])]
         if state.active_map_id is not None:
             battle_map = BattleMapRepo.get_by_id(db, state.active_map_id)
@@ -528,6 +534,7 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
         fog_on=fog_on,
         revealed_regions=revealed_regions,
         brush_reveals=brush_reveals,
+        revealed_exits=revealed_exits,
         tokens=tokens,
         darkness=darkness,
         title=title,

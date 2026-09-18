@@ -405,6 +405,22 @@ class TestProjectionSafety:
         assert by_id["o1"].model_url == "https://cdn.test/ogre.glb"
         assert proj.active_token_ref in (by_id["o1"].ref_id, by_id["o2"].ref_id)
 
+    def test_revealed_exits_come_through_as_keys(self, duckdb_session: Session):
+        """Plan 112 — an "exit:<key>" reveal names the exit on the projection and
+        never appears among the fog polygons."""
+        dm = _dm()
+        campaign, _adv, gs = _campaign_and_session(duckdb_session, dm)
+        battle_map = _make_map(duckdb_session, campaign.id, dm)
+        table_svc.update_table_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            TableStateUpdate(active_map_id=battle_map.id, revealed_region_ids=["exit:abode"]),
+        )
+        proj = table_svc.get_projection(duckdb_session, gs.id)
+        assert proj.revealed_exits == ["abode"]
+        assert proj.revealed_regions == []
+
     def test_glow_only_while_running(self, duckdb_session: Session):
         """active_token_ref resolves to the active PC only while combat runs."""
         dm = _dm()

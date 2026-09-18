@@ -170,6 +170,9 @@ class TableProjection(BaseModel):
     # NAMES are omitted so the map can't be scried ahead).
     revealed_regions: list[list[list[float]]] = PydField(default_factory=list)
     brush_reveals: list[dict[str, float]] = PydField(default_factory=list)
+    # Plan 112 — exits the DM has revealed ("exit:<key>" entries of
+    # revealed_region_ids, keys only). A hidden hatch stays unbuilt until named here.
+    revealed_exits: list[str] = PydField(default_factory=list)
     tokens: list[Token] = PydField(default_factory=list)
     darkness: float = 0.0
     title: str = ""

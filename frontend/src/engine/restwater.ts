@@ -109,7 +109,8 @@ export const RESTWATER: MapDef = {
     { u: 0.736, v: 0.684, rx: 0.124, ry: 0.088 },
   ],
   // The way down to Sorrel's abode: the back room's far corner.
-  exits: [{ u: C(10.5), v: R(10.5), label: "Down the ladder — Sorrel's abode", to: "abode", kind: "down" }],
+  // Hidden under abjuration until found (S7 notes); the HUD reveals it.
+  exits: [{ u: C(10.5), v: R(10.5), label: "Down the ladder — Sorrel's abode", to: "abode", kind: "down", hidden: true }],
   // the hall's fountain, and the well out by the pools
   basins: [
     { u: 0.293, v: 0.381, r: 0.55 },

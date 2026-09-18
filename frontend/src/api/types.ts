@@ -532,6 +532,8 @@ export interface TableProjection {
   fog_on: boolean;
   revealed_regions: number[][][];
   brush_reveals: BrushReveal[];
+  // Plan 112 — exits the DM has revealed, by key ("abode").
+  revealed_exits?: string[];
   tokens: TableToken[];
   darkness: number;
   title: string;

@@ -96,10 +96,20 @@ function Hatch({
   );
 }
 
-export function Exits({ map, onExit }: { map: MapDef; onExit: (label: string, to?: string) => void }) {
+export function Exits({
+  map,
+  onExit,
+  revealed,
+}: {
+  map: MapDef;
+  onExit: (label: string, to?: string) => void;
+  /** Keys of hidden exits the players have found; undefined shows everything (the spike). */
+  revealed?: string[];
+}) {
   return (
     <group>
       {map.exits?.map((e, i) => {
+        if (e.hidden && revealed && !revealed.includes(e.to ?? "")) return null;
         const [x, z] = toWorld(map, e.u, e.v);
         return <Hatch key={i} at={[x, z]} kind={e.kind ?? "down"} onClick={() => onExit(e.label, e.to)} />;
       })}

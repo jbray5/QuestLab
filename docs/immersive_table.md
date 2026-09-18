@@ -27,6 +27,7 @@ Everything comes from the HUD's **LIVE** and **MAPS** tabs:
 | A figure walks to a new spot | Drag its token on the LIVE map. Figures walk in a straight line; place tokens where they should *stand*. |
 | The camera glides to whoever's turn it is | Start the fight (**ROLL INIT**), then **END TURN**. It only follows a running fight. |
 | A ring under a figure glows | That's the active combatant. Grey ring = defeated. |
+| A hidden trapdoor appears | **🚪 Reveal …** under the LIVE map, on a map that has one (Restwater's hatch). **⬇ Take the party to …** then moves everyone through. |
 | The dark closes in and only revealed ground is lit | **☐ Fog** on the LIVE tab, then **👁 Reveal** and tap the map to open a circle. **Hide all** takes the reveals back. The party is always shown; foes and markers only where revealed. |
 | Weather in the air; the light dims | The weather preset and the 🌙 darkness slider (top right of the LIVE tab). |
 | A title lands over the table | The **🎬** box under the LIVE map — type, Enter. ✕ takes it down. |
@@ -78,10 +79,14 @@ right beside each other whatever their files say.
 1. HUD → **MAPS** → *Restwater*. Open **🏰 Immersive** on the TV. **+ Party** if the
    tokens aren't on this map yet; drag everyone to their starting spots.
 2. **ROLL INIT** starts the fight; the camera follows turns from then on.
-3. Down the ladder: **MAPS** → *Sorrel's abode*. The TV switches to the lair.
-   **+ Party** again (or **Regroup**) to line the party up on the new map, then
-   drag them where they climb down.
-4. Fog if you want it: **☐ Fog** on, **👁 Reveal** around the party as they go.
+3. The trapdoor is hidden — the TV shows no hatch until they find it. When they
+   do: **LIVE** → **🚪 Reveal the hatch to Sorrel's abode** (under the map, by Fog).
+   The hatch appears on the TV. Press it again to hide it.
+4. Down the ladder: **⬇ Take the party to Sorrel's abode** (appears once the
+   hatch is found). The table switches to the lair with the party standing at
+   the foot of the ladder; drag them from there. (**MAPS** → *Sorrel's abode*
+   still works, with **+ Party** or **Regroup** to line them up.)
+5. Fog if you want it: **☐ Fog** on, **👁 Reveal** around the party as they go.
 
 ## Honest limits, today
 

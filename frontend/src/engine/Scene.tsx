@@ -60,6 +60,7 @@ export function MapScene({
   weather = null,
   onFloorClick,
   onExit,
+  revealedExits,
   children,
 }: {
   map: MapDef;
@@ -74,6 +75,8 @@ export function MapScene({
   weather?: string | null;
   onFloorClick?: (p: THREE.Vector3) => void;
   onExit?: (label: string, to?: string) => void;
+  /** Hidden exits the players have found; leave undefined to show every exit. */
+  revealedExits?: string[];
   children?: ReactNode;
 }) {
   const day = map.light === "day";
@@ -133,7 +136,7 @@ export function MapScene({
       })}
       {furniture && <MapProps map={shown} />}
       {!!(shown.pools?.length || shown.basins?.length) && <Pools map={shown} />}
-      {!!shown.exits?.length && <Exits map={shown} onExit={onExit ?? (() => {})} />}
+      {!!shown.exits?.length && <Exits map={shown} onExit={onExit ?? (() => {})} revealed={revealedExits} />}
       <Weather map={map} kind={weather} />
       {grid && <GridOverlay map={map} />}
       {target && <CellMarker at={target} />}

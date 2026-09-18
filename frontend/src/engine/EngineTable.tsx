@@ -298,7 +298,7 @@ export default function EngineTable() {
       >
         <SceneBoundary onError={(e) => setErr(e.message)}>
           <Suspense fallback={null}>
-            <MapScene map={map} grid={grid} darkness={data.darkness} fog={fog} weather={data.weather} onFloorClick={onFloorClick}>
+            <MapScene map={map} grid={grid} darkness={data.darkness} fog={fog} weather={data.weather} onFloorClick={onFloorClick} revealedExits={data.revealed_exits ?? []}>
               <Party map={map} projection={data} fog={fog} fx={fx} onFxDone={dropFx} labels={labels} />
               {pings.map((p) => (
                 <Ping key={p.id} at={p.at} onDone={() => dropPing(p.id)} />

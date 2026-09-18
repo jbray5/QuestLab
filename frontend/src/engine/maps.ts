@@ -78,7 +78,8 @@ export interface MapDef {
   /** Stone basins with water in them — a fountain, a well. Radius in cells. */
   basins?: { u: number; v: number; r: number }[];
   /** Ways off this map: a trapdoor and ladder down, a ladder up. `to` names another map, once it exists. */
-  exits?: { u: number; v: number; label: string; to?: string; kind?: "down" | "up" }[];
+  /** Ways out. A `hidden` exit is not built until the table says the players found it. */
+  exits?: { u: number; v: number; label: string; to?: string; kind?: "down" | "up"; hidden?: boolean }[];
   /** Where the camera looks first, and where it stands relative to that. */
   look: [number, number];
   eye: [number, number, number];
