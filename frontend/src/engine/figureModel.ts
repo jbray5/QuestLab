@@ -63,9 +63,81 @@ export function canonicalClip(name: string): ClipName | null {
   return null;
 }
 
-/** A bone's name with the rig prefix off, so rigs match up: `mixamorig:LeftArm` → `leftarm`. */
+/**
+ * Other skeletons the table knows, named as the Mixamo bones they stand for:
+ * Daz's Genesis 9 (`l_upperarm`) and Genesis 8 (`lShldrBend`). Twist and
+ * metacarpal bones have no Mixamo counterpart and stay at rest, which is fine.
+ */
+const ALIASES_BY_SIDE: [string, string][] = [
+  // Genesis 9
+  ["hip", "hips"],
+  ["spine1", "spine"],
+  ["spine2", "spine1"],
+  ["spine3", "spine2"],
+  ["neck1", "neck"],
+  ["l_shoulder", "leftshoulder"],
+  ["l_upperarm", "leftarm"],
+  ["l_forearm", "leftforearm"],
+  ["l_hand", "lefthand"],
+  ["l_thigh", "leftupleg"],
+  ["l_shin", "leftleg"],
+  ["l_foot", "leftfoot"],
+  ["l_toes", "lefttoebase"],
+  ["l_thumb1", "lefthandthumb1"],
+  ["l_thumb2", "lefthandthumb2"],
+  ["l_thumb3", "lefthandthumb3"],
+  ["l_index1", "lefthandindex1"],
+  ["l_index2", "lefthandindex2"],
+  ["l_index3", "lefthandindex3"],
+  ["l_mid1", "lefthandmiddle1"],
+  ["l_mid2", "lefthandmiddle2"],
+  ["l_mid3", "lefthandmiddle3"],
+  ["l_ring1", "lefthandring1"],
+  ["l_ring2", "lefthandring2"],
+  ["l_ring3", "lefthandring3"],
+  ["l_pinky1", "lefthandpinky1"],
+  ["l_pinky2", "lefthandpinky2"],
+  ["l_pinky3", "lefthandpinky3"],
+  // Genesis 8
+  ["abdomenlower", "spine"],
+  ["abdomenupper", "spine1"],
+  ["chestlower", "spine2"],
+  ["necklower", "neck"],
+  ["lcollar", "leftshoulder"],
+  ["lshldrbend", "leftarm"],
+  ["lforearmbend", "leftforearm"],
+  ["lhand", "lefthand"],
+  ["lthighbend", "leftupleg"],
+  ["lshin", "leftleg"],
+  ["lfoot", "leftfoot"],
+  ["ltoe", "lefttoebase"],
+  ["lthumb1", "lefthandthumb1"],
+  ["lthumb2", "lefthandthumb2"],
+  ["lthumb3", "lefthandthumb3"],
+  ["lindex1", "lefthandindex1"],
+  ["lindex2", "lefthandindex2"],
+  ["lindex3", "lefthandindex3"],
+  ["lmid1", "lefthandmiddle1"],
+  ["lmid2", "lefthandmiddle2"],
+  ["lmid3", "lefthandmiddle3"],
+  ["lring1", "lefthandring1"],
+  ["lring2", "lefthandring2"],
+  ["lring3", "lefthandring3"],
+  ["lpinky1", "lefthandpinky1"],
+  ["lpinky2", "lefthandpinky2"],
+  ["lpinky3", "lefthandpinky3"],
+];
+const BONE_ALIAS: Record<string, string> = {};
+for (const [from, to] of ALIASES_BY_SIDE) {
+  BONE_ALIAS[from] = to;
+  if (from.startsWith("l_")) BONE_ALIAS[`r_${from.slice(2)}`] = to.replace("left", "right");
+  else if (from.startsWith("l") && to.startsWith("left")) BONE_ALIAS[`r${from.slice(1)}`] = to.replace("left", "right");
+}
+
+/** A bone's name with the rig prefix off and other rigs' names translated, so rigs match up: `mixamorig:LeftArm` and `l_upperarm` → `leftarm`. */
 function boneKey(name: string): string {
-  return name.replace(/^mixamorig:?/i, "").toLowerCase();
+  const bare = name.replace(/^mixamorig:?/i, "").toLowerCase();
+  return BONE_ALIAS[bare] ?? bare;
 }
 
 function findBone(root: THREE.Object3D, key: string): THREE.Object3D | null {
@@ -162,6 +234,17 @@ function readRig(root: THREE.Object3D, tpose: THREE.AnimationClip | null): Rig {
 }
 
 /**
+ * The child bone that gives a bone its line, present in both rigs: the hand
+ * prefers its middle finger, everything else takes the first child both
+ * skeletons have. Null for a bone whose children the other rig lacks.
+ */
+function limbChild(tb: RestBone, target: Rig, other: Rig): string | null {
+  const keys = tb.bone.children.map((c) => boneKey(c.name)).filter((k) => target.byKey.has(k) && other.byKey.has(k));
+  if (!keys.length) return null;
+  return keys.find((k) => k.endsWith("handmiddle1")) ?? keys[0];
+}
+
+/**
  * One clip, baked onto another rig: the source is posed at 30 fps and each
  * bone's world-space change from rest — turned into the target's facing — is
  * applied to the target bone's rest and written back as its local rotation.
@@ -182,6 +265,24 @@ function bakeClip(lib: LibraryClip, target: Rig, name: string): THREE.AnimationC
   const times = new Float32Array(n);
   const mapped = target.bones.filter((tb) => rig.byKey.has(tb.key));
   const quat = new Map<string, Float32Array>(mapped.map((tb) => [tb.key, new Float32Array(n * 4)]));
+  // The two rigs need not share a rest pose (Mixamo T-pose, Daz A-pose): each
+  // target bone is first turned so its rest limb lies along the source's rest
+  // limb, then the source's motion is applied. End bones borrow their parent's turn.
+  const align = new Map<string, THREE.Quaternion>();
+  const dirT = new THREE.Vector3();
+  const dirS = new THREE.Vector3();
+  for (const tb of mapped) {
+    const sb = rig.byKey.get(tb.key)!;
+    let a: THREE.Quaternion | null = null;
+    const shared = limbChild(tb, target, rig);
+    if (shared) {
+      dirT.copy(target.byKey.get(shared)!.p).sub(tb.p);
+      dirS.copy(rig.byKey.get(shared)!.p).sub(sb.p).applyQuaternion(turn);
+      if (dirT.lengthSq() > 1e-8 && dirS.lengthSq() > 1e-8) a = new THREE.Quaternion().setFromUnitVectors(dirT.normalize(), dirS.normalize());
+    }
+    if (!a && tb.parentKey && align.has(tb.parentKey)) a = align.get(tb.parentKey)!.clone();
+    align.set(tb.key, a ?? new THREE.Quaternion());
+  }
   const hipsPos = new Float32Array(n * 3);
   const hips = target.byKey.get("hips");
 
@@ -205,7 +306,7 @@ function bakeClip(lib: LibraryClip, target: Rig, name: string): THREE.AnimationC
       restInv.copy(sb.q).invert();
       // The source bone's change from its rest, in world space, turned to face the target's way.
       d.copy(turn).multiply(wq).multiply(restInv).multiply(turnBack);
-      desired.copy(d).multiply(tb.q);
+      desired.copy(d).multiply(align.get(tb.key)!).multiply(tb.q);
       world.get(tb.key)!.copy(desired);
       const parentWorld = tb.parentKey && world.has(tb.parentKey) ? world.get(tb.parentKey)! : tb.parentQ;
       local.copy(parentWorld).invert().multiply(desired);
@@ -277,7 +378,7 @@ export function useClipLibrary(): LibraryClip[] {
 
 /** What the DM's preview reports about a file. */
 export interface FigureInfo {
-  rig: "mixamo" | "humanoid" | "none";
+  rig: "mixamo" | "genesis" | "humanoid" | "none";
   /** The model's height as authored, in its own units (metres, usually). */
   rawHeight: number;
   ownClips: ClipName[];
@@ -293,7 +394,7 @@ export function analyzeFigure(gltf: GltfLike): FigureInfo {
   const box = new THREE.Box3().setFromObject(gltf.scene);
   const own = gltf.animations.map((c) => canonicalClip(c.name)).filter((n): n is ClipName => !!n);
   return {
-    rig: !hips ? "none" : /^mixamorig/i.test(hips.name) ? "mixamo" : "humanoid",
+    rig: !hips ? "none" : /^mixamorig/i.test(hips.name) ? "mixamo" : /^hip$/i.test(hips.name) ? "genesis" : "humanoid",
     rawHeight: box.isEmpty() ? 0 : box.max.y - box.min.y,
     ownClips: Array.from(new Set(own)),
     bones,

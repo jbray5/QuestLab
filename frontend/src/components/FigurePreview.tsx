@@ -32,8 +32,10 @@ export default function FigurePreview({ url, heightFt }: { url: string; heightFt
   const rig =
     info.rig === "mixamo"
       ? "Mixamo rig — the table's walk, hit and fall apply"
-      : info.rig === "humanoid"
-        ? "Humanoid rig — the table's clips will try to bind by bone name"
+      : info.rig === "genesis"
+        ? "Daz Genesis rig — the table's walk, hit and fall apply"
+        : info.rig === "humanoid"
+          ? "Humanoid rig — the table's clips will try to bind by bone name"
         : "No humanoid rig — it will stand still";
   const clips = info.ownClips.length ? `own clips: ${info.ownClips.join(", ")}` : "no clips of its own";
   return (
