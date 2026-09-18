@@ -180,6 +180,8 @@ interface RestBone {
   p: THREE.Vector3;
   parentQ: THREE.Quaternion;
   parentInverse: THREE.Matrix4;
+  /** Local rest rotation — what an unmapped bone keeps while its mapped ancestor moves. */
+  localQ: THREE.Quaternion;
 }
 
 /** A rig read in its rest pose: every bone's world transform, its facing, its hips height. */
@@ -219,6 +221,7 @@ function readRig(root: THREE.Object3D, tpose: THREE.AnimationClip | null): Rig {
       p: o.getWorldPosition(new THREE.Vector3()),
       parentQ: parent ? parent.getWorldQuaternion(new THREE.Quaternion()) : new THREE.Quaternion(),
       parentInverse: parent ? parent.matrixWorld.clone().invert() : new THREE.Matrix4(),
+      localQ: o.quaternion.clone(),
     };
     bones.push(rb);
     byKey.set(key, rb);
@@ -271,10 +274,26 @@ function bakeClip(lib: LibraryClip, target: Rig, name: string): THREE.AnimationC
   const align = new Map<string, THREE.Quaternion>();
   const dirT = new THREE.Vector3();
   const dirS = new THREE.Vector3();
+  // A bone's parent in the bake is its nearest ancestor the source also has; the
+  // unmapped bones between (Daz's pelvis, spine4, neck2, metacarpals) keep their
+  // rest rotation, so that chain is folded into the parent's orientation each frame.
+  const mappedKeys = new Set(mapped.map((tb) => tb.key));
+  const ancestor = new Map<string, { key: string | null; chain: THREE.Quaternion }>();
+  for (const tb of mapped) {
+    const chain = new THREE.Quaternion();
+    let k = tb.parentKey;
+    const between: THREE.Quaternion[] = [];
+    while (k && !mappedKeys.has(k)) {
+      between.unshift(target.byKey.get(k)!.localQ);
+      k = target.byKey.get(k)!.parentKey;
+    }
+    for (const q of between) chain.multiply(q);
+    ancestor.set(tb.key, { key: k, chain });
+  }
   for (const tb of mapped) {
     const sb = rig.byKey.get(tb.key)!;
     let a: THREE.Quaternion | null = null;
-    const shared = limbChild(tb, target, rig);
+    const shared = tb.key === "hips" ? null : limbChild(tb, target, rig);
     if (shared) {
       dirT.copy(target.byKey.get(shared)!.p).sub(tb.p);
       dirS.copy(rig.byKey.get(shared)!.p).sub(sb.p).applyQuaternion(turn);
@@ -291,6 +310,7 @@ function bakeClip(lib: LibraryClip, target: Rig, name: string): THREE.AnimationC
   const d = new THREE.Quaternion();
   const desired = new THREE.Quaternion();
   const local = new THREE.Quaternion();
+  const parentWorldQ = new THREE.Quaternion();
   const world = new Map<string, THREE.Quaternion>(mapped.map((tb) => [tb.key, new THREE.Quaternion()]));
   const wp = new THREE.Vector3();
   const pw = new THREE.Vector3();
@@ -308,8 +328,10 @@ function bakeClip(lib: LibraryClip, target: Rig, name: string): THREE.AnimationC
       d.copy(turn).multiply(wq).multiply(restInv).multiply(turnBack);
       desired.copy(d).multiply(align.get(tb.key)!).multiply(tb.q);
       world.get(tb.key)!.copy(desired);
-      const parentWorld = tb.parentKey && world.has(tb.parentKey) ? world.get(tb.parentKey)! : tb.parentQ;
-      local.copy(parentWorld).invert().multiply(desired);
+      const anc = ancestor.get(tb.key)!;
+      if (anc.key) parentWorldQ.copy(world.get(anc.key)!).multiply(anc.chain);
+      else parentWorldQ.copy(tb.parentQ);
+      local.copy(parentWorldQ).invert().multiply(desired);
       const out = quat.get(tb.key)!;
       out[i * 4] = local.x;
       out[i * 4 + 1] = local.y;
