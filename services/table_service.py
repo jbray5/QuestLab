@@ -9,6 +9,7 @@ Two audiences:
   HP, initiative, DM notes, or the names of unrevealed regions.
 """
 
+import re
 import uuid
 from typing import Optional
 
@@ -303,6 +304,54 @@ def height_ft_for_size(size: CreatureSize | str | None) -> float:
         return _SIZE_HEIGHT_FT[CreatureSize.MEDIUM]
 
 
+def _stem(name: str | None) -> str:
+    """A name reduced to what two spellings of the same creature share.
+
+    ``"Cultist 1"`` and a token labelled ``"Cultist"`` both become ``cultist``;
+    ``"Mira (ally, Large)"`` and ``"Mira (ally) - Large"`` both ``miraallylarge``.
+
+    Args:
+        name: A combatant name or a token label.
+
+    Returns:
+        Lower-case alphanumerics with any trailing number dropped.
+    """
+    flat = re.sub(r"[^a-z0-9]+", "", (name or "").lower())
+    return re.sub(r"\d+$", "", flat) or flat
+
+
+def _relink_tokens(tokens: list[Token], combatants: list) -> None:
+    """Point orphaned foe tokens at the combatants they were made from.
+
+    Rolling initiative replaces the roster, and every row gets a new id — but
+    the tokens the DM placed still carry the old ones, so glow, hits and
+    figures all miss. A token whose reference no longer exists is matched
+    to a live combatant by name instead ("Cultist" → "Cultist 1", the next
+    such token → "Cultist 2"), and its reference is rewritten for this
+    projection. PC tokens reference character ids, which never change.
+
+    Args:
+        tokens: The session's tokens, mutated in place.
+        combatants: The live SessionCombatant rows.
+    """
+    by_id = {str(c.id) for c in combatants}
+    by_stem: dict[str, list] = {}
+    for c in combatants:
+        if not c.character_id:
+            by_stem.setdefault(_stem(c.name), []).append(c)
+    used: set[str] = set()
+    for token in tokens:
+        if token.kind == "pc" or not token.ref_id:
+            continue
+        if token.ref_id in by_id:
+            used.add(token.ref_id)
+            continue
+        candidates = [c for c in by_stem.get(_stem(token.label), []) if str(c.id) not in used]
+        if candidates:
+            token.ref_id = str(candidates[0].id)
+            used.add(token.ref_id)
+
+
 def _resolve_figures(
     db: DBSession, tokens: list[Token], combatant_monster: dict[str, uuid.UUID | None]
 ) -> None:
@@ -333,7 +382,7 @@ def _resolve_figures(
             if pc is not None:
                 token.model_url = pc.model_url
                 token.model_height_ft = height_ft_for_race(pc.race)
-        elif token.kind == "monster":
+        elif token.kind in ("monster", "custom"):
             monster_id = combatant_monster.get(token.ref_id)
             if monster_id is None:
                 continue
@@ -419,7 +468,9 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     initiative: list[InitiativeEntry] = []
     combat_round = int(getattr(game_session, "combat_round", 0) or 0) if game_session else 0
     combatant_monster: dict[str, uuid.UUID | None] = {}
-    for c in SessionCombatantRepo.list_for_session(db, session_id):
+    combatants = SessionCombatantRepo.list_for_session(db, session_id)
+    _relink_tokens(tokens, combatants)
+    for c in combatants:
         ref = str(c.character_id) if c.character_id else str(c.id)
         combatant_monster[str(c.id)] = c.monster_id
         if combat_running and c.defeated:

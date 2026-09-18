@@ -334,6 +334,77 @@ class TestProjectionSafety:
         blob = proj.model_dump_json()
         assert "dm_note" not in blob and "hp_average" not in blob
 
+    def test_orphaned_foe_tokens_relink_by_name(self, duckdb_session: Session):
+        """Rolling initiative gives combatants new ids; tokens made before that
+        still find their combatant by name, so glow and the figure follow."""
+        dm = _dm()
+        campaign, _adv, gs = _campaign_and_session(duckdb_session, dm)
+        ogre = MonsterRepo.create(
+            duckdb_session,
+            MonsterStatBlockCreate(
+                name="Ogre",
+                size=CreatureSize.LARGE,
+                creature_type=CreatureType.GIANT,
+                ac=11,
+                hp_average=59,
+                hp_formula="7d10+21",
+                score_str=19,
+                score_dex=8,
+                score_con=16,
+                score_int=5,
+                score_wis=7,
+                score_cha=7,
+                challenge_rating="2",
+                xp=450,
+                proficiency_bonus=2,
+                model_url="https://cdn.test/ogre.glb",
+            ),
+        )
+
+        def roster(active_first: bool):
+            return SessionCombatStateWrite(
+                combat_state="running",
+                combatants=[
+                    SessionCombatantCreate(
+                        sort_index=i,
+                        name=f"Ogre {i + 1}",
+                        dex_score=8,
+                        initiative_roll=10 - i,
+                        hp_current=59,
+                        hp_max=59,
+                        type="monster",
+                        monster_id=ogre.id,
+                    )
+                    for i in range(2)
+                ],
+            )
+
+        first = sess_svc.save_combat_state(duckdb_session, gs.id, dm, roster(True))
+        old_ids = [str(c.id) for c in first.combatants]
+        battle_map = _make_map(duckdb_session, campaign.id, dm)
+        table_svc.update_table_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            TableStateUpdate(
+                active_map_id=battle_map.id,
+                tokens=[
+                    Token(id="o1", kind="monster", ref_id=old_ids[0], label="Ogre", size=2),
+                    Token(id="o2", kind="monster", ref_id=old_ids[1], label="Ogre", size=2),
+                ],
+            ),
+        )
+        # Initiative re-rolled: every row is new, the tokens are orphans.
+        second = sess_svc.save_combat_state(duckdb_session, gs.id, dm, roster(True))
+        new_ids = [str(c.id) for c in second.combatants]
+        assert set(new_ids).isdisjoint(old_ids)
+
+        proj = table_svc.get_projection(duckdb_session, gs.id)
+        by_id = {t.id: t for t in proj.tokens}
+        assert {by_id["o1"].ref_id, by_id["o2"].ref_id} == set(new_ids)
+        assert by_id["o1"].model_url == "https://cdn.test/ogre.glb"
+        assert proj.active_token_ref in (by_id["o1"].ref_id, by_id["o2"].ref_id)
+
     def test_glow_only_while_running(self, duckdb_session: Session):
         """active_token_ref resolves to the active PC only while combat runs."""
         dm = _dm()
