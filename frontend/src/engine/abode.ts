@@ -96,7 +96,7 @@ export const ABODE: MapDef = {
   ],
   exits: [{ u: C(3.5), v: R(3.8), label: "Up the ladder — the bathhouse", to: "restwater", kind: "up" }],
   look: [C(8), R(6)],
-  eye: [1.4, 3.2, 5.4],
+  eye: [1.1, 5.6, 4.2],
   looks: {
     letters: { at: [C(5.2), R(6.6)], eye: [0.9, 1.8, 2.6] },
     fire: { at: [C(8.6), R(6.2)], eye: [-1.2, 2.0, 3.4] },

@@ -12,8 +12,9 @@ import * as THREE from "three";
  * turn"); `follow` false holds the camera wherever the DM left it.
  */
 const GLIDE_S = 1.2;
-const DISTANCE = 7.5;
-const HEIGHT = 3.6;
+// ~50° down: steep enough to see over the room's walls, low enough to read a face.
+const DISTANCE = 5.2;
+const HEIGHT = 6.2;
 
 export function Director({
   at,
