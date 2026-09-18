@@ -1,3 +1,4 @@
+import { Environment } from "@react-three/drei";
 import { type ReactNode, useMemo } from "react";
 import * as THREE from "three";
 
@@ -85,6 +86,8 @@ export function MapScene({
   return (
     <>
       <color attach="background" args={[bg]} />
+      {/* Plan 112 — image-based light: a dim night sky under the torches, a dawn for day maps, so leather, plate and skin reflect a room rather than a void. */}
+      <Environment preset={day ? "dawn" : "night"} environmentIntensity={(day ? (overcast ? 0.35 : 0.55) : 0.28) * dim} />
       <fogExp2 attach="fog" args={[bg, map.fog ?? (day ? (overcast ? 0.02 : 0.012) : 0.03)]} />
       {day ? (
         <>

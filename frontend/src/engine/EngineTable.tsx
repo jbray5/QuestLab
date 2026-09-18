@@ -1,6 +1,5 @@
 import { OrbitControls, useProgress } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { useQuery } from "@tanstack/react-query";
 import { Component, type ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CameraKeys } from "./Controls";
@@ -17,6 +16,7 @@ import { buildFog } from "./fogOfWar";
 import { Ping, TitleCard } from "./Fx";
 import { toWorld } from "./maps";
 import { type HitFx, Party } from "./Party";
+import { Post } from "./Post";
 import { MapScene } from "./Scene";
 import { figures, pixelToCell, resolveMap } from "./session";
 
@@ -154,6 +154,7 @@ export default function EngineTable() {
   const [hud, setHud] = useState(true);
   const [peek, setPeek] = useState(false);
   const [labels, setLabels] = useState(true);
+  const [cinema, setCinema] = useState(true);
   const [help, setHelp] = useState(false);
   const [homeNonce, setHomeNonce] = useState(0);
   const [focus, setFocus] = useState<{ at: THREE.Vector3; nonce: number } | null>(null);
@@ -254,6 +255,9 @@ export default function EngineTable() {
         <button disabled={!active} onClick={() => setFrameNonce((n) => n + 1)} title={active ? `Look at ${active.label}` : "Nobody's turn yet"}>
           Frame the turn
         </button>
+        <button className={cinema ? "on" : ""} onClick={() => setCinema((v) => !v)} title="Depth of field on whoever is framed">
+          Cinema
+        </button>
         <button className={help ? "on" : ""} onClick={() => setHelp((v) => !v)} title="The keys (F1)">
           ?
         </button>
@@ -285,7 +289,7 @@ export default function EngineTable() {
         key={map.id}
         shadows={{ type: THREE.PCFShadowMap }}
         dpr={[1, 1.5]}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        gl={{ antialias: false, powerPreference: "high-performance" }}
         camera={{ fov: 42, near: 0.1, far: 260, position: eye }}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
@@ -313,10 +317,7 @@ export default function EngineTable() {
         />
         <CameraKeys home={{ eye, look }} homeNonce={homeNonce} />
         <Director at={active?.cell ?? null} nonce={frameNonce} follow={follow} focus={focus} />
-        <EffectComposer multisampling={4}>
-          <Bloom luminanceThreshold={1} mipmapBlur intensity={0.85} radius={0.7} />
-          <Vignette eskil={false} offset={0.22} darkness={0.8} />
-        </EffectComposer>
+        <Post cinema={cinema} focus={focus ? [focus.at.x, 0.9, focus.at.z] : active ? [active.cell.x, 1.0, active.cell.z] : null} />
       </Canvas>
     </div>
   );

@@ -1,6 +1,5 @@
 import { OrbitControls, useProgress } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Component, type ReactNode, Suspense, useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 
@@ -10,6 +9,7 @@ import { DEFAULT_HEIGHT_FT } from "./heights";
 import { lintMap } from "./lint";
 import { snapToCell, toWorld } from "./maps";
 import { MAPS } from "./registry";
+import { Post } from "./Post";
 import { MapScene } from "./Scene";
 import { Walker } from "./Walker";
 
@@ -208,7 +208,7 @@ export default function ImmersiveSpike() {
         key={map.id}
         shadows={{ type: THREE.PCFShadowMap }}
         dpr={[1, 1.5]}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
+        gl={{ antialias: false, powerPreference: "high-performance" }}
         camera={{ fov: 42, near: 0.1, far: 220, position: eye }}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
@@ -240,10 +240,7 @@ export default function ImmersiveSpike() {
           makeDefault
         />
         <CameraKeys home={{ eye, look }} homeNonce={0} />
-        <EffectComposer multisampling={4}>
-          <Bloom luminanceThreshold={1} mipmapBlur intensity={0.85} radius={0.7} />
-          <Vignette eskil={false} offset={0.22} darkness={0.8} />
-        </EffectComposer>
+        <Post focus={zoom ? [start.x, 1.0, start.z] : null} />
       </Canvas>
     </div>
   );
