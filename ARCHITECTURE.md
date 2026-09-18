@@ -118,7 +118,7 @@ React SPA. Zustand state, shadcn/ui, dark fantasy theme. See [`docs/react_migrat
 [`frontend/src/engine/`](frontend/src/engine/) is the immersive table (Plans 107–111): a second renderer of the same table projection, alongside the 2D board. `maps.ts`/`registry.ts` hold scene data per map, `lint.ts` the sanity check, `Scene.tsx` the room, `fogOfWar.ts`/`Weather.tsx`/`Director.tsx`/`Fx.tsx` the atmosphere, `figureModel.ts` + `Walker.tsx` the figures — any Mixamo-rigged `.glb` on a PC or monster (`model_url`), with one shared clip library baked onto each rig in world space. Routes: `/table/:sessionId/engine` (live) and `/engine/spike` (a map on its own). [`tools/figures/`](tools/figures/) packs Character Creator / Mixamo exports for it.
 
 ### Docs ([`docs/`](docs/))
-[`STACK.md`](docs/STACK.md), [`SECURITY.md`](docs/SECURITY.md), [`TESTING.md`](docs/TESTING.md), [`QUALITY.md`](docs/QUALITY.md), [`data_dictionary.md`](docs/data_dictionary.md), [`deployment.md`](docs/deployment.md), [`react_migration.md`](docs/react_migration.md).
+[`STACK.md`](docs/STACK.md), [`SECURITY.md`](docs/SECURITY.md), [`TESTING.md`](docs/TESTING.md), [`QUALITY.md`](docs/QUALITY.md), [`data_dictionary.md`](docs/data_dictionary.md), [`deployment.md`](docs/deployment.md), [`react_migration.md`](docs/react_migration.md), [`immersive_table.md`](docs/immersive_table.md) (the DM/player guide to the 3D table).
 
 ### Plans ([`plans/`](plans/))
 ExecPlans, numbered `NNNNN-*.md`. Spec is [`.agent/plans.md`](.agent/plans.md). New plans → `/new-plan <desc>`.
