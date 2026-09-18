@@ -21,21 +21,33 @@ import { usePbr } from "./materials";
  */
 const FADED = 0.16;
 const _cam = new THREE.Vector3();
-/** Does the segment (a→b, on the floor) cross the line of sight from the camera to the target, ahead of the camera and short of the target? */
+/** Does the wall (a→b, on the floor) cross the line of sight from the camera to the target — ahead of the camera, short of the target? */
 function inTheWay(cam: THREE.Vector3, tgt: THREE.Vector3, ax: number, az: number, bx: number, bz: number): boolean {
   const dx = tgt.x - cam.x;
   const dz = tgt.z - cam.z;
   const len = Math.hypot(dx, dz);
   if (len < 0.5) return false;
+  // Segment intersection in the floor plane: sight = cam + t·d, wall = a + u·e.
+  const ex = bx - ax;
+  const ez = bz - az;
+  const den = dx * ez - dz * ex;
+  if (Math.abs(den) > 1e-6) {
+    const wx = ax - cam.x;
+    const wz = az - cam.z;
+    const t = (wx * ez - wz * ex) / den;
+    const u = (wx * dz - wz * dx) / den;
+    // Within the wall, and between a stride past the camera and just short of the target.
+    if (u >= -0.05 && u <= 1.05 && t * len > 0.3 && t * len < len - 0.45) return true;
+  }
+  // No crossing: the wall's ends brushing the sight line still hide the shoulder.
   const ux = dx / len;
   const uz = dz / len;
-  // Sample the wall at its ends and middle: any sample within a stride of the sight line, between camera and target, is in the way.
-  for (const k of [0, 0.5, 1]) {
-    const px = ax + (bx - ax) * k - cam.x;
-    const pz = az + (bz - az) * k - cam.z;
+  for (const [px0, pz0] of [[ax, az], [bx, bz]]) {
+    const px = px0 - cam.x;
+    const pz = pz0 - cam.z;
     const along = px * ux + pz * uz;
     const across = Math.abs(px * uz - pz * ux);
-    if (along > 0.3 && along < len - 0.6 && across < 1.1) return true;
+    if (along > 0.3 && along < len - 0.45 && across < 0.55) return true;
   }
   return false;
 }

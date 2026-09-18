@@ -110,6 +110,9 @@ export default function EngineTable() {
     queryFn: () => tableApi.getProjection(sessionId as string),
     enabled: !!sessionId,
     refetchOnWindowFocus: true,
+    // A safety net under the event stream: a dropped connection must not freeze the TV mid-fight.
+    refetchInterval: 8000,
+    refetchIntervalInBackground: true,
   });
   const refetchRef = useRef(refetch);
   useEffect(() => {
