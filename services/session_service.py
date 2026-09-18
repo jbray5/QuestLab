@@ -937,12 +937,33 @@ def update_combatant(
     # token, a KO gets its beat. Deltas only — the payload never carries
     # totals. Token link = character_id (PCs) or the combatant row id.
     fx_ref = updated.character_id or updated.id
+    # Plan 113 — the strike: in a running fight, whoever's turn it is dealt this.
+    from_ref = None
+    attacker_id = getattr(game_session, "combat_active_combatant_id", None)
+    if attacker_id and attacker_id != updated.id and game_session.combat_state == "running":
+        attacker = SessionCombatantRepo.get_by_id(db, attacker_id)
+        if attacker is not None and attacker.session_id == session_id:
+            from_ref = attacker.character_id or attacker.id
     if update.hp_current is not None and hp_before is not None:
         delta = update.hp_current - hp_before
         if delta < 0:
-            publish_table_fx(session_id, "damage", fx_ref, amount=-delta)
+            publish_table_fx(
+                session_id,
+                "damage",
+                fx_ref,
+                amount=-delta,
+                from_ref=from_ref,
+                flavor=update.hit_flavor,
+            )
         elif delta > 0:
-            publish_table_fx(session_id, "heal", fx_ref, amount=delta)
+            publish_table_fx(
+                session_id,
+                "heal",
+                fx_ref,
+                amount=delta,
+                from_ref=from_ref,
+                flavor=update.hit_flavor,
+            )
     if update.defeated is True and not was_defeated:
         publish_table_fx(session_id, "ko", fx_ref)
     adventure = AdventureRepo.get_by_id(db, game_session.adventure_id)

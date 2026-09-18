@@ -248,6 +248,8 @@ def publish_table_fx(
     kind: str,
     ref_id: Any,
     amount: int | None = None,
+    from_ref: Any = None,
+    flavor: str | None = None,
 ) -> None:
     """Publish a combat-cinema effect to the table topic (Plan 61).
 
@@ -260,6 +262,9 @@ def publish_table_fx(
         kind: "damage" | "heal" | "ko".
         ref_id: Token link — a character_id or session_combatant id.
         amount: Magnitude of the change (absolute value), if numeric.
+        from_ref: Token link of whoever dealt it (Plan 113) — the active
+            combatant when a fight is running — so the table can play the strike.
+        flavor: The kind of hit ("weapon", "fire", "cold" …) for its colour.
     """
     payload: Event = {
         "type": "table.fx",
@@ -269,6 +274,10 @@ def publish_table_fx(
     }
     if amount is not None:
         payload["amount"] = int(amount)
+    if from_ref is not None:
+        payload["from_ref"] = str(from_ref)
+    if flavor:
+        payload["flavor"] = str(flavor)
     event_bus.publish(f"table:{session_id}", payload)
 
 

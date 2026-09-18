@@ -47,7 +47,9 @@ import SessionNotesEditor from "../components/dm/SessionNotesEditor";
 import { tableApi } from "../api/table";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import MonsterStatBlock from "../components/MonsterStatBlock";
+import { FLAVORS } from "../engine/strikes";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
+import { useStrikeStore } from "../stores/useStrikeStore";
 import CombatBeatsPanel from "../components/combat-beats/CombatBeatsPanel";
 import type {
   Combatant,
@@ -739,6 +741,9 @@ export default function SessionHud() {
   const storeActiveId = useInitiativeStore((s) => s.activeCombatantId);
   const replaceFromRoll = useInitiativeStore((s) => s.replaceFromRoll);
   const patchPersistedCombatant = useInitiativeStore((s) => s.patchCombatant);
+  // Plan 113 — what the next hit is, for the table's strike effect.
+  const hitFlavor = useStrikeStore((s) => s.flavor);
+  const setHitFlavor = useStrikeStore((s) => s.setFlavor);
   const advanceTurn = useInitiativeStore((s) => s.nextTurn);
   const rewindTurn = useInitiativeStore((s) => s.prevTurn);
   const resetCombat = useInitiativeStore((s) => s.reset);
@@ -1006,7 +1011,9 @@ export default function SessionHud() {
     const target = persistedCombatants.find((c) => c.id === id);
     if (!target) return;
     const clamped = Math.min(target.hp_max, Math.max(0, newHp));
-    void patchPersistedCombatant(id, { hp_current: clamped });
+    // The table plays a strike from whoever's turn it is: this hit's kind rides along.
+    const hit_flavor = clamped < (target.hp_current ?? clamped) ? hitFlavor : "heal";
+    void patchPersistedCombatant(id, { hp_current: clamped, hit_flavor });
     // If this is a PC, also persist to the canonical character record.
     if (target.character_id) saveHp(target.character_id, clamped);
     else {
@@ -1658,6 +1665,22 @@ export default function SessionHud() {
               )}
             </div>
           </div>
+          {combatActive && (
+            <div className="flex" style={{ gap: "0.25rem", flexWrap: "wrap", alignItems: "center", marginTop: "0.3rem" }} title="What the next damage is — the immersive table plays the strike in this colour">
+              <span style={{ fontSize: "0.6rem", color: "var(--muted)", letterSpacing: "0.06em", marginRight: "0.15rem" }}>NEXT HIT</span>
+              {FLAVORS.filter((f) => f.key !== "heal").map((f) => (
+                <button
+                  key={f.key}
+                  className={hitFlavor === f.key ? "btn btn-primary" : "btn btn-ghost"}
+                  style={{ fontSize: "0.62rem", padding: "0.05rem 0.4rem", borderColor: hitFlavor === f.key ? f.color : undefined }}
+                  onClick={() => setHitFlavor(f.key)}
+                  title={`The next damage plays as ${f.label}`}
+                >
+                  {f.emoji} {f.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {(addOpen || tableRollOpen) && (
             <div

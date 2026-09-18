@@ -33,11 +33,19 @@ Everything comes from the HUD's **LIVE** and **MAPS** tabs:
 | A title lands over the table | The **🎬** box under the LIVE map — type, Enter. ✕ takes it down. |
 | A ripple on the floor | **◎ Ping** and tap the map. |
 | A number floats up and the figure flinches | Apply damage or healing on a combatant. |
+| The attacker swings, or a bolt flies and bursts | Apply damage **while a fight is running**: whoever's turn it is strikes the one you hit. Adjacent = a lunge and a chop; apart = an arrow, or a spell bolt in the damage type's colour. **NEXT HIT** chips under the tracker's buttons pick the type (⚔ weapon, 🔥 fire, ❄ cold …); it stays until you change it, and **Cast** on a PC's spell panel sets it to that spell's type. Healing is a green bolt. |
 | A lantern on a post | A **light** token. |
 
 The view has a few controls of its own, top left: **Grid**, **Follow the turn**
 (off = the camera stays where you put it), **Frame the turn** (look at whoever's
-up, now), and **?** for the key card.
+up, now), **Cinema** (depth of field on the framed figure), **Fast** (less picture,
+more frames — see below), and **?** for the key card.
+
+**If it stutters:** press **Fast**. It drops the torch shadows, the ambient
+occlusion and the depth of field and renders at a plain pixel ratio; the room,
+the figures and every effect stay. The table turns it on by itself when the first
+few seconds run under about 24 frames a second, and remembers your choice on that
+machine.
 
 ## Controls (the same keys as TaleSpire)
 
@@ -92,6 +100,11 @@ right beside each other whatever their files say.
 
 - Figures walk in straight lines and through walls or furniture — pathing
   around things is Milestone 4.
+- Strikes are built from the rig's own bones (a lunge and a chop, raised arms and
+  a bolt), not motion-captured clips; a Mixamo swing dropped into the clip library
+  will replace them when we have one.
+- The table knows the attacker only while a fight is running: damage applied
+  outside combat is a number and a flinch, as before.
 - Everyone from the Daz library wears the same leather set; outfits change as
   the library grows.
 - Mira's stat block is Large, which the table stands at 10 ft; the story says 12.

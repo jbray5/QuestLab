@@ -16,7 +16,9 @@ import { buildFog } from "./fogOfWar";
 import { Ping, TitleCard } from "./Fx";
 import { toWorld } from "./maps";
 import { type HitFx, Party } from "./Party";
+import { FpsProbe } from "./FpsProbe";
 import { Post } from "./Post";
+import { QualityContext } from "./quality";
 import { MapScene } from "./Scene";
 import { figures, pixelToCell, resolveMap } from "./session";
 
@@ -88,7 +90,9 @@ const CSS = `
 `;
 
 type PingFx = { id: string; at: THREE.Vector3 };
-type StreamPayload = { type: string; x?: number; y?: number; kind?: string; ref_id?: string; amount?: number };
+type StreamPayload = { type: string; x?: number; y?: number; kind?: string; ref_id?: string; amount?: number; from_ref?: string; flavor?: string };
+/** Where the Fast choice is kept between visits. */
+const FAST_KEY = "ql.engine.fast";
 
 export default function EngineTable() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -135,7 +139,18 @@ export default function EngineTable() {
     if (e.type === "table.fx") {
       if (!e.ref_id || (e.kind !== "damage" && e.kind !== "heal")) return;
       counter.current += 1;
-      setFx((cur) => [...cur, { id: `f${counter.current}`, ref: e.ref_id!, kind: e.kind as "damage" | "heal", amount: typeof e.amount === "number" ? Math.abs(e.amount) : null }]);
+      setFx((cur) => [
+        ...cur,
+        {
+          id: `f${counter.current}`,
+          ref: e.ref_id!,
+          kind: e.kind as "damage" | "heal",
+          amount: typeof e.amount === "number" ? Math.abs(e.amount) : null,
+          from: e.from_ref ?? null,
+          flavor: e.flavor ?? null,
+          at: performance.now(),
+        },
+      ]);
       return;
     }
     if (e.type === "table.roll") return;
@@ -145,6 +160,33 @@ export default function EngineTable() {
   const dropFx = useCallback((id: string) => setFx((cur) => cur.filter((f) => f.id !== id)), []);
 
   const [grid, setGrid] = useState(true);
+  // Plan 113 — Fast mode: chosen here, or turned on by the probe when the machine can't keep up.
+  const [fast, setFast] = useState(() => {
+    try {
+      return localStorage.getItem(FAST_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const fastChosen = useRef(false);
+  useEffect(() => {
+    try {
+      fastChosen.current = localStorage.getItem(FAST_KEY) !== null;
+    } catch {
+      fastChosen.current = false;
+    }
+  }, []);
+  const toggleFast = () => {
+    const next = !fast;
+    setFast(next);
+    fastChosen.current = true;
+    try {
+      localStorage.setItem(FAST_KEY, next ? "1" : "0");
+    } catch {
+      /* a private window forgets; fine */
+    }
+  };
+  const quality = useMemo(() => ({ fast }), [fast]);
   const [follow, setFollow] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [frameNonce, setFrameNonce] = useState(0);
@@ -258,6 +300,9 @@ export default function EngineTable() {
         <button className={cinema ? "on" : ""} onClick={() => setCinema((v) => !v)} title="Depth of field on whoever is framed">
           Cinema
         </button>
+        <button className={fast ? "on" : ""} onClick={toggleFast} title="Less picture, more frames: no torch shadows, no depth of field, a plain pixel ratio">
+          Fast
+        </button>
         <button className={help ? "on" : ""} onClick={() => setHelp((v) => !v)} title="The keys (F1)">
           ?
         </button>
@@ -286,9 +331,9 @@ export default function EngineTable() {
       )}
       <TitleCard title={data.title} />
       <Canvas
-        key={map.id}
-        shadows={{ type: THREE.PCFShadowMap }}
-        dpr={[1, 1.5]}
+        key={`${map.id}-${fast ? "fast" : "full"}`}
+        shadows={fast ? false : { type: THREE.PCFShadowMap }}
+        dpr={fast ? 1 : [1, 1.5]}
         gl={{ antialias: false, powerPreference: "high-performance" }}
         camera={{ fov: 42, near: 0.1, far: 260, position: eye }}
         onCreated={({ gl }) => {
@@ -297,6 +342,8 @@ export default function EngineTable() {
         }}
       >
         <SceneBoundary onError={(e) => setErr(e.message)}>
+          <QualityContext.Provider value={quality}>
+          {!fast && <FpsProbe onSlow={() => { if (!fastChosen.current) setFast(true); }} />}
           <Suspense fallback={null}>
             <MapScene map={map} grid={grid} darkness={data.darkness} fog={fog} weather={data.weather} onFloorClick={onFloorClick} revealedExits={data.revealed_exits ?? []}>
               <Party map={map} projection={data} fog={fog} fx={fx} onFxDone={dropFx} labels={labels} />
@@ -305,6 +352,7 @@ export default function EngineTable() {
               ))}
             </MapScene>
           </Suspense>
+          </QualityContext.Provider>
         </SceneBoundary>
         <OrbitControls
           target={look}
@@ -317,7 +365,7 @@ export default function EngineTable() {
         />
         <CameraKeys home={{ eye, look }} homeNonce={homeNonce} />
         <Director at={active?.cell ?? null} nonce={frameNonce} follow={follow} focus={focus} />
-        <Post cinema={cinema} focus={focus ? [focus.at.x, 0.9, focus.at.z] : active ? [active.cell.x, 1.0, active.cell.z] : null} />
+        <Post fast={fast} cinema={cinema} focus={focus ? [focus.at.x, 0.9, focus.at.z] : active ? [active.cell.x, 1.0, active.cell.z] : null} />
       </Canvas>
     </div>
   );

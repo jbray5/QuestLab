@@ -594,7 +594,7 @@ class TestUpdateCombatant:
         monkeypatch.setattr(
             sess_svc,
             "publish_table_fx",
-            lambda sid, kind, ref, amount=None: fired.append((kind, amount)),
+            lambda sid, kind, ref, amount=None, **kw: fired.append((kind, amount)),
         )
         dm = _unique_dm()
         c = _make_campaign(duckdb_session, dm)
@@ -621,6 +621,76 @@ class TestUpdateCombatant:
         assert ("damage", 12) in fired
         assert ("heal", 7) in fired
         assert ("ko", None) in fired
+
+    def test_damage_in_a_running_fight_names_the_attacker(
+        self, duckdb_session: Session, monkeypatch
+    ):
+        """Plan 113 — with a fight running, a hit on someone else comes from whoever's
+        turn it is, with the flavor the DM chose; a hit outside a fight has no source."""
+        fired: list[dict] = []
+        monkeypatch.setattr(
+            sess_svc,
+            "publish_table_fx",
+            lambda sid, kind, ref, amount=None, from_ref=None, flavor=None: fired.append(
+                {"kind": kind, "ref": ref, "from_ref": from_ref, "flavor": flavor}
+            ),
+        )
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                combatants=[
+                    _persist_combatant(0, "Hero", hp=30),
+                    _persist_combatant(1, "Cultist", hp=20),
+                ],
+                combat_state="running",
+            ),
+        )
+        hero, cultist = state.combatants[0], state.combatants[1]
+        assert state.active_combatant_id == hero.id
+
+        sess_svc.update_combatant(
+            duckdb_session,
+            gs.id,
+            cultist.id,
+            dm,
+            SessionCombatantUpdate(hp_current=12, hit_flavor="fire"),
+        )
+        assert fired[-1] == {
+            "kind": "damage",
+            "ref": cultist.id,
+            "from_ref": hero.id,
+            "flavor": "fire",
+        }
+
+        # The active combatant hurting itself is not a strike.
+        sess_svc.update_combatant(
+            duckdb_session, gs.id, hero.id, dm, SessionCombatantUpdate(hp_current=25)
+        )
+        assert fired[-1]["from_ref"] is None
+
+        # No fight, no attacker: a prep roster has nobody's turn.
+        gs2 = _make_session(duckdb_session, adv.id, dm)
+        idle = sess_svc.save_combat_state(
+            duckdb_session,
+            gs2.id,
+            dm,
+            SessionCombatStateWrite(
+                combatants=[
+                    _persist_combatant(0, "Hero", hp=30),
+                    _persist_combatant(1, "Wolf", hp=11),
+                ]
+            ),
+        )
+        sess_svc.update_combatant(
+            duckdb_session, gs2.id, idle.combatants[1].id, dm, SessionCombatantUpdate(hp_current=5)
+        )
+        assert fired[-1]["from_ref"] is None
 
     def test_unknown_combatant_raises(self, duckdb_session: Session):
         """Patching a combatant that doesn't exist raises ValueError."""

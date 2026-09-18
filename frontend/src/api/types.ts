@@ -373,6 +373,8 @@ export interface SessionCombatantUpdate {
   ac?: number;
   initiative_roll?: number;
   conditions?: string[];
+  /** Plan 113 — what kind of hit this HP change is ("weapon", "fire" …); for the table's strike effect, never stored. */
+  hit_flavor?: string;
 }
 
 export interface SessionCombatStateRead {

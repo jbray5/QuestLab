@@ -3,7 +3,7 @@ import { useFrame } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
-import { useFigure } from "./figureModel";
+import { findBone, useFigure } from "./figureModel";
 import { DEFAULT_HEIGHT_FT } from "./heights";
 
 /**
@@ -25,6 +25,33 @@ export interface FigureModel {
   heightFt?: number | null;
 }
 
+/** A strike the figure is told to play (Plan 113). */
+export interface Strike {
+  id: string;
+  kind: "melee" | "shoot" | "cast";
+  /** Where the target stands. */
+  toward: THREE.Vector3;
+  /** When it started (performance.now). */
+  at: number;
+  /** Debug: hold the pose at this phase (0–1) instead of playing it through. */
+  hold?: number;
+}
+
+const STRIKE_MS: Record<Strike["kind"], number> = { melee: 550, shoot: 520, cast: 760 };
+const _pw = new THREE.Quaternion();
+const _q = new THREE.Quaternion();
+const _axis = new THREE.Vector3();
+type Bent = { bone: THREE.Object3D; q: THREE.Quaternion };
+/** Turn a bone about a world axis, on top of whatever the clip put there this frame. */
+function bend(bone: THREE.Object3D | null, axis: THREE.Vector3, angle: number, bent: Bent[]) {
+  if (!bone || !bone.parent || Math.abs(angle) < 1e-4) return;
+  bent.push({ bone, q: bone.quaternion.clone() });
+  bone.parent.getWorldQuaternion(_pw);
+  _q.setFromAxisAngle(axis, angle);
+  const inv = _pw.clone().invert();
+  bone.quaternion.premultiply(inv.multiply(_q).multiply(_pw));
+}
+
 const WALK = 1.5; // units per second — a brisk walk
 const RUN = 3.4;
 const RUN_FROM = 3.5; // cells: farther than this, and the figure runs if it can
@@ -40,6 +67,8 @@ export function Walker({
   size = 1,
   label,
   hit,
+  hitAt,
+  strike = null,
   model = null,
 }: {
   /** Where this figure should be. Changing it makes the figure walk there. */
@@ -52,6 +81,10 @@ export function Walker({
   label?: string;
   /** Changes when this figure takes damage; it flinches. */
   hit?: string;
+  /** When that blow lands (performance.now) — the flinch waits for it. */
+  hitAt?: number;
+  /** A strike to play: face the target, swing or cast. */
+  strike?: Strike | null;
   model?: FigureModel | null;
 }) {
   const fig = useFigure(model?.url ?? null, model?.heightFt ?? DEFAULT_HEIGHT_FT);
@@ -69,6 +102,14 @@ export function Walker({
   const yaw = useRef(0);
   const flinch = useRef<{ t: number } | null>(null);
   const lastHit = useRef<string | undefined>(undefined);
+  const pendingHit = useRef<{ at: number } | null>(null);
+  const swing = useRef<{ kind: Strike["kind"]; toward: THREE.Vector3; t0: number; hold?: number } | null>(null);
+  const lastStrike = useRef<string | undefined>(undefined);
+  const bent = useRef<Bent[]>([]);
+  const bones = useMemo(
+    () => ({ ra: findBone(fig.body, "rightarm"), rf: findBone(fig.body, "rightforearm"), la: findBone(fig.body, "leftarm"), lf: findBone(fig.body, "leftforearm") }),
+    [fig.body],
+  );
   /** 0 standing, 1 on the floor — the topple, when there is no death clip. */
   const fallen = useRef(down ? 1 : 0);
   const firstDown = useRef(down);
@@ -114,19 +155,33 @@ export function Walker({
     return () => mixer.removeEventListener("finished", onDone);
   }, [mixer, play]);
 
+  // A hit is queued for the moment the blow lands (the bolt's arrival); a strike starts at once.
   useEffect(() => {
     if (hit && hit !== lastHit.current) {
       lastHit.current = hit;
-      if (!down && actions.current.hit) play("hit", 0.08, true);
-      else flinch.current = { t: 0 };
+      pendingHit.current = { at: hitAt ?? performance.now() };
     }
-  }, [hit, down, play]);
+  }, [hit, hitAt]);
+  useEffect(() => {
+    if (strike && strike.id !== lastStrike.current) {
+      lastStrike.current = strike.id;
+      swing.current = { kind: strike.kind, toward: strike.toward.clone(), t0: strike.at, hold: strike.hold };
+    }
+  }, [strike]);
 
   useFrame((_, dt) => {
+    // Undo last frame's strike bends before the clip writes this frame's pose.
+    for (const b of bent.current) b.bone.quaternion.copy(b.q);
+    bent.current.length = 0;
     mixer.update(dt);
     const g = group.current;
     const p = pos.current;
     if (!g) return;
+    if (pendingHit.current && performance.now() >= pendingHit.current.at) {
+      pendingHit.current = null;
+      if (!down && actions.current.hit) play("hit", 0.08, true);
+      else flinch.current = { t: 0 };
+    }
     const dx = cell.x - p.x;
     const dz = cell.z - p.z;
     const dist = Math.hypot(dx, dz);
@@ -149,6 +204,38 @@ export function Walker({
     g.position.copy(p);
     g.rotation.y = yaw.current - fig.forwardYaw;
 
+    // Plan 113 — the strike: face the target; lunge and chop for a blow, raise the arms for a bolt.
+    const s = swing.current;
+    let lean = 0;
+    if (s && !down) {
+      const k = s.hold ?? Math.min(1, (performance.now() - s.t0) / STRIKE_MS[s.kind]);
+      const want = Math.atan2(s.toward.x - p.x, s.toward.z - p.z);
+      let dy = want - yaw.current;
+      dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+      yaw.current += dy * Math.min(1, dt * 14);
+      g.rotation.y = yaw.current - fig.forwardYaw;
+      // The figure's right-hand axis in the world: arms swing about it.
+      _axis.set(-Math.cos(yaw.current), 0, Math.sin(yaw.current));
+      if (s.kind === "melee") {
+        const reach = Math.sin(Math.min(1, k / 0.6) * Math.PI) * 0.3;
+        g.position.x += Math.sin(yaw.current) * reach;
+        g.position.z += Math.cos(yaw.current) * reach;
+        lean = 0.14 * Math.sin(k * Math.PI);
+        // Wind up over the head (2.5 rad forward-up is past vertical), chop through to waist height, settle.
+        const a = k < 0.3 ? (k / 0.3) * 2.5 : k < 0.55 ? 2.5 - ((k - 0.3) / 0.25) * 2.0 : 0.5 - ((k - 0.55) / 0.45) * 0.5;
+        bend(bones.ra, _axis, a, bent.current);
+        bend(bones.rf, _axis, Math.max(0, a) * 0.45, bent.current);
+      } else {
+        const raise = k < 0.22 ? k / 0.22 : k > 0.72 ? Math.max(0, (1 - k) / 0.28) : 1;
+        const e = raise * raise * (3 - 2 * raise);
+        bend(bones.ra, _axis, 1.4 * e, bent.current);
+        bend(bones.rf, _axis, 0.25 * e, bent.current);
+        bend(bones.la, _axis, (s.kind === "cast" ? 1.4 : 1.15) * e, bent.current);
+        if (s.kind === "cast") bend(bones.lf, _axis, 0.25 * e, bent.current);
+      }
+      if (k >= 1 && s.hold === undefined) swing.current = null;
+    }
+
     // The topple and the rise, when the rig has no death clip.
     const wantFall = down && !actions.current.death ? 1 : 0;
     if (fallen.current !== wantFall) {
@@ -159,7 +246,7 @@ export function Walker({
     const f = fallen.current;
     const ease = f * f * (3 - 2 * f);
     if (pose.current) {
-      pose.current.rotation.x = (-Math.PI / 2) * ease;
+      pose.current.rotation.x = (-Math.PI / 2) * ease + lean;
       pose.current.position.y = 0.12 * ease;
     }
     // The recoil: a short, sharp lean back and a stagger to standing.

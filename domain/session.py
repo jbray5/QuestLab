@@ -257,6 +257,9 @@ class SessionCombatantUpdate(BaseModel):
     ac: Optional[int] = Field(default=None, ge=0, le=40)
     initiative_roll: Optional[int] = Field(default=None, ge=-10, le=50)
     conditions: Optional[list[str]] = None
+    # Plan 113 — what kind of hit this HP change is ("weapon", "fire", "cold" …).
+    # Rides the patch for the table's strike effect; never stored.
+    hit_flavor: Optional[str] = Field(default=None, max_length=24, regex=r"^[a-z_]+$")
 
 
 class SessionCombatStateRead(BaseModel):

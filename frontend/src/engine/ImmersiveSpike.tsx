@@ -11,7 +11,9 @@ import { snapToCell, toWorld } from "./maps";
 import { MAPS } from "./registry";
 import { Post } from "./Post";
 import { MapScene } from "./Scene";
-import { Walker } from "./Walker";
+import { flavorColor, TIMING } from "./strikes";
+import { type FigureModel, Walker } from "./Walker";
+import { Bolt } from "./Fx";
 
 /**
  * The immersive spike (Plan 108): a map rendered in the engine, so Justin can
@@ -23,6 +25,7 @@ import { Walker } from "./Walker";
  *   &grid=1  &check=1                          the combat grid; the sanity check
  *   &look=<preset>                             a camera preset the map defines
  *   &model=<url>  &height=<ft>                 a rigged .glb to walk instead of the Soldier (Plan 111)
+ *   &strike=melee|cast|shoot  &hold=0.4       play a strike at a target on a loop (Plan 113); hold freezes the pose at that phase
  *
  * Click a cell and the character walks there. Drag to orbit, wheel to zoom.
  * The live table is /table/:sessionId/engine (Plan 109); this page is where
@@ -79,6 +82,40 @@ const CSS = `
 .sp-log { position: absolute; left: 14px; bottom: 12px; z-index: 2; font: 11px monospace; color: #ff9a9a;
   background: rgba(0,0,0,0.55); padding: 6px 8px; border-radius: 6px; max-width: 70vw; }
 `;
+
+/** Two figures and a strike between them every few seconds — for looking at the swing, the bolt and the flinch. */
+function StrikeDemo({ start, model, kind, hold }: { start: THREE.Vector3; model: FigureModel | null; kind: "melee" | "cast" | "shoot"; hold?: number }) {
+  const far = kind === "melee" ? 1 : 4;
+  // The target stands down −z: the attacker faces away from the side camera's z and shows it her right arm (zoom=2 looks from +x).
+  const target = useMemo(() => new THREE.Vector3(start.x, 0, start.z - far), [start, far]);
+  const [beat, setBeat] = useState<{ id: string; at: number } | null>(null);
+  useEffect(() => {
+    let n = 0;
+    const fire = () => {
+      n += 1;
+      setBeat({ id: `s${n}`, at: performance.now() });
+    };
+    const first = setTimeout(fire, 1200);
+    const every = setInterval(fire, 2800);
+    return () => {
+      clearTimeout(first);
+      clearInterval(every);
+    };
+  }, []);
+  const flavor = kind === "cast" ? "fire" : "weapon";
+  const timing = TIMING[kind];
+  const h = (model?.heightFt ?? DEFAULT_HEIGHT_FT) / FT_PER_UNIT;
+  const held = hold !== undefined;
+  return (
+    <group>
+      <Walker cell={start} model={model} label="attacker" strike={beat ? { id: beat.id, kind, toward: target, at: beat.at, hold } : null} />
+      <Walker cell={target} model={{ url: null, heightFt: DEFAULT_HEIGHT_FT }} label="target" tint="#c04a4a" hit={held ? undefined : beat?.id} hitAt={beat ? beat.at + timing.impact : undefined} />
+      {beat && kind !== "melee" && (
+        <Bolt key={beat.id} from={new THREE.Vector3(start.x, h * 0.55, start.z)} to={new THREE.Vector3(target.x, 0.6, target.z)} color={flavorColor(flavor)} kind={kind} launchMs={timing.launch} impactMs={timing.impact} t0={beat.at} holdMs={held ? hold * (timing.impact + 200) : undefined} />
+      )}
+    </group>
+  );
+}
 
 export default function ImmersiveSpike() {
   const params = useMemo(() => new URLSearchParams(window.location.search), []);
@@ -144,6 +181,9 @@ export default function ImmersiveSpike() {
   const start = snapToCell(map, new THREE.Vector3(sx, 0, sz));
   // ?zoom=1 — a close look at whoever is standing on the start cell (Plan 111 previews).
   const zoom = params.get("zoom");
+  const sk = params.get("strike");
+  const strikeDemo = sk === "melee" || sk === "cast" || sk === "shoot" ? sk : null;
+  const hold = params.get("hold") ? Number(params.get("hold")) : undefined;
   const [lx, lz] = toWorld(map, ...(preset?.at ?? map.look));
   // zoom=3 is a portrait: the eye line of a figure of ?height (5.5 ft when unsaid).
   const faceY = (Number(params.get("height") || 5.5) / FT_PER_UNIT) * 0.92;
@@ -228,7 +268,7 @@ export default function ImmersiveSpike() {
               onFloorClick={send}
               onExit={takeExit}
             >
-              <Walker cell={target ?? start} model={model} />
+              {strikeDemo ? <StrikeDemo start={start} model={model} kind={strikeDemo} hold={hold} /> : <Walker cell={target ?? start} model={model} />}
             </MapScene>
           </Suspense>
         </SceneBoundary>

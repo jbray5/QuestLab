@@ -140,7 +140,7 @@ function boneKey(name: string): string {
   return BONE_ALIAS[bare] ?? bare;
 }
 
-function findBone(root: THREE.Object3D, key: string): THREE.Object3D | null {
+export function findBone(root: THREE.Object3D, key: string): THREE.Object3D | null {
   let found: THREE.Object3D | null = null;
   root.traverse((o) => {
     if (!found && (o as THREE.Bone).isBone && boneKey(o.name) === key) found = o;

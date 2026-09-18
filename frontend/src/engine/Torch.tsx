@@ -2,6 +2,8 @@ import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import * as THREE from "three";
 
+import { useQuality } from "./quality";
+
 /**
  * A wall torch: a bracket, a flame the bloom pass picks up, and a point light
  * that flickers (Plan 108). This is the light everything else is lit by —
@@ -27,6 +29,8 @@ export function Torch({
   // The flame is the light's colour, pushed past white so the bloom catches it.
   const flame = new THREE.Color(color).multiplyScalar(5);
   const light = useRef<THREE.PointLight>(null);
+  // Fast mode (Plan 113): no torch casts — six renders each is the first thing to go.
+  const { fast } = useQuality();
   const flameMesh = useRef<THREE.Mesh>(null);
   // Each torch flickers on its own beat, seeded by where it hangs.
   const seed = position[0] * 7.3 + position[2] * 3.1;
@@ -59,7 +63,7 @@ export function Torch({
         intensity={intensity}
         distance={18}
         decay={2}
-        castShadow={shadow}
+        castShadow={shadow && !fast}
         shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.003}
         shadow-radius={3}

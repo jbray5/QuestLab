@@ -15,13 +15,13 @@ import type * as THREE from "three";
  * active figure's chest. With `cinema` off there is no depth of field at all,
  * for a DM who wants every corner sharp.
  */
-export function Post({ focus, cinema = true }: { focus: THREE.Vector3 | [number, number, number] | null; cinema?: boolean }) {
+export function Post({ focus, cinema = true, fast = false }: { focus: THREE.Vector3 | [number, number, number] | null; cinema?: boolean; /** Fast mode (Plan 113): no ambient occlusion, no depth of field. */ fast?: boolean }) {
   const target = focus && "x" in (focus as THREE.Vector3) ? ([(focus as THREE.Vector3).x, (focus as THREE.Vector3).y, (focus as THREE.Vector3).z] as [number, number, number]) : (focus as [number, number, number] | null);
   return (
     <EffectComposer multisampling={0}>
-      <N8AO aoRadius={0.6} intensity={3} distanceFalloff={0.9} quality="medium" halfRes />
+      {fast ? <></> : <N8AO aoRadius={0.6} intensity={3} distanceFalloff={0.9} quality="medium" halfRes />}
       <Bloom luminanceThreshold={1} mipmapBlur intensity={0.85} radius={0.7} />
-      {cinema && target ? <DepthOfField target={target} focusRange={3} bokehScale={2.2} /> : <></>}
+      {cinema && target && !fast ? <DepthOfField target={target} focusRange={3} bokehScale={2.2} /> : <></>}
       <Vignette eskil={false} offset={0.22} darkness={0.8} />
       <SMAA />
     </EffectComposer>

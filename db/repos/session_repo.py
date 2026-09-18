@@ -308,7 +308,8 @@ class SessionCombatantRepo:
         Returns:
             The updated SessionCombatant.
         """
-        patch = data.model_dump(exclude_unset=True)
+        # hit_flavor describes the hit for the table's effect (Plan 113); not a column.
+        patch = data.model_dump(exclude_unset=True, exclude={"hit_flavor"})
         for field, value in patch.items():
             setattr(combatant, field, value)
         session.add(combatant)

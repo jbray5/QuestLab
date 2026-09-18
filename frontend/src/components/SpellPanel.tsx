@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { spellcastingApi } from "../api/spellcasting";
 import { spellsApi } from "../api/spells";
+import { flavorOf } from "../engine/strikes";
+import { useStrikeStore } from "../stores/useStrikeStore";
 import type { CharacterSpell, Spell } from "../api/types";
 
 interface Props {
@@ -28,7 +30,6 @@ export default function SpellPanel({
   characterClass,
   characterName,
   defaultOpen = false,
-  readOnly: _readOnly = false,
 }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(defaultOpen);
@@ -100,6 +101,12 @@ export default function SpellPanel({
     qc.invalidateQueries({ queryKey: ["spell-slots", characterId] });
   }
 
+  // Plan 113 — a cast tells the immersive table what the next hit is (fire, cold, a heal …).
+  const setHitFlavor = useStrikeStore((st) => st.setFlavor);
+  const noteCast = (sp: Spell | undefined) => {
+    const f = flavorOf(sp?.damage_type ?? null, sp?.name ?? "");
+    if (f) setHitFlavor(f);
+  };
   const learnMutation = useMutation({
     mutationFn: (spellId: string) =>
       spellcastingApi.learn(characterId, { spell_id: spellId, prepared: true }),
@@ -346,16 +353,17 @@ export default function SpellPanel({
                             </span>
                             <span>{name}</span>
                           </button>
-                          {lvl > 0 && (
-                            <button
-                              className="btn btn-secondary"
-                              style={{ fontSize: "0.65rem", padding: "0.15rem 0.45rem" }}
-                              onClick={() => expendMutation.mutate(lvl)}
-                              title={`Spend a Lvl ${lvl} slot`}
-                            >
-                              Cast
-                            </button>
-                          )}
+                          <button
+                            className="btn btn-secondary"
+                            style={{ fontSize: "0.65rem", padding: "0.15rem 0.45rem" }}
+                            onClick={() => {
+                              if (lvl > 0) expendMutation.mutate(lvl);
+                              noteCast(s);
+                            }}
+                            title={lvl > 0 ? `Spend a Lvl ${lvl} slot — and tell the table what the next hit is` : "A cantrip: no slot — tells the table what the next hit is"}
+                          >
+                            Cast
+                          </button>
                           <button
                             className={`btn ${row.prepared ? "btn-primary" : "btn-ghost"}`}
                             style={{ fontSize: "0.65rem", padding: "0.15rem 0.45rem" }}
