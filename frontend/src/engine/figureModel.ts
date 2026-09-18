@@ -280,6 +280,7 @@ function bakeClip(lib: LibraryClip, target: Rig, name: string): THREE.AnimationC
   // The two rigs need not share a rest pose (Mixamo T-pose, Daz A-pose): each
   // target bone is first turned so its rest limb lies along the source's rest
   // limb, then the source's motion is applied. End bones borrow their parent's turn.
+  const LIMB = /arm|hand|shoulder|leg|foot|toe|thumb|index|middle|ring|pinky/;
   const align = new Map<string, THREE.Quaternion>();
   const dirT = new THREE.Vector3();
   const dirS = new THREE.Vector3();
@@ -302,7 +303,10 @@ function bakeClip(lib: LibraryClip, target: Rig, name: string): THREE.AnimationC
   for (const tb of mapped) {
     const sb = rig.byKey.get(tb.key)!;
     let a: THREE.Quaternion | null = null;
-    const shared = tb.key === "hips" ? null : limbChild(tb, target, rig);
+    // Only limbs are lined up: an A-pose arm has to become a T-pose arm. The
+    // trunk is left alone — every rig stands upright, and a source whose
+    // rest spine happens to curve would otherwise bend the target at the hips.
+    const shared = LIMB.test(tb.key) ? limbChild(tb, target, rig) : null;
     if (shared) {
       dirT.copy(target.byKey.get(shared)!.p).sub(tb.p);
       dirS.copy(rig.byKey.get(shared)!.p).sub(sb.p).applyQuaternion(turn);

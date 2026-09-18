@@ -143,10 +143,11 @@ export default function ImmersiveSpike() {
   const [sx, sz] = toWorld(map, ...map.start);
   const start = snapToCell(map, new THREE.Vector3(sx, 0, sz));
   // ?zoom=1 — a close look at whoever is standing on the start cell (Plan 111 previews).
-  const zoom = params.get("zoom") === "1";
+  const zoom = params.get("zoom");
   const [lx, lz] = toWorld(map, ...(preset?.at ?? map.look));
   const look = zoom ? new THREE.Vector3(start.x, 0.95, start.z) : new THREE.Vector3(lx, 0.6, lz);
-  const off = zoom ? [0.9, 0.55, 2.1] : (preset?.eye ?? map.eye);
+  // zoom=1 from the front-right; zoom=2 square from the side, for judging a stance.
+  const off = zoom === "2" ? [2.6, 0.35, 0.1] : zoom ? [0.9, 0.55, 2.1] : (preset?.eye ?? map.eye);
   const eye: [number, number, number] = [look.x + off[0], look.y + off[1], look.z + off[2]];
   const send = (p: THREE.Vector3) => setTarget(snapToCell(map, p));
 
