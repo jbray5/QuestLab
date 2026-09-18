@@ -30,7 +30,9 @@ const DOT: Record<string, string> = {
 
 export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
   const t = useTableController(sessionId, campaignId, party);
-  const [showTokens, setShowTokens] = useState(false);
+  // Open by default: the roll call is how a token leaves the board (or right-click it).
+  const [showTokens, setShowTokens] = useState(true);
+  const [titleDraft, setTitleDraft] = useState("");
   const btn: React.CSSProperties = { fontSize: "0.7rem", padding: "0.18rem 0.5rem" };
 
   if (!t.activeMap) {
@@ -55,6 +57,9 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
         </button>
         <button className={t.mode === "place" ? "btn" : "btn btn-ghost"} style={btn} onClick={() => t.setMode("place")} title="Tap the map to drop a marker">
           ＋ Marker
+        </button>
+        <button className={t.mode === "reveal" ? "btn" : "btn btn-ghost"} style={btn} onClick={() => t.setMode("reveal")} title="Tap the map to reveal a circle of it — turns fog on">
+          👁 Reveal
         </button>
         <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 2px" }} />
         <button className="btn btn-ghost" style={btn} onClick={t.addPartyTokens} title="One token per attending PC">
@@ -127,20 +132,51 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
           }}
           onTokenMove={t.moveTokenLocal}
           onTokenDragEnd={() => t.commitTokens()}
+          onTokenRemove={t.removeToken}
         />
       </div>
 
-      {/* Fog regions, when the map has them. */}
+      {/* Fog: always offered. Regions when the map has them; the Reveal brush always. */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
+        <label style={{ fontSize: "0.68rem", color: "var(--muted)", display: "flex", gap: 4, alignItems: "center" }} title="Everything the party can't see goes dark on the players' screens">
+          <input
+            type="checkbox"
+            checked={t.state?.fog_on ?? false}
+            onChange={(e) => t.patchNow({ fog_on: e.target.checked })}
+          />
+          Fog
+        </label>
+        {(t.state?.brush_reveals?.length ?? 0) > 0 && (
+          <button className="btn btn-ghost" style={btn} onClick={t.clearReveals} title="Hide everything again">
+            🌫 Hide all ({t.state?.brush_reveals?.length})
+          </button>
+        )}
+        {t.state?.fog_on && !(t.state?.brush_reveals?.length || t.state?.revealed_region_ids?.length) && (
+          <span style={{ fontSize: "0.66rem", color: "var(--muted)" }}>Nothing revealed yet — pick 👁 Reveal and tap the map.</span>
+        )}
+        <label style={{ marginLeft: "auto", display: "flex", gap: 4, alignItems: "center", fontSize: "0.68rem", color: "var(--muted)" }} title="A title card lands over the players' screens">
+          🎬
+          <input
+            value={titleDraft}
+            onChange={(e) => setTitleDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && titleDraft.trim()) {
+                t.patchNow({ title: titleDraft.trim() });
+                setTitleDraft("");
+              }
+            }}
+            placeholder={t.state?.title ? `"${t.state.title}" — type a new title…` : "Scene title, Enter to show…"}
+            style={{ fontSize: "0.7rem", padding: "0.15rem 0.4rem", width: 190 }}
+          />
+          {t.state?.title && (
+            <button className="btn btn-ghost" style={btn} onClick={() => t.patchNow({ title: "" })} title="Take the title down">
+              ✕
+            </button>
+          )}
+        </label>
+      </div>
       {t.activeMap.regions.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
-          <label style={{ fontSize: "0.68rem", color: "var(--muted)", display: "flex", gap: 4, alignItems: "center" }}>
-            <input
-              type="checkbox"
-              checked={t.state?.fog_on ?? false}
-              onChange={(e) => t.patchNow({ fog_on: e.target.checked })}
-            />
-            Fog
-          </label>
           {t.activeMap.regions.map((r) => {
             const on = (t.state?.revealed_region_ids ?? []).includes(r.id);
             return (
@@ -191,7 +227,7 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
             </span>
           ))}
         <span style={{ marginLeft: "auto" }}>
-          Drag tokens · {t.mode === "ping" ? "tap to ping" : "tap to drop a marker"} · players follow live
+          Drag tokens · right-click to remove · {t.mode === "ping" ? "tap to ping" : t.mode === "reveal" ? "tap to reveal" : "tap to drop a marker"} · players follow live
         </span>
       </div>
     </div>

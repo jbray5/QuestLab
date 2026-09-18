@@ -56,6 +56,8 @@ interface Props {
   onCanvasPointerDown?: (x: number, y: number, e: React.PointerEvent) => void;
   onTokenMove?: (id: string, x: number, y: number) => void;
   onTokenDragEnd?: (id: string, x: number, y: number) => void;
+  /** Right-click on a token (editable canvases): take it off the board. */
+  onTokenRemove?: (id: string) => void;
   /** Combat cinema (Plan 61): transient floating numbers by token ref. */
   fx?: { id: string; refId: string; kind: "damage" | "heal" | "ko"; amount: number | null }[];
 }
@@ -92,6 +94,7 @@ export default function MapCanvas({
   onCanvasPointerDown,
   onTokenMove,
   onTokenDragEnd,
+  onTokenRemove,
   fx = [],
 }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -300,6 +303,14 @@ export default function MapCanvas({
                 : undefined
             }
             onPointerDown={editable ? (e) => handleTokenDown(t.id, e) : undefined}
+            onContextMenu={
+              editable && onTokenRemove
+                ? (e) => {
+                    e.preventDefault();
+                    onTokenRemove(t.id);
+                  }
+                : undefined
+            }
           >
             {t.concentrating && !isDefeated && (
               <circle

@@ -6,7 +6,7 @@ import { sessionsApi } from "../../api/sessions";
 import { tableApi } from "../../api/table";
 import type { BattleMap, PlayerCharacter, TableStateRead, TableToken } from "../../api/types";
 
-export type CanvasMode = "ping" | "place";
+export type CanvasMode = "ping" | "place" | "reveal";
 
 const ID_SALT = Date.now().toString(36);
 
@@ -223,9 +223,21 @@ export function useTableController(sessionId: string, campaignId: string, party:
     if (state) void tableApi.updateState(sessionId, { tokens: state.tokens }).then(syncSiblings);
   }
 
+  /** Paint a reveal where the DM taps: a 3-cell circle. Turns fog on so it shows. */
+  function revealAt(x: number, y: number) {
+    if (!state || !activeMap) return;
+    const r = 3 * (activeMap.grid_size || Math.round(activeMap.width / 24));
+    patchNow({ fog_on: true, brush_reveals: [...(state.brush_reveals ?? []), { x, y, r }] });
+  }
+  function clearReveals() {
+    patchNow({ brush_reveals: [], revealed_region_ids: [] });
+  }
+
   function onCanvasDown(x: number, y: number) {
     if (mode === "ping") {
       void tableApi.ping(sessionId, x, y);
+    } else if (mode === "reveal") {
+      revealAt(x, y);
     } else if (mode === "place") {
       if (!state) return;
       const t: TableToken = {
@@ -285,6 +297,8 @@ export function useTableController(sessionId: string, campaignId: string, party:
     npcs,
     addFoesFromCombat,
     removeToken,
+    revealAt,
+    clearReveals,
     moveTokenLocal,
     commitTokens,
     onCanvasDown,

@@ -106,6 +106,7 @@ function TableConsoleModal({
             onCanvasPointerDown={t.onCanvasDown}
             onTokenMove={t.moveTokenLocal}
             onTokenDragEnd={() => t.commitTokens()}
+            onTokenRemove={t.removeToken}
           />
           <div
             style={{
@@ -182,7 +183,7 @@ function TableConsoleModal({
             </select>
           </label>
 
-          {activeMap && activeMap.regions.length > 0 && (
+          {activeMap && (
             <div>
               <label style={{ fontSize: "0.72rem", color: "var(--muted)", display: "flex", gap: 6, alignItems: "center" }}>
                 <input
@@ -191,6 +192,11 @@ function TableConsoleModal({
                   onChange={(e) => t.patchNow({ fog_on: e.target.checked })}
                 />
                 Fog of war
+                {(state?.brush_reveals?.length ?? 0) > 0 && (
+                  <button className="btn btn-ghost" style={{ fontSize: "0.68rem", padding: "0 0.4rem" }} onClick={t.clearReveals}>
+                    hide all
+                  </button>
+                )}
               </label>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
                 {activeMap.regions.map((r) => {
