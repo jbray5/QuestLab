@@ -19,6 +19,8 @@ import { type HitFx, Party } from "./Party";
 import { FpsProbe } from "./FpsProbe";
 import { Post } from "./Post";
 import { QualityContext } from "./quality";
+import { play as sfx, setSoundEnabled, soundEnabled, unlock as unlockSound } from "./sound";
+import { strikeKind, TIMING } from "./strikes";
 import { MapScene } from "./Scene";
 import { figures, pixelToCell, resolveMap } from "./session";
 
@@ -76,6 +78,15 @@ const CSS = `
 .et-turn-card div { display: flex; flex-direction: column; line-height: 1.15; }
 .et-turn-card small { font: 600 11px system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; }
 .et-turn-card b { font: 700 20px Cinzel, Georgia, serif; color: #f0e6c8; white-space: nowrap; }
+.et-order { position: absolute; top: 152px; right: 14px; z-index: 3; display: flex; gap: 10px; align-items: flex-start; pointer-events: none; transition: opacity 200ms; }
+.et-order.hidden { opacity: 0; }
+.et-order div { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 46px; }
+.et-order img, .et-order i { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; object-position: top; border: 2px solid #6a6a78;
+  background: #1b1722; display: grid; place-items: center; font: 700 16px Cinzel, Georgia, serif; font-style: normal; color: #cfcfd8; }
+.et-order div.now img, .et-order div.now i { width: 44px; height: 44px; }
+.et-order span { font: 600 10px system-ui, sans-serif; color: #b9b0a0; max-width: 46px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.et-order div.down { opacity: 0.35; }
+.et-order div.down img, .et-order div.down i { filter: grayscale(1); }
 .et-hud .turn { margin-left: auto; padding: 6px 12px; border-radius: 9px; border: 1px solid #d6af36;
   background: rgba(214,175,54,0.14); color: #f0e6c8; }
 .et-hud small { opacity: 0.7; }
@@ -149,7 +160,27 @@ export default function EngineTable() {
       return;
     }
     if (e.type === "table.fx") {
+      if (e.kind === "ko") {
+        sfx("ko");
+        return;
+      }
       if (!e.ref_id || (e.kind !== "damage" && e.kind !== "heal")) return;
+      // The sound of it: the swing or cast now, the landing when the bolt arrives.
+      {
+        const m = mapRef.current;
+        const d = dataRef.current;
+        const figs = m && d ? figures(m, d) : [];
+        const from = e.from_ref ? figs.find((f) => f.ref === e.from_ref) : undefined;
+        const to = figs.find((f) => f.ref === e.ref_id);
+        if (from && to && from !== to) {
+          const kind = strikeKind(e.flavor, from.cell.distanceTo(to.cell));
+          const timing = TIMING[kind];
+          sfx(kind === "melee" ? "whoosh" : kind === "shoot" ? "twang" : "cast");
+          sfx(e.kind === "heal" ? "heal" : kind === "cast" ? "burst" : "hit", timing.impact);
+        } else {
+          sfx(e.kind === "heal" ? "heal" : "hit");
+        }
+      }
       counter.current += 1;
       setFx((cur) => [
         ...cur,
@@ -209,6 +240,29 @@ export default function EngineTable() {
   const [peek, setPeek] = useState(false);
   const [labels, setLabels] = useState(true);
   const [cinema, setCinema] = useState(true);
+  // Sound: off/on for this machine; browsers need a touch before they will play anything.
+  const [sound, setSound] = useState(soundEnabled);
+  useEffect(() => {
+    const arm = () => unlockSound();
+    window.addEventListener("pointerdown", arm);
+    window.addEventListener("keydown", arm);
+    return () => {
+      window.removeEventListener("pointerdown", arm);
+      window.removeEventListener("keydown", arm);
+    };
+  }, []);
+  const toggleSound = () => {
+    const next = !sound;
+    setSound(next);
+    setSoundEnabled(next);
+  };
+  // A tick when the turn moves on.
+  const lastTurn = useRef<string | null>(null);
+  useEffect(() => {
+    const ref = data?.active_token_ref ?? null;
+    if (ref && lastTurn.current && ref !== lastTurn.current) sfx("turn");
+    lastTurn.current = ref;
+  }, [data?.active_token_ref]);
   const [help, setHelp] = useState(false);
   const [homeNonce, setHomeNonce] = useState(0);
   const [focus, setFocus] = useState<{ at: THREE.Vector3; nonce: number } | null>(null);
@@ -275,6 +329,20 @@ export default function EngineTable() {
   // Whose turn it is, for the card in the corner: the token's portrait, and its side for the ring.
   const activeToken = data?.active_token_ref ? (data.tokens.find((t) => t.ref_id === data.active_token_ref) ?? null) : null;
   const turnTint = activeToken ? (activeToken.kind === "pc" ? "#d6af36" : activeToken.kind === "monster" ? "#c04a4a" : "#8a8a9a") : "#d6af36";
+  // The order strip: from whoever is up, the next seven, with their portraits.
+  const order = useMemo(() => {
+    if (!data) return [];
+    const list = data.initiative;
+    const start = Math.max(0, list.findIndex((i) => i.active));
+    const tintOf = (k: string) => (k === "pc" ? "#d6af36" : k === "monster" ? "#c04a4a" : "#8a8a9a");
+    return list.slice(start).concat(list.slice(0, start)).slice(0, 8).map((i) => ({
+      ref: i.ref,
+      name: i.name,
+      defeated: i.defeated,
+      tint: tintOf(i.kind),
+      image: data.tokens.find((t) => t.ref_id === i.ref)?.image_url ?? null,
+    }));
+  }, [data]);
 
   if (!sessionId) return null;
   if (isError) {
@@ -318,17 +386,14 @@ export default function EngineTable() {
         <button className={fast ? "on" : ""} onClick={toggleFast} title="Less picture, more frames: no torch shadows, no depth of field, a plain pixel ratio">
           Fast
         </button>
+        <button className={sound ? "on" : ""} onClick={toggleSound} title="Swings, bolts, heals, knockouts and the turn tick">
+          Sound
+        </button>
         <button className={help ? "on" : ""} onClick={() => setHelp((v) => !v)} title="The keys (F1)">
           ?
         </button>
         <Loading />
         {err && <small className="et-err">⚠ {err}</small>}
-        {data.combat_running && (
-          <span className="turn">
-            Round {data.round}
-            {activeName ? ` · ${activeName}` : ""}
-          </span>
-        )}
       </div>
       {data.combat_running && activeName && (
         <div className={hud || peek ? "et-turn-card" : "et-turn-card hidden"} style={{ borderColor: turnTint }} aria-label={`${activeName}'s turn`}>
@@ -343,6 +408,16 @@ export default function EngineTable() {
             <small style={{ color: turnTint }}>{data.round ? `Round ${data.round} · ` : ""}now</small>
             <b>{activeName}</b>
           </div>
+        </div>
+      )}
+      {data.combat_running && order.length > 1 && (
+        <div className={hud || peek ? "et-order" : "et-order hidden"} aria-label="Turn order">
+          {order.map((o, i) => (
+            <div key={o.ref} className={(i === 0 ? "now" : "") + (o.defeated ? " down" : "")} title={o.name}>
+              {o.image ? <img src={o.image} alt="" style={{ borderColor: o.tint }} /> : <i style={{ borderColor: o.tint, color: o.tint }}>{o.name.trim().charAt(0).toUpperCase()}</i>}
+              <span>{o.name.split(" ")[0]}</span>
+            </div>
+          ))}
         </div>
       )}
       {help && (

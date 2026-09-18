@@ -201,3 +201,44 @@ export function Bolt({
     </group>
   );
 }
+
+/** A flash and a ring where a blow lands (Plan 113) — melee has no bolt to burst, so this is its impact. */
+export function Burst({ at, color, t0, onDone }: { at: THREE.Vector3; color: string; t0: number; onDone?: () => void }) {
+  const flash = useRef<THREE.Mesh>(null);
+  const ring = useRef<THREE.Mesh>(null);
+  const finished = useRef(false);
+  const c = useMemo(() => new THREE.Color(color).multiplyScalar(2.2), [color]);
+  useFrame(() => {
+    const t = performance.now() - t0;
+    const b = Math.min(1, Math.max(0, t / 340));
+    const on = t >= 0 && b < 1;
+    if (flash.current) {
+      flash.current.visible = on;
+      flash.current.position.copy(at);
+      flash.current.scale.setScalar(0.06 + b * 0.32);
+      (flash.current.material as THREE.MeshBasicMaterial).opacity = 0.8 * (1 - b);
+    }
+    if (ring.current) {
+      ring.current.visible = on;
+      ring.current.position.set(at.x, 0.04, at.z);
+      ring.current.scale.setScalar(0.25 + b * 1.1);
+      (ring.current.material as THREE.MeshBasicMaterial).opacity = 0.7 * (1 - b);
+    }
+    if (b >= 1 && !finished.current) {
+      finished.current = true;
+      onDone?.();
+    }
+  });
+  return (
+    <group>
+      <mesh ref={flash} visible={false}>
+        <sphereGeometry args={[1, 12, 12]} />
+        <meshBasicMaterial color={c} toneMapped={false} transparent depthWrite={false} />
+      </mesh>
+      <mesh ref={ring} visible={false} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.4, 0.5, 40]} />
+        <meshBasicMaterial color={c} toneMapped={false} transparent depthWrite={false} />
+      </mesh>
+    </group>
+  );
+}

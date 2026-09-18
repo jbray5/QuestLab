@@ -3,7 +3,7 @@ import * as THREE from "three";
 
 import type { TableProjection } from "../api/types";
 import type { Fog } from "./fogOfWar";
-import { Bolt, FloatingNumber } from "./Fx";
+import { Bolt, Burst, FloatingNumber } from "./Fx";
 import { FT_PER_UNIT } from "./heights";
 import type { MapDef } from "./maps";
 import { type Figure, figures, lights } from "./session";
@@ -122,6 +122,11 @@ export function Party({
           </group>
         );
       })}
+      {strikes
+        .filter((s) => s.kind === "melee")
+        .map((s) => (
+          <Burst key={`b${s.fx.id}`} at={chest(s.to)} color={flavorColor(s.fx.flavor)} t0={s.fx.at + s.timing.impact} />
+        ))}
       {strikes
         .filter((s) => s.kind !== "melee")
         .map((s) => (
