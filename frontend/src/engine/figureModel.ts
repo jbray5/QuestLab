@@ -422,11 +422,10 @@ export function analyzeFigure(gltf: GltfLike): FigureInfo {
   gltf.scene.traverse((o) => {
     if ((o as THREE.Bone).isBone) bones += 1;
   });
-  const box = new THREE.Box3().setFromObject(gltf.scene);
   const own = gltf.animations.map((c) => canonicalClip(c.name)).filter((n): n is ClipName => !!n);
   return {
     rig: !hips ? "none" : /^mixamorig/i.test(hips.name) ? "mixamo" : /^hip$/i.test(hips.name) ? "genesis" : "humanoid",
-    rawHeight: box.isEmpty() ? 0 : box.max.y - box.min.y,
+    rawHeight: measure(gltf.scene).height,
     ownClips: Array.from(new Set(own)),
     bones,
   };
@@ -485,6 +484,30 @@ function clipsFor(gltf: GltfLike, library: LibraryClip[], cacheKey: string): THR
   return clips;
 }
 
+/**
+ * How tall a model stands and where its feet are, in its own units. From the
+ * skeleton when it has one — head to feet — so a cloak, a tail or a scabbard
+ * hanging past the boots cannot make the figure shorter or float it; from the
+ * bounding box for a rig-less prop.
+ */
+function measure(root: THREE.Object3D): { height: number; bottom: number } {
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(root);
+  const fromBox = { height: box.isEmpty() ? 0 : box.max.y - box.min.y, bottom: box.isEmpty() ? 0 : box.min.y };
+  const head = findBone(root, "head");
+  const feet = [findBone(root, "leftfoot"), findBone(root, "rightfoot"), findBone(root, "lefttoebase"), findBone(root, "righttoebase")].filter((b): b is THREE.Object3D => !!b);
+  if (!head || !feet.length) return fromBox;
+  const v = new THREE.Vector3();
+  const footY = Math.min(...feet.map((b) => b.getWorldPosition(v).y));
+  const top = findBone(root, "headtop_end");
+  const headY = head.getWorldPosition(v).y;
+  const crown = top ? top.getWorldPosition(v).y : headY + 0.13 * (headY - footY);
+  const height = crown - footY;
+  if (height < 1e-3) return fromBox;
+  // Soles sit a little under the ankle joint; never below what the mesh actually reaches.
+  return { height, bottom: Math.max(fromBox.bottom, footY - 0.04 * height) };
+}
+
 export function fitFigure(gltf: GltfLike, library: LibraryClip[], heightUnits: number, cacheKey: string): Fitted {
   const body = cloneSkeleton(gltf.scene);
   body.traverse((o) => {
@@ -493,10 +516,9 @@ export function fitFigure(gltf: GltfLike, library: LibraryClip[], heightUnits: n
       o.receiveShadow = true;
     }
   });
-  const box = new THREE.Box3().setFromObject(gltf.scene);
-  const raw = box.isEmpty() ? 0 : box.max.y - box.min.y;
+  const { height: raw, bottom } = measure(gltf.scene);
   const scale = raw > 1e-3 ? heightUnits / raw : 1;
-  const lift = box.isEmpty() ? 0 : -box.min.y * scale;
+  const lift = -bottom * scale;
   return { body, clips: clipsFor(gltf, library, cacheKey), scale, lift, height: heightUnits, forwardYaw: detectForwardYaw(body) };
 }
 
