@@ -32,10 +32,11 @@ asset over 500 KB; the environment comes from a CDN like the Soldier does.
 ## Surprises and Discoveries
 - MSAA and N8AO fight (a multisampled depth buffer the AO pass can't read), so the composer
   runs with `multisampling={0}` and SMAA closes the chain; the Canvas has `antialias: false`.
-- The first depth-of-field setting (focus range 0.02, bokeh 2.6) blurred most of the party
-  whenever the active combatant stood across the room — on the TV the figures' faces went
-  soft. Widened to 0.05 / 2.0 the same night; a wide shot stays readable and the pull is
-  still visible.
+- The first depth-of-field setting blurred everything, the focused figure included, and
+  it read as "the faces are meh". postprocessing 6.36+ measures `focusDistance` and
+  `focusRange` in **world units** (the docs still show the old 0–1 fractions), so a
+  `focusRange` of 0.02 was a quarter of a foot of sharpness. It is 3 units (15 ft) now;
+  the focused figure and its neighbours are crisp, the far wall falls off.
 - Rode along: Restwater's trapdoor is now a hidden exit (`hidden: true` on the map's exit;
   the projection's `revealed_exits` lists the ones the DM has revealed as `exit:<key>`
   entries of `revealed_region_ids`), with **Reveal the hatch** and **Take the party to

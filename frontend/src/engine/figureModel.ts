@@ -512,7 +512,75 @@ function measure(root: THREE.Object3D): { height: number; bottom: number } {
   return { height, bottom: Math.max(fromBox.bottom, footY - 0.04 * height) };
 }
 
+/**
+ * What a material is, from its name. Daz and Mixamo exports arrive with colour
+ * maps only — no normal, roughness or metalness maps — and every surface at
+ * roughness 1, which is why faces looked like chalk. The names are reliable
+ * (Genesis: "Head", "Arms", "EyeMoisture Left", "Cornea"; outfits: "LVA_Belt_Buckle"),
+ * so the surface type can be read from them and given the response a real
+ * material would have under the room's light.
+ */
+const EYE_GLASS = /eyemoisture|cornea|tear|eyereflection|eye_?moist/i;
+const EYE = /\beyes?\b|iris|sclera|pupil/i;
+const HAIR = /hair|scalp|eyebrow|eyelash|beard|brow|lash|stubble/i;
+const MOUTH = /mouth|teeth|tongue|gums|lips/i;
+const SKIN = /skin|face|head|body|arms|legs|torso|ears|nails|neck|hands|feet|genital|nipple/i;
+const METAL = /metal|plate|armou?r|steel|iron|gold|silver|buckle|blade|chain|mail|greave|gauntlet|pauldron|helm|cuirass|rivet|clasp|ring|hilt|guard/i;
+const LEATHER = /leather|boot|belt|strap|shoe|glove|harness|scabbard|sheath/i;
+const CLOTH = /cloth|shirt|pant|tunic|robe|cloak|cape|skirt|dress|sleeve|collar|cuff|hood|sash|wrap|linen|wool/i;
+
+function dressMaterial(m: THREE.Material): void {
+  const std = m as THREE.MeshStandardMaterial;
+  if (!std.isMeshStandardMaterial || std.userData.dressed) return;
+  std.userData.dressed = true;
+  const n = m.name || "";
+  if (EYE_GLASS.test(n)) {
+    // The wet layer over the eye: nearly invisible, all highlight.
+    std.transparent = true;
+    std.opacity = 0.12;
+    std.depthWrite = false;
+    std.roughness = 0.04;
+    std.metalness = 0;
+    return;
+  }
+  if (EYE.test(n)) {
+    std.roughness = 0.18;
+    std.metalness = 0;
+  } else if (HAIR.test(n)) {
+    std.roughness = 0.62;
+    std.metalness = 0;
+  } else if (MOUTH.test(n)) {
+    std.roughness = 0.42;
+    std.metalness = 0;
+  } else if (SKIN.test(n)) {
+    std.roughness = 0.55;
+    std.metalness = 0;
+  } else if (METAL.test(n)) {
+    std.roughness = 0.38;
+    std.metalness = 0.85;
+  } else if (LEATHER.test(n)) {
+    std.roughness = 0.68;
+    std.metalness = 0;
+  } else if (CLOTH.test(n)) {
+    std.roughness = 0.85;
+    std.metalness = 0;
+  } else if (std.roughness >= 0.999 && !std.roughnessMap) {
+    std.roughness = 0.8;
+  }
+}
+
+/** Give every material in a figure its surface response. Idempotent; runs on the shared scene once. */
+export function dressFigure(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const m of mats) dressMaterial(m);
+  });
+}
+
 export function fitFigure(gltf: GltfLike, library: LibraryClip[], heightUnits: number, cacheKey: string): Fitted {
+  dressFigure(gltf.scene);
   const body = cloneSkeleton(gltf.scene);
   body.traverse((o) => {
     if ((o as THREE.Mesh).isMesh) {

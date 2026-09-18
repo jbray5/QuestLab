@@ -5,7 +5,7 @@ import * as THREE from "three";
 
 import { preloadProps } from "./assets";
 import { CameraKeys } from "./Controls";
-import { DEFAULT_HEIGHT_FT } from "./heights";
+import { DEFAULT_HEIGHT_FT, FT_PER_UNIT } from "./heights";
 import { lintMap } from "./lint";
 import { snapToCell, toWorld } from "./maps";
 import { MAPS } from "./registry";
@@ -145,9 +145,11 @@ export default function ImmersiveSpike() {
   // ?zoom=1 — a close look at whoever is standing on the start cell (Plan 111 previews).
   const zoom = params.get("zoom");
   const [lx, lz] = toWorld(map, ...(preset?.at ?? map.look));
-  const look = zoom ? new THREE.Vector3(start.x, 0.95, start.z) : new THREE.Vector3(lx, 0.6, lz);
-  // zoom=1 from the front-right; zoom=2 square from the side, for judging a stance.
-  const off = zoom === "2" ? [2.6, 0.35, 0.1] : zoom ? [0.9, 0.55, 2.1] : (preset?.eye ?? map.eye);
+  // zoom=3 is a portrait: the eye line of a figure of ?height (5.5 ft when unsaid).
+  const faceY = (Number(params.get("height") || 5.5) / FT_PER_UNIT) * 0.92;
+  const look = zoom === "3" ? new THREE.Vector3(start.x, faceY, start.z) : zoom ? new THREE.Vector3(start.x, 0.95, start.z) : new THREE.Vector3(lx, 0.6, lz);
+  // zoom=1 from the front-right; zoom=2 square from the side, for judging a stance; zoom=3 the face.
+  const off = zoom === "3" ? [0.32, 0.04, 0.42] : zoom === "2" ? [2.6, 0.35, 0.1] : zoom ? [0.9, 0.55, 2.1] : (preset?.eye ?? map.eye);
   const eye: [number, number, number] = [look.x + off[0], look.y + off[1], look.z + off[2]];
   const send = (p: THREE.Vector3) => setTarget(snapToCell(map, p));
 
@@ -233,14 +235,14 @@ export default function ImmersiveSpike() {
         <OrbitControls
           target={look}
           enablePan
-          minDistance={3}
+          minDistance={zoom === "3" ? 0.25 : 3}
           maxDistance={40}
           maxPolarAngle={Math.PI / 2 - 0.06}
           mouseButtons={{ LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: THREE.MOUSE.PAN }}
           makeDefault
         />
         <CameraKeys home={{ eye, look }} homeNonce={0} />
-        <Post focus={zoom ? [start.x, 1.0, start.z] : null} />
+        <Post focus={zoom ? [start.x, zoom === "3" ? faceY : 1.0, start.z] : null} cinema={params.get("sharp") !== "1"} />
       </Canvas>
     </div>
   );
