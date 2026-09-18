@@ -405,6 +405,53 @@ class TestProjectionSafety:
         assert by_id["o1"].model_url == "https://cdn.test/ogre.glb"
         assert proj.active_token_ref in (by_id["o1"].ref_id, by_id["o2"].ref_id)
 
+    def test_foe_tokens_take_their_numbered_names(self, duckdb_session: Session):
+        """A token placed as "Cultist" shows as "Cultist 2" once it stands for that row."""
+        from domain.session import SessionCombatantCreate, SessionCombatStateWrite
+        from services import session_service as sess_svc
+
+        dm = _dm()
+        campaign, _adv, gs = _campaign_and_session(duckdb_session, dm)
+        battle_map = _make_map(duckdb_session, campaign.id, dm)
+        rows = [
+            SessionCombatantCreate(
+                sort_index=i,
+                name=f"Cultist {i + 1}",
+                type="monster",
+                hp_current=9,
+                hp_max=9,
+                dex_score=12,
+                initiative_roll=10 - i,
+            )
+            for i in range(2)
+        ]
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(combatants=rows, combat_state="running"),
+        )
+        tokens = [
+            Token(id="foe-a", kind="monster", ref_id="gone-1", label="Cultist", x=10, y=10),
+            Token(
+                id="foe-b",
+                kind="monster",
+                ref_id=str(state.combatants[1].id),
+                label="Cultist",
+                x=20,
+                y=10,
+            ),
+            Token(id="foe-c", kind="monster", ref_id="gone-2", label="The Big One", x=30, y=10),
+        ]
+        table_svc.update_table_state(
+            duckdb_session, gs.id, dm, TableStateUpdate(active_map_id=battle_map.id, tokens=tokens)
+        )
+        proj = table_svc.get_projection(duckdb_session, gs.id)
+        labels = {t.id: t.label for t in proj.tokens}
+        assert labels["foe-b"] == "Cultist 2"
+        assert labels["foe-a"] == "Cultist 1"
+        assert labels["foe-c"] == "The Big One"
+
     def test_revealed_exits_come_through_as_keys(self, duckdb_session: Session):
         """Plan 112 — an "exit:<key>" reveal names the exit on the projection and
         never appears among the fog polygons."""

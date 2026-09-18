@@ -931,6 +931,10 @@ def update_combatant(
         raise ValueError(f"Combatant {combatant_id} not found in session {session_id}.")
     hp_before = combatant.hp_current
     was_defeated = combatant.defeated
+    # Zero HP is down, whoever sends the patch — the turn order skips them and the
+    # table greys their ring. Only ever flips TO defeated; a revive says so itself.
+    if update.hp_current == 0 and update.defeated is None and not was_defeated:
+        update = update.model_copy(update={"defeated": True})
     updated = SessionCombatantRepo.update_one(db, combatant, update)
 
     # Plan 61 — combat cinema. The board reacts: HP deltas float over the

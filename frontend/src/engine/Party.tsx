@@ -104,6 +104,7 @@ export function Party({
           label: labels ? f.label : undefined,
           hit: last?.id,
           hitAt: last ? last.at + (landing?.timing.impact ?? 0) : undefined,
+          hitFrom: landing ? landing.from.cell : null,
           strike: swing ? { id: swing.fx.id, kind: swing.kind, toward: swing.to.cell, at: swing.fx.at } : null,
         };
         return (

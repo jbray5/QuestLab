@@ -50,6 +50,7 @@ import MonsterStatBlock from "../components/MonsterStatBlock";
 import { FLAVORS } from "../engine/strikes";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
 import { useStrikeStore } from "../stores/useStrikeStore";
+import SpellChips from "../components/table/SpellChips";
 import CombatBeatsPanel from "../components/combat-beats/CombatBeatsPanel";
 import type {
   Combatant,
@@ -1557,6 +1558,7 @@ export default function SessionHud() {
 
                 {/* Spell slots — persistent, reads from Plan 20 store */}
                 <SpellSlotTracker pcId={pc.id} />
+                <SpellChips pcId={pc.id} characterClass={pc.character_class} />
 
                 {/* Plan 60 — spendable class-feature pips (Channel Divinity,
                     Psionic Dice, Wild Shape…) without leaving the HUD. */}

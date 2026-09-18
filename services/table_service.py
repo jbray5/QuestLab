@@ -334,7 +334,7 @@ def _relink_tokens(tokens: list[Token], combatants: list) -> None:
         tokens: The session's tokens, mutated in place.
         combatants: The live SessionCombatant rows.
     """
-    by_id = {str(c.id) for c in combatants}
+    by_id = {str(c.id): c for c in combatants}
     by_stem: dict[str, list] = {}
     for c in combatants:
         if not c.character_id:
@@ -345,11 +345,29 @@ def _relink_tokens(tokens: list[Token], combatants: list) -> None:
             continue
         if token.ref_id in by_id:
             used.add(token.ref_id)
+            _take_name(token, by_id[token.ref_id])
             continue
         candidates = [c for c in by_stem.get(_stem(token.label), []) if str(c.id) not in used]
         if candidates:
             token.ref_id = str(candidates[0].id)
             used.add(token.ref_id)
+            _take_name(token, candidates[0])
+
+
+def _take_name(token: Token, combatant) -> None:
+    """Give a foe token its tracker row's name when it only carries the stem.
+
+    Three tokens placed as "Cultist" stand for rows named "Cultist 1/2/3";
+    the DM cannot tell them apart on the table until they say which.
+    A token whose label the DM changed to something else is left alone.
+
+    Args:
+        token: The token, mutated in place.
+        combatant: The live row it stands for.
+    """
+    name = getattr(combatant, "name", None)
+    if name and token.label != name and _stem(token.label) == _stem(name):
+        token.label = name
 
 
 def _resolve_figures(

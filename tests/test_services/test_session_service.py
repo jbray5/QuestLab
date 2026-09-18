@@ -692,6 +692,44 @@ class TestUpdateCombatant:
         )
         assert fired[-1]["from_ref"] is None
 
+    def test_zero_hp_marks_defeated_and_is_skipped(self, duckdb_session: Session, monkeypatch):
+        """A hit to 0 HP through the API downs the combatant (KO fx, defeated flag)
+        and the turn order steps over them — without the HUD having to say so."""
+        fired: list[str] = []
+        monkeypatch.setattr(
+            sess_svc, "publish_table_fx", lambda sid, kind, ref, **kw: fired.append(kind)
+        )
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        gs = _make_session(duckdb_session, adv.id, dm)
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                combatants=[
+                    _persist_combatant(0, "Hero", hp=30),
+                    _persist_combatant(1, "Cultist", hp=9),
+                    _persist_combatant(2, "Hag", hp=82),
+                ],
+                combat_state="running",
+            ),
+        )
+        hero, cultist, hag = state.combatants
+        downed = sess_svc.update_combatant(
+            duckdb_session, gs.id, cultist.id, dm, SessionCombatantUpdate(hp_current=0)
+        )
+        assert downed.defeated is True
+        assert "ko" in fired
+        after = sess_svc.advance_combat_turn(duckdb_session, gs.id, dm)
+        assert after.active_combatant_id == hag.id
+        # Healing does not stand them up on its own.
+        healed = sess_svc.update_combatant(
+            duckdb_session, gs.id, cultist.id, dm, SessionCombatantUpdate(hp_current=4)
+        )
+        assert healed.defeated is True
+
     def test_unknown_combatant_raises(self, duckdb_session: Session):
         """Patching a combatant that doesn't exist raises ValueError."""
         dm = _unique_dm()

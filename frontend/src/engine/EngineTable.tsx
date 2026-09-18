@@ -67,6 +67,15 @@ const CSS = `
 .et-hud button { font: inherit; padding: 6px 11px; border-radius: 9px; cursor: pointer;
   border: 1px solid #3a3a46; background: rgba(20,16,30,0.8); color: #cfcfd8; }
 .et-hud button.on { border-color: #d6af36; background: rgba(214,175,54,0.16); color: #f0e6c8; }
+.et-turn-card { position: absolute; top: 64px; right: 14px; z-index: 3; display: flex; gap: 12px; align-items: center;
+  padding: 8px 16px 8px 8px; border-radius: 14px; border: 1px solid #d6af36; background: rgba(12,10,18,0.78);
+  backdrop-filter: blur(6px); pointer-events: none; transition: opacity 200ms; }
+.et-turn-card.hidden { opacity: 0; }
+.et-turn-card img, .et-turn-card .et-turn-initial { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; object-position: top;
+  border: 2px solid #d6af36; background: #1b1722; display: grid; place-items: center; font: 700 30px Cinzel, Georgia, serif; }
+.et-turn-card div { display: flex; flex-direction: column; line-height: 1.15; }
+.et-turn-card small { font: 600 11px system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; }
+.et-turn-card b { font: 700 20px Cinzel, Georgia, serif; color: #f0e6c8; white-space: nowrap; }
 .et-hud .turn { margin-left: auto; padding: 6px 12px; border-radius: 9px; border: 1px solid #d6af36;
   background: rgba(214,175,54,0.14); color: #f0e6c8; }
 .et-hud small { opacity: 0.7; }
@@ -260,6 +269,9 @@ export default function EngineTable() {
     return figures(map, data).find((f) => f.active) ?? null;
   }, [map, data]);
   const activeName = data?.initiative.find((i) => i.active)?.name ?? active?.label ?? null;
+  // Whose turn it is, for the card in the corner: the token's portrait, and its side for the ring.
+  const activeToken = data?.active_token_ref ? (data.tokens.find((t) => t.ref_id === data.active_token_ref) ?? null) : null;
+  const turnTint = activeToken ? (activeToken.kind === "pc" ? "#d6af36" : activeToken.kind === "monster" ? "#c04a4a" : "#8a8a9a") : "#d6af36";
 
   if (!sessionId) return null;
   if (isError) {
@@ -315,6 +327,21 @@ export default function EngineTable() {
           </span>
         )}
       </div>
+      {data.combat_running && activeName && (
+        <div className={hud || peek ? "et-turn-card" : "et-turn-card hidden"} style={{ borderColor: turnTint }} aria-label={`${activeName}'s turn`}>
+          {activeToken?.image_url ? (
+            <img src={activeToken.image_url} alt="" style={{ borderColor: turnTint }} />
+          ) : (
+            <span className="et-turn-initial" style={{ borderColor: turnTint, color: turnTint }}>
+              {activeName.trim().charAt(0).toUpperCase()}
+            </span>
+          )}
+          <div>
+            <small style={{ color: turnTint }}>{data.round ? `Round ${data.round} · ` : ""}now</small>
+            <b>{activeName}</b>
+          </div>
+        </div>
+      )}
       {help && (
         <div className="et-help">
           <table>

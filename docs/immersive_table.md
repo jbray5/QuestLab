@@ -33,7 +33,9 @@ Everything comes from the HUD's **LIVE** and **MAPS** tabs:
 | A title lands over the table | The **🎬** box under the LIVE map — type, Enter. ✕ takes it down. |
 | A ripple on the floor | **◎ Ping** and tap the map. |
 | A number floats up and the figure flinches | Apply damage or healing on a combatant. |
-| The attacker swings, or a bolt flies and bursts | Apply damage **while a fight is running**: whoever's turn it is strikes the one you hit. Adjacent = a lunge and a chop; apart = an arrow, or a spell bolt in the damage type's colour. **NEXT HIT** chips under the tracker's buttons pick the type (⚔ weapon, 🔥 fire, ❄ cold …); it stays until you change it, and **Cast** on a PC's spell panel sets it to that spell's type. Healing is a green bolt. |
+| The attacker swings, or a bolt flies and bursts | Apply damage **while a fight is running**: whoever's turn it is strikes the one you hit, and the one hit turns to face them. Adjacent = a lunge and a chop; apart = an arrow, or a spell bolt in the damage type's colour — so **move the attacker's token next to the target first** if it is a melee attack. **NEXT HIT** chips under the tracker's buttons pick the type (⚔ weapon, 🔥 fire, ❄ cold …); it stays until you change it. Under each PC's spell slots on their HUD card, **Cast** lists the spells they know that hurt or heal: tap one as it is cast and the next hit takes its colour (a levelled spell spends a slot). Healing is a green bolt. |
+| A headshot and name in the top right corner | Whose turn it is, from the tracker — the token's portrait, ringed in the side's colour. |
+| "Cultist 2", not "Cultist" | Foe tokens take the tracker row's numbered name once they stand for it, so three cultists can be told apart. A token you renamed yourself keeps its name. |
 | A lantern on a post | A **light** token. |
 
 The view has a few controls of its own, top left: **Grid**, **Follow the turn**

@@ -71,6 +71,18 @@ itself when the machine can't hold the frame rate.
 
 ---
 
+## Follow-up, the morning after (2026-09-18, same day)
+Justin's first DM pass: tokens all read "Cultist" (the projection now gives a foe token its
+tracker row's numbered name); the struck figure now turns to face its attacker; the spell
+panel was only on the character sheet, so the HUD card now lists a PC's damaging and
+healing spells as **Cast** chips; a **turn card** (headshot + name) sits top right of the TV.
+The lag's real cause was strand hair: 520k–930k triangles per figure (Eirgrid, Mavick),
+3–4 million skinned triangles on the table. Decimated to 30% with meshopt
+(`scratchpad/figs/simplify_hair.mjs`, reads the packed glb) and re-uploaded. A scripted DM
+night (`scratchpad/shots/pressure.mjs`) drives a scratch session through moves, every kind
+of hit, a KO, the hatch, the descent, fog and a reroll, and reads the projection and the
+table's console after each beat.
+
 ## Outcomes and Retrospective
 Shipped the night before session 7. A hit in a running fight now has a source and a colour:
 the tracker's NEXT HIT chips and the spell panel's Cast button choose it, the API names the

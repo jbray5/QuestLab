@@ -68,6 +68,7 @@ export function Walker({
   label,
   hit,
   hitAt,
+  hitFrom,
   strike = null,
   model = null,
 }: {
@@ -83,6 +84,8 @@ export function Walker({
   hit?: string;
   /** When that blow lands (performance.now) — the flinch waits for it. */
   hitAt?: number;
+  /** Where it came from — the figure turns to face its attacker as it lands. */
+  hitFrom?: THREE.Vector3 | null;
   /** A strike to play: face the target, swing or cast. */
   strike?: Strike | null;
   model?: FigureModel | null;
@@ -102,7 +105,8 @@ export function Walker({
   const yaw = useRef(0);
   const flinch = useRef<{ t: number } | null>(null);
   const lastHit = useRef<string | undefined>(undefined);
-  const pendingHit = useRef<{ at: number } | null>(null);
+  const pendingHit = useRef<{ at: number; from: THREE.Vector3 | null } | null>(null);
+  const faceTo = useRef<{ x: number; z: number; until: number } | null>(null);
   const swing = useRef<{ kind: Strike["kind"]; toward: THREE.Vector3; t0: number; hold?: number } | null>(null);
   const lastStrike = useRef<string | undefined>(undefined);
   const bent = useRef<Bent[]>([]);
@@ -159,9 +163,9 @@ export function Walker({
   useEffect(() => {
     if (hit && hit !== lastHit.current) {
       lastHit.current = hit;
-      pendingHit.current = { at: hitAt ?? performance.now() };
+      pendingHit.current = { at: hitAt ?? performance.now(), from: hitFrom ? hitFrom.clone() : null };
     }
-  }, [hit, hitAt]);
+  }, [hit, hitAt, hitFrom]);
   useEffect(() => {
     if (strike && strike.id !== lastStrike.current) {
       lastStrike.current = strike.id;
@@ -178,9 +182,11 @@ export function Walker({
     const p = pos.current;
     if (!g) return;
     if (pendingHit.current && performance.now() >= pendingHit.current.at) {
+      const from = pendingHit.current.from;
       pendingHit.current = null;
       if (!down && actions.current.hit) play("hit", 0.08, true);
       else flinch.current = { t: 0 };
+      if (from) faceTo.current = { x: from.x, z: from.z, until: performance.now() + 700 };
     }
     const dx = cell.x - p.x;
     const dz = cell.z - p.z;
@@ -204,6 +210,16 @@ export function Walker({
     g.position.copy(p);
     g.rotation.y = yaw.current - fig.forwardYaw;
 
+    // Struck: turn to face whoever did it (while standing still).
+    const ft = faceTo.current;
+    if (ft && !down && dist <= 0.08) {
+      const want = Math.atan2(ft.x - p.x, ft.z - p.z);
+      let dy = want - yaw.current;
+      dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+      yaw.current += dy * Math.min(1, dt * 10);
+      g.rotation.y = yaw.current - fig.forwardYaw;
+      if (performance.now() > ft.until) faceTo.current = null;
+    }
     // Plan 113 — the strike: face the target; lunge and chop for a blow, raise the arms for a bolt.
     const s = swing.current;
     let lean = 0;
