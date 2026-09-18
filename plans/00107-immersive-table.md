@@ -58,9 +58,9 @@ on selection), and DoF only as a cinematic accent.
 | # | Milestone | Plan | What the players see |
 |---|---|---|---|
 | 0 | **Spike** — the same tavern both ways, in the browser; then Restwater, its pools, the abode below, furniture, the grid, the sanity check | [00108](00108-immersive-spike.md) | A choice made: built + props |
-| 1 | Parity — engine joins a session, renders today's map + tokens live | 00109 | The table, in the new renderer |
-| 2 | Atmosphere — lights, fog, post, a cinematic camera that cuts to whoever's turn it is | 00110 | "Whoa" |
-| 3 | Characters — animated models for the party and monster types; a move becomes a walk | 00111 | Their character walking across the room |
+| 1 | Parity — engine joins a session, renders today's map + tokens live | [00109](00109-engine-parity.md) | The table, in the new renderer |
+| 2 | Atmosphere — lights, fog, post, a cinematic camera that cuts to whoever's turn it is | [00110](00110-engine-atmosphere.md) | "Whoa" |
+| 3 | Characters — any Mixamo-rigged model per PC or monster, one shared clip library baked onto every rig, a DM preview, the packing tool | [00111](00111-engine-characters.md) | Their character walking across the room |
 | 4 | Height — DM-painted walls extruded, doors, props, navmesh so walks go *around* things | 00112 | The room is a room |
 | 5 | Full 3D tile building (optional; decided by the spike) | — | — |
 
@@ -77,7 +77,7 @@ Milestone 2 is where it lands. Aim there first, then 3.
 | 2026-09-17 | Renderer backend for the spike | (a) WebGPU (`three/webgpu` + TSL post) (b) WebGL2 + pmndrs postprocessing | (b) for now | The postprocessing stack already in the app is WebGL-only; the spike should answer the *design* question, not port a pipeline. WebGPU is a later, contained swap. |
 | 2026-09-17 | Content strategy | (a) full 3D tiles from day one (b) hybrid: keep the painted maps as the ground, extrude DM-painted walls, place lit props | (b) first, (a) decided by the spike | 42 Czepeku maps are the art Justin owns and they are good. An engine with nothing to render is an empty room. |
 | 2026-09-17 | Player likenesses | (a) parametric builder (b) commission (c) generate | Humanoids: (a) Reallusion Character Creator, driven by Justin. Creed (dragonborn) and Steven (gnome): buy a rigged model or commission first; generate last. | Justin: "In, but as non-AI as possible." Four of six are humanoid and a person with the portraits does that better than code. |
-| 2026-09-17 | Animation | Mixamo rigs + clips → Blender → glTF | — | Free, hundreds of clips, the standard pipeline. |
+| 2026-09-17 | Animation | Mixamo rigs + clips → Blender → glTF | Mixamo rigs; clips baked onto each rig by the engine (Plan 111) | Free, hundreds of clips, the standard pipeline — and no Blender pass per character: a figure is a mesh on the rig, the walk is the engine's. |
 | 2026-09-17 | Remote players | Screen share vs. direct URL | Both; URL is better | Justin: "screen share is fine." A browser engine gives them the URL for free. |
 | 2026-09-17 | **The standard, after the spike** | hybrid + props vs. built + props | **built + props** | Justin, on seeing both furnished: "I want the built scene not hybrid with furniture." The painted map is the blueprint the props are placed from, not the floor. Hybrid stays as a comparison toggle only. |
 | 2026-09-17 | Scene data | hardcoded per page vs. a definition per map | a `MapDef` per map, normalized on load, linted | "Let me see you do this with Restwater" made it two maps; the sanity check made the definitions honest. This is the seed of Milestone 4's editor and of the per-map scene row. |

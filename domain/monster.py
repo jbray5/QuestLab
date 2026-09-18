@@ -83,6 +83,8 @@ class MonsterStatBlock(SQLModel, table=True):
     image_url: Optional[str] = Field(default=None, max_length=500)
     # Full-body transparent minifig standee for the 3D board (Plan 45).
     figure_url: Optional[str] = Field(default=None, max_length=500)
+    # Plan 111 — a rigged 3D model (.glb) the immersive table walks for this monster.
+    model_url: Optional[str] = Field(default=None, max_length=500)
     # Plan 93 — Obsidian vault path ("People/Auntie Sorrel"). DM-only: it is a
     # spoiler, so it never crosses a player-facing boundary (no /play payload,
     # no table projection) and renders on DM-private surfaces alone.
@@ -143,6 +145,7 @@ class MonsterStatBlockCreate(BaseModel):
     is_custom: bool = False
     created_by_email: Optional[str] = None
     image_url: Optional[str] = None
+    model_url: Optional[str] = None
     dm_note: Optional[str] = Field(default=None, max_length=300)
 
     @field_validator("challenge_rating")
@@ -194,6 +197,7 @@ class MonsterStatBlockRead(BaseModel):
     created_by_email: Optional[str] = None
     image_url: Optional[str] = None
     figure_url: Optional[str] = None
+    model_url: Optional[str] = None
     dm_note: Optional[str] = None
 
     model_config = {"from_attributes": True}
@@ -237,6 +241,7 @@ class MonsterStatBlockUpdate(BaseModel):
     lair_actions: Optional[list[dict[str, Any]]] = None
     image_url: Optional[str] = None
     figure_url: Optional[str] = None
+    model_url: Optional[str] = None
     dm_note: Optional[str] = Field(default=None, max_length=300)
 
     @field_validator("challenge_rating")

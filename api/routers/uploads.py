@@ -16,6 +16,11 @@ _ALLOWED_CONTENT_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 _ALLOWED_MAP_CONTENT_TYPES = _ALLOWED_CONTENT_TYPES | {"video/mp4", "video/webm"}
 _MAX_BYTES = 5 * 1024 * 1024  # 5 MB
 _MAX_MAP_BYTES = 80 * 1024 * 1024  # 80 MB — 4K stills and animated loops
+# Rigged figures for the immersive table (Plan 111): a binary glTF, checked by
+# its magic rather than the browser's content-type, which is usually blank
+# or octet-stream for a .glb.
+_MAX_MODEL_BYTES = 30 * 1024 * 1024  # 30 MB — a 1K-textured, meshopt-packed character
+_GLB_MAGIC = b"glTF"
 
 
 class UploadResponse(BaseModel):
@@ -118,6 +123,75 @@ async def upload_map(
         return UploadResponse(url=url)
     except PermissionError:
         # No blob token (local dev) — store under uploads/ and serve statically.
+        _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        (_UPLOAD_DIR / filename).write_bytes(contents)
+        return UploadResponse(url=f"/uploads/{filename}")
+
+
+def is_glb(contents: bytes) -> bool:
+    """True when the bytes are a binary glTF 2.0 container.
+
+    The 12-byte header is ``"glTF"``, the version (``2``) and the total length
+    as little-endian uint32s. Checking the magic and version keeps HTML, SVG
+    or a mislabelled picture out of the model store.
+
+    Args:
+        contents: The uploaded bytes.
+
+    Returns:
+        Whether the header is a glTF 2 binary.
+    """
+    if len(contents) < 12 or contents[:4] != _GLB_MAGIC:
+        return False
+    return int.from_bytes(contents[4:8], "little") == 2
+
+
+@router.post("/uploads/model", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
+async def upload_model(
+    file: UploadFile,
+    _user: CurrentUser,
+) -> UploadResponse:
+    """Upload a rigged ``.glb`` figure for the immersive table (Plan 111).
+
+    Stored on Vercel Blob under ``models/`` (CDN, cross-origin, immutable
+    cache) so every player's engine page loads it directly; falls back to the
+    local ``uploads/`` dir in dev. Only a binary glTF 2 is accepted, by its
+    header — a ``.gltf`` with side-car files cannot be a single upload.
+
+    Args:
+        file: Multipart ``.glb`` upload.
+        _user: Authenticated DM (required; not used beyond auth).
+
+    Returns:
+        UploadResponse with the stored model's public URL.
+
+    Raises:
+        HTTPException 415: If the bytes are not a binary glTF 2.
+        HTTPException 413: If the file exceeds 30 MB.
+    """
+    contents = await file.read()
+    if len(contents) > _MAX_MODEL_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Model too large. Maximum size is 30 MB — pack it with tools/figures first.",
+        )
+    if not is_glb(contents):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="Only a binary glTF (.glb) figure is allowed.",
+        )
+
+    filename = f"{uuid.uuid4()}.glb"
+    try:
+        from integrations import blob_storage
+
+        url = blob_storage.upload(
+            path=f"models/{filename}",
+            data=contents,
+            content_type="model/gltf-binary",
+        )
+        return UploadResponse(url=url)
+    except PermissionError:
         _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
         (_UPLOAD_DIR / filename).write_bytes(contents)
         return UploadResponse(url=f"/uploads/{filename}")

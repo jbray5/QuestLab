@@ -8,13 +8,13 @@ import type {
   TableStateUpdate,
 } from "./types";
 
-/** Upload a large battle-map image (multipart). Returns the stored public URL. */
-async function uploadMap(file: File): Promise<string> {
+/** Multipart upload to one of the upload routes; returns the stored public URL. */
+async function uploadTo(route: string, file: File): Promise<string> {
   const base = apiBase();
   const email = localStorage.getItem("dm_email") || import.meta.env.VITE_DM_EMAIL || "";
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${base}/uploads/map`, {
+  const res = await fetch(`${base}${route}`, {
     method: "POST",
     headers: email ? { "X-MS-CLIENT-PRINCIPAL-NAME": email } : {},
     body: form,
@@ -26,6 +26,11 @@ async function uploadMap(file: File): Promise<string> {
   const { url } = (await res.json()) as { url: string };
   return url;
 }
+
+/** Upload a large battle-map image (multipart). Returns the stored public URL. */
+const uploadMap = (file: File) => uploadTo("/uploads/map", file);
+/** Upload a rigged .glb figure for the immersive table (Plan 111). */
+const uploadModel = (file: File) => uploadTo("/uploads/model", file);
 
 export const tableApi = {
   // Battle-map library
@@ -40,6 +45,7 @@ export const tableApi = {
   generateProps: (mapId: string) => api.post<BattleMap>(`/battle-maps/${mapId}/props`, {}),
   deleteMap: (mapId: string) => api.delete(`/battle-maps/${mapId}`),
   uploadMap,
+  uploadModel,
 
   // Live table surface (DM console)
   getState: (sessionId: string) =>

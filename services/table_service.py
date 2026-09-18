@@ -17,8 +17,10 @@ from sqlmodel import Session as DBSession
 from db.repos.adventure_repo import AdventureRepo
 from db.repos.battle_map_repo import BattleMapRepo
 from db.repos.character_repo import CharacterRepo
+from db.repos.monster_repo import MonsterRepo
 from db.repos.session_repo import SessionCombatantRepo, SessionRepo
 from db.repos.table_state_repo import TableStateRepo
+from domain.enums import CreatureSize
 from domain.table_state import (
     InitiativeEntry,
     TableMap,
@@ -241,6 +243,108 @@ def stand_down(db: DBSession, session_id: uuid.UUID, dm_email: str, group: str) 
     return TableStateRead.model_validate(state)
 
 
+# Plan 111 — how tall a figure stands on the immersive table, in feet. The
+# engine scales a model's bounding box to this, so a bought model and a
+# Character Creator export stand right beside each other whatever their file
+# says. Player-safe: a creature's size is public at any table.
+_SIZE_HEIGHT_FT: dict[CreatureSize, float] = {
+    CreatureSize.TINY: 1.5,
+    CreatureSize.SMALL: 3.5,
+    CreatureSize.MEDIUM: 6.0,
+    CreatureSize.LARGE: 10.0,
+    CreatureSize.HUGE: 16.0,
+    CreatureSize.GARGANTUAN: 24.0,
+}
+_RACE_HEIGHT_FT: dict[str, float] = {
+    "gnome": 3.5,
+    "halfling": 3.0,
+    "dwarf": 4.5,
+    "goliath": 7.5,
+    "dragonborn": 6.5,
+    "orc": 6.3,
+    "half-orc": 6.3,
+    "bugbear": 7.0,
+    "firbolg": 7.5,
+    "kobold": 3.0,
+    "goblin": 3.5,
+    "fairy": 2.5,
+}
+_DEFAULT_HEIGHT_FT = 5.8
+
+
+def height_ft_for_race(race: str | None) -> float:
+    """Standing height for a PC of this race, in feet (Plan 111).
+
+    Args:
+        race: The character's race as typed on the sheet ("Rock Gnome").
+
+    Returns:
+        A height in feet; 5.8 for anything not in the table.
+    """
+    key = (race or "").strip().lower()
+    for name, ft in _RACE_HEIGHT_FT.items():
+        if name in key:
+            return ft
+    return _DEFAULT_HEIGHT_FT
+
+
+def height_ft_for_size(size: CreatureSize | str | None) -> float:
+    """Standing height for a creature of this size category, in feet (Plan 111).
+
+    Args:
+        size: A ``CreatureSize`` (or its value).
+
+    Returns:
+        A height in feet; Medium when unknown.
+    """
+    try:
+        return _SIZE_HEIGHT_FT[CreatureSize(size)]
+    except (ValueError, KeyError):
+        return _SIZE_HEIGHT_FT[CreatureSize.MEDIUM]
+
+
+def _resolve_figures(
+    db: DBSession, tokens: list[Token], combatant_monster: dict[str, uuid.UUID | None]
+) -> None:
+    """Stamp each token's 3D figure from the row it stands for (Plan 111).
+
+    A PC token carries its character's ``model_url`` and a height from its
+    race; a monster token, its stat block's ``model_url`` (through the
+    combatant it references) and a height from its size. Resolved on every
+    build, like conditions, so a model set after the token was placed shows
+    up on the next refresh. Tokens with nothing behind them stay bare.
+
+    Args:
+        db: Active database session.
+        tokens: The session's tokens, mutated in place.
+        combatant_monster: combatant id → monster stat block id (or None).
+    """
+    monsters: dict[uuid.UUID, object] = {}
+    for token in tokens:
+        token.model_url = None
+        token.model_height_ft = None
+        if not token.ref_id:
+            continue
+        if token.kind == "pc":
+            try:
+                pc = CharacterRepo.get_by_id(db, uuid.UUID(token.ref_id))
+            except ValueError:
+                pc = None
+            if pc is not None:
+                token.model_url = pc.model_url
+                token.model_height_ft = height_ft_for_race(pc.race)
+        elif token.kind == "monster":
+            monster_id = combatant_monster.get(token.ref_id)
+            if monster_id is None:
+                continue
+            if monster_id not in monsters:
+                monsters[monster_id] = MonsterRepo.get_by_id(db, monster_id)
+            monster = monsters[monster_id]
+            if monster is not None:
+                token.model_url = monster.model_url
+                token.model_height_ft = height_ft_for_size(monster.size)
+
+
 def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     """Build the player-safe projection for the projector (NO auth).
 
@@ -314,8 +418,10 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     # RUNNING combat so nothing leaks between fights.
     initiative: list[InitiativeEntry] = []
     combat_round = int(getattr(game_session, "combat_round", 0) or 0) if game_session else 0
+    combatant_monster: dict[str, uuid.UUID | None] = {}
     for c in SessionCombatantRepo.list_for_session(db, session_id):
         ref = str(c.character_id) if c.character_id else str(c.id)
+        combatant_monster[str(c.id)] = c.monster_id
         if combat_running and c.defeated:
             defeated_refs.append(ref)
         if combat_running and c.id == game_session.combat_active_combatant_id:
@@ -354,6 +460,8 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
                 pc = None
             if pc is not None:
                 token.concentrating = bool(pc.concentration_on)
+
+    _resolve_figures(db, tokens, combatant_monster)
 
     campaign_id = None
     if game_session is not None:

@@ -1,0 +1,382 @@
+import { useGLTF } from "@react-three/drei";
+import { useLoader } from "@react-three/fiber";
+import { useMemo } from "react";
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
+
+import { FT_PER_UNIT } from "./heights";
+
+/**
+ * A figure is a mesh and a rig; the walk is the engine's (Plan 111).
+ *
+ * Any model that comes through Mixamo — Character Creator exports, bought
+ * humanoids, three.js's own Soldier — has the same skeleton, so one shared set
+ * of clips drives all of them. What differs between files is everything else:
+ * the root (Y-up, or a Blender −90° bake), the facing (+Z, or −Z), the units,
+ * and — the trap — each bone's local axes, which Blender re-orients on the
+ * way through. So clips are never copied bone-for-bone. They are *baked*: the
+ * source rig is posed frame by frame, each bone's rotation is read as a change
+ * from its rest pose in world space, turned into the target's facing, and
+ * applied to the target bone's own rest pose. Hips travel is scaled to the
+ * target's leg length. Both rigs need only agree on the rest pose itself (a
+ * T-pose, Mixamo's standard); nothing else about the files has to match.
+ *
+ * The library is the Soldier's Idle/Walk/Run plus whatever `.glb` clips sit
+ * in `/engine/anim/` and are listed in `clips.json` (Mixamo "without skin"
+ * downloads, packed by tools/figures). A model that brings its own clips uses
+ * them; a model without a humanoid rig gets none and stands as a statue.
+ */
+export const SOLDIER = "https://cdn.jsdelivr.net/gh/mrdoob/three.js@r185/examples/models/gltf/Soldier.glb";
+const ANIM_DIR = "/engine/anim";
+const BAKE_FPS = 30;
+export { DEFAULT_HEIGHT_FT, FT_PER_UNIT, heightFtForRace, heightFtForSize } from "./heights";
+
+/** What a loaded glTF gives us, whichever loader typed it. */
+export interface GltfLike {
+  scene: THREE.Object3D;
+  animations: THREE.AnimationClip[];
+}
+
+export const CLIP_NAMES = ["idle", "walk", "run", "hit", "death"] as const;
+export type ClipName = (typeof CLIP_NAMES)[number];
+
+/** A clip's name in a file → what the engine calls it. */
+const ALIASES: [string, ClipName][] = [
+  ["idle", "idle"],
+  ["stand", "idle"],
+  ["walk", "walk"],
+  ["run", "run"],
+  ["jog", "run"],
+  ["hit", "hit"],
+  ["react", "hit"],
+  ["death", "death"],
+  ["dying", "death"],
+  ["die", "death"],
+  ["fall", "death"],
+];
+
+export function canonicalClip(name: string): ClipName | null {
+  const k = name.toLowerCase().replace(/[^a-z]/g, "");
+  if (!k) return null;
+  for (const [alias, c] of ALIASES) if (k === alias || k.startsWith(alias)) return c;
+  return null;
+}
+
+/** A bone's name with the rig prefix off, so rigs match up: `mixamorig:LeftArm` → `leftarm`. */
+function boneKey(name: string): string {
+  return name.replace(/^mixamorig:?/i, "").toLowerCase();
+}
+
+function findBone(root: THREE.Object3D, key: string): THREE.Object3D | null {
+  let found: THREE.Object3D | null = null;
+  root.traverse((o) => {
+    if (!found && (o as THREE.Bone).isBone && boneKey(o.name) === key) found = o;
+  });
+  return found;
+}
+
+/**
+ * Which way a rig faces at rest: the toes point forward. Returns the yaw that
+ * rotates +Z onto the rig's forward, so a walker turns it with
+ * `rotation.y = wantYaw - forwardYaw`. A rig without toes is taken to face +Z.
+ */
+export function detectForwardYaw(root: THREE.Object3D): number {
+  root.updateMatrixWorld(true);
+  const f = new THREE.Vector3();
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  for (const [ankle, toe] of [
+    ["leftfoot", "lefttoebase"],
+    ["rightfoot", "righttoebase"],
+  ]) {
+    const A = findBone(root, ankle);
+    const B = findBone(root, toe);
+    if (A && B) f.add(B.getWorldPosition(b).sub(A.getWorldPosition(a)));
+  }
+  f.y = 0;
+  if (f.lengthSq() < 1e-8) return 0;
+  return Math.atan2(f.x, f.z);
+}
+
+interface RestBone {
+  bone: THREE.Object3D;
+  key: string;
+  /** The parent's key when the parent is a bone we track; else null and the parent is static. */
+  parentKey: string | null;
+  q: THREE.Quaternion;
+  p: THREE.Vector3;
+  parentQ: THREE.Quaternion;
+  parentInverse: THREE.Matrix4;
+}
+
+/** A rig read in its rest pose: every bone's world transform, its facing, its hips height. */
+interface Rig {
+  bones: RestBone[];
+  byKey: Map<string, RestBone>;
+  yaw: number;
+  hipsHeight: number;
+}
+
+/**
+ * The rig at rest. If the file carries a T-pose clip (the Soldier does), the
+ * rest is read with it applied, so an idle bind pose does not become the
+ * reference every other rig is measured against.
+ */
+function readRig(root: THREE.Object3D, tpose: THREE.AnimationClip | null): Rig {
+  let mixer: THREE.AnimationMixer | null = null;
+  if (tpose) {
+    mixer = new THREE.AnimationMixer(root);
+    mixer.clipAction(tpose).play();
+    mixer.setTime(0);
+  }
+  root.updateMatrixWorld(true);
+  const bones: RestBone[] = [];
+  const byKey = new Map<string, RestBone>();
+  root.traverse((o) => {
+    if (!(o as THREE.Bone).isBone) return;
+    const key = boneKey(o.name);
+    if (byKey.has(key)) return;
+    const parent = o.parent;
+    const parentKey = parent && (parent as THREE.Bone).isBone && byKey.has(boneKey(parent.name)) ? boneKey(parent.name) : null;
+    const rb: RestBone = {
+      bone: o,
+      key,
+      parentKey,
+      q: o.getWorldQuaternion(new THREE.Quaternion()),
+      p: o.getWorldPosition(new THREE.Vector3()),
+      parentQ: parent ? parent.getWorldQuaternion(new THREE.Quaternion()) : new THREE.Quaternion(),
+      parentInverse: parent ? parent.matrixWorld.clone().invert() : new THREE.Matrix4(),
+    };
+    bones.push(rb);
+    byKey.set(key, rb);
+  });
+  const yaw = detectForwardYaw(root);
+  const hips = byKey.get("hips");
+  const hipsHeight = hips ? Math.max(1e-6, hips.p.y) : 1;
+  if (mixer) {
+    mixer.stopAllAction();
+    if (tpose) mixer.uncacheClip(tpose);
+  }
+  return { bones, byKey, yaw, hipsHeight };
+}
+
+/**
+ * One clip, baked onto another rig: the source is posed at 30 fps and each
+ * bone's world-space change from rest — turned into the target's facing — is
+ * applied to the target bone's rest and written back as its local rotation.
+ * The hips also carry the source's travel, scaled by leg length.
+ */
+function bakeClip(lib: LibraryClip, target: Rig, name: string): THREE.AnimationClip {
+  const src = cloneSkeleton(lib.scene);
+  const rig = readRig(src, lib.tpose);
+  const mixer = new THREE.AnimationMixer(src);
+  mixer.clipAction(lib.clip).play();
+
+  const up = new THREE.Vector3(0, 1, 0);
+  const turn = new THREE.Quaternion().setFromAxisAngle(up, target.yaw - rig.yaw);
+  const turnBack = turn.clone().invert();
+  const k = target.hipsHeight / rig.hipsHeight;
+  const duration = Math.max(lib.clip.duration, 1 / BAKE_FPS);
+  const n = Math.ceil(duration * BAKE_FPS) + 1;
+  const times = new Float32Array(n);
+  const mapped = target.bones.filter((tb) => rig.byKey.has(tb.key));
+  const quat = new Map<string, Float32Array>(mapped.map((tb) => [tb.key, new Float32Array(n * 4)]));
+  const hipsPos = new Float32Array(n * 3);
+  const hips = target.byKey.get("hips");
+
+  const wq = new THREE.Quaternion();
+  const restInv = new THREE.Quaternion();
+  const d = new THREE.Quaternion();
+  const desired = new THREE.Quaternion();
+  const local = new THREE.Quaternion();
+  const world = new Map<string, THREE.Quaternion>(mapped.map((tb) => [tb.key, new THREE.Quaternion()]));
+  const wp = new THREE.Vector3();
+  const pw = new THREE.Vector3();
+
+  for (let i = 0; i < n; i++) {
+    const t = Math.min(i / BAKE_FPS, duration);
+    times[i] = t;
+    mixer.setTime(t);
+    src.updateMatrixWorld(true);
+    for (const tb of mapped) {
+      const sb = rig.byKey.get(tb.key)!;
+      sb.bone.getWorldQuaternion(wq);
+      restInv.copy(sb.q).invert();
+      // The source bone's change from its rest, in world space, turned to face the target's way.
+      d.copy(turn).multiply(wq).multiply(restInv).multiply(turnBack);
+      desired.copy(d).multiply(tb.q);
+      world.get(tb.key)!.copy(desired);
+      const parentWorld = tb.parentKey && world.has(tb.parentKey) ? world.get(tb.parentKey)! : tb.parentQ;
+      local.copy(parentWorld).invert().multiply(desired);
+      const out = quat.get(tb.key)!;
+      out[i * 4] = local.x;
+      out[i * 4 + 1] = local.y;
+      out[i * 4 + 2] = local.z;
+      out[i * 4 + 3] = local.w;
+      if (hips && tb === hips) {
+        sb.bone.getWorldPosition(wp).sub(sb.p).applyQuaternion(turn).multiplyScalar(k);
+        pw.copy(tb.p).add(wp).applyMatrix4(tb.parentInverse);
+        hipsPos[i * 3] = pw.x;
+        hipsPos[i * 3 + 1] = pw.y;
+        hipsPos[i * 3 + 2] = pw.z;
+      }
+    }
+  }
+  mixer.stopAllAction();
+  mixer.uncacheClip(lib.clip);
+
+  const tracks: THREE.KeyframeTrack[] = [];
+  for (const tb of mapped) tracks.push(new THREE.QuaternionKeyframeTrack(`${tb.bone.name}.quaternion`, times, quat.get(tb.key)!));
+  if (hips && rig.byKey.has("hips")) tracks.push(new THREE.VectorKeyframeTrack(`${hips.bone.name}.position`, times, hipsPos));
+  return new THREE.AnimationClip(name, duration, tracks);
+}
+
+export interface LibraryClip {
+  name: ClipName;
+  clip: THREE.AnimationClip;
+  /** The rig the clip was authored on — posed to bake the clip onto another. */
+  scene: THREE.Object3D;
+  tpose: THREE.AnimationClip | null;
+}
+
+function tposeOf(gltf: GltfLike): THREE.AnimationClip | null {
+  return gltf.animations.find((c) => /^t[-_ ]?pose$/i.test(c.name.trim())) ?? null;
+}
+
+/**
+ * The shared clips: the Soldier's, plus any packed Mixamo clips listed in
+ * `/engine/anim/clips.json`, which win over the Soldier's for the same name.
+ */
+export function useClipLibrary(): LibraryClip[] {
+  const soldier = useGLTF(SOLDIER);
+  const manifest = useLoader(THREE.FileLoader, `${ANIM_DIR}/clips.json`);
+  const names = useMemo(() => {
+    try {
+      const parsed = JSON.parse(String(manifest)) as unknown;
+      return Array.isArray(parsed) ? parsed.map((n) => canonicalClip(String(n))).filter((n): n is ClipName => !!n) : [];
+    } catch {
+      return [];
+    }
+  }, [manifest]);
+  const extras = useLoader(GLTFLoader, names.map((n) => `${ANIM_DIR}/${n}.glb`)) as unknown as GltfLike[];
+  return useMemo(() => {
+    const lib: LibraryClip[] = [];
+    extras.forEach((g, i) => {
+      const clip = g.animations[0];
+      if (clip && !lib.some((l) => l.name === names[i])) lib.push({ name: names[i], clip, scene: g.scene, tpose: tposeOf(g) });
+    });
+    const tpose = tposeOf(soldier);
+    for (const c of soldier.animations) {
+      const n = canonicalClip(c.name);
+      if (n && !lib.some((l) => l.name === n)) lib.push({ name: n, clip: c, scene: soldier.scene, tpose });
+    }
+    return lib;
+  }, [soldier, extras, names]);
+}
+
+/** What the DM's preview reports about a file. */
+export interface FigureInfo {
+  rig: "mixamo" | "humanoid" | "none";
+  /** The model's height as authored, in its own units (metres, usually). */
+  rawHeight: number;
+  ownClips: ClipName[];
+  bones: number;
+}
+
+export function analyzeFigure(gltf: GltfLike): FigureInfo {
+  const hips = findBone(gltf.scene, "hips");
+  let bones = 0;
+  gltf.scene.traverse((o) => {
+    if ((o as THREE.Bone).isBone) bones += 1;
+  });
+  const box = new THREE.Box3().setFromObject(gltf.scene);
+  const own = gltf.animations.map((c) => canonicalClip(c.name)).filter((n): n is ClipName => !!n);
+  return {
+    rig: !hips ? "none" : /^mixamorig/i.test(hips.name) ? "mixamo" : "humanoid",
+    rawHeight: box.isEmpty() ? 0 : box.max.y - box.min.y,
+    ownClips: Array.from(new Set(own)),
+    bones,
+  };
+}
+
+/** A model made ready to stand on the table. */
+export interface Fitted {
+  body: THREE.Object3D;
+  clips: THREE.AnimationClip[];
+  /** Scale that makes the model `height` units tall. */
+  scale: number;
+  /** Lift that puts its lowest point on the floor, after scaling. */
+  lift: number;
+  height: number;
+  forwardYaw: number;
+}
+
+/** Baked clips are per rig, not per figure: every clone of a model shares them. */
+const baked = new Map<string, THREE.AnimationClip[]>();
+
+/**
+ * The clips a model will play: its own, by canonical name, then the library's
+ * for whatever it lacks — baked onto its rig, unless the library clip was
+ * authored on this very rig, in which case it plays as it is.
+ */
+function clipsFor(gltf: GltfLike, library: LibraryClip[], cacheKey: string): THREE.AnimationClip[] {
+  const key = `${cacheKey}|${library.map((l) => l.name).join(",")}`;
+  const hit = baked.get(key);
+  if (hit) return hit;
+  const clips: THREE.AnimationClip[] = [];
+  const have = new Set<ClipName>();
+  if (findBone(gltf.scene, "hips")) {
+    for (const c of gltf.animations) {
+      const n = canonicalClip(c.name);
+      if (!n || have.has(n)) continue;
+      const own = c.clone();
+      own.name = n;
+      clips.push(own);
+      have.add(n);
+    }
+    let rig: Rig | null = null;
+    for (const l of library) {
+      if (have.has(l.name)) continue;
+      if (l.scene === gltf.scene) {
+        const same = l.clip.clone();
+        same.name = l.name;
+        clips.push(same);
+      } else {
+        rig ??= readRig(cloneSkeleton(gltf.scene), tposeOf(gltf));
+        clips.push(bakeClip(l, rig, l.name));
+      }
+      have.add(l.name);
+    }
+  }
+  baked.set(key, clips);
+  return clips;
+}
+
+export function fitFigure(gltf: GltfLike, library: LibraryClip[], heightUnits: number, cacheKey: string): Fitted {
+  const body = cloneSkeleton(gltf.scene);
+  body.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) {
+      o.castShadow = true;
+      o.receiveShadow = true;
+    }
+  });
+  const box = new THREE.Box3().setFromObject(gltf.scene);
+  const raw = box.isEmpty() ? 0 : box.max.y - box.min.y;
+  const scale = raw > 1e-3 ? heightUnits / raw : 1;
+  const lift = box.isEmpty() ? 0 : -box.min.y * scale;
+  return { body, clips: clipsFor(gltf, library, cacheKey), scale, lift, height: heightUnits, forwardYaw: detectForwardYaw(body) };
+}
+
+/** The model at `url` (the Soldier when null), fitted to the table. Suspends while loading. */
+export function useFigure(url: string | null, heightFt: number): Fitted {
+  const gltf = useGLTF(url ?? SOLDIER, true, true);
+  const library = useClipLibrary();
+  const heightUnits = Math.max(0.2, heightFt) / FT_PER_UNIT;
+  return useMemo(() => fitFigure(gltf, library, heightUnits, url ?? SOLDIER), [gltf, library, heightUnits, url]);
+}
+
+/** Warm the cache for a model the table is about to show. */
+export function preloadFigure(url: string | null | undefined): void {
+  useGLTF.preload(url || SOLDIER, true, true);
+}

@@ -4,6 +4,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Monster } from "../api/types";
 import { monstersApi } from "../api/monsters";
 import ImageUpload from "./ImageUpload";
+import ModelUpload from "./ModelUpload";
+import { heightFtForSize } from "../engine/heights";
 import ObsidianLink, { ObsidianNoteInput } from "./dm/ObsidianLink";
 
 interface Props {
@@ -86,6 +88,11 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
     mutationFn: (url: string) => monstersApi.updateImage(monster.id, url),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["monsters"] }),
   });
+  // Plan 111 — the rigged figure the immersive table walks for this monster.
+  const updateModel = useMutation({
+    mutationFn: (url: string | null) => monstersApi.update(monster.id, { model_url: url }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["monsters"] }),
+  });
   // Plan 93 — the DM's Obsidian path. Saved on blur so it isn't a PATCH per keystroke.
   const [note, setNote] = useState<string | null>(monster.dm_note ?? null);
   const saveNote = useMutation({
@@ -158,6 +165,7 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
             />
             {AI_ON && <MonsterPortraitButton monsterId={monster.id} />}
             {AI_ON && <MonsterFigureButton monsterId={monster.id} hasFigure={!!monster.figure_url} />}
+            <ModelUpload currentUrl={monster.model_url} onUrlChange={(url) => updateModel.mutate(url)} heightFt={heightFtForSize(monster.size)} />
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>

@@ -204,6 +204,9 @@ def patch_duckdb_schema() -> None:
         # 0030 — hidden shops + non-gold costs (Plan 47)
         "ALTER TABLE shops ADD COLUMN IF NOT EXISTS hidden BOOLEAN DEFAULT FALSE",
         "ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS cost_text VARCHAR(200)",
+        # 0050 — rigged 3D figures for the immersive table (Plan 111)
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS model_url VARCHAR(500)",
+        "ALTER TABLE monster_stat_blocks ADD COLUMN IF NOT EXISTS model_url VARCHAR(500)",
         # 0035 — 2024 PHB recovery numbers (Paladin CD 2 uses; the
         # regain-one-on-short-rest pattern for CD + Second Wind).
         # seed_catalog() only fires on an empty table, so already-seeded

@@ -112,6 +112,8 @@ Full 2024 5e character sheet, belonging to a Campaign.
 | ac | INTEGER | No | 1–30 | Armour class |
 | speed | INTEGER | No | ≥ 0 | Walk speed in feet |
 | portrait_url | VARCHAR(500) | Yes | | External image URL |
+| figure_url | VARCHAR(500) | Yes | | Full-body standee for the 3D board (Plan 45) |
+| model_url | VARCHAR(500) | Yes | | Rigged `.glb` the immersive table walks (Plan 111); height comes from `race` |
 | backstory | TEXT | Yes | | |
 | notes | TEXT | Yes | | DM/player session notes |
 | saving_throw_proficiencies | JSON | Yes | | `[AbilityScore, ...]` |
@@ -149,6 +151,9 @@ Full 2024 5e character sheet, belonging to a Campaign.
 | languages | VARCHAR(500) | Yes | | |
 | is_custom | BOOLEAN | No | DEFAULT false | |
 | created_by_email | VARCHAR(200) | Yes | | Set for custom monsters |
+| image_url | VARCHAR(500) | Yes | | Portrait |
+| figure_url | VARCHAR(500) | Yes | | Full-body standee for the 3D board (Plan 45) |
+| model_url | VARCHAR(500) | Yes | | Rigged `.glb` the immersive table walks (Plan 111); height comes from `size` |
 | speed | JSON | Yes | | `{walk, fly, swim, burrow, climb}` ft |
 | saving_throws | JSON | Yes | | `{ability: bonus}` |
 | skills | JSON | Yes | | `{skill_name: bonus}` |

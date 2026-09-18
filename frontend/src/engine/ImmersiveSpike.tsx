@@ -5,6 +5,7 @@ import { Component, type ReactNode, Suspense, useEffect, useMemo, useState } fro
 import * as THREE from "three";
 
 import { preloadProps } from "./assets";
+import { DEFAULT_HEIGHT_FT } from "./heights";
 import { lintMap } from "./lint";
 import { snapToCell, toWorld } from "./maps";
 import { MAPS } from "./registry";
@@ -20,6 +21,7 @@ import { Walker } from "./Walker";
  *   &scene=hybrid                              the painted floor instead, for comparison
  *   &grid=1  &check=1                          the combat grid; the sanity check
  *   &look=<preset>                             a camera preset the map defines
+ *   &model=<url>  &height=<ft>                 a rigged .glb to walk instead of the Soldier (Plan 111)
  *
  * Click a cell and the character walks there. Drag to orbit, wheel to zoom.
  * The live table is /table/:sessionId/engine (Plan 109); this page is where
@@ -92,6 +94,11 @@ export default function ImmersiveSpike() {
   }, [map]);
   // The sanity check: what a builder would know about this map without looking.
   const [check, setCheck] = useState(params.get("check") === "1");
+  // A model to walk instead of the Soldier (Plan 111): any rigged .glb by URL.
+  const model = useMemo(() => {
+    const url = params.get("model");
+    return url ? { url, heightFt: Number(params.get("height")) || DEFAULT_HEIGHT_FT } : null;
+  }, [params]);
   const findings = useMemo(() => lintMap(map), [map]);
   useEffect(() => {
     for (const f of findings) {
@@ -215,7 +222,7 @@ export default function ImmersiveSpike() {
               onFloorClick={send}
               onExit={takeExit}
             >
-              <Walker cell={target ?? start} />
+              <Walker cell={target ?? start} model={model} />
             </MapScene>
           </Suspense>
         </SceneBoundary>

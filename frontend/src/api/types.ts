@@ -69,6 +69,8 @@ export interface PlayerCharacter {
   notes: string | null;
   portrait_url: string | null;
   figure_url: string | null;
+  /** Plan 111 — a rigged .glb the immersive table walks. */
+  model_url: string | null;
   // Plan 00048 — Character Forge
   appearance?: string | null;
   hero_url?: string | null;
@@ -294,6 +296,8 @@ export interface Monster {
   created_by_email: string | null;
   image_url: string | null;
   figure_url: string | null;
+  /** Plan 111 — a rigged .glb the immersive table walks. */
+  model_url: string | null;
   /** Plan 93 — Obsidian vault path. DM-only; never rendered on a shared surface. */
   dm_note?: string | null;
 }
@@ -466,6 +470,9 @@ export interface TableToken {
   // Plan 65 — live state, enriched at projection-build time.
   conditions?: string[] | null;
   concentrating?: boolean | null;
+  // Plan 111 — the figure, resolved at projection-build time.
+  model_url?: string | null;
+  model_height_ft?: number | null;
 }
 
 export interface TableStateRead {

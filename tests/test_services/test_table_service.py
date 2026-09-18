@@ -17,8 +17,11 @@ import services.campaign_service as camp_svc
 import services.character_service as char_svc
 import services.session_service as sess_svc
 import services.table_service as table_svc
+from db.repos.monster_repo import MonsterRepo
 from domain.battle_map import BattleMapCreate, FogRegion
-from domain.enums import CharacterClass
+from domain.character import PlayerCharacterUpdate
+from domain.enums import CharacterClass, CreatureSize, CreatureType
+from domain.monster import MonsterStatBlockCreate
 from domain.session import SessionCombatantCreate, SessionCombatantUpdate, SessionCombatStateWrite
 from domain.table_state import TableStateUpdate, Token
 from integrations.event_bus import event_bus
@@ -239,6 +242,97 @@ class TestProjectionSafety:
         # runs; idle tables carry no numbers at all, and foe HP never does.
         assert proj.combat_running is False and proj.initiative == []
         assert "hp_current" not in blob and "hp_max" not in blob
+
+    def test_projection_resolves_figures(self, duckdb_session: Session):
+        """Plan 111 — each token carries its row's model and a height: PCs by race,
+        monsters by size, through the combatant the token references."""
+        dm = _dm()
+        campaign, _adv, gs = _campaign_and_session(duckdb_session, dm)
+        pc = _make_pc(duckdb_session, campaign.id, dm)
+        char_svc.update_character(
+            duckdb_session,
+            pc.id,
+            dm,
+            PlayerCharacterUpdate(race="Rock Gnome", model_url="https://cdn.test/steven.glb"),
+        )
+        ogre = MonsterRepo.create(
+            duckdb_session,
+            MonsterStatBlockCreate(
+                name="Ogre",
+                size=CreatureSize.LARGE,
+                creature_type=CreatureType.GIANT,
+                ac=11,
+                hp_average=59,
+                hp_formula="7d10+21",
+                score_str=19,
+                score_dex=8,
+                score_con=16,
+                score_int=5,
+                score_wis=7,
+                score_cha=7,
+                challenge_rating="2",
+                xp=450,
+                proficiency_bonus=2,
+                model_url="https://cdn.test/ogre.glb",
+            ),
+        )
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                combat_state="running",
+                combatants=[
+                    SessionCombatantCreate(
+                        sort_index=0,
+                        name="Ogre",
+                        dex_score=8,
+                        initiative_roll=5,
+                        hp_current=59,
+                        hp_max=59,
+                        type="monster",
+                        monster_id=ogre.id,
+                    ),
+                    SessionCombatantCreate(
+                        sort_index=1,
+                        name="Wolf",
+                        dex_score=15,
+                        initiative_roll=12,
+                        hp_current=11,
+                        hp_max=11,
+                        type="monster",
+                    ),
+                ],
+            ),
+        )
+        ogre_ref, wolf_ref = (str(c.id) for c in state.combatants)
+        battle_map = _make_map(duckdb_session, campaign.id, dm)
+        table_svc.update_table_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            TableStateUpdate(
+                active_map_id=battle_map.id,
+                tokens=[
+                    Token(id="t1", kind="pc", ref_id=str(pc.id), label="Steven"),
+                    Token(id="t2", kind="monster", ref_id=ogre_ref, label="Ogre", size=2),
+                    Token(id="t3", kind="monster", ref_id=wolf_ref, label="Wolf"),
+                    Token(id="t4", kind="custom", label="Barrel"),
+                ],
+            ),
+        )
+        proj = table_svc.get_projection(duckdb_session, gs.id)
+        by_id = {t.id: t for t in proj.tokens}
+        assert by_id["t1"].model_url == "https://cdn.test/steven.glb"
+        assert by_id["t1"].model_height_ft == 3.5
+        assert by_id["t2"].model_url == "https://cdn.test/ogre.glb"
+        assert by_id["t2"].model_height_ft == 10.0
+        # An ad-hoc combatant has no stat block behind it; a marker has nothing.
+        assert by_id["t3"].model_url is None and by_id["t3"].model_height_ft is None
+        assert by_id["t4"].model_url is None
+        # The projection never carries the DM's private note or a stat.
+        blob = proj.model_dump_json()
+        assert "dm_note" not in blob and "hp_average" not in blob
 
     def test_glow_only_while_running(self, duckdb_session: Session):
         """active_token_ref resolves to the active PC only while combat runs."""

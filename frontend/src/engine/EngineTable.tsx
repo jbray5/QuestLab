@@ -10,6 +10,7 @@ import { tableApi } from "../api/table";
 import { useEventStream } from "../hooks/useEventStream";
 import { preloadProps } from "./assets";
 import { Director } from "./Director";
+import { preloadFigure } from "./figureModel";
 import { buildFog } from "./fogOfWar";
 import { Ping, TitleCard } from "./Fx";
 import { toWorld } from "./maps";
@@ -98,6 +99,9 @@ export default function EngineTable() {
   useEffect(() => {
     if (map) preloadProps(map);
   }, [map]);
+  useEffect(() => {
+    for (const t of data?.tokens ?? []) if (t.model_url) preloadFigure(t.model_url);
+  }, [data]);
   const fog = useMemo(() => (data ? buildFog(data) : null), [data]);
 
   // Pings and hits arrive on the stream, not the projection: transient, played once.

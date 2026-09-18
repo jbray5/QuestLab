@@ -1,6 +1,7 @@
 import * as THREE from "three";
 
 import type { TableMapSummary, TableProjection, TableToken } from "../api/types";
+import { DEFAULT_HEIGHT_FT } from "./heights";
 import type { MapDef } from "./maps";
 import { snapToCell, toWorld } from "./maps";
 import { MAPS } from "./registry";
@@ -67,6 +68,10 @@ export interface Figure {
   size: number;
   active: boolean;
   down: boolean;
+  /** The rigged model this token carries (Plan 111), if any. */
+  model: { url: string; heightFt: number } | null;
+  /** How tall it stands, in feet — sent by the table from race or size. */
+  heightFt: number;
 }
 
 export function figures(map: MapDef, p: TableProjection): Figure[] {
@@ -87,6 +92,8 @@ export function figures(map: MapDef, p: TableProjection): Figure[] {
         size: Math.min(2.2, Math.max(1, t.size || 1)),
         active: !!p.active_token_ref && t.ref_id === p.active_token_ref,
         down: !!t.ref_id && p.defeated_refs.includes(t.ref_id),
+        model: t.model_url ? { url: t.model_url, heightFt: t.model_height_ft ?? DEFAULT_HEIGHT_FT } : null,
+        heightFt: t.model_height_ft ?? DEFAULT_HEIGHT_FT,
       };
     });
 }

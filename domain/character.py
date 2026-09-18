@@ -49,6 +49,8 @@ class PlayerCharacter(SQLModel, table=True):
     portrait_url: Optional[str] = Field(default=None, max_length=500)
     # Full-body transparent minifig standee for the 3D board (Plan 45).
     figure_url: Optional[str] = Field(default=None, max_length=500)
+    # Plan 111 — a rigged 3D model (.glb) the immersive table walks for this PC.
+    model_url: Optional[str] = Field(default=None, max_length=500)
     # Plan 00048 — the player's own look: appearance notes they edit from
     # the Character Forge, the full-body hero render, and the forge
     # cooldown anchor (player-triggered paid generation).
@@ -191,6 +193,7 @@ class PlayerCharacterRead(BaseModel):
     notes: Optional[str] = None
     portrait_url: Optional[str] = None
     figure_url: Optional[str] = None
+    model_url: Optional[str] = None
     # Plan 00048 — Character Forge
     appearance: Optional[str] = None
     hero_url: Optional[str] = None
@@ -253,6 +256,7 @@ class PlayerCharacterUpdate(BaseModel):
     notes: Optional[str] = None
     portrait_url: Optional[str] = None
     figure_url: Optional[str] = None
+    model_url: Optional[str] = None
     # Plan 00048 — Character Forge (hero_generated_at is set service-side
     # alongside hero_url to anchor the forge cooldown)
     appearance: Optional[str] = None

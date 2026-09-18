@@ -271,6 +271,61 @@ def test_map_upload_accepts_video(client):
     assert resp.json()["url"].endswith(".mp4")
 
 
+def _glb(payload: bytes = b"{}") -> bytes:
+    """A minimal binary-glTF 2 container: magic, version, length, one JSON chunk."""
+    chunk = payload.ljust((len(payload) + 3) // 4 * 4, b" ")
+    body = len(chunk).to_bytes(4, "little") + b"JSON" + chunk
+    return b"glTF" + (2).to_bytes(4, "little") + (12 + len(body)).to_bytes(4, "little") + body
+
+
+def test_model_upload_accepts_glb(client):
+    """Plan 111 — /uploads/model takes a binary glTF whatever the browser calls it."""
+    resp = client.post(
+        "/api/uploads/model",
+        headers=auth("dm_mdl@example.com"),
+        files={"file": ("willa.glb", _glb(), "application/octet-stream")},
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["url"].endswith(".glb")
+
+
+def test_model_upload_rejects_non_glb(client):
+    """Plan 111 — the header decides: a PNG or a .gltf text file is not a figure."""
+    resp = client.post(
+        "/api/uploads/model",
+        headers=auth("dm_mdl@example.com"),
+        files={"file": ("willa.glb", bytes([0x89]) + b"PNG" + b"0" * 32, "model/gltf-binary")},
+    )
+    assert resp.status_code == 415
+    resp = client.post(
+        "/api/uploads/model",
+        headers=auth("dm_mdl@example.com"),
+        files={"file": ("willa.gltf", b'{"asset":{"version":"2.0"}}', "model/gltf+json")},
+    )
+    assert resp.status_code == 415
+
+
+def test_model_upload_rejects_oversize(client, monkeypatch):
+    """Plan 111 — a model over the cap is refused before its bytes are looked at."""
+    from api.routers import uploads
+
+    monkeypatch.setattr(uploads, "_MAX_MODEL_BYTES", 64)
+    resp = client.post(
+        "/api/uploads/model",
+        headers=auth("dm_mdl@example.com"),
+        files={"file": ("big.glb", _glb(b"0" * 200), "model/gltf-binary")},
+    )
+    assert resp.status_code == 413
+
+
+def test_model_upload_needs_identity(client):
+    """Plan 111 — fail closed: no identity header, no upload."""
+    resp = client.post(
+        "/api/uploads/model", files={"file": ("willa.glb", _glb(), "model/gltf-binary")}
+    )
+    assert resp.status_code in (401, 403)
+
+
 def test_stand_down_flips_group_to_neutral(client, api_engine):
     """Plan 72 — one call turns every hostile token in a group neutral; others untouched."""
     dm = "dm_sd@example.com"

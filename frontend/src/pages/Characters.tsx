@@ -9,6 +9,8 @@ import type { PlayerCharacter } from "../api/types";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import FeaturePanel from "../components/FeaturePanel";
 import ImageUpload from "../components/ImageUpload";
+import ModelUpload from "../components/ModelUpload";
+import { heightFtForRace } from "../engine/heights";
 import InventoryPanel from "../components/InventoryPanel";
 import SpellPanel from "../components/SpellPanel";
 import { portraitSrc } from "../lib/portrait";
@@ -139,6 +141,13 @@ export default function Characters() {
   const updateImage = useMutation({
     mutationFn: ({ id, url }: { id: string; url: string }) =>
       charactersApi.updateImage(id, url),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
+  });
+
+  // Plan 111 — the rigged figure the immersive table walks for this PC.
+  const updateModel = useMutation({
+    mutationFn: ({ id, url }: { id: string; url: string | null }) =>
+      charactersApi.update(id, { model_url: url }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
   });
 
@@ -508,12 +517,17 @@ export default function Characters() {
               ))}
             </div>
 
-            <div style={{ marginTop: "0.75rem" }}>
+            <div style={{ marginTop: "0.75rem", display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
               <ImageUpload
                 currentUrl={portraitSrc(c.portrait_url, c.updated_at) ?? null}
                 onUrlChange={(url) => updateImage.mutate({ id: c.id, url })}
                 label="Portrait"
                 size={48}
+              />
+              <ModelUpload
+                currentUrl={c.model_url}
+                onUrlChange={(url) => updateModel.mutate({ id: c.id, url })}
+                heightFt={heightFtForRace(c.race)}
               />
             </div>
 

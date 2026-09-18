@@ -74,6 +74,11 @@ class Token(BaseModel):
     # conditions are public information at a physical table.
     conditions: Optional[list[str]] = None
     concentrating: Optional[bool] = None
+    # Plan 111 — the immersive table's figure, resolved at projection-build
+    # time from the PC / monster row (never stored on the token): a rigged
+    # .glb and the height it should stand, in feet.
+    model_url: Optional[str] = None
+    model_height_ft: Optional[float] = None
 
 
 class TableStateUpdate(BaseModel):

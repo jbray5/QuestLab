@@ -1,0 +1,13 @@
+{
+  "name": "questlab-figures",
+  "private": true,
+  "description": "Packs rigged characters and Mixamo clips for QuestLab's immersive table (Plan 111). Not part of the app build.",
+  "type": "module",
+  "scripts": {
+    "pack": "node pack.mjs"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.1.0",
+    "fbx2gltf": "^0.9.7"
+  }
+}

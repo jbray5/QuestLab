@@ -96,7 +96,7 @@ One per aggregate above. Each exposes `get`, `list`, `create`, `update`, `delete
 Streamlit pages, one per aggregate. UI only — instantiates a service, calls methods, renders. No business logic.
 
 ### API ([`api/`](api/))
-FastAPI app for the React migration. [`api/main.py`](api/main.py) mounts routers in [`api/routers/`](api/routers/) — one per aggregate plus [`uploads.py`](api/routers/uploads.py) for image uploads and [`admin.py`](api/routers/admin.py) for admin ops. [`api/deps.py`](api/deps.py) builds service instances per-request.
+FastAPI app for the React migration. [`api/main.py`](api/main.py) mounts routers in [`api/routers/`](api/routers/) — one per aggregate plus [`uploads.py`](api/routers/uploads.py) for image, map and rigged-figure (`.glb`, magic-checked) uploads and [`admin.py`](api/routers/admin.py) for admin ops. [`api/deps.py`](api/deps.py) builds service instances per-request.
 
 ### DB ([`db/`](db/))
 - [`db/base.py`](db/base.py) — engine factory. Switches between Postgres (prod) and DuckDB (local/test) via `DB_BACKEND` env var. Contains the FK-workaround for DuckDB.
@@ -114,6 +114,8 @@ Postgres-only. 5 migrations as of 2026-03. `versions/` files are zero-padded `NN
 
 ### Frontend ([`frontend/`](frontend/))
 React SPA. Zustand state, shadcn/ui, dark fantasy theme. See [`docs/react_migration.md`](docs/react_migration.md).
+
+[`frontend/src/engine/`](frontend/src/engine/) is the immersive table (Plans 107–111): a second renderer of the same table projection, alongside the 2D board. `maps.ts`/`registry.ts` hold scene data per map, `lint.ts` the sanity check, `Scene.tsx` the room, `fogOfWar.ts`/`Weather.tsx`/`Director.tsx`/`Fx.tsx` the atmosphere, `figureModel.ts` + `Walker.tsx` the figures — any Mixamo-rigged `.glb` on a PC or monster (`model_url`), with one shared clip library baked onto each rig in world space. Routes: `/table/:sessionId/engine` (live) and `/engine/spike` (a map on its own). [`tools/figures/`](tools/figures/) packs Character Creator / Mixamo exports for it.
 
 ### Docs ([`docs/`](docs/))
 [`STACK.md`](docs/STACK.md), [`SECURITY.md`](docs/SECURITY.md), [`TESTING.md`](docs/TESTING.md), [`QUALITY.md`](docs/QUALITY.md), [`data_dictionary.md`](docs/data_dictionary.md), [`deployment.md`](docs/deployment.md), [`react_migration.md`](docs/react_migration.md).
