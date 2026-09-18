@@ -96,7 +96,7 @@ proven end to end today with the models we already have.
 - [x] A model with no compatible rig stands still rather than failing; a model that fails to load falls back to the soldier
 - [x] `/uploads/model` rejects a non-glb and an oversize file; accepts a glb
 - [x] The DM preview shows the figure idling and reports rig / height / clips
-- [ ] Justin's first Character Creator export walks on the table — *Justin, with the runbook*
+- [x] The party's own figures walk on the table — Willa, Nya, Thane (Genesis 9) and Creed (Genesis 8, Drago HD, the Paladin plate), built by DAZ Script from Justin's Daz library and the canon painting; Steven and Sarranthia stay the Soldier by Justin's choice
 - [x] Gate green
 
 ---
@@ -111,6 +111,7 @@ proven end to end today with the models we already have.
   Mixamo → `pack.mjs` → drop on the character. The preview tells him what
   the file is before Saturday. Hit and death clips are five Mixamo downloads
   and five `pack.mjs --anim` runs; the engine uses them the moment they exist.
+- Follow-ups shipped the same night: a reveal brush and an always-on fog toggle, right-click token removal and a title box on the HUD's Live pane; an Immersive button in the HUD; "Sorrel's abode" as a HUD battle map linked to the built lair; the bake made robust to unmapped bones, hips and dangling cloth; figures measured from the skeleton.
 - Not done here: a per-character height override (one column when a race
   default is wrong for someone), non-humanoid monsters (a wolf on a quadruped
   rig needs its own clips — the own-clips path handles it, the library does
