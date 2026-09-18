@@ -32,6 +32,9 @@ export function Torch({
   // Fast mode (Plan 113): no torch casts — six renders each is the first thing to go.
   const { fast } = useQuality();
   const flameMesh = useRef<THREE.Mesh>(null);
+  // The shaft: a faint additive cone of light falling from the flame, reading as light in the steam.
+  const shaft = useRef<THREE.Mesh>(null);
+  const shaftColor = new THREE.Color(color).multiplyScalar(1.6);
   // Each torch flickers on its own beat, seeded by where it hangs.
   const seed = position[0] * 7.3 + position[2] * 3.1;
   useFrame(({ clock }) => {
@@ -39,6 +42,7 @@ export function Torch({
     const f = 0.86 + 0.14 * (Math.sin(t) * 0.5 + Math.sin(t * 2.3) * 0.3 + Math.sin(t * 5.1) * 0.2);
     if (light.current) light.current.intensity = intensity * f;
     if (flameMesh.current) flameMesh.current.scale.setScalar(0.9 + 0.2 * f);
+    if (shaft.current) (shaft.current.material as THREE.MeshBasicMaterial).opacity = 0.028 + 0.018 * f;
   });
   return (
     <group position={position}>
@@ -56,6 +60,10 @@ export function Torch({
       <mesh ref={flameMesh}>
         <sphereGeometry args={[0.1, 10, 10]} />
         <meshBasicMaterial color={flame} toneMapped={false} />
+      </mesh>
+      <mesh ref={shaft} position={[0, -1.0, 0]} renderOrder={4}>
+        <coneGeometry args={[0.7, 2.0, 24, 1, true]} />
+        <meshBasicMaterial color={shaftColor} transparent blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} opacity={0.03} />
       </mesh>
       <pointLight
         ref={light}

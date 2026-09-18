@@ -81,7 +81,13 @@ use the moment they exist:
    node pack.mjs --anim run   "Running.fbx"
    node pack.mjs --anim hit   "Hit Reaction.fbx"
    node pack.mjs --anim death "Death.fbx"
+   node pack.mjs --anim slash "Sword And Shield Slash.fbx"
+   node pack.mjs --anim cast  "Standing 1H Magic Attack 01.fbx"
+   node pack.mjs --anim shoot "Standing Aim Recoil.fbx"
    ```
+   `slash`, `cast` and `shoot` are the strikes (Plan 113): while they are absent the
+   table builds a swing and a cast from the rig's own arm bones; once packed, the clip
+   plays instead. Pick clips that stay in place and return to standing.
    Each lands in `frontend/public/engine/anim/` and is listed in `clips.json`.
    Commit those files; every figure — the Soldier included — plays them from
    the next deploy.

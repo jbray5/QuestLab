@@ -573,6 +573,10 @@ function dressMaterial(m: THREE.Material): void {
   } else if (std.roughness >= 0.999 && !std.roughnessMap) {
     std.roughness = 0.8;
   }
+  // A figure packed with its real maps (attach_maps.mjs) says its own roughness and
+  // metalness; the guesses above are only for files that carry colour alone.
+  if (std.roughnessMap) std.roughness = 1;
+  if (std.metalnessMap) std.metalness = 1;
 }
 
 /** Give every material in a figure its surface response. Idempotent; runs on the shared scene once. */

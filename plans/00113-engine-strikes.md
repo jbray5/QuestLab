@@ -83,6 +83,20 @@ night (`scratchpad/shots/pressure.mjs`) drives a scratch session through moves, 
 of hit, a KO, the hatch, the descent, fog and a reroll, and reads the projection and the
 table's console after each beat.
 
+## The graphics pass, Friday night ("All of it")
+1. **Real maps.** The Daz library keeps the normal (`_NM_`, `_Normal`, `_Normal_OpenGL`),
+   roughness (`_R_`, `_Roughness`) and metallic (`_Metallic`) maps beside every colour map the
+   export kept. `scratchpad/figs/attach_maps.mjs` indexes `Runtime/Textures`, derives the names
+   from each material's colour texture, packs roughness+metallic into one glTF texture
+   (G, B) and attaches normals at 2K, MR at 1K; `gltf-transform optimize` after. Every figure
+   on the table (four PCs, Mira, Edrik, the dryads, the cultists, Sorrel) re-uploaded at
+   5–20 MB. `dressFigure` defers to the maps when a file carries them.
+2. **Clips.** `pack.mjs --anim slash|cast|shoot` accepted; the Walker plays them for a strike
+   when present. Waiting on Justin's Mixamo downloads.
+3. **Pools** already reflect (MeshReflectorMaterial). **Light shafts:** a faint additive cone
+   under each torch flame.
+4. Hair cards and sculpted rooms remain art work for another day.
+
 ## Outcomes and Retrospective
 Shipped the night before session 7. A hit in a running fight now has a source and a colour:
 the tracker's NEXT HIT chips and the spell panel's Cast button choose it, the API names the

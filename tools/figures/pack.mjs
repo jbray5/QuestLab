@@ -38,11 +38,12 @@ const out = flag("-o");
 const texture = Number(flag("--texture", "1024"));
 const input = args[0];
 if (!input || !existsSync(input)) {
-  console.error("usage: node pack.mjs <character.fbx|.glb> [-o out.glb] [--texture 1024]\n       node pack.mjs --anim <idle|walk|run|hit|death> <clip.fbx|.glb>");
+  console.error("usage: node pack.mjs <character.fbx|.glb> [-o out.glb] [--texture 1024]\n       node pack.mjs --anim <idle|walk|run|hit|death|slash|cast|shoot> <clip.fbx|.glb>");
   process.exit(2);
 }
 
-const CLIPS = ["idle", "walk", "run", "hit", "death"];
+// slash / cast / shoot: strikes (Plan 113) — the table swings, casts and aims with these when they exist.
+const CLIPS = ["idle", "walk", "run", "hit", "death", "slash", "cast", "shoot"];
 if (anim && !CLIPS.includes(anim)) {
   console.error(`--anim must be one of ${CLIPS.join(", ")}`);
   process.exit(2);

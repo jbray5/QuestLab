@@ -57,7 +57,9 @@ const RUN = 3.4;
 const RUN_FROM = 3.5; // cells: farther than this, and the figure runs if it can
 const TOPPLE_S = 0.55;
 
-type Mode = "idle" | "walk" | "run" | "hit" | "death";
+type Mode = "idle" | "walk" | "run" | "hit" | "death" | "slash" | "cast" | "shoot";
+/** One-shot clips that return to standing when they end. */
+const ONE_SHOT: Mode[] = ["hit", "slash", "cast", "shoot"];
 
 export function Walker({
   cell,
@@ -107,7 +109,7 @@ export function Walker({
   const lastHit = useRef<string | undefined>(undefined);
   const pendingHit = useRef<{ at: number; from: THREE.Vector3 | null } | null>(null);
   const faceTo = useRef<{ x: number; z: number; until: number } | null>(null);
-  const swing = useRef<{ kind: Strike["kind"]; toward: THREE.Vector3; t0: number; hold?: number } | null>(null);
+  const swing = useRef<{ kind: Strike["kind"]; toward: THREE.Vector3; t0: number; hold?: number; clip?: boolean } | null>(null);
   const lastStrike = useRef<string | undefined>(undefined);
   const bent = useRef<Bent[]>([]);
   const bones = useMemo(
@@ -152,7 +154,8 @@ export function Walker({
   // A hit clip plays once and returns to standing.
   useEffect(() => {
     const onDone = (e: { action: THREE.AnimationAction }) => {
-      if (e.action !== actions.current.hit || mode.current !== "hit") return;
+      const m = mode.current;
+      if (!ONE_SHOT.includes(m) || e.action !== actions.current[m]) return;
       play("idle", 0.2);
     };
     mixer.addEventListener("finished", onDone);
@@ -170,8 +173,14 @@ export function Walker({
     if (strike && strike.id !== lastStrike.current) {
       lastStrike.current = strike.id;
       swing.current = { kind: strike.kind, toward: strike.toward.clone(), t0: strike.at, hold: strike.hold };
+      // A real clip for this strike (Mixamo, via pack.mjs --anim slash|cast|shoot) plays instead of the built swing.
+      const clip = strike.kind === "melee" ? "slash" : strike.kind;
+      if (!down && actions.current[clip] && strike.hold === undefined) {
+        play(clip, 0.08, true);
+        swing.current.clip = true;
+      }
     }
-  }, [strike]);
+  }, [strike, down, play]);
 
   useFrame((_, dt) => {
     // Undo last frame's strike bends before the clip writes this frame's pose.
@@ -193,7 +202,7 @@ export function Walker({
     const dist = Math.hypot(dx, dz);
     const moving = mode.current === "walk" || mode.current === "run";
     if (dist > 0.08 && !down) {
-      if (!moving && mode.current !== "hit") {
+      if (!moving && !ONE_SHOT.includes(mode.current)) {
         if (!(dist > RUN_FROM && play("run", 0.2))) play("walk", 0.2);
       }
       const speed = mode.current === "run" ? RUN : WALK;
@@ -232,7 +241,9 @@ export function Walker({
       g.rotation.y = yaw.current - fig.forwardYaw;
       // The figure's right-hand axis in the world: arms swing about it.
       _axis.set(-Math.cos(yaw.current), 0, Math.sin(yaw.current));
-      if (s.kind === "melee") {
+      if (s.clip) {
+        // The clip carries the body; the walker only keeps the figure facing its target.
+      } else if (s.kind === "melee") {
         const reach = Math.sin(Math.min(1, k / 0.6) * Math.PI) * 0.3;
         g.position.x += Math.sin(yaw.current) * reach;
         g.position.z += Math.cos(yaw.current) * reach;
