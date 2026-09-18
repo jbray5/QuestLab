@@ -64,7 +64,7 @@ on selection), and DoF only as a cinematic accent.
 | 4 | Height — DM-painted walls extruded, doors, props, navmesh so walks go *around* things | 00112 | The room is a room |
 | 5 | Full 3D tile building (optional; decided by the spike) | — | — |
 
-Milestone 2 is where it lands. Aim there first, then 3.
+Milestone 2 is where it lands. Aim there first, then 3. Milestones 0–3 are live; 4 is next.
 
 ---
 
