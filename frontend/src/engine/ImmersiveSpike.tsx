@@ -26,6 +26,7 @@ import { Bolt } from "./Fx";
  *   &look=<preset>                             a camera preset the map defines
  *   &model=<url>  &height=<ft>                 a rigged .glb to walk instead of the Soldier (Plan 111)
  *   &strike=melee|cast|shoot  &hold=0.4       play a strike at a target on a loop (Plan 113); hold freezes the pose at that phase
+ *   &light=studio                              a neutral three-point light for judging a face against its portrait
  *
  * Click a cell and the character walks there. Drag to orbit, wheel to zoom.
  * The live table is /table/:sessionId/engine (Plan 109); this page is where
@@ -184,12 +185,17 @@ export default function ImmersiveSpike() {
   const sk = params.get("strike");
   const strikeDemo = sk === "melee" || sk === "cast" || sk === "shoot" ? sk : null;
   const hold = params.get("hold") ? Number(params.get("hold")) : undefined;
+  // ?light=studio — a neutral three-point rig over the room's own light, for judging a face against its portrait.
+  const studio = params.get("light") === "studio";
   const [lx, lz] = toWorld(map, ...(preset?.at ?? map.look));
   // zoom=3 is a portrait: the eye line of a figure of ?height (5.5 ft when unsaid).
   const faceY = (Number(params.get("height") || 5.5) / FT_PER_UNIT) * 0.92;
   const look = zoom === "3" ? new THREE.Vector3(start.x, faceY, start.z) : zoom ? new THREE.Vector3(start.x, 0.95, start.z) : new THREE.Vector3(lx, 0.6, lz);
   // zoom=1 from the front-right; zoom=2 square from the side, for judging a stance; zoom=3 the face.
-  const off = zoom === "3" ? [0.32, 0.04, 0.42] : zoom === "2" ? [2.6, 0.35, 0.1] : zoom ? [0.9, 0.55, 2.1] : (preset?.eye ?? map.eye);
+  const off0 = zoom === "3" ? [0.32, 0.04, 0.42] : zoom === "2" ? [2.6, 0.35, 0.1] : zoom ? [0.9, 0.55, 2.1] : (preset?.eye ?? map.eye);
+  // &orbit=<degrees> swings a zoom view around the figure (a model that faces the other way).
+  const orbit = ((Number(params.get("orbit")) || 0) * Math.PI) / 180;
+  const off = zoom && orbit ? [off0[0] * Math.cos(orbit) - off0[2] * Math.sin(orbit), off0[1], off0[0] * Math.sin(orbit) + off0[2] * Math.cos(orbit)] : off0;
   const eye: [number, number, number] = [look.x + off[0], look.y + off[1], look.z + off[2]];
   const send = (p: THREE.Vector3) => setTarget(snapToCell(map, p));
 
@@ -269,6 +275,13 @@ export default function ImmersiveSpike() {
               onExit={takeExit}
             >
               {strikeDemo ? <StrikeDemo start={start} model={model} kind={strikeDemo} hold={hold} /> : <Walker cell={target ?? start} model={model} />}
+              {studio && (
+                <>
+                  <ambientLight intensity={0.55} color="#fff6ea" />
+                  <directionalLight position={[start.x + 2.5, 4.5, start.z + 3]} intensity={2.6} color="#fff1dc" />
+                  <directionalLight position={[start.x - 3, 3, start.z - 2]} intensity={1.1} color="#dbe7ff" />
+                </>
+              )}
             </MapScene>
           </Suspense>
         </SceneBoundary>
