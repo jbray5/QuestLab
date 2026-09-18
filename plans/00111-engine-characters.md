@@ -50,6 +50,14 @@ proven end to end today with the models we already have.
   forward in its rest pose; `toe − ankle` gives the model's forward vector, so
   no model needs a hand-entered facing. The soldier faces −Z (a Blender bake);
   a raw Mixamo export faces +Z; both detect.
+- **Daz Studio is scriptable from the command line, and the engine takes its
+  rigs directly.** `DAZStudio.exe -instanceName Builder -noPrompt build.dsa`
+  builds a figure by dial and preset, captures previews and exports the FBX
+  with the right options — no UI. And with Genesis bone names aliased and the
+  bake aligning each limb to the source's, a Daz A-pose export walks on the
+  Soldier's clips without Mixamo. Willa was built this way in one evening,
+  from the library Justin installed; the rest of the party is the same
+  script with different specs.
 - **Vercel Blob is already cross-origin.** `Access-Control-Allow-Origin: *`,
   a year of immutable cache — a `.glb` there loads into the engine page with
   no proxy.

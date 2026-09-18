@@ -1233,6 +1233,16 @@ export default function SessionHud() {
           >
             🎲 3D Board
           </Link>
+          <a
+            href={`/table/${sessionId}/engine`}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-secondary"
+            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+            title="The immersive table (Plan 107) — built rooms, walking figures, fog and weather. Open this on the TV; it follows the HUD live"
+          >
+            🏰 Immersive
+          </a>
           {AI_ON && sessionId && <BriefPanel sessionId={sessionId} />}
           <button
             className="btn btn-secondary"

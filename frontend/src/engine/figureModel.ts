@@ -242,7 +242,16 @@ function readRig(root: THREE.Object3D, tpose: THREE.AnimationClip | null): Rig {
  * skeletons have. Null for a bone whose children the other rig lacks.
  */
 function limbChild(tb: RestBone, target: Rig, other: Rig): string | null {
-  const keys = tb.bone.children.map((c) => boneKey(c.name)).filter((k) => target.byKey.has(k) && other.byKey.has(k));
+  // Breadth-first through descendants, looking past bones the other rig lacks
+  // (Genesis 8's twist bones sit between the upper arm and the forearm).
+  const keys: string[] = [];
+  const queue: THREE.Object3D[] = [...tb.bone.children];
+  while (queue.length) {
+    const c = queue.shift()!;
+    const k = boneKey(c.name);
+    if (target.byKey.has(k) && other.byKey.has(k)) keys.push(k);
+    else queue.push(...c.children);
+  }
   if (!keys.length) return null;
   return keys.find((k) => k.endsWith("handmiddle1")) ?? keys[0];
 }

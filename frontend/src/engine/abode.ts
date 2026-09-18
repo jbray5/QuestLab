@@ -46,6 +46,8 @@ WALLS.push([C(11.8), R(4.6), C(12.6), R(6.4)]);
 export const ABODE: MapDef = {
   id: "abode",
   name: "Sorrel's abode",
+  // The HUD's "Sorrel's abode" battle map (a plan drawn for the DM; the players see this room).
+  battleMapIds: ["67c3e633-9cd2-463e-91d7-b3388df6e6b5"],
   w: 16,
   h: 12,
   walls: WALLS,
