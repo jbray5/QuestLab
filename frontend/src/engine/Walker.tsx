@@ -130,7 +130,9 @@ export function Walker({
   );
   const gaze = useRef(0);
   // Fast mode: a figure with nothing to do holds its pose — a game piece until it is its turn.
+  // The mixer still runs for a moment after any clip starts, so the pose it holds is the clip's, not the rig's rest.
   const { fast } = useQuality();
+  const settledAt = useRef(0);
   /** 0 standing, 1 on the floor — the topple, when there is no death clip. */
   const fallen = useRef(down ? 1 : 0);
   const firstDown = useRef(down);
@@ -147,6 +149,7 @@ export function Walker({
     if (fromEnd) next.time = next.getClip().duration;
     current.current = next;
     mode.current = name;
+    settledAt.current = performance.now() + 1500;
     return true;
   }, []);
 
@@ -205,7 +208,7 @@ export function Walker({
     const p = pos.current;
     if (!g) return;
     const busy = active || down || mode.current !== "idle" || !!swing.current || !!pendingHit.current || !!flinch.current || Math.hypot(cell.x - p.x, cell.z - p.z) > 0.08;
-    if (!fast || busy) mixer.update(dt);
+    if (!fast || busy || performance.now() < settledAt.current) mixer.update(dt);
     if (pendingHit.current && performance.now() >= pendingHit.current.at) {
       const from = pendingHit.current.from;
       pendingHit.current = null;
