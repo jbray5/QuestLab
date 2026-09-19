@@ -7,9 +7,11 @@ import { createContext, useContext } from "react";
  */
 export interface Quality {
   fast: boolean;
+  /** Cinema on: the extras that cost a render pass (the wet deck's mirror) are allowed. */
+  cinema: boolean;
 }
 
-export const QualityContext = createContext<Quality>({ fast: false });
+export const QualityContext = createContext<Quality>({ fast: false, cinema: true });
 
 export function useQuality(): Quality {
   return useContext(QualityContext);

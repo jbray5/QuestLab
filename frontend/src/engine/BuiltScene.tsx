@@ -53,8 +53,9 @@ function Patch({
 export function BuiltFloor({ map, onClick }: { map: MapDef; onClick: (p: THREE.Vector3) => void }) {
   const cobble = usePbr(map.ground ?? "floor", [map.w / 2.2, map.h / 2.2]);
   const planks = usePbr("planks", [7, 3]);
-  const { fast } = useQuality();
-  const wet = !!map.wet && !fast;
+  // The mirror is a whole extra render of the room: Cinema only, never in Fast.
+  const { fast, cinema } = useQuality();
+  const wet = !!map.wet && !fast && cinema;
   return (
     <group>
       <mesh

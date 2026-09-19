@@ -232,7 +232,6 @@ export default function EngineTable() {
       /* a private window forgets; fine */
     }
   };
-  const quality = useMemo(() => ({ fast }), [fast]);
   const [follow, setFollow] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [frameNonce, setFrameNonce] = useState(0);
@@ -243,6 +242,8 @@ export default function EngineTable() {
   const [peek, setPeek] = useState(false);
   const [labels, setLabels] = useState(true);
   const [cinema, setCinema] = useState(true);
+  // What the scene may spend: Fast drops the expensive passes; Cinema allows the extras that cost a render.
+  const quality = useMemo(() => ({ fast, cinema }), [fast, cinema]);
   // Sound: off/on for this machine; browsers need a touch before they will play anything.
   const [sound, setSound] = useState(soundEnabled);
   useEffect(() => {
@@ -452,9 +453,13 @@ export default function EngineTable() {
         dpr={fast ? 1 : [1, 1.5]}
         gl={{ antialias: false, powerPreference: "high-performance" }}
         camera={{ fov: 42, near: 0.1, far: 260, position: eye }}
-        onCreated={({ gl }) => {
+        onCreated={({ gl, scene }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.05;
+          // ?stats=1 — the renderer and scene on window.__ql, for measuring draw calls and frame cost.
+          if (new URLSearchParams(window.location.search).get("stats") === "1") {
+            (window as unknown as { __ql?: unknown }).__ql = { gl, scene };
+          }
         }}
       >
         <SceneBoundary onError={(e) => setErr(e.message)}>

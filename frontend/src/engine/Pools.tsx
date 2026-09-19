@@ -1,4 +1,4 @@
-import { Cloud, Clouds, MeshReflectorMaterial, useTexture } from "@react-three/drei";
+import { Cloud, Clouds, useTexture } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -40,25 +40,28 @@ function Scroll({ tex }: { tex: THREE.Texture }) {
   return null;
 }
 
+/**
+ * Water without a mirror. A reflector re-renders the whole room for every pool,
+ * every frame — four extra passes at Restwater, the same cost as the torch
+ * shadows were. Physical water instead: the room's environment in the
+ * specular, a wet clearcoat, ripples from the normal map. The mirror image of
+ * figures is the only thing lost, and at table distance nobody looked for it.
+ */
 function Water({ ripples, scale, y = 0.03 }: { ripples: THREE.Texture; scale: [number, number]; y?: number }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, y, 0]} scale={[scale[0], scale[1], 1]}>
       <circleGeometry args={[1, 48]} />
-      <MeshReflectorMaterial
-        blur={[220, 70]}
-        resolution={512}
-        mixBlur={0.9}
-        mixStrength={1.1}
-        mirror={0.45}
-        roughness={0.3}
-        metalness={0}
+      <meshPhysicalMaterial
         color="#2d9a93"
+        roughness={0.12}
+        metalness={0}
+        clearcoat={1}
+        clearcoatRoughness={0.05}
+        envMapIntensity={1.6}
         normalMap={ripples}
         normalScale={new THREE.Vector2(0.22, 0.22)}
-        distortion={0.35}
-        distortionMap={ripples}
         transparent
-        opacity={0.9}
+        opacity={0.92}
       />
     </mesh>
   );

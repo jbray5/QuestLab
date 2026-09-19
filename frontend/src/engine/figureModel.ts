@@ -629,14 +629,25 @@ export function dressFigure(root: THREE.Object3D): void {
   });
 }
 
+/** Meshes that cost a shadow pass and give nothing back at table distance. */
+const NO_SHADOW = /hair|scalp|eyelash|lash|eyebrow|brow|tear|moisture|cornea|eye|mouth|teeth|tongue|nail|beard|cap$/i;
+/** Meshes nobody can see from the table: skipped entirely. */
+const TINY = /fingernail|toenail|^tear$|mouth cavity/i;
+
 export function fitFigure(gltf: GltfLike, library: LibraryClip[], heightUnits: number, cacheKey: string): Fitted {
   dressFigure(gltf.scene);
   const body = cloneSkeleton(gltf.scene);
   body.traverse((o) => {
-    if ((o as THREE.Mesh).isMesh) {
-      o.castShadow = true;
-      o.receiveShadow = true;
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const names = mats.map((m) => m.name || "").join("|") + "|" + (mesh.name || "");
+    if (TINY.test(names)) {
+      mesh.visible = false;
+      return;
     }
+    mesh.castShadow = !NO_SHADOW.test(names);
+    mesh.receiveShadow = true;
   });
   const { height: raw, bottom } = measure(gltf.scene);
   const scale = raw > 1e-3 ? heightUnits / raw : 1;
