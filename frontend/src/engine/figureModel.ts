@@ -521,6 +521,8 @@ function measure(root: THREE.Object3D): { height: number; bottom: number } {
  * material would have under the room's light.
  */
 const EYE_GLASS = /eyemoisture|cornea|tear|eyereflection|eye_?moist/i;
+/** Colour maps that are skin whatever the primitive is called. */
+const SKIN_TEX = /_head_|_face_|_body_|_arms_|_legs_|_torso_|_nails_|_ears_/i;
 const EYE = /\beyes?\b|iris|sclera|pupil/i;
 const HAIR = /hair|scalp|eyebrow|eyelash|beard|brow|lash|stubble/i;
 const MOUTH = /mouth|teeth|tongue|gums|lips/i;
@@ -533,7 +535,10 @@ function dressMaterial(m: THREE.Material): void {
   const std = m as THREE.MeshStandardMaterial;
   if (!std.isMeshStandardMaterial || std.userData.dressed) return;
   std.userData.dressed = true;
-  const n = m.name || "";
+  // The colour map's name is the honest label: a Daz FBX export can call the whole face
+  // "Mouth Cavity" or a leg "Fingernails", but the texture is still *_Head_D_1001.
+  const tex = std.map?.name || "";
+  const n = SKIN_TEX.test(tex) ? "skin " + (m.name || "") : m.name || "";
   // A colour with alpha 0 and no map is a layer the export lost the alpha mask for
   // (Genesis eyelash cards, the tear line): opaque brown strips across the face. Off.
   if (std.opacity === 0 && !std.transparent && !std.map) {
@@ -549,7 +554,10 @@ function dressMaterial(m: THREE.Material): void {
     std.metalness = 0;
     return;
   }
-  if (EYE.test(n)) {
+  if (n.startsWith("skin ")) {
+    std.roughness = 0.55;
+    std.metalness = 0;
+  } else if (EYE.test(n)) {
     std.roughness = 0.18;
     std.metalness = 0;
   } else if (HAIR.test(n)) {
@@ -588,11 +596,12 @@ const upgraded = new WeakMap<THREE.Material, THREE.MeshPhysicalMaterial>();
 function physical(m: THREE.Material): THREE.Material {
   const std = m as THREE.MeshStandardMaterial;
   if (!std.isMeshStandardMaterial || (m as THREE.MeshPhysicalMaterial).isMeshPhysicalMaterial || !std.visible) return m;
+  const texSkin = SKIN_TEX.test(std.map?.name || "");
   const n = m.name || "";
   // Hair stays on the standard model: any anisotropic lobe on decimated strands sparkles into the bloom.
-  if (HAIR.test(n)) return m;
-  const eye = EYE.test(n) && !EYE_GLASS.test(n);
-  const skin = !eye && SKIN.test(n) && !MOUTH.test(n);
+  if (HAIR.test(n) && !texSkin) return m;
+  const eye = !texSkin && EYE.test(n) && !EYE_GLASS.test(n);
+  const skin = texSkin || (!eye && SKIN.test(n) && !MOUTH.test(n));
   if (!skin && !eye) return m;
   const had = upgraded.get(m);
   if (had) return had;
@@ -631,8 +640,9 @@ export function dressFigure(root: THREE.Object3D): void {
 
 /** Meshes that cost a shadow pass and give nothing back at table distance. */
 const NO_SHADOW = /hair|scalp|eyelash|lash|eyebrow|brow|tear|moisture|cornea|eye|mouth|teeth|tongue|nail|beard|cap$/i;
-/** Meshes nobody can see from the table: skipped entirely. */
+/** Meshes nobody can see from the table: skipped entirely — only when they really are small. */
 const TINY = /fingernail|toenail|^tear$|mouth cavity/i;
+const TINY_TRIS = 2500;
 
 export function fitFigure(gltf: GltfLike, library: LibraryClip[], heightUnits: number, cacheKey: string): Fitted {
   dressFigure(gltf.scene);
@@ -642,11 +652,16 @@ export function fitFigure(gltf: GltfLike, library: LibraryClip[], heightUnits: n
     if (!mesh.isMesh) return;
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     const names = mats.map((m) => m.name || "").join("|") + "|" + (mesh.name || "");
-    if (TINY.test(names)) {
+    const texSkin = mats.some((m) => SKIN_TEX.test((m as THREE.MeshStandardMaterial).map?.name || ""));
+    const idx = mesh.geometry.index;
+    const tris = idx ? idx.count / 3 : mesh.geometry.attributes.position?.count / 3 || 0;
+    // A primitive labelled "Mouth Cavity" with 11k triangles is the face: names lie, sizes do not.
+    if (TINY.test(names) && tris < TINY_TRIS && !(texSkin && tris > 800)) {
       mesh.visible = false;
       return;
     }
-    mesh.castShadow = !NO_SHADOW.test(names);
+    const hairLike = /hair|scalp|beard|cap$/i.test(names) && !texSkin;
+    mesh.castShadow = hairLike ? false : !(NO_SHADOW.test(names) && tris < 4000 && !texSkin);
     mesh.receiveShadow = true;
   });
   const { height: raw, bottom } = measure(gltf.scene);
