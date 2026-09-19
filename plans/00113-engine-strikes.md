@@ -97,6 +97,28 @@ table's console after each beat.
    under each torch flame.
 4. Hair cards and sculpted rooms remain art work for another day.
 
+## Saturday small hours — "take the browser as far as you can"
+- **Faces against the canon painting.** A Daz lineup of every head in the library
+  (`F:/DAZ 3D/ql-scratch/lineup.dsa`), then Willa (Amala/Kat, the laugh baked in), Nya
+  (Laura/Amala, a half smile, pale skin) and Thane (Fabrice, dark Mavick) rebuilt from
+  `specs.json` through `gen_faces.py`, exported with hair at 45%, maps attached, uploaded.
+  Creed's scales warmed to golden olive by tint. The spike gained `?light=studio` and
+  `&orbit=` for judging a face.
+- **The look, rounds two and three.** Skin and eyes on the physical material (a warm sheen,
+  a wet clearcoat); hair stays standard — anisotropy on decimated strands sparkles into the
+  bloom. A filmic grade (saturation, contrast, grain). Candles as a third light. Wall caps.
+  Heads turn toward the active combatant. Restwater's deck is wet and reflects
+  (`MeshReflectorMaterial`, one extra render, off in Fast). Restwater dressed with Poly Haven
+  props (buckets, baskets, a bench, jugs, a bed, a shelf, candlesticks) — every model checked
+  against the CDN first, since a missing one crashes the room.
+- **Sound**, synthesised (no files): whoosh/thud/twang/shimmer/pop/chime/boom/tick. An
+  initiative strip of headshots. Monster tokens take their stat block's art.
+- **Where the browser limit is, honestly.** Left on the table: face sculpts beyond blends of
+  the six library heads (a morph pack), Nya's dress and Thane's ears (assets), motion-captured
+  strikes (Justin's Mixamo downloads), hair as cards (modelling), subsurface scattering (a
+  custom shader), baked global illumination (not a browser-table job). Everything else that
+  three.js can do for a lit room of a dozen skinned figures is on.
+
 ## Outcomes and Retrospective
 Shipped the night before session 7. A hit in a running fight now has a source and a colour:
 the tracker's NEXT HIT chips and the spell panel's Cast button choose it, the API names the
