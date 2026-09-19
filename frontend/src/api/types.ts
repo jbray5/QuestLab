@@ -482,6 +482,8 @@ export interface TableStateRead {
   active_map_id: string | null;
   fog_on: boolean;
   join_qr_on?: boolean;
+  /** Plan 113 — the battle maps tonight keeps to hand; the HUD's MAPS tab shows these. */
+  map_shelf?: string[];
   revealed_region_ids: string[];
   brush_reveals: BrushReveal[];
   tokens: TableToken[];
@@ -500,6 +502,8 @@ export interface TableStateUpdate {
   title?: string;
   weather?: string | null;
   join_qr_on?: boolean;
+  /** Plan 113 — the battle maps tonight keeps to hand; the HUD's MAPS tab shows these. */
+  map_shelf?: string[];
 }
 
 export interface TableMapSummary {

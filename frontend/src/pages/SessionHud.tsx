@@ -719,6 +719,20 @@ export default function SessionHud() {
     mutationFn: (mapId: string) => tableApi.updateState(sessionId!, { active_map_id: mapId, join_qr_on: false }),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["hud-table", sessionId] }),
   });
+  // Plan 113 — the shelf: the maps tonight needs. Staging a map puts it there (the API does
+  // that); the DM pulls more from the library and takes any off again.
+  const setShelf = useMutation({
+    mutationFn: (ids: string[]) => tableApi.updateState(sessionId!, { map_shelf: ids }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["hud-table", sessionId] }),
+  });
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryQuery, setLibraryQuery] = useState("");
+  const shelfIds = useMemo(
+    () => new Set([...(hudTable?.map_shelf ?? []), ...(hudTable?.active_map_id ? [hudTable.active_map_id] : [])]),
+    [hudTable],
+  );
+  const shelfMaps = hudMaps.filter((m) => shelfIds.has(m.id));
+  const libraryMaps = hudMaps.filter((m) => !shelfIds.has(m.id) && m.name.toLowerCase().includes(libraryQuery.toLowerCase()));
   // Distinct monsters across tonight's encounter rosters (for 👥 People).
   const rosterMonsters = useMemo(() => {
     const seen = new Map<string, RosterEntry>();
@@ -2298,11 +2312,11 @@ export default function SessionHud() {
             {centerTab === "maps" && (
               <div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "0.7rem" }}>
-                  {hudMaps.map((m) => {
+                  {shelfMaps.map((m) => {
                     const active = hudTable?.active_map_id === m.id;
                     return (
+                      <div key={m.id} style={{ position: "relative" }}>
                       <button
-                        key={m.id}
                         onClick={() => {
                           setActiveMap.mutate(m.id);
                           setMapFocus(true);
@@ -2331,9 +2345,44 @@ export default function SessionHud() {
                           {active ? "● " : ""}{m.name}
                         </div>
                       </button>
+                      {!active && (
+                        <button
+                          className="btn btn-ghost"
+                          title="Take it off tonight's shelf (it stays in the library)"
+                          onClick={() => setShelf.mutate((hudTable?.map_shelf ?? []).filter((id) => id !== m.id))}
+                          style={{ position: "absolute", top: 4, right: 4, padding: "0 0.4rem", fontSize: "0.7rem", background: "rgba(0,0,0,0.6)" }}
+                        >
+                          ✕
+                        </button>
+                      )}
+                      </div>
                     );
                   })}
                 </div>
+                {hudMaps.length > 0 && shelfMaps.length === 0 && (
+                  <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Nothing on tonight's shelf yet — pull maps from the library below.</p>
+                )}
+                <div style={{ marginTop: "0.6rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                  <button className={libraryOpen ? "btn btn-primary" : "btn btn-ghost"} style={{ fontSize: "0.75rem" }} onClick={() => setLibraryOpen((v) => !v)}>
+                    {libraryOpen ? "Done" : "＋ From the library"}
+                  </button>
+                  <span style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
+                    {shelfMaps.length} on tonight's shelf · {hudMaps.length - shelfMaps.length} more in the library
+                  </span>
+                </div>
+                {libraryOpen && (
+                  <div style={{ marginTop: "0.5rem" }}>
+                    <input placeholder="Find a map…" value={libraryQuery} onChange={(e) => setLibraryQuery(e.target.value)} style={{ width: "100%", marginBottom: "0.4rem" }} />
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                      {libraryMaps.map((m) => (
+                        <button key={m.id} className="btn btn-ghost" style={{ fontSize: "0.72rem" }} title="Put it on tonight's shelf" onClick={() => setShelf.mutate([...(hudTable?.map_shelf ?? []), m.id])}>
+                          {m.name}
+                        </button>
+                      ))}
+                      {libraryMaps.length === 0 && <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Nothing else matches.</span>}
+                    </div>
+                  </div>
+                )}
                 {hudMaps.length === 0 && (
                   <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                     No battle maps in this campaign yet — add them under Battle Maps.

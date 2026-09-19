@@ -23,7 +23,8 @@ Everything comes from the HUD's **LIVE** and **MAPS** tabs:
 
 | On the TV | You do this in the HUD |
 |---|---|
-| The room — walls, furniture, pools, torches | **MAPS** → pick the map. Maps the engine has scene data for render as built rooms: Restwater, Sorrel's abode, and **Margarita-shire (Day or Night)**, which is now the beach bar — a tiki bar on a Feywild coast with its own patrons and bartender, fey lanterns, a glowing cove and fireflies. Any other map renders as its picture, lit, with figures on it. |
+| The room — walls, furniture, pools, torches | **MAPS** → pick the map. Maps the engine has scene data for render as built rooms: Restwater, Sorrel's abode, and **Margarita-shire — the beach bar (Day)** and **(Night)** — a tiki bar on a Feywild coast with its own patrons and bartender, fey lanterns, a glowing cove, fireflies after dark. Any other map renders as its picture, lit, with figures on it. |
+| Only a few maps in the MAPS tab | That is tonight's **shelf**: the maps this session keeps to hand. Staging a map puts it there; ✕ on a card takes it off; **＋ From the library** lists every other map in the campaign to pull onto the shelf. The library itself is untouched. |
 | A figure walks to a new spot | Drag its token on the LIVE map. Figures walk in a straight line; place tokens where they should *stand*. |
 | The camera glides to whoever's turn it is | Start the fight (**ROLL INIT**), then **END TURN**. It only follows a running fight. |
 | A ring under a figure glows | That's the active combatant. Grey ring = defeated. |

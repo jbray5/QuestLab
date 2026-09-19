@@ -519,6 +519,26 @@ class TestProjectionSafety:
         proj = table_svc.get_projection(duckdb_session, gs.id)
         assert proj.tokens[0].image_url == "https://cdn.test/cultist.png"
 
+    def test_staging_a_map_puts_it_on_the_shelf(self, duckdb_session: Session):
+        """Plan 113 — the shelf is what the HUD shows; the active map is always on it,
+        and the DM can trim it back."""
+        dm = _dm()
+        campaign, _adv, gs = _campaign_and_session(duckdb_session, dm)
+        a = _make_map(duckdb_session, campaign.id, dm, name="A")
+        b = _make_map(duckdb_session, campaign.id, dm, name="B")
+        s1 = table_svc.update_table_state(
+            duckdb_session, gs.id, dm, TableStateUpdate(active_map_id=a.id)
+        )
+        assert s1.map_shelf == [str(a.id)]
+        s2 = table_svc.update_table_state(
+            duckdb_session, gs.id, dm, TableStateUpdate(active_map_id=b.id)
+        )
+        assert s2.map_shelf == [str(a.id), str(b.id)]
+        s3 = table_svc.update_table_state(
+            duckdb_session, gs.id, dm, TableStateUpdate(map_shelf=[str(b.id)])
+        )
+        assert s3.map_shelf == [str(b.id)]
+
     def test_revealed_exits_come_through_as_keys(self, duckdb_session: Session):
         """Plan 112 — an "exit:<key>" reveal names the exit on the projection and
         never appears among the fog polygons."""

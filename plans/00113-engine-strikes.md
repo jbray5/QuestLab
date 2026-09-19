@@ -130,6 +130,15 @@ table's console after each beat.
   `coast_rocks_0x` are 45-unit scans — bigger than the map; they buried everyone until the
   scene inspector (`shots/inspect.mjs`) found them. One prop's failed download used to black
   out the whole room; each prop now has its own boundary.
+- **Saturday morning.** The beach bar is its own pair of battle maps (Day, Night), pictured
+  by the engine's own top-down look (`?look=top&clean=1`, 1536×1024, grid 64) and created
+  through the API (`scratchpad/make_beach_maps.py`); the brick tavern keeps the old
+  Margarita-shire ids. The day variant is the night map with the sun's rig and a fey
+  turquoise sky. The **map shelf** (`table_states.map_shelf`, migration 0051): the HUD's
+  MAPS tab shows only the maps a session keeps; staging a map shelves it; the library is a
+  click away. A CPU profile of the table page (`shots/profile.mjs`) shows the JavaScript
+  thread 92% idle — the remaining cost is draw submission in the GPU process, which is why
+  `chrome://gpu` matters more than any further script work.
 - **Where the browser limit is, honestly.** Left on the table: face sculpts beyond blends of
   the six library heads (a morph pack), Nya's dress and Thane's ears (assets), motion-captured
   strikes (Justin's Mixamo downloads), hair as cards (modelling), subsurface scattering (a

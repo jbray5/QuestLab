@@ -22,7 +22,8 @@ const chairs = (u: number, v: number): Piece[] => [
 export const BEACH: MapDef = {
   id: "beach",
   name: "Margarita-shire — the beach bar",
-  battleMapIds: ["e988cdc6-dc01-4c14-a4fe-d67f10838e06", "bec23da7-1003-4723-ba5f-f4da9f7ef8a5"],
+  // Its own battle map in the catalog (the picture is the top-down look below), not the tavern's.
+  battleMapIds: ["75926bea-743f-4b70-a6e1-740fa5f48293"],
   w: 24,
   h: 16,
   ground: "sand",
@@ -148,6 +149,23 @@ export const BEACH: MapDef = {
     bar: { at: [0.5, 0.53], eye: [0.5, 3.4, 4.2] },
     shore: { at: [0.5, 0.22], eye: [0.4, 4.4, 6.0] },
     fire: { at: [0.66, 0.79], eye: [0.9, 3.0, 3.6] },
+    // straight down, the whole map in frame at 3:2 — the catalog picture is taken from here
+    top: { at: [0.5, 0.5], eye: [0, 21, 0.01] },
   },
   start: [0.5, 0.72],
+};
+
+/**
+ * The same bar by day: a fey turquoise sky and haze, the sun's rig, the lanterns
+ * still lit. Its own battle map, so the HUD offers day and night as two maps.
+ */
+export const BEACH_DAY: MapDef = {
+  ...BEACH,
+  id: "beach_day",
+  name: "Margarita-shire — the beach bar (Day)",
+  battleMapIds: ["a8195caf-54d5-4b3f-b3dc-e8d83c25f7c4"],
+  light: "day",
+  sky: "#9fd9ea",
+  fog: 0.005,
+  weather: "dust",
 };

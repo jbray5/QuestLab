@@ -47,6 +47,9 @@ class TableState(SQLModel, table=True):
     weather: Optional[str] = Field(default=None, max_length=12)
     # DM-summoned join QR on the projector (Plan 69).
     join_qr_on: bool = Field(default=False)
+    # Plan 113 — the maps tonight needs, as a JSON list of battle-map ids. The HUD
+    # shows only these; staging a map puts it on the shelf.
+    map_shelf: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -96,6 +99,7 @@ class TableStateUpdate(BaseModel):
     title: Optional[str] = PydField(default=None, max_length=120)
     weather: Optional[str] = PydField(default=None, max_length=12)
     join_qr_on: Optional[bool] = None
+    map_shelf: Optional[list[str]] = PydField(default=None, max_length=60)
 
 
 class TokenFigureRequest(BaseModel):
@@ -202,10 +206,11 @@ class TableStateRead(BaseModel):
     title: str = ""
     weather: Optional[str] = None
     join_qr_on: bool = False
+    map_shelf: list[str] = PydField(default_factory=list)
 
     model_config = {"from_attributes": True}
 
-    @field_validator("revealed_region_ids", "brush_reveals", "tokens", mode="before")
+    @field_validator("revealed_region_ids", "brush_reveals", "tokens", "map_shelf", mode="before")
     @classmethod
     def _none_to_list(cls, v: object) -> object:
         """Coerce nullable JSON columns to empty lists (DB default is NULL)."""

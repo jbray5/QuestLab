@@ -162,6 +162,11 @@ def update_table_state(
             raise ValueError("Battle map not found in this session's campaign.")
         if patch["active_map_id"] != state.active_map_id:
             switched_to = battle_map
+        # Plan 113 — staging a map puts it on the session's shelf.
+        if "map_shelf" not in patch:
+            shelf = [str(m) for m in (state.map_shelf or [])]
+            if str(patch["active_map_id"]) not in shelf:
+                patch["map_shelf"] = shelf + [str(patch["active_map_id"])]
 
     # Normalize nested pydantic models (tokens) to plain JSON-able dicts.
     if "tokens" in patch and patch["tokens"] is not None:

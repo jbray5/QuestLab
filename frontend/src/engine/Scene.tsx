@@ -99,7 +99,7 @@ export function MapScene({
       {day ? (
         <>
           {/* A lit outdoor rig for a map with no scene data: a low sun and sky. */}
-          <hemisphereLight args={[overcast ? "#8f9aad" : "#b9c8e6", "#4a3a2a", 0.55 * dim]} />
+          <hemisphereLight args={[map.moon ?? (overcast ? "#8f9aad" : "#b9c8e6"), "#4a3a2a", 0.55 * dim]} />
           <ambientLight intensity={0.22 * dim} />
           <directionalLight
             position={[map.w * 0.35, map.w * 0.8, map.h * 0.3]}

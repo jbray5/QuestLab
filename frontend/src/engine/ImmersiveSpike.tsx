@@ -185,6 +185,8 @@ export default function ImmersiveSpike() {
   const sk = params.get("strike");
   const strikeDemo = sk === "melee" || sk === "cast" || sk === "shoot" ? sk : null;
   const hold = params.get("hold") ? Number(params.get("hold")) : undefined;
+  // ?clean=1 — no interface and no figure: the frame is the room alone (a catalog picture).
+  const clean = params.get("clean") === "1";
   // ?light=studio — a neutral three-point rig over the room's own light, for judging a face against its portrait.
   const studio = params.get("light") === "studio";
   const [lx, lz] = toWorld(map, ...(preset?.at ?? map.look));
@@ -206,6 +208,7 @@ export default function ImmersiveSpike() {
   return (
     <div className="sp-root">
       <style>{CSS}</style>
+      {!clean && (
       <div className="sp-hud">
         {Object.values(MAPS).map((m) => (
           <button key={m.id} className={mapId === m.id ? "on" : ""} onClick={() => pickMap(m.id)}>
@@ -236,6 +239,7 @@ export default function ImmersiveSpike() {
         {note && <small className="sp-loading">{note}</small>}
         {err && <small className="sp-err">⚠ {err}</small>}
       </div>
+      )}
       {check && (
         <div className="sp-check">
           <b>{map.name} — what a builder would say</b>
@@ -279,7 +283,7 @@ export default function ImmersiveSpike() {
               onFloorClick={send}
               onExit={takeExit}
             >
-              {strikeDemo ? <StrikeDemo start={start} model={model} kind={strikeDemo} hold={hold} /> : <Walker cell={target ?? start} model={model} />}
+              {clean ? null : strikeDemo ? <StrikeDemo start={start} model={model} kind={strikeDemo} hold={hold} /> : <Walker cell={target ?? start} model={model} />}
               {studio && (
                 <>
                   <ambientLight intensity={0.55} color="#fff6ea" />

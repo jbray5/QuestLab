@@ -49,8 +49,7 @@ const LOWER: Seg[] = [
 export const TAVERN: MapDef = {
   id: "tavern",
   name: "Margarita-shire — the tavern",
-  // The Margarita-shire battle maps render as the beach bar now (beach.ts); this room is the spike's.
-  battleMapIds: [],
+  battleMapIds: ["e988cdc6-dc01-4c14-a4fe-d67f10838e06", "bec23da7-1003-4723-ba5f-f4da9f7ef8a5"],
   // A 2K derivative; the full picture is 30 MP.
   url: "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/14fad705-0fd7-43b6-876b-31783625163e-QDH6Xt3CJQti4xWEMUfjffNbdKAeLE.jpg",
   w: 33,
