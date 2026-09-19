@@ -35,6 +35,23 @@ export interface Pool {
   v: number;
   rx: number;
   ry: number;
+  /** A hot spring has a stone rim and steam; the sea has neither. */
+  rim?: boolean;
+  steam?: boolean;
+  color?: string;
+  glow?: string;
+}
+
+/** Someone who lives here — a patron at the bar, a bartender. Stands still, faces one way, never fights. */
+export interface Person {
+  model: string;
+  u: number;
+  v: number;
+  /** Which way they face, radians about up; 0 faces down the picture. */
+  rot?: number;
+  heightFt?: number;
+  /** Seconds into the idle, so a row of them do not breathe in step. */
+  phase?: number;
 }
 
 export interface MapDef {
@@ -55,9 +72,16 @@ export interface MapDef {
   /** Underground: everything beyond the outermost walls is rock, not floor. */
   solid?: boolean;
   /** What the walls are made of, and how tall. Brick and ten feet unless said otherwise. */
-  wall?: { material: "wall" | "planks" | "rock"; height: number; tint: string };
+  wall?: { material: "wall" | "planks" | "rock" | "bamboo"; height: number; tint: string };
   /** What the built floor is, under any boards. Cobbles unless said otherwise. */
-  ground?: "floor" | "dirt";
+  ground?: "floor" | "dirt" | "sand";
+  /** The night sky's colour (background and haze), and the moon's (the sky light). */
+  sky?: string;
+  moon?: string;
+  /** Weather in the air when the table sets none. */
+  weather?: "fireflies" | "embers" | "dust" | "rain" | "snow";
+  /** The people who live here. */
+  people?: Person[];
   /** How thick the air is. The default is a night outdoors; a cave is thicker. */
   fog?: number;
   /** Open fires: a red, flickering light with embers under it. Pair with a fire-pit model. */

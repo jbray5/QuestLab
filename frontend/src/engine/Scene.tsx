@@ -12,6 +12,7 @@ import { toWorld } from "./maps";
 import { Pools } from "./Pools";
 import { MapProps } from "./Props";
 import { useQuality } from "./quality";
+import { Locals } from "./Locals";
 import { Torch } from "./Torch";
 import { Walls } from "./Walls";
 import { Weather } from "./Weather";
@@ -85,7 +86,8 @@ export function MapScene({
   const dim = (1 - 0.85 * Math.min(1, Math.max(0, darkness))) * (overcast ? 0.8 : 1);
   const click = onFloorClick ?? (() => {});
   const usePicture = (painted || map.painted) && !!map.url;
-  const bg = day ? (overcast ? "#0c0f14" : "#10141c") : "#05060a";
+  const bg = map.sky ?? (day ? (overcast ? "#0c0f14" : "#10141c") : "#05060a");
+  const inTheAir = weather && weather !== "none" ? weather : (map.weather ?? null);
   const shown = useMemo(() => visiblePart(map, fog), [map, fog]);
   const { fast } = useQuality();
   return (
@@ -116,7 +118,7 @@ export function MapScene({
       ) : (
         <>
           {/* Moonlight through the gaps, faint. The torches do the work. */}
-          <hemisphereLight args={["#3b4a6b", "#0b0908", 0.14 * dim]} />
+          <hemisphereLight args={[map.moon ?? "#3b4a6b", "#0b0908", 0.14 * dim]} />
           <ambientLight intensity={0.05 * dim} />
           {/* The one shadow: a soft warm key from high over the room. Point-light shadows cost six
               renders per torch and pinned the CPU; this is one render and grounds every figure. */}
@@ -159,7 +161,8 @@ export function MapScene({
       {furniture && <MapProps map={shown} />}
       {!!(shown.pools?.length || shown.basins?.length) && <Pools map={shown} />}
       {!!shown.exits?.length && <Exits map={shown} onExit={onExit ?? (() => {})} revealed={revealedExits} />}
-      <Weather map={map} kind={weather} />
+      <Weather map={map} kind={inTheAir} />
+      {!!map.people?.length && <Locals map={map} />}
       {grid && <GridOverlay map={map} />}
       {target && <CellMarker at={target} />}
       {children}

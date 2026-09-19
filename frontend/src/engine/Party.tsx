@@ -41,7 +41,7 @@ export interface HitFx {
  * One figure's model failing to load must not black out the room: the
  * boundary swaps that figure for the placeholder and leaves everyone else be.
  */
-class FigureBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
+export class FigureBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() {
     return { failed: true };

@@ -14,8 +14,8 @@ players the link) and run the session from the HUD as you already do.
 - **By link:** `https://quest-lab-tau.vercel.app/table/<session id>/engine`. It is the
   same capability link as the Table View — anyone with it can watch, no sign-in.
   Remote players can open it themselves rather than watch a screen share.
-- **A map on its own:** `https://quest-lab-tau.vercel.app/engine/spike?map=tavern`
-  (`restwater`, `abode`) — for looking at a room without a session.
+- **A map on its own:** `https://quest-lab-tau.vercel.app/engine/spike?map=beach`
+  (`restwater`, `abode`, `tavern`) — for looking at a room without a session.
 
 ## What it shows, and what drives it
 
@@ -23,7 +23,7 @@ Everything comes from the HUD's **LIVE** and **MAPS** tabs:
 
 | On the TV | You do this in the HUD |
 |---|---|
-| The room — walls, furniture, pools, torches | **MAPS** → pick the map. Maps the engine has scene data for (Restwater, Sorrel's abode, the tavern) render as built rooms; any other map renders as its picture, lit, with figures on it. |
+| The room — walls, furniture, pools, torches | **MAPS** → pick the map. Maps the engine has scene data for render as built rooms: Restwater, Sorrel's abode, and **Margarita-shire (Day or Night)**, which is now the beach bar — a tiki bar on a Feywild coast with its own patrons and bartender, fey lanterns, a glowing cove and fireflies. Any other map renders as its picture, lit, with figures on it. |
 | A figure walks to a new spot | Drag its token on the LIVE map. Figures walk in a straight line; place tokens where they should *stand*. |
 | The camera glides to whoever's turn it is | Start the fight (**ROLL INIT**), then **END TURN**. It only follows a running fight. |
 | A ring under a figure glows | That's the active combatant. Grey ring = defeated. |
@@ -118,4 +118,7 @@ right beside each other whatever their files say.
 - Mira's stat block is Large, which the table stands at 10 ft; the story says 12.
 - Steven and Sarranthia are the soldier by choice; Creed has no cloak (it hung
   past his boots).
+- The beach bar's patrons stand at their tables (there is no sitting clip yet) and
+  never fight; they are scenery. Props come from the Poly Haven CDN, so the bar takes
+  a moment to fill on first open; a prop that fails to download is simply absent.
 - The engine wants a real GPU. On a laptop without one, expect a slideshow.

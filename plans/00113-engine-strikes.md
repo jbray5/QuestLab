@@ -120,6 +120,16 @@ table's console after each beat.
   (no mixer tick) — game pieces that come alive on their turn. Sorrel rebuilt as a hag with
   the rest of the body telling it: leathers tinted to mud, a deep stoop, white hair to the
   waist, a scowl (`hag3` in `specs.json`).
+- **Margarita-shire — the beach bar** (`engine/beach.ts`). Justin: "an immersive beach bar on
+  the coast with tropical decor, amped up because it's in the Feywild, patrons at the bar and
+  at tables, and a bartender." New engine pieces: `ground: "sand"` and `wall.material:
+  "bamboo"` (Poly Haven textures under the file cap), a map's own `sky`/`moon`/`weather`, pools
+  with no rim and no steam (the sea), and `people` — resident figures (`Locals.tsx`, still,
+  facing one way, no ring). Patrons are tinted variants of Steven, Sarranthia and the
+  cultist (`F:/DAZ 3D/ql-scratch/patron_*.glb`, URLs in `patrons.ts`). Poly Haven's
+  `coast_rocks_0x` are 45-unit scans — bigger than the map; they buried everyone until the
+  scene inspector (`shots/inspect.mjs`) found them. One prop's failed download used to black
+  out the whole room; each prop now has its own boundary.
 - **Where the browser limit is, honestly.** Left on the table: face sculpts beyond blends of
   the six library heads (a morph pack), Nya's dress and Thane's ears (assets), motion-captured
   strikes (Justin's Mixamo downloads), hair as cards (modelling), subsurface scattering (a

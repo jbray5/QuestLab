@@ -47,12 +47,12 @@ function Scroll({ tex }: { tex: THREE.Texture }) {
  * specular, a wet clearcoat, ripples from the normal map. The mirror image of
  * figures is the only thing lost, and at table distance nobody looked for it.
  */
-function Water({ ripples, scale, y = 0.03 }: { ripples: THREE.Texture; scale: [number, number]; y?: number }) {
+function Water({ ripples, scale, y = 0.03, color = "#2d9a93" }: { ripples: THREE.Texture; scale: [number, number]; y?: number; color?: string }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, y, 0]} scale={[scale[0], scale[1], 1]}>
       <circleGeometry args={[1, 48]} />
       <meshPhysicalMaterial
-        color="#2d9a93"
+        color={color}
         roughness={0.12}
         metalness={0}
         clearcoat={1}
@@ -111,10 +111,11 @@ export function Pools({ map }: { map: MapDef }) {
         const rz = p.ry * map.h;
         return (
           <group key={i} position={[x, 0, z]}>
-            <Rim scale={[rx, rz]} stone={stone} />
-            <Water ripples={ripples} scale={[rx * 0.97, rz * 0.97]} />
-            <pointLight position={[0, 0.6, 0]} color="#7fe0d6" intensity={4} distance={rx * 2.4} decay={2} />
+            {p.rim !== false && <Rim scale={[rx, rz]} stone={stone} />}
+            <Water ripples={ripples} scale={[rx * 0.97, rz * 0.97]} color={p.color} />
+            <pointLight position={[0, 0.6, 0]} color={p.glow ?? "#7fe0d6"} intensity={4} distance={rx * 2.4} decay={2} />
             {/* steam */}
+            {p.steam !== false && (
             <Clouds material={THREE.MeshBasicMaterial} limit={60}>
               <Cloud
                 seed={i + 3}
@@ -129,6 +130,7 @@ export function Pools({ map }: { map: MapDef }) {
                 position={[0, 0.9, 0]}
               />
             </Clouds>
+            )}
           </group>
         );
       })}

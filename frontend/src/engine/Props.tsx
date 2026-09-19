@@ -1,6 +1,6 @@
 import { Clone, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { useRef } from "react";
+import { Component, type ReactNode, Suspense, useRef } from "react";
 import * as THREE from "three";
 
 import { modelUrl } from "./assets";
@@ -151,11 +151,33 @@ function Hearth({ map, at }: { map: MapDef; at: [number, number] }) {
 }
 
 /** Everything a map's definition says stands in it. */
+/**
+ * One prop that fails to download (a CDN hiccup, a model that is not there at
+ * this size) must not black out the room: it is simply absent. And one slow
+ * file holds up only itself, not every table and stool.
+ */
+class PropBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error) {
+    console.warn("a prop is missing:", error.message);
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 export function MapProps({ map }: { map: MapDef }) {
   return (
     <group>
       {map.props.map((piece, i) => (
-        <Prop key={i} map={map} piece={piece} />
+        <PropBoundary key={i}>
+          <Suspense fallback={null}>
+            <Prop map={map} piece={piece} />
+          </Suspense>
+        </PropBoundary>
       ))}
       {map.bar && <BarCounter map={map} at={map.bar} />}
       {map.hearth && <Hearth map={map} at={map.hearth} />}

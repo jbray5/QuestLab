@@ -76,6 +76,10 @@ export function Walker({
   strike = null,
   model = null,
   attention = null,
+  still = false,
+  phase = 0,
+  facing = 0,
+  ring: showRing = true,
 }: {
   /** Where this figure should be. Changing it makes the figure walk there. */
   cell: THREE.Vector3;
@@ -96,6 +100,14 @@ export function Walker({
   model?: FigureModel | null;
   /** Where the action is — the head turns toward it, as people do. */
   attention?: THREE.Vector3 | null;
+  /** A resident: holds a pose (the mixer settles a clip, then stops) whatever the quality mode. */
+  still?: boolean;
+  /** Seconds into the idle at the start, so a crowd does not breathe in step. */
+  phase?: number;
+  /** Initial facing, radians about up; 0 faces +z (down the picture). */
+  facing?: number;
+  /** The ring under the feet — off for a resident. */
+  ring?: boolean;
 }) {
   const fig = useFigure(model?.url ?? null, model?.heightFt ?? DEFAULT_HEIGHT_FT);
   const group = useRef<THREE.Group>(null);
@@ -109,7 +121,7 @@ export function Walker({
   const mode = useRef<Mode>("idle");
   const current = useRef<THREE.AnimationAction | null>(null);
   const pos = useRef(new THREE.Vector3(cell.x, 0, cell.z));
-  const yaw = useRef(0);
+  const yaw = useRef(facing);
   const flinch = useRef<{ t: number } | null>(null);
   const lastHit = useRef<string | undefined>(undefined);
   const pendingHit = useRef<{ at: number; from: THREE.Vector3 | null } | null>(null);
@@ -161,13 +173,14 @@ export function Walker({
     current.current = null;
     if (down && built.death) play("death", 0, true, true, firstDown.current);
     else play("idle", 0);
+    if (phase && built.idle) built.idle.time = phase;
     firstDown.current = false;
     return () => {
       mixer.stopAllAction();
       for (const clip of fig.clips) mixer.uncacheClip(clip);
       actions.current = {};
     };
-  }, [mixer, fig.clips, down, play]);
+  }, [mixer, fig.clips, down, play, phase]);
 
   // A hit clip plays once and returns to standing.
   useEffect(() => {
@@ -208,7 +221,7 @@ export function Walker({
     const p = pos.current;
     if (!g) return;
     const busy = active || down || mode.current !== "idle" || !!swing.current || !!pendingHit.current || !!flinch.current || Math.hypot(cell.x - p.x, cell.z - p.z) > 0.08;
-    if (!fast || busy || performance.now() < settledAt.current) mixer.update(dt);
+    if (!(fast || still) || busy || performance.now() < settledAt.current) mixer.update(dt);
     if (pendingHit.current && performance.now() >= pendingHit.current.at) {
       const from = pendingHit.current.from;
       pendingHit.current = null;
@@ -343,7 +356,7 @@ export function Walker({
           <primitive object={fig.body} />
         </group>
       </group>
-      <mesh ref={ring} position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh ref={ring} position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={showRing}>
         <ringGeometry args={[0.36 * size, 0.46 * size, 32]} />
         <meshBasicMaterial color={c} toneMapped={false} transparent opacity={active ? 0.95 : 0.7} />
       </mesh>

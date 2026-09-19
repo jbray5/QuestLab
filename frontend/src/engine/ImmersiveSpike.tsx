@@ -262,7 +262,8 @@ export default function ImmersiveSpike() {
         dpr={[1, 1.5]}
         gl={{ antialias: false, powerPreference: "high-performance" }}
         camera={{ fov: 42, near: 0.1, far: 220, position: eye }}
-        onCreated={({ gl }) => {
+        onCreated={({ gl, scene }) => {
+          if (params.get("stats") === "1") (window as unknown as { __ql?: unknown }).__ql = { gl, scene };
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.05;
         }}
