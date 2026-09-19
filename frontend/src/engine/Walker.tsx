@@ -5,6 +5,7 @@ import * as THREE from "three";
 
 import { findBone, useFigure } from "./figureModel";
 import { DEFAULT_HEIGHT_FT } from "./heights";
+import { useQuality } from "./quality";
 
 /**
  * A character who walks to the cell it is told (Plan 108; instanced for a
@@ -128,6 +129,8 @@ export function Walker({
     [fig.body],
   );
   const gaze = useRef(0);
+  // Fast mode: a figure with nothing to do holds its pose — a game piece until it is its turn.
+  const { fast } = useQuality();
   /** 0 standing, 1 on the floor — the topple, when there is no death clip. */
   const fallen = useRef(down ? 1 : 0);
   const firstDown = useRef(down);
@@ -198,10 +201,11 @@ export function Walker({
     // Undo last frame's strike bends before the clip writes this frame's pose.
     for (const b of bent.current) b.bone.quaternion.copy(b.q);
     bent.current.length = 0;
-    mixer.update(dt);
     const g = group.current;
     const p = pos.current;
     if (!g) return;
+    const busy = active || down || mode.current !== "idle" || !!swing.current || !!pendingHit.current || !!flinch.current || Math.hypot(cell.x - p.x, cell.z - p.z) > 0.08;
+    if (!fast || busy) mixer.update(dt);
     if (pendingHit.current && performance.now() >= pendingHit.current.at) {
       const from = pendingHit.current.from;
       pendingHit.current = null;

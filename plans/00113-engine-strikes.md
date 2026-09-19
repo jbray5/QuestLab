@@ -113,6 +113,13 @@ table's console after each beat.
   against the CDN first, since a missing one crashes the room.
 - **Sound**, synthesised (no files): whoosh/thud/twang/shimmer/pop/chime/boom/tick. An
   initiative strip of headshots. Monster tokens take their stat block's art.
+- **The CPU.** Justin's CPU was the ceiling, not the GPU. Each shadow-casting torch is a
+  point light: six scene renders a frame for its cube map, and three cast — eighteen extra
+  passes of ~500 draw calls. Torches no longer cast; one directional key from high over the
+  room casts the shadows (one pass). In Fast mode a figure with nothing to do holds its pose
+  (no mixer tick) — game pieces that come alive on their turn. Sorrel rebuilt as a hag with
+  the rest of the body telling it: leathers tinted to mud, a deep stoop, white hair to the
+  waist, a scowl (`hag3` in `specs.json`).
 - **Where the browser limit is, honestly.** Left on the table: face sculpts beyond blends of
   the six library heads (a morph pack), Nya's dress and Thane's ears (assets), motion-captured
   strikes (Justin's Mixamo downloads), hair as cards (modelling), subsurface scattering (a

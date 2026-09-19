@@ -11,6 +11,7 @@ import type { MapDef } from "./maps";
 import { toWorld } from "./maps";
 import { Pools } from "./Pools";
 import { MapProps } from "./Props";
+import { useQuality } from "./quality";
 import { Torch } from "./Torch";
 import { Walls } from "./Walls";
 import { Weather } from "./Weather";
@@ -86,6 +87,7 @@ export function MapScene({
   const usePicture = (painted || map.painted) && !!map.url;
   const bg = day ? (overcast ? "#0c0f14" : "#10141c") : "#05060a";
   const shown = useMemo(() => visiblePart(map, fog), [map, fog]);
+  const { fast } = useQuality();
   return (
     <>
       <color attach="background" args={[bg]} />
@@ -116,6 +118,25 @@ export function MapScene({
           {/* Moonlight through the gaps, faint. The torches do the work. */}
           <hemisphereLight args={["#3b4a6b", "#0b0908", 0.14 * dim]} />
           <ambientLight intensity={0.05 * dim} />
+          {/* The one shadow: a soft warm key from high over the room. Point-light shadows cost six
+              renders per torch and pinned the CPU; this is one render and grounds every figure. */}
+          {!fast && (
+            <directionalLight
+              position={[map.w * 0.5 + map.w * 0.25, map.w * 0.9, map.h * 0.5 + map.h * 0.35]}
+              target-position={[map.w * 0.5, 0, map.h * 0.5]}
+              intensity={0.55 * dim}
+              color="#ffc98a"
+              castShadow
+              shadow-mapSize={[2048, 2048]}
+              shadow-camera-left={-map.w * 0.6}
+              shadow-camera-right={map.w * 0.6}
+              shadow-camera-top={map.h * 0.6}
+              shadow-camera-bottom={-map.h * 0.6}
+              shadow-camera-far={map.w * 3}
+              shadow-bias={-0.0012}
+              shadow-radius={4}
+            />
+          )}
         </>
       )}
       {usePicture && map.url ? (

@@ -9,7 +9,8 @@ import { useQuality } from "./quality";
  * that flickers (Plan 108). This is the light everything else is lit by —
  * floor, walls and character together — which is the whole design rule.
  *
- * Point-light shadows cost six renders each, so only a few torches cast them.
+ * Torches no longer cast shadows: six renders each pinned the CPU. One directional
+ * key light in the scene casts the room's shadows instead.
  */
 export function Torch({
   position,
@@ -34,6 +35,9 @@ export function Torch({
   const light = useRef<THREE.PointLight>(null);
   // Fast mode (Plan 113): no torch casts — six renders each is the first thing to go.
   const { fast } = useQuality();
+  // `shadow` is kept on the map data for the day this comes back; today no torch casts.
+  void shadow;
+  void fast;
   const flameMesh = useRef<THREE.Mesh>(null);
   // The shaft: a faint additive cone of light falling from the flame, reading as light in the steam.
   const shaft = useRef<THREE.Mesh>(null);
@@ -79,7 +83,7 @@ export function Torch({
         intensity={intensity}
         distance={candle ? 4.5 : 18}
         decay={2}
-        castShadow={shadow && !fast && !candle}
+        castShadow={false}
         shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.003}
         shadow-radius={3}
