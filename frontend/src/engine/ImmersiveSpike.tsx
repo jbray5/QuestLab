@@ -190,7 +190,11 @@ export default function ImmersiveSpike() {
   const [lx, lz] = toWorld(map, ...(preset?.at ?? map.look));
   // zoom=3 is a portrait: the eye line of a figure of ?height (5.5 ft when unsaid).
   const faceY = (Number(params.get("height") || 5.5) / FT_PER_UNIT) * 0.92;
-  const look = zoom === "3" ? new THREE.Vector3(start.x, faceY, start.z) : zoom ? new THREE.Vector3(start.x, 0.95, start.z) : new THREE.Vector3(lx, 0.6, lz);
+  // Built once per view: a fresh Vector3 each render would make OrbitControls snap the target home on every click.
+  const look = useMemo(
+    () => (zoom === "3" ? new THREE.Vector3(start.x, faceY, start.z) : zoom ? new THREE.Vector3(start.x, 0.95, start.z) : new THREE.Vector3(lx, 0.6, lz)),
+    [zoom, start.x, start.z, faceY, lx, lz],
+  );
   // zoom=1 from the front-right; zoom=2 square from the side, for judging a stance; zoom=3 the face.
   const off0 = zoom === "3" ? [0.32, 0.04, 0.42] : zoom === "2" ? [2.6, 0.35, 0.1] : zoom ? [0.9, 0.55, 2.1] : (preset?.eye ?? map.eye);
   // &orbit=<degrees> swings a zoom view around the figure (a model that faces the other way).

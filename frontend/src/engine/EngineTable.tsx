@@ -130,7 +130,10 @@ export default function EngineTable() {
     refetchRef.current = refetch;
   }, [refetch]);
 
-  const map = useMemo(() => (data?.map ? resolveMap(data.map) : null), [data]);
+  // Keyed on the map summary, not the whole projection: react-query keeps an unchanged
+  // subtree's reference, so a hit or a heal does not rebuild the map — or the camera's home.
+  const mapSummary = data?.map;
+  const map = useMemo(() => (mapSummary ? resolveMap(mapSummary) : null), [mapSummary]);
   useEffect(() => {
     if (map) preloadProps(map);
   }, [map]);
@@ -344,6 +347,14 @@ export default function EngineTable() {
     }));
   }, [data]);
 
+  const home = useMemo(() => {
+    if (!map) return { look: new THREE.Vector3(), eye: [0, 5, 5] as [number, number, number] };
+    const [lx, lz] = toWorld(map, ...map.look);
+    const look = new THREE.Vector3(lx, 0.6, lz);
+    const eye: [number, number, number] = [look.x + map.eye[0], look.y + map.eye[1], look.z + map.eye[2]];
+    return { look, eye };
+  }, [map]);
+
   if (!sessionId) return null;
   if (isError) {
     return (
@@ -362,9 +373,9 @@ export default function EngineTable() {
     );
   }
 
-  const [lx, lz] = toWorld(map, ...map.look);
-  const look = new THREE.Vector3(lx, 0.6, lz);
-  const eye: [number, number, number] = [look.x + map.eye[0], look.y + map.eye[1], look.z + map.eye[2]];
+  // The home view, built once per map. OrbitControls copies its `target` prop whenever the
+  // object changes, so a fresh Vector3 every render snapped the view back to home on every hit.
+  const { look, eye } = home;
 
   return (
     <div className="et-root">
