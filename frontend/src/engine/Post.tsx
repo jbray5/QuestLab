@@ -1,4 +1,5 @@
-import { Bloom, DepthOfField, EffectComposer, N8AO, SMAA, Vignette } from "@react-three/postprocessing";
+import { Bloom, BrightnessContrast, DepthOfField, EffectComposer, HueSaturation, N8AO, Noise, SMAA, Vignette } from "@react-three/postprocessing";
+import { BlendFunction } from "postprocessing";
 import type * as THREE from "three";
 
 /**
@@ -22,8 +23,12 @@ export function Post({ focus, cinema = true, fast = false }: { focus: THREE.Vect
       {fast ? <></> : <N8AO aoRadius={0.6} intensity={3} distanceFalloff={0.9} quality="medium" halfRes />}
       <Bloom luminanceThreshold={1} mipmapBlur intensity={0.85} radius={0.7} />
       {cinema && target && !fast ? <DepthOfField target={target} focusRange={3} bokehScale={2.2} /> : <></>}
+      {/* The grade: a little contrast and colour, the way a game's final pass leaves it. */}
+      <HueSaturation saturation={0.08} />
+      <BrightnessContrast brightness={0.01} contrast={0.09} />
       <Vignette eskil={false} offset={0.22} darkness={0.8} />
       <SMAA />
+      {fast ? <></> : <Noise premultiply blendFunction={BlendFunction.SOFT_LIGHT} opacity={0.35} />}
     </EffectComposer>
   );
 }

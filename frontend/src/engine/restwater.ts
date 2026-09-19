@@ -77,6 +77,12 @@ export const RESTWATER: MapDef = {
     // the lanterns the painter set beside the pools — posts, not sconces
     [0.941, 0.303, false, "post"],
     [0.941, 0.561, false, "post"],
+    // candles on the pool deck and in the hall — small warm pools of light
+    [0.63, 0.22, false, "candle"],
+    [0.63, 0.66, false, "candle"],
+    [0.945, 0.43, false, "candle"],
+    [0.36, 0.35, false, "candle"],
+    [0.42, 0.72, false, "candle"],
     [0.908, 0.762, false, "post"],
   ],
   props: [
@@ -101,6 +107,32 @@ export const RESTWATER: MapDef = {
     { model: "wine_barrel_01", u: 0.25, v: 0.8, rot: 0.5 },
     { model: "wooden_crate_02", u: 0.335, v: 0.8, rot: 2.0 },
     { model: "wine_barrel_01", u: 0.655, v: 0.9, rot: 2.6 },
+    // the pool deck: buckets and baskets left where bathers dropped them, a bench, a vase
+    { model: "wooden_bucket_01", u: 0.60, v: 0.31, rot: 0.4 },
+    { model: "wooden_bucket_02", u: 0.615, v: 0.53, rot: 2.1 },
+    { model: "wicker_basket_01", u: 0.625, v: 0.62, rot: 0.8 },
+    { model: "wicker_basket_02", u: 0.90, v: 0.70, rot: 1.9 },
+    { model: "painted_wooden_bench", u: 0.885, v: 0.63, rot: Math.PI / 2 },
+    { model: "ceramic_vase_02", u: 0.585, v: 0.10 },
+    { model: "wooden_bucket_01", u: 0.96, v: 0.10, rot: 1.3 },
+    // candlesticks under the candle lights (a small table under the ones on the floor)
+    { model: "wooden_candlestick", u: 0.63, v: 0.22 },
+    { model: "wooden_candlestick", u: 0.63, v: 0.66 },
+    { model: "brass_candleholders", u: 0.86, v: 0.44 },
+    { model: "small_wooden_table_01", u: 0.36, v: 0.35 },
+    { model: "wooden_candlestick", u: 0.36, v: 0.35, y: 0.5 },
+    { model: "side_table_01", u: 0.42, v: 0.72 },
+    { model: "brass_candleholders", u: 0.42, v: 0.72, y: 0.5 },
+    // the hall table: a jug and a bowl
+    { model: "jug_01", u: 0.16, v: 0.415, y: 0.5 },
+    { model: "wooden_bowl_02", u: 0.185, v: 0.44, y: 0.5 },
+    // the kitchen: a pot on the table, barrels, a broom in the corner
+    { model: "brass_pot_01", u: 0.105, v: 0.66, y: 0.5 },
+    { model: "wooden_barrels_01", u: 0.055, v: 0.62, rot: 0.3 },
+    { model: "wooden_broom", u: 0.2, v: 0.62, rot: 1.1 },
+    // the bedroom and the back room
+    { model: "old_bed_frame", u: 0.45, v: 0.075, rot: Math.PI / 2 },
+    { model: "wooden_bookshelf_worn", u: 0.395, v: 0.77, rot: Math.PI },
   ],
   planks: [[0.036, 0.039, 0.518, 0.762]],
   pools: [
@@ -109,6 +141,8 @@ export const RESTWATER: MapDef = {
     { u: 0.736, v: 0.684, rx: 0.124, ry: 0.088 },
   ],
   // The way down to Sorrel's abode: the back room's far corner.
+  // The pool deck is wet: it reflects the lanterns and the steam.
+  wet: true,
   // Hidden under abjuration until found (S7 notes); the HUD reveals it.
   exits: [{ u: C(10.5), v: R(10.5), label: "Down the ladder — Sorrel's abode", to: "abode", kind: "down", hidden: true }],
   // the hall's fountain, and the well out by the pools

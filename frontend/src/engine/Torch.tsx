@@ -16,6 +16,7 @@ export function Torch({
   shadow = false,
   intensity = 34,
   post = false,
+  candle = false,
   color = "#ff9a3c",
 }: {
   position: [number, number, number];
@@ -23,6 +24,8 @@ export function Torch({
   intensity?: number;
   /** A lantern on a pole standing on its own, rather than a sconce on a wall. */
   post?: boolean;
+  /** A candle: a stub of wax, a small flame, a short warm light, no shaft, no shadow. */
+  candle?: boolean;
   /** Torchlight unless said otherwise — a witch's lamp burns another colour. */
   color?: string;
 }) {
@@ -46,7 +49,12 @@ export function Torch({
   });
   return (
     <group position={position}>
-      {post ? (
+      {candle ? (
+        <mesh position={[0, -0.05, 0]}>
+          <cylinderGeometry args={[0.022, 0.026, 0.09, 8]} />
+          <meshStandardMaterial color="#e9d9b8" roughness={0.9} />
+        </mesh>
+      ) : post ? (
         <mesh position={[0, -position[1] / 2 - 0.05, 0]} castShadow>
           <cylinderGeometry args={[0.04, 0.06, position[1] - 0.1, 7]} />
           <meshStandardMaterial color="#2c2018" roughness={1} />
@@ -57,11 +65,11 @@ export function Torch({
           <meshStandardMaterial color="#2c2018" roughness={1} />
         </mesh>
       )}
-      <mesh ref={flameMesh}>
-        <sphereGeometry args={[0.1, 10, 10]} />
+      <mesh ref={flameMesh} position={[0, candle ? 0.02 : 0, 0]}>
+        <sphereGeometry args={[candle ? 0.03 : 0.1, 10, 10]} />
         <meshBasicMaterial color={flame} toneMapped={false} />
       </mesh>
-      <mesh ref={shaft} position={[0, -1.0, 0]} renderOrder={4}>
+      <mesh ref={shaft} position={[0, -1.0, 0]} renderOrder={4} visible={!candle}>
         <coneGeometry args={[0.7, 2.0, 24, 1, true]} />
         <meshBasicMaterial color={shaftColor} transparent blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} opacity={0.03} />
       </mesh>
@@ -69,9 +77,9 @@ export function Torch({
         ref={light}
         color={color}
         intensity={intensity}
-        distance={18}
+        distance={candle ? 4.5 : 18}
         decay={2}
-        castShadow={shadow && !fast}
+        castShadow={shadow && !fast && !candle}
         shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.003}
         shadow-radius={3}

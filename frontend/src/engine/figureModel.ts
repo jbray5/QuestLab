@@ -579,6 +579,44 @@ function dressMaterial(m: THREE.Material): void {
   if (std.metalnessMap) std.metalness = 1;
 }
 
+/**
+ * Skin and eyes get the physical model: skin a faint sheen that reads as the
+ * soft scatter real skin has, eyes a wet clearcoat. Shared materials map to
+ * one upgrade.
+ */
+const upgraded = new WeakMap<THREE.Material, THREE.MeshPhysicalMaterial>();
+function physical(m: THREE.Material): THREE.Material {
+  const std = m as THREE.MeshStandardMaterial;
+  if (!std.isMeshStandardMaterial || (m as THREE.MeshPhysicalMaterial).isMeshPhysicalMaterial || !std.visible) return m;
+  const n = m.name || "";
+  // Hair stays on the standard model: any anisotropic lobe on decimated strands sparkles into the bloom.
+  if (HAIR.test(n)) return m;
+  const eye = EYE.test(n) && !EYE_GLASS.test(n);
+  const skin = !eye && SKIN.test(n) && !MOUTH.test(n);
+  if (!skin && !eye) return m;
+  const had = upgraded.get(m);
+  if (had) return had;
+  const p = new THREE.MeshPhysicalMaterial();
+  // Copy the standard fields only: MeshPhysicalMaterial.copy expects a physical source.
+  THREE.MeshStandardMaterial.prototype.copy.call(p, std);
+  p.userData = { ...std.userData };
+  if (eye) {
+    // A wet eye: the clearcoat catches the torch as a single point.
+    p.clearcoat = 1;
+    p.clearcoatRoughness = 0.08;
+    p.roughness = 0.35;
+    p.envMapIntensity = 1.4;
+  } else {
+    p.sheen = 0.35;
+    p.sheenColor = new THREE.Color(1.0, 0.72, 0.58);
+    p.sheenRoughness = 0.85;
+    p.clearcoat = 0.05;
+    p.clearcoatRoughness = 0.55;
+  }
+  upgraded.set(m, p);
+  return p;
+}
+
 /** Give every material in a figure its surface response. Idempotent; runs on the shared scene once. */
 export function dressFigure(root: THREE.Object3D): void {
   root.traverse((o) => {
@@ -586,6 +624,8 @@ export function dressFigure(root: THREE.Object3D): void {
     if (!mesh.isMesh) return;
     const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     for (const m of mats) dressMaterial(m);
+    if (Array.isArray(mesh.material)) mesh.material = mesh.material.map(physical);
+    else mesh.material = physical(mesh.material);
   });
 }
 

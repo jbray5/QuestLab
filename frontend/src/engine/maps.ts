@@ -68,7 +68,8 @@ export interface MapDef {
    * a colour says otherwise. Point-light shadows cost six renders each —
    * budget three.
    */
-  torches: [number, number, boolean, ("sconce" | "post")?, string?][];
+  /** u, v, casts a shadow, kind (a wall sconce, a lantern on a post, a candle on a table), colour. */
+  torches: [number, number, boolean, ("sconce" | "post" | "candle")?, string?][];
   props: Piece[];
   /** Built scene: where boards lie over the cobbles, as [u0, v0, u1, v1]. */
   planks?: Seg[];
@@ -78,6 +79,8 @@ export interface MapDef {
   /** Stone basins with water in them — a fountain, a well. Radius in cells. */
   basins?: { u: number; v: number; r: number }[];
   /** Ways off this map: a trapdoor and ladder down, a ladder up. `to` names another map, once it exists. */
+  /** A wet floor: the ground plane reflects the room (one extra render; off in Fast mode). */
+  wet?: boolean;
   /** Ways out. A `hidden` exit is not built until the table says the players found it. */
   exits?: { u: number; v: number; label: string; to?: string; kind?: "down" | "up"; hidden?: boolean }[];
   /** Where the camera looks first, and where it stands relative to that. */

@@ -41,6 +41,7 @@ const STRIKE_MS: Record<Strike["kind"], number> = { melee: 550, shoot: 520, cast
 const _pw = new THREE.Quaternion();
 const _q = new THREE.Quaternion();
 const _axis = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 1, 0);
 type Bent = { bone: THREE.Object3D; q: THREE.Quaternion };
 /** Turn a bone about a world axis, on top of whatever the clip put there this frame. */
 function bend(bone: THREE.Object3D | null, axis: THREE.Vector3, angle: number, bent: Bent[]) {
@@ -73,6 +74,7 @@ export function Walker({
   hitFrom,
   strike = null,
   model = null,
+  attention = null,
 }: {
   /** Where this figure should be. Changing it makes the figure walk there. */
   cell: THREE.Vector3;
@@ -91,6 +93,8 @@ export function Walker({
   /** A strike to play: face the target, swing or cast. */
   strike?: Strike | null;
   model?: FigureModel | null;
+  /** Where the action is — the head turns toward it, as people do. */
+  attention?: THREE.Vector3 | null;
 }) {
   const fig = useFigure(model?.url ?? null, model?.heightFt ?? DEFAULT_HEIGHT_FT);
   const group = useRef<THREE.Group>(null);
@@ -113,9 +117,17 @@ export function Walker({
   const lastStrike = useRef<string | undefined>(undefined);
   const bent = useRef<Bent[]>([]);
   const bones = useMemo(
-    () => ({ ra: findBone(fig.body, "rightarm"), rf: findBone(fig.body, "rightforearm"), la: findBone(fig.body, "leftarm"), lf: findBone(fig.body, "leftforearm") }),
+    () => ({
+      ra: findBone(fig.body, "rightarm"),
+      rf: findBone(fig.body, "rightforearm"),
+      la: findBone(fig.body, "leftarm"),
+      lf: findBone(fig.body, "leftforearm"),
+      head: findBone(fig.body, "head"),
+      neck: findBone(fig.body, "neck"),
+    }),
     [fig.body],
   );
+  const gaze = useRef(0);
   /** 0 standing, 1 on the floor — the topple, when there is no death clip. */
   const fallen = useRef(down ? 1 : 0);
   const firstDown = useRef(down);
@@ -219,6 +231,24 @@ export function Walker({
     g.position.copy(p);
     g.rotation.y = yaw.current - fig.forwardYaw;
 
+    // Attention: the head turns toward the action, up to a comfortable angle, and eases back.
+    {
+      let wantGaze = 0;
+      if (attention && !down && dist <= 0.08 && !swing.current) {
+        const ax = attention.x - p.x;
+        const az = attention.z - p.z;
+        if (Math.hypot(ax, az) > 0.4) {
+          let dy = Math.atan2(ax, az) - yaw.current;
+          dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+          wantGaze = Math.max(-1.0, Math.min(1.0, dy));
+        }
+      }
+      gaze.current += (wantGaze - gaze.current) * Math.min(1, dt * 3);
+      if (Math.abs(gaze.current) > 0.01) {
+        bend(bones.neck, _up, gaze.current * 0.35, bent.current);
+        bend(bones.head, _up, gaze.current * 0.65, bent.current);
+      }
+    }
     // Struck: turn to face whoever did it (while standing still).
     const ft = faceTo.current;
     if (ft && !down && dist <= 0.08) {

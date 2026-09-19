@@ -132,6 +132,7 @@ export function MapScene({
       <Walls map={shown} />
       {shown.torches.map(([u, v, shadow, kind, color], i) => {
         const [x, z] = toWorld(map, u, v);
+        if (kind === "candle") return <Torch key={i} position={[x, 0.62, z]} candle color={color ?? "#ffb66a"} intensity={5} />;
         return <Torch key={i} position={[x, 1.55, z]} shadow={shadow} post={kind === "post"} color={color} />;
       })}
       {furniture && <MapProps map={shown} />}

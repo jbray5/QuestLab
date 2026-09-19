@@ -410,6 +410,10 @@ def _resolve_figures(
             if monster is not None:
                 token.model_url = monster.model_url
                 token.model_height_ft = height_ft_for_size(monster.size)
+                # Its art too, for the turn card and the order strip, unless the DM
+                # gave the token a picture of its own.
+                if not token.image_url and monster.image_url:
+                    token.image_url = monster.image_url
 
 
 def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:

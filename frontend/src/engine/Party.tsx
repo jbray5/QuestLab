@@ -86,6 +86,8 @@ export function Party({
   });
   const strikeOf = (x: HitFx) => strikes.find((s) => s.fx.id === x.id);
   const chest = (f: Figure) => new THREE.Vector3(f.cell.x, 0.55 * (f.heightFt / FT_PER_UNIT), f.cell.z);
+  // Everyone looks at whoever is acting.
+  const actor = figs.find((f) => f.active) ?? null;
   return (
     <group>
       {figs.map((f) => {
@@ -106,6 +108,7 @@ export function Party({
           hitAt: last ? last.at + (landing?.timing.impact ?? 0) : undefined,
           hitFrom: landing ? landing.from.cell : null,
           strike: swing ? { id: swing.fx.id, kind: swing.kind, toward: swing.to.cell, at: swing.fx.at } : null,
+          attention: actor && actor !== f ? actor.cell : null,
         };
         return (
           <group key={f.id}>

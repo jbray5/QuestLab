@@ -452,6 +452,73 @@ class TestProjectionSafety:
         assert labels["foe-a"] == "Cultist 1"
         assert labels["foe-c"] == "The Big One"
 
+    def test_monster_token_takes_its_stat_block_art(self, duckdb_session: Session):
+        """A foe token with no picture of its own shows the monster's art on the table."""
+        dm = _dm()
+        campaign, _adv, gs = _campaign_and_session(duckdb_session, dm)
+        battle_map = _make_map(duckdb_session, campaign.id, dm)
+        cultist = MonsterRepo.create(
+            duckdb_session,
+            MonsterStatBlockCreate(
+                name="Cultist",
+                size=CreatureSize.MEDIUM,
+                creature_type=CreatureType.HUMANOID,
+                ac=12,
+                hp_average=9,
+                hp_formula="2d8",
+                score_str=11,
+                score_dex=12,
+                score_con=10,
+                score_int=10,
+                score_wis=11,
+                score_cha=10,
+                challenge_rating="1/8",
+                xp=25,
+                proficiency_bonus=2,
+                image_url="https://cdn.test/cultist.png",
+            ),
+        )
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                combat_state="running",
+                combatants=[
+                    SessionCombatantCreate(
+                        sort_index=0,
+                        name="Cultist 1",
+                        type="monster",
+                        monster_id=cultist.id,
+                        hp_current=9,
+                        hp_max=9,
+                        dex_score=12,
+                        initiative_roll=10,
+                    )
+                ],
+            ),
+        )
+        table_svc.update_table_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            TableStateUpdate(
+                active_map_id=battle_map.id,
+                tokens=[
+                    Token(
+                        id="foe-a",
+                        kind="monster",
+                        ref_id=str(state.combatants[0].id),
+                        label="Cultist",
+                        x=10,
+                        y=10,
+                    )
+                ],
+            ),
+        )
+        proj = table_svc.get_projection(duckdb_session, gs.id)
+        assert proj.tokens[0].image_url == "https://cdn.test/cultist.png"
+
     def test_revealed_exits_come_through_as_keys(self, duckdb_session: Session):
         """Plan 112 — an "exit:<key>" reveal names the exit on the projection and
         never appears among the fog polygons."""

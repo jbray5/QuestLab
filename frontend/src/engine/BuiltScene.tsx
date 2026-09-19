@@ -1,8 +1,10 @@
+import { MeshReflectorMaterial } from "@react-three/drei";
 import * as THREE from "three";
 
 import type { MapDef } from "./maps";
 import { toWorld } from "./maps";
 import { usePbr } from "./materials";
+import { useQuality } from "./quality";
 
 /**
  * The full-3D floor — the built scene's ground (Plan 108).
@@ -51,6 +53,8 @@ function Patch({
 export function BuiltFloor({ map, onClick }: { map: MapDef; onClick: (p: THREE.Vector3) => void }) {
   const cobble = usePbr(map.ground ?? "floor", [map.w / 2.2, map.h / 2.2]);
   const planks = usePbr("planks", [7, 3]);
+  const { fast } = useQuality();
+  const wet = !!map.wet && !fast;
   return (
     <group>
       <mesh
@@ -62,14 +66,35 @@ export function BuiltFloor({ map, onClick }: { map: MapDef; onClick: (p: THREE.V
         }}
       >
         <planeGeometry args={[map.w, map.h]} />
-        <meshStandardMaterial
-          map={cobble.map}
-          normalMap={cobble.normalMap}
-          roughnessMap={cobble.roughnessMap}
-          normalScale={new THREE.Vector2(0.8, 0.8)}
-          roughness={1}
-          metalness={0}
-        />
+        {wet ? (
+          <MeshReflectorMaterial
+            map={cobble.map}
+            normalMap={cobble.normalMap}
+            roughnessMap={cobble.roughnessMap}
+            normalScale={new THREE.Vector2(0.8, 0.8)}
+            resolution={512}
+            mirror={0.35}
+            mixBlur={1}
+            mixStrength={0.9}
+            blur={[320, 140]}
+            depthScale={0.8}
+            minDepthThreshold={0.85}
+            maxDepthThreshold={1.3}
+            roughness={0.75}
+            metalness={0}
+            distortion={0.15}
+            distortionMap={cobble.normalMap}
+          />
+        ) : (
+          <meshStandardMaterial
+            map={cobble.map}
+            normalMap={cobble.normalMap}
+            roughnessMap={cobble.roughnessMap}
+            normalScale={new THREE.Vector2(0.8, 0.8)}
+            roughness={1}
+            metalness={0}
+          />
+        )}
       </mesh>
       {map.planks?.map((seg, i) => (
         <Patch key={i} map={map} seg={seg} set={planks} onClick={onClick} />

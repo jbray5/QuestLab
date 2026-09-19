@@ -83,6 +83,8 @@ export function Walls({ map, thick = 0.3 }: { map: MapDef; thick?: number }) {
     [map, height, thick],
   );
   const mats = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
+  const caps = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
+  const capColor = useMemo(() => new THREE.Color(spec.tint).multiplyScalar(0.55), [spec.tint]);
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as unknown as { target?: THREE.Vector3 } | null;
   useFrame((_, dt) => {
@@ -94,17 +96,30 @@ export function Walls({ map, thick = 0.3 }: { map: MapDef; thick?: number }) {
       const m = mats.current[i];
       if (!m) return;
       const want = inTheWay(_cam, tgt, w.a[0], w.a[1], w.b[0], w.b[1]) ? FADED : 1;
-      if (Math.abs(m.opacity - want) < 0.005) {
-        m.opacity = want;
-        return;
-      }
-      m.opacity += (want - m.opacity) * k;
+      if (Math.abs(m.opacity - want) >= 0.005) m.opacity += (want - m.opacity) * k;
+      else m.opacity = want;
+      const c = caps.current[i];
+      if (c) c.opacity = m.opacity;
     });
   });
   return (
     <group>
       {walls.map((w, i) => (
-        <mesh key={i} geometry={w.geom} position={w.pos} rotation={[0, w.rot, 0]} castShadow receiveShadow>
+        <group key={i} position={w.pos} rotation={[0, w.rot, 0]}>
+          {/* The cap: a darker ledge along the top, a hand wider than the wall. */}
+          <mesh position={[0, height / 2 + 0.03, 0]} castShadow receiveShadow>
+            <boxGeometry args={[w.geom.parameters.width + 0.1, 0.06, thick + 0.12]} />
+            <meshStandardMaterial
+              ref={(m) => {
+                caps.current[i] = m;
+              }}
+              transparent
+              color={capColor}
+              roughness={0.9}
+              metalness={0}
+            />
+          </mesh>
+        <mesh geometry={w.geom} castShadow receiveShadow>
           <meshStandardMaterial
             ref={(m) => {
               mats.current[i] = m;
@@ -119,6 +134,7 @@ export function Walls({ map, thick = 0.3 }: { map: MapDef; thick?: number }) {
             metalness={0}
           />
         </mesh>
+        </group>
       ))}
     </group>
   );
