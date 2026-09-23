@@ -72,7 +72,7 @@ const RUN = 3.4;
 const RUN_FROM = 3.5; // cells: farther than this, and the figure runs if it can
 const TOPPLE_S = 0.55;
 
-type Mode = "idle" | "walk" | "run" | "hit" | "death" | "slash" | "cast" | "shoot";
+type Mode = "idle" | "walk" | "run" | "hit" | "death" | "slash" | "cast" | "shoot" | "sit";
 /** One-shot clips that return to standing when they end. */
 const ONE_SHOT: Mode[] = ["hit", "slash", "cast", "shoot"];
 
@@ -94,6 +94,7 @@ export function Walker({
   facing = 0,
   ring: showRing = true,
   adorn = null,
+  rest = "idle",
 }: {
   /** Where this figure should be. Changing it makes the figure walk there. */
   cell: THREE.Vector3;
@@ -124,6 +125,8 @@ export function Walker({
   ring?: boolean;
   /** A crown, a pair of ears: worn on the head bone. */
   adorn?: Adornment | null;
+  /** The clip to rest in when there is nothing to do: standing, or seated. */
+  rest?: "idle" | "sit";
 }) {
   const fig = useFigure(model?.url ?? null, model?.heightFt ?? DEFAULT_HEIGHT_FT);
   const group = useRef<THREE.Group>(null);
@@ -207,26 +210,26 @@ export function Walker({
     actions.current = built;
     current.current = null;
     if (down && built.death) play("death", 0, true, true, firstDown.current);
-    else play("idle", 0);
-    if (phase && built.idle) built.idle.time = phase;
+    else if (!play(rest, 0)) play("idle", 0);
+    if (phase && built[rest]) built[rest]!.time = phase;
     firstDown.current = false;
     return () => {
       mixer.stopAllAction();
       for (const clip of fig.clips) mixer.uncacheClip(clip);
       actions.current = {};
     };
-  }, [mixer, fig.clips, down, play, phase]);
+  }, [mixer, fig.clips, down, play, phase, rest]);
 
   // A hit clip plays once and returns to standing.
   useEffect(() => {
     const onDone = (e: { action: THREE.AnimationAction }) => {
       const m = mode.current;
       if (!ONE_SHOT.includes(m) || e.action !== actions.current[m]) return;
-      play("idle", 0.2);
+      if (!play(rest, 0.2)) play("idle", 0.2);
     };
     mixer.addEventListener("finished", onDone);
     return () => mixer.removeEventListener("finished", onDone);
-  }, [mixer, play]);
+  }, [mixer, play, rest]);
 
   // A hit is queued for the moment the blow lands (the bolt's arrival); a strike starts at once.
   useEffect(() => {
@@ -260,7 +263,7 @@ export function Walker({
     const g = group.current;
     const p = pos.current;
     if (!g) return;
-    const busy = active || down || mode.current !== "idle" || !!swing.current || !!pendingHit.current || !!flinch.current || Math.hypot(cell.x - p.x, cell.z - p.z) > 0.08;
+    const busy = active || down || mode.current !== rest || !!swing.current || !!pendingHit.current || !!flinch.current || Math.hypot(cell.x - p.x, cell.z - p.z) > 0.08;
     if (!(fast || still) || busy || performance.now() < settledAt.current) mixer.update(dt);
     if (pendingHit.current && performance.now() >= pendingHit.current.at) {
       const from = pendingHit.current.from;
@@ -286,7 +289,7 @@ export function Walker({
       d = Math.atan2(Math.sin(d), Math.cos(d));
       yaw.current += d * Math.min(1, dt * 10);
     } else if (moving) {
-      play("idle", 0.25);
+      if (!play(rest, 0.25)) play("idle", 0.25);
     }
     g.position.copy(p);
     g.rotation.y = yaw.current - fig.forwardYaw;

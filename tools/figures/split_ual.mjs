@@ -19,6 +19,7 @@ const WANT = {
   slash: "Sword_Attack",
   cast: "Spell_Simple_Shoot",
   shoot: "Pistol_Shoot",
+  sit: "Sitting_Idle_Loop",
 };
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
 fs.mkdirSync(outDir, { recursive: true });

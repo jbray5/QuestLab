@@ -176,6 +176,11 @@ table's console after each beat.
   HitReact clips of its own; `clipsFor` now plays a model's own clips on any rig (the hips
   gate only governs library baking), `gallop`→run and `HitReact`→hit. Coat darkened, 400 KB,
   on the "Black-eyed Stag" stat block (Large, Beast). Not done: carriages; patrons do not sit.
+- **The court at home (2026-09-23, late).** A `sit` clip (UAL Sitting_Idle_Loop) joins the
+  library; `Walker` takes `rest: "idle" | "sit"` and rests in it after every clip; `Person`
+  takes `pose: "sit"` and `name` (for a crown or ears). `throne.ts` has `people`: Titania seated
+  on a built throne in the painted throne's colours, six Summer Knights, Dame Goldenrod.
+  Residents never fight; the stat blocks carry the same figures for when they must.
 - **Where the browser limit is, honestly.** Left on the table: face sculpts beyond blends of
   the six library heads (a morph pack), Nya's dress and Thane's ears (assets), motion-captured
   strikes (Justin's Mixamo downloads), hair as cards (modelling), subsurface scattering (a

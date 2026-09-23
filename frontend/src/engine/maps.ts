@@ -55,6 +55,10 @@ export interface Person {
   heightFt?: number;
   /** Seconds into the idle, so a row of them do not breathe in step. */
   phase?: number;
+  /** How they rest: standing (the default) or seated — on a chair or a throne placed under them. */
+  pose?: "sit";
+  /** A name, for what it is entitled to wear (a crown, ears). */
+  name?: string;
 }
 
 export interface MapDef {

@@ -39,11 +39,13 @@ export interface GltfLike {
 }
 
 // slash, cast and shoot are the strikes (Plan 113): played when a figure has them, built from the arm bones when not.
-export const CLIP_NAMES = ["idle", "walk", "run", "hit", "death", "slash", "cast", "shoot"] as const;
+// sit is a resting clip a resident may ask for instead of idle (a queen on her throne).
+export const CLIP_NAMES = ["idle", "walk", "run", "hit", "death", "slash", "cast", "shoot", "sit"] as const;
 export type ClipName = (typeof CLIP_NAMES)[number];
 
 /** A clip's name in a file → what the engine calls it. */
 const ALIASES: [string, ClipName][] = [
+  ["sit", "sit"],
   ["slash", "slash"],
   ["sword", "slash"],
   ["attack", "slash"],

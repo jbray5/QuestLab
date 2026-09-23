@@ -1,3 +1,4 @@
+import { COURT } from "./courtiers";
 import type { MapDef, Piece } from "./maps";
 
 /**
@@ -64,7 +65,8 @@ export const THRONE: MapDef = {
     [0.62, 0.545, false, "candle", "#ffd48a"],
   ],
   props: [
-    // the throne is Czepeku's own, winged and gilt, painted on the dais — nothing built stands on it
+    // a seat on the dais, in the painted throne's colours, so the queen has something to sit on
+    { model: "built:throne", u: 0.5, v: 0.104, rot: 0, scale: 0.95, tint: "#3f6a4a" },
     ...colonnade(0.13),
     ...colonnade(0.87),
     ...banners(0.035, Math.PI / 2),
@@ -77,6 +79,18 @@ export const THRONE: MapDef = {
     // urns by the apse
     { model: "brass_vase_02", u: 0.24, v: 0.06 },
     { model: "brass_vase_02", u: 0.76, v: 0.06 },
+  ],
+  // The court, at home: the queen seated, her knights at the dais and the mosaic, her liaison at her hand.
+  // Residents are scenery — they never fight. For a fight, put their stat blocks in the encounter instead.
+  people: [
+    { model: COURT.titania, u: 0.5, v: 0.11, rot: 0, heightFt: 5.9, pose: "sit", phase: 0.3, name: "Titania" },
+    { model: COURT.goldenrod, u: 0.585, v: 0.135, rot: 0.35, heightFt: 6.1, phase: 1.2, name: "Dame Goldenrod" },
+    { model: COURT.knight, u: 0.4, v: 0.15, rot: 0, heightFt: 6.0, phase: 0.6 },
+    { model: COURT.knight, u: 0.6, v: 0.15, rot: 0, heightFt: 6.0, phase: 2.1 },
+    { model: COURT.knight, u: 0.3, v: 0.31, rot: 1.2, heightFt: 6.0, phase: 1.7 },
+    { model: COURT.knight, u: 0.7, v: 0.31, rot: -1.2, heightFt: 6.0, phase: 0.9 },
+    { model: COURT.knight, u: 0.16, v: 0.62, rot: 1.4, heightFt: 6.0, phase: 2.6 },
+    { model: COURT.knight, u: 0.84, v: 0.62, rot: -1.4, heightFt: 6.0, phase: 0.1 },
   ],
   look: [0.5, 0.45],
   eye: [0.6, 9.5, 9],
