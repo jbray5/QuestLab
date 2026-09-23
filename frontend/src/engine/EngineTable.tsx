@@ -145,6 +145,8 @@ export default function EngineTable() {
   // Pings and hits arrive on the stream, not the projection: transient, played once.
   const [pings, setPings] = useState<PingFx[]>([]);
   const [fx, setFx] = useState<HitFx[]>([]);
+  // A blow landing: the camera takes a small kick (Plan 113).
+  const [kick, setKick] = useState<{ at: number; strength: number } | null>(null);
   const counter = useRef(0);
   const mapRef = useRef(map);
   const dataRef = useRef(data);
@@ -180,6 +182,7 @@ export default function EngineTable() {
           const timing = TIMING[kind];
           sfx(kind === "melee" ? "whoosh" : kind === "shoot" ? "twang" : "cast");
           sfx(e.kind === "heal" ? "heal" : kind === "cast" ? "burst" : "hit", timing.impact);
+          if (kind === "melee" && e.kind === "damage") setKick({ at: performance.now() + timing.impact, strength: 0.03 + Math.min(0.05, (e.amount ?? 0) * 0.003) });
         } else {
           sfx(e.kind === "heal" ? "heal" : "hit");
         }
@@ -485,7 +488,7 @@ export default function EngineTable() {
           makeDefault
         />
         <CameraKeys home={{ eye, look }} homeNonce={homeNonce} />
-        <Director at={active?.cell ?? null} nonce={frameNonce} follow={follow} focus={focus} />
+        <Director at={active?.cell ?? null} nonce={frameNonce} follow={follow} focus={focus} kick={kick} />
         <Post fast={fast} cinema={cinema} focus={focus ? [focus.at.x, 0.9, focus.at.z] : active ? [active.cell.x, 1.0, active.cell.z] : null} />
       </Canvas>
     </div>

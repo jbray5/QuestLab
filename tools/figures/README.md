@@ -95,6 +95,29 @@ use the moment they exist:
 Walk and run **must be In Place**: the engine moves the figure; the clip only
 moves its legs.
 
+## The clips the table ships with (Plan 113)
+
+The eight files in `frontend/public/engine/anim/` — idle, walk, run, hit, death,
+slash, cast, shoot — come from Quaternius' **Universal Animation Library**
+(CC0 1.0, https://quaternius.com/packs/universalanimationlibrary.html), a
+humanoid rig with Unreal bone names (`pelvis`, `upperarm_l`, `calf_r`) that
+`figureModel.ts` knows how to read. `split_ual.mjs` cuts the pack's one glb
+into those files: each carries its clip first, the pack's `A_TPose` second
+(trimmed to one frame — the rest pose the retarget measures against), and the
+rig with its mesh cut to a single skinned triangle, so a file is ~100 KB:
+
+```
+node split_ual.mjs "…/UAL1_Standard.glb" ../../frontend/public/engine/anim
+```
+
+Which pack clip stands for which name is the `WANT` table at the top of the
+script (Sword_Attack is `slash`, Spell_Simple_Shoot is `cast`, Pistol_Shoot is
+`shoot`, Death01 is `death`). A strike clip lands its blow at its own moment;
+`CLIP_CONTACT_S` in `Walker.tsx` records when (measured by sampling the right
+hand's reach), and the walker starts the clip late or runs it fast so the blow
+falls when the table's strike clock says it does. Mixamo clips packed with
+`--anim` still win over these for the same name.
+
 ## What the engine does with a file
 
 - Reads the rig's rest pose (a T-pose), which way its toes point, and how

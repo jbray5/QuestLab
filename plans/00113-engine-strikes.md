@@ -139,6 +139,21 @@ table's console after each beat.
   click away. A CPU profile of the table page (`shots/profile.mjs`) shows the JavaScript
   thread 92% idle — the remaining cost is draw submission in the GPU process, which is why
   `chrome://gpu` matters more than any further script work.
+- **Tuesday 2026-09-22 — animations and blood.** Justin never got to Mixamo, so the clips
+  came from Quaternius' Universal Animation Library (CC0; 43 clips on an Unreal-named rig
+  with an `A_TPose`). `figureModel.ts` learned the rig (`ALIASES_UE`), three more clip
+  names (slash, cast, shoot) and the `_TPose` name; `tools/figures/split_ual.mjs` cuts the
+  pack into eight ~100 KB files (clip first, one-frame T-pose second, mesh cut to a
+  skinned triangle — an animation owns its channels and samplers, so dropping the other
+  42 means disposing those too, or the file stays 5 MB). A strike clip's own contact
+  moment (`CLIP_CONTACT_S`, measured by sampling the right hand's reach) is lined up with
+  the strike clock: melee impact moved 300→400 ms so Sword_Attack plays at 1×. Then the
+  floor: `impactMarks.ts` (a store outside React — the linter forbids setState in effects
+  and Math.random in render, so marks are fed by an effect and read with
+  useSyncExternalStore) and `Impact.tsx` (canvas-painted decals by damage type, a spray of
+  Points at impact, a pool that spreads under the fallen). A weapon trail ribbon from the
+  hand bone, a folding-knees fall for rigs without a death clip, a camera kick on melee.
+  Scripted fight: clean.
 - **Where the browser limit is, honestly.** Left on the table: face sculpts beyond blends of
   the six library heads (a morph pack), Nya's dress and Thane's ears (assets), motion-captured
   strikes (Justin's Mixamo downloads), hair as cards (modelling), subsurface scattering (a

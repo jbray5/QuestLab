@@ -38,11 +38,18 @@ export interface GltfLike {
   animations: THREE.AnimationClip[];
 }
 
-export const CLIP_NAMES = ["idle", "walk", "run", "hit", "death"] as const;
+// slash, cast and shoot are the strikes (Plan 113): played when a figure has them, built from the arm bones when not.
+export const CLIP_NAMES = ["idle", "walk", "run", "hit", "death", "slash", "cast", "shoot"] as const;
 export type ClipName = (typeof CLIP_NAMES)[number];
 
 /** A clip's name in a file → what the engine calls it. */
 const ALIASES: [string, ClipName][] = [
+  ["slash", "slash"],
+  ["sword", "slash"],
+  ["attack", "slash"],
+  ["cast", "cast"],
+  ["spell", "cast"],
+  ["shoot", "shoot"],
   ["idle", "idle"],
   ["stand", "idle"],
   ["walk", "walk"],
@@ -127,7 +134,42 @@ const ALIASES_BY_SIDE: [string, string][] = [
   ["lpinky2", "lefthandpinky2"],
   ["lpinky3", "lefthandpinky3"],
 ];
+/** The Unreal/Godot humanoid names (Quaternius' Universal Animation Library, CC0): `upperarm_l`, `calf_r`, `pelvis`. */
+const ALIASES_UE: [string, string][] = [
+  ["pelvis", "hips"],
+  ["spine_01", "spine"],
+  ["spine_02", "spine1"],
+  ["spine_03", "spine2"],
+  ["neck_01", "neck"],
+  ["clavicle_l", "leftshoulder"],
+  ["upperarm_l", "leftarm"],
+  ["lowerarm_l", "leftforearm"],
+  ["hand_l", "lefthand"],
+  ["thigh_l", "leftupleg"],
+  ["calf_l", "leftleg"],
+  ["foot_l", "leftfoot"],
+  ["ball_l", "lefttoebase"],
+  ["thumb_01_l", "lefthandthumb1"],
+  ["thumb_02_l", "lefthandthumb2"],
+  ["thumb_03_l", "lefthandthumb3"],
+  ["index_01_l", "lefthandindex1"],
+  ["index_02_l", "lefthandindex2"],
+  ["index_03_l", "lefthandindex3"],
+  ["middle_01_l", "lefthandmiddle1"],
+  ["middle_02_l", "lefthandmiddle2"],
+  ["middle_03_l", "lefthandmiddle3"],
+  ["ring_01_l", "lefthandring1"],
+  ["ring_02_l", "lefthandring2"],
+  ["ring_03_l", "lefthandring3"],
+  ["pinky_01_l", "lefthandpinky1"],
+  ["pinky_02_l", "lefthandpinky2"],
+  ["pinky_03_l", "lefthandpinky3"],
+];
 const BONE_ALIAS: Record<string, string> = {};
+for (const [from, to] of ALIASES_UE) {
+  BONE_ALIAS[from] = to;
+  if (from.endsWith("_l")) BONE_ALIAS[`${from.slice(0, -2)}_r`] = to.replace("left", "right");
+}
 for (const [from, to] of ALIASES_BY_SIDE) {
   BONE_ALIAS[from] = to;
   if (from.startsWith("l_")) BONE_ALIAS[`r_${from.slice(2)}`] = to.replace("left", "right");
@@ -377,7 +419,7 @@ export interface LibraryClip {
 }
 
 function tposeOf(gltf: GltfLike): THREE.AnimationClip | null {
-  return gltf.animations.find((c) => /^t[-_ ]?pose$/i.test(c.name.trim())) ?? null;
+  return gltf.animations.find((c) => /(^|_)t[-_ ]?pose$/i.test(c.name.trim())) ?? null;
 }
 
 /**

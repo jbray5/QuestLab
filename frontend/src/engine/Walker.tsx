@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { findBone, useFigure } from "./figureModel";
 import { DEFAULT_HEIGHT_FT } from "./heights";
 import { useQuality } from "./quality";
+import { TIMING } from "./strikes";
 
 /**
  * A character who walks to the cell it is told (Plan 108; instanced for a
@@ -38,7 +39,15 @@ export interface Strike {
   hold?: number;
 }
 
-const STRIKE_MS: Record<Strike["kind"], number> = { melee: 550, shoot: 520, cast: 760 };
+const STRIKE_MS: Record<Strike["kind"], number> = { melee: 730, shoot: 520, cast: 760 };
+/** When a packed strike clip lands its blow, in its own seconds (measured: Sword_Attack, Spell_Simple_Shoot, Pistol_Shoot). */
+const CLIP_CONTACT_S: Record<Strike["kind"], number> = { melee: 0.4, cast: 0.1, shoot: 0.03 };
+const TRAIL_N = 14;
+const TRAIL_MS = 110;
+const BLADE = 0.58;
+const _hand = new THREE.Vector3();
+const _fore = new THREE.Vector3();
+const _tip = new THREE.Vector3();
 const _pw = new THREE.Quaternion();
 const _q = new THREE.Quaternion();
 const _axis = new THREE.Vector3();
@@ -126,7 +135,7 @@ export function Walker({
   const lastHit = useRef<string | undefined>(undefined);
   const pendingHit = useRef<{ at: number; from: THREE.Vector3 | null } | null>(null);
   const faceTo = useRef<{ x: number; z: number; until: number } | null>(null);
-  const swing = useRef<{ kind: Strike["kind"]; toward: THREE.Vector3; t0: number; hold?: number; clip?: boolean } | null>(null);
+  const swing = useRef<{ kind: Strike["kind"]; toward: THREE.Vector3; t0: number; hold?: number; clip?: boolean; clipAt?: number; clipScale?: number } | null>(null);
   const lastStrike = useRef<string | undefined>(undefined);
   const bent = useRef<Bent[]>([]);
   const bones = useMemo(
@@ -137,9 +146,26 @@ export function Walker({
       lf: findBone(fig.body, "leftforearm"),
       head: findBone(fig.body, "head"),
       neck: findBone(fig.body, "neck"),
+      rh: findBone(fig.body, "righthand"),
+      lul: findBone(fig.body, "leftupleg"),
+      rul: findBone(fig.body, "rightupleg"),
+      ll: findBone(fig.body, "leftleg"),
+      rl: findBone(fig.body, "rightleg"),
     }),
     [fig.body],
   );
+  // The weapon trail: the last few places the hand and the blade's tip were, as a ribbon that fades in a tenth of a second.
+  const trailMesh = useRef<THREE.Mesh>(null);
+  const trailGeom = useRef<THREE.BufferGeometry>(null);
+  const trailPts = useRef<{ a: THREE.Vector3; b: THREE.Vector3; t: number }[]>([]);
+  const trailBuffers = useMemo(() => {
+    const idx = new Uint16Array((TRAIL_N - 1) * 6);
+    for (let i = 0; i < TRAIL_N - 1; i++) {
+      const o = i * 2;
+      idx.set([o, o + 1, o + 2, o + 1, o + 3, o + 2], i * 6);
+    }
+    return { pos: new Float32Array(TRAIL_N * 6), col: new Float32Array(TRAIL_N * 6), idx };
+  }, []);
   const gaze = useRef(0);
   // Fast mode: a figure with nothing to do holds its pose — a game piece until it is its turn.
   // The mixer still runs for a moment after any clip starts, so the pose it holds is the clip's, not the rig's rest.
@@ -207,8 +233,13 @@ export function Walker({
       // A real clip for this strike (Mixamo, via pack.mjs --anim slash|cast|shoot) plays instead of the built swing.
       const clip = strike.kind === "melee" ? "slash" : strike.kind;
       if (!down && actions.current[clip] && strike.hold === undefined) {
-        play(clip, 0.08, true);
+        // The clip's own contact moment is lined up with the strike's clock: started late when the
+        // clip lands early, run faster when it lands late — so the blow falls when the table says.
+        const want = (strike.kind === "melee" ? TIMING.melee.impact : TIMING[strike.kind].launch) / 1000;
+        const contact = CLIP_CONTACT_S[strike.kind];
         swing.current.clip = true;
+        swing.current.clipAt = strike.at + Math.max(0, want - contact) * 1000;
+        swing.current.clipScale = contact > want ? contact / want : 1;
       }
     }
   }, [strike, down, play]);
@@ -283,6 +314,13 @@ export function Walker({
     const s = swing.current;
     let lean = 0;
     if (s && !down) {
+      if (s.clip && s.clipAt !== undefined && performance.now() >= s.clipAt) {
+        const name = s.kind === "melee" ? "slash" : s.kind;
+        play(name, 0.08, true);
+        const a = actions.current[name];
+        if (a) a.timeScale = s.clipScale ?? 1;
+        s.clipAt = undefined;
+      }
       const k = s.hold ?? Math.min(1, (performance.now() - s.t0) / STRIKE_MS[s.kind]);
       const want = Math.atan2(s.toward.x - p.x, s.toward.z - p.z);
       let dy = want - yaw.current;
@@ -310,7 +348,44 @@ export function Walker({
         bend(bones.la, _axis, (s.kind === "cast" ? 1.4 : 1.15) * e, bent.current);
         if (s.kind === "cast") bend(bones.lf, _axis, 0.25 * e, bent.current);
       }
+      // The blade's path, sampled through the chop.
+      if (s.kind === "melee" && k > 0.2 && k < 0.7 && bones.rh && bones.rf) {
+        bones.rh.getWorldPosition(_hand);
+        bones.rf.getWorldPosition(_fore);
+        _tip.copy(_hand).sub(_fore).normalize().multiplyScalar(BLADE).add(_hand);
+        g.worldToLocal(_hand);
+        g.worldToLocal(_tip);
+        trailPts.current.push({ a: _hand.clone(), b: _tip.clone(), t: performance.now() });
+        if (trailPts.current.length > TRAIL_N) trailPts.current.shift();
+      }
       if (k >= 1 && s.hold === undefined) swing.current = null;
+    }
+    // Draw the trail from whatever samples are still young.
+    {
+      const now = performance.now();
+      const pts = trailPts.current;
+      while (pts.length && now - pts[0].t > TRAIL_MS) pts.shift();
+      const tm = trailMesh.current;
+      const tg = trailGeom.current;
+      if (tm && tg) {
+        tm.visible = pts.length >= 2;
+        if (tm.visible) {
+          const pa = tg.getAttribute("position") as THREE.BufferAttribute;
+          const ca = tg.getAttribute("color") as THREE.BufferAttribute;
+          for (let i = 0; i < pts.length; i++) {
+            const q = pts[i];
+            // Faint at the hand, bright only at the tip and only for the newest samples: a swoosh, not a fan.
+            const bright = 0.42 * (1 - (now - q.t) / TRAIL_MS) * (0.2 + 0.8 * (i / Math.max(1, pts.length - 1)));
+            pa.setXYZ(i * 2, q.a.x, q.a.y, q.a.z);
+            pa.setXYZ(i * 2 + 1, q.b.x, q.b.y, q.b.z);
+            ca.setXYZ(i * 2, bright * 0.08, bright * 0.08, bright * 0.07);
+            ca.setXYZ(i * 2 + 1, bright, bright * 0.95, bright * 0.8);
+          }
+          pa.needsUpdate = true;
+          ca.needsUpdate = true;
+          tg.setDrawRange(0, (pts.length - 1) * 6);
+        }
+      }
     }
 
     // The topple and the rise, when the rig has no death clip.
@@ -324,7 +399,18 @@ export function Walker({
     const ease = f * f * (3 - 2 * f);
     if (pose.current) {
       pose.current.rotation.x = (-Math.PI / 2) * ease + lean;
+      pose.current.rotation.z = 0.22 * ease;
       pose.current.position.y = 0.12 * ease;
+    }
+    // Going down, the knees give and the legs fold — a body, not a plank.
+    if (ease > 0.01 && !actions.current.death) {
+      _axis.set(-Math.cos(yaw.current), 0, Math.sin(yaw.current));
+      bend(bones.lul, _axis, 0.55 * ease, bent.current);
+      bend(bones.rul, _axis, 0.8 * ease, bent.current);
+      bend(bones.ll, _axis, -1.1 * ease, bent.current);
+      bend(bones.rl, _axis, -0.7 * ease, bent.current);
+      bend(bones.la, _axis, 0.5 * ease, bent.current);
+      bend(bones.ra, _axis, 0.3 * ease, bent.current);
     }
     // The recoil: a short, sharp lean back and a stagger to standing.
     const fl = flinch.current;
@@ -356,7 +442,15 @@ export function Walker({
           <primitive object={fig.body} />
         </group>
       </group>
-      <mesh ref={ring} position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={showRing}>
+      <mesh ref={trailMesh} frustumCulled={false} renderOrder={4} visible={false}>
+        <bufferGeometry ref={trailGeom} drawRange={{ start: 0, count: 0 }}>
+          <bufferAttribute attach="attributes-position" args={[trailBuffers.pos, 3]} />
+          <bufferAttribute attach="attributes-color" args={[trailBuffers.col, 3]} />
+          <bufferAttribute attach="index" args={[trailBuffers.idx, 1]} />
+        </bufferGeometry>
+        <meshBasicMaterial vertexColors transparent opacity={0.7} depthWrite={false} blending={THREE.AdditiveBlending} side={THREE.DoubleSide} toneMapped={false} />
+      </mesh>
+      <mesh ref={ring} position={[0, 0.012, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={showRing} renderOrder={2}>
         <ringGeometry args={[0.36 * size, 0.46 * size, 32]} />
         <meshBasicMaterial color={c} toneMapped={false} transparent opacity={active ? 0.95 : 0.7} />
       </mesh>

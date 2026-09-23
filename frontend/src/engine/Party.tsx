@@ -1,9 +1,11 @@
-import { Component, type ReactNode } from "react";
+import { Component, type ReactNode, useCallback, useEffect } from "react";
 import * as THREE from "three";
 
 import type { TableProjection } from "../api/types";
 import type { Fog } from "./fogOfWar";
 import { Bolt, Burst, FloatingNumber } from "./Fx";
+import { Marks } from "./Impact";
+import { clearMarks, useMarks } from "./impactMarks";
 import { FT_PER_UNIT } from "./heights";
 import type { MapDef } from "./maps";
 import { type Figure, figures, lights } from "./session";
@@ -88,6 +90,18 @@ export function Party({
   const chest = (f: Figure) => new THREE.Vector3(f.cell.x, 0.55 * (f.heightFt / FT_PER_UNIT), f.cell.z);
   // Everyone looks at whoever is acting.
   const actor = figs.find((f) => f.active) ?? null;
+  // What the blows leave on the floor — blood, scorch, frost — and the pools under the fallen.
+  const landing = useCallback(
+    (x: HitFx) => {
+      const s = strikes.find((k) => k.fx.id === x.id);
+      return s ? { from: s.from, impact: s.timing.impact } : undefined;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fx, projection],
+  );
+  // A new room: the old floor's stains do not come along.
+  useEffect(() => clearMarks(), [map.id]);
+  const marks = useMarks(fx, figs, landing);
   return (
     <group>
       {figs.map((f) => {
@@ -138,6 +152,7 @@ export function Party({
       {lamps.map((l) => (
         <Torch key={l.id} position={[l.cell.x, 1.4, l.cell.z]} post intensity={26} />
       ))}
+      <Marks marks={marks} />
     </group>
   );
 }

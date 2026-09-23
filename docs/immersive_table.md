@@ -39,6 +39,10 @@ Everything comes from the HUD's **LIVE** and **MAPS** tabs:
 | A row of small headshots under it | The turn order from whoever is up: the next eight, the downed greyed out. |
 | A whoosh, a thud, a shimmer, a chime, a boom, a tick | Sound, synthesised on the spot. **Sound** top left turns it off or on for that machine; browsers keep it silent until the page has been clicked once. |
 | Heads turn toward whoever is acting | Nothing to do — every figure looks at the active combatant. |
+| A real sword swing, a spell thrust, a bow shot; a real stagger and a real fall | Nothing to do. Every figure plays motion-captured clips now (Quaternius' CC0 library) retargeted onto its own rig: idle, walk, run, hit, death, slash, cast, shoot. A melee hit swings with a blade trail; the blow lands 0.4 s after you apply the damage. |
+| Blood on the boards; a scorch, frost, acid, rot | Apply damage with a NEXT HIT type. A blade leaves blood behind the target and a spray at the moment of impact; fire and lightning scorch; cold frosts; acid and poison stain green; necrotic rots; radiant glows. Force, psychic and thunder leave nothing. Marks fade over minutes; the room clears when the map changes. |
+| A pool spreads under whoever went down | A combatant at 0 HP. It stays until the map changes. |
+| The camera kicks when a blow lands | A melee hit; harder hits kick harder. |
 | "Cultist 2", not "Cultist" | Foe tokens take the tracker row's numbered name once they stand for it, so three cultists can be told apart. A token you renamed yourself keeps its name. |
 | A lantern on a post | A **light** token. |
 

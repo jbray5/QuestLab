@@ -6,6 +6,8 @@ import * as THREE from "three";
 import { preloadProps } from "./assets";
 import { CameraKeys } from "./Controls";
 import { DEFAULT_HEIGHT_FT, FT_PER_UNIT } from "./heights";
+import { Marks } from "./Impact";
+import { addMarks, markKind, useMarkStore } from "./impactMarks";
 import { lintMap } from "./lint";
 import { snapToCell, toWorld } from "./maps";
 import { MAPS } from "./registry";
@@ -94,7 +96,15 @@ function StrikeDemo({ start, model, kind, hold }: { start: THREE.Vector3; model:
     let n = 0;
     const fire = () => {
       n += 1;
-      setBeat({ id: `s${n}`, at: performance.now() });
+      const at = performance.now();
+      setBeat({ id: `s${n}`, at });
+      // What the blow leaves: blood for a blade, a scorch for the fire bolt.
+      const mk = markKind(kind === "cast" ? "fire" : "weapon");
+      if (mk) {
+        addMarks([
+          { id: `m${n}`, kind: mk, at: new THREE.Vector3(target.x, 0, target.z - 0.3), t0: at + TIMING[kind].impact, seed: n % 6, size: 1.0, yaw: n * 1.7, lift: (n % 5) * 0.0012, dir: new THREE.Vector3(0, 0, -1), hitY: 0.9 },
+        ]);
+      }
     };
     const first = setTimeout(fire, 1200);
     const every = setInterval(fire, 2800);
@@ -102,13 +112,15 @@ function StrikeDemo({ start, model, kind, hold }: { start: THREE.Vector3; model:
       clearTimeout(first);
       clearInterval(every);
     };
-  }, []);
+  }, [kind, target]);
   const flavor = kind === "cast" ? "fire" : "weapon";
   const timing = TIMING[kind];
   const h = (model?.heightFt ?? DEFAULT_HEIGHT_FT) / FT_PER_UNIT;
   const held = hold !== undefined;
+  const marks = useMarkStore();
   return (
     <group>
+      <Marks marks={marks} />
       <Walker cell={start} model={model} label="attacker" strike={beat ? { id: beat.id, kind, toward: target, at: beat.at, hold } : null} />
       <Walker cell={target} model={{ url: null, heightFt: DEFAULT_HEIGHT_FT }} label="target" tint="#c04a4a" hit={held ? undefined : beat?.id} hitAt={beat ? beat.at + timing.impact : undefined} />
       {beat && kind !== "melee" && (

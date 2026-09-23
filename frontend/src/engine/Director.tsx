@@ -21,18 +21,23 @@ export function Director({
   nonce,
   follow,
   focus = null,
+  kick = null,
 }: {
   at: THREE.Vector3 | null;
   nonce: number;
   follow: boolean;
   /** A spot the viewer asked to look at (a double-click on the floor); glides there when its nonce changes. */
   focus?: { at: THREE.Vector3; nonce: number } | null;
+  /** A blow landing (performance.now): the camera takes a small, quick kick, the way a shoulder-cam does. */
+  kick?: { at: number; strength: number } | null;
 }) {
   const camera = useThree((s) => s.camera);
   const controls = useThree((s) => s.controls) as { target: THREE.Vector3; update: () => void } | null;
   const glide = useRef<{ t: number; fromPos: THREE.Vector3; fromTgt: THREE.Vector3; toPos: THREE.Vector3; toTgt: THREE.Vector3 } | null>(null);
   const last = useRef<string>("");
   const lastFocus = useRef(0);
+  const kickOff = useRef(new THREE.Vector3());
+  const kickDir = useRef<{ at: number; x: number; y: number; z: number }>({ at: 0, x: 0, y: 0, z: 0 });
 
   useEffect(() => {
     if (!controls) return;
@@ -60,6 +65,22 @@ export function Director({
   }, [at, nonce, follow, focus, camera, controls]);
 
   useFrame((_, dt) => {
+    // The kick: a decaying shiver along one direction for a quarter second, undone frame by frame.
+    camera.position.sub(kickOff.current);
+    kickOff.current.set(0, 0, 0);
+    if (kick) {
+      const age = performance.now() - kick.at;
+      if (age >= 0 && age < 260) {
+        if (kickDir.current.at !== kick.at) {
+          const a = Math.random() * Math.PI * 2;
+          kickDir.current = { at: kick.at, x: Math.cos(a), y: 0.5, z: Math.sin(a) };
+        }
+        const f = 1 - age / 260;
+        const amp = kick.strength * f * f * Math.sin((age / 1000) * Math.PI * 2 * 16);
+        kickOff.current.set(kickDir.current.x * amp, kickDir.current.y * amp, kickDir.current.z * amp);
+        camera.position.add(kickOff.current);
+      }
+    }
     const g = glide.current;
     if (!g || !controls) return;
     g.t = Math.min(1, g.t + dt / GLIDE_S);

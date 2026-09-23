@@ -51,7 +51,7 @@ export function strikeKind(flavor: string | null | undefined, distCells: number)
 
 /** Milliseconds after the strike starts: when the bolt leaves the hand, and when the blow lands. */
 export const TIMING: Record<StrikeKind, { launch: number; impact: number }> = {
-  melee: { launch: 0, impact: 300 },
+  melee: { launch: 0, impact: 400 },
   shoot: { launch: 150, impact: 380 },
   cast: { launch: 260, impact: 620 },
 };
