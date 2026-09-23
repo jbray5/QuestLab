@@ -533,11 +533,11 @@ function Ears() {
         <group key={side} position={[side * 0.038, 0, 0]} rotation={[-0.2, 0, side * -0.42]}>
           <mesh position={[0, 0.085, 0]} castShadow>
             <capsuleGeometry args={[0.016, 0.13, 4, 10]} />
-            <meshStandardMaterial color="#8e7a62" roughness={0.95} />
+            <meshStandardMaterial color="#5e4a36" roughness={0.95} />
           </mesh>
-          <mesh position={[0, 0.085, 0.014]} scale={[0.5, 0.75, 1]}>
-            <capsuleGeometry args={[0.016, 0.11, 4, 10]} />
-            <meshStandardMaterial color="#c9928f" roughness={0.9} />
+          <mesh position={[0, 0.085, 0.012]} scale={[0.42, 0.7, 1]}>
+            <capsuleGeometry args={[0.016, 0.1, 4, 10]} />
+            <meshStandardMaterial color="#a8706c" roughness={0.9} />
           </mesh>
         </group>
       ))}
