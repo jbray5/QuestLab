@@ -27,6 +27,9 @@ export interface Piece {
   scale?: number;
   /** Hung from above — roots through a cave roof. */
   flip?: boolean;
+  /** For a built piece (`built:column`, `built:banner`, `built:throne`, `built:dome`): its colour and its height in units. */
+  tint?: string;
+  h?: number;
 }
 
 /** A pool of water: centre and radii, all as fractions of the picture. */
@@ -72,7 +75,7 @@ export interface MapDef {
   /** Underground: everything beyond the outermost walls is rock, not floor. */
   solid?: boolean;
   /** What the walls are made of, and how tall. Brick and ten feet unless said otherwise. */
-  wall?: { material: "wall" | "planks" | "rock" | "bamboo"; height: number; tint: string };
+  wall?: { material: "wall" | "planks" | "rock" | "bamboo" | "sandstone" | "marble"; height: number; tint: string };
   /** What the built floor is, under any boards. Cobbles unless said otherwise. */
   ground?: "floor" | "dirt" | "sand";
   /** The night sky's colour (background and haze), and the moon's (the sky light). */

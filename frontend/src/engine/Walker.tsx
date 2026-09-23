@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 
 import { findBone, useFigure } from "./figureModel";
+import type { Adornment } from "./adorn";
 import { DEFAULT_HEIGHT_FT } from "./heights";
 import { useQuality } from "./quality";
 import { TIMING } from "./strikes";
@@ -52,6 +53,9 @@ const _pw = new THREE.Quaternion();
 const _q = new THREE.Quaternion();
 const _axis = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
+const _hp = new THREE.Vector3();
+const _hq = new THREE.Quaternion();
+const _gq = new THREE.Quaternion();
 type Bent = { bone: THREE.Object3D; q: THREE.Quaternion };
 /** Turn a bone about a world axis, on top of whatever the clip put there this frame. */
 function bend(bone: THREE.Object3D | null, axis: THREE.Vector3, angle: number, bent: Bent[]) {
@@ -89,6 +93,7 @@ export function Walker({
   phase = 0,
   facing = 0,
   ring: showRing = true,
+  adorn = null,
 }: {
   /** Where this figure should be. Changing it makes the figure walk there. */
   cell: THREE.Vector3;
@@ -117,6 +122,8 @@ export function Walker({
   facing?: number;
   /** The ring under the feet — off for a resident. */
   ring?: boolean;
+  /** A crown, a pair of ears: worn on the head bone. */
+  adorn?: Adornment | null;
 }) {
   const fig = useFigure(model?.url ?? null, model?.heightFt ?? DEFAULT_HEIGHT_FT);
   const group = useRef<THREE.Group>(null);
@@ -167,6 +174,8 @@ export function Walker({
     return { pos: new Float32Array(TRAIL_N * 6), col: new Float32Array(TRAIL_N * 6), idx };
   }, []);
   const gaze = useRef(0);
+  // The adornment rides the head: each frame it takes the head bone's world pose, in this group's space.
+  const adornRef = useRef<THREE.Group>(null);
   // Fast mode: a figure with nothing to do holds its pose — a game piece until it is its turn.
   // The mixer still runs for a moment after any clip starts, so the pose it holds is the clip's, not the rig's rest.
   const { fast } = useQuality();
@@ -430,6 +439,15 @@ export function Walker({
       const t = performance.now() / 1000;
       ring.current.scale.setScalar(1 + 0.08 * Math.sin(t * 4));
     }
+    if (adornRef.current && bones.head) {
+      const a = adornRef.current;
+      bones.head.getWorldPosition(_hp);
+      bones.head.getWorldQuaternion(_hq);
+      g.worldToLocal(_hp);
+      g.getWorldQuaternion(_gq).invert();
+      a.position.copy(_hp);
+      a.quaternion.copy(_gq).multiply(_hq);
+    }
   });
 
   const ringColor = down ? "#5a5a60" : tint;
@@ -442,6 +460,11 @@ export function Walker({
           <primitive object={fig.body} />
         </group>
       </group>
+      {adorn && (
+        <group ref={adornRef}>
+          {adorn === "crown" ? <Crown /> : <Ears />}
+        </group>
+      )}
       <mesh ref={trailMesh} frustumCulled={false} renderOrder={4} visible={false}>
         <bufferGeometry ref={trailGeom} drawRange={{ start: 0, count: 0 }}>
           <bufferAttribute attach="attributes-position" args={[trailBuffers.pos, 3]} />
@@ -472,6 +495,52 @@ export function Walker({
           </div>
         </Html>
       )}
+    </group>
+  );
+}
+
+/** A queen's circlet: a gold band with five points and a jewel, above the crown of the head. The head bone's +y is up through the skull. */
+function Crown() {
+  const gold = { color: "#e0b93c", roughness: 0.3, metalness: 0.9 };
+  return (
+    <group position={[0, 0.085, 0.01]}>
+      <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <torusGeometry args={[0.092, 0.011, 8, 32]} />
+        <meshStandardMaterial {...gold} />
+      </mesh>
+      {[0, 1, 2, 3, 4].map((i) => {
+        const a = (i / 5) * Math.PI * 2 + Math.PI / 2;
+        return (
+          <mesh key={i} position={[Math.cos(a) * 0.088, 0.032, Math.sin(a) * 0.088]} castShadow>
+            <coneGeometry args={[0.014, 0.07, 5]} />
+            <meshStandardMaterial {...gold} />
+          </mesh>
+        );
+      })}
+      <mesh position={[0, 0.028, 0.092]}>
+        <sphereGeometry args={[0.013, 10, 10]} />
+        <meshStandardMaterial color="#3fd28a" roughness={0.2} metalness={0.1} emissive="#1a8a4a" emissiveIntensity={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+/** A harengon's ears: two long, slightly parted ears, fur outside and pink within, from the top of the head. */
+function Ears() {
+  return (
+    <group position={[0, 0.07, 0]}>
+      {[-1, 1].map((side) => (
+        <group key={side} position={[side * 0.038, 0, 0]} rotation={[-0.2, 0, side * -0.42]}>
+          <mesh position={[0, 0.085, 0]} castShadow>
+            <capsuleGeometry args={[0.016, 0.13, 4, 10]} />
+            <meshStandardMaterial color="#8e7a62" roughness={0.95} />
+          </mesh>
+          <mesh position={[0, 0.085, 0.014]} scale={[0.5, 0.75, 1]}>
+            <capsuleGeometry args={[0.016, 0.11, 4, 10]} />
+            <meshStandardMaterial color="#c9928f" roughness={0.9} />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }

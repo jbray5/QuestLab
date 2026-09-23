@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { preloadProps } from "./assets";
 import { CameraKeys } from "./Controls";
 import { DEFAULT_HEIGHT_FT, FT_PER_UNIT } from "./heights";
+import { adornFor } from "./adorn";
 import { Marks } from "./Impact";
 import { addMarks, markKind, useMarkStore } from "./impactMarks";
 import { lintMap } from "./lint";
@@ -16,6 +17,7 @@ import { MapScene } from "./Scene";
 import { flavorColor, TIMING } from "./strikes";
 import { type FigureModel, Walker } from "./Walker";
 import { Bolt } from "./Fx";
+import { RimLight } from "./RimLight";
 
 /**
  * The immersive spike (Plan 108): a map rendered in the engine, so Justin can
@@ -199,6 +201,8 @@ export default function ImmersiveSpike() {
   const hold = params.get("hold") ? Number(params.get("hold")) : undefined;
   // ?clean=1 — no interface and no figure: the frame is the room alone (a catalog picture).
   const clean = params.get("clean") === "1";
+  // ?name=Titania — the walker wears the token's name, and whatever that name is entitled to (a crown, ears).
+  const name = params.get("name") ?? undefined;
   // ?light=studio — a neutral three-point rig over the room's own light, for judging a face against its portrait.
   const studio = params.get("light") === "studio";
   const [lx, lz] = toWorld(map, ...(preset?.at ?? map.look));
@@ -274,14 +278,14 @@ export default function ImmersiveSpike() {
       {/* Keyed by map so the camera, the character and the loaded scene start over on a switch. */}
       <Canvas
         key={map.id}
-        shadows={{ type: THREE.PCFShadowMap }}
+        shadows={{ type: THREE.VSMShadowMap }}
         dpr={[1, 1.5]}
         gl={{ antialias: false, powerPreference: "high-performance" }}
         camera={{ fov: 42, near: 0.1, far: 220, position: eye }}
         onCreated={({ gl, scene }) => {
           if (params.get("stats") === "1") (window as unknown as { __ql?: unknown }).__ql = { gl, scene };
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.05;
+          gl.toneMapping = THREE.AgXToneMapping;
+          gl.toneMappingExposure = 1.15;
         }}
       >
         <SceneBoundary onError={(e) => setErr(e.message)}>
@@ -295,7 +299,7 @@ export default function ImmersiveSpike() {
               onFloorClick={send}
               onExit={takeExit}
             >
-              {clean ? null : strikeDemo ? <StrikeDemo start={start} model={model} kind={strikeDemo} hold={hold} /> : <Walker cell={target ?? start} model={model} />}
+              {clean ? null : strikeDemo ? <StrikeDemo start={start} model={model} kind={strikeDemo} hold={hold} /> : <Walker cell={target ?? start} model={model} label={name} adorn={adornFor(name)} />}
               {studio && (
                 <>
                   <ambientLight intensity={0.55} color="#fff6ea" />
@@ -306,6 +310,7 @@ export default function ImmersiveSpike() {
             </MapScene>
           </Suspense>
         </SceneBoundary>
+        <RimLight />
         <OrbitControls
           target={look}
           enablePan

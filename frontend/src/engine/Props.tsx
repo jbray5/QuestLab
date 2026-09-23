@@ -39,7 +39,144 @@ function Papers({ map, piece }: { map: MapDef; piece: Piece }) {
 
 function Prop({ map, piece }: { map: MapDef; piece: Piece }) {
   if (piece.model === "papers") return <Papers map={map} piece={piece} />;
+  if (piece.model.startsWith("built:")) return <Built map={map} piece={piece} />;
   return <Model map={map} piece={piece} />;
+}
+
+/**
+ * Pieces built from primitives (Plan 113, the Wednesday push) — what a palace
+ * needs and no CDN carries. `tint` colours them, `h` sets their height, `scale`
+ * their footprint. A column is a fluted stone shaft with a base and a cap; a
+ * banner hangs from a rod; a throne is a high-backed seat in gold and cloth; a
+ * dome is a ring of columns under a hemisphere.
+ */
+function Built({ map, piece }: { map: MapDef; piece: Piece }) {
+  const [x, z] = toWorld(map, piece.u, piece.v);
+  const kind = piece.model.slice(6);
+  const s = piece.scale ?? 1;
+  const stone = usePbr("sandstone", [1, 2]);
+  if (kind === "column") {
+    const h = piece.h ?? 2.6;
+    return (
+      <group position={[x, 0, z]} scale={[s, 1, s]}>
+        <mesh position={[0, 0.08, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.3, 0.34, 0.16, 12]} />
+          <meshStandardMaterial map={stone.map} normalMap={stone.normalMap} roughnessMap={stone.roughnessMap} color={piece.tint ?? "#d8cdb8"} roughness={1} />
+        </mesh>
+        <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.2, 0.23, h, 14]} />
+          <meshStandardMaterial map={stone.map} normalMap={stone.normalMap} roughnessMap={stone.roughnessMap} color={piece.tint ?? "#d8cdb8"} roughness={1} />
+        </mesh>
+        <mesh position={[0, h - 0.08, 0]} castShadow>
+          <cylinderGeometry args={[0.32, 0.22, 0.16, 12]} />
+          <meshStandardMaterial color={piece.tint ?? "#d8cdb8"} roughness={0.9} />
+        </mesh>
+      </group>
+    );
+  }
+  if (kind === "banner") {
+    const h = piece.h ?? 2.3;
+    return (
+      <group position={[x, 0, z]} rotation={[0, piece.rot ?? 0, 0]}>
+        <mesh position={[0, h, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
+          <cylinderGeometry args={[0.02, 0.02, 0.8 * s, 6]} />
+          <meshStandardMaterial color="#5a4a2a" roughness={0.9} />
+        </mesh>
+        <mesh position={[0, h - 0.8 * s, 0]} castShadow receiveShadow>
+          <planeGeometry args={[0.7 * s, 1.6 * s]} />
+          <meshStandardMaterial color={piece.tint ?? "#5a2a7a"} roughness={0.85} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh position={[0, h - 0.8 * s, 0.006]}>
+          <planeGeometry args={[0.7 * s * 0.55, 1.6 * s * 0.28]} />
+          <meshStandardMaterial color="#d6af36" roughness={0.5} metalness={0.6} side={THREE.DoubleSide} />
+        </mesh>
+      </group>
+    );
+  }
+  if (kind === "throne") {
+    const gold = { color: "#c9a23a", roughness: 0.32, metalness: 0.85 };
+    const cloth = { color: piece.tint ?? "#7a1a2a", roughness: 0.85, metalness: 0 };
+    return (
+      <group position={[x, 0, z]} rotation={[0, piece.rot ?? 0, 0]} scale={s}>
+        {/* a low dais of pale stone with a gold lip */}
+        <mesh position={[0, 0.05, 0]} receiveShadow>
+          <cylinderGeometry args={[0.95, 1.0, 0.1, 24]} />
+          <meshStandardMaterial color="#e6dccb" roughness={0.9} />
+        </mesh>
+        <mesh position={[0, 0.1, 0]}>
+          <torusGeometry args={[0.95, 0.02, 8, 48]} />
+          <meshStandardMaterial {...gold} />
+        </mesh>
+        {/* the seat: gold frame, cloth cushion, curved arms, a tall back that ends in a crest */}
+        <mesh position={[0, 0.3, 0]} castShadow receiveShadow>
+          <boxGeometry args={[0.7, 0.36, 0.6]} />
+          <meshStandardMaterial {...gold} />
+        </mesh>
+        <mesh position={[0, 0.52, 0.02]} castShadow>
+          <boxGeometry args={[0.6, 0.09, 0.52]} />
+          <meshStandardMaterial {...cloth} />
+        </mesh>
+        <mesh position={[0, 1.0, -0.26]} castShadow receiveShadow>
+          <boxGeometry args={[0.62, 1.3, 0.1]} />
+          <meshStandardMaterial {...gold} />
+        </mesh>
+        <mesh position={[0, 1.0, -0.2]}>
+          <boxGeometry args={[0.5, 1.1, 0.03]} />
+          <meshStandardMaterial {...cloth} />
+        </mesh>
+        <mesh position={[0, 1.7, -0.26]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.31, 0.31, 0.1, 24, 1, false, 0, Math.PI]} />
+          <meshStandardMaterial {...gold} side={THREE.DoubleSide} />
+        </mesh>
+        <mesh position={[0, 1.95, -0.26]}>
+          <sphereGeometry args={[0.05, 10, 10]} />
+          <meshStandardMaterial color="#3fd28a" roughness={0.2} emissive="#1a8a4a" emissiveIntensity={0.5} />
+        </mesh>
+        {[-0.36, 0.36].map((dx) => (
+          <mesh key={dx} position={[dx, 0.66, 0.02]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[0.04, 0.04, 0.56, 10]} />
+            <meshStandardMaterial {...gold} />
+          </mesh>
+        ))}
+        {[-0.36, 0.36].map((dx) => (
+          <mesh key={`p${dx}`} position={[dx, 0.5, 0.26]} castShadow>
+            <cylinderGeometry args={[0.04, 0.05, 0.36, 10]} />
+            <meshStandardMaterial {...gold} />
+          </mesh>
+        ))}
+      </group>
+    );
+  }
+  if (kind === "dome") {
+    const r = 1.9 * s;
+    const h = piece.h ?? 2.8;
+    return (
+      <group position={[x, 0, z]}>
+        {Array.from({ length: 8 }, (_, i) => {
+          const a = (i / 8) * Math.PI * 2;
+          return (
+            <mesh key={i} position={[Math.cos(a) * r, h / 2, Math.sin(a) * r]} castShadow receiveShadow>
+              <cylinderGeometry args={[0.16, 0.19, h, 12]} />
+              <meshStandardMaterial map={stone.map} normalMap={stone.normalMap} roughnessMap={stone.roughnessMap} color={piece.tint ?? "#d8cdb8"} roughness={1} />
+            </mesh>
+          );
+        })}
+        <mesh position={[0, h, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[r + 0.3, r + 0.3, 0.18, 32]} />
+          <meshStandardMaterial color={piece.tint ?? "#d8cdb8"} roughness={0.9} />
+        </mesh>
+        <mesh position={[0, h + 0.09, 0]} castShadow>
+          <sphereGeometry args={[r + 0.1, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial color="#3f5a4a" roughness={0.6} metalness={0.3} />
+        </mesh>
+        <mesh position={[0, h + r + 0.15, 0]}>
+          <sphereGeometry args={[0.16, 12, 12]} />
+          <meshStandardMaterial color="#d6af36" roughness={0.4} metalness={0.8} />
+        </mesh>
+      </group>
+    );
+  }
+  return null;
 }
 
 function Model({ map, piece }: { map: MapDef; piece: Piece }) {

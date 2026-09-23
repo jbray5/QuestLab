@@ -11,6 +11,7 @@ import { tableApi } from "../api/table";
 import { useEventStream } from "../hooks/useEventStream";
 import { preloadProps } from "./assets";
 import { Director } from "./Director";
+import { RimLight } from "./RimLight";
 import { preloadFigure } from "./figureModel";
 import { buildFog } from "./fogOfWar";
 import { Ping, TitleCard } from "./Fx";
@@ -452,13 +453,13 @@ export default function EngineTable() {
       <TitleCard title={data.title} />
       <Canvas
         key={`${map.id}-${fast ? "fast" : "full"}`}
-        shadows={fast ? false : { type: THREE.PCFShadowMap }}
+        shadows={fast ? false : { type: THREE.VSMShadowMap }}
         dpr={fast ? 1 : [1, 1.5]}
         gl={{ antialias: false, powerPreference: "high-performance" }}
         camera={{ fov: 42, near: 0.1, far: 260, position: eye }}
         onCreated={({ gl, scene }) => {
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.05;
+          gl.toneMapping = THREE.AgXToneMapping;
+          gl.toneMappingExposure = 1.15;
           // ?stats=1 — the renderer and scene on window.__ql, for measuring draw calls and frame cost.
           if (new URLSearchParams(window.location.search).get("stats") === "1") {
             (window as unknown as { __ql?: unknown }).__ql = { gl, scene };
@@ -489,6 +490,7 @@ export default function EngineTable() {
         />
         <CameraKeys home={{ eye, look }} homeNonce={homeNonce} />
         <Director at={active?.cell ?? null} nonce={frameNonce} follow={follow} focus={focus} kick={kick} />
+        <RimLight />
         <Post fast={fast} cinema={cinema} focus={focus ? [focus.at.x, 0.9, focus.at.z] : active ? [active.cell.x, 1.0, active.cell.z] : null} />
       </Canvas>
     </div>

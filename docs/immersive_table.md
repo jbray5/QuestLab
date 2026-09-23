@@ -23,7 +23,10 @@ Everything comes from the HUD's **LIVE** and **MAPS** tabs:
 
 | On the TV | You do this in the HUD |
 |---|---|
-| The room — walls, furniture, pools, torches | **MAPS** → pick the map. Maps the engine has scene data for render as built rooms: Restwater, Sorrel's abode, and **Margarita-shire — the beach bar (Day)** and **(Night)** — a tiki bar on a Feywild coast with its own patrons and bartender, fey lanterns, a glowing cove, fireflies after dark. Any other map renders as its picture, lit, with figures on it. |
+| The room — walls, furniture, pools, torches | **MAPS** → pick the map. Maps the engine has scene data for render as built rooms: Restwater, Sorrel's abode, **Margarita-shire — the beach bar (Day)** and **(Night)**, and Session 8's three — **Candlestair Shrine (Day)**, **Palace Inner Court (Day)** and **Royal Throne Room (Day)**. In those three the Czepeku painting stays the floor (its stairs, mosaics, carpets and statues are the art) and everything that stands is built on it: walls, colonnades, banners, fountains with water, the rotunda, candles up the stair, braziers at the throne room's side doors. Any other map renders as its picture, lit, with figures on it. |
+| A crown on Titania; ears on Dame Goldenrod | Any token whose name says *Titania* or *queen* wears a gold circlet; *Goldenrod*, *harengon*, *hare* or *rabbit* gets a harengon's ears. They ride the head whatever model the token carries. |
+| Real flames on torches and candles | Nothing to do — every flame is a shader now, and each torch's light flickers with it. |
+| A stag that walks and falls | The **Black-eyed Stag** stat block carries a four-legged figure with its own gait; drop it in an encounter and it walks, staggers when hit, and goes down. Any model that brings its own clips plays them now, whatever its skeleton. |
 | Only a few maps in the MAPS tab | That is tonight's **shelf**: the maps this session keeps to hand. Staging a map puts it there; ✕ on a card takes it off; **＋ From the library** lists every other map in the campaign to pull onto the shelf. The library itself is untouched. |
 | A figure walks to a new spot | Drag its token on the LIVE map. Figures walk in a straight line; place tokens where they should *stand*. |
 | The camera glides to whoever's turn it is | Start the fight (**ROLL INIT**), then **END TURN**. It only follows a running fight. |

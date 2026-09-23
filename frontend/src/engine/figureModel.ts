@@ -55,6 +55,7 @@ const ALIASES: [string, ClipName][] = [
   ["walk", "walk"],
   ["run", "run"],
   ["jog", "run"],
+  ["gallop", "run"],
   ["hit", "hit"],
   ["react", "hit"],
   ["death", "death"],
@@ -66,6 +67,8 @@ const ALIASES: [string, ClipName][] = [
 export function canonicalClip(name: string): ClipName | null {
   const k = name.toLowerCase().replace(/[^a-z]/g, "");
   if (!k) return null;
+  // "Idle_HitReact1" is a hit, not an idle (the animal packs name them so).
+  if (/hitreact|gethit|takehit/.test(k)) return "hit";
   for (const [alias, c] of ALIASES) if (k === alias || k.startsWith(alias)) return c;
   return null;
 }
@@ -503,6 +506,15 @@ function clipsFor(gltf: GltfLike, library: LibraryClip[], cacheKey: string): THR
   if (hit) return hit;
   const clips: THREE.AnimationClip[] = [];
   const have = new Set<ClipName>();
+  // A model's own clips play on any rig — a stag has no hips to speak of, and needs none.
+  for (const c of gltf.animations) {
+    const n = canonicalClip(c.name);
+    if (!n || have.has(n)) continue;
+    const own = c.clone();
+    own.name = n;
+    clips.push(own);
+    have.add(n);
+  }
   if (findBone(gltf.scene, "hips")) {
     for (const c of gltf.animations) {
       const n = canonicalClip(c.name);

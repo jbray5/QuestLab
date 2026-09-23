@@ -154,6 +154,28 @@ table's console after each beat.
   Points at impact, a pool that spreads under the fallen). A weapon trail ribbon from the
   hand bone, a folding-knees fall for rigs without a death clip, a camera kick on melee.
   Scripted fight: clean.
+- **Wednesday 2026-09-23 — Session 8's rooms, figures, and the last graphics pass.** Three
+  Czepeku maps (`F:\DnD\…`, imported by `scripts/import_czepeku.py` at grid 140) became built
+  rooms `candlestair.ts`, `court.ts`, `throne.ts`: `painted: true` keeps the art as the floor
+  (stairs, mosaics, carpets — no tile beats it) and everything vertical is built. New engine
+  pieces: `built:column`, `built:banner`, `built:throne`, `built:dome` primitives in
+  `Props.tsx` (`tint`, `h`, `scale` on a Piece); `sandstone` and `marble` materials; `adorn.ts`
+  — a crown or harengon ears on the head bone, keyed by token name; the spike's `?name=`.
+  Graphics: shader flames (`Flame.tsx`, an upright-billboard noise flame, additive) replace
+  the glowing spheres on every torch and candle; VSM soft shadows; a camera-following rim
+  light (`RimLight.tsx`); AgX tone mapping at 1.15 with the grade re-tuned (saturation 0.14,
+  grain 0.18). Figures: Titania (Laura/Kat, blond Eirgrid, ivory-and-gold leathers), Dame
+  Goldenrod (Kat, pixie, green-and-gold armour, ears from the table), Summer Knight (the
+  cultist in gold and white); stat blocks created through the API (Fey/Humanoid, Medium).
+  The built throne came back out of the throne room — Czepeku's painted winged throne is
+  better than any primitive; it stays on the court's stage where the painting has only a
+  table. C: filled again mid-run (100%): the harness browser profiles now live on
+  `F:\ql-chrome\` behind junctions, the model intermediates on `F:\DAZ 3D\ql-scratch\daz-archive`.
+  The stag: Quaternius' *Ultimate Animated Animal Pack* (CC0; downloads from a Google Drive
+  folder, file ids in the folder page's escaped JSON) has a Stag with Idle/Walk/Gallop/Death/
+  HitReact clips of its own; `clipsFor` now plays a model's own clips on any rig (the hips
+  gate only governs library baking), `gallop`→run and `HitReact`→hit. Coat darkened, 400 KB,
+  on the "Black-eyed Stag" stat block (Large, Beast). Not done: carriages; patrons do not sit.
 - **Where the browser limit is, honestly.** Left on the table: face sculpts beyond blends of
   the six library heads (a morph pack), Nya's dress and Thane's ears (assets), motion-captured
   strikes (Justin's Mixamo downloads), hair as cards (modelling), subsurface scattering (a

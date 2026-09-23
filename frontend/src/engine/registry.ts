@@ -1,5 +1,8 @@
 import { ABODE } from "./abode";
 import { BEACH, BEACH_DAY } from "./beach";
+import { CANDLESTAIR } from "./candlestair";
+import { COURT } from "./court";
+import { THRONE } from "./throne";
 import type { MapDef } from "./maps";
 import { normalizeMap } from "./maps";
 import { RESTWATER } from "./restwater";
@@ -10,5 +13,5 @@ import { TAVERN } from "./tavern";
  * so what renders is what a builder would have built, not what an eye traced.
  */
 export const MAPS: Record<string, MapDef> = Object.fromEntries(
-  [BEACH_DAY, BEACH, TAVERN, RESTWATER, ABODE].map((m) => [m.id, normalizeMap(m)]),
+  [CANDLESTAIR, COURT, THRONE, BEACH_DAY, BEACH, TAVERN, RESTWATER, ABODE].map((m) => [m.id, normalizeMap(m)]),
 );

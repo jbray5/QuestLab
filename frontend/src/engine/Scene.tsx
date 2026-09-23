@@ -135,8 +135,10 @@ export function MapScene({
               shadow-camera-top={map.h * 0.6}
               shadow-camera-bottom={-map.h * 0.6}
               shadow-camera-far={map.w * 3}
-              shadow-bias={-0.0012}
-              shadow-radius={4}
+              shadow-bias={-0.0006}
+              shadow-normalBias={0.02}
+              shadow-radius={6}
+              shadow-blurSamples={12}
             />
           )}
         </>

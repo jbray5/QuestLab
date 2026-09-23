@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useRef } from "react";
 import * as THREE from "three";
 
+import { Flame } from "./Flame";
 import { useQuality } from "./quality";
 
 /**
@@ -30,8 +31,8 @@ export function Torch({
   /** Torchlight unless said otherwise — a witch's lamp burns another colour. */
   color?: string;
 }) {
-  // The flame is the light's colour, pushed past white so the bloom catches it.
-  const flame = new THREE.Color(color).multiplyScalar(5);
+  // A hot ember at the heart of the flame, for the bloom to catch at any distance.
+  const ember = new THREE.Color(color).multiplyScalar(3.5);
   const light = useRef<THREE.PointLight>(null);
   // Fast mode (Plan 113): no torch casts — six renders each is the first thing to go.
   const { fast } = useQuality();
@@ -48,7 +49,7 @@ export function Torch({
     const t = clock.elapsedTime * 9 + seed;
     const f = 0.86 + 0.14 * (Math.sin(t) * 0.5 + Math.sin(t * 2.3) * 0.3 + Math.sin(t * 5.1) * 0.2);
     if (light.current) light.current.intensity = intensity * f;
-    if (flameMesh.current) flameMesh.current.scale.setScalar(0.9 + 0.2 * f);
+    if (flameMesh.current) flameMesh.current.scale.setScalar(0.8 + 0.3 * f);
     if (shaft.current) (shaft.current.material as THREE.MeshBasicMaterial).opacity = 0.028 + 0.018 * f;
   });
   return (
@@ -69,10 +70,11 @@ export function Torch({
           <meshStandardMaterial color="#2c2018" roughness={1} />
         </mesh>
       )}
-      <mesh ref={flameMesh} position={[0, candle ? 0.02 : 0, 0]}>
-        <sphereGeometry args={[candle ? 0.03 : 0.1, 10, 10]} />
-        <meshBasicMaterial color={flame} toneMapped={false} />
+      <mesh ref={flameMesh} position={[0, candle ? 0.01 : -0.02, 0]}>
+        <sphereGeometry args={[candle ? 0.012 : 0.035, 8, 8]} />
+        <meshBasicMaterial color={ember} toneMapped={false} />
       </mesh>
+      <Flame height={candle ? 0.14 : 0.46} width={candle ? 0.07 : 0.26} color={color} seed={seed} lift={candle ? -0.01 : -0.08} />
       <mesh ref={shaft} position={[0, -1.0, 0]} renderOrder={4} visible={!candle}>
         <coneGeometry args={[0.7, 2.0, 24, 1, true]} />
         <meshBasicMaterial color={shaftColor} transparent blending={THREE.AdditiveBlending} depthWrite={false} side={THREE.DoubleSide} toneMapped={false} opacity={0.03} />

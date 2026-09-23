@@ -2,6 +2,7 @@ import { Component, type ReactNode, useCallback, useEffect } from "react";
 import * as THREE from "three";
 
 import type { TableProjection } from "../api/types";
+import { adornFor } from "./adorn";
 import type { Fog } from "./fogOfWar";
 import { Bolt, Burst, FloatingNumber } from "./Fx";
 import { Marks } from "./Impact";
@@ -123,6 +124,7 @@ export function Party({
           hitFrom: landing ? landing.from.cell : null,
           strike: swing ? { id: swing.fx.id, kind: swing.kind, toward: swing.to.cell, at: swing.fx.at } : null,
           attention: actor && actor !== f ? actor.cell : null,
+          adorn: adornFor(f.label),
         };
         return (
           <group key={f.id}>
