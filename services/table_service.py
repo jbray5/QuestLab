@@ -26,6 +26,7 @@ from domain.table_state import (
     InitiativeEntry,
     TableMap,
     TableProjection,
+    TableState,
     TableStateRead,
     TableStateUpdate,
     Token,
@@ -212,6 +213,173 @@ def ping(
     publish_table_ping(session_id, x, y, kind=kind, amount=amount)
 
 
+def _save_tokens(
+    db: DBSession, session_id: uuid.UUID, state: TableState, tokens: list[dict]
+) -> TableStateRead:
+    """Persist a rewritten token list and tell every watching surface.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        state: The loaded table state row to write back.
+        tokens: The full replacement token list, as plain dicts.
+
+    Returns:
+        The refreshed TableStateRead.
+    """
+    state.tokens = tokens
+    TableStateRepo.save(db, state)
+    publish_table_updated(session_id)
+    return TableStateRead.model_validate(state)
+
+
+def crowd_trample(knot: dict, count: int = 1) -> dict:
+    """Knock ``count`` bystanders off their feet at one knot (Plan 114).
+
+    Args:
+        knot: A crowd token as a plain dict.
+        count: How many people go down. Capped at how many are standing.
+
+    Returns:
+        A new dict with ``crowd`` and ``hurt`` moved.
+    """
+    out = dict(knot)
+    standing = int(out.get("crowd") or 0)
+    moved = max(0, min(int(count or 0), standing))
+    out["crowd"] = standing - moved
+    out["hurt"] = int(out.get("hurt") or 0) + moved
+    return out
+
+
+def crowd_save(knot: dict) -> dict:
+    """Pull one bystander back onto their feet (Plan 114).
+
+    Takes from ``dying`` first — those are the ones who die at the end of this
+    round — and only then from ``hurt``.
+
+    Args:
+        knot: A crowd token as a plain dict.
+
+    Returns:
+        A new dict with one person moved back to ``crowd``, or an unchanged
+        copy when nobody is down.
+    """
+    out = dict(knot)
+    dying = int(out.get("dying") or 0)
+    hurt = int(out.get("hurt") or 0)
+    if dying > 0:
+        out["dying"] = dying - 1
+    elif hurt > 0:
+        out["hurt"] = hurt - 1
+    else:
+        return out
+    out["crowd"] = int(out.get("crowd") or 0) + 1
+    return out
+
+
+def crowd_resolve(knot: dict) -> dict:
+    """Advance one knot's trampled clock by a round (Plan 114).
+
+    Anyone who went down last round and was not reached dies now; anyone who
+    went down this round becomes next round's dying. A bystander therefore
+    always gets one full round in which the party can save them.
+
+    Args:
+        knot: A crowd token as a plain dict.
+
+    Returns:
+        A new dict with the clock advanced.
+    """
+    out = dict(knot)
+    out["dead"] = int(out.get("dead") or 0) + int(out.get("dying") or 0)
+    out["dying"] = int(out.get("hurt") or 0)
+    out["hurt"] = 0
+    return out
+
+
+def crowd_op(
+    db: DBSession,
+    session_id: uuid.UUID,
+    dm_email: str,
+    token_id: str,
+    op: str,
+    count: int = 1,
+) -> TableStateRead:
+    """Trample or save bystanders at one crowd knot (Plan 114).
+
+    A knot holds four numbers: ``crowd`` standing, ``hurt`` knocked down this
+    round, ``dying`` knocked down last round, ``dead``. Trampling moves people
+    from ``crowd`` to ``hurt``; saving brings one back, taking from ``dying``
+    first because those are the ones about to die.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+        token_id: The crowd token to act on.
+        op: ``"trample"`` or ``"save"``.
+        count: How many people, for a trample. Ignored by a save.
+
+    Returns:
+        The refreshed TableStateRead.
+
+    Raises:
+        ValueError: If the session has no table state, the token is not a
+            crowd knot, or ``op`` is not a known operation.
+        PermissionError: If the DM does not own the campaign.
+    """
+    if op not in ("trample", "save"):
+        raise ValueError(f"Unknown crowd op: {op}")
+    session_service.get_session(db, session_id, dm_email)
+    state = TableStateRepo.get_by_session(db, session_id)
+    if state is None:
+        raise ValueError("No table state for this session.")
+    n = max(1, min(int(count or 1), 99))
+    found = False
+    tokens = []
+    for raw in state.tokens or []:
+        t = dict(raw)
+        if t.get("id") == token_id and t.get("crowd") is not None:
+            found = True
+            t = crowd_trample(t, n) if op == "trample" else crowd_save(t)
+        tokens.append(t)
+    if not found:
+        raise ValueError("No crowd knot with that token id.")
+    return _save_tokens(db, session_id, state, tokens)
+
+
+def crowd_resolve_round(db: DBSession, session_id: uuid.UUID, dm_email: str) -> TableStateRead:
+    """Advance the trampled clock one round on every knot (Plan 114).
+
+    Anyone who went down *last* round and was not reached dies now; anyone who
+    went down *this* round becomes next round's dying. That gives the party a
+    full round to get to somebody before the herd finishes them.
+
+    Args:
+        db: Active database session.
+        session_id: UUID of the game session.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        The refreshed TableStateRead.
+
+    Raises:
+        ValueError: If the session has no table state.
+        PermissionError: If the DM does not own the campaign.
+    """
+    session_service.get_session(db, session_id, dm_email)
+    state = TableStateRepo.get_by_session(db, session_id)
+    if state is None:
+        raise ValueError("No table state for this session.")
+    tokens = []
+    for raw in state.tokens or []:
+        t = dict(raw)
+        if t.get("crowd") is not None:
+            t = crowd_resolve(t)
+        tokens.append(t)
+    return _save_tokens(db, session_id, state, tokens)
+
+
 def stand_down(db: DBSession, session_id: uuid.UUID, dm_email: str, group: str) -> TableStateRead:
     """Flip every token in ``group`` from hostile to neutral in one action (Plan 72).
 
@@ -243,10 +411,7 @@ def stand_down(db: DBSession, session_id: uuid.UUID, dm_email: str, group: str) 
             t["kind"] = "custom"
             t["color"] = "#9aa0b4"
         tokens.append(t)
-    state.tokens = tokens
-    TableStateRepo.save(db, state)
-    publish_table_updated(session_id)
-    return TableStateRead.model_validate(state)
+    return _save_tokens(db, session_id, state, tokens)
 
 
 # Plan 111 — how tall a figure stands on the immersive table, in feet. The
@@ -568,6 +733,7 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
         weather=weather,
         active_token_ref=active_ref,
         defeated_refs=defeated_refs,
+        lost=sum(int(t.dead or 0) for t in tokens),
         combat_running=combat_running,
         round=combat_round if combat_running else 0,
         initiative=initiative,

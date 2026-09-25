@@ -50,6 +50,9 @@ export const tableApi = {
   // Live table surface (DM console)
   getState: (sessionId: string) =>
     api.get<TableStateRead>(`/sessions/${sessionId}/table`),
+  /** Plan 114 — trample, save, or end the round at the festival crowd. */
+  crowd: (sessionId: string, body: Record<string, unknown>) =>
+    api.post<TableStateRead>(`/sessions/${sessionId}/table/crowd`, body),
   standDown: (sessionId: string, group: string) =>
     api.post<TableStateRead>(`/sessions/${sessionId}/table/stand-down`, { group }),
   updateState: (sessionId: string, data: TableStateUpdate) =>

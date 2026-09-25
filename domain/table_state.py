@@ -82,6 +82,17 @@ class Token(BaseModel):
     # .glb and the height it should stand, in feet.
     model_url: Optional[str] = None
     model_height_ft: Optional[float] = None
+    # Plan 114 — a crowd knot: one token standing for a small group of
+    # bystanders. ``crowd`` are on their feet, ``hurt`` went down this
+    # round, ``dying`` went down last round and die at the end of this
+    # one unless somebody reaches them, ``dead`` stay down. A token with
+    # ``crowd is None`` is an ordinary token and behaves exactly as before.
+    # Stored on the token (unlike conditions) — the DM owns these numbers,
+    # not combat. Player-safe: the whole point is that the table sees them.
+    crowd: Optional[int] = PydField(default=None, ge=0, le=99)
+    hurt: Optional[int] = PydField(default=None, ge=0, le=99)
+    dying: Optional[int] = PydField(default=None, ge=0, le=99)
+    dead: Optional[int] = PydField(default=None, ge=0, le=99)
 
 
 class TableStateUpdate(BaseModel):
@@ -185,6 +196,9 @@ class TableProjection(BaseModel):
     # to dim. Resolved from the running combat state; no HP ever crosses.
     active_token_ref: Optional[str] = None
     defeated_refs: list[str] = PydField(default_factory=list)
+    # Plan 114 — bystanders lost so far, summed over every crowd knot.
+    # Shown to the players; the number is the point of the scene.
+    lost: int = 0
     # Plan 83 — the remote-player window: order, whose turn, the party's HP.
     combat_running: bool = False
     round: int = 0

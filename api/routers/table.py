@@ -6,6 +6,7 @@ as the player view. Its payload carries no stats, HP, or DM-only data.
 """
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -97,6 +98,46 @@ def stand_down_group(
         )
     try:
         return table_service.stand_down(db, session_id, user, group)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/sessions/{session_id}/table/crowd", response_model=TableStateRead)
+def crowd_action(
+    session_id: uuid.UUID, body: dict[str, Any], db: DB, user: CurrentUser
+) -> TableStateRead:
+    """Trample, save, or end the round at the festival crowd (Plan 114).
+
+    Args:
+        session_id: UUID of the session.
+        body: ``{"op": "trample"|"save"|"resolve", "token_id": str, "n": int}``.
+            ``token_id`` is required for every op but ``resolve``, which
+            advances the trampled clock on every knot at once.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        The refreshed TableStateRead.
+
+    Raises:
+        HTTPException: 422 for a malformed body, 404 for an unknown
+            session or token, 403 if the DM does not own the campaign.
+    """
+    op = str((body or {}).get("op", "")).strip()
+    try:
+        if op == "resolve":
+            return table_service.crowd_resolve_round(db, session_id, user)
+        token_id = str((body or {}).get("token_id", "")).strip()
+        if not token_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="token_id required",
+            )
+        return table_service.crowd_op(
+            db, session_id, user, token_id, op, int((body or {}).get("n", 1) or 1)
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:

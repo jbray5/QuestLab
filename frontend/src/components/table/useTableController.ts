@@ -301,6 +301,11 @@ export function useTableController(sessionId: string, campaignId: string, party:
 
   return {
     state,
+    /** Plan 114 — re-read the table after the server moved numbers we do not own. */
+    refresh: () => {
+      void qc.invalidateQueries({ queryKey: key });
+      syncSiblings();
+    },
     maps,
     combat,
     activeMap,

@@ -485,6 +485,48 @@ export default function MapCanvas({
           @media (prefers-reduced-motion: reduce) { .ql-fx-rise { animation-duration: 0.01s; } }
         `}</style>
       )}
+      {/* Plan 114 — a crowd knot wears its numbers: how many are on their
+          feet, and how many are on the ground with a round to live. The
+          players read the scene off these, so they are never hidden. */}
+      {tokens.map((t) => {
+        if (t.crowd == null) return null;
+        const down = (t.hurt ?? 0) + (t.dying ?? 0);
+        const big = Math.max(15, tokenUnit * 0.52);
+        return (
+          <g key={`crowd-${t.id}`} style={{ pointerEvents: "none" }}>
+            <text
+              x={t.x}
+              y={t.y + big * 0.36}
+              textAnchor="middle"
+              fontFamily="Cinzel, Georgia, serif"
+              fontWeight={800}
+              fontSize={big}
+              fill={t.crowd ? "#f0e6c8" : "#6a6a78"}
+              stroke="#000"
+              strokeWidth={big * 0.16}
+              paintOrder="stroke"
+            >
+              {t.crowd}
+            </text>
+            {down > 0 && (
+              <text
+                x={t.x + tokenUnit * 0.42}
+                y={t.y - tokenUnit * 0.3}
+                textAnchor="middle"
+                fontFamily="Cinzel, Georgia, serif"
+                fontWeight={800}
+                fontSize={big * 0.66}
+                fill="#ff6b57"
+                stroke="#000"
+                strokeWidth={big * 0.11}
+                paintOrder="stroke"
+              >
+                {down}
+              </text>
+            )}
+          </g>
+        );
+      })}
       {fx.map((f) => {
         if (f.kind === "ko") return null;
         const tok = tokens.find((t) => (t.ref_id ?? t.id) === f.refId);

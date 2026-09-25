@@ -27,6 +27,61 @@ const stairSticks = (): Piece[] => {
   return out;
 };
 
+
+/**
+ * The Summer Games (Plan 114, Session 8). The festival stands on the bottom
+ * terrace, at the foot of the great stair, because that is the only open
+ * ground the painting gives: the stair itself runs up the middle from v 0.87
+ * to v 0.73, and the shrine is the rotunda above it. The bonfire is the one
+ * shadow-casting light down here and the brightest thing below the shrine —
+ * which is the whole reason the herd runs through the crowd to reach it.
+ */
+const festivalLights = (): MapDef["torches"] => [
+  // Eight lantern poles ringing the festival ground. Non-shadow: the bonfire
+  // is the only light down here that can afford six renders a frame.
+  [0.12, 0.9, false, "post"],
+  [0.3, 0.884, false, "post"],
+  [0.7, 0.884, false, "post"],
+  [0.88, 0.9, false, "post"],
+  [0.1, 0.966, false, "post"],
+  [0.31, 0.99, false, "post"],
+  [0.69, 0.99, false, "post"],
+  [0.9, 0.966, false, "post"],
+];
+
+const festivalProps = (): Piece[] => [
+  // The bonfire at the middle of the ground, and the prize stand beside it.
+  { model: "stone_fire_pit", u: 0.5, v: 0.94 },
+  { model: "wooden_table_02", u: 0.5, v: 0.905, rot: 0 },
+  // Banners in green and gold along the foot of the stair.
+  { model: "built:banner", u: 0.33, v: 0.893, rot: 0, tint: "#6f8f4a", h: 2.4 },
+  { model: "built:banner", u: 0.43, v: 0.893, rot: 0, tint: "#caa84e", h: 2.4 },
+  { model: "built:banner", u: 0.57, v: 0.893, rot: 0, tint: "#caa84e", h: 2.4 },
+  { model: "built:banner", u: 0.67, v: 0.893, rot: 0, tint: "#6f8f4a", h: 2.4 },
+  // Stalls at the edges: tables, crates and barrels, scenery only.
+  { model: "wooden_picnic_table", u: 0.17, v: 0.935, rot: 0.3 },
+  { model: "wooden_crate_01", u: 0.21, v: 0.955 },
+  { model: "wooden_barrels_01", u: 0.14, v: 0.955 },
+  { model: "wooden_picnic_table", u: 0.83, v: 0.935, rot: -0.3 },
+  { model: "wooden_crate_02", u: 0.79, v: 0.955 },
+  { model: "wine_barrel_01", u: 0.86, v: 0.955 },
+  // The caber toss: stripped trunks stacked at the throwing line.
+  { model: "dead_tree_trunk", u: 0.38, v: 0.985, rot: 1.5, scale: 0.7 },
+  { model: "dead_tree_trunk", u: 0.42, v: 0.99, rot: 1.4, scale: 0.7 },
+  // The green maze, a hedge square on the east flank.
+  ...[0, 1, 2].flatMap((i) =>
+    [0, 1].map((j) => ({
+      model: "wild_rooibos_bush",
+      u: 0.7 + i * 0.04,
+      v: 0.93 + j * 0.035,
+      rot: (i + j) * 0.7,
+    })),
+  ),
+  // The knight's bout: practice weapon racks either side of the chalk circle.
+  { model: "wooden_crate_01", u: 0.26, v: 0.895, rot: 0.2 },
+  { model: "wooden_stool_01", u: 0.3, v: 0.915 },
+];
+
 export const CANDLESTAIR: MapDef = {
   id: "candlestair",
   name: "Candlestair Shrine",
@@ -73,8 +128,12 @@ export const CANDLESTAIR: MapDef = {
     { u: 0.72, v: 0.365, r: 1.7 },
     { u: 0.5, v: 0.795, r: 0.9 },
   ],
+  // The bonfire: the brightest thing below the shrine, and the reason the
+  // herd runs through the crowd rather than around it.
+  fires: [[0.5, 0.94]],
   torches: [
     ...stairCandles(),
+    ...festivalLights(),
     // the towers' doors, and the rotunda
     [0.19, 0.11, false, "sconce"],
     [0.81, 0.11, false, "sconce"],
@@ -82,10 +141,10 @@ export const CANDLESTAIR: MapDef = {
     // lanterns on the lower stair and the path down
     [0.42, 0.68, false, "post"],
     [0.58, 0.68, false, "post"],
-    [0.5, 0.93, false, "post"],
   ],
   props: [
     ...stairSticks(),
+    ...festivalProps(),
     // the rotunda on the platform, and planters at its corners
     { model: "built:dome", u: 0.5, v: 0.51, h: 2.4, scale: 0.78 },
     { model: "planter_pot_clay", u: 0.1, v: 0.455 },
@@ -132,6 +191,8 @@ export const CANDLESTAIR: MapDef = {
     fountains: { at: [0.5, 0.36], eye: [0, 6.5, 6.5] },
     hall: { at: [0.5, 0.12], eye: [0.5, 5, 6.5] },
     pool: { at: [0.5, 0.79], eye: [0, 4.8, 5.5] },
+    festival: { at: [0.5, 0.94], eye: [0, 6, 7] },
+    bonfire: { at: [0.5, 0.94], eye: [0.5, 2.6, 4] },
     top: { at: [0.5, 0.5], eye: [0, 34, 0.01] },
   },
   start: [0.5, 0.95],

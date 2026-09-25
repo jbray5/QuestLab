@@ -475,6 +475,12 @@ export interface TableToken {
   // Plan 111 — the figure, resolved at projection-build time.
   model_url?: string | null;
   model_height_ft?: number | null;
+  // Plan 114 — a crowd knot: bystanders standing, down this round, down
+  // last round (they die at its end), and lost. Absent on every other token.
+  crowd?: number | null;
+  hurt?: number | null;
+  dying?: number | null;
+  dead?: number | null;
 }
 
 export interface TableStateRead {
@@ -546,6 +552,8 @@ export interface TableProjection {
   weather: string | null;
   active_token_ref: string | null;
   defeated_refs: string[];
+  // Plan 114 — bystanders lost so far, across every crowd knot.
+  lost?: number;
   campaign_id: string | null;
   join_qr_on: boolean;
   // Plan 83 — the remote-player window: order, whose turn, the party's HP.

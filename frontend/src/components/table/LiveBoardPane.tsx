@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import type { PlayerCharacter } from "../../api/types";
 import { EXITS } from "../../engine/passages";
+import CrowdPanel from "./CrowdPanel";
 import MapCanvas from "./MapCanvas";
 import { useTableController } from "./useTableController";
 
@@ -107,6 +108,14 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
           />
         </label>
       </div>
+
+      {/* Plan 114 — the festival crowd, when there is one on the board. */}
+      <CrowdPanel
+        sessionId={sessionId}
+        tokens={tokens}
+        lost={tokens.reduce((n, k) => n + (k.dead ?? 0), 0)}
+        onChanged={t.refresh}
+      />
 
       {/* The board itself — same canvas the projector renders. */}
       <div

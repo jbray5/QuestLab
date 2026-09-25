@@ -10,6 +10,7 @@ import * as THREE from "three";
 import { tableApi } from "../api/table";
 import { useEventStream } from "../hooks/useEventStream";
 import { preloadProps } from "./assets";
+import { Crowd } from "./Crowd";
 import { Director } from "./Director";
 import { RimLight } from "./RimLight";
 import { preloadFigure } from "./figureModel";
@@ -472,6 +473,7 @@ export default function EngineTable() {
           <Suspense fallback={null}>
             <MapScene map={map} grid={grid} darkness={data.darkness} fog={fog} weather={data.weather} onFloorClick={onFloorClick} revealedExits={data.revealed_exits ?? []}>
               <Party map={map} projection={data} fog={fog} fx={fx} onFxDone={dropFx} labels={labels} />
+              <Crowd map={map} projection={data} fog={fog} />
               {pings.map((p) => (
                 <Ping key={p.id} at={p.at} onDone={() => dropPing(p.id)} />
               ))}
