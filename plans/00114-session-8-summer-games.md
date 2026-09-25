@@ -37,9 +37,11 @@ carries no secrets — players view source.**
       written and gated; **not yet seen rendering**, see Surprises)
 - [x] Step 7: Items — 6 game prizes, 4 queen's gifts, in the compendium (2026-09-25)
 - [x] Step 8: Session 8 record + the three boards on its shelf (2026-09-25)
-- [ ] Step 9: Contest tracker (5 events) — **not started, runs on paper**
+- [x] Step 9: Contest tracker — the Summer Games Companion at
+      `campaigns/:campaignId/summergames` (2026-09-26)
 - [x] Step 10a: NPC cards for the liaison and the five rivals (2026-09-25)
-- [ ] Step 10b: Carried-over conditions — **no mechanism exists, see Surprises**
+- [x] Step 10b: Carried-over conditions — token `effects` and a size picker on
+      the LIVE tab (2026-09-26)
 - [ ] Step 11: Immersive — the five event stations as scenery (partial: caber,
       hedge maze and bout racks are in; no moths, no maze layouts)
 - [ ] Step 12: Nice-to-haves (relief animation, moths, feast table, tapestry)
@@ -49,6 +51,14 @@ carries no secrets — players view source.**
 ---
 
 ## Surprises and Discoveries
+- **The compendium lists magic items only.** `services/item_service.py`
+  `list_items` filters `is_magic=True`, so the two mundane prizes (the cask and
+  the garland) were created successfully and were then invisible to the Loot
+  panel — unreachable, un-grantable, and with no error. They were re-created as
+  magic. **Two inert duplicate rows are left in the items table**, invisible to
+  every listing and referenced by nothing; delete them if it ever matters.
+- The items list endpoint ignores `search` and `limit` and always returns
+  everything; the working search parameter is `q`.
 - The Candlestair picture's open ground is the **bottom terrace only**
   (v 0.86–1.0), roughly 7 cells deep by 33 wide. The great stair occupies
   v 0.73–0.87 and the shrine rotunda sits at (0.5, 0.52). The festival must fit
@@ -100,6 +110,9 @@ carries no secrets — players view source.**
 | 2026-09-25 | Testing the crowd without a database | seed DuckDB, run the API locally, or test pure functions | pure functions + schema round-trip | The local `.env` points at an Azure host that no longer resolves, so there is no local DB. Lifting the arithmetic into `crowd_trample`/`crowd_save`/`crowd_resolve` made it testable with no fixtures and is better structure anyway. |
 | 2026-09-25 | Carried-over conditions (Mira Large, Nya WIS 24) | build an override system vs leave on paper | paper | No mechanism exists at any layer; inventing one the night before a session risks the parts that do work. Flagged for Justin. |
 | 2026-09-25 | Whether to deploy | push to main vs leave committed | leave committed, do not push | CLAUDE.md requires human approval for `git push`. The work is worthless undeployed, so this is the headline of the handback rather than a quiet omission. |
+| 2026-09-26 | Where session-long creature states live | `SessionCombatant.conditions`, a new PC column, or the token | the token (`effects`) | The combatant row only exists while a fight runs, and the Games and the feast are not fights. The token survives the session and every map change, needs no migration, and already reaches both the 2D table and the immersive view. |
+| 2026-09-26 | Contest tracker: server-persisted or DM-local | a new table and endpoints vs a companion page | companion page, localStorage | Matches the Restwater and Temple companions exactly, needs no backend, and the scores are DM-only — the handoff never asks players to see them. Ships in an afternoon rather than a day. |
+| 2026-09-26 | The two mundane prizes | change `list_items` to show non-magic items vs mark these two magic | mark them magic | Unfiltering the compendium would drop ~150 mundane items into a panel that has only ever shown magic ones, the night before a session. Two fey-court prizes being flagged magic is defensible and reversible. |
 
 ---
 

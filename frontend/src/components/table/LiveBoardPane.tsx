@@ -4,6 +4,7 @@ import type { PlayerCharacter } from "../../api/types";
 import { EXITS } from "../../engine/passages";
 import CrowdPanel from "./CrowdPanel";
 import MapCanvas from "./MapCanvas";
+import TokenStates from "./TokenStates";
 import { useTableController } from "./useTableController";
 
 /**
@@ -108,6 +109,9 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
           />
         </label>
       </div>
+
+      {/* Plan 114 — size and free-text states, for what the rules have no column for. */}
+      <TokenStates tokens={tokens} onWrite={(next) => t.patchNow({ tokens: next })} />
 
       {/* Plan 114 — the festival crowd, when there is one on the board. */}
       <CrowdPanel

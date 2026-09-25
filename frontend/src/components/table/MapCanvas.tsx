@@ -485,6 +485,38 @@ export default function MapCanvas({
           @media (prefers-reduced-motion: reduce) { .ql-fx-rise { animation-duration: 0.01s; } }
         `}</style>
       )}
+      {/* Plan 114 — the states the DM gave a creature, under its feet, so
+          the table can see that Mira is Large without being told twice. */}
+      {tokens.map((t) => {
+        const fx = t.effects ?? [];
+        if (fx.length === 0) return null;
+        if (fogOn && !editable && t.kind !== "pc" && !isRevealed(t.x, t.y, revealedRegions, brushReveals)) {
+          return null;
+        }
+        const r = (tokenUnit * (t.size || 1)) / 2;
+        const fs = Math.max(9, tokenUnit * 0.2);
+        return (
+          <g key={`fx-${t.id}`} style={{ pointerEvents: "none" }}>
+            {fx.map((label, i) => (
+              <text
+                key={label}
+                x={t.x}
+                y={t.y + r + fs * (1.15 + i * 1.15)}
+                textAnchor="middle"
+                fontFamily="system-ui, sans-serif"
+                fontWeight={700}
+                fontSize={fs}
+                fill="#9fd3ff"
+                stroke="#000"
+                strokeWidth={fs * 0.28}
+                paintOrder="stroke"
+              >
+                {label}
+              </text>
+            ))}
+          </g>
+        );
+      })}
       {/* Plan 114 — a crowd knot wears its numbers: how many are on their
           feet, and how many are on the ground with a round to live. The
           players read the scene off these, so they are never hidden. */}

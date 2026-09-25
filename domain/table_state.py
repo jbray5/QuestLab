@@ -89,6 +89,13 @@ class Token(BaseModel):
     # ``crowd is None`` is an ordinary token and behaves exactly as before.
     # Stored on the token (unlike conditions) — the DM owns these numbers,
     # not combat. Player-safe: the whole point is that the table sees them.
+    # Plan 114 — what is true of this creature beyond its hit points, as
+    # short labels the DM types: "Large", "WIS 24", "hears music". The
+    # combatant row cannot hold these (it only exists during a fight) and
+    # the 5e condition list has no room for them, so they live here and
+    # survive the whole session. Stored, never recomputed. Player-safe by
+    # construction: the DM writes every word the table reads.
+    effects: Optional[list[str]] = PydField(default=None, max_length=6)
     crowd: Optional[int] = PydField(default=None, ge=0, le=99)
     hurt: Optional[int] = PydField(default=None, ge=0, le=99)
     dying: Optional[int] = PydField(default=None, ge=0, le=99)

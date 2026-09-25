@@ -475,6 +475,8 @@ export interface TableToken {
   // Plan 111 — the figure, resolved at projection-build time.
   model_url?: string | null;
   model_height_ft?: number | null;
+  // Plan 114 — short states the DM typed: "Large", "WIS 24". Shown to players.
+  effects?: string[] | null;
   // Plan 114 — a crowd knot: bystanders standing, down this round, down
   // last round (they die at its end), and lost. Absent on every other token.
   crowd?: number | null;

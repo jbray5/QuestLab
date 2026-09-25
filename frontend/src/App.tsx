@@ -56,6 +56,7 @@ const GuidePage = lazy(() => import("./pages/GuidePage"));
 const CharacterCreator = lazy(() => import("./pages/CharacterCreator"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
 const RestwaterCompanion = lazy(() => import("./pages/RestwaterCompanion"));
+const SummerGamesCompanion = lazy(() => import("./pages/SummerGamesCompanion"));
 
 function PageLoader() {
   return (
@@ -185,6 +186,10 @@ export default function App() {
         <Route
           path="campaigns/:campaignId/restwater"
           element={lazyRoute(<RestwaterCompanion />)}
+        />
+        <Route
+          path="campaigns/:campaignId/summergames"
+          element={lazyRoute(<SummerGamesCompanion />)}
         />
         <Route
           path="campaigns/:campaignId/sessions"
