@@ -492,6 +492,8 @@ export interface TableStateRead {
   join_qr_on?: boolean;
   /** Plan 113 — the battle maps tonight keeps to hand; the HUD's MAPS tab shows these. */
   map_shelf?: string[];
+  /** Plan 114 — the Summer Games station the immersive camera is watching. */
+  station?: string | null;
   revealed_region_ids: string[];
   brush_reveals: BrushReveal[];
   tokens: TableToken[];
@@ -512,6 +514,8 @@ export interface TableStateUpdate {
   join_qr_on?: boolean;
   /** Plan 113 — the battle maps tonight keeps to hand; the HUD's MAPS tab shows these. */
   map_shelf?: string[];
+  /** Plan 114 — the Summer Games station the immersive camera is watching. */
+  station?: string | null;
 }
 
 export interface TableMapSummary {
@@ -556,6 +560,8 @@ export interface TableProjection {
   defeated_refs: string[];
   // Plan 114 — bystanders lost so far, across every crowd knot.
   lost?: number;
+  /** Plan 114 — the Summer Games station the immersive camera is watching. */
+  station?: string | null;
   campaign_id: string | null;
   join_qr_on: boolean;
   // Plan 83 — the remote-player window: order, whose turn, the party's HP.

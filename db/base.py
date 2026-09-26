@@ -193,6 +193,8 @@ def patch_duckdb_schema() -> None:
         # 0025 — synced table weather (Plan 46)
         "ALTER TABLE table_states ADD COLUMN IF NOT EXISTS weather VARCHAR(12)",
         "ALTER TABLE table_states ADD COLUMN IF NOT EXISTS map_shelf JSON",
+        # 0052 — the active Summer Games station (Plan 114)
+        "ALTER TABLE table_states ADD COLUMN IF NOT EXISTS station VARCHAR(24)",
         # 0026 — productized diorama: ground layer + upright props (Plan 46)
         "ALTER TABLE battle_maps ADD COLUMN IF NOT EXISTS ground_url VARCHAR(1000)",
         "ALTER TABLE battle_maps ADD COLUMN IF NOT EXISTS props JSON",

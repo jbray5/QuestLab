@@ -27,7 +27,7 @@ export function Director({
   nonce: number;
   follow: boolean;
   /** A spot the viewer asked to look at (a double-click on the floor); glides there when its nonce changes. */
-  focus?: { at: THREE.Vector3; nonce: number } | null;
+  focus?: { at: THREE.Vector3; nonce: number; eye?: [number, number, number] } | null;
   /** A blow landing (performance.now): the camera takes a small, quick kick, the way a shoulder-cam does. */
   kick?: { at: number; strength: number } | null;
 }) {
@@ -42,9 +42,13 @@ export function Director({
   useEffect(() => {
     if (!controls) return;
     let target: THREE.Vector3 | null = null;
+    // A station brings its own framing — the caber wants a low side-on shot,
+    // the shrine a high one — so glide to that rather than the default.
+    let preset: [number, number, number] | null = null;
     if (focus && focus.nonce !== lastFocus.current) {
       lastFocus.current = focus.nonce;
       target = focus.at;
+      preset = focus.eye ?? null;
     } else {
       if (!at) return;
       const key = `${at.x},${at.z},${nonce}`;
@@ -59,8 +63,13 @@ export function Director({
     dir.y = 0;
     if (dir.lengthSq() < 0.01) dir.set(0.4, 0, 1);
     dir.normalize();
-    const toPos = toTgt.clone().addScaledVector(dir, DISTANCE);
-    toPos.y = HEIGHT;
+    let toPos: THREE.Vector3;
+    if (preset) {
+      toPos = new THREE.Vector3(toTgt.x + preset[0], preset[1], toTgt.z + preset[2]);
+    } else {
+      toPos = toTgt.clone().addScaledVector(dir, DISTANCE);
+      toPos.y = HEIGHT;
+    }
     glide.current = { t: 0, fromPos: camera.position.clone(), fromTgt: controls.target.clone(), toPos, toTgt };
   }, [at, nonce, follow, focus, camera, controls]);
 

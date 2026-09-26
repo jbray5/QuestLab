@@ -24,6 +24,17 @@ interface Props {
   party: PlayerCharacter[];
 }
 
+// Plan 114 — the Summer Games, as camera presets on the Candlestair. Picking
+// one flies the immersive view there; that is the whole of what it does.
+const STATIONS: [string, string][] = [
+  ["apple", "🍎 Apple"],
+  ["ring", "⚔ Ring"],
+  ["maze", "🌿 Maze"],
+  ["moths", "🏮 Moths"],
+  ["caber", "🪵 Caber"],
+  ["bonfire", "🔥 Ceremony"],
+];
+
 const DOT: Record<string, string> = {
   pc: "#d6af36",
   monster: "#b0472f",
@@ -108,6 +119,32 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
             style={{ width: 90 }}
           />
         </label>
+      </div>
+
+      {/* Plan 114 — which of the Summer Games the table is watching. */}
+      <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap", fontSize: "0.66rem" }}>
+        <span style={{ color: "var(--muted)" }}>Station</span>
+        {STATIONS.map(([key, label]) => (
+          <button
+            key={key}
+            className={t.state?.station === key ? "btn" : "btn btn-ghost"}
+            style={btn}
+            title="Fly the immersive camera to this event"
+            onClick={() => t.patchNow({ station: t.state?.station === key ? null : key })}
+          >
+            {label}
+          </button>
+        ))}
+        {t.state?.station && (
+          <button
+            className="btn btn-ghost"
+            style={btn}
+            title="Leave the camera wherever it is"
+            onClick={() => t.patchNow({ station: null })}
+          >
+            ✕ free
+          </button>
+        )}
       </div>
 
       {/* Plan 114 — size and free-text states, for what the rules have no column for. */}

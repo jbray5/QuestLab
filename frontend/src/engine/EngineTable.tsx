@@ -353,6 +353,19 @@ export default function EngineTable() {
     }));
   }, [data]);
 
+  // Plan 114 — the DM's chosen Summer Games station, as a camera move. Derived,
+  // not stored: the nonce is a hash of the station's own name, so it changes
+  // exactly when the DM picks a different one and the Director glides once.
+  const stationShot = useMemo(() => {
+    const name = data?.station ?? null;
+    const preset = name && map?.looks?.[name];
+    if (!name || !preset || !map) return null;
+    const [sx, sz] = toWorld(map, ...preset.at);
+    let nonce = 0;
+    for (let i = 0; i < name.length; i++) nonce = (nonce * 31 + name.charCodeAt(i)) | 0;
+    return { at: new THREE.Vector3(sx, 0.6, sz), nonce: Math.abs(nonce) + 1, eye: preset.eye };
+  }, [data?.station, map]);
+
   const home = useMemo(() => {
     if (!map) return { look: new THREE.Vector3(), eye: [0, 5, 5] as [number, number, number] };
     const [lx, lz] = toWorld(map, ...map.look);
@@ -382,6 +395,7 @@ export default function EngineTable() {
   // The home view, built once per map. OrbitControls copies its `target` prop whenever the
   // object changes, so a fresh Vector3 every render snapped the view back to home on every hit.
   const { look, eye } = home;
+
 
   return (
     <div className="et-root">
@@ -491,7 +505,13 @@ export default function EngineTable() {
           makeDefault
         />
         <CameraKeys home={{ eye, look }} homeNonce={homeNonce} />
-        <Director at={active?.cell ?? null} nonce={frameNonce} follow={follow} focus={focus} kick={kick} />
+        <Director
+          at={active?.cell ?? null}
+          nonce={frameNonce}
+          follow={follow}
+          focus={stationShot ?? focus}
+          kick={kick}
+        />
         <RimLight />
         <Post fast={fast} cinema={cinema} focus={focus ? [focus.at.x, 0.9, focus.at.z] : active ? [active.cell.x, 1.0, active.cell.z] : null} />
       </Canvas>

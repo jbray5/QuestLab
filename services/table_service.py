@@ -734,6 +734,7 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
         active_token_ref=active_ref,
         defeated_refs=defeated_refs,
         lost=sum(int(t.dead or 0) for t in tokens),
+        station=getattr(state, "station", None) if state else None,
         combat_running=combat_running,
         round=combat_round if combat_running else 0,
         initiative=initiative,

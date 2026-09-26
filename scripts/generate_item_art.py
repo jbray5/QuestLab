@@ -15,6 +15,13 @@ Examples:
     python scripts/generate_item_art.py                 # up to 6 items
     python scripts/generate_item_art.py --limit 12 --all-inventory
     python scripts/generate_item_art.py --name "Longsword"
+    python scripts/generate_item_art.py --shop <shop-id> --limit 12
+    python scripts/generate_item_art.py --item <item-id> --item <item-id>
+
+Generation runs **here**, against the local OPENAI_API_KEY, and only the
+finished PNG is uploaded. The product itself ships without generative AI and
+its AI routes still answer "Generative AI is not part of QuestLab" — see
+plans/00086-no-generative-ai.md and the same posture in plans/00094.
 """
 
 from __future__ import annotations
@@ -46,6 +53,59 @@ _PROMPT = (
 )
 
 
+def _shop_rows(api: str, shop_id: str) -> list[dict]:
+    """Every item on one shop's shelves, shaped like a gear row.
+
+    Args:
+        api: API base URL.
+        shop_id: UUID of the shop.
+
+    Returns:
+        Rows carrying ``item_id``, ``name`` and ``image_url``.
+    """
+    front = httpx.get(f"{api}/storefront/{shop_id}", timeout=60.0).json()
+    rows = []
+    for it in front.get("items") or []:
+        rows.append(
+            {
+                "item_id": it.get("item_id"),
+                "name": it.get("name"),
+                "image_url": it.get("image_url"),
+                "equipped": True,  # a shelf has no notion of equipped; treat all as wanted
+                "_pc": front.get("name", "the shop"),
+            }
+        )
+    return rows
+
+
+def _item_rows(api: str, headers: dict, item_ids: list[str]) -> list[dict]:
+    """Named catalog items, shaped like gear rows.
+
+    Args:
+        api: API base URL.
+        headers: Auth headers for the DM.
+        item_ids: Catalog item UUIDs.
+
+    Returns:
+        Rows carrying ``item_id``, ``name`` and ``image_url``.
+    """
+    rows = []
+    for iid in item_ids:
+        r = httpx.get(f"{api}/items/{iid}", headers=headers, timeout=60.0)
+        r.raise_for_status()
+        it = r.json()
+        rows.append(
+            {
+                "item_id": it["id"],
+                "name": it["name"],
+                "image_url": it.get("image_url"),
+                "equipped": True,
+                "_pc": "catalog",
+            }
+        )
+    return rows
+
+
 def _gear_rows(api: str, campaign: str) -> list[dict]:
     """Every PC's gear rows via the public join roster + gear routes."""
     roster = httpx.get(f"{api}/play/join/{campaign}", timeout=60.0).json()
@@ -65,12 +125,20 @@ def main() -> None:
     ap.add_argument("--limit", type=int, default=6, help="max images this run")
     ap.add_argument("--all-inventory", action="store_true", help="include unequipped items")
     ap.add_argument("--name", action="append", default=[], help="specific item name(s) only")
+    ap.add_argument("--shop", default=None, help="stock one shop's shelves instead of party gear")
+    ap.add_argument("--item", action="append", default=[], help="catalog item id(s) directly")
     ap.add_argument("--campaign", default=DEFAULT_CAMPAIGN_ID)
     ap.add_argument("--api", default=os.environ.get("QUESTLAB_API", DEFAULT_API_BASE))
     ap.add_argument("--dm-email", default="justinray5@outlook.com")
     args = ap.parse_args()
 
-    rows = _gear_rows(args.api, args.campaign)
+    headers = {AUTH_HEADER: args.dm_email}
+    if args.item:
+        rows = _item_rows(args.api, headers, args.item)
+    elif args.shop:
+        rows = _shop_rows(args.api, args.shop)
+    else:
+        rows = _gear_rows(args.api, args.campaign)
     # item_id -> (name, equipped anywhere, holders)
     items: dict[str, dict] = {}
     for g in rows:
@@ -103,7 +171,6 @@ def main() -> None:
     load_dotenv(_ROOT / ".env")
     from integrations.openai_client import generate_image
 
-    headers = {AUTH_HEADER: args.dm_email}
     done = 0
     for iid, e in wanted[: args.limit]:
         print(f"\nGenerating {e['name']!r} …")
