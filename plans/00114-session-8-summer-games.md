@@ -38,7 +38,11 @@ carries no secrets — players view source.**
 - [x] Step 7: Items — 6 game prizes, 4 queen's gifts, in the compendium (2026-09-25)
 - [x] Step 8: Session 8 record + the three boards on its shelf (2026-09-25)
 - [x] Step 9: Contest tracker — the Summer Games Companion at
-      `campaigns/:campaignId/summergames` (2026-09-26)
+      `campaigns/:campaignId/summergames`. **Rewritten 2026-09-26** for the
+      revised handoff: five different games, not one scoreboard.
+- [x] Step 14: Ser Bramwell Thistledown — stat block, card, rabbit ears (2026-09-26)
+- [x] Step 15: The Summer Games Market — a player-facing shop of 14 stalls
+      items (2026-09-26)
 - [x] Step 10a: NPC cards for the liaison and the five rivals (2026-09-25)
 - [x] Step 10b: Carried-over conditions — token `effects` and a size picker on
       the LIVE tab (2026-09-26)
@@ -51,6 +55,16 @@ carries no secrets — players view source.**
 ---
 
 ## Surprises and Discoveries
+- The shop storefront is read at `GET /storefront/{id}`, not `/shops/{id}`.
+- The player NPC projection (`services/player_service.py` `list_visible_npcs`)
+  returns only name, role, race, appearance, location, status and portrait, so
+  `voice`, `quick_who`, `secret`, `motivation` and `notes` are safe places for
+  DM-only text. Verified before writing Ser Bramwell's voice note.
+- The contest tracker holds the Moth Lantern's sealed bids, which must not
+  reach the players. Because the companion is localStorage-only and never
+  writes to the table state, that is true by construction rather than by care.
+- The 3D hedge maze is static scenery; the tracker's A/B/C layout letter is a
+  DM prompt, not something the board animates. Shifting hedges were not built.
 - **The compendium lists magic items only.** `services/item_service.py`
   `list_items` filters `is_magic=True`, so the two mundane prizes (the cask and
   the garland) were created successfully and were then invisible to the Loot
@@ -112,6 +126,8 @@ carries no secrets — players view source.**
 | 2026-09-25 | Whether to deploy | push to main vs leave committed | leave committed, do not push | CLAUDE.md requires human approval for `git push`. The work is worthless undeployed, so this is the headline of the handback rather than a quiet omission. |
 | 2026-09-26 | Where session-long creature states live | `SessionCombatant.conditions`, a new PC column, or the token | the token (`effects`) | The combatant row only exists while a fight runs, and the Games and the feast are not fights. The token survives the session and every map change, needs no migration, and already reaches both the 2D table and the immersive view. |
 | 2026-09-26 | Contest tracker: server-persisted or DM-local | a new table and endpoints vs a companion page | companion page, localStorage | Matches the Restwater and Temple companions exactly, needs no backend, and the scores are DM-only — the handoff never asks players to see them. Ships in an afternoon rather than a day. |
+| 2026-09-26 | Rewriting the tracker vs extending it | add modes to the score table vs rebuild per event | rebuild | The revision made the five events structurally different — a holder, touch pips, step pips, sealed bids, three gambled throws. A shared score grid could not express any of them. |
+| 2026-09-26 | Grand Champion purse | 100 gp (original) vs 200 gp (revision) | 200 gp | Section 10 explicitly overrides section 3. |
 | 2026-09-26 | The two mundane prizes | change `list_items` to show non-magic items vs mark these two magic | mark them magic | Unfiltering the compendium would drop ~150 mundane items into a panel that has only ever shown magic ones, the night before a session. Two fey-court prizes being flagged magic is defensible and reversible. |
 
 ---

@@ -8,7 +8,10 @@ export type Adornment = "crown" | "ears";
 
 const RULES: [RegExp, Adornment][] = [
   [/titania|queen/i, "crown"],
-  [/goldenrod|harengon|\bhare\b|rabbit|bunny/i, "ears"],
+  // Session 8's harengons by name — Ser Bramwell Thistledown and his squire Pip
+  // — plus the words for what they are, so a token named for the species works
+  // without anyone editing this list again.
+  [/thistledown|bramwell|\bpip\b|harengon|goldenrod|\bhare\b|rabbit|bunny/i, "ears"],
 ];
 
 export function adornFor(label: string | null | undefined): Adornment | null {
