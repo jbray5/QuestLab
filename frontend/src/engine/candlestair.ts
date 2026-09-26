@@ -184,8 +184,11 @@ export const CANDLESTAIR: MapDef = {
     { model: "grass_medium_01", u: 0.25, v: 0.6, rot: 0.2 },
     { model: "grass_medium_01", u: 0.75, v: 0.6, rot: 1.9 },
   ],
-  look: [0.5, 0.5],
-  eye: [1.2, 12, 9],
+  // Session 8 opens at the foot of the stair, not at the shrine: the party,
+  // the crowd and the games are all down here, and the shrine is the thing
+  // the herd is running towards, up the picture.
+  look: [0.5, 0.91],
+  eye: [0, 9, 11],
   looks: {
     shrine: { at: [0.5, 0.51], eye: [0.6, 5.2, 6] },
     fountains: { at: [0.5, 0.36], eye: [0, 6.5, 6.5] },

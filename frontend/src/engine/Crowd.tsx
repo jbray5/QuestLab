@@ -26,9 +26,12 @@ import { pixelToUV } from "./session";
  */
 
 /** Cloth colours for the Summer Court's crowd: greens and golds, a little varied. */
-const CLOTH = ["#6f8f4a", "#8aa35c", "#b9a049", "#7d9b58", "#caa84e", "#5f7f45"];
-const SKIN = new THREE.Color("#c69b74");
-const GONE = new THREE.Color("#5a5a62");
+// Deep greens and bronzes. The festival ground is pale, brightly lit and
+// bloomed, so anything mid-toned washes out into it — these are darker than
+// the Summer Court would actually wear, and that is what makes them read.
+const CLOTH = ["#2f4a1c", "#40552a", "#6b5316", "#38512a", "#7a5f1c", "#27401a"];
+const SKIN = new THREE.Color("#8a6144");
+const GONE = new THREE.Color("#33333a");
 
 /** A deterministic scatter so a knot never reshuffles between frames. */
 function jitter(seed: number): [number, number, number] {
@@ -81,6 +84,14 @@ function people(map: MapDef, p: TableProjection): Person[] {
   return out;
 }
 
+// One body, one head, one material each — built once and shared by every
+// crowd on every map, because an instanced draw needs a concrete geometry and
+// material up front rather than JSX children.
+const bodyGeo = new THREE.CapsuleGeometry(0.17, 0.72, 3, 8);
+const headGeo = new THREE.SphereGeometry(0.16, 9, 8);
+const cloth = new THREE.MeshStandardMaterial({ roughness: 0.9 });
+const skin = new THREE.MeshStandardMaterial({ roughness: 0.85 });
+
 const _m = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const _pos = new THREE.Vector3();
@@ -127,17 +138,17 @@ export function Crowd({
         // Standing: a slow breath, and a little sway while they watch the games.
         const bob = Math.sin(t * 1.6 + c.phase) * 0.02;
         _euler.set(0, c.yaw + Math.sin(t * 0.5 + c.phase) * 0.12, 0);
-        _pos.set(c.x, 0.52 + bob, c.z);
+        _pos.set(c.x, 0.64 + bob, c.z);
       } else {
         // Down: face to the boards, and staying there.
         _euler.set(Math.PI / 2, c.yaw, 0);
-        _pos.set(c.x, 0.17, c.z);
+        _pos.set(c.x, 0.19, c.z);
       }
       _q.setFromEuler(_euler);
       bodies.current.setMatrixAt(i, _m.compose(_pos, _q, _scl));
       // The head rides the body: up top when standing, out front when down.
-      if (c.state === "up") _pos.set(c.x, 0.95 + Math.sin(t * 1.6 + c.phase) * 0.02, c.z);
-      else _pos.set(c.x + Math.sin(c.yaw) * 0.42, 0.17, c.z + Math.cos(c.yaw) * 0.42);
+      if (c.state === "up") _pos.set(c.x, 1.16 + Math.sin(t * 1.6 + c.phase) * 0.02, c.z);
+      else _pos.set(c.x + Math.sin(c.yaw) * 0.55, 0.19, c.z + Math.cos(c.yaw) * 0.55);
       heads.current.setMatrixAt(i, _m.compose(_pos, _q, _scl));
     }
     bodies.current.instanceMatrix.needsUpdate = true;
@@ -149,24 +160,19 @@ export function Crowd({
     <group>
       <instancedMesh
         ref={bodies}
-        args={[undefined, undefined, n]}
+        args={[bodyGeo, cloth, n]}
         key={`b${n}`}
         castShadow
+        receiveShadow
         frustumCulled={false}
-      >
-        <capsuleGeometry args={[0.15, 0.52, 3, 7]} />
-        <meshStandardMaterial roughness={0.9} />
-      </instancedMesh>
+      />
       <instancedMesh
         ref={heads}
-        args={[undefined, undefined, n]}
+        args={[headGeo, skin, n]}
         key={`h${n}`}
         castShadow
         frustumCulled={false}
-      >
-        <sphereGeometry args={[0.13, 8, 7]} />
-        <meshStandardMaterial roughness={0.85} />
-      </instancedMesh>
+      />
     </group>
   );
 }

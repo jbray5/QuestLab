@@ -78,7 +78,10 @@ export function figures(map: MapDef, p: TableProjection): Figure[] {
   if (!p.map) return [];
   const m = p.map;
   return p.tokens
-    .filter((t) => t.kind !== "light")
+    // A light is a lantern, not a person. A crowd knot is a whole group of
+    // them and draws itself (Crowd.tsx) — it must not also stand here as one
+    // figure with a nameplate and a turn ring.
+    .filter((t) => t.kind !== "light" && t.crowd == null)
     .map((t) => {
       const [u, v] = pixelToUV(m, t.x, t.y);
       return {
