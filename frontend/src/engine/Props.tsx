@@ -147,6 +147,22 @@ function Built({ map, piece }: { map: MapDef; piece: Piece }) {
       </group>
     );
   }
+  if (kind === "chalk") {
+    // A ring chalked on the flagstones for the King of the Ring: flat, matte,
+    // and just bright enough to read against a painted floor.
+    return (
+      <group position={[x, 0.03, z]} scale={s}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+          <ringGeometry args={[1.88, 2.0, 48]} />
+          <meshBasicMaterial color="#f3ece0" transparent opacity={0.75} depthWrite={false} />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={1}>
+          <ringGeometry args={[0.24, 0.3, 24]} />
+          <meshBasicMaterial color="#f3ece0" transparent opacity={0.45} depthWrite={false} />
+        </mesh>
+      </group>
+    );
+  }
   if (kind === "dome") {
     const r = 1.9 * s;
     const h = piece.h ?? 2.8;

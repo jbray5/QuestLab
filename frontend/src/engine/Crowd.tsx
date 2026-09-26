@@ -1,6 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
 import type { TableProjection } from "../api/types";
 import type { Fog } from "./fogOfWar";
@@ -41,9 +42,14 @@ function jitter(seed: number): [number, number, number] {
   return [a - Math.floor(a), b - Math.floor(b), c - Math.floor(c)];
 }
 
+/** One knot's ring: where it is, and how much of it is still lit. */
+type Knot = { x: number; z: number; standing: number; start: number };
+
 type Person = {
   x: number;
   z: number;
+  /** How tall this one stands, as a multiple of the base body. */
+  size: number;
   /** Which way they face, and how far into their idle bob they are. */
   yaw: number;
   phase: number;
@@ -52,9 +58,10 @@ type Person = {
 };
 
 /** Everyone the crowd tokens add up to, laid out around their knots. */
-function people(map: MapDef, p: TableProjection): Person[] {
-  if (!p.map) return [];
+function people(map: MapDef, p: TableProjection): { crowd: Person[]; knots: Knot[] } {
+  if (!p.map) return { crowd: [], knots: [] };
   const out: Person[] = [];
+  const knots: Knot[] = [];
   for (const t of p.tokens) {
     if (t.crowd == null) continue;
     const [u, v] = pixelToUV(p.map, t.x, t.y);
@@ -63,6 +70,8 @@ function people(map: MapDef, p: TableProjection): Person[] {
     const down = (t.hurt ?? 0) + (t.dying ?? 0);
     const gone = t.dead ?? 0;
     const total = up + down + gone;
+    // The ring measures the living against however many this knot began with.
+    knots.push({ x: cx, z: cz, standing: up, start: Math.max(1, total) });
     for (let i = 0; i < total; i++) {
       const [j0, j1, j2] = jitter(i * 7.7 + cx * 3.1 + cz * 5.3);
       const ring = 0.55 + j2 * 0.75;
@@ -73,6 +82,9 @@ function people(map: MapDef, p: TableProjection): Person[] {
         z: cz + Math.sin(ang) * ring,
         yaw: j1 * Math.PI * 2,
         phase: j2 * 6.28,
+        // A festival is not a row of identical pegs: some of this crowd are
+        // children and halflings, a few are tall.
+        size: 0.82 + j0 * 0.42,
         state,
         color:
           state === "gone"
@@ -81,14 +93,50 @@ function people(map: MapDef, p: TableProjection): Person[] {
       });
     }
   }
-  return out;
+  return { crowd: out, knots };
 }
 
 // One body, one head, one material each — built once and shared by every
 // crowd on every map, because an instanced draw needs a concrete geometry and
 // material up front rather than JSX children.
-const bodyGeo = new THREE.CapsuleGeometry(0.17, 0.72, 3, 8);
-const headGeo = new THREE.SphereGeometry(0.16, 9, 8);
+/**
+ * A bystander, in the only detail that survives the distance this is seen
+ * from: two legs, a torso, two arms. One merged geometry so a crowd is one
+ * draw. The head is separate because it is the one part that is not cloth.
+ */
+function buildBody(): THREE.BufferGeometry {
+  const parts: THREE.BufferGeometry[] = [];
+  const put = (g: THREE.BufferGeometry, x: number, y: number, z = 0, tilt = 0) => {
+    if (tilt) g.rotateZ(tilt);
+    g.translate(x, y, z);
+    parts.push(g);
+  };
+  // Legs, slightly apart.
+  put(new THREE.BoxGeometry(0.1, 0.44, 0.13), -0.075, 0.22);
+  put(new THREE.BoxGeometry(0.1, 0.44, 0.13), 0.075, 0.22);
+  // Torso, a touch wider at the shoulder than the waist.
+  const torso = new THREE.CylinderGeometry(0.16, 0.12, 0.4, 8);
+  put(torso, 0, 0.64);
+  // Arms, hanging with a slight outward tilt so the silhouette is not a slab.
+  put(new THREE.BoxGeometry(0.07, 0.36, 0.085), -0.185, 0.64, 0, 0.13);
+  put(new THREE.BoxGeometry(0.07, 0.36, 0.085), 0.185, 0.64, 0, -0.13);
+  return mergeGeometries(parts, false)!;
+}
+
+const bodyGeo = buildBody();
+const headGeo = new THREE.SphereGeometry(0.115, 9, 8);
+// The knot ring: a flat annulus about fifteen feet across, drawn additively so
+// it glows on a bright painted floor and simply vanishes when it goes out.
+const ringGeo = new THREE.RingGeometry(1.15, 1.5, 40);
+ringGeo.rotateX(-Math.PI / 2);
+const ringMat = new THREE.MeshBasicMaterial({
+  transparent: true,
+  blending: THREE.AdditiveBlending,
+  depthWrite: false,
+  toneMapped: false,
+  side: THREE.DoubleSide,
+});
+const RING_LIT = new THREE.Color("#ffc34d");
 const cloth = new THREE.MeshStandardMaterial({ roughness: 0.9 });
 const skin = new THREE.MeshStandardMaterial({ roughness: 0.85 });
 
@@ -97,6 +145,7 @@ const _q = new THREE.Quaternion();
 const _pos = new THREE.Vector3();
 const _scl = new THREE.Vector3(1, 1, 1);
 const _euler = new THREE.Euler();
+const _col = new THREE.Color();
 
 export function Crowd({
   map,
@@ -107,16 +156,22 @@ export function Crowd({
   projection: TableProjection;
   fog: Fog | null;
 }) {
-  const crowd = useMemo(() => {
+  const { crowd, knots } = useMemo(() => {
+    const seen = (x: number, z: number) =>
+      !fog || fog.revealed(x / map.w + 0.5, z / map.h + 0.5);
     const all = people(map, projection);
-    if (!fog) return all;
     // Under fog only the revealed part of the festival is built.
-    return all.filter((c) => fog.revealed(c.x / map.w + 0.5, c.z / map.h + 0.5));
+    return {
+      crowd: all.crowd.filter((c) => seen(c.x, c.z)),
+      knots: all.knots.filter((k) => seen(k.x, k.z)),
+    };
   }, [map, projection, fog]);
 
   const bodies = useRef<THREE.InstancedMesh>(null);
   const heads = useRef<THREE.InstancedMesh>(null);
+  const rings = useRef<THREE.InstancedMesh>(null);
   const n = crowd.length;
+  const k = knots.length;
 
   // Colours only change when the crowd does, so they are set outside the frame loop.
   useLayoutEffect(() => {
@@ -129,35 +184,73 @@ export function Crowd({
     }
   }, [crowd]);
 
+  // A ring's brightness and size are the knot's count, so they only move when
+  // somebody goes down or gets back up.
+  useLayoutEffect(() => {
+    const mesh = rings.current;
+    if (!mesh) return;
+    for (let i = 0; i < knots.length; i++) {
+      const kn = knots[i];
+      const frac = kn.standing / kn.start;
+      _pos.set(kn.x, 0.04, kn.z);
+      const size = 0.72 + 0.28 * frac;
+      mesh.setMatrixAt(
+        i,
+        _m.compose(_pos, _q.identity(), _scl.set(size, 1, size)),
+      );
+      // Additive blending means a black ring is an absent one.
+      _col.copy(RING_LIT).multiplyScalar(frac <= 0 ? 0 : 0.28 + 0.72 * frac);
+      mesh.setColorAt(i, _col);
+    }
+    _scl.set(1, 1, 1);
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }, [knots]);
+
   useFrame(({ clock }) => {
     if (!bodies.current || !heads.current) return;
     const t = clock.elapsedTime;
     for (let i = 0; i < n; i++) {
       const c = crowd[i];
+      const h = c.size;
+      _scl.set(h, h, h);
+      let headY: number;
       if (c.state === "up") {
         // Standing: a slow breath, and a little sway while they watch the games.
-        const bob = Math.sin(t * 1.6 + c.phase) * 0.02;
+        const bob = Math.sin(t * 1.6 + c.phase) * 0.018;
         _euler.set(0, c.yaw + Math.sin(t * 0.5 + c.phase) * 0.12, 0);
-        _pos.set(c.x, 0.64 + bob, c.z);
+        _pos.set(c.x, bob, c.z);
+        headY = 0.9 * h + bob;
       } else {
         // Down: face to the boards, and staying there.
         _euler.set(Math.PI / 2, c.yaw, 0);
-        _pos.set(c.x, 0.19, c.z);
+        _pos.set(c.x, 0.12 * h, c.z);
+        headY = 0.115 * h;
       }
       _q.setFromEuler(_euler);
       bodies.current.setMatrixAt(i, _m.compose(_pos, _q, _scl));
-      // The head rides the body: up top when standing, out front when down.
-      if (c.state === "up") _pos.set(c.x, 1.16 + Math.sin(t * 1.6 + c.phase) * 0.02, c.z);
-      else _pos.set(c.x + Math.sin(c.yaw) * 0.55, 0.19, c.z + Math.cos(c.yaw) * 0.55);
+      // The head rides the body: on the shoulders, or out front when down.
+      if (c.state === "up") _pos.set(c.x, headY, c.z);
+      else _pos.set(c.x + Math.sin(c.yaw) * 0.62 * h, headY, c.z + Math.cos(c.yaw) * 0.62 * h);
       heads.current.setMatrixAt(i, _m.compose(_pos, _q, _scl));
     }
+    _scl.set(1, 1, 1);
     bodies.current.instanceMatrix.needsUpdate = true;
     heads.current.instanceMatrix.needsUpdate = true;
   });
 
-  if (n === 0) return null;
+  if (n === 0 && k === 0) return null;
   return (
     <group>
+      {k > 0 && (
+        <instancedMesh
+          ref={rings}
+          args={[ringGeo, ringMat, k]}
+          key={`r${k}`}
+          frustumCulled={false}
+          renderOrder={2}
+        />
+      )}
       <instancedMesh
         ref={bodies}
         args={[bodyGeo, cloth, n]}

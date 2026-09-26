@@ -68,18 +68,21 @@ const festivalProps = (): Piece[] => [
   // The caber toss: stripped trunks stacked at the throwing line.
   { model: "dead_tree_trunk", u: 0.38, v: 0.985, rot: 1.5, scale: 0.7 },
   { model: "dead_tree_trunk", u: 0.42, v: 0.99, rot: 1.4, scale: 0.7 },
-  // The green maze, a hedge square on the east flank.
-  ...[0, 1, 2].flatMap((i) =>
+  // Station 3, the Green Maze: hedges in the left garden bed, up on the
+  // shrine terrace, where the picture already has a walled planting.
+  ...[0, 1, 2, 3].flatMap((i) =>
     [0, 1].map((j) => ({
       model: "wild_rooibos_bush",
-      u: 0.7 + i * 0.04,
-      v: 0.93 + j * 0.035,
+      u: 0.16 + i * 0.055,
+      v: 0.48 + j * 0.06,
       rot: (i + j) * 0.7,
     })),
   ),
-  // The knight's bout: practice weapon racks either side of the chalk circle.
-  { model: "wooden_crate_01", u: 0.26, v: 0.895, rot: 0.2 },
-  { model: "wooden_stool_01", u: 0.3, v: 0.915 },
+  // Station 2, King of the Ring: a circle chalked on the fountain court's
+  // flagstones, with the practice racks beside it.
+  { model: "built:chalk", u: 0.5, v: 0.795, scale: 1 },
+  { model: "wooden_crate_01", u: 0.33, v: 0.8, rot: 0.2 },
+  { model: "wooden_stool_01", u: 0.67, v: 0.8 },
 ];
 
 export const CANDLESTAIR: MapDef = {
@@ -196,6 +199,12 @@ export const CANDLESTAIR: MapDef = {
     pool: { at: [0.5, 0.79], eye: [0, 4.8, 5.5] },
     festival: { at: [0.5, 0.94], eye: [0, 6, 7] },
     bonfire: { at: [0.5, 0.94], eye: [0.5, 2.6, 4] },
+    // The five Summer Games, one per terrace (Plan 114, section 11b).
+    apple: { at: [0.5, 0.93], eye: [0, 7, 8] },
+    ring: { at: [0.5, 0.795], eye: [0, 4.5, 6] },
+    maze: { at: [0.25, 0.53], eye: [0, 4.5, 5.5] },
+    moths: { at: [0.5, 0.51], eye: [0, 3.6, 5] },
+    caber: { at: [0.72, 0.95], eye: [-2.5, 2.8, 4.5] },
     top: { at: [0.5, 0.5], eye: [0, 34, 0.01] },
   },
   start: [0.5, 0.95],

@@ -27,7 +27,7 @@ export interface Piece {
   scale?: number;
   /** Hung from above — roots through a cave roof. */
   flip?: boolean;
-  /** For a built piece (`built:column`, `built:banner`, `built:throne`, `built:dome`): its colour and its height in units. */
+  /** For a built piece (`built:column`, `built:banner`, `built:throne`, `built:dome`, `built:chalk`): its colour and its height in units. */
   tint?: string;
   h?: number;
 }

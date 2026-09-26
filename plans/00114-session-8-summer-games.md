@@ -49,12 +49,33 @@ carries no secrets — players view source.**
 - [ ] Step 11: Immersive — the five event stations as scenery (partial: caber,
       hedge maze and bout racks are in; no moths, no maze layouts)
 - [ ] Step 12: Nice-to-haves (relief animation, moths, feast table, tapestry)
+- [x] Step 16 (section 11a): a glowing ring under every crowd knot, brightness
+      and size tracking the count, dark when the knot is empty (2026-09-26)
+- [x] Step 17 (section 11a): crowd figures stop being capsules — merged
+      primitive humanoids with legs, torso and arms, varied height (2026-09-26)
+- [x] Step 18 (section 11b): station camera presets for all five Games, the
+      chalk circle at the fountain court, maze hedges moved to the garden
+      bed (2026-09-26)
+- [ ] Step 19 (section 11a): **rigged, animated crowd** — idle, cheer, flee.
+      Not built; the figures stand, breathe, sway and fall, nothing more.
+- [ ] Step 20 (section 11b): the DM-screen station control that flies the
+      camera and fades prop sets in. Presets exist; the control does not.
+      Needs a new table-state column, i.e. a migration.
+- [ ] Step 21 (section 11b): hedge growth between layouts, caber tumble,
+      apple glow on the holder, moth swarm, crowd turning to face a station.
 - [ ] **Step 13: DEPLOY. Nothing in steps 1-3 or 6 exists for the DM until the
       backend ships — an older API silently drops the crowd fields.**
 
 ---
 
 ## Surprises and Discoveries
+- **The Moth Lantern's night mode needs no build.** The table already has a
+  darkness slider on the LIVE tab, which is exactly the sky-and-ambient drop
+  section 11b asks for. Use it, and bring it back up afterwards.
+- The crowd capsules were not a rendering bug, they were a modelling choice:
+  a capsule plus a ball is a lozenge at any distance. Limbs are what make a
+  silhouette read as a person, and they cost nothing extra when the whole
+  body is one merged geometry.
 - The shop storefront is read at `GET /storefront/{id}`, not `/shops/{id}`.
 - The player NPC projection (`services/player_service.py` `list_visible_npcs`)
   returns only name, role, race, appearance, location, status and portrait, so
