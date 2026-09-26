@@ -52,6 +52,19 @@ _PROMPT = (
     "no character, no hands, no scenery, no text, no watermark, no border."
 )
 
+# The Feywild in high summer: the dark-fantasy prompt reads as a dungeon, and a
+# festival stall is not a dungeon. Same object, same framing, daylight.
+_PROMPT_BRIGHT = (
+    "A single {name}, the D&D adventuring item, presented alone as museum-grade "
+    "equipment art: luminous hand-painted storybook illustration, warm summer "
+    "daylight, bright saturated colours, gold and green highlights, centered on "
+    "a plain pale cream background with a soft ground shadow. Light, airy and "
+    "cheerful — a midsummer fair, not a dungeon. Nothing else in frame — no "
+    "character, no hands, no scenery, no text, no watermark, no border."
+)
+
+_STYLES = {"dark": _PROMPT, "bright": _PROMPT_BRIGHT}
+
 
 def _shop_rows(api: str, shop_id: str) -> list[dict]:
     """Every item on one shop's shelves, shaped like a gear row.
@@ -127,6 +140,10 @@ def main() -> None:
     ap.add_argument("--name", action="append", default=[], help="specific item name(s) only")
     ap.add_argument("--shop", default=None, help="stock one shop's shelves instead of party gear")
     ap.add_argument("--item", action="append", default=[], help="catalog item id(s) directly")
+    ap.add_argument(
+        "--style", choices=sorted(_STYLES), default="dark", help="art style for this run"
+    )
+    ap.add_argument("--force", action="store_true", help="redo art that already exists")
     ap.add_argument("--campaign", default=DEFAULT_CAMPAIGN_ID)
     ap.add_argument("--api", default=os.environ.get("QUESTLAB_API", DEFAULT_API_BASE))
     ap.add_argument("--dm-email", default="justinray5@outlook.com")
@@ -143,7 +160,7 @@ def main() -> None:
     items: dict[str, dict] = {}
     for g in rows:
         iid = g.get("item_id")
-        if not iid or g.get("image_url"):
+        if not iid or (g.get("image_url") and not args.force):
             continue
         entry = items.setdefault(iid, {"name": g["name"], "equipped": False, "holders": []})
         entry["equipped"] = entry["equipped"] or bool(g.get("equipped"))
@@ -160,7 +177,8 @@ def main() -> None:
     if not wanted:
         print("Every relevant item already has art. ✨")
         return
-    print(f"{len(wanted)} item(s) missing art:")
+    verb = "to redo" if args.force else "missing art"
+    print(f"{len(wanted)} item(s) {verb}:")
     for _iid, e in wanted:
         tag = "equipped" if e["equipped"] else "inventory"
         print(f"  [{tag}] {e['name']}  (held by {', '.join(sorted(set(e['holders'])))})")
@@ -174,7 +192,7 @@ def main() -> None:
     done = 0
     for iid, e in wanted[: args.limit]:
         print(f"\nGenerating {e['name']!r} …")
-        png = generate_image(_PROMPT.format(name=e["name"]), size="1024x1024")
+        png = generate_image(_STYLES[args.style].format(name=e["name"]), size="1024x1024")
         up = httpx.post(
             f"{args.api}/uploads/map",  # blob-backed upload route (path prefix is cosmetic)
             headers=headers,

@@ -5,7 +5,7 @@ import * as THREE from "three";
 
 import { modelUrl } from "./assets";
 import type { MapDef, Piece } from "./maps";
-import { toWorld } from "./maps";
+import { groundAt, toWorld } from "./maps";
 import { usePbr } from "./materials";
 
 /**
@@ -20,8 +20,9 @@ const M = 1 / 1.524;
 /** Letters left on a table: a few sheets, not quite squared up. */
 function Papers({ map, piece }: { map: MapDef; piece: Piece }) {
   const [x, z] = toWorld(map, piece.u, piece.v);
+  const gy = groundAt(map, piece.u, piece.v);
   return (
-    <group position={[x, (piece.y ?? 0) + 0.004, z]} rotation={[0, piece.rot ?? 0, 0]}>
+    <group position={[x, gy + (piece.y ?? 0) + 0.004, z]} rotation={[0, piece.rot ?? 0, 0]}>
       {[
         [0, 0, 0.0],
         [0.06, 0.03, 0.35],
@@ -38,6 +39,7 @@ function Papers({ map, piece }: { map: MapDef; piece: Piece }) {
 }
 
 function Prop({ map, piece }: { map: MapDef; piece: Piece }) {
+  // A prop on a dais stands on the dais, not through it.
   if (piece.model === "papers") return <Papers map={map} piece={piece} />;
   if (piece.model.startsWith("built:")) return <Built map={map} piece={piece} />;
   return <Model map={map} piece={piece} />;
@@ -52,13 +54,14 @@ function Prop({ map, piece }: { map: MapDef; piece: Piece }) {
  */
 function Built({ map, piece }: { map: MapDef; piece: Piece }) {
   const [x, z] = toWorld(map, piece.u, piece.v);
+  const gy = groundAt(map, piece.u, piece.v);
   const kind = piece.model.slice(6);
   const s = piece.scale ?? 1;
   const stone = usePbr("sandstone", [1, 2]);
   if (kind === "column") {
     const h = piece.h ?? 2.6;
     return (
-      <group position={[x, 0, z]} scale={[s, 1, s]}>
+      <group position={[x, gy, z]} scale={[s, 1, s]}>
         <mesh position={[0, 0.08, 0]} castShadow receiveShadow>
           <cylinderGeometry args={[0.3, 0.34, 0.16, 12]} />
           <meshStandardMaterial map={stone.map} normalMap={stone.normalMap} roughnessMap={stone.roughnessMap} color={piece.tint ?? "#d8cdb8"} roughness={1} />
@@ -77,7 +80,7 @@ function Built({ map, piece }: { map: MapDef; piece: Piece }) {
   if (kind === "banner") {
     const h = piece.h ?? 2.3;
     return (
-      <group position={[x, 0, z]} rotation={[0, piece.rot ?? 0, 0]}>
+      <group position={[x, gy, z]} rotation={[0, piece.rot ?? 0, 0]}>
         <mesh position={[0, h, 0]} rotation={[0, 0, Math.PI / 2]} castShadow>
           <cylinderGeometry args={[0.02, 0.02, 0.8 * s, 6]} />
           <meshStandardMaterial color="#5a4a2a" roughness={0.9} />
@@ -97,7 +100,7 @@ function Built({ map, piece }: { map: MapDef; piece: Piece }) {
     const gold = { color: "#c9a23a", roughness: 0.32, metalness: 0.85 };
     const cloth = { color: piece.tint ?? "#7a1a2a", roughness: 0.85, metalness: 0 };
     return (
-      <group position={[x, 0, z]} rotation={[0, piece.rot ?? 0, 0]} scale={s}>
+      <group position={[x, gy, z]} rotation={[0, piece.rot ?? 0, 0]} scale={s}>
         {/* a low dais of pale stone with a gold lip */}
         <mesh position={[0, 0.05, 0]} receiveShadow>
           <cylinderGeometry args={[0.95, 1.0, 0.1, 24]} />
@@ -167,7 +170,7 @@ function Built({ map, piece }: { map: MapDef; piece: Piece }) {
     const r = 1.9 * s;
     const h = piece.h ?? 2.8;
     return (
-      <group position={[x, 0, z]}>
+      <group position={[x, gy, z]}>
         {Array.from({ length: 8 }, (_, i) => {
           const a = (i / 8) * Math.PI * 2;
           return (
@@ -198,10 +201,11 @@ function Built({ map, piece }: { map: MapDef; piece: Piece }) {
 function Model({ map, piece }: { map: MapDef; piece: Piece }) {
   const { scene } = useGLTF(modelUrl(piece.model));
   const [x, z] = toWorld(map, piece.u, piece.v);
+  const gy = groundAt(map, piece.u, piece.v);
   return (
     <Clone
       object={scene}
-      position={[x, piece.y ?? 0, z]}
+      position={[x, gy + (piece.y ?? 0), z]}
       rotation={[piece.flip ? Math.PI : 0, piece.rot ?? 0, 0]}
       scale={M * (piece.scale ?? 1)}
       castShadow
@@ -215,6 +219,7 @@ function Fire({ map, at }: { map: MapDef; at: [number, number] }) {
   const light = useRef<THREE.PointLight>(null);
   const coals = useRef<THREE.Mesh>(null);
   const [x, z] = toWorld(map, at[0], at[1]);
+  const gy = groundAt(map, at[0], at[1]);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime * 7 + x;
     const f = 0.75 + 0.25 * (Math.sin(t * 1.3) * 0.5 + Math.sin(t * 3.7) * 0.3 + Math.sin(t * 8.1) * 0.2);
@@ -222,7 +227,7 @@ function Fire({ map, at }: { map: MapDef; at: [number, number] }) {
     if (coals.current) (coals.current.material as THREE.MeshBasicMaterial).color.setRGB(1.9 * f, 0.42 * f, 0.08);
   });
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, gy, z]}>
       <mesh ref={coals} position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.18, 16]} />
         <meshBasicMaterial color={[1.9, 0.42, 0.08]} toneMapped={false} />
@@ -236,9 +241,10 @@ function Fire({ map, at }: { map: MapDef; at: [number, number] }) {
 function BarCounter({ map, at }: { map: MapDef; at: [number, number] }) {
   const planks = usePbr("planks", [3, 1]);
   const [x, z] = toWorld(map, at[0], at[1]);
+  const gy = groundAt(map, at[0], at[1]);
   const len = 0.14 * map.w;
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, gy, z]}>
       <mesh position={[0, 0.34, 0]} castShadow receiveShadow>
         <boxGeometry args={[len, 0.68, 0.62]} />
         <meshStandardMaterial
@@ -272,6 +278,7 @@ function Hearth({ map, at }: { map: MapDef; at: [number, number] }) {
   const fire = useRef<THREE.PointLight>(null);
   const coals = useRef<THREE.Mesh>(null);
   const [x, z] = toWorld(map, at[0], at[1]);
+  const gy = groundAt(map, at[0], at[1]);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime * 7;
     const f = 0.8 + 0.2 * (Math.sin(t * 1.3) * 0.5 + Math.sin(t * 3.7) * 0.3 + Math.sin(t * 8.1) * 0.2);
@@ -279,7 +286,7 @@ function Hearth({ map, at }: { map: MapDef; at: [number, number] }) {
     if (coals.current) (coals.current.material as THREE.MeshBasicMaterial).color.setRGB(2.4 * f, 0.8 * f, 0.2);
   });
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, gy, z]}>
       <mesh position={[0, 1.0, -0.42]} castShadow receiveShadow>
         <boxGeometry args={[3.6, 2.0, 0.5]} />
         <meshStandardMaterial map={stone.map} normalMap={stone.normalMap} roughnessMap={stone.roughnessMap} color="#7d7770" roughness={1} />

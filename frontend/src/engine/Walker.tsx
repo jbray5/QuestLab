@@ -95,6 +95,7 @@ export function Walker({
   ring: showRing = true,
   adorn = null,
   rest = "idle",
+  groundY = 0,
 }: {
   /** Where this figure should be. Changing it makes the figure walk there. */
   cell: THREE.Vector3;
@@ -127,6 +128,8 @@ export function Walker({
   adorn?: Adornment | null;
   /** The clip to rest in when there is nothing to do: standing, or seated. */
   rest?: "idle" | "sit";
+  /** How high the floor is under this figure — a dais, a terrace. */
+  groundY?: number;
 }) {
   const fig = useFigure(model?.url ?? null, model?.heightFt ?? DEFAULT_HEIGHT_FT);
   const group = useRef<THREE.Group>(null);
@@ -292,6 +295,7 @@ export function Walker({
       if (!play(rest, 0.25)) play("idle", 0.25);
     }
     g.position.copy(p);
+    g.position.y += groundY;
     g.rotation.y = yaw.current - fig.forwardYaw;
 
     // Attention: the head turns toward the action, up to a comfortable angle, and eases back.
@@ -430,12 +434,12 @@ export function Walker({
       fl.t += dt;
       const k = Math.min(1, fl.t / 0.38);
       const punch = Math.sin(k * Math.PI);
-      g.position.y = -0.04 * punch;
+      g.position.y = groundY - 0.04 * punch;
       g.rotation.x = -0.18 * punch;
       if (k >= 1) {
         flinch.current = null;
         g.rotation.x = 0;
-        g.position.y = 0;
+        g.position.y = groundY;
       }
     }
     if (ring.current && active) {

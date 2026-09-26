@@ -32,6 +32,20 @@ export interface Piece {
   h?: number;
 }
 
+/**
+ * A raised floor: a rectangle of the picture standing `h` units above the rest,
+ * with a stone riser beneath it. Where the painting already shows a flight of
+ * stairs, put a platform above it and the figures on top stand right.
+ */
+export interface Platform {
+  u0: number;
+  v0: number;
+  u1: number;
+  v1: number;
+  /** Height in world units; one unit is one cell, five feet. */
+  h: number;
+}
+
 /** A pool of water: centre and radii, all as fractions of the picture. */
 export interface Pool {
   u: number;
@@ -59,6 +73,8 @@ export interface Person {
   pose?: "sit";
   /** A name, for what it is entitled to wear (a crown, ears). */
   name?: string;
+  /** Extra lift above the floor beneath them — a seat, a step. */
+  y?: number;
 }
 
 export interface MapDef {
@@ -109,6 +125,8 @@ export interface MapDef {
   pools?: Pool[];
   /** Stone basins with water in them — a fountain, a well. Radius in cells. */
   basins?: { u: number; v: number; r: number }[];
+  /** Raised floors, lowest first. A point inside several stands on the highest. */
+  platforms?: Platform[];
   /** Ways off this map: a trapdoor and ladder down, a ladder up. `to` names another map, once it exists. */
   /** A wet floor: the ground plane reflects the room (one extra render; off in Fast mode). */
   wet?: boolean;
@@ -121,6 +139,20 @@ export interface MapDef {
   looks?: Record<string, { at: [number, number]; eye: [number, number, number] }>;
   /** Where the character starts. */
   start: [number, number];
+}
+
+/**
+ * How high the floor is at a point on the picture, in world units.
+ *
+ * Zero unless the map has platforms and the point is inside one; where they
+ * overlap the highest wins, so a dais inside a terrace reads correctly.
+ */
+export function groundAt(m: MapDef, u: number, v: number): number {
+  let y = 0;
+  for (const p of m.platforms ?? []) {
+    if (u >= p.u0 && u <= p.u1 && v >= p.v0 && v <= p.v1 && p.h > y) y = p.h;
+  }
+  return y;
 }
 
 /** Picture coords → world (x, z). The picture is centred on the origin; +z is down it. */

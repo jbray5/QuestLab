@@ -3,7 +3,7 @@ import * as THREE from "three";
 
 import type { MapDef } from "./maps";
 import { adornFor } from "./adorn";
-import { toWorld } from "./maps";
+import { groundAt, toWorld } from "./maps";
 import { FigureBoundary } from "./Party";
 import { Walker } from "./Walker";
 
@@ -23,7 +23,7 @@ export function Locals({ map }: { map: MapDef }) {
         return (
           <Suspense key={i} fallback={null}>
             <FigureBoundary fallback={null}>
-              <Walker cell={cell} model={{ url: p.model, heightFt: p.heightFt ?? 5.7 }} still phase={p.phase ?? (i * 0.7) % 3} facing={p.rot ?? 0} ring={false} tint="#8a8a9a" rest={p.pose ?? "idle"} adorn={adornFor(p.name)} />
+              <Walker cell={cell} groundY={groundAt(map, p.u, p.v) + (p.y ?? 0)} model={{ url: p.model, heightFt: p.heightFt ?? 5.7 }} still phase={p.phase ?? (i * 0.7) % 3} facing={p.rot ?? 0} ring={false} tint="#8a8a9a" rest={p.pose ?? "idle"} adorn={adornFor(p.name)} />
             </FigureBoundary>
           </Suspense>
         );
