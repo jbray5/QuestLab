@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import { charactersApi } from "../api/characters";
@@ -78,6 +78,24 @@ function d20(): number {
 export default function SummerGamesCompanion() {
   const { campaignId = "" } = useParams();
   const [s, setS] = useState<Persisted>(() => load(campaignId));
+  // Undo history. Every mutation pushes the whole sheet, because the
+  // destructive ones (Reveal spends oil, next round clears stuck) cannot be
+  // reversed field by field.
+  const past = useRef<string[]>([]);
+  const [depth, setDepth] = useState(0);
+
+  function mutate(fn: (prev: Persisted) => Persisted) {
+    past.current.push(JSON.stringify(s));
+    if (past.current.length > 120) past.current.shift();
+    setDepth(past.current.length);
+    setS(fn(s));
+  }
+  function undo() {
+    const prev = past.current.pop();
+    if (prev === undefined) return;
+    setDepth(past.current.length);
+    setS(JSON.parse(prev) as Persisted);
+  }
 
   useEffect(() => {
     try {
@@ -100,7 +118,7 @@ export default function SummerGamesCompanion() {
   const fieldFor = (c: Contest) => [...names, c.rival.name];
 
   const setWinner = (k: EventKey, who: string) =>
-    setS((p) => ({ ...p, winners: { ...p.winners, [k]: who } }));
+    mutate((p) => ({ ...p, winners: { ...p.winners, [k]: who } }));
 
   // ---------------------------------------------------------------- purse
   const wins = useMemo(() => {
@@ -125,7 +143,7 @@ export default function SummerGamesCompanion() {
             className="btn btn-ghost"
             onClick={() => {
               const n = prompt("Entrant name")?.trim();
-              if (n) setS((p) => ({ ...p, extras: [...p.extras, n] }));
+              if (n) mutate((p) => ({ ...p, extras: [...p.extras, n] }));
             }}
           >
             ＋ entrant
@@ -135,19 +153,27 @@ export default function SummerGamesCompanion() {
               key={n}
               className="btn btn-ghost sg-danger"
               title={`Remove ${n}`}
-              onClick={() => setS((p) => ({ ...p, extras: p.extras.filter((x) => x !== n) }))}
+              onClick={() => mutate((p) => ({ ...p, extras: p.extras.filter((x) => x !== n) }))}
             >
               {n} ✕
             </button>
           ))}
           <span className="sg-spacer" />
+          <button
+            className="btn btn-ghost"
+            onClick={undo}
+            disabled={depth === 0}
+            title="Step back one change — including an accidental round advance, which puts the oil and the stuck flags back"
+          >
+            ↩ Undo{depth ? ` (${depth})` : ""}
+          </button>
           <button className="btn btn-ghost" onClick={() => window.print()}>
             🖨 Print
           </button>
           <button
             className="btn btn-ghost sg-danger"
             onClick={() => {
-              if (confirm("Clear every event and start the Games over?")) setS(EMPTY);
+              if (confirm("Clear every event and start the Games over?")) mutate(() => EMPTY);
             }}
           >
             Reset
@@ -169,19 +195,19 @@ export default function SummerGamesCompanion() {
           </p>
 
           {c.key === "apple" && (
-            <Apple s={s} setS={setS} field={fieldFor(c)} bonus={c.rival.bonus} rival={c.rival.name} />
+            <Apple s={s} setS={mutate} field={fieldFor(c)} bonus={c.rival.bonus} rival={c.rival.name} />
           )}
           {c.key === "ring" && (
-            <Ring s={s} setS={setS} field={fieldFor(c)} bonus={c.rival.bonus} rival={c.rival.name} />
+            <Ring s={s} setS={mutate} field={fieldFor(c)} bonus={c.rival.bonus} rival={c.rival.name} />
           )}
           {c.key === "maze" && (
-            <Maze s={s} setS={setS} field={fieldFor(c)} bonus={c.rival.bonus} rival={c.rival.name} />
+            <Maze s={s} setS={mutate} field={fieldFor(c)} bonus={c.rival.bonus} rival={c.rival.name} />
           )}
           {c.key === "moths" && (
-            <Moths s={s} setS={setS} field={fieldFor(c)} rival={c.rival.name} />
+            <Moths s={s} setS={mutate} field={fieldFor(c)} rival={c.rival.name} />
           )}
           {c.key === "caber" && (
-            <Caber s={s} setS={setS} field={fieldFor(c)} bonus={c.rival.bonus} rival={c.rival.name} />
+            <Caber s={s} setS={mutate} field={fieldFor(c)} bonus={c.rival.bonus} rival={c.rival.name} />
           )}
 
           <div className="sg-foot">
@@ -202,7 +228,7 @@ export default function SummerGamesCompanion() {
                   type="checkbox"
                   checked={s.paid.includes(c.key)}
                   onChange={(e) =>
-                    setS((p) => ({
+                    mutate((p) => ({
                       ...p,
                       paid: e.target.checked
                         ? [...p.paid, c.key]
@@ -242,7 +268,8 @@ export default function SummerGamesCompanion() {
 
 interface GameProps {
   s: Persisted;
-  setS: React.Dispatch<React.SetStateAction<Persisted>>;
+  /** Apply a change, keeping the previous sheet for Undo. */
+  setS: (fn: (prev: Persisted) => Persisted) => void;
   field: string[];
   rival: string;
   bonus?: number;
