@@ -10,7 +10,6 @@ import * as THREE from "three";
 import { tableApi } from "../api/table";
 import { useEventStream } from "../hooks/useEventStream";
 import { preloadProps } from "./assets";
-import { Crowd } from "./Crowd";
 import { Director } from "./Director";
 import { RimLight } from "./RimLight";
 import { preloadFigure } from "./figureModel";
@@ -353,19 +352,6 @@ export default function EngineTable() {
     }));
   }, [data]);
 
-  // Plan 114 — the DM's chosen Summer Games station, as a camera move. Derived,
-  // not stored: the nonce is a hash of the station's own name, so it changes
-  // exactly when the DM picks a different one and the Director glides once.
-  const stationShot = useMemo(() => {
-    const name = data?.station ?? null;
-    const preset = name && map?.looks?.[name];
-    if (!name || !preset || !map) return null;
-    const [sx, sz] = toWorld(map, ...preset.at);
-    let nonce = 0;
-    for (let i = 0; i < name.length; i++) nonce = (nonce * 31 + name.charCodeAt(i)) | 0;
-    return { at: new THREE.Vector3(sx, 0.6, sz), nonce: Math.abs(nonce) + 1, eye: preset.eye };
-  }, [data?.station, map]);
-
   const home = useMemo(() => {
     if (!map) return { look: new THREE.Vector3(), eye: [0, 5, 5] as [number, number, number] };
     const [lx, lz] = toWorld(map, ...map.look);
@@ -487,7 +473,6 @@ export default function EngineTable() {
           <Suspense fallback={null}>
             <MapScene map={map} grid={grid} darkness={data.darkness} fog={fog} weather={data.weather} onFloorClick={onFloorClick} revealedExits={data.revealed_exits ?? []}>
               <Party map={map} projection={data} fog={fog} fx={fx} onFxDone={dropFx} labels={labels} />
-              <Crowd map={map} projection={data} fog={fog} />
               {pings.map((p) => (
                 <Ping key={p.id} at={p.at} onDone={() => dropPing(p.id)} />
               ))}
@@ -509,7 +494,7 @@ export default function EngineTable() {
           at={active?.cell ?? null}
           nonce={frameNonce}
           follow={follow}
-          focus={stationShot ?? focus}
+          focus={focus}
           kick={kick}
         />
         <RimLight />

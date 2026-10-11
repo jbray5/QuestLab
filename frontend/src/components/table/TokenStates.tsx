@@ -33,7 +33,7 @@ const SIZES: [string, number][] = [
 export default function TokenStates({ tokens, onWrite }: Props) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Record<string, string>>({});
-  const subjects = tokens.filter((t) => t.kind !== "light" && t.crowd == null);
+  const subjects = tokens.filter((t) => t.kind !== "light");
   if (subjects.length === 0) return null;
 
   function write(id: string, change: Partial<TableToken>) {

@@ -50,13 +50,10 @@ const PuzzleView = lazy(() => import("./pages/PuzzleView"));
 const PuzzleWorkbench = lazy(() => import("./pages/PuzzleWorkbench"));
 const TownCrier = lazy(() => import("./pages/TownCrier"));
 const NotebookPage = lazy(() => import("./pages/NotebookPage"));
-const TempleCompanion = lazy(() => import("./pages/TempleCompanion"));
 const JoinView = lazy(() => import("./pages/JoinView"));
 const GuidePage = lazy(() => import("./pages/GuidePage"));
 const CharacterCreator = lazy(() => import("./pages/CharacterCreator"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
-const RestwaterCompanion = lazy(() => import("./pages/RestwaterCompanion"));
-const SummerGamesCompanion = lazy(() => import("./pages/SummerGamesCompanion"));
 
 function PageLoader() {
   return (
@@ -178,18 +175,6 @@ export default function App() {
         <Route
           path="campaigns/:campaignId/notebook"
           element={lazyRoute(<NotebookPage />)}
-        />
-        <Route
-          path="campaigns/:campaignId/temple"
-          element={lazyRoute(<TempleCompanion />)}
-        />
-        <Route
-          path="campaigns/:campaignId/restwater"
-          element={lazyRoute(<RestwaterCompanion />)}
-        />
-        <Route
-          path="campaigns/:campaignId/summergames"
-          element={lazyRoute(<SummerGamesCompanion />)}
         />
         <Route
           path="campaigns/:campaignId/sessions"

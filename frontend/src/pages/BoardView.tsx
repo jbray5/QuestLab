@@ -9,7 +9,7 @@ import {
   EXPLORABLE_HEART,
   EXPLORABLE_NAVE,
   HELD_DOOR as EXPLORABLE_HELD_DOOR,
-} from "../components/temple/templeContent";
+} from "../components/board/explorables";
 import { monstersApi } from "../api/monsters";
 import { sessionsApi } from "../api/sessions";
 import { tableApi } from "../api/table";

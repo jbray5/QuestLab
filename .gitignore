@@ -63,6 +63,11 @@ coverage.xml
 .mypy_cache/
 .ruff_cache/
 
+# ── Node ──────────────────────────────────────────────────────────────────────
+# frontend/ has its own ignore; tools/figures/ and any future package did not,
+# so a plain `git add -A` swept 3,586 vendored files into the index.
+node_modules/
+
 # ── OS ────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

@@ -221,15 +221,6 @@ export default function Layout() {
                 🗾 Map Builder
               </button>
             )}
-            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/temple`)}>
-              🔱 Temple Companion
-            </button>
-            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/restwater`)}>
-              ♨ Restwater Companion
-            </button>
-            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/summergames`)}>
-              🏅 Summer Games
-            </button>
           </NavGroup>
         </>
       )}

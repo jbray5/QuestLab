@@ -475,14 +475,8 @@ export interface TableToken {
   // Plan 111 — the figure, resolved at projection-build time.
   model_url?: string | null;
   model_height_ft?: number | null;
-  // Plan 114 — short states the DM typed: "Large", "WIS 24". Shown to players.
+  // Short states the DM typed: "Large", "WIS 24". Shown to players.
   effects?: string[] | null;
-  // Plan 114 — a crowd knot: bystanders standing, down this round, down
-  // last round (they die at its end), and lost. Absent on every other token.
-  crowd?: number | null;
-  hurt?: number | null;
-  dying?: number | null;
-  dead?: number | null;
 }
 
 export interface TableStateRead {
@@ -492,8 +486,6 @@ export interface TableStateRead {
   join_qr_on?: boolean;
   /** Plan 113 — the battle maps tonight keeps to hand; the HUD's MAPS tab shows these. */
   map_shelf?: string[];
-  /** Plan 114 — the Summer Games station the immersive camera is watching. */
-  station?: string | null;
   revealed_region_ids: string[];
   brush_reveals: BrushReveal[];
   tokens: TableToken[];
@@ -514,8 +506,6 @@ export interface TableStateUpdate {
   join_qr_on?: boolean;
   /** Plan 113 — the battle maps tonight keeps to hand; the HUD's MAPS tab shows these. */
   map_shelf?: string[];
-  /** Plan 114 — the Summer Games station the immersive camera is watching. */
-  station?: string | null;
 }
 
 export interface TableMapSummary {
@@ -558,10 +548,6 @@ export interface TableProjection {
   weather: string | null;
   active_token_ref: string | null;
   defeated_refs: string[];
-  // Plan 114 — bystanders lost so far, across every crowd knot.
-  lost?: number;
-  /** Plan 114 — the Summer Games station the immersive camera is watching. */
-  station?: string | null;
   campaign_id: string | null;
   join_qr_on: boolean;
   // Plan 83 — the remote-player window: order, whose turn, the party's HP.

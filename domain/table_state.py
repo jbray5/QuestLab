@@ -50,10 +50,6 @@ class TableState(SQLModel, table=True):
     # Plan 113 — the maps tonight needs, as a JSON list of battle-map ids. The HUD
     # shows only these; staging a map puts it on the shelf.
     map_shelf: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
-    # Plan 114 — which of the Summer Games the table is watching. The
-    # immersive view flies its camera to that station's preset; the key is
-    # a camera-preset name on the map definition, or None for no station.
-    station: Optional[str] = Field(default=None, max_length=24)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -86,24 +82,13 @@ class Token(BaseModel):
     # .glb and the height it should stand, in feet.
     model_url: Optional[str] = None
     model_height_ft: Optional[float] = None
-    # Plan 114 — what is true of this creature beyond its hit points, as
+    # What is true of this creature beyond its hit points, as
     # short labels the DM types: "Large", "WIS 24", "hears music". The
     # combatant row cannot hold these (it only exists during a fight) and
     # the 5e condition list has no room for them, so they live here and
     # survive the whole session. Stored, never recomputed. Player-safe by
     # construction: the DM writes every word the table reads.
     effects: Optional[list[str]] = PydField(default=None, max_length=6)
-    # Plan 114 — a crowd knot: one token standing for a small group of
-    # bystanders. ``crowd`` are on their feet, ``hurt`` went down this
-    # round, ``dying`` went down last round and die at the end of this
-    # one unless somebody reaches them, ``dead`` stay down. A token with
-    # ``crowd is None`` is an ordinary token and behaves exactly as before.
-    # Stored on the token (unlike conditions) — the DM owns these numbers,
-    # not combat. Player-safe: the whole point is that the table sees them.
-    crowd: Optional[int] = PydField(default=None, ge=0, le=99)
-    hurt: Optional[int] = PydField(default=None, ge=0, le=99)
-    dying: Optional[int] = PydField(default=None, ge=0, le=99)
-    dead: Optional[int] = PydField(default=None, ge=0, le=99)
 
 
 class TableStateUpdate(BaseModel):
@@ -122,7 +107,6 @@ class TableStateUpdate(BaseModel):
     weather: Optional[str] = PydField(default=None, max_length=12)
     join_qr_on: Optional[bool] = None
     map_shelf: Optional[list[str]] = PydField(default=None, max_length=60)
-    station: Optional[str] = PydField(default=None, max_length=24)
 
 
 class TokenFigureRequest(BaseModel):
@@ -208,15 +192,6 @@ class TableProjection(BaseModel):
     # to dim. Resolved from the running combat state; no HP ever crosses.
     active_token_ref: Optional[str] = None
     defeated_refs: list[str] = PydField(default_factory=list)
-    # Plan 114 — bystanders lost so far, summed over every crowd knot.
-    # Shown to the players; the number is the point of the scene.
-    lost: int = 0
-    # Plan 114 — the Summer Games station the table is watching, as a camera
-    # preset name. Player-safe: it only says where to point the camera.
-    station: Optional[str] = None
-    # Plan 114 — the Summer Games station the table is watching, as a camera
-    # preset name. Player-safe: it only says where to point the camera.
-    station: Optional[str] = None
     # Plan 83 — the remote-player window: order, whose turn, the party's HP.
     combat_running: bool = False
     round: int = 0
@@ -239,7 +214,6 @@ class TableStateRead(BaseModel):
     weather: Optional[str] = None
     join_qr_on: bool = False
     map_shelf: list[str] = PydField(default_factory=list)
-    station: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
