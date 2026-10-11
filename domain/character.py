@@ -6,7 +6,7 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, field_validator
 from sqlalchemy import Column
-from sqlalchemy.types import JSON
+from sqlalchemy.types import JSON, DateTime
 from sqlmodel import Field, SQLModel
 
 from domain.enums import AbilityScore, CharacterClass
@@ -62,7 +62,13 @@ class PlayerCharacter(SQLModel, table=True):
     # Plan 97 — full-bleed art behind the player's phone sheet. Campaign
     # data, not shipped art; the subclass gradient is the fallback.
     background_url: Optional[str] = Field(default=None, max_length=500)
-    hero_generated_at: Optional[datetime] = Field(default=None)
+    # Declared with its timezone, matching migration 0028. Left bare, SQLModel
+    # made a naive TIMESTAMP, and DuckDB answers an aware value written to a
+    # naive column by converting it to LOCAL time — so the forge cooldown read
+    # back hours stale on any machine that is not on UTC.
+    hero_generated_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
     # Golden base (Plan 62 follow-up): a locked hero is never re-rolled;
     # every variant (loadout, portrait, minifig) derives from it.
     hero_locked: bool = Field(default=False)

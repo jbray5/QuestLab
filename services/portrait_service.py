@@ -581,7 +581,11 @@ def generate_pc_hero(session: Session, pc: PlayerCharacter) -> str:
     # Naive UTC on purpose: DuckDB round-trips tz-aware values through local
     # time (breaking the cooldown math), while naive UTC reads back verbatim;
     # Postgres (session tz = UTC on Render) interprets it as UTC either way.
-    stamp = datetime.now(timezone.utc).replace(tzinfo=None)
+    # hero_generated_at is TIMESTAMP WITH TIME ZONE (migration 0028), so it
+    # takes an aware value. This used to strip the zone, which older drivers
+    # tolerated and newer ones reject outright: "Datetime values must have
+    # timezone information." The cooldown reader copes with either form.
+    stamp = datetime.now(timezone.utc)
     # A fresh base identity invalidates the old dressed render, so clear it.
     CharacterRepo.update(
         session,
@@ -702,7 +706,11 @@ def generate_pc_loadout(
             edit_image(retry_prompt, base_bytes, size="1024x1536", quality="high")
         )
     url = blob_storage.upload(path=f"heroes/pc-{pc.id}-loadout.png", data=png_bytes)
-    stamp = datetime.now(timezone.utc).replace(tzinfo=None)
+    # hero_generated_at is TIMESTAMP WITH TIME ZONE (migration 0028), so it
+    # takes an aware value. This used to strip the zone, which older drivers
+    # tolerated and newer ones reject outright: "Datetime values must have
+    # timezone information." The cooldown reader copes with either form.
+    stamp = datetime.now(timezone.utc)
     CharacterRepo.update(
         session,
         pc,

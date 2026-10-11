@@ -199,7 +199,7 @@ def patch_duckdb_schema() -> None:
         # 0028 — Character Forge: appearance + hero render (Plan 48)
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS appearance VARCHAR",
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS hero_url VARCHAR(500)",
-        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS hero_generated_at TIMESTAMP",
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS hero_generated_at TIMESTAMPTZ",
         # 0029 — dressed-model (loadout) render (Plan 48)
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS loadout_url VARCHAR(500)",
         # 0030 — hidden shops + non-gold costs (Plan 47)
