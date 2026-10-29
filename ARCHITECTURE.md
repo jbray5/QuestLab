@@ -80,6 +80,7 @@ One per aggregate above. Each exposes `get`, `list`, `create`, `update`, `delete
 | [`session_service.py`](services/session_service.py) | Live session state, initiative |
 | [`arena_service.py`](services/arena_service.py) | The 5e rules engine: turns, attacks, saves, slots, class features |
 | [`duel_service.py`](services/duel_service.py) | Who may act in a multi-device duel, and where the fight rests between turns |
+| [`levelup_service.py`](services/levelup_service.py) | Level-up guide (Plan 115): DM grants a level (`pending_level`), the player's guide plans and applies HP, ASI/feat, subclass and spell picks |
 | [`ai_service.py`](services/ai_service.py) | Claude-driven runbook, dialog, stat block, loot generation |
 
 ### Integrations ([`integrations/`](integrations/))
@@ -91,6 +92,7 @@ One per aggregate above. Each exposes `get`, `list`, `create`, `update`, `delete
 | [`dnd_rules/encounter_math.py`](integrations/dnd_rules/encounter_math.py) | CR-to-XP, encounter difficulty curves |
 | [`dnd_rules/stat_blocks.py`](integrations/dnd_rules/stat_blocks.py) | Stat block validation against 5e rules |
 | [`dnd_rules/magic_items.py`](integrations/dnd_rules/magic_items.py) | Magic item reference data |
+| [`dnd_rules/levelup_2024.py`](integrations/dnd_rules/levelup_2024.py) | Level-up rules: class feature names by level, ASI levels, feat catalog + prerequisites, scaling notes |
 
 ### Pages ([`pages/`](pages/))
 Streamlit pages, one per aggregate. UI only — instantiates a service, calls methods, renders. No business logic.

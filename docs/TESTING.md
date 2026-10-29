@@ -43,6 +43,11 @@ tests/
 ### Stage 7
 - `test_services/test_ai_service.py` — mocked Claude client; verify prompt structure, output parsing
 
+### Plan 115 — level-up guide
+- `test_services/test_levelup_service.py` — the live party at L3→4 as goldens (average HP 28 / 34 / 28 / 29; spell picks 1+1, 1+1, 0+1, none), feat prerequisites, ASI shape and the 20 cap, retroactive CON and Tough HP, swaps limited to class-list spells, multi-level grants. An autouse fixture deletes `character_spells` after each test: a leftover row pins its spell and breaks later suites that wipe the spells table.
+- `test_integrations/test_levelup_rules.py` — class tables, feat catalog shape, scaling notes
+- `test_api/test_levelup_api.py` — no grant → 404/422 on the player routes; grant is DM-only
+
 ## Running Tests
 ```bash
 pytest -q                        # all tests

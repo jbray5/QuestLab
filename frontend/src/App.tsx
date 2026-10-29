@@ -45,6 +45,7 @@ const Shops         = lazy(() => import("./pages/Shops"));
 const MarketView    = lazy(() => import("./pages/MarketView"));
 const StorefrontView = lazy(() => import("./pages/StorefrontView"));
 const CharacterView = lazy(() => import("./pages/CharacterView"));
+const LevelUpGuide = lazy(() => import("./pages/LevelUpGuide"));
 const TryLanding = lazy(() => import("./pages/TryLanding"));
 const PuzzleView = lazy(() => import("./pages/PuzzleView"));
 const PuzzleWorkbench = lazy(() => import("./pages/PuzzleWorkbench"));
@@ -102,6 +103,8 @@ export default function App() {
       {/* Plan 48 — Character Forge: the player's full-body character screen */}
       <Route path="/play/:pcId/character" element={lazyRoute(<CharacterView />)} />
       <Route path="/play/:pcId/arena" element={lazyRoute(<Arena />)} />
+      {/* Plan 115 — the level-up guide, once the DM grants a level */}
+      <Route path="/play/:pcId/level-up" element={lazyRoute(<LevelUpGuide />)} />
 
       {/* Plan 42 — Table View: full-screen projected battle map, no DM chrome */}
       <Route path="/table/:sessionId" element={lazyRoute(<TableView />)} />

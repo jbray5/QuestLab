@@ -15,6 +15,10 @@ export const charactersApi = {
   update: (id: string, data: PlayerCharacterUpdate) =>
     api.patch<PlayerCharacter>(`/characters/${id}`, data),
   delete: (id: string) => api.delete(`/characters/${id}`),
+  // Plan 115 — open / withdraw a level-up; the player's sheet shows the guide.
+  grantLevelUp: (id: string, toLevel?: number) =>
+    api.post<PlayerCharacter>(`/characters/${id}/level-up`, toLevel ? { to_level: toLevel } : {}),
+  revokeLevelUp: (id: string) => api.delete<PlayerCharacter>(`/characters/${id}/level-up`),
   updateImage: (id: string, portrait_url: string) =>
     api.patch<PlayerCharacter>(`/characters/${id}`, { portrait_url }),
   // Plan 00022 — computed bonuses

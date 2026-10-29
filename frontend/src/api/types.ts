@@ -92,6 +92,8 @@ export interface PlayerCharacter {
   ep: number;
   gp: number;
   pp: number;
+  /** Plan 115 — the DM granted a level-up up to this level. */
+  pending_level?: number | null;
   // Proficiencies — JSON columns on the backend (Plan 00022)
   saving_throw_proficiencies: string[] | null;
   skill_proficiencies: Record<string, number> | null;

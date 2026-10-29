@@ -20,14 +20,6 @@ function mod(score: number) {
   return m >= 0 ? `+${m}` : `${m}`;
 }
 
-/** Hit die by class (2024 PHB) — drives the suggested HP gain on level-up. */
-const HIT_DIE: Record<string, number> = {
-  Sorcerer: 6, Wizard: 6,
-  Artificer: 8, Bard: 8, Cleric: 8, Druid: 8, Monk: 8, Rogue: 8, Warlock: 8,
-  Fighter: 10, Paladin: 10, Ranger: 10,
-  Barbarian: 12,
-};
-
 function HpBar({ hp, maxHp }: { hp: number; maxHp: number }) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (hp / maxHp) * 100)) : 0;
   const cls = pct > 50 ? "green" : pct > 20 ? "yellow" : "red";
@@ -156,49 +148,28 @@ export default function Characters() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
   });
 
-  /** Level-up flow: bump level, set new max HP (suggested = average hit-die
-   * roll + CON mod), pick a subclass at level 3, auto-grant class features. */
-  async function levelUp(c: PlayerCharacter) {
-    const newLevel = c.level + 1;
-    const die = HIT_DIE[c.character_class] ?? 8;
-    const conMod = Math.floor((c.score_con - 10) / 2);
-    const suggestedGain = Math.max(1, Math.floor(die / 2) + 1 + conMod);
-    const hpRaw = window.prompt(
-      `${c.character_name} → level ${newLevel}!\n\nNew MAX HP? ` +
-        `(average gain is +${suggestedGain}: d${die} avg ${Math.floor(die / 2) + 1} ` +
-        `${conMod >= 0 ? "+" : ""}${conMod} CON)`,
-      String(c.hp_max + suggestedGain),
-    );
-    if (hpRaw === null) return;
-    const newMax = Math.max(1, Math.floor(Number(hpRaw) || c.hp_max + suggestedGain));
+  /** Plan 115 — open a level-up: the player's sheet shows the guide and they make their own
+   * choices (HP, feat, spells). The DM never fills a prompt. */
+  const grantLevel = useMutation({
+    mutationFn: (id: string) => charactersApi.grantLevelUp(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
+    onError: (e: Error) => window.alert(e.message),
+  });
+  const revokeLevel = useMutation({
+    mutationFn: (id: string) => charactersApi.revokeLevelUp(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
+  });
 
-    let subclass = c.subclass ?? "";
-    if (newLevel >= 3 && !subclass) {
-      subclass =
-        window.prompt(
-          "Subclass? (chosen at level 3 — leave blank to decide later)",
-          "",
-        )?.trim() ?? "";
-    }
-
-    await charactersApi.update(c.id, {
-      level: newLevel,
-      hp_max: newMax,
-      // Level-up HP is gained, not just capacity: current rises by the same amount.
-      hp_current: Math.max(0, c.hp_current + (newMax - c.hp_max)),
-      ...(subclass ? { subclass } : {}),
-    });
-    const { granted } = await featuresApi.sync(c.id);
+  /** Grant the next level to every PC at the party's level (stragglers and test builds skip). */
+  async function levelUpParty() {
+    const top = Math.max(0, ...characters.map((c) => c.level));
+    const party = characters.filter((c) => c.level === top && !(c.pending_level && c.pending_level > c.level));
+    if (!party.length || top >= 20) return;
+    const names = party.map((c) => `• ${c.character_name}`).join("\n");
+    const prompt = `Level up to ${top + 1}?\n\n${names}\n\nEach player gets the level-up guide on their sheet.`;
+    if (!window.confirm(prompt)) return;
+    for (const c of party) await charactersApi.grantLevelUp(c.id);
     void qc.invalidateQueries({ queryKey: ["characters", campaignId] });
-    window.alert(
-      `${c.character_name} is now level ${newLevel}!` +
-        (granted.length
-          ? `\n\nNew class features granted:\n• ${granted.join("\n• ")}`
-          : "\n\nNo new class features at this level.") +
-        (newLevel >= 3 && !subclass
-          ? "\n\n(No subclass set — Edit the character once they choose; subclass features sync automatically on save.)"
-          : ""),
-    );
   }
 
   function resetForm() {
@@ -281,6 +252,15 @@ export default function Characters() {
               style={{ width: 132, fontFamily: "monospace", letterSpacing: "0.12em", padding: "2px 6px" }}
             />
           </label>
+          <button
+            className="btn btn-ghost"
+            style={{ color: "var(--gold)" }}
+            title="Open a level-up for everyone at the party's level; each player picks on their phone"
+            onClick={() => void levelUpParty()}
+            disabled={!characters.length}
+          >
+            ⬆ Level up the party
+          </button>
           <button
             className="btn btn-primary"
             onClick={() => {
@@ -558,14 +538,38 @@ export default function Characters() {
               <button className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => startEdit(c)}>
                 Edit
               </button>
-              <button
-                className="btn btn-ghost"
-                style={{ fontSize: "0.7rem", color: "var(--gold)" }}
-                title="Bump level, set new max HP, auto-grant class features"
-                onClick={() => void levelUp(c)}
-              >
-                ⬆ Level up
-              </button>
+              {c.pending_level && c.pending_level > c.level ? (
+                <>
+                  <a
+                    className="btn btn-ghost"
+                    style={{ fontSize: "0.7rem", color: "var(--gold)" }}
+                    href={`/play/${c.id}/level-up`}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="The player's guide — open it here to walk them through it"
+                  >
+                    ✨ Level {c.level + 1} guide ↗
+                  </a>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: "0.7rem" }}
+                    title="Withdraw the level-up"
+                    onClick={() => revokeLevel.mutate(c.id)}
+                  >
+                    ✕
+                  </button>
+                </>
+              ) : (
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: "0.7rem", color: "var(--gold)" }}
+                  title="Open a level-up: the player picks HP, feat and spells on their sheet"
+                  onClick={() => grantLevel.mutate(c.id)}
+                  disabled={c.level >= 20}
+                >
+                  ⬆ Level up
+                </button>
+              )}
               <button
                 className="btn btn-danger"
                 style={{ fontSize: "0.7rem" }}

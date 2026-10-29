@@ -290,6 +290,19 @@ function PlayerSheet({ pcId }: { pcId: string }) {
         <DmRollsFeed rolls={dmRolls} />
         <HeaderBanner pc={pc} spellStats={spellStats ?? null} initMod={initMod} />
 
+        {/* Plan 115 — the DM granted a level: the guide is one tap away. */}
+        {pc.pending_level != null && pc.pending_level > pc.level && (
+          <Link to={`/play/${pcId}/level-up`} style={levelUpBannerStyle}>
+            <span style={{ fontSize: "1.6rem" }}>✨</span>
+            <span>
+              <b style={{ display: "block", fontFamily: "Cinzel, Georgia, serif", letterSpacing: "0.05em" }}>
+                Level up! You&rsquo;re reaching level {pc.level + 1}
+              </b>
+              <span style={{ fontSize: "0.85rem", opacity: 0.85 }}>Tap to make your choices</span>
+            </span>
+          </Link>
+        )}
+
         <HpZone pc={pc} pcId={pcId} conMod={conMod} onUpdate={invalidate} />
 
         {pc.hp_current === 0 && (
@@ -2324,4 +2337,19 @@ const stepStyle: React.CSSProperties = {
 const subListStyle: React.CSSProperties = {
   margin: "0.3rem 0 0",
   paddingLeft: "1.1rem",
+};
+
+/** Plan 115 — the gold level-up banner on the sheet. */
+const levelUpBannerStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "0.75rem",
+  margin: "0.6rem 0 0.9rem",
+  padding: "0.85rem 1rem",
+  borderRadius: 12,
+  border: "1px solid #d6af36",
+  background: "linear-gradient(135deg, rgba(214,175,54,0.28), rgba(139,106,26,0.18))",
+  boxShadow: "0 0 24px rgba(214,175,54,0.25)",
+  color: "#ffe9a8",
+  textDecoration: "none",
 };

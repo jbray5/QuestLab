@@ -125,6 +125,10 @@ export const playApi = {
       character_item_id: characterItemId,
       target_pc_id: targetPcId ?? null,
     }),
+  // Plan 115 — the level-up guide (404 until the DM grants a level).
+  levelUpPlan: (pcId: string) => api.get<LevelUpPlan>(`/play/${pcId}/level-up`),
+  applyLevelUp: (pcId: string, choices: LevelUpChoices) =>
+    api.post<LevelUpResult>(`/play/${pcId}/level-up`, choices),
   give: (pcId: string, toPcId: string, amountGp: number) =>
     api.post<TransferReceipt>(`/play/${pcId}/give`, { to_pc_id: toPcId, amount_gp: amountGp }),
 };
@@ -214,4 +218,105 @@ export interface GearRow {
   slot: string | null;
   /** What a vendor pays per unit, or null if unsellable (Plan 51). */
   sell_gp: number | null;
+}
+
+// ── Plan 115 — level-up guide ────────────────────────────────────────────────
+
+export interface LevelUpSpell {
+  name: string;
+  level: number;
+  school: string;
+  classes: string[];
+}
+
+export interface LevelUpFeat {
+  name: string;
+  category: "general" | "fighting_style" | "origin";
+  blurb: string;
+  ok: boolean;
+  reason: string | null;
+  popular: boolean;
+  srd: boolean;
+  asi_options: string[] | null;
+  save_prof: boolean;
+  fixed_spells: string[];
+  spell_picks: { count: number; level: number; schools?: string[]; list_from_choice?: boolean }[];
+  skill_pick: { count: number; from: string[] | null; upgrade: boolean } | null;
+  expertise_pick: number;
+  choice: { label: string; options: string[] } | null;
+  hp_per_level: number;
+  ac_bonus_in_armor: number;
+}
+
+export interface LevelUpPlan {
+  pc_id: string;
+  character_name: string;
+  character_class: string;
+  subclass: string | null;
+  from_level: number;
+  to_level: number;
+  pending_level: number;
+  hit_die: number;
+  con_mod: number;
+  hp_max: number;
+  hp_average_gain: number;
+  hp_bonus_per_level: number;
+  new_features: { name: string; note: string | null }[];
+  scaling: string[];
+  slots_before: Record<string, number>;
+  slots_after: Record<string, number>;
+  needs_subclass: boolean;
+  subclass_options: string[];
+  asi_level: boolean;
+  feats: LevelUpFeat[];
+  scores: Record<string, number>;
+  skills: Record<string, number>;
+  saves: string[];
+  all_skills: string[];
+  spellcasting: {
+    new_cantrips: number;
+    new_spells: number;
+    max_spell_level: number;
+    prepared_caster: boolean;
+    cantrip_swap: boolean;
+    spell_swap: boolean;
+    known: LevelUpSpell[];
+    options: LevelUpSpell[];
+    note: string | null;
+  } | null;
+  feat_spells: LevelUpSpell[];
+  ac: number;
+  ac_abilities: string[];
+}
+
+export interface LevelUpChoices {
+  hp_method: "average" | "roll";
+  hp_roll?: number | null;
+  subclass?: string | null;
+  feat?: {
+    name: string;
+    from_book?: boolean;
+    asi: Record<string, number>;
+    choice?: string | null;
+    spells: string[];
+    skills: string[];
+    expertise: string[];
+  } | null;
+  cantrips: string[];
+  spells: string[];
+  cantrip_swap?: { forget: string; learn: string } | null;
+  spell_swap?: { forget: string; learn: string } | null;
+  armor?: "none" | "light" | "medium" | "heavy" | null;
+}
+
+export interface LevelUpResult {
+  character_name: string;
+  level: number;
+  hp_max: number;
+  hp_gain: number;
+  ac: number;
+  summary: string[];
+  features_granted: string[];
+  warnings: string[];
+  more_levels: boolean;
 }

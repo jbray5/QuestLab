@@ -26,6 +26,7 @@ from domain.arena import (
 )
 from domain.character import HeroLockBody, PlayerCharacter, PlayerRollBody
 from domain.character_builder import BuilderOptions, BuildResult, CharacterBuild
+from domain.level_up import LevelUpChoices, LevelUpPlan, LevelUpResult
 from domain.shop import (
     GiveRequest,
     PurchaseReceipt,
@@ -35,7 +36,7 @@ from domain.shop import (
     TransferReceipt,
 )
 from domain.table_state import PlayerTokenMove
-from services import arena_service, character_builder_service, player_service
+from services import arena_service, character_builder_service, levelup_service, player_service
 
 router = APIRouter(tags=["play"])
 
@@ -230,6 +231,41 @@ def spend_feature_use(pc_id: uuid.UUID, character_feature_id: uuid.UUID, db: DB)
     """Player spends one use of a class feature they own."""
     try:
         return player_service.spend_feature(db, pc_id, character_feature_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+
+@router.get("/play/{pc_id}/level-up", response_model=LevelUpPlan)
+def level_up_plan(pc_id: uuid.UUID, db: DB) -> LevelUpPlan:
+    """The level-up guide for this PC's next level, once the DM has granted it (Plan 115).
+
+    Args:
+        pc_id: UUID of the player character (implicit secret).
+        db: Database session.
+
+    Returns:
+        LevelUpPlan.
+    """
+    try:
+        return levelup_service.plan_for(db, pc_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/level-up", response_model=LevelUpResult)
+def level_up_apply(pc_id: uuid.UUID, body: LevelUpChoices, db: DB) -> LevelUpResult:
+    """Spend one granted level with the player's choices (Plan 115).
+
+    Args:
+        pc_id: UUID of the player character (implicit secret).
+        body: The guide's choices.
+        db: Database session.
+
+    Returns:
+        LevelUpResult.
+    """
+    try:
+        return levelup_service.apply(db, pc_id, body)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 

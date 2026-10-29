@@ -6,7 +6,8 @@ from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB, AiArtUser, CurrentUser
 from domain.character import PlayerCharacter, PlayerCharacterCreate, PlayerCharacterUpdate
-from services import character_service
+from domain.level_up import LevelUpGrant
+from services import character_service, levelup_service
 
 router = APIRouter(tags=["characters"])
 
@@ -126,6 +127,49 @@ def update_character(
     """
     try:
         return character_service.update_character(db, character_id, user, body)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/characters/{character_id}/level-up", response_model=PlayerCharacter)
+def grant_level_up(
+    character_id: uuid.UUID, body: LevelUpGrant, db: DB, user: CurrentUser
+) -> PlayerCharacter:
+    """Grant a level-up; the player's sheet shows the level-up guide (Plan 115).
+
+    Args:
+        character_id: UUID of the character.
+        body: Optional target level (default: one above the current level).
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Updated PlayerCharacter with ``pending_level`` set.
+    """
+    try:
+        return levelup_service.grant(db, character_id, user, body.to_level)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.delete("/characters/{character_id}/level-up", response_model=PlayerCharacter)
+def revoke_level_up(character_id: uuid.UUID, db: DB, user: CurrentUser) -> PlayerCharacter:
+    """Withdraw an open level-up grant (Plan 115).
+
+    Args:
+        character_id: UUID of the character.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        Updated PlayerCharacter with ``pending_level`` cleared.
+    """
+    try:
+        return levelup_service.revoke(db, character_id, user)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:

@@ -104,6 +104,8 @@ class PlayerCharacter(SQLModel, table=True):
     ep: int = Field(default=0, ge=0)
     gp: int = Field(default=0, ge=0)
     pp: int = Field(default=0, ge=0)
+    # Plan 115 — the DM granted a level-up up to this level; the player's guide applies it.
+    pending_level: Optional[int] = Field(default=None, ge=1, le=20)
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -195,6 +197,7 @@ class PlayerCharacterRead(BaseModel):
     ep: int = 0
     gp: int = 0
     pp: int = 0
+    pending_level: Optional[int] = None
     backstory: Optional[str] = None
     notes: Optional[str] = None
     portrait_url: Optional[str] = None
@@ -258,6 +261,7 @@ class PlayerCharacterUpdate(BaseModel):
     ep: Optional[int] = Field(default=None, ge=0)
     gp: Optional[int] = Field(default=None, ge=0)
     pp: Optional[int] = Field(default=None, ge=0)
+    pending_level: Optional[int] = Field(default=None, ge=1, le=20)
     backstory: Optional[str] = None
     notes: Optional[str] = None
     portrait_url: Optional[str] = None

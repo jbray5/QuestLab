@@ -1,7 +1,7 @@
-# Plan 00067 — Guided Level-Up Wizard (SPEC — not started)
+# Plan 00067 — Guided Level-Up Wizard (SPEC — superseded)
 
 ## Status
-[x] Not started  [ ] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete — built as Plan 00115 (`plans/00115-levelup-guide.md`), 2026-10-28
 
 **Spec written:** 2026-09-01 (build deferred — rules-heavy, wants Justin's
 input on two policy questions below before code).

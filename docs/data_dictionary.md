@@ -122,6 +122,7 @@ Full 2024 5e character sheet, belonging to a Campaign.
 | equipment | JSON | Yes | | `[{name, quantity, notes}]` |
 | spells_known | JSON | Yes | | `[{name, level, school, prepared}]` |
 | spell_slots | JSON | Yes | | `{level: {total, used}}` |
+| pending_level | INTEGER | Yes | 1–20 | Plan 115 — level the DM granted; the player's level-up guide raises `level` toward it, cleared on arrival (migration 0054) |
 | created_at | TIMESTAMP | No | | |
 | updated_at | TIMESTAMP | No | | |
 
