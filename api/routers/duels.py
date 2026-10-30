@@ -12,7 +12,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB
-from domain.duel import DuelActBody, DuelRead, DuelStartBody, DuelSummary
+from domain.duel import DuelActBody, DuelRead, DuelSeatBody, DuelStartBody, DuelSummary
 from services import duel_service
 
 router = APIRouter(tags=["duels"])
@@ -50,7 +50,7 @@ def start_duel(pc_id: uuid.UUID, body: DuelStartBody, db: DB) -> DuelRead:
         The opened duel, initiative already rolled.
     """
     try:
-        return duel_service.start(db, pc_id, body.pc_ids)
+        return duel_service.start(db, pc_id, body.pc_ids, body.monster_id)
     except (ValueError, PermissionError) as exc:
         raise _http(exc)
 
@@ -105,6 +105,43 @@ def act_in_duel(pc_id: uuid.UUID, duel_id: uuid.UUID, body: DuelActBody, db: DB)
     """
     try:
         return duel_service.act(db, duel_id, pc_id, body.action)
+    except (ValueError, PermissionError) as exc:
+        raise _http(exc)
+
+
+@router.post("/play/{pc_id}/duels/{duel_id}/referee", response_model=DuelRead)
+def hand_to_referee(pc_id: uuid.UUID, duel_id: uuid.UUID, body: DuelSeatBody, db: DB) -> DuelRead:
+    """Let the referee play a seat whose person stepped away (Plan 116).
+
+    Args:
+        pc_id: The character asking (the capability).
+        duel_id: UUID of the duel.
+        body: The seat to hand over — your own, or whoever is up.
+        db: Database session.
+
+    Returns:
+        The duel after the hand-over.
+    """
+    try:
+        return duel_service.hand_over(db, duel_id, pc_id, body.seat_pc_id)
+    except (ValueError, PermissionError) as exc:
+        raise _http(exc)
+
+
+@router.post("/play/{pc_id}/duels/{duel_id}/return", response_model=DuelRead)
+def take_seat_back(pc_id: uuid.UUID, duel_id: uuid.UUID, db: DB) -> DuelRead:
+    """Play your own seat again after the referee covered it (Plan 116).
+
+    Args:
+        pc_id: The character coming back (the capability).
+        duel_id: UUID of the duel.
+        db: Database session.
+
+    Returns:
+        The duel; this character's next turn waits for them.
+    """
+    try:
+        return duel_service.take_back(db, duel_id, pc_id)
     except (ValueError, PermissionError) as exc:
         raise _http(exc)
 

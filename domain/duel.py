@@ -78,12 +78,27 @@ class DuelSummary(BaseModel):
     seats: list[str] = PydField(default_factory=list)
     your_turn: bool = False
     updated_at: datetime
+    # Plan 116 — "duel" (everyone for themselves) or "boss" (the party vs one
+    # monster), and the monster's name when there is one.
+    mode: str = "duel"
+    boss: str = ""
 
 
 class DuelStartBody(BaseModel):
-    """Call out two or more characters to a duel on their own devices."""
+    """Call out two or more characters, each on their own device.
+
+    With ``monster_id`` it is a boss battle (Plan 116): the characters are one
+    side, the monster the other, and the referee plays only the monster.
+    """
 
     pc_ids: list[uuid.UUID] = PydField(min_length=2, max_length=8)
+    monster_id: Optional[uuid.UUID] = None
+
+
+class DuelSeatBody(BaseModel):
+    """Whose seat to hand to the referee (Plan 116). Yours, or whoever is up."""
+
+    seat_pc_id: uuid.UUID
 
 
 class DuelActBody(BaseModel):

@@ -139,20 +139,28 @@ def _project(duel: Duel, state: ArenaState, pc_id: uuid.UUID) -> DuelRead:
     )
 
 
-def start(db: Session, host_pc_id: uuid.UUID, pc_ids: list[uuid.UUID]) -> DuelRead:
-    """Call two or more characters out to a duel, each on their own device.
+def start(
+    db: Session,
+    host_pc_id: uuid.UUID,
+    pc_ids: list[uuid.UUID],
+    monster_id: Optional[uuid.UUID] = None,
+) -> DuelRead:
+    """Call two or more characters into a fight, each on their own device.
 
     Args:
         db: Active database session.
         host_pc_id: The character calling it (and holding the link used).
         pc_ids: Everyone in the ring, the host included.
+        monster_id: A boss for the party to fight together (Plan 116), or
+            None for everyone against everyone.
 
     Returns:
-        The opened duel, with initiative already rolled.
+        The opened fight, with initiative already rolled.
 
     Raises:
-        ValueError: With fewer than two characters, or one from another table.
-        PermissionError: If the host is not in their own duel.
+        ValueError: With fewer than two characters, one from another table,
+            or a boss that isn't in the catalog.
+        PermissionError: If the host is not in their own fight.
     """
     seats = list(dict.fromkeys(pc_ids))
     if len(seats) < 2:
@@ -165,7 +173,10 @@ def start(db: Session, host_pc_id: uuid.UUID, pc_ids: list[uuid.UUID]) -> DuelRe
         if other.campaign_id != host.campaign_id:
             raise ValueError("Everyone in a duel has to be at the same table.")
 
-    state = arena_service.start_duel(db, seats)
+    if monster_id is not None:
+        state = arena_service.start_boss(db, seats, monster_id, controlled=None)
+    else:
+        state = arena_service.start_duel(db, seats)
     duel = DuelRepo.create(
         db,
         Duel(
@@ -238,13 +249,7 @@ def act(db: Session, duel_id: uuid.UUID, pc_id: uuid.UUID, action: ArenaAction) 
         name = next((slot.label for slot in state.roster if slot.pc_id == up), "the other side")
         raise PermissionError(f"It's {name}'s turn.")
 
-    state = arena_service.act(db, state, action)
-    duel.state = state_to_json(state)
-    if state.phase == "over":
-        duel.phase = "over"
-    duel = DuelRepo.save(db, duel)
-    publish_duel_updated(duel.id, _up_pc_id(state))
-    return _project(duel, state, pc_id)
+    return _save_and_tell(db, duel, arena_service.act(db, state, action), pc_id)
 
 
 def end(db: Session, duel_id: uuid.UUID, pc_id: uuid.UUID) -> DuelRead:
@@ -284,6 +289,119 @@ def end(db: Session, duel_id: uuid.UUID, pc_id: uuid.UUID) -> DuelRead:
     return _project(duel, state, pc_id)
 
 
+def _live_or_raise(db: Session, duel_id: uuid.UUID, pc_id: uuid.UUID) -> Duel:
+    """A live duel this character sits in, or the refusal that explains why not.
+
+    Args:
+        db: Active database session.
+        duel_id: UUID of the duel.
+        pc_id: The character asking.
+
+    Returns:
+        The duel row.
+
+    Raises:
+        ValueError: If the duel is gone or finished.
+        PermissionError: If that character has no seat.
+    """
+    duel = DuelRepo.get(db, duel_id)
+    if duel is None:
+        raise ValueError("That duel is over or was never here.")
+    _require_seat(duel, pc_id)
+    if duel.phase != "live":
+        raise ValueError("That duel is finished.")
+    return duel
+
+
+def _seat_index(state: ArenaState, pc_id: uuid.UUID) -> int:
+    """Roster index of a character's seat.
+
+    Args:
+        state: The fight.
+        pc_id: The character.
+
+    Returns:
+        Their roster index.
+
+    Raises:
+        PermissionError: If they have no seat in this fight.
+    """
+    for i, slot in enumerate(state.roster):
+        if slot.pc_id == pc_id:
+            return i
+    raise PermissionError("They're not in that duel.")
+
+
+def hand_over(db: Session, duel_id: uuid.UUID, pc_id: uuid.UUID, seat_pc_id: uuid.UUID) -> DuelRead:
+    """Let the referee play a seat whose person has stepped away (Plan 116).
+
+    You may hand over your own seat at any time, or whoever is up right now —
+    a phone that died mid-fight must not stall everybody else. Nobody may
+    hand over a seat that is merely waiting its turn.
+
+    Args:
+        db: Active database session.
+        duel_id: UUID of the duel.
+        pc_id: The character asking (the capability).
+        seat_pc_id: The seat to hand to the referee.
+
+    Returns:
+        The duel after the hand-over (and the turn it plays, if that seat was up).
+
+    Raises:
+        ValueError: If the duel is gone or finished, or the engine refuses.
+        PermissionError: If the asker has no seat, or it is someone else's
+            seat that isn't up.
+    """
+    duel = _live_or_raise(db, duel_id, pc_id)
+    state = _load(duel)
+    if seat_pc_id != pc_id and seat_pc_id != _up_pc_id(state):
+        raise PermissionError("You can hand over your own seat, or whoever is up right now.")
+    state = arena_service.referee_takes(db, state, _seat_index(state, seat_pc_id))
+    return _save_and_tell(db, duel, state, pc_id)
+
+
+def take_back(db: Session, duel_id: uuid.UUID, pc_id: uuid.UUID) -> DuelRead:
+    """Play your own seat again after the referee covered it (Plan 116).
+
+    Args:
+        db: Active database session.
+        duel_id: UUID of the duel.
+        pc_id: The character coming back (the capability).
+
+    Returns:
+        The duel; this character's next turn waits for them.
+
+    Raises:
+        ValueError: If the duel is gone or finished, or the seat was never handed over.
+        PermissionError: If that character has no seat.
+    """
+    duel = _live_or_raise(db, duel_id, pc_id)
+    state = _load(duel)
+    state = arena_service.player_returns(db, state, _seat_index(state, pc_id))
+    return _save_and_tell(db, duel, state, pc_id)
+
+
+def _save_and_tell(db: Session, duel: Duel, state: ArenaState, pc_id: uuid.UUID) -> DuelRead:
+    """Store the fight, close the row if it ended, and nudge every phone.
+
+    Args:
+        db: Active database session.
+        duel: The duel row.
+        state: The fight after the change.
+        pc_id: The character who made it.
+
+    Returns:
+        The duel as that character sees it.
+    """
+    duel.state = state_to_json(state)
+    if state.phase == "over":
+        duel.phase = "over"
+    duel = DuelRepo.save(db, duel)
+    publish_duel_updated(duel.id, _up_pc_id(state))
+    return _project(duel, state, pc_id)
+
+
 def called_for(db: Session, pc_id: uuid.UUID) -> list[DuelSummary]:
     """The live duels this character has a seat in — the challenge banner.
 
@@ -313,9 +431,11 @@ def called_for(db: Session, pc_id: uuid.UUID) -> list[DuelSummary]:
                 host_pc_id=duel.host_pc_id,
                 host_name=host,
                 phase=duel.phase,
-                seats=[slot.label for slot in state.roster],
+                seats=[slot.label for slot in state.roster if slot.kind == "pc"],
                 your_turn=_up_pc_id(state) == pc_id,
                 updated_at=duel.updated_at,
+                mode=state.mode,
+                boss=next((s.label for s in state.roster if s.kind == "monster"), ""),
             )
         )
     return out

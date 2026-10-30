@@ -123,6 +123,9 @@ interface DuelSummary {
   phase: string;
   seats: string[];
   your_turn: boolean;
+  // Plan 116 — "boss" when the party is fighting one monster together.
+  mode?: "duel" | "boss";
+  boss?: string;
 }
 interface PartyRow {
   id: string;
@@ -289,6 +292,8 @@ const CSS = `
 .ar-slots { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
 .ar-slots button { border: 1px solid rgba(214,175,54,0.6); background: rgba(214,175,54,0.12); color: #f0e6c8; border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; cursor: pointer; font-family: inherit; }
 .ar-slots button:disabled { opacity: 0.4; cursor: not-allowed; }
+.ar-slots button.on { background: rgba(214,175,54,0.5); border-color: #f0d36a; }
+.ar-away { width: 100%; margin: 0 0 8px; }
 .ar-err { color: #ef8b80; font-size: 0.84rem; margin: 6px 0; }
 .ar-log { margin-top: 12px; display: flex; flex-direction: column; gap: 5px; }
 .ar-line { border-left: 3px solid rgba(240,230,200,0.2); padding: 4px 8px; font-size: 0.86rem; line-height: 1.35; }
@@ -414,10 +419,13 @@ export default function Arena() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // Plan 116 — which friend a heal lands on (a roster index), or null for yourself.
+  const [healTo, setHealTo] = useState<number | null>(null);
   // act() and endFight() are declared before the duel state below; these refs
   // are how they reach it without reordering the whole component.
   const duelIdRef = useRef<string | null>(null);
   const takeRef = useRef<(d: DuelRead) => void>(() => {});
+  const setDuelRef = useRef<(d: DuelRead | null) => void>(() => {});
 
   useEffect(() => {
     if (!pcId) return;
@@ -450,6 +458,7 @@ export default function Arena() {
     setBusy(true);
     setErr(null);
     try {
+      setDuelRef.current(null);
       setState(await post<ArenaState>(`/play/${pcId}/arena/start`, { monster_id: monsterId }));
     } catch (e) {
       setErr((e as Error).message);
@@ -552,6 +561,8 @@ export default function Arena() {
   // Plan 101 — the duelling hall.
   const [hall, setHall] = useState<"monster" | "duel" | "boss">("monster");
   const [picked, setPicked] = useState<string[]>([]);
+  // Plan 116 — a boss battle with everyone on their own phone, or one phone.
+  const [bossLive, setBossLive] = useState(true);
   const [party, setParty] = useState<PartyRow[]>([]);
   useEffect(() => {
     if (!pcId) return;
@@ -643,14 +654,20 @@ export default function Arena() {
 
   duelIdRef.current = duelId;
   takeRef.current = take;
+  setDuelRef.current = setDuel;
 
-  async function startLive() {
+  // Plan 116 — `monsterId` makes it a boss battle with everyone on their own
+  // phone; `seats` replays a finished fight's line-up for a rematch.
+  async function startLive(monsterId?: string, seats?: string[]) {
     if (!pcId) return;
     setBusy(true);
     setErr(null);
     try {
-      const ids = Array.from(new Set([pcId, ...picked]));
-      const d = await post<DuelRead>(`/play/${pcId}/duels`, { pc_ids: ids });
+      const ids = Array.from(new Set([pcId, ...(seats ?? picked)]));
+      const d = await post<DuelRead>(`/play/${pcId}/duels`, {
+        pc_ids: ids,
+        monster_id: monsterId ?? null,
+      });
       setDuelId(d.id);
       setDuel(d);
       setState(d.state);
@@ -661,12 +678,13 @@ export default function Arena() {
     }
   }
 
-  async function startDuel() {
+  async function startDuel(seats?: string[]) {
     if (!pcId) return;
     setBusy(true);
     setErr(null);
     try {
-      const ids = Array.from(new Set([pcId, ...picked]));
+      const ids = Array.from(new Set([pcId, ...(seats ?? picked)]));
+      setDuel(null);
       setState(await post<ArenaState>(`/play/${pcId}/arena/duel`, { pc_ids: ids }));
     } catch (e) {
       setErr((e as Error).message);
@@ -675,12 +693,39 @@ export default function Arena() {
     }
   }
 
-  async function startBoss(monsterId: string) {
+  // Plan 116 — a seat whose person stepped away is played by the referee, and
+  // handed back when they return. The server decides who may do either.
+  async function seatChange(path: "referee" | "return", seat?: string) {
+    if (!pcId || !duelId) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      take(
+        await post<DuelRead>(
+          `/play/${pcId}/duels/${duelId}/${path}`,
+          path === "referee" ? { seat_pc_id: seat } : {},
+        ),
+      );
+    } catch (e) {
+      setErr((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function pickFoe(monsterId: string) {
+    if (hall !== "boss") return void start(monsterId);
+    if (bossLive && picked.length > 0) return void startLive(monsterId);
+    return void startBoss(monsterId);
+  }
+
+  async function startBoss(monsterId: string, seats?: string[]) {
     if (!pcId) return;
     setBusy(true);
     setErr(null);
     try {
-      const ids = Array.from(new Set([pcId, ...picked]));
+      const ids = Array.from(new Set([pcId, ...(seats ?? picked)]));
+      setDuel(null);
       setState(
         await post<ArenaState>(`/play/${pcId}/arena/boss`, {
           pc_ids: ids,
@@ -817,6 +862,52 @@ export default function Arena() {
   const hasAutoReactions =
     !!you?.features.some((f) => f.cost === "reaction") || cls === "rogue" || cls === "monk" || cls === "wizard" || cls === "sorcerer" || cls === "warlock";
 
+  // Plan 116 — friends a heal can land on: your own side, the fallen included
+  // (a heal is how a party gets somebody back up).
+  const mySide = roster[myIndex]?.team;
+  const friends = roster
+    .map((sl, i) => ({ sl, i }))
+    .filter(({ sl, i }) => sl.kind === "pc" && sl.pc && sl.team === mySide && i !== myIndex);
+  const canHeal =
+    !!you &&
+    (you.attacks.some((a) => a.effect === "heal") || you.features.some((f) => f.key === "lay_on_hands"));
+  const healArg = healTo !== null && friends.some((f) => f.i === healTo) ? healTo : undefined;
+  const healFor = (a: ArenaAttack) => (a.effect === "heal" ? healArg : undefined);
+  // A seat the referee is covering for this phone's person.
+  const coveredForMe = !!duelId && !!mySeat?.auto;
+
+  // Plan 116 — the end screen speaks to whoever is holding this phone. A
+  // roster fight is "won" whenever anybody is left standing, so the loser of a
+  // duel used to be told they had won.
+  const standing = roster.filter((sl) => ((sl.pc ?? sl.foe)?.hp ?? 0) > 0);
+  const fromHere = duel ? roster.findIndex((sl) => sl.pc_id === pcId) : -1;
+  function verdict(): string {
+    if (!state) return "";
+    if (!roster.length) {
+      return state.result === "won" ? "🏆 You win" : state.result === "lost" ? "💀 You're down" : "🏃 You fled";
+    }
+    if (state.result === "fled" || standing.length === 0) return "🏳 Called off";
+    const names = standing.map((sl) => sl.label).join(" & ");
+    if (state.mode === "boss") {
+      return standing.some((sl) => sl.team === 0) ? "🏆 The party wins" : `💀 ${names} wins`;
+    }
+    if (fromHere >= 0) {
+      return standing.some((sl) => sl.pc_id === pcId) ? "🏆 You win" : `💀 ${names} wins`;
+    }
+    return `🏆 ${names} wins`;
+  }
+  // The same line-up again, on the same footing (own phones or one phone).
+  function rematch() {
+    if (!state) return;
+    if (!roster.length) return void start(state.foe.monster_id ?? null);
+    const seats = roster.filter((sl) => sl.kind === "pc" && sl.pc_id).map((sl) => sl.pc_id as string);
+    const bossId = roster.find((sl) => sl.kind === "monster")?.foe?.monster_id ?? null;
+    if (state.mode === "boss" && bossId) {
+      return void (duel ? startLive(bossId, seats) : startBoss(bossId, seats));
+    }
+    return void (duel ? startLive(undefined, seats) : startDuel(seats));
+  }
+
   return (
     <div className="ar-root">
       <style>{CSS}</style>
@@ -831,11 +922,25 @@ export default function Arena() {
         <div className="ar-calls">
           {calls.map((c) => (
             <button key={c.id} className="ar-call" onClick={() => setDuelId(c.id)}>
-              <b>⚔️ {c.host_name || "Someone"} called you out</b>
-              <small>
-                {c.seats.join(" vs ")}
-                {c.your_turn ? " · you're up" : ""}
-              </small>
+              {c.mode === "boss" ? (
+                <>
+                  <b>
+                    🐉 {c.host_name || "Someone"} needs you against {c.boss || "a boss"}
+                  </b>
+                  <small>
+                    {c.seats.join(", ")}
+                    {c.your_turn ? " · you're up" : ""}
+                  </small>
+                </>
+              ) : (
+                <>
+                  <b>⚔️ {c.host_name || "Someone"} called you out</b>
+                  <small>
+                    {c.seats.join(" vs ")}
+                    {c.your_turn ? " · you're up" : ""}
+                  </small>
+                </>
+              )}
             </button>
           ))}
         </div>
@@ -869,7 +974,9 @@ export default function Arena() {
               <p className="ar-sub">
                 {hall === "duel"
                   ? "Everyone for themselves, initiative rolled fresh. On your own devices the fight is kept live for everyone and each phone can only act on its own turn."
-                  : "Your party against one monster. You pick your own actions; the referee plays everybody else."}
+                  : bossLive
+                    ? "Your party against one monster, everyone on their own phone. Each of you plays your own turns; the referee plays the monster. Heals can land on a friend."
+                    : "Your party against one monster on this phone. You pick your own actions; the referee plays everybody else."}
               </p>
               <div className="ar-h">Who's in</div>
               <div className="ar-foe-list">
@@ -922,9 +1029,27 @@ export default function Arena() {
                 </>
               )}
               {hall === "boss" && (
-                <p className="ar-sub">
-                  Now choose the boss from the list below and the fight starts.
-                </p>
+                <>
+                  <div className="ar-modes">
+                    <button
+                      className={`ar-mode${bossLive ? " on" : ""}`}
+                      onClick={() => setBossLive(true)}
+                    >
+                      📱 Everyone on their own phone
+                    </button>
+                    <button
+                      className={`ar-mode${bossLive ? "" : " on"}`}
+                      onClick={() => setBossLive(false)}
+                    >
+                      🎮 Just this phone
+                    </button>
+                  </div>
+                  <p className="ar-sub">
+                    {bossLive && picked.length === 0
+                      ? "Pick who's in above, then choose the boss below — each of them gets called in."
+                      : "Now choose the boss from the list below and the fight starts."}
+                  </p>
+                </>
               )}
               {err && <p className="ar-err">{err}</p>}
             </>
@@ -941,7 +1066,7 @@ export default function Arena() {
               <div className="ar-h">Fits your level</div>
               <div className="ar-foe-list">
                 {suggested.map((f) => (
-                  <button key={f.id} className="ar-foe" disabled={busy} onClick={() => void (hall === "boss" ? startBoss(f.id) : start(f.id))}>
+                  <button key={f.id} className="ar-foe" disabled={busy} onClick={() => pickFoe(f.id)}>
                     <b>{f.name}</b>
                     <span className="cr">CR {f.cr}</span>
                     <small>
@@ -963,7 +1088,7 @@ export default function Arena() {
               {showAll && (
                 <div className="ar-foe-list">
                   {others.map((f) => (
-                    <button key={f.id} className={`ar-foe ${f.tier}`} disabled={busy} onClick={() => void (hall === "boss" ? startBoss(f.id) : start(f.id))}>
+                    <button key={f.id} className={`ar-foe ${f.tier}`} disabled={busy} onClick={() => pickFoe(f.id)}>
                       <b>{f.name}</b>
                       <span className="cr">CR {f.cr}</span>
                       <small>
@@ -1088,16 +1213,16 @@ export default function Arena() {
             // straight here.
             playing ? null : (
             <div className="ar-over" style={{ marginTop: 12 }}>
-              <h2>{state.result === "won" ? "🏆 You win" : state.result === "lost" ? "💀 You're down" : "🏃 You fled"}</h2>
+              <h2>{verdict()}</h2>
               {state.tips.map((t, i) => (
                 <p key={i}>{t}</p>
               ))}
               <div className="ar-grid" style={{ marginTop: 10 }}>
-                <button className="ar-btn primary" disabled={busy} onClick={() => void start(foe.monster_id ?? null)}>
-                  <b>Again — same foe</b>
+                <button className="ar-btn primary" disabled={busy} onClick={rematch}>
+                  <b>{roster.length ? "⚔️ Rematch — same line-up" : "Again — same foe"}</b>
                 </button>
                 <button className="ar-btn" disabled={busy} onClick={() => setState(null)}>
-                  <b>Pick another foe</b>
+                  <b>{roster.length ? "Back to the hall" : "Pick another foe"}</b>
                 </button>
                 <Link className="ar-btn ghost" to={`/play/${pcId}`} style={{ textDecoration: "none", textAlign: "center" }}>
                   <b>Back to my sheet</b>
@@ -1108,7 +1233,7 @@ export default function Arena() {
           ) : (
             <>
               <div className="ar-turn">
-                <b>Round {state.round} · your turn</b>
+                <b>Round {state.round}{locked ? "" : " · your turn"}</b>
                 <span>
                   Action
                   <i className={`ar-dot ${state.action_used && !state.extra_action ? "" : "on"}`} />
@@ -1142,6 +1267,30 @@ export default function Arena() {
                     <small>pass the device</small>
                   )}
                 </div>
+              )}
+              {coveredForMe ? (
+                <button
+                  className="ar-btn wide ar-away"
+                  disabled={busy}
+                  onClick={() => void seatChange("return")}
+                >
+                  <b>▶ I'm back — let me play my turns</b>
+                  <small>The referee is playing {you.name} for you right now.</small>
+                </button>
+              ) : (
+                locked &&
+                upNow?.pc_id &&
+                !upNow.auto &&
+                !playing && (
+                  <button
+                    className="ar-btn wide ghost ar-away"
+                    disabled={busy}
+                    onClick={() => void seatChange("referee", upNow.pc_id ?? undefined)}
+                    title="Their phone died or they stepped away? The referee plays their turns until they come back."
+                  >
+                    <small>🤖 {upNow.label} stepped away? Let the referee play them</small>
+                  </button>
+                )
               )}
               {roster.length > 0 && (
                 <div className="ar-roster">
@@ -1202,6 +1351,25 @@ export default function Arena() {
                 </div>
               )}
 
+              {canHeal && friends.length > 0 && !locked && (
+                <>
+                  <div className="ar-sec">💚 Your heals land on</div>
+                  <div className="ar-slots" style={{ marginBottom: 4 }}>
+                    <button className={healArg === undefined ? "on" : ""} onClick={() => setHealTo(null)}>
+                      You · {youHp}/{you.hp_max}
+                    </button>
+                    {friends.map(({ sl, i }) => {
+                      const hp = hpAt(i, sl.pc?.hp ?? 0);
+                      return (
+                        <button key={i} className={healArg === i ? "on" : ""} onClick={() => setHealTo(i)}>
+                          {hp <= 0 ? "💀 " : ""}
+                          {sl.label} · {hp}/{sl.pc?.hp_max ?? 0}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
               <div className="ar-sec">Action</div>
               <div className="ar-grid">
                 {you.attacks
@@ -1227,7 +1395,7 @@ export default function Arena() {
                           {detail}
                           <span className="ar-slots">
                             {levels.map((lvl) => (
-                              <button key={lvl} disabled={waiting} onClick={() => void act("cast", a.key, lvl)}>
+                              <button key={lvl} disabled={waiting} onClick={() => void act("cast", a.key, lvl, healFor(a))}>
                                 Slot L{lvl}
                               </button>
                             ))}
@@ -1241,7 +1409,14 @@ export default function Arena() {
                         className="ar-btn"
                         disabled={waiting || !!why}
                         title={why || a.note}
-                        onClick={() => void act(a.kind === "weapon" || a.kind === "unarmed" ? "attack" : "cast", a.key, levels[0])}
+                        onClick={() =>
+                          void act(
+                            a.kind === "weapon" || a.kind === "unarmed" ? "attack" : "cast",
+                            a.key,
+                            levels[0],
+                            healFor(a),
+                          )
+                        }
                       >
                         <b>
                           {KIND_ICON[a.kind]} {a.name}
@@ -1300,14 +1475,17 @@ export default function Arena() {
                         ) : pickSlot ? (
                           <span className="ar-slots">
                             {levels.map((lvl) => (
-                              <button key={lvl} disabled={waiting} onClick={() => void act("cast", a.key, lvl)}>
+                              <button key={lvl} disabled={waiting} onClick={() => void act("cast", a.key, lvl, healFor(a))}>
                                 Slot L{lvl}
                               </button>
                             ))}
                           </span>
                         ) : (
                           <span className="ar-slots">
-                            <button disabled={waiting} onClick={() => void act(a.kind === "weapon" ? "attack" : "cast", a.key)}>
+                            <button
+                              disabled={waiting}
+                              onClick={() => void act(a.kind === "weapon" ? "attack" : "cast", a.key, undefined, healFor(a))}
+                            >
                               Use
                             </button>
                           </span>
@@ -1377,7 +1555,15 @@ export default function Arena() {
                       );
                     }
                     return (
-                      <button key={f.key} className="ar-btn" disabled={waiting || !!blocked} title={blocked || f.blurb} onClick={() => void act("feature", f.key)}>
+                      <button
+                        key={f.key}
+                        className="ar-btn"
+                        disabled={waiting || !!blocked}
+                        title={blocked || f.blurb}
+                        onClick={() =>
+                          void act("feature", f.key, undefined, f.key === "lay_on_hands" ? healArg : undefined)
+                        }
+                      >
                         <b>
                           {f.cost === "bonus" ? "⚡ " : "✦ "}
                           {f.name}
@@ -1415,12 +1601,23 @@ export default function Arena() {
 
               <div className="ar-grid" style={{ marginTop: 8 }}>
                 <button className="ar-btn primary" disabled={waiting} onClick={() => void act("end_turn")}>
-                  <b>End turn → {foe.name} acts</b>
+                  <b>{roster.length ? "End turn" : `End turn → ${foe.name} acts`}</b>
                 </button>
                 <button className="ar-btn wide" disabled={waiting} onClick={() => void endFight()} title="Stop here. Nothing is saved to your sheet either way.">
                   <b>🏳 End the fight</b>
                   <small>leave the ring — the referee logs it as a retreat</small>
                 </button>
+                {duelId && !coveredForMe && pcId && (
+                  <button
+                    className="ar-btn wide ghost"
+                    disabled={busy}
+                    onClick={() => void seatChange("referee", pcId)}
+                    title="The fight goes on without you holding it up. Come back any time."
+                  >
+                    <b>🤖 Step away — the referee plays me</b>
+                    <small>everyone else keeps fighting; take your turns back whenever</small>
+                  </button>
+                )}
               </div>
             </>
           )}

@@ -102,3 +102,82 @@ def test_you_cannot_open_a_duel_you_are_not_in(client, api_engine):
     nya, thane, creed = _two(api_engine)
     refused = client.post(f"/api/play/{creed}/duels", json={"pc_ids": [nya, thane]})
     assert refused.status_code == 403, refused.text
+
+
+def _boss(engine) -> str:
+    """A soft boss in the catalog, so a scripted fight never ends by itself."""
+    from db.repos.monster_repo import MonsterRepo
+    from domain.enums import CreatureSize, CreatureType
+    from domain.monster import MonsterStatBlockCreate
+
+    with Session(engine) as s:
+        boss = MonsterRepo.create(
+            s,
+            MonsterStatBlockCreate(
+                name=f"Revelmaster {uuid.uuid4().hex[:4]}",
+                size=CreatureSize.LARGE,
+                creature_type=CreatureType.FEY,
+                ac=10,
+                hp_average=400,
+                hp_formula="40d10",
+                score_str=10,
+                score_dex=10,
+                score_con=10,
+                score_int=10,
+                score_wis=10,
+                score_cha=10,
+                challenge_rating="1",
+                xp=200,
+                proficiency_bonus=2,
+                actions=[{"name": "Slap", "desc": "+0 to hit, 1d1 bludgeoning"}],
+            ),
+        )
+        return str(boss.id)
+
+
+def test_a_boss_battle_on_everyones_phone(client, api_engine):
+    """Plan 116: the party against a boss, each on their own phone, with a hand-over."""
+    nya, thane, creed = _two(api_engine)
+    boss = _boss(api_engine)
+
+    started = client.post(
+        f"/api/play/{nya}/duels", json={"pc_ids": [nya, thane, creed], "monster_id": boss}
+    )
+    assert started.status_code == 200, started.text
+    duel = started.json()
+    assert duel["state"]["mode"] == "boss"
+    assert duel["up_pc_id"] in (nya, thane, creed)
+
+    called = client.get(f"/api/play/{thane}/duels").json()
+    assert called[0]["mode"] == "boss" and called[0]["boss"].startswith("Revelmaster")
+
+    # Somebody's phone died: another player hands the seat that is up to the referee.
+    up = duel["up_pc_id"]
+    helper = next(p for p in (nya, thane, creed) if p != up)
+    handed = client.post(f"/api/play/{helper}/duels/{duel['id']}/referee", json={"seat_pc_id": up})
+    assert handed.status_code == 200, handed.text
+    after = handed.json()
+    assert after["up_pc_id"] != up
+    seat = next(s for s in after["state"]["roster"] if s["pc_id"] == up)
+    assert seat["auto"] is True
+
+    # A seat that is only waiting can't be taken by someone else.
+    waiting = next(p for p in (nya, thane, creed) if p not in (up, after["up_pc_id"]))
+    other = next(p for p in (nya, thane, creed) if p not in (waiting, after["up_pc_id"]))
+    refused = client.post(
+        f"/api/play/{other}/duels/{duel['id']}/referee", json={"seat_pc_id": waiting}
+    )
+    assert refused.status_code == 403, refused.text
+
+    # They come back.
+    back = client.post(f"/api/play/{up}/duels/{duel['id']}/return", json={})
+    assert back.status_code == 200, back.text
+    seat = next(s for s in back.json()["state"]["roster"] if s["pc_id"] == up)
+    assert seat["auto"] is False
+
+    # An unknown boss is a 404.
+    missing = client.post(
+        f"/api/play/{nya}/duels",
+        json={"pc_ids": [nya, thane], "monster_id": str(uuid.uuid4())},
+    )
+    assert missing.status_code == 404, missing.text

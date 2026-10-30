@@ -1418,9 +1418,16 @@ def _resolve_rider(state: ArenaState, attack: ArenaAttack, slot_level: Optional[
 
 
 def _resolve_buff(
-    state: ArenaState, attack: ArenaAttack, extra: int = 0, up_note: str = ""
+    state: ArenaState,
+    attack: ArenaAttack,
+    extra: int = 0,
+    up_note: str = "",
+    ally: Optional[ArenaPc] = None,
 ) -> None:
-    """Heals, concentration buffs, summons, Sleep. ``extra`` = slot levels above the spell's."""
+    """Heals, concentration buffs, summons, Sleep. ``extra`` = slot levels above the spell's.
+
+    A heal lands on ``ally`` when one is named (Plan 116), else on you.
+    """
     foe, pc = state.foe, state.pc
     if attack.effect == "heal":
         dmg, btxt = roll_expr(_upcast_expr(attack.damage, attack.upcast, extra))
@@ -1428,13 +1435,18 @@ def _resolve_buff(
             more, mtxt = roll_expr(f"1d8+{pc.mods.get('wis', 0)}")
             dmg += more
             btxt += f" + Chalice {mtxt}"
-        gained = min(dmg, pc.hp_max - pc.hp)
-        pc.hp += gained
+        whom = ally or pc
+        gained = min(dmg, whom.hp_max - whom.hp)
+        was_down = whom.hp <= 0
+        whom.hp += gained
         state.stats.healed += gained
         _log(
             state,
             "you",
-            f"{attack.name}{up_note}: +{gained} HP. You're at {pc.hp}/{pc.hp_max}.",
+            f"{attack.name}{up_note}: +{gained} HP"
+            + (f" to {whom.name}" if ally else "")
+            + f". {_who_is(state, whom)} at {whom.hp}/{whom.hp_max}."
+            + (" Back on their feet!" if was_down and whom.hp > 0 else ""),
             dice=btxt,
         )
     elif attack.effect == "bless":
@@ -1524,7 +1536,10 @@ def _resolve_buff(
 
 
 def _resolve_player_attack(
-    state: ArenaState, attack: ArenaAttack, slot_level: Optional[int] = None
+    state: ArenaState,
+    attack: ArenaAttack,
+    slot_level: Optional[int] = None,
+    ally: Optional[ArenaPc] = None,
 ) -> None:
     """Attack roll or saving throw, riders, then damage — scaled to the slot spent."""
     foe, pc = state.foe, state.pc
@@ -1535,7 +1550,7 @@ def _resolve_player_attack(
         _resolve_rider(state, attack, slot_level)
         return
     if attack.kind in ("heal", "buff"):
-        _resolve_buff(state, attack, extra, up_note)
+        _resolve_buff(state, attack, extra, up_note, ally=ally)
         return
     gwf = (
         attack.two_handed
@@ -1915,13 +1930,58 @@ def _foe_turn(state: ArenaState, rollover: bool = True) -> None:
             _surge(state)
 
 
-def _heal_feature(state: ArenaState, name: str, expr: str) -> None:
-    pc = state.pc
+def _heal_feature(
+    state: ArenaState, name: str, expr: str, target: Optional[ArenaPc] = None
+) -> None:
+    pc = target or state.pc
     heal, btxt = roll_expr(expr)
     gained = min(heal, pc.hp_max - pc.hp)
     pc.hp += gained
     state.stats.healed += gained
-    _log(state, "you", f"{name}: +{gained} HP. You're at {pc.hp}/{pc.hp_max}.", dice=btxt)
+    _log(
+        state,
+        "you",
+        f"{name}: +{gained} HP. {_who_is(state, pc)} at {pc.hp}/{pc.hp_max}.",
+        dice=btxt,
+    )
+
+
+def _who_is(state: ArenaState, pc: ArenaPc) -> str:
+    """ "You're" for the one acting, "Creed is" for a friend being healed (Plan 116)."""
+    return "You're" if pc is state.pc else f"{pc.name} is"
+
+
+def _ally_to_heal(state: ArenaState, action: ArenaAction) -> Optional[ArenaPc]:
+    """The friend a heal is aimed at, or None to heal yourself (Plan 116).
+
+    Healing spells and Lay on Hands may land on anyone on your side, a friend
+    at 0 hit points included — that is how a party gets someone back up.
+
+    Raises:
+        ValueError: If the target is on the other side or isn't a character.
+    """
+    index = action.target
+    if index is None or not state.roster or not (0 <= index < len(state.roster)):
+        return None
+    me = state.order[state.turn]
+    if index == me:
+        return None
+    slot = state.roster[index]
+    if slot.team != state.roster[me].team:
+        return None
+    if slot.kind != "pc" or slot.pc is None:
+        raise ValueError("Only a character can be healed.")
+    return slot.pc
+
+
+def _is_heal(state: ArenaState, action: ArenaAction) -> bool:
+    """Whether this action restores hit points (and so may aim at a friend)."""
+    if action.kind == "feature":
+        return action.key == "lay_on_hands"
+    if action.kind in ("attack", "cast"):
+        attack = next((a for a in state.pc.attacks if a.key == action.key), None)
+        return attack is not None and attack.effect == "heal"
+    return False
 
 
 def _unarmed_of(pc: ArenaPc) -> ArenaAttack:
@@ -1937,6 +1997,7 @@ def _feature(
     db: Session,
     beast_id: Optional[str] = None,
     slot_level: Optional[int] = None,
+    ally: Optional[ArenaPc] = None,
 ) -> None:
     feat = next((f for f in state.pc.features if f.key == key), None)
     if feat is None:
@@ -1944,7 +2005,10 @@ def _feature(
     if feat.uses_left <= 0:
         raise ValueError(f"No uses of {feat.name} left.")
     pc, foe = state.pc, state.foe
-    if (
+    if key == "lay_on_hands" and ally is not None:
+        if ally.hp >= ally.hp_max:
+            raise ValueError(f"{ally.name} is at full HP.")
+    elif (
         key in ("second_wind", "lay_on_hands", "divine_spark")
         and pc.hp >= pc.hp_max
         and key != "divine_spark"
@@ -2013,7 +2077,7 @@ def _feature(
         state.adv_next = True
         _log(state, "you", "Steady Aim: advantage on your next attack this turn.")
     elif key == "lay_on_hands":
-        _heal_feature(state, "Lay on Hands", "5")
+        _heal_feature(state, "Lay on Hands", "5", target=ally)
     elif key == "flurry":
         pc.focus -= 1
         strike = _unarmed_of(pc)
@@ -2348,7 +2412,12 @@ def _draw(state: ArenaState) -> None:
     for field in _PERSIST:
         setattr(state, field, getattr(slot, field))
     enemies = _enemies_of(state, index)
-    state.target_index = enemies[0] if enemies else None
+    if slot.kind == "monster" and enemies:
+        # Plan 116 — a boss picks its victim each turn. Always swinging at the
+        # first seat meant one player took every hit while the rest watched.
+        state.target_index = _RNG.choice(enemies)
+    else:
+        state.target_index = enemies[0] if enemies else None
     if state.target_index is not None:
         state.foe = _as_foe(state.roster[state.target_index])
     state.action_used = False
@@ -2540,15 +2609,24 @@ def start_duel(db: Session, pc_ids: list[uuid.UUID]) -> ArenaState:
 
 
 def start_boss(
-    db: Session, pc_ids: list[uuid.UUID], monster_id: uuid.UUID, controlled: uuid.UUID
+    db: Session,
+    pc_ids: list[uuid.UUID],
+    monster_id: uuid.UUID,
+    controlled: Optional[uuid.UUID],
 ) -> ArenaState:
-    """The party against one monster, with the other characters played for you.
+    """The party against one monster.
+
+    On one device, the person holding it plays ``controlled`` and the referee
+    plays the rest. With ``controlled`` None (Plan 116) every character is
+    played by its own person on their own phone, and only the boss is the
+    referee's.
 
     Args:
         db: Active database session.
         pc_ids: The party.
         monster_id: The boss's stat block.
-        controlled: Which character the person holding the device plays.
+        controlled: The one character the device holder plays, or None when
+            everybody plays their own.
 
     Returns:
         A sealed fight with initiative rolled.
@@ -2558,14 +2636,17 @@ def start_boss(
     """
     if not pc_ids:
         raise ValueError("A boss battle needs a party.")
-    roster = [_slot_for_pc(db, pc_id, team=0, auto=(pc_id != controlled)) for pc_id in pc_ids]
+    roster = [
+        _slot_for_pc(db, pc_id, team=0, auto=controlled is not None and pc_id != controlled)
+        for pc_id in pc_ids
+    ]
     monster = MonsterRepo.get_by_id(db, monster_id)
     if monster is None:
         raise ValueError("Boss not found.")
     boss = _foe_from_monster(monster)
     roster.append(ArenaSlot(kind="monster", label=boss.name, team=1, auto=True, foe=boss))
     state = ArenaState(
-        pc_id=controlled,
+        pc_id=controlled or pc_ids[0],
         mode="boss",
         roster=roster,
         pc=roster[0].pc,
@@ -2577,6 +2658,81 @@ def start_boss(
     if state.roster[state.order[state.turn]].auto:
         advance_turn(state)
     state.tips = _tips(state)
+    return _seal(state)
+
+
+def _seat_or_raise(state: ArenaState, index: int) -> ArenaSlot:
+    """The character seat at ``index`` in a roster fight, or a clear refusal."""
+    if state.phase == "over":
+        raise ValueError("The fight is over.")
+    if not state.roster or not (0 <= index < len(state.roster)):
+        raise ValueError("There's no such seat in this fight.")
+    slot = state.roster[index]
+    if slot.kind != "pc":
+        raise ValueError("Only a character's seat can change hands.")
+    return slot
+
+
+def referee_takes(db: Session, state: ArenaState, index: int) -> ArenaState:
+    """The referee plays a character whose person has stepped away (Plan 116).
+
+    A fight on four phones stalls the moment one phone dies, so a seat can be
+    handed to the referee, who plays it the way it plays any ally: its
+    biggest swing. If that seat is up right now its turn is played at once.
+
+    Args:
+        db: Active database session (the fight's character must still exist).
+        state: The sealed fight.
+        index: Roster index of the seat to hand over.
+
+    Returns:
+        The resealed fight.
+
+    Raises:
+        ValueError: A bad seat, one the referee already plays, or the last
+            seat a person was playing.
+    """
+    _pc_or_raise(db, state.pc_id)
+    _check_seal(state)
+    state = state.model_copy(deep=True)
+    slot = _seat_or_raise(state, index)
+    if slot.auto:
+        raise ValueError(f"The referee is already playing {slot.label}.")
+    people = [s for s in state.roster if s.kind == "pc" and not s.auto]
+    if len(people) <= 1:
+        raise ValueError("Somebody has to stay in the fight — end it instead.")
+    slot.auto = True
+    _log(state, "ref", f"The referee plays {slot.label} until they're back.")
+    if state.order[state.turn] == index:
+        if _action_free(state) is None and state.target_index is not None:
+            _auto_swing(state)
+        advance_turn(state)
+    state.tips = _tips(state)
+    return _seal(state)
+
+
+def player_returns(db: Session, state: ArenaState, index: int) -> ArenaState:
+    """Give a seat back to its person; their next turn waits for them (Plan 116).
+
+    Args:
+        db: Active database session.
+        state: The sealed fight.
+        index: Roster index of the seat being taken back.
+
+    Returns:
+        The resealed fight.
+
+    Raises:
+        ValueError: A bad seat, or one the person is already playing.
+    """
+    _pc_or_raise(db, state.pc_id)
+    _check_seal(state)
+    state = state.model_copy(deep=True)
+    slot = _seat_or_raise(state, index)
+    if not slot.auto:
+        raise ValueError(f"{slot.label} is already playing their own turns.")
+    slot.auto = False
+    _log(state, "ref", f"{slot.label} is back and plays their own turns again.")
     return _seal(state)
 
 
@@ -2601,8 +2757,17 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
     # Work on a copy: a refused action must leave the sealed state untouched.
     state = state.model_copy(deep=True)
     kind = action.kind
+    ally: Optional[ArenaPc] = None
     if action.target is not None and state.roster:
-        aim(state, action.target)
+        me = state.roster[state.order[state.turn]]
+        ours = (
+            0 <= action.target < len(state.roster) and state.roster[action.target].team == me.team
+        )
+        if ours and _is_heal(state, action):
+            # Plan 116 — a heal aimed at your own side lands on that friend.
+            ally = _ally_to_heal(state, action)
+        else:
+            aim(state, action.target)
     if kind in ("attack", "cast"):
         attack = next((a for a in state.pc.attacks if a.key == action.key), None)
         if attack is None:
@@ -2637,7 +2802,7 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
             spent = None
             if leveled:
                 spent = _spend_slot(state, action.slot_level or attack.spell_level)
-            _resolve_player_attack(state, attack, spent)
+            _resolve_player_attack(state, attack, spent, ally=ally)
         elif swing and state.attacks_left > 0:
             state.attacks_left -= 1
             _resolve_player_attack(state, attack)
@@ -2650,7 +2815,7 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
                 spent = _spend_slot(state, action.slot_level or attack.spell_level)
             _spend_action(state)
             state.attacks_left = state.pc.attacks_per_action - 1 if swing else 0
-            _resolve_player_attack(state, attack, spent)
+            _resolve_player_attack(state, attack, spent, ally=ally)
         if "invisible" in state.effects:
             state.effects.pop("invisible", None)
         if leveled or (attack.after_melee_hit and attack.spell_level > 0):
@@ -2663,7 +2828,7 @@ def act(db: Session, state: ArenaState, action: ArenaAction) -> ArenaState:
         state.dodging = True
         _log(state, "you", "You Dodge: attacks against you have disadvantage until your next turn.")
     elif kind == "feature":
-        _feature(state, action.key or "", db, slot_level=action.slot_level)
+        _feature(state, action.key or "", db, slot_level=action.slot_level, ally=ally)
     elif kind == "reckless":
         _feature(state, "reckless", db)
     elif kind == "wild_shape":

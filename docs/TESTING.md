@@ -48,6 +48,10 @@ tests/
 - `test_integrations/test_levelup_rules.py` — class tables, feat catalog shape, scaling notes
 - `test_api/test_levelup_api.py` — no grant → 404/422 on the player routes; grant is DM-only
 
+### Plan 116 — boss battles on everyone's own phone
+- `test_services/test_plan116_boss_live.py` — only the boss is referee-played; out-of-turn acts refused; the boss picks its victim (`_RNG.choice`); a seat can be handed to the referee (own, or whoever is up — never one merely waiting; never the last person) and taken back; heals and Lay on Hands land on a friend, a downed friend included. Boss blocks use a `1d1` attack so a scripted fight never ends by itself.
+- `test_api/test_plan104_duels.py::test_a_boss_battle_on_everyones_phone` — the same over HTTP: 403 for a waiting seat, 404 for an unknown boss
+
 ## Running Tests
 ```bash
 pytest -q                        # all tests

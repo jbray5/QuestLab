@@ -60,7 +60,7 @@ Import rules (enforced by the `boundary-checker` subagent and `.claude/rules/lay
 | [`map.py`](domain/map.py) | `Map` (world + dungeon) |
 | [`session.py`](domain/session.py) | `Session` (live play) |
 | [`arena.py`](domain/arena.py) | `ArenaState` — a Practice Arena fight (no table; the phone holds it) |
-| [`duel.py`](domain/duel.py) | `Duel` — a duel the server holds so each player can be on their own device |
+| [`duel.py`](domain/duel.py) | `Duel` — a fight the server holds so each player can be on their own device (duel or boss battle) |
 | [`enums.py`](domain/enums.py) | Shared enums (ChallengeRating, ItemRarity, ...) |
 
 ### Repos ([`db/repos/`](db/repos/))
@@ -79,7 +79,7 @@ One per aggregate above. Each exposes `get`, `list`, `create`, `update`, `delete
 | [`map_service.py`](services/map_service.py) | World + dungeon maps |
 | [`session_service.py`](services/session_service.py) | Live session state, initiative |
 | [`arena_service.py`](services/arena_service.py) | The 5e rules engine: turns, attacks, saves, slots, class features |
-| [`duel_service.py`](services/duel_service.py) | Who may act in a multi-device duel, and where the fight rests between turns |
+| [`duel_service.py`](services/duel_service.py) | Who may act in a multi-device fight (duel, or the party vs a boss — Plan 116), where it rests between turns, handing an absent player's seat to the referee |
 | [`levelup_service.py`](services/levelup_service.py) | Level-up guide (Plan 115): DM grants a level (`pending_level`), the player's guide plans and applies HP, ASI/feat, subclass and spell picks |
 | [`ai_service.py`](services/ai_service.py) | Claude-driven runbook, dialog, stat block, loot generation |
 
