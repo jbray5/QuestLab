@@ -41,7 +41,7 @@ P2
 - [ ] 17 Typography
 - [x] 18 Characters page overflow (auto-fill card grid; action row wraps; figure fields cap at 100%; no overflow at 768/1280/1440/1920)
 - [ ] 19 False empty states while loading
-- [ ] 20 Sidebar campaign name ellipsis
+- [x] 20 Sidebar campaign name ellipsis (+ full name on hover)
 - [ ] 21 Navigation as real links
 P3
 - [ ] 22 Showcase campaign tutorial data (data only, that campaign only)

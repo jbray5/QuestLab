@@ -195,8 +195,20 @@ export default function Layout() {
       {activeCampaign && (
         <>
           <hr className="divider" style={{ margin: "0.75rem 0" }} />
-          <p style={{ fontSize: "0.65rem", color: "var(--muted)", margin: "0 0 0.25rem 0.5rem" }}>
-            {activeCampaign.name.toUpperCase().slice(0, 24)}
+          {/* Review 10/30 — a long name ends in "…" and shows in full on hover. */}
+          <p
+            title={activeCampaign.name}
+            style={{
+              fontSize: "0.65rem",
+              color: "var(--muted)",
+              margin: "0 0 0.25rem 0.5rem",
+              textTransform: "uppercase",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {activeCampaign.name}
           </p>
           {/* The nightly loop stays one click away; everything else folds. */}
           <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/sessions`)}>
