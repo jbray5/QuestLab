@@ -159,6 +159,42 @@ class TestCreateEncounter:
         assert enc.difficulty == EncounterDifficulty.DEADLY
         assert enc.xp_budget == 18000
 
+    @pytest.mark.parametrize("pick", list(EncounterDifficulty))
+    def test_no_party_keeps_the_chosen_difficulty(self, duckdb_session: Session, pick):
+        """Review 10/30: Moderate (the default) came back as a computed LOW with no party."""
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        mid = _make_monster(duckdb_session, name=f"orc_{uuid.uuid4().hex[:4]}", cr="1/2")
+        enc = enc_svc.create_encounter(
+            duckdb_session,
+            adventure_id=adv.id,
+            name="Choice",
+            dm_email=dm,
+            monster_roster=[{"monster_id": str(mid), "count": 2}],
+            difficulty=pick,
+        )
+        assert enc.difficulty == pick, "no party: nothing to compute, so the DM's pick stands"
+
+    def test_a_roster_saved_without_a_party_keeps_the_pick(self, duckdb_session: Session):
+        """Updating with PC levels but an empty roster doesn't overwrite it with LOW."""
+        from domain.encounter import EncounterUpdate
+
+        dm = _unique_dm()
+        c = _make_campaign(duckdb_session, dm)
+        adv = _make_adventure(duckdb_session, c.id, dm)
+        enc = enc_svc.create_encounter(
+            duckdb_session,
+            adventure_id=adv.id,
+            name="Pick",
+            dm_email=dm,
+            difficulty=EncounterDifficulty.HIGH,
+        )
+        enc = enc_svc.update_encounter(
+            duckdb_session, enc.id, dm, EncounterUpdate(monster_roster=[]), pc_levels=[3, 3]
+        )
+        assert enc.difficulty == EncounterDifficulty.HIGH
+
     def test_empty_name_raises(self, duckdb_session: Session):
         """Empty encounter name raises ValueError."""
         dm = _unique_dm()

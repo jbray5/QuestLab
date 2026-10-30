@@ -512,6 +512,11 @@ export default function Encounters() {
                   <span
                     className={`badge ${DIFFICULTY_BADGE[e.difficulty] ?? "badge-draft"}`}
                     style={{ color: DIFFICULTY_COLOR[e.difficulty] }}
+                    title={
+                      pcLevels.length && e.xp_budget > 0
+                        ? "Worked out from the monsters and your party's levels"
+                        : "Your pick — add characters and monsters for live difficulty"
+                    }
                   >
                     {e.difficulty}
                   </span>

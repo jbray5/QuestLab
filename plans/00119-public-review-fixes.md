@@ -22,7 +22,7 @@ locked down. One commit per item. Ask before schema, auth, or anything touching 
 P0
 - [x] 1 No "AI" in public branding — index.html title/description/og/twitter, `/try` copy and its three generative-AI images (swapped for the procedural demo map), API description
 - [x] 2 Campaign create: Setting/Tone optional, "e.g." placeholders app-wide, friendly validation errors, open the new campaign
-- [ ] 3 Encounter difficulty badge with no party
+- [x] 3 Encounter difficulty badge with no party (create ignored the pick; no-party math returned LOW)
 - [x] 4 Lock-down audit (docs/SECURITY.md access table; Plan 120 accounts — closes on Render switch; SEC-002..006 in QUALITY.md) of /play, /table, /stream, DM routes (written summary; auth changes need Justin)
 P1
 - [ ] 5 Quick session path; stable sidebar

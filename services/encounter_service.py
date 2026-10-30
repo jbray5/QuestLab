@@ -71,7 +71,7 @@ def _compute_xp_and_difficulty(
     session: Session,
     monster_roster: list[dict[str, Any]],
     pc_levels: list[int],
-) -> tuple[int, EncounterDifficulty]:
+) -> tuple[int, Optional[EncounterDifficulty]]:
     """Compute XP budget and difficulty from monster roster and PC levels.
 
     Args:
@@ -80,10 +80,12 @@ def _compute_xp_and_difficulty(
         pc_levels: List of PC levels (1–20) for XP threshold calculation.
 
     Returns:
-        Tuple of (adjusted_xp, difficulty).
+        Tuple of (adjusted_xp, difficulty). Difficulty is None when there is
+        nothing to compute it from — no party or no monsters — so the caller
+        keeps the DM's own pick instead of a made-up "Low" (review 10/30).
     """
     if not pc_levels or not monster_roster:
-        return 0, EncounterDifficulty.LOW
+        return 0, None
 
     monster_xp_values: list[int] = []
     for entry in monster_roster:
@@ -100,7 +102,7 @@ def _compute_xp_and_difficulty(
         monster_xp_values.extend([xp_each] * count)
 
     if not monster_xp_values:
-        return 0, EncounterDifficulty.LOW
+        return 0, None
 
     result = calculate_difficulty(pc_levels, monster_xp_values)
     return result.adjusted_xp, result.difficulty
@@ -217,6 +219,7 @@ def create_encounter(
     reward_xp: int = 0,
     loot_table_id: Optional[uuid.UUID] = None,
     pc_levels: Optional[list[int]] = None,
+    difficulty: EncounterDifficulty = EncounterDifficulty.MODERATE,
 ) -> Encounter:
     """Create a new encounter, auto-calculating XP budget and difficulty.
 
@@ -233,6 +236,8 @@ def create_encounter(
         reward_xp: XP to award players on completion.
         loot_table_id: Optional linked loot table UUID.
         pc_levels: PC levels for XP budget calculation.
+        difficulty: The DM's starting difficulty. Kept until there is a party
+            and a roster for the XP math to replace it with.
 
     Returns:
         Newly created Encounter ORM object.
@@ -255,13 +260,13 @@ def create_encounter(
 
     roster = monster_roster or []
     levels = pc_levels or []
-    xp_budget, difficulty = _compute_xp_and_difficulty(session, roster, levels)
+    xp_budget, computed = _compute_xp_and_difficulty(session, roster, levels)
 
     payload = EncounterCreate(
         adventure_id=adventure_id,
         name=name,
         description=description,
-        difficulty=difficulty,
+        difficulty=computed or difficulty,
         xp_budget=xp_budget,
         monster_roster=roster,
         terrain_notes=terrain_notes,
@@ -311,7 +316,8 @@ def update_encounter(
     if effective_levels and ("xp_budget" not in patch or "monster_roster" in patch):
         xp_budget, difficulty = _compute_xp_and_difficulty(session, new_roster, effective_levels)
         patch["xp_budget"] = xp_budget
-        patch["difficulty"] = difficulty
+        if difficulty is not None:
+            patch["difficulty"] = difficulty
 
     # Apply via a fresh EncounterUpdate with the merged patch
     merged = EncounterUpdate(**patch)
