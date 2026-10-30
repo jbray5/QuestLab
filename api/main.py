@@ -109,7 +109,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="QuestLab API",
-    description="AI-powered D&D 5e campaign planning tool — REST API.",
+    description="Plan, run, and play D&D 5e campaigns — REST API.",
     version="1.11.0",
     lifespan=lifespan,
 )
