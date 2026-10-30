@@ -218,7 +218,21 @@ export default function Characters() {
         className="flex items-center"
         style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}
       >
-        <h1>Characters</h1>
+        <div>
+          <h1 style={{ marginBottom: "0.2rem" }}>Characters</h1>
+          {(campaign?.allow_player_signup ?? true) && (
+            <p className="text-sm text-muted" style={{ margin: 0 }}>
+              Players join from your join link or the QR on the TV
+              {joinCode ? (
+                <>
+                  , type <strong style={{ fontFamily: "monospace", letterSpacing: "0.1em" }}>{joinCode}</strong>, and build or pick their character.
+                </>
+              ) : (
+                " and build their character. Add a join code so only your table can see the party."
+              )}
+            </p>
+          )}
+        </div>
         <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
           {/* Plan 74 — players build their own characters from the join link. */}
           <label
@@ -235,7 +249,7 @@ export default function Characters() {
           </label>
           <label
             style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8rem", color: "var(--muted)" }}
-            title="When set, the join page asks for this code before it shows the party. Say it out loud at the table; leave empty for no code."
+            title="Players open your join link (or scan the QR on the TV), type this code, then pick or build their character. Without a code, anyone with the link can see the party."
           >
             Join code
             <input
@@ -247,10 +261,30 @@ export default function Characters() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") (e.target as HTMLInputElement).blur();
               }}
-              placeholder="none"
+              placeholder="no code"
               maxLength={12}
               style={{ width: 132, fontFamily: "monospace", letterSpacing: "0.12em", padding: "2px 6px" }}
             />
+            {/* Review 10/30 — sign-up on with no code showed "Join code: none"
+                and no way forward. One tap makes one; the hint says how it's used. */}
+            {!joinCode && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: "0.72rem", padding: "2px 8px" }}
+                disabled={codeMut.isPending}
+                onClick={() => {
+                  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+                  const bytes = crypto.getRandomValues(new Uint8Array(6));
+                  const code = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+                  setJoinCodeDraft(code);
+                  codeMut.mutate(code);
+                }}
+                title="Make a short code the join page asks for"
+              >
+                🎲 Generate
+              </button>
+            )}
           </label>
           <button
             className="btn btn-ghost"
