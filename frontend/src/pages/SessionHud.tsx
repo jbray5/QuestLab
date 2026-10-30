@@ -550,7 +550,7 @@ export default function SessionHud() {
     enabled: !!session?.adventure_id,
   });
 
-  const { data: allChars = [] } = useQuery({
+  const { data: allChars = [], isLoading: charsLoading } = useQuery({
     queryKey: ["characters", adventure?.campaign_id],
     queryFn: () => charactersApi.list(adventure!.campaign_id),
     enabled: !!adventure?.campaign_id,
@@ -700,7 +700,7 @@ export default function SessionHud() {
   // the DM is actively working a map. Auto-enters on staging a map, manual
   // toggle either way.
   const [mapFocus, setMapFocus] = useState(false);
-  const { data: hudMaps = [] } = useQuery({
+  const { data: hudMaps = [], isLoading: hudMapsLoading } = useQuery({
     queryKey: ["battle-maps", adventure?.campaign_id],
     queryFn: () => tableApi.listMaps(adventure!.campaign_id),
     enabled: !!adventure?.campaign_id,
@@ -1437,7 +1437,7 @@ export default function SessionHud() {
             )}
           </div>
 
-          {party.length === 0 && (
+          {!charsLoading && party.length === 0 && (
             <p className="text-muted" style={{ gridColumn: "1 / -1", padding: "1rem", fontSize: "0.85rem" }}>
               No characters found.{" "}
               <Link to={`/campaigns/${adventure?.campaign_id}/characters`} style={{ color: "var(--gold)" }}>
@@ -2429,7 +2429,7 @@ export default function SessionHud() {
                     </div>
                   </div>
                 )}
-                {hudMaps.length === 0 && (
+                {!hudMapsLoading && hudMaps.length === 0 && (
                   <p style={{ color: "var(--muted)", fontSize: "0.85rem" }}>
                     No battle maps in this campaign yet — add them under Battle Maps.
                   </p>

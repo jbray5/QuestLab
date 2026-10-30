@@ -198,7 +198,7 @@ export default function PuzzleWorkbench() {
   const { campaignId } = useParams<{ campaignId: string }>();
   const qc = useQueryClient();
   const key = ["puzzles", campaignId];
-  const { data: puzzles = [] } = useQuery({
+  const { data: puzzles = [], isLoading: puzzlesLoading } = useQuery({
     queryKey: key,
     queryFn: () => puzzlesApi.list(campaignId as string),
     enabled: !!campaignId,
@@ -222,7 +222,7 @@ export default function PuzzleWorkbench() {
         here; answers never reach the player payload.
       </p>
 
-      {puzzles.length === 0 && (
+      {!puzzlesLoading && puzzles.length === 0 && (
         <p style={{ color: "var(--muted)" }}>
           No puzzles yet — seed Saturday&rsquo;s two with{" "}
           <code>scripts/seed_session4_puzzles.py</code>.

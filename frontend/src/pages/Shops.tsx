@@ -345,7 +345,7 @@ export default function Shops() {
   const [name, setName] = useState("");
 
   const shopsKey = ["shops", campaignId];
-  const { data: shops = [] } = useQuery({
+  const { data: shops = [], isLoading: shopsLoading } = useQuery({
     queryKey: shopsKey,
     queryFn: () => shopsApi.list(campaignId as string),
     enabled: !!campaignId,
@@ -401,9 +401,9 @@ export default function Shops() {
       {shops.map((shop) => (
         <ShopCard key={shop.id} shop={shop} onChanged={onChanged} />
       ))}
-      {shops.length === 0 && (
+      {!shopsLoading && shops.length === 0 && (
         <p style={{ color: "var(--text-dim)" }}>
-          No shops yet — name one above, then 🪄 AI-stock it.
+          No shops yet — name one above.
         </p>
       )}
     </div>

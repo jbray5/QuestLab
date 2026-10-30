@@ -289,6 +289,8 @@ export default function CampaignSessions() {
 
       {arcs.map((arc) => {
         const list = sessionsByArc[arc.id] ?? [];
+        // Review 10/30 — "0 sessions" flashed before the real list arrived.
+        const arcLoading = !!sessionQs[arcs.indexOf(arc)]?.isLoading;
         // "Up next" = the first unfinished session dated today or later; if
         // none is dated, the first unfinished one.
         const today = new Date().toISOString().slice(0, 10);
@@ -310,7 +312,7 @@ export default function CampaignSessions() {
                   {TIER_LABELS[arc.tier] ?? arc.tier}
                 </span>
                 <span className="text-sm text-muted">
-                  {list.length} session{list.length === 1 ? "" : "s"}
+                  {arcLoading ? "…" : `${list.length} session${list.length === 1 ? "" : "s"}`}
                 </span>
               </div>
               <div className="flex gap-2" style={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -569,7 +571,8 @@ export default function CampaignSessions() {
                     </div>
                   );
                 })}
-                {list.length === 0 && sessionFormFor !== arc.id && (
+                {arcLoading && <p className="text-sm text-muted" style={{ margin: 0 }}>Loading sessions…</p>}
+                {!arcLoading && list.length === 0 && sessionFormFor !== arc.id && (
                   <p className="text-sm text-muted" style={{ margin: 0 }}>
                     No sessions in this arc yet — <span style={{ color: "var(--gold)", cursor: "pointer" }} onClick={() => openSessionForm(arc)}>add one</span>.
                   </p>

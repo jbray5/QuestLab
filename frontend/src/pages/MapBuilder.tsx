@@ -819,7 +819,7 @@ export default function MapBuilder() {
   const [savingNode, setSavingNode] = useState(false);
   const [savingLayout, setSavingLayout] = useState(false);
 
-  const { data: maps = [] } = useQuery({
+  const { data: maps = [], isLoading: mapsLoading } = useQuery({
     queryKey: ["maps", adventureId],
     queryFn: () => mapsApi.list(adventureId!),
     enabled: !!adventureId,
@@ -1386,7 +1386,7 @@ export default function MapBuilder() {
         </div>
       )}
 
-      {!selectedMapId && maps.length === 0 && (
+      {!selectedMapId && !mapsLoading && maps.length === 0 && (
         <p className="text-muted">Create a map to get started.</p>
       )}
       {!selectedMapId && maps.length > 0 && (
