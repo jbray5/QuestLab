@@ -1,7 +1,7 @@
 # Plan 00119 — Public-review fix list (2026-10-30)
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete (Plan 120's Render switch still Justin's)
 
 **Started:** 2026-10-30
 **Last updated:** 2026-10-30
@@ -44,11 +44,13 @@ P2
 - [x] 20 Sidebar campaign name ellipsis (+ full name on hover)
 - [x] 21 Navigation as real links (sidebar, session HUD/Prep, arc Encounters/Map Builder, campaign Open, breadcrumbs, admin)
 P3
-- [ ] 22 Showcase campaign tutorial data (data only, that campaign only)
+- [x] 22 Showcase campaign tutorial data (applied 10/30 with F:\DnD\QuestLab\showcase\seed_showcase.py; undo `--revert showcase_log_20261030_154030.json`): S1 Complete + recap, S2 "Below the Kettle" Ready 11/07; 2 encounters (4 Bandits + Thug; Animated Armor + Specter); 4 NPCs with WANT/KNOWS/VOICE/SECRET, the Pale Steward hidden, all on the arc roster; 2 round beats; the code-drawn taproom on S2's shelf; Potion of Healing on Sable; made-up player names
 
 ---
 
 ## Surprises and Discoveries
+- 10/30: the 2024 monster catalog has no Giant Rat or rat swarm; the cellar fight became smugglers (Bandits + Thug). Session create ignores `status` — patched to Ready after.
+- 10/30: the Showcase's three existing battle maps may be AI art (Plan 54 era); the tutorial uses the code-drawn taproom on the shelf. PC portraits unchecked.
 - 10/30: item 10's black canvas didn't reproduce: with the procedural demo map on a session's table the immersive view renders (headless Chrome, SwiftShader). Likely the reviewer's hidden pane pausing WebGL, as they suspected.
 - 10/30: item 7's unlabelled numbers (Creed 21, Nya 26…) were HP, not initiative; the gold "0" was an unrolled initiative.
 - 10/30: `/try` (the old Reddit landing, Plan 54) predates the no-generative-AI decision (Plan 86): "The AI-powered studio…", "AI-generated battle maps", "AI-stocked shops", and three images from the old AI art pipeline. All replaced.
