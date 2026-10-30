@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 
+import { apiBase, authHeaders } from "../api/client";
+
 interface Props {
   currentUrl?: string | null;
   onUrlChange: (url: string) => void;
@@ -24,10 +26,9 @@ export default function ImageUpload({
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const email = localStorage.getItem("dm_email") || "";
-      const res = await fetch("/api/uploads", {
+      const res = await fetch(`${apiBase()}/uploads`, {
         method: "POST",
-        headers: email ? { "X-MS-CLIENT-PRINCIPAL-NAME": email } : {},
+        headers: authHeaders(),
         body: formData,
       });
       if (!res.ok) {

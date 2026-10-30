@@ -127,7 +127,7 @@ const CSS = `
 export default function Welcome() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const { dmEmail, setDmEmail, setToken, setProfile } = useAuthStore();
+  const { dmEmail, token, setDmEmail, setToken, setProfile, signOut } = useAuthStore();
   const next = params.get("next") || "/";
   const error = params.get("error");
   // Plan 73 — which sign-in methods this deployment offers.
@@ -173,9 +173,16 @@ export default function Welcome() {
   }, [navigate, next, setDmEmail, setProfile, setToken]);
 
   // If they're already signed in, skip the landing.
+  // Plan 120 — a bare email is not "signed in" once the deployment requires
+  // accounts: drop it and show the sign-in card instead of bouncing.
   useEffect(() => {
-    if (dmEmail) navigate(next, { replace: true });
-  }, [dmEmail, navigate, next]);
+    if (!dmEmail || providers === null) return;
+    if (providers.mode === "oauth" && !token) {
+      signOut();
+      return;
+    }
+    navigate(next, { replace: true });
+  }, [dmEmail, token, providers, navigate, next, signOut]);
 
   // Plan 54 — on demo deployments the marketing landing IS the front door;
   // identity is pinned server-side, so there's nothing to sign into.
@@ -189,12 +196,15 @@ export default function Welcome() {
     const email = String(form.get("email") ?? "").trim();
     const password = String(form.get("password") ?? "");
     const name = String(form.get("name") ?? "").trim();
+    const claim = String(form.get("claim_code") ?? "").trim();
     setBusy(true);
     setFormError(null);
     try {
       const res = await api.post<{ token: string; user: Profile }>(
         tab === "signup" ? "/auth/signup" : "/auth/login",
-        tab === "signup" ? { name, email, password } : { email, password },
+        tab === "signup"
+          ? { name, email, password, ...(claim ? { claim_code: claim } : {}) }
+          : { email, password },
       );
       setToken(res.token);
       setProfile(res.user);
@@ -316,6 +326,19 @@ export default function Welcome() {
                       autoComplete={tab === "signup" ? "new-password" : "current-password"}
                       placeholder={tab === "signup" ? "At least 8 characters" : "Your password"}
                     />
+                    {tab === "signup" && (
+                      <details open={!!formError && /claim code/i.test(formError)}>
+                        <summary>Already running campaigns here under this email?</summary>
+                        <label htmlFor="acct-claim">Claim code</label>
+                        <input
+                          id="acct-claim"
+                          name="claim_code"
+                          type="password"
+                          autoComplete="off"
+                          placeholder="From the server's settings"
+                        />
+                      </details>
+                    )}
                     {formError && <p className="ql-w-err">{formError}</p>}
                     <button className="btn btn-primary ql-w-cta" type="submit" disabled={busy}>
                       {busy ? "One moment…" : tab === "signup" ? "Create my account →" : "Sign in →"}

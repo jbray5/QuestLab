@@ -35,6 +35,12 @@ Any import violation is a bug. Add import boundary tests in Stage 3.
 | TD-002 | Map builder uses SVG grid, not a proper canvas | Low | Stage 8 | React phase |
 | TD-003 | Monster SRD data hardcoded; needs admin UI for custom monsters | Low | Stage 6 | Stage 6+ |
 | TD-004 | py 1.11.0 PYSEC-2022-42969 ReDoS — transitive dep of interrogate; no fix available (unmaintained). Suppressed via `--ignore-vuln`. | Low | Stage 1 | When interrogate drops py dep |
+| SEC-001 | Prod header mode trusts any email (no edge auth). Code fixed (Plan 120); **closed when Render runs `AUTH_MODE=oauth`** (LAUNCH.md §0) | Critical | 2026-10-30 | |
+| SEC-002 | Projector link / party list / join roster expose every PC UUID; a PC UUID writes that sheet. Needs per-PC `play_token` (schema) | High | 2026-10-30 | |
+| SEC-003 | Catalog monsters/items/spells editable and deletable by any DM (no owner on items/spells; `PATCH /items` writes from the router) | High | 2026-10-30 | |
+| SEC-004 | Uploads take the extension from the client filename → `.html`/`.svg` served from the API origin (stored XSS); no `nosniff` | High | 2026-10-30 | |
+| SEC-005 | Fog of war client-side; `/stream/campaign` ignores join code; session/combat PC ids unchecked vs campaign; crier webhook URL unrestricted (SSRF); inventory notes-only PATCH skips row check | Medium | 2026-10-30 | |
+| SEC-006 | `/play/{pc}` returns the DM notes field; feature spend skips PC check; arena accepts other-campaign PCs; `buy` ignores hidden shops | Low | 2026-10-30 | |
 
 ## Definition of Done (per task)
 - [ ] `pytest -q` — zero failures

@@ -1,4 +1,4 @@
-import { api, apiBase } from "./client";
+import { api, apiBase, authHeaders } from "./client";
 import type {
   BattleMap,
   BattleMapCreate,
@@ -11,12 +11,11 @@ import type {
 /** Multipart upload to one of the upload routes; returns the stored public URL. */
 async function uploadTo(route: string, file: File): Promise<string> {
   const base = apiBase();
-  const email = localStorage.getItem("dm_email") || import.meta.env.VITE_DM_EMAIL || "";
   const form = new FormData();
   form.append("file", file);
   const res = await fetch(`${base}${route}`, {
     method: "POST",
-    headers: email ? { "X-MS-CLIENT-PRINCIPAL-NAME": email } : {},
+    headers: authHeaders(),
     body: form,
   });
   if (!res.ok) {

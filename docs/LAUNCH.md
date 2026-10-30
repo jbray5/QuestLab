@@ -5,15 +5,37 @@ exactly how Justin's own deployment has always run. Flipping to public mode is
 a handful of environment variables plus two OAuth apps. Nothing in the code path
 changes until you set them.
 
-## 0. Turn on accounts today (2 minutes, no OAuth needed)
+## 0. Lock the door: accounts on (10 minutes, no OAuth needed) — Plan 120
 
-Set **`APP_SECRET`** on Render (any long random string) and redeploy. That alone
-enables the **Create account / Sign in** card on `/welcome` — name, email and
-password (scrypt-hashed, stdlib). It works in personal mode too: your own
-identity keeps working, and a new DM who signs up owns only what they create.
-Password resets have no email path yet: a user who forgets can sign in with
-Discord using the same email (once configured) or ask you to clear
-`users.password_hash` for them. Rate-limit `/api/auth/login` at the edge.
+Personal (header) mode trusts whatever email the browser sends, and Render is
+public, so on prod **anyone who types your email is you**. Do this before
+anything else:
+
+1. Deploy the Plan 120 code (it closes the signup/OAuth/dev-token takeover holes).
+2. On Render → the API service → Environment, add:
+   ```
+   APP_SECRET=<python -c "import secrets;print(secrets.token_urlsafe(48))">
+   ACCOUNT_CLAIM_CODE=<python -c "import secrets;print(secrets.token_urlsafe(16))">
+   AUTH_MODE=oauth
+   RATE_LIMIT=on
+   ```
+   Save (Render redeploys). From this moment the email header is ignored, and every
+   browser that was "signed in" by email lands on `/welcome`.
+3. On `/welcome` → **Create account** with **your existing email**, a password, and —
+   under "Already running campaigns here under this email?" — the claim code.
+   Your campaigns are there.
+4. Check from a terminal: `curl -H "X-MS-CLIENT-PRINCIPAL-NAME: <your email>" https://<API_HOST>/api/campaigns` → **401**.
+5. Remove `ACCOUNT_CLAIM_CODE` (or keep it only while other header-era DMs still
+   need to claim theirs — give it to them privately).
+
+Players are unaffected: `/play`, `/table`, `/join`, `/market` links keep working.
+Setting `APP_SECRET` also re-keys arena seals (when `ARENA_SECRET` is unset), so a
+practice fight in flight at that moment shows "Start over".
+Scripts in `scripts/` that send the email header stop working against prod;
+they need a bearer token (copy `ql_token` from your browser's localStorage).
+
+Password resets have no email path yet: sign in with a verified Discord email
+(once configured) or clear `users.password_hash` for the user.
 
 ## 1. Create the OAuth apps (15 minutes)
 

@@ -23,8 +23,13 @@ export interface RequestOptions {
   quiet?: boolean;
 }
 
-/** Read DM identity from localStorage (set on first load from a meta tag or env). */
-function getAuthHeader(): Record<string, string> {
+/**
+ * The identity headers for a DM request: the signed session token when there
+ * is one (Plan 73), else the personal-mode email header. Every fetch that
+ * talks to a DM route uses this — uploads included (Plan 120) — so nothing
+ * breaks when a deployment stops trusting the email header.
+ */
+export function authHeaders(): Record<string, string> {
   // Plan 73 — a signed session token (OAuth sign-in) is the real identity.
   // The email header remains for personal/header-mode deployments only.
   const token = localStorage.getItem("ql_token") || "";
@@ -41,7 +46,7 @@ async function request<T>(
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...getAuthHeader(),
+    ...authHeaders(),
   };
 
   const res = await fetch(`${BASE}${path}`, {
@@ -74,9 +79,12 @@ async function request<T>(
             : "AI features are for QuestLab patrons.",
       );
     }
-    if (typeof window !== "undefined" && res.status === 401 && localStorage.getItem("ql_token")) {
-      // Expired session in oauth mode — clear it so the guard sends them to sign in.
+    if (typeof window !== "undefined" && res.status === 401) {
+      // Expired session, or (Plan 120) a browser still holding a bare email
+      // after the deployment switched to accounts: clear it and let the
+      // layout send them to sign in.
       localStorage.removeItem("ql_token");
+      localStorage.removeItem("dm_email");
       window.dispatchEvent(new CustomEvent("ql:signed-out"));
     }
     if (typeof window !== "undefined" && res.status !== 401 && !opts.quiet) {

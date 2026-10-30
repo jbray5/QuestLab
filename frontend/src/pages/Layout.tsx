@@ -111,6 +111,18 @@ export default function Layout() {
     }
   }, [dmEmail, navigate, location.pathname, location.search]);
 
+  // Plan 120 — the API refused this browser's identity (expired session, or a
+  // bare email on a deployment that now requires accounts): sign in again.
+  useEffect(() => {
+    const onSignedOut = () => {
+      signOut();
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      navigate(`/welcome?next=${next}`, { replace: true });
+    };
+    window.addEventListener("ql:signed-out", onSignedOut);
+    return () => window.removeEventListener("ql:signed-out", onSignedOut);
+  }, [navigate, signOut]);
+
   // Plan 83 — a pasted campaign or arc URL selects it in the sidebar, so the
   // campaign pages are reachable by link (and bookmark), not only by clicking.
   useEffect(() => {

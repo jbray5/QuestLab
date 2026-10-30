@@ -1,4 +1,4 @@
-import { api, apiBase } from "./client";
+import { api, apiBase, authHeaders } from "./client";
 
 // Plan 57 — the Session Notebook. DM-only; every route 403s until the
 // server sets NOTEBOOK_ENABLED=true (ship dark).
@@ -134,10 +134,9 @@ export const notebooksApi = {
 export async function uploadImage(file: File | Blob, name = "pasted.png"): Promise<string> {
   const form = new FormData();
   form.append("file", new File([file], name, { type: file.type || "image/png" }));
-  const email = localStorage.getItem("dm_email") || import.meta.env.VITE_DM_EMAIL || "";
   const res = await fetch(`${apiBase()}/uploads`, {
     method: "POST",
-    headers: email ? { "X-MS-CLIENT-PRINCIPAL-NAME": email } : {},
+    headers: authHeaders(),
     body: form,
   });
   if (!res.ok) throw new Error("Upload failed.");

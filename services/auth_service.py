@@ -6,12 +6,14 @@ and issues a session token. ``link_patreon`` attaches membership to an
 existing account. Email is the identity everything else keys on.
 """
 
+import hmac
 import os
 from datetime import UTC, datetime
 from typing import Optional
 
 from sqlmodel import Session as DBSession
 
+from db.repos.campaign_repo import CampaignRepo
 from db.repos.user_repo import UserRepo
 from domain.user import User, UserRead
 from integrations import oauth, session_token
@@ -131,15 +133,22 @@ def complete(db: DBSession, provider: str, code: str, state: str) -> tuple[str, 
             raise ValueError("Account not found for link.")
     else:
         user = UserRepo.get_by_provider(db, provider, profile.provider_id)
-        if user is None and profile.email:
-            user = UserRepo.get_by_email(db, profile.email)
         if user is None:
             if not profile.email:
                 raise ValueError(
                     f"{provider.title()} did not share an email address — QuestLab needs one "
                     "to keep your campaigns yours."
                 )
-            user = User(email=profile.email.strip().lower())
+            # Plan 120 — an address the provider hasn't verified proves nothing:
+            # it must never attach to (or start) the account that owns it.
+            if not profile.email_verified:
+                raise ValueError(
+                    f"{provider.title()} hasn't verified your email address yet. Verify it "
+                    f"with {provider.title()}, then sign in again."
+                )
+            user = UserRepo.get_by_email(db, profile.email)
+        if user is None:
+            user = User(email=str(profile.email).strip().lower())
 
     if profile.provider == "discord":
         user.discord_id = profile.provider_id
@@ -156,7 +165,37 @@ def complete(db: DBSession, provider: str, code: str, state: str) -> tuple[str, 
     return session_token.issue(user.email), user
 
 
-def signup(db: DBSession, name: str, email: str, password: str) -> tuple[str, User]:
+def _require_claim_code(claim_code: Optional[str]) -> None:
+    """Refuse unless ``claim_code`` matches the server's ACCOUNT_CLAIM_CODE (Plan 120).
+
+    Campaigns key on the DM's email. Before accounts, anyone could type an
+    email and be that DM, so an email that already owns campaigns (or a
+    passwordless user row) carries no proof of who it belongs to. There is no
+    email sender to verify with, so the owner proves it with a code only the
+    server operator knows, set on Render for the switch-over and removed after.
+
+    Args:
+        claim_code: What the person typed, if anything.
+
+    Raises:
+        ValueError: If no claim code is configured or it doesn't match.
+    """
+    expected = os.environ.get("ACCOUNT_CLAIM_CODE", "").strip()
+    given = (claim_code or "").strip()
+    if not expected or not given or not hmac.compare_digest(given, expected):
+        raise ValueError(
+            "That email already has campaigns here. To claim them, enter the claim code "
+            "from the server's settings."
+        )
+
+
+def signup(
+    db: DBSession,
+    name: str,
+    email: str,
+    password: str,
+    claim_code: Optional[str] = None,
+) -> tuple[str, User]:
     """Create an email + password account and sign it in (Plan 73b).
 
     Args:
@@ -164,12 +203,15 @@ def signup(db: DBSession, name: str, email: str, password: str) -> tuple[str, Us
         name: Display name.
         email: Email (the identity key).
         password: Plaintext password (hashed with scrypt before storage).
+        claim_code: The server's ACCOUNT_CLAIM_CODE — needed only when the email
+            already owns campaigns or a passwordless account (Plan 120).
 
     Returns:
         ``(session_token, user)``.
 
     Raises:
-        ValueError: If the email is taken (with a password) or the password is weak.
+        ValueError: If the email is taken (with a password), already owns data
+            and the claim code is missing or wrong, or the password is weak.
     """
     from integrations import passwords
 
@@ -179,6 +221,9 @@ def signup(db: DBSession, name: str, email: str, password: str) -> tuple[str, Us
     user = UserRepo.get_by_email(db, email)
     if user is not None and user.password_hash:
         raise ValueError("An account with that email already exists — sign in instead.")
+    if user is not None or CampaignRepo.list_by_dm(db, email):
+        # Plan 120 — first come must not be first served for someone else's campaigns.
+        _require_claim_code(claim_code)
     if user is None:
         user = User(email=email)
     user.display_name = name.strip()[:120] or user.display_name

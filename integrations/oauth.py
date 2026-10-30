@@ -35,6 +35,9 @@ class OAuthProfile:
     avatar_url: Optional[str]
     patron_active: bool = False
     patron_tier_cents: int = 0
+    # Plan 120 — whether the provider vouches that this person owns ``email``.
+    # An unverified address proves nothing, so it never claims an account.
+    email_verified: bool = False
 
 
 def _env(name: str) -> str:
@@ -142,6 +145,7 @@ def _discord(code: str, timeout: float) -> OAuthProfile:
         email=(u.get("email") or None),
         display_name=u.get("global_name") or u.get("username") or "Dungeon Master",
         avatar_url=avatar,
+        email_verified=bool(u.get("verified")),
     )
 
 
@@ -163,7 +167,7 @@ def _patreon(code: str, timeout: float) -> OAuthProfile:
         access = tok.json().get("access_token")
         params = {
             "include": "memberships,memberships.campaign",
-            "fields[user]": "email,full_name,image_url",
+            "fields[user]": "email,full_name,image_url,is_email_verified",
             "fields[member]": "patron_status,currently_entitled_amount_cents",
         }
         me = client.get(_PATREON_ME, params=params, headers={"Authorization": f"Bearer {access}"})
@@ -211,4 +215,5 @@ def parse_patreon_identity(data: dict[str, Any], campaign_id: str) -> OAuthProfi
         avatar_url=attrs.get("image_url"),
         patron_active=active,
         patron_tier_cents=cents,
+        email_verified=bool(attrs.get("is_email_verified")),
     )

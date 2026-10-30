@@ -79,7 +79,11 @@ def current_user(request: Request) -> str:
         )
 
     header_name = os.environ.get("AUTH_EMAIL_HEADER", "X-MS-CLIENT-PRINCIPAL-NAME")
-    email = request.headers.get(header_name) or os.environ.get("CURRENT_USER_EMAIL", "")
+    email = request.headers.get(header_name) or ""
+    if not email and os.environ.get("ENV", "").strip().lower() != "production":
+        # Local-dev fallback only (Plan 120): a stray env var must never stand in
+        # for an identity on a production deployment.
+        email = os.environ.get("CURRENT_USER_EMAIL", "")
 
     if not email:
         raise HTTPException(

@@ -28,6 +28,11 @@ from services import auth_service, entitlement_service
 router = APIRouter(tags=["auth"])
 
 
+def _is_dev() -> bool:
+    """Whether this is a development or test deployment (never production)."""
+    return os.environ.get("ENV", "").strip().lower() in ("development", "dev", "local", "test")
+
+
 def _frontend_origin(request: Request) -> str:
     env = os.environ.get("FRONTEND_ORIGIN", "").strip().rstrip("/")
     if env:
@@ -130,7 +135,7 @@ def signup(body: SignupRequest, db: DB) -> SessionResponse:
         The session token and profile.
     """
     try:
-        token, user = auth_service.signup(db, body.name, body.email, body.password)
+        token, user = auth_service.signup(db, body.name, body.email, body.password, body.claim_code)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except RuntimeError as exc:
@@ -197,10 +202,11 @@ def link_patreon(user: CurrentUser) -> RedirectResponse:
 
 @router.get("/auth/dev-token")
 def dev_token(db: DB, user: CurrentUser) -> dict:
-    """Mint a session token for the trusted-header identity (header mode only).
+    """Mint a session token for the trusted-header identity (local development only).
 
-    Lets a personal deployment try the token path before flipping
-    ``AUTH_MODE=oauth``. Refused in oauth mode.
+    Plan 120 — on a public header-mode deployment the header is whatever the
+    caller says it is, so this minted a 30-day token for any email, and the
+    token outlived the switch to oauth. Development and tests only now.
 
     Args:
         db: Database session.
@@ -209,7 +215,7 @@ def dev_token(db: DB, user: CurrentUser) -> dict:
     Returns:
         ``{"token": ...}``.
     """
-    if auth_service.auth_mode() == "oauth":
+    if auth_service.auth_mode() == "oauth" or not _is_dev():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available.")
     from integrations import session_token
 

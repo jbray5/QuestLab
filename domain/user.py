@@ -72,6 +72,9 @@ class SignupRequest(BaseModel):
     name: str = PField(min_length=1, max_length=120)
     email: str = PField(min_length=3, max_length=320)
     password: str = PField(min_length=8, max_length=200)
+    # Plan 120 — only for an email that already owns campaigns: the server's
+    # one-time ACCOUNT_CLAIM_CODE proves the person claiming them is the owner.
+    claim_code: Optional[str] = PField(default=None, max_length=200)
 
 
 class LoginRequest(BaseModel):

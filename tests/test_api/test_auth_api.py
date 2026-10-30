@@ -24,7 +24,12 @@ def _stub_exchange(monkeypatch, email="new.dm@example.com"):
         oauth,
         "exchange_code",
         lambda provider, code, **kw: oauth.OAuthProfile(
-            provider=provider, provider_id="42", email=email, display_name="New DM", avatar_url=None
+            provider=provider,
+            provider_id="42",
+            email=email,
+            display_name="New DM",
+            avatar_url=None,
+            email_verified=True,
         ),
     )
 
