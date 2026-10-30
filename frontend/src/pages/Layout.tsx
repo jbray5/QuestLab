@@ -4,6 +4,7 @@ import { useAuthStore } from "../stores/useAuthStore";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import { campaignsApi } from "../api/campaigns";
 import { adventuresApi } from "../api/adventures";
+import { useHudPrefs } from "../stores/useHudPrefs";
 import { useTourStore } from "../stores/useTourStore";
 import { useIsCompact } from "../hooks/useIsCompact";
 import DiceTray from "../components/dice-tray/DiceTray";
@@ -100,6 +101,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const compact = useIsCompact(900);
+  const tableMode = useHudPrefs((s) => s.tableMode);
   const [navOpen, setNavOpen] = useState(false);
 
   // Plan 35 — auth guard. Any DM page without a signed-in identity
@@ -389,17 +391,22 @@ export default function Layout() {
     );
   }
 
+  // Review 10/30 — table mode: the HUD runs full width, no app sidebar.
+  const hideNav = tableMode && /^\/sessions\/[^/]+\/hud/.test(location.pathname);
+
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       {DEMO_BANNER}
-      <aside
-        data-tour-id="sidebar"
-        style={{ ...navVisual, width: 220, borderRight: "1px solid var(--border)", flexShrink: 0 }}
-      >
-        {navContent}
-      </aside>
+      {!hideNav && (
+        <aside
+          data-tour-id="sidebar"
+          style={{ ...navVisual, width: 220, borderRight: "1px solid var(--border)", flexShrink: 0 }}
+        >
+          {navContent}
+        </aside>
+      )}
 
-      <main style={{ flex: 1, padding: "2rem", overflowY: "auto", minWidth: 0 }}>
+      <main style={{ flex: 1, padding: hideNav ? "0.5rem" : "2rem", overflowY: "auto", minWidth: 0 }}>
         <Outlet />
       </main>
 

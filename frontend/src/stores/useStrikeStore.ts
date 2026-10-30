@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 /**
  * The DM's standing choice of what the next hit is (Plan 113): a weapon blow,
@@ -11,7 +12,13 @@ interface StrikeState {
   setFlavor: (flavor: string) => void;
 }
 
-export const useStrikeStore = create<StrikeState>((set) => ({
-  flavor: "weapon",
-  setFlavor: (flavor) => set({ flavor }),
-}));
+// Remembered across reloads (review 10/30): the picker keeps the last one used.
+export const useStrikeStore = create<StrikeState>()(
+  persist(
+    (set) => ({
+      flavor: "weapon",
+      setFlavor: (flavor) => set({ flavor }),
+    }),
+    { name: "ql-strike-flavor" },
+  ),
+);

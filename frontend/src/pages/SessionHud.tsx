@@ -29,6 +29,8 @@ import { charactersApi } from "../api/characters";
 import { encountersApi } from "../api/encounters";
 import { npcsApi } from "../api/npcs";
 import TonightsCastDrawer from "../components/tonights-cast/TonightsCastDrawer";
+import HudMenu from "../components/hud/HudMenu";
+import { useHudPrefs } from "../stores/useHudPrefs";
 import EditableRunbookText from "../components/runbook/EditableRunbookText";
 import TableRollStrip from "../components/dice-tray/TableRollStrip";
 import { monstersApi } from "../api/monsters";
@@ -757,6 +759,8 @@ export default function SessionHud() {
   const replaceFromRoll = useInitiativeStore((s) => s.replaceFromRoll);
   const patchPersistedCombatant = useInitiativeStore((s) => s.patchCombatant);
   // Plan 113 — what the next hit is, for the table's strike effect.
+  const tableMode = useHudPrefs((s) => s.tableMode);
+  const setTableMode = useHudPrefs((s) => s.setTableMode);
   const hitFlavor = useStrikeStore((s) => s.flavor);
   const setHitFlavor = useStrikeStore((s) => s.setFlavor);
   const advanceTurn = useInitiativeStore((s) => s.nextTurn);
@@ -1176,6 +1180,8 @@ export default function SessionHud() {
   }
 
   const sessionLabel = `Session ${session.session_number}${session.title ? `: ${session.title}` : ""}`;
+  const castRoster = (adventure?.npc_roster ?? []).map((n) => String(n.name ?? "")).filter(Boolean);
+  const wideParty = tableMode && !mapFocus && party.length > 1;
 
   return (
     <div className="fade-in ql-hud-root" style={{ display: "flex", flexDirection: "column", gap: 0 }}>
@@ -1198,48 +1204,61 @@ export default function SessionHud() {
           )}
         </div>
         <div className="flex gap-2" style={{ alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <button
-            className="btn btn-secondary"
-            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
-            onClick={() => {
-              if (
-                window.confirm(
-                  "⛺ Short rest the whole party? This restores short-rest features (Action Surge, Channel Divinity, etc.) and Warlock pact slots for every attending PC.",
-                )
-              ) {
-                shortRestParty.mutate();
-              }
-            }}
-            disabled={shortRestParty.isPending}
-            title="Apply a short rest to every attending PC"
-          >
-            ⛺ Short rest
-          </button>
-          <button
-            className="btn btn-secondary"
-            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
-            onClick={() => {
-              if (
-                window.confirm(
-                  "🌙 Long rest the whole party? This restores all class features, all spell slots, and HP to max for every attending PC.",
-                )
-              ) {
-                longRestParty.mutate();
-              }
-            }}
-            disabled={longRestParty.isPending}
-            title="Apply a long rest to every attending PC"
-          >
-            🌙 Long rest
-          </button>
-          <button
-            className="btn btn-secondary"
-            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
-            onClick={() => setDmScreenOpen(true)}
-            title="Open the DM rules reference"
-          >
-            📖 DM Screen
-          </button>
+          {/* Review 10/30 — nine top-bar buttons became a few menus. */}
+          <HudMenu
+            label="⛺ Rests"
+            title="Short or long rest for every attending PC"
+            items={[
+              {
+                key: "short",
+                label: "⛺ Short rest",
+                hint: "Short-rest features (Action Surge, Channel Divinity…) and pact slots",
+                disabled: shortRestParty.isPending,
+                onSelect: () => {
+                  if (
+                    window.confirm(
+                      "⛺ Short rest the whole party? This restores short-rest features (Action Surge, Channel Divinity, etc.) and Warlock pact slots for every attending PC.",
+                    )
+                  ) {
+                    shortRestParty.mutate();
+                  }
+                },
+              },
+              {
+                key: "long",
+                label: "🌙 Long rest",
+                hint: "All features, all spell slots, HP to max",
+                disabled: longRestParty.isPending,
+                onSelect: () => {
+                  if (
+                    window.confirm(
+                      "🌙 Long rest the whole party? This restores all class features, all spell slots, and HP to max for every attending PC.",
+                    )
+                  ) {
+                    longRestParty.mutate();
+                  }
+                },
+              },
+            ]}
+          />
+          <HudMenu
+            label="📖 Reference"
+            title="Rules and your prep"
+            items={[
+              {
+                key: "screen",
+                label: "📖 DM Screen",
+                hint: "Conditions, actions, cover, travel — the rules at a glance",
+                onSelect: () => setDmScreenOpen(true),
+              },
+              {
+                key: "prep",
+                label: "📜 Session prep",
+                hint: "Tonight's brief, runbook and notes",
+                to: `/sessions/${sessionId}/run`,
+              },
+            ]}
+          />
           {sessionId && adventure && (
             <TableConsole
               sessionId={sessionId}
@@ -1275,12 +1294,15 @@ export default function SessionHud() {
           >
             💰 Loot
           </button>
-          <Link
-            to={`/sessions/${sessionId}/run`}
-            style={{ fontSize: "0.75rem", color: "var(--muted)" }}
+          <button
+            className={tableMode ? "btn btn-primary" : "btn btn-ghost"}
+            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+            onClick={() => setTableMode(!tableMode)}
+            title={tableMode ? "Show the app sidebar again" : "Hide the app sidebar while you run the table"}
+            aria-pressed={tableMode}
           >
-            Full Runbook →
-          </Link>
+            ⛶ Table mode
+          </button>
           <button
             className="btn btn-ghost"
             style={{ fontSize: "0.75rem" }}
@@ -1320,7 +1342,9 @@ export default function SessionHud() {
         // initiative strip over the board, notes + beats under it).
         gridTemplateColumns: mapFocus
           ? "300px minmax(0, 1fr)"
-          : "minmax(330px, 380px) minmax(0, 1fr)",
+          : wideParty
+            ? "minmax(600px, 46%) minmax(0, 1fr)"
+            : "minmax(330px, 380px) minmax(0, 1fr)",
         transition: "grid-template-columns 0.25s ease",
         flex: 1,
         overflow: "hidden",
@@ -1328,14 +1352,19 @@ export default function SessionHud() {
       }}>
 
         {/* ── LEFT: Party Tracker ─────────────────────────────────────── */}
+        {/* Review 10/30 — in table mode the party sits two abreast, so a
+            party of four fits at 1440×900 without scrolling. */}
         <div style={{
           borderRight: "1px solid var(--border)",
           overflowY: "auto",
-          display: "flex",
+          display: wideParty ? "grid" : "flex",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+          alignContent: "start",
           flexDirection: "column",
           gap: 0,
         }}>
           <div style={{
+            gridColumn: "1 / -1",
             padding: "0.6rem 0.75rem",
             borderBottom: "1px solid var(--border)",
             fontSize: "0.7rem",
@@ -1397,7 +1426,7 @@ export default function SessionHud() {
           </div>
 
           {party.length === 0 && (
-            <p className="text-muted" style={{ padding: "1rem", fontSize: "0.85rem" }}>
+            <p className="text-muted" style={{ gridColumn: "1 / -1", padding: "1rem", fontSize: "0.85rem" }}>
               No characters found.{" "}
               <Link to={`/campaigns/${adventure?.campaign_id}/characters`} style={{ color: "var(--gold)" }}>
                 Add characters
@@ -1501,17 +1530,18 @@ export default function SessionHud() {
                     <div className="flex" style={{ gap: "0.25rem", flexWrap: "wrap" }}>
                       {(
                         [
-                          ["🛡", pc.ac, "Armor Class"],
-                          ["👁", pp, "Passive Perception"],
-                          ["🧠", pi, "Passive Insight"],
-                          ...(dc !== null ? ([["✨", dc, "Spell save DC"]] as const) : []),
-                          ["⚡", `${mod(pc.score_dex) >= 0 ? "+" : ""}${mod(pc.score_dex)}`, "Initiative modifier"],
-                          ["👟", pc.speed, "Speed (ft)"],
+                          ["AC", pc.ac, "Armor Class"],
+                          ["PP", pp, "Passive Perception"],
+                          ["Ins", pi, "Passive Insight"],
+                          ...(dc !== null ? ([["DC", dc, "Spell save DC"]] as const) : []),
+                          ["Init", `${mod(pc.score_dex) >= 0 ? "+" : ""}${mod(pc.score_dex)}`, "Initiative modifier"],
+                          ["Spd", pc.speed, "Speed (ft)"],
                         ] as const
                       ).map(([icon, value, label]) => (
                         <span
                           key={label}
                           title={label}
+                          aria-label={`${label} ${value}`}
                           style={{
                             display: "inline-flex",
                             alignItems: "center",
@@ -1524,7 +1554,7 @@ export default function SessionHud() {
                             cursor: "default",
                           }}
                         >
-                          <span aria-hidden>{icon}</span>
+                          <span aria-hidden style={{ color: "var(--muted)" }}>{icon}</span>
                           <strong style={{ color: "var(--text)" }}>{value}</strong>
                         </span>
                       ))}
@@ -1682,20 +1712,24 @@ export default function SessionHud() {
             </div>
           </div>
           {combatActive && (
-            <div className="flex" style={{ gap: "0.25rem", flexWrap: "wrap", alignItems: "center", marginTop: "0.3rem" }} title="What the next damage is — the immersive table plays the strike in this colour">
-              <span style={{ fontSize: "0.6rem", color: "var(--muted)", letterSpacing: "0.06em", marginRight: "0.15rem" }}>NEXT HIT</span>
-              {FLAVORS.filter((f) => f.key !== "heal").map((f) => (
-                <button
-                  key={f.key}
-                  className={hitFlavor === f.key ? "btn btn-primary" : "btn btn-ghost"}
-                  style={{ fontSize: "0.62rem", padding: "0.05rem 0.4rem", borderColor: hitFlavor === f.key ? f.color : undefined }}
-                  onClick={() => setHitFlavor(f.key)}
-                  title={`The next damage plays as ${f.label}`}
-                >
-                  {f.emoji} {f.label}
-                </button>
-              ))}
-            </div>
+            <label
+              className="flex"
+              style={{ gap: "0.35rem", alignItems: "center", marginTop: "0.3rem", paddingLeft: "0.75rem", fontSize: "0.68rem", color: "var(--muted)" }}
+              title="What the next damage is — the immersive table plays the strike in this colour"
+            >
+              Next hit
+              <select
+                value={hitFlavor}
+                onChange={(e) => setHitFlavor(e.target.value)}
+                style={{ fontSize: "0.72rem", padding: "0.1rem 0.3rem", width: "auto" }}
+              >
+                {FLAVORS.filter((f) => f.key !== "heal").map((f) => (
+                  <option key={f.key} value={f.key}>
+                    {f.emoji} {f.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
 
           {(addOpen || tableRollOpen) && (
@@ -2612,6 +2646,8 @@ export default function SessionHud() {
       <TonightsCastDrawer
         npcs={campaignNpcs}
         currentScene={currentScene}
+        rosterNames={castRoster}
+        sessionNumber={session.session_number}
       />
     </div>
   );

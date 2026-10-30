@@ -26,7 +26,7 @@ P0
 - [x] 4 Lock-down audit (docs/SECURITY.md access table; Plan 120 accounts — closes on Render switch; SEC-002..006 in QUALITY.md) of /play, /table, /stream, DM routes (written summary; auth changes need Justin)
 P1
 - [x] 5 Quick session path ("▶ Run a quick session": latest arc or a new "Unsorted" one → HUD); Encounters + Map Builder always in the sidebar
-- [ ] 6 HUD declutter
+- [x] 6 HUD declutter (Table mode hides the sidebar + party two abreast; Rests/Reference menus; Next-hit picker remembered; AC/PP/Ins/DC/Init/Spd labels; Tonight's Cast = arc roster/scene/session tag + Show all)
 - [ ] 7 Initiative tracker labels + sort
 - [ ] 8 Encounter roster unsaved state
 - [ ] 9 One "Player display" menu

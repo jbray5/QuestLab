@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { useHudPrefs } from "../../stores/useHudPrefs";
+
 import type { Npc } from "../../api/npcs";
 import type { RunbookScene } from "../../api/types";
 import NpcModal from "../npc/NpcModal";
@@ -11,7 +13,13 @@ interface Props {
   npcs: Npc[];
   /** Currently-displayed runbook scene, used to surface scene-relevant NPCs first. */
   currentScene?: RunbookScene | null;
+  /** Names on this arc's NPC roster — tonight's cast by default (review 10/30). */
+  rosterNames?: string[];
+  /** This session's number; an NPC tagged "s9" / "session 9" belongs to session 9. */
+  sessionNumber?: number;
 }
+
+const SESSION_TAG = /^s(?:ession)?[\s#-]*(\d+)$/i;
 
 /**
  * "Tonight's Cast" sliding drawer.
@@ -24,7 +32,7 @@ interface Props {
  * The old chip layout (portrait + accent parsing + raw dialog_hooks
  * rendering) is gone — that content lives in the Prep face now.
  */
-export default function TonightsCastDrawer({ npcs, currentScene }: Props) {
+export default function TonightsCastDrawer({ npcs, currentScene, rosterNames = [], sessionNumber }: Props) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Npc | null>(null);
   const qc = useQueryClient();
@@ -42,16 +50,37 @@ export default function TonightsCastDrawer({ npcs, currentScene }: Props) {
       .toLowerCase();
   }, [currentScene]);
 
+  // Review 10/30 — the drawer listed every NPC in the campaign (20+, some
+  // tagged for future sessions). By default it shows tonight's: on this
+  // arc's roster, mentioned in the current scene, or tagged with this
+  // session's number. If none qualify it shows everyone rather than nothing.
+  const showAll = useHudPrefs((s) => s.castShowAll);
+  const setShowAll = useHudPrefs((s) => s.setCastShowAll);
+  const tonight = useMemo(() => {
+    const roster = new Set(rosterNames.map((n) => n.trim().toLowerCase()));
+    return npcs.filter((npc) => {
+      const name = npc.name.toLowerCase();
+      if (roster.has(name)) return true;
+      if (sceneText.length > 0 && sceneText.includes(name)) return true;
+      return (npc.tags ?? []).some((t) => {
+        const m = SESSION_TAG.exec(t.trim());
+        return !!m && sessionNumber !== undefined && Number(m[1]) === sessionNumber;
+      });
+    });
+  }, [npcs, rosterNames, sceneText, sessionNumber]);
+  const filtering = !showAll && tonight.length > 0 && tonight.length < npcs.length;
+  const shown = filtering ? tonight : npcs;
+
   const sortedNpcs = useMemo(() => {
     const inScene = (npc: Npc) =>
       sceneText.length > 0 && sceneText.includes(npc.name.toLowerCase());
-    return [...npcs].sort((a, b) => {
+    return [...shown].sort((a, b) => {
       const aIn = inScene(a);
       const bIn = inScene(b);
       if (aIn !== bIn) return aIn ? -1 : 1;
       return a.name.localeCompare(b.name);
     });
-  }, [npcs, sceneText]);
+  }, [shown, sceneText]);
 
   return (
     <>
@@ -85,6 +114,17 @@ export default function TonightsCastDrawer({ npcs, currentScene }: Props) {
               : "No scene"}
           </span>
         </header>
+        {(filtering || showAll) && tonight.length > 0 && tonight.length < npcs.length && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ fontSize: "0.68rem", margin: "0.4rem 0.75rem 0", padding: "0.15rem 0.5rem" }}
+            onClick={() => setShowAll(!showAll)}
+            title="Tonight = on this arc's NPC roster, mentioned in the scene, or tagged with this session"
+          >
+            {showAll ? `Show tonight's ${tonight.length} only` : `Show all ${npcs.length} NPCs`}
+          </button>
+        )}
         <div style={listStyle}>
           {sortedNpcs.length === 0 && (
             <p className="text-sm text-muted" style={{ padding: "1rem" }}>
