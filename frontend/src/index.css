@@ -399,6 +399,9 @@ label {
 .w-full       { width: 100%; }
 .grid-2       { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
 .grid-3       { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+/* Review 10/30 — cards that fit any width: as many 340px+ columns as there is room for. */
+.ql-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 1rem; }
+.ql-card-grid > * { min-width: 0; }
 
 /* ── Focus-visible default ──────────────────────────────────────────────────── */
 :focus-visible {

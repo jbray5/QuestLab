@@ -95,6 +95,7 @@ export default function ModelUpload({ currentUrl, onUrlChange, heightFt, label =
         title={`Click or drag a .glb to set the ${label.toLowerCase()}`}
         style={{
           width: 240,
+          maxWidth: "100%",
           padding: "0.5rem 0.6rem",
           borderRadius: "0.5rem",
           border: "2px dashed var(--border)",
@@ -108,7 +109,7 @@ export default function ModelUpload({ currentUrl, onUrlChange, heightFt, label =
         {uploading ? "Uploading…" : currentUrl ? `⬡ Replace the ${label.toLowerCase()} (.glb)` : `⬡ Drop a .glb — the ${label.toLowerCase()} for the immersive table`}
       </div>
       <input ref={inputRef} type="file" accept=".glb,model/gltf-binary" style={{ display: "none" }} onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
-      <div style={{ display: "flex", gap: "0.35rem", width: 240 }}>
+      <div style={{ display: "flex", gap: "0.35rem", width: 240, maxWidth: "100%" }}>
         <input
           type="url"
           value={urlInput}

@@ -459,7 +459,7 @@ export default function Characters() {
 
       {isLoading && <p className="text-muted">Loading…</p>}
 
-      <div className="grid-3">
+      <div className="ql-card-grid">
         {characters.map((c) => (
           <div key={c.id} className="card">
             <div className="flex items-center" style={{ gap: "0.75rem", marginBottom: "0.75rem" }}>
@@ -560,7 +560,7 @@ export default function Characters() {
               characterName={c.character_name}
             />
 
-            <div className="flex gap-2" style={{ marginTop: "0.75rem" }}>
+            <div className="flex gap-2" style={{ marginTop: "0.75rem", flexWrap: "wrap" }}>
               <button
                 className="btn btn-primary"
                 style={{ fontSize: "0.75rem" }}

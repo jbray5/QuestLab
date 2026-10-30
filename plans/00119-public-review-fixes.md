@@ -39,7 +39,7 @@ P2
 - [x] 15 Join code vs self-create (🎲 Generate when empty; a visible line says how players use it)
 - [ ] 16 Button hierarchy
 - [ ] 17 Typography
-- [ ] 18 Characters page overflow
+- [x] 18 Characters page overflow (auto-fill card grid; action row wraps; figure fields cap at 100%; no overflow at 768/1280/1440/1920)
 - [ ] 19 False empty states while loading
 - [ ] 20 Sidebar campaign name ellipsis
 - [ ] 21 Navigation as real links
