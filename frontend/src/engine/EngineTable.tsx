@@ -53,12 +53,38 @@ class SceneBoundary extends Component<{ onError: (e: Error) => void; children: R
 }
 
 function Loading() {
-  const { active, progress, item } = useProgress();
+  const { active, progress } = useProgress();
   if (!active) return null;
+  // Review 10/30 — words, not asset filenames.
+  return <small className="et-loading">Setting the scene… {Math.round(progress)}%</small>;
+}
+
+/**
+ * The first load covers the screen with a progress bar instead of a black
+ * canvas (review 10/30). Only the first: a figure that streams in mid-fight
+ * must never blank the TV, so later loads show only the small HUD note.
+ */
+function LoadingCurtain() {
+  const { active, progress } = useProgress();
+  const [done, setDone] = useState(false);
+  // Remembered while rendering (React's "adjust state on a prop change"):
+  // once everything has loaded, this curtain never comes back.
+  if (!done && !active && progress >= 100) setDone(true);
+  // A map with nothing to stream never reaches 100%: lift once loading has
+  // been quiet for a moment, whatever the counter says.
+  useEffect(() => {
+    if (active || done) return;
+    const t = window.setTimeout(() => setDone(true), 1500);
+    return () => window.clearTimeout(t);
+  }, [active, done]);
+  if (done || (!active && progress >= 100)) return null;
   return (
-    <small className="et-loading">
-      loading {Math.round(progress)}% · {item.split("/").pop()}
-    </small>
+    <div className="et-curtain" role="status">
+      <div>Setting the scene…</div>
+      <div className="et-curtain-bar">
+        <i style={{ width: `${Math.max(4, Math.round(progress))}%` }} />
+      </div>
+    </div>
   );
 }
 
@@ -101,6 +127,14 @@ const CSS = `
 .et-hud .et-loading { color: #d6af36; opacity: 1; }
 .et-empty { position: absolute; inset: 0; display: grid; place-items: center; color: #9a93a5;
   font: 15px system-ui, sans-serif; text-align: center; padding: 24px; }
+.et-empty a { color: #d6af36; }
+.et-curtain { position: absolute; inset: 0; z-index: 1; display: grid; place-content: center; gap: 12px;
+  background: #05060a; color: #cfc4a9; font: 17px Georgia, serif; text-align: center; pointer-events: none; }
+.et-curtain-bar { width: min(320px, 70vw); height: 4px; border-radius: 3px; background: rgba(240,230,200,0.12); overflow: hidden; }
+.et-curtain-bar i { display: block; height: 100%; background: #d6af36; transition: width 0.3s ease; }
+.et-fail { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; gap: 10px; text-align: center;
+  background: rgba(5,6,10,0.94); color: #cfc4a9; font: 16px Georgia, serif; padding: 24px; }
+.et-fail a { color: #d6af36; }
 .et-title { position: absolute; inset: 0; display: grid; place-items: center; z-index: 3; pointer-events: none;
   animation: et-title 4.2s ease-in-out both; }
 .et-title div { font: 600 clamp(28px, 4vw, 54px) "Cinzel Decorative", Cinzel, Georgia, serif; color: #f0e6c8;
@@ -373,7 +407,7 @@ export default function EngineTable() {
     return (
       <div className="et-root">
         <style>{CSS}</style>
-        <div className="et-empty">{data && !data.map ? "No map is on the table yet — the DM picks one from the HUD." : "Joining the table…"}</div>
+        <div className="et-empty">{data && !data.map ? "Waiting for the DM to put a map on the table." : "Joining the table…"}</div>
       </div>
     );
   }
@@ -452,6 +486,16 @@ export default function EngineTable() {
         </div>
       )}
       <TitleCard title={data.title} />
+      <LoadingCurtain />
+      {err && (
+        <div className="et-fail" role="alert">
+          <div>This screen couldn&rsquo;t build the 3D scene.</div>
+          <div>
+            <a href={`/table/${sessionId}`}>Open the Projector / TV view instead →</a>
+          </div>
+          <small style={{ opacity: 0.6 }}>{err}</small>
+        </div>
+      )}
       <Canvas
         key={`${map.id}-${fast ? "fast" : "full"}`}
         shadows={fast ? false : { type: THREE.VSMShadowMap }}
