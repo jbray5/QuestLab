@@ -143,6 +143,9 @@ export default function HudMenu({
           {footer && footer.length > 0 && (
             <>
               <div style={{ borderTop: "1px solid var(--border)", margin: "0.3rem 0.4rem" }} />
+              <div style={{ fontSize: "0.6rem", letterSpacing: "0.1em", color: "var(--muted)", padding: "0.1rem 0.7rem" }}>
+                MORE
+              </div>
               {footer.map(row)}
             </>
           )}

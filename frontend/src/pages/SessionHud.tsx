@@ -42,7 +42,7 @@ import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import DmScreen from "../components/dm-screen/DmScreen";
 import LootPanel from "../components/LootPanel";
-import TableConsole from "../components/table/TableConsole";
+import { TableConsoleModal } from "../components/table/TableConsole";
 import LiveBoardPane from "../components/table/LiveBoardPane";
 import { useIsCompactHeight } from "../hooks/useIsCompact";
 import SessionNotesEditor from "../components/dm/SessionNotesEditor";
@@ -759,6 +759,7 @@ export default function SessionHud() {
   const replaceFromRoll = useInitiativeStore((s) => s.replaceFromRoll);
   const patchPersistedCombatant = useInitiativeStore((s) => s.patchCombatant);
   // Plan 113 — what the next hit is, for the table's strike effect.
+  const [tableConsoleOpen, setTableConsoleOpen] = useState(false);
   const tableMode = useHudPrefs((s) => s.tableMode);
   const setTableMode = useHudPrefs((s) => s.setTableMode);
   const hitFlavor = useStrikeStore((s) => s.flavor);
@@ -1259,31 +1260,41 @@ export default function SessionHud() {
               },
             ]}
           />
-          {sessionId && adventure && (
-            <TableConsole
-              sessionId={sessionId}
-              campaignId={adventure.campaign_id}
-              party={party}
-            />
-          )}
-          <Link
-            to={`/sessions/${sessionId}/board`}
-            className="btn btn-secondary"
-            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
-            title="Open the 3D tabletop (Plan 44) — screen-share this one"
-          >
-            🎲 3D Board
-          </Link>
-          <a
-            href={`/table/${sessionId}/engine`}
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-secondary"
-            style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
-            title="The immersive table (Plan 107) — built rooms, walking figures, fog and weather. Open this on the TV; it follows the HUD live"
-          >
-            🏰 Immersive
-          </a>
+          {/* Review 10/30 — Table / 3D Board / Immersive gave no hint which to use. */}
+          <HudMenu
+            label="📺 Player display"
+            title="What your players look at — pick one and put it on their screen"
+            items={[
+              {
+                key: "tv",
+                label: "📺 Projector / TV",
+                hint: "The battle map for the room: fog, tokens, dice. Open it on the TV; drive it from the 🎮 Live tab.",
+                recommended: true,
+                href: `/table/${sessionId}`,
+              },
+              {
+                key: "share",
+                label: "🎲 Screen share",
+                hint: "A 3D board for online games: share this tab in Discord or Zoom.",
+                to: `/sessions/${sessionId}/board`,
+              },
+            ]}
+            footer={[
+              {
+                key: "immersive",
+                label: "🏰 3D set dressing (immersive)",
+                hint: "Built rooms, walking figures, fog and weather on the TV. Needs a strong computer.",
+                href: `/table/${sessionId}/engine`,
+              },
+              {
+                key: "console",
+                label: "🗺 Map controls in a pop-up",
+                hint: "The 🎮 Live tab's fog, tokens and title cards in a window of their own.",
+                disabled: !adventure,
+                onSelect: () => setTableConsoleOpen(true),
+              },
+            ]}
+          />
           {AI_ON && sessionId && <BriefPanel sessionId={sessionId} />}
           <button
             className="btn btn-secondary"
@@ -2579,6 +2590,15 @@ export default function SessionHud() {
         <CharacterSheet
           characterId={sheetPcId}
           onClose={() => setSheetPcId(null)}
+        />
+      )}
+
+      {tableConsoleOpen && sessionId && adventure && (
+        <TableConsoleModal
+          sessionId={sessionId}
+          campaignId={adventure.campaign_id}
+          party={party}
+          onClose={() => setTableConsoleOpen(false)}
         />
       )}
 

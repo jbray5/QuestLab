@@ -29,7 +29,7 @@ P1
 - [x] 6 HUD declutter (Table mode hides the sidebar + party two abreast; Rests/Reference menus; Next-hit picker remembered; AC/PP/Ins/DC/Init/Spd labels; Tonight's Cast = arc roster/scene/session tag + Show all)
 - [ ] 7 Initiative tracker labels + sort
 - [ ] 8 Encounter roster unsaved state
-- [ ] 9 One "Player display" menu
+- [x] 9 One "Player display" menu (Projector / TV recommended, Screen share; More: immersive set dressing, map controls pop-up)
 - [ ] 10 Immersive view empty/loading states
 P2
 - [ ] 11 No "Plan NN" / raw enums / 3D jargon in UI

@@ -48,7 +48,8 @@ export default function TableConsole({ sessionId, campaignId, party }: Props) {
   );
 }
 
-function TableConsoleModal({
+/** The console on its own, for a launcher that lives elsewhere (the HUD's Player display menu). */
+export function TableConsoleModal({
   sessionId,
   campaignId,
   party,
