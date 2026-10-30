@@ -35,7 +35,7 @@ P2
 - [x] 11 No "Plan NN" / raw enums / 3D jargon in UI (statusLabel map; 3D figure folded behind a disclosure; Prep page at /prep, /run redirects)
 - [x] 12 "arc" everywhere users see it (arc editor page, Magic Items lore hints, dashboard stat; routes stay /adventures)
 - [x] 13 Plurals (lib/plural.ts: dashboard stats, party/PC counts, shop items, admin)
-- [ ] 14 One rules edition string
+- [x] 14 One rules edition string ("D&D 5e (2024 rules)": sidebar, welcome, guide, spells, weapons, meta)
 - [ ] 15 Join code vs self-create
 - [ ] 16 Button hierarchy
 - [ ] 17 Typography

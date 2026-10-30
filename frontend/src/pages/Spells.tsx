@@ -84,7 +84,7 @@ export default function Spells() {
     <div className="fade-in">
       <h1>📖 Spells</h1>
       <p className="text-muted" style={{ marginBottom: "1.5rem" }}>
-        D&amp;D 5.5e (2024) SRD spell reference. {spells.length} spells in catalog.
+        D&amp;D 5e (2024 rules) SRD spell reference. {spells.length} spells in catalog.
       </p>
 
       {/* Filter bar */}

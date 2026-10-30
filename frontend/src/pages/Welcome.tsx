@@ -247,7 +247,7 @@ export default function Welcome() {
           <div className="ql-w-die">
             <D20Mark size={160} />
           </div>
-          <p className="ql-w-eyebrow">A table tool for D&amp;D 5e (2024)</p>
+          <p className="ql-w-eyebrow">A table tool for D&amp;D 5e (2024 rules)</p>
           <h1>Run the table you&rsquo;ve been picturing.</h1>
           <p className="ql-w-lede">
             A shared board on the TV. A living sheet on every phone. Dice you shake. Your prep on one

@@ -175,7 +175,7 @@ export default function Layout() {
       <div style={{ marginBottom: "1.5rem", textAlign: "center" }}>
         <h2 style={{ fontSize: "1rem", margin: 0, lineHeight: 1.2 }}>⚔ QuestLab</h2>
         <p style={{ fontSize: "0.65rem", color: "var(--muted)", margin: "0.2rem 0 0" }}>
-          Table tool for D&amp;D 5e
+          Table tool for D&amp;D 5e (2024 rules)
         </p>
       </div>
 

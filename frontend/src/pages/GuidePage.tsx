@@ -111,7 +111,7 @@ export default function GuidePage() {
       <h2>Common questions</h2>
       <h3>Do my players need accounts?</h3><p>No. A player&rsquo;s link is their key; keep it in the group. They can reopen their sheet any time from the same phone.</p>
       <h3>Is my campaign private?</h3><p>Yes. Only your signed-in account can see or change it. Player links show that player&rsquo;s sheet and the shared table — never your notes.</p>
-      <h3>What rules does it use?</h3><p>D&amp;D 5e, 2024 edition, with SRD 5.2.1 content under CC-BY 4.0.</p>
+      <h3>What rules does it use?</h3><p>D&amp;D 5e (2024 rules), with SRD 5.2.1 content under CC-BY 4.0. Characters built on the 2014 rules still work; the rules engine and the level-up guide follow 2024.</p>
       <h3>Something broke mid-session</h3><p>Reload the page — everything is saved server-side. If the board looks stale, reload the projector tab.</p>
     </div>
   );

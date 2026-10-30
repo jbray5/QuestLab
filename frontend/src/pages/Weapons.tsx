@@ -117,7 +117,7 @@ export default function Weapons() {
     <div className="fade-in">
       <h1>⚔ Weapons</h1>
       <p className="text-muted" style={{ marginBottom: "1.5rem" }}>
-        D&amp;D 5.5e (2024) SRD weapons with 2024 Mastery properties. {weapons.length} weapons
+        D&amp;D 5e (2024 rules) SRD weapons with 2024 Mastery properties. {weapons.length} weapons
         in catalog.
       </p>
 
