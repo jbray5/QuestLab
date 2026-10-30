@@ -28,7 +28,7 @@ P1
 - [x] 5 Quick session path ("▶ Run a quick session": latest arc or a new "Unsorted" one → HUD); Encounters + Map Builder always in the sidebar
 - [x] 6 HUD declutter (Table mode hides the sidebar + party two abreast; Rests/Reference menus; Next-hit picker remembered; AC/PP/Ins/DC/Init/Spd labels; Tonight's Cast = arc roster/scene/session tag + Show all)
 - [x] 7 Initiative tracker labels + sort (Prep page: labelled add row, INIT/NAME/SIDE/HP columns, editable initiative, highest first as on the HUD, ▶ their turn, aria-labels)
-- [ ] 8 Encounter roster unsaved state
+- [x] 8 Encounter roster unsaved state (autosave 0.7 s after a change; status line; warn on leave; flush on close; Done)
 - [x] 9 One "Player display" menu (Projector / TV recommended, Screen share; More: immersive set dressing, map controls pop-up)
 - [ ] 10 Immersive view empty/loading states
 P2

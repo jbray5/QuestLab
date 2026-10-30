@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AI_ON } from "../lib/flags";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -35,6 +35,19 @@ interface RosterEditorProps {
   onSaved: () => void;
 }
 
+/** The roster as the API stores it. */
+function rosterPayload(entries: RosterEntry[]) {
+  return entries.map((r) => ({
+    monster_id: r.monster_id,
+    count: r.count,
+    name: r.name,
+    xp: r.xp,
+    cr: r.cr,
+    hp: r.hp,
+    ac: r.ac,
+  }));
+}
+
 function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEditorProps) {
   const qc = useQueryClient();
 
@@ -49,6 +62,11 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
     ac: Number(e.ac ?? 10),
   }));
   const [roster, setRoster] = useState<RosterEntry[]>(initialRoster);
+  // Review 10/30 — the roster saves itself. `savedKey` is what the server
+  // holds; anything else on screen is an unsaved change.
+  const [savedKey, setSavedKey] = useState(() => JSON.stringify(rosterPayload(initialRoster)));
+  const payloadKey = JSON.stringify(rosterPayload(roster));
+  const dirty = payloadKey !== savedKey;
 
   // Monster search
   const [search, setSearch] = useState("");
@@ -62,26 +80,54 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
   });
 
   const saveMut = useMutation({
-    mutationFn: () =>
+    mutationFn: (entries: RosterEntry[]) =>
       encountersApi.update(encounter.id, {
-        monster_roster: roster.map((r) => ({
-          monster_id: r.monster_id,
-          count: r.count,
-          name: r.name,
-          xp: r.xp,
-          cr: r.cr,
-          hp: r.hp,
-          ac: r.ac,
-        })),
+        monster_roster: rosterPayload(entries),
         pc_levels: pcLevels,
       }),
-    onSuccess: () => {
+    onSuccess: (_e, entries) => {
       setSaveError(null);
+      setSavedKey(JSON.stringify(rosterPayload(entries)));
       qc.invalidateQueries({ queryKey: ["encounters"] });
-      onSaved();
     },
     onError: (err: Error) => setSaveError(err.message),
   });
+  const save = saveMut.mutate;
+
+  // Autosave a moment after the last change.
+  useEffect(() => {
+    if (!dirty) return;
+    const t = window.setTimeout(() => save(roster), 700);
+    return () => window.clearTimeout(t);
+  }, [dirty, payloadKey, roster, save]);
+
+  // Leaving the page with a change still unsaved asks first.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+
+  // Closing the editor mid-change still saves it.
+  const pending = useRef<{ dirty: boolean; roster: RosterEntry[] }>({ dirty: false, roster });
+  useEffect(() => {
+    pending.current = { dirty, roster };
+  }, [dirty, roster]);
+  useEffect(() => {
+    const id = encounter.id;
+    return () => {
+      if (!pending.current.dirty) return;
+      void encountersApi
+        .update(id, { monster_roster: rosterPayload(pending.current.roster), pc_levels: pcLevels })
+        .then(() => qc.invalidateQueries({ queryKey: ["encounters"] }));
+    };
+    // Unmount only: the ref carries the latest roster.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function addMonster(m: Monster) {
     setRoster((prev) => {
@@ -334,18 +380,33 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
 
       {saveError && (
         <p className="text-sm" style={{ color: "var(--crimson2)", marginBottom: "0.5rem" }}>
-          Error: {saveError}
+          Couldn&rsquo;t save the roster: {saveError}{" "}
+          <button className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => save(roster)}>
+            Try again
+          </button>
         </p>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2" style={{ alignItems: "center" }}>
         <button
           className="btn btn-primary"
-          onClick={() => saveMut.mutate()}
+          onClick={() => {
+            if (dirty) save(roster, { onSuccess: () => onSaved() });
+            else onSaved();
+          }}
           disabled={saveMut.isPending}
         >
-          {saveMut.isPending ? "Saving…" : "Save Roster"}
+          Done
         </button>
+        <span className="text-sm" role="status" style={{ color: dirty || saveError ? "var(--gold)" : "var(--muted)" }}>
+          {saveMut.isPending
+            ? "Saving…"
+            : saveError
+              ? "Unsaved changes"
+              : dirty
+                ? "Unsaved changes — saving…"
+                : "✓ All changes saved"}
+        </span>
       </div>
     </div>
   );
