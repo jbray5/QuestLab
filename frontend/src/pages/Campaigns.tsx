@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { campaignsApi } from "../api/campaigns";
 import { useCampaignStore } from "../stores/useCampaignStore";
@@ -139,9 +139,14 @@ export default function Campaigns() {
                 )}
               </div>
               <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }} onClick={() => handleOpen(c)}>
+                <Link
+                  className="btn btn-ghost"
+                  style={{ fontSize: "0.75rem" }}
+                  to={`/campaigns/${c.id}/sessions`}
+                  onClick={() => setActiveCampaign(c)}
+                >
                   Open
-                </button>
+                </Link>
                 <button
                   className="btn btn-ghost"
                   style={{ fontSize: "0.75rem" }}

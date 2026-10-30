@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { Link, Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import { campaignsApi } from "../api/campaigns";
@@ -156,10 +156,6 @@ export default function Layout() {
   if (!dmEmail) return null;
 
   const closeNav = () => setNavOpen(false);
-  const go = (path: string) => {
-    navigate(path);
-    closeNav();
-  };
 
   const navVisual: React.CSSProperties = {
     background: "var(--surface)",
@@ -211,74 +207,72 @@ export default function Layout() {
             {activeCampaign.name}
           </p>
           {/* The nightly loop stays one click away; everything else folds. */}
-          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/sessions`)}>
+          <Link className="nav-item" to={`/campaigns/${activeCampaign.id}/sessions`} onClick={closeNav}>
             📅 Sessions
-          </button>
+          </Link>
           {/* Review 10/30 — always here; without an arc it explains how to get one. */}
-          <button
+          <Link
             className="nav-item"
-            onClick={() =>
-              go(
-                activeAdventure
-                  ? `/adventures/${activeAdventure.id}/encounters`
-                  : `/campaigns/${activeCampaign.id}/encounters`,
-              )
+            to={
+              activeAdventure
+                ? `/adventures/${activeAdventure.id}/encounters`
+                : `/campaigns/${activeCampaign.id}/encounters`
             }
+            onClick={closeNav}
           >
             💀 Encounters
-          </button>
-          <button className="nav-item" data-tour-id="nav-characters" onClick={() => go(`/campaigns/${activeCampaign.id}/characters`)}>
+          </Link>
+          <Link className="nav-item" data-tour-id="nav-characters" to={`/campaigns/${activeCampaign.id}/characters`} onClick={closeNav}>
             🧙 Characters
-          </button>
-          <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/battle-maps`)}>
+          </Link>
+          <Link className="nav-item" to={`/campaigns/${activeCampaign.id}/battle-maps`} onClick={closeNav}>
             🗺️ Battle Maps
-          </button>
+          </Link>
 
           <NavGroup id="world" title="World & Tools">
-            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/npcs`)}>
+            <Link className="nav-item" to={`/campaigns/${activeCampaign.id}/npcs`} onClick={closeNav}>
               👤 NPCs
-            </button>
-            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/shops`)}>
+            </Link>
+            <Link className="nav-item" to={`/campaigns/${activeCampaign.id}/shops`} onClick={closeNav}>
               🏪 Shops
-            </button>
-            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/puzzles`)}>
+            </Link>
+            <Link className="nav-item" to={`/campaigns/${activeCampaign.id}/puzzles`} onClick={closeNav}>
               🧩 Puzzles
-            </button>
-            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/crier`)}>
+            </Link>
+            <Link className="nav-item" to={`/campaigns/${activeCampaign.id}/crier`} onClick={closeNav}>
               📣 Town Crier
-            </button>
-            <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/notebook`)}>
+            </Link>
+            <Link className="nav-item" to={`/campaigns/${activeCampaign.id}/notebook`} onClick={closeNav}>
               📓 Notebook
-            </button>
-            <button
+            </Link>
+            <Link
               className="nav-item"
-              onClick={() =>
-                go(
-                  activeAdventure
-                    ? `/adventures/${activeAdventure.id}/maps`
-                    : `/campaigns/${activeCampaign.id}/maps`,
-                )
+              to={
+                activeAdventure
+                  ? `/adventures/${activeAdventure.id}/maps`
+                  : `/campaigns/${activeCampaign.id}/maps`
               }
+              onClick={closeNav}
             >
               🗾 Map Builder
-            </button>
+            </Link>
           </NavGroup>
         </>
       )}
 
       <NavGroup id="compendium" title="Compendium">
-        <button className="nav-item" onClick={() => go("/monsters")}>
+        <Link className="nav-item" to={"/monsters"} onClick={closeNav}>
           🐉 Monsters
-        </button>
-        <button className="nav-item" onClick={() => go("/spells")}>
+        </Link>
+        <Link className="nav-item" to={"/spells"} onClick={closeNav}>
           📖 Spells
-        </button>
-        <button className="nav-item" onClick={() => go("/weapons")}>
+        </Link>
+        <Link className="nav-item" to={"/weapons"} onClick={closeNav}>
           🗡 Weapons
-        </button>
-        <button className="nav-item" onClick={() => go("/magic-items")}>
+        </Link>
+        <Link className="nav-item" to={"/magic-items"} onClick={closeNav}>
           ⚗️ Magic Items
-        </button>
+        </Link>
       </NavGroup>
 
       {/* DM identity at the bottom — email + sign out. */}
@@ -318,14 +312,15 @@ export default function Layout() {
             📖 Guide
           </a>
           {isAdmin && (
-            <button
-              onClick={() => go("/admin")}
+            <Link
+              to="/admin"
+              onClick={closeNav}
               className="btn btn-ghost"
               title="Admin"
               style={{ fontSize: "0.78rem", padding: "0.35rem 0.5rem" }}
             >
               🛡 Admin
-            </button>
+            </Link>
           )}
           <button
             onClick={() => {

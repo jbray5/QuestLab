@@ -42,7 +42,7 @@ P2
 - [x] 18 Characters page overflow (auto-fill card grid; action row wraps; figure fields cap at 100%; no overflow at 768/1280/1440/1920)
 - [x] 19 False empty states while loading (sessions per arc, shops, puzzles, map builder, HUD party + maps)
 - [x] 20 Sidebar campaign name ellipsis (+ full name on hover)
-- [ ] 21 Navigation as real links
+- [x] 21 Navigation as real links (sidebar, session HUD/Prep, arc Encounters/Map Builder, campaign Open, breadcrumbs, admin)
 P3
 - [ ] 22 Showcase campaign tutorial data (data only, that campaign only)
 

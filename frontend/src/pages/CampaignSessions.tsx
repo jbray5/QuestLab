@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { adventuresApi } from "../api/adventures";
@@ -217,9 +217,9 @@ export default function CampaignSessions() {
   return (
     <div className="fade-in">
       <nav className="text-sm" style={{ marginBottom: "0.75rem", opacity: 0.7 }}>
-        <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate("/")}>
+        <Link to="/" style={{ color: "var(--gold)" }}>
           Dashboard
-        </span>
+        </Link>
         {activeCampaign && (
           <>
             {" / "}
@@ -319,26 +319,22 @@ export default function CampaignSessions() {
                 <button className="btn btn-primary" style={small} onClick={() => openSessionForm(arc)}>
                   + Session
                 </button>
-                <button
+                <Link
                   className="btn btn-ghost"
                   style={small}
-                  onClick={() => {
-                    setActiveAdventure(arc);
-                    navigate(`/adventures/${arc.id}/encounters`);
-                  }}
+                  to={`/adventures/${arc.id}/encounters`}
+                  onClick={() => setActiveAdventure(arc)}
                 >
                   💀 Encounters
-                </button>
-                <button
+                </Link>
+                <Link
                   className="btn btn-ghost"
                   style={small}
-                  onClick={() => {
-                    setActiveAdventure(arc);
-                    navigate(`/adventures/${arc.id}/maps`);
-                  }}
+                  to={`/adventures/${arc.id}/maps`}
+                  onClick={() => setActiveAdventure(arc)}
                 >
                   🗾 Map Builder
-                </button>
+                </Link>
                 <button
                   className="btn btn-ghost"
                   style={small}
@@ -406,13 +402,13 @@ export default function CampaignSessions() {
                   <button className="btn btn-ghost" style={small} onClick={() => setEditArc(null)}>
                     Cancel
                   </button>
-                  <span
+                  <Link
                     className="text-sm"
-                    style={{ color: "var(--gold)", cursor: "pointer", marginLeft: "auto" }}
-                    onClick={() => navigate(`/campaigns/${campaignId}/adventures`)}
+                    style={{ color: "var(--gold)", marginLeft: "auto" }}
+                    to={`/campaigns/${campaignId}/adventures`}
                   >
                     Tier, acts, NPC roster, location notes →
-                  </span>
+                  </Link>
                 </div>
               </div>
             )}
@@ -499,28 +495,24 @@ export default function CampaignSessions() {
                           </div>
                         </div>
                         <div className="flex gap-2" style={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
-                          <button
+                          <Link
                             className="btn btn-primary"
                             style={small}
                             title="Run the night from the HUD"
-                            onClick={() => {
-                              setActiveAdventure(arc);
-                              navigate(`/sessions/${s.id}/hud`);
-                            }}
+                            to={`/sessions/${s.id}/hud`}
+                            onClick={() => setActiveAdventure(arc)}
                           >
                             HUD
-                          </button>
-                          <button
+                          </Link>
+                          <Link
                             className="btn btn-secondary"
                             style={small}
                             title="Before the night: brief, runbook, session pack"
-                            onClick={() => {
-                              setActiveAdventure(arc);
-                              navigate(`/sessions/${s.id}/prep`);
-                            }}
+                            to={`/sessions/${s.id}/prep`}
+                            onClick={() => setActiveAdventure(arc)}
                           >
                             Prep
-                          </button>
+                          </Link>
                           <button
                             className="btn btn-ghost"
                             style={small}

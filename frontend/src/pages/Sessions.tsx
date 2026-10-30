@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { sessionsApi } from "../api/sessions";
 import { adventuresApi } from "../api/adventures";
@@ -24,7 +24,6 @@ const STATUS_EMOJI: Record<string, string> = {
 
 export default function Sessions() {
   const { adventureId } = useParams<{ adventureId: string }>();
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const { activeCampaign, activeAdventure } = useCampaignStore();
 
@@ -108,13 +107,13 @@ export default function Sessions() {
     <div className="fade-in">
       {/* Breadcrumb */}
       <nav className="text-sm" style={{ marginBottom: "0.75rem", opacity: 0.7 }}>
-        <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate("/")}>Dashboard</span>
+        <Link to="/" style={{ color: "var(--gold)" }}>Dashboard</Link>
         {activeCampaign && (
           <>
             {" / "}
-            <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate(`/campaigns/${activeCampaign.id}/sessions`)}>
+            <Link to={`/campaigns/${activeCampaign.id}/sessions`} style={{ color: "var(--gold)" }}>
               {activeCampaign.name}
-            </span>
+            </Link>
           </>
         )}
         {(activeAdventure || adventure) && (
@@ -192,21 +191,17 @@ export default function Sessions() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button
-                  className="btn btn-secondary"
-                  style={{ fontSize: "0.7rem" }}
-                  onClick={() => navigate(`/sessions/${s.id}/prep`)}
-                >
-                  Run
-                </button>
-                <button
+                <Link className="btn btn-secondary" style={{ fontSize: "0.7rem" }} to={`/sessions/${s.id}/prep`}>
+                  Prep
+                </Link>
+                <Link
                   className="btn btn-primary"
                   style={{ fontSize: "0.7rem" }}
-                  onClick={() => navigate(`/sessions/${s.id}/hud`)}
+                  to={`/sessions/${s.id}/hud`}
                   title="Open Session HUD"
                 >
                   HUD
-                </button>
+                </Link>
                 <button
                   className="btn btn-ghost"
                   style={{ fontSize: "0.7rem" }}
