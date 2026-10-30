@@ -8,6 +8,7 @@ import { sessionsApi } from "../api/sessions";
 import type { Adventure, AdventureCreate, GameSession } from "../api/types";
 import PcPicker from "../components/sessions/PcPicker";
 import { useCampaignStore } from "../stores/useCampaignStore";
+import { statusLabel } from "../lib/labels";
 
 /**
  * CampaignSessions — every session in the campaign, grouped by arc (Plan 75).
@@ -486,7 +487,7 @@ export default function CampaignSessions() {
                                 </span>
                               )}
                               <span className={`badge ${STATUS_BADGE[s.status] ?? "badge-draft"}`} style={{ fontSize: "0.62rem" }}>
-                                {s.status}
+                                {statusLabel(s.status)}
                               </span>
                               {s.date_planned && <span className="text-sm text-muted">{s.date_planned}</span>}
                               {s.attending_pc_ids && s.attending_pc_ids.length > 0 && editingPcsFor !== s.id && (
@@ -513,7 +514,7 @@ export default function CampaignSessions() {
                             title="Before the night: brief, runbook, session pack"
                             onClick={() => {
                               setActiveAdventure(arc);
-                              navigate(`/sessions/${s.id}/run`);
+                              navigate(`/sessions/${s.id}/prep`);
                             }}
                           >
                             Prep

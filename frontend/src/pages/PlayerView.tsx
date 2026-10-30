@@ -11,6 +11,7 @@ import type { PlayerCharacter } from "../api/types";
 import InfoTip from "../components/character-sheet/InfoTip";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
 import PlayerDice from "../components/dice-tray/PlayerDice";
+import { statusLabel } from "../lib/labels";
 
 /**
  * Player view (Plan 00025).
@@ -2037,7 +2038,7 @@ function NpcsBlock({ pcId }: { pcId: string }) {
                   border: n.status === "Dead" ? "none" : "1px solid var(--border)",
                 }}
               >
-                {n.status}
+                {statusLabel(n.status)}
               </span>
             )}
           </div>

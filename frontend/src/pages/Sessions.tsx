@@ -6,6 +6,7 @@ import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import PcPicker from "../components/sessions/PcPicker";
+import { statusLabel } from "../lib/labels";
 
 const STATUS_BADGE: Record<string, string> = {
   Draft: "badge-draft",
@@ -182,7 +183,7 @@ export default function Sessions() {
                   </strong>
                   <div className="flex items-center gap-2" style={{ marginTop: "0.2rem" }}>
                     <span className={`badge ${STATUS_BADGE[s.status] ?? "badge-draft"}`}>
-                      {s.status}
+                      {statusLabel(s.status)}
                     </span>
                     {s.date_planned && (
                       <span className="text-sm text-muted">{s.date_planned}</span>
@@ -194,7 +195,7 @@ export default function Sessions() {
                 <button
                   className="btn btn-secondary"
                   style={{ fontSize: "0.7rem" }}
-                  onClick={() => navigate(`/sessions/${s.id}/run`)}
+                  onClick={() => navigate(`/sessions/${s.id}/prep`)}
                 >
                   Run
                 </button>

@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { AI_ON } from "./lib/flags";
-import { Routes, Route } from "react-router-dom";
+import { Navigate, Routes, Route, useParams } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PaywallModal from "./components/PaywallModal";
 import Lightbox from "./components/Lightbox";
@@ -87,6 +87,12 @@ function PageLoader() {
 
 function lazyRoute(node: React.ReactNode): React.ReactNode {
   return <Suspense fallback={<PageLoader />}>{node}</Suspense>;
+}
+
+/** Old /sessions/:id/run links (bookmarks, notes) go to the renamed Prep page. */
+function PrepRedirect() {
+  const { sessionId } = useParams<{ sessionId: string }>();
+  return <Navigate to={`/sessions/${sessionId}/prep`} replace />;
 }
 
 export default function App() {
@@ -191,14 +197,16 @@ export default function App() {
           path="adventures/:adventureId/sessions"
           element={lazyRoute(<Sessions />)}
         />
+        {/* Review 10/30 — the button says "Prep", so the page is /prep; old /run links still land. */}
         <Route
-          path="sessions/:sessionId/run"
+          path="sessions/:sessionId/prep"
           element={
-            <ErrorBoundary label="Session Runner">
+            <ErrorBoundary label="Session Prep">
               {lazyRoute(<SessionRunner />)}
             </ErrorBoundary>
           }
         />
+        <Route path="sessions/:sessionId/run" element={<PrepRedirect />} />
         <Route
           path="sessions/:sessionId/hud"
           element={

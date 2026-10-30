@@ -1256,7 +1256,7 @@ export default function SessionHud() {
                 key: "prep",
                 label: "📜 Session prep",
                 hint: "Tonight's brief, runbook and notes",
-                to: `/sessions/${sessionId}/run`,
+                to: `/sessions/${sessionId}/prep`,
               },
             ]}
           />
@@ -2215,7 +2215,7 @@ export default function SessionHud() {
               <div style={{ color: "var(--muted)", textAlign: "center", marginTop: "2rem" }}>
                 <p>No runbook yet.</p>
                 <Link
-                  to={`/sessions/${sessionId}/run`}
+                  to={`/sessions/${sessionId}/prep`}
                   className="btn btn-secondary"
                   style={{ display: "inline-block", marginTop: "0.5rem" }}
                 >

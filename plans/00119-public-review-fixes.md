@@ -32,7 +32,7 @@ P1
 - [x] 9 One "Player display" menu (Projector / TV recommended, Screen share; More: immersive set dressing, map controls pop-up)
 - [x] 10 Immersive view empty/loading states (renders with a map — confirmed in headless Chrome; first-load curtain, friendly progress, failure → link to the TV view)
 P2
-- [ ] 11 No "Plan NN" / raw enums / 3D jargon in UI
+- [x] 11 No "Plan NN" / raw enums / 3D jargon in UI (statusLabel map; 3D figure folded behind a disclosure; Prep page at /prep, /run redirects)
 - [ ] 12 "arc" everywhere
 - [ ] 13 Plurals
 - [ ] 14 One rules edition string

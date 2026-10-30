@@ -145,7 +145,7 @@ export default function Campaigns() {
                 <button
                   className="btn btn-ghost"
                   style={{ fontSize: "0.75rem" }}
-                  title="Download everything in this campaign as one JSON file (Plan 83)"
+                  title="Download everything in this campaign as one JSON file"
                   onClick={() => void exportCampaign(c)}
                 >
                   Export

@@ -10,6 +10,7 @@ import { zoomable } from "../../lib/lightbox";
 import EditableRunbookText from "../runbook/EditableRunbookText";
 import { rememberDockSession } from "./dmSession";
 import SessionNotesEditor from "./SessionNotesEditor";
+import { statusLabel } from "../../lib/labels";
 
 // Plan 91 — the face the DM's dock shows: the true form once revealed, else the disguise.
 const npcFace = (n: { portrait_url: string | null; true_form_url?: string | null; true_form_revealed?: boolean }) =>
@@ -174,7 +175,7 @@ export default function DmDockBody({ sessionId, onSessionChange }: Props) {
             {!runbook && (
               <div style={{ color: "var(--muted)", textAlign: "center", marginTop: "1.5rem", fontSize: "0.85rem" }}>
                 <p>No runbook for this session yet.</p>
-                <Link to={`/sessions/${sessionId}/run`} className="btn btn-secondary" style={{ display: "inline-block", marginTop: 6 }}>
+                <Link to={`/sessions/${sessionId}/prep`} className="btn btn-secondary" style={{ display: "inline-block", marginTop: 6 }}>
                   Write one →
                 </Link>
               </div>
@@ -327,7 +328,7 @@ export default function DmDockBody({ sessionId, onSessionChange }: Props) {
                     </span>
                     <span style={{ display: "flex", gap: 3, flexShrink: 0 }}>
                       {!n.is_revealed && <span className="badge badge-draft" style={{ fontSize: "0.58rem" }} title="Players haven't met them yet">hidden</span>}
-                      {n.status !== "Alive" && <span className="badge badge-progress" style={{ fontSize: "0.58rem" }}>{n.status}</span>}
+                      {n.status !== "Alive" && <span className="badge badge-progress" style={{ fontSize: "0.58rem" }}>{statusLabel(n.status)}</span>}
                     </span>
                   </summary>
                   <div style={{ marginTop: 6, fontSize: "0.78rem", lineHeight: 1.45, display: "flex", flexDirection: "column", gap: 4 }}>

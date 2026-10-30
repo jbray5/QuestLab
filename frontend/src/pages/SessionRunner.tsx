@@ -7,6 +7,7 @@ import { sessionsApi } from "../api/sessions";
 import LootPanel from "../components/LootPanel";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
 import type { Combatant, SessionRunbook } from "../api/types";
+import { statusLabel } from "../lib/labels";
 
 // ── Initiative Tracker ────────────────────────────────────────────────────────
 
@@ -553,7 +554,7 @@ export default function SessionRunner() {
         </button>
       </div>
       <p className="text-muted" style={{ marginBottom: "2rem" }}>
-        Status: <strong style={{ color: "var(--gold)" }}>{session.status}</strong>
+        Status: <strong style={{ color: "var(--gold)" }}>{statusLabel(session.status)}</strong>
       </p>
 
       <div

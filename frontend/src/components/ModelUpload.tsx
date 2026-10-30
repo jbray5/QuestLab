@@ -75,8 +75,15 @@ export default function ModelUpload({ currentUrl, onUrlChange, heightFt, label =
     }
   }
 
+  // Review 10/30 — file formats, rigs and bone counts are for whoever builds
+  // figures, not for every DM looking at a character card: folded away.
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+    <details style={{ fontSize: "0.75rem" }}>
+      <summary style={{ cursor: "pointer", color: "var(--muted)", listStyle: "revert" }}>
+        {label}: {currentUrl ? <span style={{ color: "var(--gold)" }}>✓ set</span> : "add"}
+      </summary>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.5rem" }}>
+      <small style={{ color: "var(--muted)" }}>Advanced: the figure the immersive table walks for this character.</small>
       <div
         onClick={() => inputRef.current?.click()}
         onDrop={(e) => {
@@ -127,6 +134,7 @@ export default function ModelUpload({ currentUrl, onUrlChange, heightFt, label =
           </Suspense>
         </PreviewBoundary>
       )}
-    </div>
+      </div>
+    </details>
   );
 }
