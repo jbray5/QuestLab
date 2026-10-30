@@ -63,17 +63,32 @@ body {
   flex-direction: column;
 }
 
-h1, h2, h3 {
+/* Review 10/30 — the decorative face is for page titles and the logo; card
+   and section titles use one readable face everywhere. */
+h1, h2 {
   font-family: "Cinzel Decorative", serif;
   color: var(--gold);
   margin: 0 0 0.5rem;
 }
 
+h3 {
+  font-family: "EB Garamond", Georgia, serif;
+  font-weight: 600;
+  font-size: 1.3rem;
+  letter-spacing: 0.01em;
+  color: var(--gold);
+  margin: 0 0 0.5rem;
+}
+
 h4, h5, h6 {
-  font-family: "Cinzel Decorative", serif;
+  font-family: "EB Garamond", Georgia, serif;
+  font-weight: 600;
   color: var(--gold2);
   margin: 0 0 0.25rem;
 }
+
+/* Buttons that aren't .btn fell back to the system sans-serif. */
+button { font-family: inherit; }
 
 a {
   color: var(--gold);
@@ -151,9 +166,12 @@ code, pre {
   padding: 0.5rem 1.1rem;
   border-radius: 6px;
   border: 1px solid transparent;
-  font-family: "Cinzel Decorative", serif;
-  font-size: 0.8rem;
-  font-weight: 700;
+  /* Review 10/30 — readable at a glance. font-size-adjust lifts Garamond's
+     small x-height so the many inline 0.7rem sizes stay legible. */
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 0.95rem;
+  font-size-adjust: 0.46;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
   text-decoration: none;
@@ -226,8 +244,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.6; f
 
 label {
   display: block;
-  font-family: "Cinzel Decorative", serif;
-  font-size: 0.75rem;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 0.95rem;
+  font-size-adjust: 0.48;
   color: var(--muted);
   margin-bottom: 0.3rem;
   letter-spacing: 0.05em;
@@ -318,8 +337,10 @@ label {
   border-radius: 6px;
   color: var(--muted);
   text-decoration: none;
-  font-family: "Cinzel Decorative", serif;
-  font-size: 0.78rem;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 1rem;
+  font-size-adjust: 0.5;
+  font-weight: 500;
   transition: all 0.2s;
   cursor: pointer;
   border: none;
