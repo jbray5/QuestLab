@@ -9,6 +9,7 @@ import type { Adventure, AdventureCreate, GameSession } from "../api/types";
 import PcPicker from "../components/sessions/PcPicker";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import { statusLabel } from "../lib/labels";
+import RowMenu from "../components/RowMenu";
 
 /**
  * CampaignSessions — every session in the campaign, grouped by arc (Plan 75).
@@ -348,19 +349,19 @@ export default function CampaignSessions() {
                 >
                   Edit
                 </button>
-                <button
-                  className="btn btn-danger"
-                  style={small}
-                  onClick={() =>
-                    window.confirm(
-                      list.length
-                        ? `Delete "${arc.title}" and its ${list.length} session${list.length === 1 ? "" : "s"}?`
-                        : `Delete "${arc.title}"?`,
-                    ) && deleteArc.mutate(arc.id)
-                  }
-                >
-                  Delete
-                </button>
+                <RowMenu
+                  label={`More for ${arc.title}`}
+                  items={[
+                    {
+                      label: "Delete arc…",
+                      danger: true,
+                      confirm: list.length
+                        ? `Delete the arc "${arc.title}" and its ${list.length} session${list.length === 1 ? "" : "s"}? This can't be undone.`
+                        : `Delete the arc "${arc.title}"? This can't be undone.`,
+                      onSelect: () => deleteArc.mutate(arc.id),
+                    },
+                  ]}
+                />
               </div>
             </div>
 
@@ -532,13 +533,17 @@ export default function CampaignSessions() {
                           >
                             Advance
                           </button>
-                          <button
-                            className="btn btn-danger"
-                            style={small}
-                            onClick={() => window.confirm("Delete session?") && del.mutate({ id: s.id, arcId: arc.id })}
-                          >
-                            Delete
-                          </button>
+                          <RowMenu
+                            label={`More for session ${s.session_number}`}
+                            items={[
+                              {
+                                label: "Delete session…",
+                                danger: true,
+                                confirm: `Delete Session ${s.session_number}${s.title ? `: ${s.title}` : ""}? Its notes and combat go with it. This can't be undone.`,
+                                onSelect: () => del.mutate({ id: s.id, arcId: arc.id }),
+                              },
+                            ]}
+                          />
                         </div>
                       </div>
 

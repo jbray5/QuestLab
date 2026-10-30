@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adventuresApi } from "../api/adventures";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Adventure } from "../api/types";
+import RowMenu from "../components/RowMenu";
 
 const TIER_BADGE: Record<string, string> = {
   Tier1: "badge-ready",
@@ -139,7 +140,7 @@ export default function Adventures() {
       </nav>
       <div className="flex items-center" style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}>
         <h1>Arcs</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+        <button className={showForm ? "btn btn-secondary" : "btn btn-primary"} onClick={() => setShowForm(!showForm)}>
           {showForm ? "Cancel" : "+ New arc"}
         </button>
       </div>
@@ -235,10 +236,17 @@ export default function Adventures() {
                   onClick={() => startEdit(a)}>
                   Edit
                 </button>
-                <button className="btn btn-danger" style={{ fontSize: "0.75rem" }}
-                  onClick={() => window.confirm(`Delete the arc "${a.title}"?`) && del.mutate(a.id)}>
-                  Delete
-                </button>
+                <RowMenu
+                  label={`More for ${a.title}`}
+                  items={[
+                    {
+                      label: "Delete arc…",
+                      danger: true,
+                      confirm: `Delete the arc "${a.title}" and everything in it? This can't be undone.`,
+                      onSelect: () => del.mutate(a.id),
+                    },
+                  ]}
+                />
               </div>
             </div>
 

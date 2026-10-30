@@ -14,6 +14,7 @@ import { heightFtForRace } from "../engine/heights";
 import InventoryPanel from "../components/InventoryPanel";
 import SpellPanel from "../components/SpellPanel";
 import { portraitSrc } from "../lib/portrait";
+import RowMenu from "../components/RowMenu";
 
 function mod(score: number) {
   const m = Math.floor((score - 10) / 2);
@@ -604,13 +605,19 @@ export default function Characters() {
                   ⬆ Level up
                 </button>
               )}
-              <button
-                className="btn btn-danger"
-                style={{ fontSize: "0.7rem" }}
-                onClick={() => window.confirm("Delete character?") && del.mutate(c.id)}
-              >
-                Delete
-              </button>
+              <span style={{ marginLeft: "auto" }}>
+                <RowMenu
+                  label={`More for ${c.character_name}`}
+                  items={[
+                    {
+                      label: "Delete character…",
+                      danger: true,
+                      confirm: `Delete ${c.character_name}? Their sheet, spells and inventory go with them, and ${c.player_name || "their player"}'s link stops working. This can't be undone.`,
+                      onSelect: () => del.mutate(c.id),
+                    },
+                  ]}
+                />
+              </span>
             </div>
           </div>
         ))}

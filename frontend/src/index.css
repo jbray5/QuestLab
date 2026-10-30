@@ -179,14 +179,17 @@ code, pre {
 }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* Review 10/30 — three kinds of button, everywhere:
+   primary = gold fill (one per view), secondary = outline,
+   destructive = red, only for deleting things (in a row's ⋯ menu). */
 .btn-primary {
-  background: var(--crimson);
-  border-color: var(--crimson2);
-  color: #fff;
+  background: var(--gold);
+  border-color: var(--gold2);
+  color: #1c1508;
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--crimson2);
-  box-shadow: 0 0 12px rgba(192, 57, 43, 0.5);
+  background: var(--gold2);
+  box-shadow: 0 0 12px rgba(214, 175, 54, 0.45);
 }
 
 .btn-secondary {

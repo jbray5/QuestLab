@@ -12,6 +12,7 @@ import type { Encounter, Monster, RosterEntry } from "../api/types";
 import DifficultyMeter from "../components/encounter-builder/DifficultyMeter";
 import SuggestionsPanel from "../components/encounter-builder/SuggestionsPanel";
 import { plural } from "../lib/plural";
+import RowMenu from "../components/RowMenu";
 
 const DIFFICULTY_BADGE: Record<string, string> = {
   Low: "badge-ready",
@@ -495,7 +496,7 @@ export default function Encounters() {
       </nav>
       <div className="flex items-center" style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}>
         <h1>Encounters</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+        <button className={showForm ? "btn btn-secondary" : "btn btn-primary"} onClick={() => setShowForm(!showForm)}>
           {showForm ? "✕ Cancel" : "+ New Encounter"}
         </button>
       </div>
@@ -599,13 +600,17 @@ export default function Encounters() {
                   )}
                 </button>
 
-                <button
-                  className="btn btn-danger"
-                  style={{ fontSize: "0.75rem", flexShrink: 0 }}
-                  onClick={() => window.confirm("Delete encounter?") && del.mutate(e.id)}
-                >
-                  Delete
-                </button>
+                <RowMenu
+                  label={`More for ${e.name}`}
+                  items={[
+                    {
+                      label: "Delete encounter…",
+                      danger: true,
+                      confirm: `Delete the encounter "${e.name}"? This can't be undone.`,
+                      onSelect: () => del.mutate(e.id),
+                    },
+                  ]}
+                />
               </div>
 
               {/* ── Description ───────────────────────────────────────── */}

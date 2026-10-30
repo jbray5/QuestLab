@@ -7,6 +7,7 @@ import { charactersApi } from "../api/characters";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import PcPicker from "../components/sessions/PcPicker";
 import { statusLabel } from "../lib/labels";
+import RowMenu from "../components/RowMenu";
 
 const STATUS_BADGE: Record<string, string> = {
   Draft: "badge-draft",
@@ -127,7 +128,7 @@ export default function Sessions() {
       </nav>
       <div className="flex items-center" style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}>
         <h1>Sessions</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+        <button className={showForm ? "btn btn-secondary" : "btn btn-primary"} onClick={() => setShowForm(!showForm)}>
           {showForm ? "Cancel" : "+ New Session"}
         </button>
       </div>
@@ -217,13 +218,17 @@ export default function Sessions() {
                 >
                   Advance
                 </button>
-                <button
-                  className="btn btn-danger"
-                  style={{ fontSize: "0.7rem" }}
-                  onClick={() => window.confirm("Delete session?") && del.mutate(s.id)}
-                >
-                  Delete
-                </button>
+                <RowMenu
+                  label={`More for session ${s.session_number}`}
+                  items={[
+                    {
+                      label: "Delete session…",
+                      danger: true,
+                      confirm: `Delete Session ${s.session_number}${s.title ? `: ${s.title}` : ""}? This can't be undone.`,
+                      onSelect: () => del.mutate(s.id),
+                    },
+                  ]}
+                />
               </div>
             </div>
 

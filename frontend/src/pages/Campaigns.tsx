@@ -5,6 +5,7 @@ import { api } from "../api/client";
 import { campaignsApi } from "../api/campaigns";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Campaign } from "../api/types";
+import RowMenu from "../components/RowMenu";
 
 // Plan 83 — the whole campaign as one JSON file, named after it.
 async function exportCampaign(c: Campaign): Promise<void> {
@@ -67,7 +68,7 @@ export default function Campaigns() {
     <div className="fade-in">
       <div className="flex items-center" style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}>
         <h1>Campaigns</h1>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+        <button className={showForm ? "btn btn-secondary" : "btn btn-primary"} onClick={() => setShowForm(!showForm)}>
           {showForm ? "✕ Cancel" : "+ New Campaign"}
         </button>
       </div>
@@ -155,13 +156,17 @@ export default function Campaigns() {
                 >
                   Export
                 </button>
-                <button
-                  className="btn btn-danger"
-                  style={{ fontSize: "0.75rem" }}
-                  onClick={() => window.confirm("Delete campaign?") && del.mutate(c.id)}
-                >
-                  Delete
-                </button>
+                <RowMenu
+                  label={`More for ${c.name}`}
+                  items={[
+                    {
+                      label: "Delete campaign…",
+                      danger: true,
+                      confirm: `Delete the campaign "${c.name}" — every arc, session, character and NPC in it? Export it first if you might want it back. This can't be undone.`,
+                      onSelect: () => del.mutate(c.id),
+                    },
+                  ]}
+                />
               </div>
             </div>
             {c.description && (

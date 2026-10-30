@@ -37,7 +37,7 @@ P2
 - [x] 13 Plurals (lib/plural.ts: dashboard stats, party/PC counts, shop items, admin)
 - [x] 14 One rules edition string ("D&D 5e (2024 rules)": sidebar, welcome, guide, spells, weapons, meta)
 - [x] 15 Join code vs self-create (🎲 Generate when empty; a visible line says how players use it)
-- [ ] 16 Button hierarchy
+- [x] 16 Button hierarchy (primary = gold; Cancel secondary; deletes on campaign/arc/session/encounter/character rows behind ⋯ with a confirm that names the thing)
 - [x] 17 Typography (Cinzel Decorative: h1/h2 + logo only; EB Garamond for nav/buttons/labels with font-size-adjust; h3–h6 and card titles one face; buttons inherit the font)
 - [x] 18 Characters page overflow (auto-fill card grid; action row wraps; figure fields cap at 100%; no overflow at 768/1280/1440/1920)
 - [x] 19 False empty states while loading (sessions per arc, shops, puzzles, map builder, HUD party + maps)
