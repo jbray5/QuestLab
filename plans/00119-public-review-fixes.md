@@ -21,7 +21,7 @@ locked down. One commit per item. Ask before schema, auth, or anything touching 
 ## Progress
 P0
 - [x] 1 No "AI" in public branding — index.html title/description/og/twitter, `/try` copy and its three generative-AI images (swapped for the procedural demo map), API description
-- [ ] 2 Campaign create: Setting/Tone optional, "e.g." placeholders app-wide, friendly validation errors, open the new campaign
+- [x] 2 Campaign create: Setting/Tone optional, "e.g." placeholders app-wide, friendly validation errors, open the new campaign
 - [ ] 3 Encounter difficulty badge with no party
 - [ ] 4 Lock-down audit of /play, /table, /stream, DM routes (written summary; auth changes need Justin)
 P1

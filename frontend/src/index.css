@@ -221,7 +221,8 @@ input:focus, textarea:focus, select:focus {
   border-color: var(--gold);
   box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.2);
 }
-input::placeholder, textarea::placeholder { color: var(--muted); }
+/* Review 10/30 — a placeholder must never pass for a value someone typed. */
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.6; font-style: italic; }
 
 label {
   display: block;

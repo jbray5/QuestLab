@@ -1,3 +1,5 @@
+import { friendlyApiError } from "./errors";
+
 // Base URL for the QuestLab API.
 //   - Local dev: "/api" — Vite proxies to localhost:8000 (see vite.config.ts)
 //   - Production: set VITE_API_BASE_URL to the deployed backend origin, e.g.
@@ -16,6 +18,11 @@ export function apiBase(): string {
 
 const BASE = apiBase();
 
+/** Per-call options. `quiet`: the caller shows the error inline, so no toast too. */
+export interface RequestOptions {
+  quiet?: boolean;
+}
+
 /** Read DM identity from localStorage (set on first load from a meta tag or env). */
 function getAuthHeader(): Record<string, string> {
   // Plan 73 — a signed session token (OAuth sign-in) is the real identity.
@@ -30,6 +37,7 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
+  opts: RequestOptions = {},
 ): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -45,12 +53,8 @@ async function request<T>(
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     const detail = body?.detail;
-    const message =
-      typeof detail === "string"
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join("; ")
-          : res.statusText;
+    // Review 10/30 — never raw Pydantic text on screen.
+    const message = friendlyApiError(detail, res.statusText);
     // Plan 29 — dispatch a window event so the global ToastProvider can
     // surface transient API errors that callers don't explicitly handle.
     // 401s are noisy on first load (no DM email yet); skip them.
@@ -75,7 +79,7 @@ async function request<T>(
       localStorage.removeItem("ql_token");
       window.dispatchEvent(new CustomEvent("ql:signed-out"));
     }
-    if (typeof window !== "undefined" && res.status !== 401) {
+    if (typeof window !== "undefined" && res.status !== 401 && !opts.quiet) {
       window.dispatchEvent(
         new CustomEvent("ql:api-error", { detail: { message } }),
       );
@@ -89,8 +93,11 @@ async function request<T>(
 
 export const api = {
   get: <T>(path: string) => request<T>("GET", path),
-  post: <T>(path: string, body?: unknown) => request<T>("POST", path, body),
-  put: <T>(path: string, body: unknown) => request<T>("PUT", path, body),
-  patch: <T>(path: string, body: unknown) => request<T>("PATCH", path, body),
+  post: <T>(path: string, body?: unknown, opts?: RequestOptions) =>
+    request<T>("POST", path, body, opts),
+  put: <T>(path: string, body: unknown, opts?: RequestOptions) =>
+    request<T>("PUT", path, body, opts),
+  patch: <T>(path: string, body: unknown, opts?: RequestOptions) =>
+    request<T>("PATCH", path, body, opts),
   delete: <T = void>(path: string) => request<T>("DELETE", path),
 };

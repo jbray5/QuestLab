@@ -192,7 +192,7 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Goblin, Troll, Beholder…"
+            placeholder="e.g. Goblin, Troll, Beholder…"
             style={{ width: "100%" }}
           />
           {search.trim().length >= 2 && (
@@ -447,7 +447,7 @@ export default function Encounters() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && name.trim() && create.mutate()}
-              placeholder="Goblin Ambush"
+              placeholder="e.g. Goblin Ambush"
             />
           </div>
           <div className="form-group">

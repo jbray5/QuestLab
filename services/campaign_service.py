@@ -81,8 +81,9 @@ def get_campaign(session: Session, campaign_id: uuid.UUID, dm_email: str) -> Cam
 def create_campaign(
     session: Session,
     name: str,
-    setting: str,
-    tone: str,
+    setting: str = "",
+    tone: str = "",
+    *,
     dm_email: str,
     description: Optional[str] = None,
     world_notes: Optional[str] = None,
@@ -91,9 +92,9 @@ def create_campaign(
 
     Args:
         session: Active database session.
-        name: Campaign name.
-        setting: World or setting name.
-        tone: Narrative tone description.
+        name: Campaign name — the only thing needed to start.
+        setting: Optional world or setting name.
+        tone: Optional narrative tone description.
         dm_email: Email of the owning DM.
         description: Optional campaign premise and overview.
         world_notes: Optional free-form world-building notes.
@@ -102,8 +103,12 @@ def create_campaign(
         The newly created CampaignRead.
 
     Raises:
-        ValueError: If the DM already has MAX_CAMPAIGNS_PER_DM campaigns.
+        ValueError: If the name is blank, or the DM already has
+            MAX_CAMPAIGNS_PER_DM campaigns.
     """
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("Give your campaign a name.")
     existing = CampaignRepo.list_by_dm(session, dm_email)
     if len(existing) >= MAX_CAMPAIGNS_PER_DM:
         raise ValueError(
@@ -112,8 +117,8 @@ def create_campaign(
         )
     data = CampaignCreate(
         name=name,
-        setting=setting,
-        tone=tone,
+        setting=(setting or "").strip(),
+        tone=(tone or "").strip(),
         dm_email=dm_email.strip().lower(),
         description=description,
         world_notes=world_notes,

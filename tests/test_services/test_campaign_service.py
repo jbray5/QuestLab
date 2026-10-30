@@ -44,6 +44,27 @@ class TestCreateCampaign:
         )
         assert c.dm_email == "dm@example.com"
 
+    def test_a_name_is_all_it_takes(self, duckdb_session: Session):
+        """Setting and tone are optional (review 10/30: create failed on the first try)."""
+        c = svc.create_campaign(
+            duckdb_session, name="  Just a Name  ", dm_email=f"n_{uuid.uuid4().hex[:6]}@x.com"
+        )
+        assert c.name == "Just a Name"
+        assert c.setting == "" and c.tone == ""
+
+    def test_a_blank_name_is_refused_in_plain_words(self, duckdb_session: Session):
+        """Whitespace is not a name, and the message says what to do."""
+        with pytest.raises(ValueError, match="Give your campaign a name"):
+            svc.create_campaign(duckdb_session, name="   ", dm_email="blank@x.com")
+
+    def test_the_create_body_needs_only_a_name(self):
+        """The API body validates with the name alone."""
+        from domain.campaign import CampaignCreate, CampaignUpdate
+
+        body = CampaignCreate(name="Ashfall")
+        assert body.setting == "" and body.tone == ""
+        assert CampaignUpdate(setting="").setting == "", "a setting can be cleared"
+
     def test_create_over_limit_raises(self, duckdb_session: Session):
         """Creating more than MAX_CAMPAIGNS_PER_DM raises ValueError."""
         unique_dm = f"limit_{uuid.uuid4().hex[:8]}@example.com"

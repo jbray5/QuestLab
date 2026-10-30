@@ -560,7 +560,7 @@ export default function SessionRunner() {
                 <textarea
                   value={extraNotes}
                   onChange={(e) => setExtraNotes(e.target.value)}
-                  placeholder="The party returns to town to find the inn shuttered and the innkeeper missing. A stranger delivers an invitation nobody should trust…"
+                  placeholder="e.g. The party returns to town to find the inn shuttered and the innkeeper missing. A stranger delivers an invitation nobody should trust…"
                   rows={4}
                   style={{ resize: "vertical" }}
                 />

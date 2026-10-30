@@ -12,8 +12,10 @@ class CampaignBase(SQLModel):
     """Shared fields for Campaign create and read schemas."""
 
     name: str = Field(min_length=1, max_length=200)
-    setting: str = Field(min_length=1, max_length=200, description="World or setting name")
-    tone: str = Field(min_length=1, max_length=200, description="Campaign tone, e.g. 'dark horror'")
+    # Optional (review 10/30): only the name is needed to start. Empty string, not
+    # NULL — the columns are NOT NULL, so this needs no migration.
+    setting: str = Field(default="", max_length=200, description="World or setting name")
+    tone: str = Field(default="", max_length=200, description="Campaign tone, e.g. 'dark horror'")
     description: Optional[str] = Field(default=None, description="Campaign premise and overview")
     world_notes: Optional[str] = Field(default=None, description="Free-form world-building notes")
 
@@ -61,8 +63,8 @@ class CampaignUpdate(BaseModel):
     """Partial update schema for a campaign — all fields optional."""
 
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    setting: Optional[str] = Field(default=None, min_length=1, max_length=200)
-    tone: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    setting: Optional[str] = Field(default=None, max_length=200)
+    tone: Optional[str] = Field(default=None, max_length=200)
     description: Optional[str] = None
     allow_player_signup: Optional[bool] = None
     join_code: Optional[str] = Field(default=None, max_length=12)

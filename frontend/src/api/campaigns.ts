@@ -10,7 +10,8 @@ export interface CampaignStats {
 
 export const campaignsApi = {
   list: () => api.get<Campaign[]>("/campaigns"),
-  create: (data: CampaignCreate) => api.post<Campaign>("/campaigns", data),
+  // quiet: the New Campaign form shows its own error under the button.
+  create: (data: CampaignCreate) => api.post<Campaign>("/campaigns", data, { quiet: true }),
   get: (id: string) => api.get<Campaign>(`/campaigns/${id}`),
   update: (id: string, data: Partial<CampaignCreate>) =>
     api.patch<Campaign>(`/campaigns/${id}`, data),

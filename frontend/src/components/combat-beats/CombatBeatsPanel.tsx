@@ -294,7 +294,7 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
           <textarea
             value={hpText}
             onChange={(e) => setHpText(e.target.value)}
-            placeholder="When she's bloodied she whispers: 'help me — it's so loud — make it stop'"
+            placeholder="e.g. When she's bloodied she whispers: 'help me — it's so loud — make it stop'"
             rows={2}
             style={{ width: "100%", fontSize: "0.74rem", marginBottom: "0.3rem" }}
           />
@@ -337,7 +337,7 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
           <textarea
             value={roundText}
             onChange={(e) => setRoundText(e.target.value)}
-            placeholder="Wenneth is visibly weakening — her HP drops by 2 at the start of each of her turns."
+            placeholder="e.g. Wenneth is visibly weakening — her HP drops by 2 at the start of each of her turns."
             rows={2}
             style={{ width: "100%", fontSize: "0.74rem", marginBottom: "0.3rem" }}
           />

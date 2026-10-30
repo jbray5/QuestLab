@@ -299,7 +299,7 @@ export default function CharacterCreator() {
           <>
             <h2>Who are you?</h2>
             <label htmlFor="cname">Character name</label>
-            <input id="cname" type="text" value={characterName} onChange={(e) => setCharacterName(e.target.value)} placeholder="Bram Oakhelm" autoFocus />
+            <input id="cname" type="text" value={characterName} onChange={(e) => setCharacterName(e.target.value)} placeholder="e.g. Bram Oakhelm" autoFocus />
             <label htmlFor="pname">Your name (the player)</label>
             <input id="pname" type="text" value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="What the table calls you" />
             <label htmlFor="lvl">Starting level</label>
@@ -538,7 +538,7 @@ export default function CharacterCreator() {
               {cls?.spellcasting && <div><span>Spells</span><span>{[...cantrips, ...spells].join(", ") || "—"}</span></div>}
             </div>
             <label htmlFor="look">How you look (optional — the forge paints from this)</label>
-            <textarea id="look" rows={3} value={appearance} onChange={(e) => setAppearance(e.target.value)} placeholder="Scarred, grey braids, a dented breastplate and a green cloak" />
+            <textarea id="look" rows={3} value={appearance} onChange={(e) => setAppearance(e.target.value)} placeholder="e.g. Scarred, grey braids, a dented breastplate and a green cloak" />
             {error && <p className="err">{error}</p>}
           </>
         )}

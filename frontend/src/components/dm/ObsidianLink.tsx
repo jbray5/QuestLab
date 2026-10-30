@@ -64,7 +64,7 @@ export function ObsidianNoteInput({
       <input
         type="text"
         value={value ?? ""}
-        placeholder="People/Auntie Sorrel"
+        placeholder="e.g. People/Auntie Sorrel"
         onChange={(e) => onChange(e.target.value.trim() ? e.target.value : null)}
         style={{ width: "100%" }}
       />

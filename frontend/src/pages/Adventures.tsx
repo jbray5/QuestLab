@@ -149,7 +149,7 @@ export default function Adventures() {
           <h3 style={{ marginBottom: "1rem" }}>New Adventure</h3>
           <div className="form-group">
             <label>Title *</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="The Lost Mines of..." />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. The Lost Mines of..." />
           </div>
           <div className="form-group">
             <label>Synopsis</label>

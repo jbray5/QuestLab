@@ -223,7 +223,7 @@ export default function CampaignSessions() {
             <input
               value={arcTitle}
               onChange={(e) => setArcTitle(e.target.value)}
-              placeholder="Into the Fey"
+              placeholder="e.g. Into the Fey"
               autoFocus
             />
           </div>
@@ -392,7 +392,7 @@ export default function CampaignSessions() {
                 </div>
                 <div className="form-group">
                   <label>Title</label>
-                  <input value={sTitle} onChange={(e) => setSTitle(e.target.value)} placeholder="The Gilded Kettle" autoFocus />
+                  <input value={sTitle} onChange={(e) => setSTitle(e.target.value)} placeholder="e.g. The Gilded Kettle" autoFocus />
                 </div>
                 <div className="form-group">
                   <label>Who&rsquo;s playing</label>

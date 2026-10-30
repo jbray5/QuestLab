@@ -147,7 +147,7 @@ export default function Sessions() {
           </div>
           <div className="form-group">
             <label>Title</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="The Heist..." />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. The Heist..." />
           </div>
           <div className="form-group">
             <label>Attending Characters</label>

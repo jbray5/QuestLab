@@ -1193,7 +1193,7 @@ export default function MapBuilder() {
                     value={worldPrompt}
                     onChange={(e) => setWorldPrompt(e.target.value)}
                     rows={2}
-                    placeholder="A dark fantasy continent ruled by rival undead empires…"
+                    placeholder="e.g. A dark fantasy continent ruled by rival undead empires…"
                     style={{ fontSize: "0.9rem", resize: "vertical" }}
                   />
                 </div>

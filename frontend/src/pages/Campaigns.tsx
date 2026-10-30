@@ -44,10 +44,12 @@ export default function Campaigns() {
         tone,
         description: description.trim() || undefined,
       }),
-    onSuccess: () => {
+    onSuccess: (made) => {
       qc.invalidateQueries({ queryKey: ["campaigns"] });
       setName(""); setSetting(""); setTone(""); setDescription("");
       setShowForm(false);
+      // Review 10/30 — a new campaign opens straight away.
+      handleOpen(made);
     },
   });
 
@@ -75,24 +77,24 @@ export default function Campaigns() {
           <h3 style={{ marginBottom: "1rem" }}>New Campaign</h3>
           <div className="form-group">
             <label>Campaign Name *</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="The Sunken City of Yal'dur" />
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. The Sunken City of Yal'dur" />
           </div>
           <div className="grid-2">
             <div className="form-group">
-              <label>Setting</label>
-              <input value={setting} onChange={(e) => setSetting(e.target.value)} placeholder="Forgotten Realms" />
+              <label>Setting <span className="text-muted">(optional)</span></label>
+              <input value={setting} onChange={(e) => setSetting(e.target.value)} placeholder="e.g. Forgotten Realms" />
             </div>
             <div className="form-group">
-              <label>Tone</label>
-              <input value={tone} onChange={(e) => setTone(e.target.value)} placeholder="Dark fantasy" />
+              <label>Tone <span className="text-muted">(optional)</span></label>
+              <input value={tone} onChange={(e) => setTone(e.target.value)} placeholder="e.g. Dark fantasy" />
             </div>
           </div>
           <div className="form-group">
-            <label>Description</label>
+            <label>Description <span className="text-muted">(optional)</span></label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="A brief overview of the campaign premise..."
+              placeholder="e.g. A drowned city rises once a century — and this is the year."
               rows={3}
               style={{ resize: "vertical" }}
             />

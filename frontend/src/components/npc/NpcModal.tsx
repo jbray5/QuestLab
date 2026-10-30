@@ -152,7 +152,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                 value={form.want_now ?? ""}
                 onChange={(e) => set("want_now", e.target.value || null)}
                 maxLength={200}
-                placeholder="To know if the party will help her tend the grove tonight."
+                placeholder="e.g. To know if the party will help her tend the grove tonight."
               />
             </Field>
             <Field label="KNOWS — one bullet per line (cap to 3)">
@@ -176,7 +176,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                 value={form.secret_short ?? ""}
                 onChange={(e) => set("secret_short", e.target.value || null)}
                 maxLength={200}
-                placeholder="She knows the shrine is dying."
+                placeholder="e.g. She knows the shrine is dying."
               />
             </Field>
             <Field label="Relationship pings (one per line, optional)">
@@ -270,7 +270,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
                 onFocus={(e) => e.currentTarget.select()}
-                placeholder="Captain Aldric"
+                placeholder="e.g. Captain Aldric"
                 autoFocus
               />
             </Field>
@@ -278,7 +278,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
               <input
                 value={form.role ?? ""}
                 onChange={(e) => set("role", e.target.value || null)}
-                placeholder="innkeeper, sage, mob boss…"
+                placeholder="e.g. innkeeper, sage, mob boss…"
               />
             </Field>
           </Row>
@@ -287,7 +287,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
               <input
                 value={form.race ?? ""}
                 onChange={(e) => set("race", e.target.value || null)}
-                placeholder="Human, Elf, Tiefling…"
+                placeholder="e.g. Human, Elf, Tiefling…"
               />
             </Field>
             <Field label="Gender">
@@ -301,7 +301,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
               <input
                 value={form.age ?? ""}
                 onChange={(e) => set("age", e.target.value || null)}
-                placeholder="in their 40s, ancient…"
+                placeholder="e.g. in their 40s, ancient…"
               />
             </Field>
           </Row>
@@ -324,7 +324,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
               <input
                 value={form.location ?? ""}
                 onChange={(e) => set("location", e.target.value || null)}
-                placeholder="Tavern of the Black Bird, Phandalin"
+                placeholder="e.g. Tavern of the Black Bird, Phandalin"
               />
             </Field>
           </Row>
@@ -335,7 +335,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
               value={form.appearance ?? ""}
               onChange={(e) => set("appearance", e.target.value || null)}
               rows={2}
-              placeholder="Slim, silver-haired, eyes the color of frost."
+              placeholder="e.g. Slim, silver-haired, eyes the color of frost."
             />
           </Field>
           <Field label="Personality">
@@ -343,7 +343,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
               value={form.personality ?? ""}
               onChange={(e) => set("personality", e.target.value || null)}
               rows={2}
-              placeholder="Patient. Caustic with fools."
+              placeholder="e.g. Patient. Caustic with fools."
             />
           </Field>
           <Field label="Motivation (what they want)">
@@ -351,7 +351,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
               value={form.motivation ?? ""}
               onChange={(e) => set("motivation", e.target.value || null)}
               rows={2}
-              placeholder="To prevent the second sundering."
+              placeholder="e.g. To prevent the second sundering."
             />
           </Field>
           <Field label="Secret">
@@ -359,7 +359,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
               value={form.secret ?? ""}
               onChange={(e) => set("secret", e.target.value || null)}
               rows={2}
-              placeholder="She is the second sundering's architect."
+              placeholder="e.g. She is the second sundering's architect."
             />
           </Field>
           <Field label="Dialog hooks (one per line)">
@@ -374,7 +374,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
             <input
               value={tagsText}
               onChange={(e) => setTagsText(e.target.value)}
-              placeholder="patron, spellcaster, ally"
+              placeholder="e.g. patron, spellcaster, ally"
             />
           </Field>
           <Field label="Private DM notes">
@@ -382,7 +382,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
               value={form.notes ?? ""}
               onChange={(e) => set("notes", e.target.value || null)}
               rows={2}
-              placeholder="Voice: dry whisper. Likely to betray the party in Act 3."
+              placeholder="e.g. Voice: dry whisper. Likely to betray the party in Act 3."
             />
           </Field>
 
