@@ -331,8 +331,8 @@ export default function MagicItems() {
                       ? "Generate AI-crafted lore that ties this item to your campaign's story."
                       : "Write the item's story in its description; it shows here."}
                     {activeAdventure
-                      ? " Check the box above to anchor it to your active adventure."
-                      : " Select an adventure in the sidebar to tie lore to your campaign."}
+                      ? " Check the box above to anchor it to your active arc."
+                      : " Select an arc in the sidebar to tie lore to your campaign."}
                   </p>
                 )}
               </div>

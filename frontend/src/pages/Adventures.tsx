@@ -135,18 +135,18 @@ export default function Adventures() {
           </>
         )}
         {" / "}
-        <strong>Adventures</strong>
+        <strong>Arcs</strong>
       </nav>
       <div className="flex items-center" style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}>
-        <h1>Adventures</h1>
+        <h1>Arcs</h1>
         <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? "Cancel" : "+ New Adventure"}
+          {showForm ? "Cancel" : "+ New arc"}
         </button>
       </div>
 
       {showForm && (
         <div className="card" style={{ marginBottom: "1.5rem", maxWidth: 520 }}>
-          <h3 style={{ marginBottom: "1rem" }}>New Adventure</h3>
+          <h3 style={{ marginBottom: "1rem" }}>New arc</h3>
           <div className="form-group">
             <label>Title *</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. The Lost Mines of..." />
@@ -156,7 +156,7 @@ export default function Adventures() {
             <textarea
               value={synopsis}
               onChange={(e) => setSynopsis(e.target.value)}
-              placeholder="A brief description of the adventure arc..."
+              placeholder="e.g. Where the party is headed and why."
               rows={3}
               style={{ resize: "vertical" }}
             />
@@ -190,7 +190,7 @@ export default function Adventures() {
             onClick={() => create.mutate()}
             disabled={!title.trim() || create.isPending}
           >
-            {create.isPending ? "Creating..." : "Create Adventure"}
+            {create.isPending ? "Creating..." : "Create arc"}
           </button>
         </div>
       )}
@@ -236,7 +236,7 @@ export default function Adventures() {
                   Edit
                 </button>
                 <button className="btn btn-danger" style={{ fontSize: "0.75rem" }}
-                  onClick={() => window.confirm("Delete adventure?") && del.mutate(a.id)}>
+                  onClick={() => window.confirm(`Delete the arc "${a.title}"?`) && del.mutate(a.id)}>
                   Delete
                 </button>
               </div>
@@ -306,7 +306,7 @@ export default function Adventures() {
                 style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "0.75rem" }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <h4 style={{ marginBottom: "0.75rem" }}>Edit Adventure</h4>
+                <h4 style={{ marginBottom: "0.75rem" }}>Edit arc</h4>
                 <div className="form-group">
                   <label className="text-sm">Title</label>
                   <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
@@ -346,7 +346,7 @@ export default function Adventures() {
         {!isLoading && adventures.length === 0 && (
           <div className="empty-state">
             <div className="empty-icon">🗺</div>
-            <p>No adventures yet - create one above.</p>
+            <p>No arcs yet — create one above.</p>
           </div>
         )}
       </div>
