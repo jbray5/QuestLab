@@ -184,6 +184,32 @@ export default function CampaignSessions() {
     onSuccess: (_r, v) => void qc.invalidateQueries({ queryKey: ["sessions", v.arcId] }),
   });
 
+  // Review 10/30 — from a brand-new campaign to a working HUD in two clicks:
+  // the session goes into the arc you've been playing (or a fresh "Unsorted"
+  // arc, renamed or moved later), everyone at the table attends, and the HUD opens.
+  const quick = useMutation({
+    mutationFn: async () => {
+      const latest = [...allSessions].sort((x, y) => y.session_number - x.session_number)[0];
+      let arc = arcs.find((a) => a.id === latest?.adventure_id) ?? arcs[arcs.length - 1];
+      if (!arc) {
+        arc = await adventuresApi.create(campaignId!, { title: "Unsorted", act_count: 3 });
+      }
+      setActiveAdventure(arc);
+      return sessionsApi.create(arc.id, {
+        // The HUD already says "Session N"; the title says when.
+        title: `Quick session, ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}`,
+        session_number: nextNumber,
+        attending_pc_ids: characters.length ? characters.map((c) => c.id) : undefined,
+      });
+    },
+    onSuccess: (s) => {
+      void qc.invalidateQueries({ queryKey: ["adventures", campaignId] });
+      void qc.invalidateQueries({ queryKey: ["sessions", s.adventure_id] });
+      navigate(`/sessions/${s.id}/hud`);
+    },
+    onError: (e: Error) => setCreateError(e.message),
+  });
+
   const pcName = (id: string) =>
     characters.find((c) => c.id === id)?.character_name ?? id.slice(0, 8);
 
@@ -210,10 +236,21 @@ export default function CampaignSessions() {
             Grouped by arc — a stretch of the story with its own encounters and maps.
           </p>
         </div>
-        <button className="btn btn-ghost" onClick={() => setArcFormOpen((v) => !v)}>
-          {arcFormOpen ? "Cancel" : "+ New arc"}
-        </button>
+        <div className="flex gap-2">
+          <button className="btn btn-ghost" onClick={() => setArcFormOpen((v) => !v)}>
+            {arcFormOpen ? "Cancel" : "+ New arc"}
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => quick.mutate()}
+            disabled={quick.isPending}
+            title="Make the next session and open the HUD — sort it into an arc later"
+          >
+            {quick.isPending ? "Setting the table…" : "▶ Run a quick session"}
+          </button>
+        </div>
       </div>
+      {quick.isError && <p className="text-sm" style={{ color: "var(--red)" }}>{createError}</p>}
 
       {arcFormOpen && (
         <div className="card" style={{ maxWidth: 520, marginBottom: "1.25rem" }}>
@@ -545,10 +582,15 @@ export default function CampaignSessions() {
       {!isLoading && arcs.length === 0 && !arcFormOpen && (
         <div className="empty-state">
           <div className="empty-icon">📅</div>
-          <p>No arcs yet. Create your first arc, then add tonight&rsquo;s session to it.</p>
-          <button className="btn btn-primary" onClick={() => setArcFormOpen(true)}>
-            + New arc
-          </button>
+          <p>Nothing scheduled yet. Start playing now, or plan the story into arcs first.</p>
+          <div className="flex gap-2" style={{ justifyContent: "center" }}>
+            <button className="btn btn-primary" onClick={() => quick.mutate()} disabled={quick.isPending}>
+              {quick.isPending ? "Setting the table…" : "▶ Run a quick session"}
+            </button>
+            <button className="btn btn-ghost" onClick={() => setArcFormOpen(true)}>
+              + New arc
+            </button>
+          </div>
         </div>
       )}
     </div>

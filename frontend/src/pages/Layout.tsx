@@ -200,11 +200,19 @@ export default function Layout() {
           <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/sessions`)}>
             📅 Sessions
           </button>
-          {activeAdventure && (
-            <button className="nav-item" onClick={() => go(`/adventures/${activeAdventure.id}/encounters`)}>
-              💀 Encounters
-            </button>
-          )}
+          {/* Review 10/30 — always here; without an arc it explains how to get one. */}
+          <button
+            className="nav-item"
+            onClick={() =>
+              go(
+                activeAdventure
+                  ? `/adventures/${activeAdventure.id}/encounters`
+                  : `/campaigns/${activeCampaign.id}/encounters`,
+              )
+            }
+          >
+            💀 Encounters
+          </button>
           <button className="nav-item" data-tour-id="nav-characters" onClick={() => go(`/campaigns/${activeCampaign.id}/characters`)}>
             🧙 Characters
           </button>
@@ -228,11 +236,18 @@ export default function Layout() {
             <button className="nav-item" onClick={() => go(`/campaigns/${activeCampaign.id}/notebook`)}>
               📓 Notebook
             </button>
-            {activeAdventure && (
-              <button className="nav-item" onClick={() => go(`/adventures/${activeAdventure.id}/maps`)}>
-                🗾 Map Builder
-              </button>
-            )}
+            <button
+              className="nav-item"
+              onClick={() =>
+                go(
+                  activeAdventure
+                    ? `/adventures/${activeAdventure.id}/maps`
+                    : `/campaigns/${activeCampaign.id}/maps`,
+                )
+              }
+            >
+              🗾 Map Builder
+            </button>
           </NavGroup>
         </>
       )}

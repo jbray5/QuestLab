@@ -25,7 +25,7 @@ P0
 - [x] 3 Encounter difficulty badge with no party (create ignored the pick; no-party math returned LOW)
 - [x] 4 Lock-down audit (docs/SECURITY.md access table; Plan 120 accounts — closes on Render switch; SEC-002..006 in QUALITY.md) of /play, /table, /stream, DM routes (written summary; auth changes need Justin)
 P1
-- [ ] 5 Quick session path; stable sidebar
+- [x] 5 Quick session path ("▶ Run a quick session": latest arc or a new "Unsorted" one → HUD); Encounters + Map Builder always in the sidebar
 - [ ] 6 HUD declutter
 - [ ] 7 Initiative tracker labels + sort
 - [ ] 8 Encounter roster unsaved state

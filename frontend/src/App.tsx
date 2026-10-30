@@ -153,7 +153,11 @@ export default function App() {
         />
         <Route
           path="campaigns/:campaignId/encounters"
-          element={lazyRoute(<CampaignEncounters />)}
+          element={lazyRoute(<CampaignEncounters section="encounters" />)}
+        />
+        <Route
+          path="campaigns/:campaignId/maps"
+          element={lazyRoute(<CampaignEncounters section="maps" />)}
         />
         <Route
           path="adventures/:adventureId/maps"
