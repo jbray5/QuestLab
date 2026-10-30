@@ -27,7 +27,7 @@ P0
 P1
 - [x] 5 Quick session path ("▶ Run a quick session": latest arc or a new "Unsorted" one → HUD); Encounters + Map Builder always in the sidebar
 - [x] 6 HUD declutter (Table mode hides the sidebar + party two abreast; Rests/Reference menus; Next-hit picker remembered; AC/PP/Ins/DC/Init/Spd labels; Tonight's Cast = arc roster/scene/session tag + Show all)
-- [ ] 7 Initiative tracker labels + sort
+- [x] 7 Initiative tracker labels + sort (Prep page: labelled add row, INIT/NAME/SIDE/HP columns, editable initiative, highest first as on the HUD, ▶ their turn, aria-labels)
 - [ ] 8 Encounter roster unsaved state
 - [x] 9 One "Player display" menu (Projector / TV recommended, Screen share; More: immersive set dressing, map controls pop-up)
 - [ ] 10 Immersive view empty/loading states
@@ -49,6 +49,7 @@ P3
 ---
 
 ## Surprises and Discoveries
+- 10/30: item 7's unlabelled numbers (Creed 21, Nya 26…) were HP, not initiative; the gold "0" was an unrolled initiative.
 - 10/30: `/try` (the old Reddit landing, Plan 54) predates the no-generative-AI decision (Plan 86): "The AI-powered studio…", "AI-generated battle maps", "AI-stocked shops", and three images from the old AI art pipeline. All replaced.
 - 10/30: every generation control in the app is already behind `AI_ON` (`frontend/src/lib/flags.ts`, off in prod) — the branding was the only public trace.
 

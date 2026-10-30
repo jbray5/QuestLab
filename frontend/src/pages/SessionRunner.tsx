@@ -10,6 +10,21 @@ import type { Combatant, SessionRunbook } from "../api/types";
 
 // ── Initiative Tracker ────────────────────────────────────────────────────────
 
+// Review 10/30 — every number in a row sits under a column that names it.
+const rowGrid: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "46px minmax(0, 1fr) 40px 50px 30px",
+  alignItems: "center",
+  gap: "0.4rem",
+};
+const fieldLabel: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 2,
+  fontSize: "0.7rem",
+  color: "var(--muted)",
+};
+
 function InitiativeTracker({ sessionId }: { sessionId: string }) {
   const {
     combatants,
@@ -24,11 +39,14 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
     nextTurn,
     prevTurn,
     reset,
+    setInitiative,
   } = useInitiativeStore();
 
+  // Review 10/30 — empty fields with "10" as a hint, not pre-filled 10s that
+  // read as values someone typed.
   const [newName, setNewName] = useState("");
-  const [newDex, setNewDex] = useState(10);
-  const [newHp, setNewHp] = useState(10);
+  const [newDex, setNewDex] = useState("");
+  const [newHp, setNewHp] = useState("");
   const [newType, setNewType] = useState<"pc" | "monster" | "npc">("monster");
 
   // Hydrate from backend on mount / session change — survives browser refresh.
@@ -55,16 +73,18 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
       monster_id: c.monster_id,
       character_id: c.character_id,
     }));
+    const dex = Number(newDex) || 10;
+    const hp = Number(newHp) || 10;
     const next: Combatant = {
       name: newName.trim(),
-      dex_score: newDex,
-      hp: newHp,
-      max_hp: newHp,
+      dex_score: dex,
+      hp,
+      max_hp: hp,
       type: newType,
     };
     setNewName("");
-    setNewDex(10);
-    setNewHp(10);
+    setNewDex("");
+    setNewHp("");
     roll.mutate([...existing, next]);
   }
 
@@ -93,39 +113,34 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
         </p>
       )}
 
-      <div className="flex gap-2" style={{ marginBottom: "1rem", flexWrap: "wrap" }}>
-        <input
-          placeholder="Name"
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && addCombatant()}
-          style={{ flex: "2 1 120px" }}
-        />
-        <input
-          type="number"
-          placeholder="DEX"
-          value={newDex}
-          onChange={(e) => setNewDex(Number(e.target.value))}
-          style={{ flex: "1 1 55px" }}
-        />
-        <input
-          type="number"
-          placeholder="HP"
-          value={newHp}
-          onChange={(e) => setNewHp(Number(e.target.value))}
-          style={{ flex: "1 1 55px" }}
-        />
-        <select
-          value={newType}
-          onChange={(e) => setNewType(e.target.value as "pc" | "monster" | "npc")}
-          style={{ flex: "1 1 80px" }}
-        >
-          <option value="pc">PC</option>
-          <option value="monster">Monster</option>
-          <option value="npc">NPC</option>
-        </select>
+      <div className="flex gap-2" style={{ marginBottom: "1rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+        <label style={{ ...fieldLabel, flex: "2 1 120px" }}>
+          Name
+          <input
+            placeholder="e.g. Goblin boss"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addCombatant()}
+          />
+        </label>
+        <label style={{ ...fieldLabel, flex: "1 1 70px" }} title="The DEX score (10 = +0). Initiative is d20 + its modifier.">
+          DEX score
+          <input type="number" placeholder="10" value={newDex} onChange={(e) => setNewDex(e.target.value)} />
+        </label>
+        <label style={{ ...fieldLabel, flex: "1 1 60px" }}>
+          HP
+          <input type="number" placeholder="10" value={newHp} onChange={(e) => setNewHp(e.target.value)} />
+        </label>
+        <label style={{ ...fieldLabel, flex: "1 1 80px" }}>
+          Side
+          <select value={newType} onChange={(e) => setNewType(e.target.value as "pc" | "monster" | "npc")}>
+            <option value="pc">PC</option>
+            <option value="monster">Monster</option>
+            <option value="npc">NPC</option>
+          </select>
+        </label>
         <button className="btn btn-primary" onClick={addCombatant} disabled={roll.isPending}>
-          + Add
+          + Add &amp; roll
         </button>
       </div>
 
@@ -137,16 +152,26 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
         <p className="text-muted text-sm">Add combatants above, then roll initiative.</p>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-        {combatants.map((c) => {
+      {combatants.length > 0 && (
+        <div style={{ ...rowGrid, padding: "0 0.75rem 0.2rem", fontSize: "0.65rem", letterSpacing: "0.08em", color: "var(--muted)" }}>
+          <span title="Initiative — highest goes first">INIT</span>
+          <span>NAME</span>
+          <span>SIDE</span>
+          <span>HP</span>
+          <span />
+        </div>
+      )}
+      {/* Highest initiative first, the order the HUD shows and the turns follow. */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }} role="list" aria-label="Initiative order">
+        {[...combatants].sort((a, b) => b.initiative_roll - a.initiative_roll).map((c) => {
           const isActive = c.id === activeCombatantId;
           return (
             <div
               key={c.id}
+              role="listitem"
+              aria-current={isActive ? "true" : undefined}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
+                ...rowGrid,
                 padding: "0.5rem 0.75rem",
                 borderRadius: 6,
                 background: isActive ? "rgba(139,26,26,0.3)" : "var(--surface2)",
@@ -154,33 +179,49 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
                 opacity: c.defeated ? 0.4 : 1,
               }}
             >
-              <span
+              <input
+                type="number"
+                aria-label={`${c.name} initiative`}
+                title={c.initiative_roll ? "Initiative" : "Not rolled yet — type their roll"}
+                placeholder="—"
+                value={c.initiative_roll || ""}
+                onChange={(e) => void setInitiative(c.id, Number(e.target.value) || 0)}
                 className="text-mono"
-                style={{ minWidth: 30, color: "var(--gold)", fontWeight: 700 }}
-              >
-                {c.initiative_roll}
-              </span>
-              <span style={{ flex: 1, textDecoration: c.defeated ? "line-through" : "none" }}>
+                style={{ width: 46, textAlign: "center", padding: "0.2rem 0.2rem", color: "var(--gold)", fontWeight: 700 }}
+              />
+              <span style={{ textDecoration: c.defeated ? "line-through" : "none", fontWeight: isActive ? 700 : 400 }}>
+                {isActive && (
+                  <span style={{ color: "var(--gold)", marginRight: 6 }} aria-hidden>
+                    ▶
+                  </span>
+                )}
                 {c.name}
+                {isActive && <span className="text-muted" style={{ display: "block", fontSize: "0.65rem" }}>their turn</span>}
               </span>
               <span
                 className={`badge badge-${
                   c.type === "pc" ? "ready" : c.type === "monster" ? "artifact" : "draft"
                 }`}
+                style={{ fontSize: "0.58rem", padding: "0.05rem 0.25rem", justifySelf: "start" }}
+                title={c.type === "pc" ? "Player character" : c.type === "monster" ? "Monster" : "NPC"}
               >
-                {c.type}
+                {c.type === "monster" ? "MON" : c.type.toUpperCase()}
               </span>
               <input
                 type="number"
+                aria-label={`${c.name} hit points`}
+                title="Hit points"
                 value={c.hp_current}
                 onChange={(e) =>
                   void patchCombatant(c.id, { hp_current: Math.max(0, Number(e.target.value)) })
                 }
-                style={{ width: 55, textAlign: "center", padding: "0.2rem 0.3rem" }}
+                style={{ width: 50, textAlign: "center", padding: "0.2rem 0.2rem" }}
               />
               <button
                 className="btn btn-ghost"
-                style={{ fontSize: "0.65rem", padding: "0.2rem 0.4rem" }}
+                title={c.defeated ? "Bring them back" : "Mark defeated"}
+                aria-label={c.defeated ? `Revive ${c.name}` : `Mark ${c.name} defeated`}
+                style={{ fontSize: "0.65rem", padding: "0.2rem 0.3rem" }}
                 onClick={() => void toggleDefeated(c.id)}
               >
                 {c.defeated ? "Revive" : "✕"}
