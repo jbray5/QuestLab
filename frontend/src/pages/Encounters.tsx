@@ -11,6 +11,7 @@ import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Encounter, Monster, RosterEntry } from "../api/types";
 import DifficultyMeter from "../components/encounter-builder/DifficultyMeter";
 import SuggestionsPanel from "../components/encounter-builder/SuggestionsPanel";
+import { plural } from "../lib/plural";
 
 const DIFFICULTY_BADGE: Record<string, string> = {
   Low: "badge-ready",
@@ -364,7 +365,7 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
               <>
                 <span style={{ color: "var(--muted)" }}>·</span>
                 <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
-                  Party: {pcLevels.length} PCs (avg lvl {Math.round(pcLevels.reduce((a, b) => a + b, 0) / pcLevels.length)})
+                  Party: {plural(pcLevels.length, "PC")} (avg lvl {Math.round(pcLevels.reduce((a, b) => a + b, 0) / pcLevels.length)})
                   — adjusted XP + difficulty calculated on save
                 </span>
               </>

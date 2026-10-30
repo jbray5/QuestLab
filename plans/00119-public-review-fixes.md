@@ -33,8 +33,8 @@ P1
 - [x] 10 Immersive view empty/loading states (renders with a map — confirmed in headless Chrome; first-load curtain, friendly progress, failure → link to the TV view)
 P2
 - [x] 11 No "Plan NN" / raw enums / 3D jargon in UI (statusLabel map; 3D figure folded behind a disclosure; Prep page at /prep, /run redirects)
-- [ ] 12 "arc" everywhere
-- [ ] 13 Plurals
+- [x] 12 "arc" everywhere users see it (arc editor page, Magic Items lore hints, dashboard stat; routes stay /adventures)
+- [x] 13 Plurals (lib/plural.ts: dashboard stats, party/PC counts, shop items, admin)
 - [ ] 14 One rules edition string
 - [ ] 15 Join code vs self-create
 - [ ] 16 Button hierarchy

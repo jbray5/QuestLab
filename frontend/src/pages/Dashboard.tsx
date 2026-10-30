@@ -7,6 +7,7 @@ import { useCampaignStore } from "../stores/useCampaignStore";
 import { useTourStore } from "../stores/useTourStore";
 import type { Campaign } from "../api/types";
 import Flourish from "../components/Flourish";
+import { word } from "../lib/plural";
 
 function StatPill({ label, value }: { label: string; value: number }) {
   return (
@@ -15,7 +16,7 @@ function StatPill({ label, value }: { label: string; value: number }) {
       padding: "0.15rem 0.5rem", borderRadius: 12,
       background: "var(--surface2)", color: "var(--text-secondary)",
     }}>
-      <strong style={{ color: "var(--gold)" }}>{value}</strong> {label}
+      <strong style={{ color: "var(--gold)" }}>{value}</strong> {word(value, label)}
     </span>
   );
 }
@@ -39,10 +40,10 @@ function CampaignCard({ campaign, onClick }: { campaign: Campaign; onClick: () =
       )}
       {stats && (
         <div className="flex gap-2" style={{ flexWrap: "wrap", marginBottom: "0.5rem" }}>
-          <StatPill label="adventures" value={stats.adventures} />
-          <StatPill label="sessions" value={stats.sessions} />
-          <StatPill label="characters" value={stats.characters} />
-          <StatPill label="encounters" value={stats.encounters} />
+          <StatPill label="arc" value={stats.adventures} />
+          <StatPill label="session" value={stats.sessions} />
+          <StatPill label="character" value={stats.characters} />
+          <StatPill label="encounter" value={stats.encounters} />
         </div>
       )}
       {campaign.tone && (

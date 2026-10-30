@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { adminApi } from "../api/admin";
 import { useAuthStore } from "../stores/useAuthStore";
+import { plural } from "../lib/plural";
 
 export default function Admin() {
   const { dmEmail } = useAuthStore();
@@ -159,7 +160,7 @@ export default function Admin() {
                 </tbody>
               </table>
               <p className="text-sm text-muted" style={{ marginTop: "0.5rem" }}>
-                {monsters.length} monsters loaded.
+                {plural(monsters.length, "monster")} loaded.
               </p>
             </div>
           )}

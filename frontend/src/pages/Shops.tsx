@@ -9,6 +9,7 @@ import {
   type ShopRead,
   type StorefrontItem,
 } from "../api/shops";
+import { plural } from "../lib/plural";
 
 /**
  * Shops — the DM's marketplace manager (Plan 47), campaigns/:campaignId/shops.
@@ -180,7 +181,7 @@ function ShopCard({ shop, onChanged }: { shop: ShopRead; onChanged: () => void }
         )}
         <span style={{ color: "var(--text-dim)", fontSize: "0.8rem" }}>
           {shop.keeper ? `${shop.keeper} · ` : ""}
-          {shop.item_count} items
+          {plural(shop.item_count, "item")}
         </span>
       </div>
       {shop.blurb && (

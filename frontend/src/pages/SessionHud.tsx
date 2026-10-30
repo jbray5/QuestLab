@@ -62,6 +62,7 @@ import type {
   RosterEntry,
   SessionCombatant,
 } from "../api/types";
+import { plural } from "../lib/plural";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -1388,7 +1389,7 @@ export default function SessionHud() {
             alignItems: "center",
             justifyContent: "space-between",
           }}>
-            <span>Party — {party.length} PCs</span>
+            <span>Party — {plural(party.length, "PC")}</span>
             {adventure?.campaign_id && (
               <span style={{ display: "flex", gap: 4 }}>
                 <button
