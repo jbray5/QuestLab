@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Dices, ExternalLink, Plus, ScrollText, Users, X } from "lucide-react";
 import { zoomable } from "../lib/lightbox";
-import { useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { campaignsApi } from "../api/campaigns";
 import { charactersApi } from "../api/characters";
 import { featuresApi } from "../api/features";
 import type { PlayerCharacter } from "../api/types";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
+import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import FeaturePanel from "../components/FeaturePanel";
 import ImageUpload from "../components/ImageUpload";
 import InventoryPanel from "../components/InventoryPanel";
@@ -114,6 +115,23 @@ export default function Characters() {
     queryFn: () => charactersApi.list(campaignId!),
     enabled: !!campaignId,
   });
+
+  // Plan 126 — back from the wizard with ?new=<id>: light that card, bring it into view,
+  // and say how the player gets it.
+  const [params, setParams] = useSearchParams();
+  const newId = params.get("new");
+  const newPc = newId ? characters.find((c) => c.id === newId) : undefined;
+  const scrolledTo = useRef<string | null>(null);
+  useEffect(() => {
+    if (!newPc || scrolledTo.current === newPc.id) return;
+    scrolledTo.current = newPc.id;
+    window.setTimeout(() => document.getElementById(`pc-${newPc.id}`)?.scrollIntoView({ block: "center", behavior: "smooth" }), 80);
+  }, [newPc]);
+  function dismissNew() {
+    const next = new URLSearchParams(params);
+    next.delete("new");
+    setParams(next, { replace: true });
+  }
 
   const create = useMutation({
     mutationFn: () => charactersApi.create(campaignId!, { ...form }),
@@ -289,28 +307,23 @@ export default function Characters() {
               </button>
             )}
           </label>
-          <button
-            className={showForm && !editing ? "btn btn-secondary" : "btn btn-primary"}
-            onClick={() => {
-              resetForm();
-              setShowForm(!showForm);
-            }}
-          >
-            {showForm && !editing ? (
-              <>
-                <X size={16} /> Cancel
-              </>
-            ) : (
-              <>
-                <Plus size={16} /> Add character
-              </>
-            )}
-          </button>
+          {/* Plan 126 — Add character opens the guided, rules-checked wizard (the one players
+              use); copying a finished sheet in by hand lives in the ⋯ menu. */}
+          <Link className="btn btn-primary" to={`/campaigns/${campaignId}/characters/new`}>
+            <Plus size={16} /> Add character
+          </Link>
           {/* Usability pass — a party level-up happens every few sessions, so it
               lives in the page's ⋯ menu (it still confirms with the names). */}
           <RowMenu
             label="More for the party"
             items={[
+              {
+                label: "Enter an existing sheet…",
+                onSelect: () => {
+                  resetForm();
+                  setShowForm(true);
+                },
+              },
               {
                 label: "Level up the party…",
                 disabled: !characters.length,
@@ -323,7 +336,13 @@ export default function Characters() {
 
       {showForm && (
         <div className="card" style={{ marginBottom: "1.5rem", maxWidth: 600 }}>
-          <h3>{editing ? "Edit character" : "New character"}</h3>
+          <h3>{editing ? "Edit character" : "Enter an existing sheet"}</h3>
+          {!editing && (
+            <p className="text-sm text-muted" style={{ margin: "-0.25rem 0 0.75rem" }}>
+              For a character that already exists on paper or in another app: type in what the sheet says. To make a new
+              one with the rules checked, use Add character.
+            </p>
+          )}
 
           <div
             style={{
@@ -484,9 +503,46 @@ export default function Characters() {
 
       {isLoading && <p className="text-muted">Loading…</p>}
 
+      {newPc && (
+        <div
+          role="status"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            marginBottom: "1rem",
+            padding: "0.35rem 0.35rem 0.35rem 0.85rem",
+            background: "var(--accent-soft)",
+            border: "1px solid var(--accent-line)",
+            borderRadius: 8,
+            fontSize: "0.9375rem",
+            color: "var(--text2)",
+          }}
+        >
+          <span style={{ flex: 1, minWidth: 0 }}>
+            Send <span className="story" style={{ color: "var(--text)", fontWeight: 700 }}>{newPc.character_name}</span>&rsquo;s
+            player their link: Share player link on the card.
+          </span>
+          <button
+            className="btn btn-ghost ql-s6-sq"
+            style={{ padding: "0.25rem 0.4rem", minHeight: 0, border: "none" }}
+            aria-label="Dismiss"
+            title="Dismiss"
+            onClick={dismissNew}
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
       <div className="ql-card-grid">
         {characters.map((c) => (
-          <div key={c.id} className="card">
+          <div
+            key={c.id}
+            id={`pc-${c.id}`}
+            className="card"
+            style={c.id === newId ? { borderColor: "var(--accent-edge)", background: "var(--accent-soft)" } : undefined}
+          >
             <div className="flex items-center" style={{ gap: "0.75rem", marginBottom: "0.85rem" }}>
               {c.portrait_url ? (
                 <img
@@ -515,7 +571,12 @@ export default function Characters() {
                   {[`Level ${c.level}`, [c.race, c.character_class].filter(Boolean).join(" ")]
                     .filter(Boolean)
                     .join(" ")}
-                  {c.player_name ? ` · played by ${c.player_name}` : ""}
+                  {/* Plan 126 — a DM-built character waits for its player. */}
+                  {c.player_name === "Not assigned yet"
+                    ? " · no player yet"
+                    : c.player_name
+                      ? ` · played by ${c.player_name}`
+                      : ""}
                 </p>
               </div>
             </div>
@@ -639,6 +700,7 @@ export default function Characters() {
               >
                 <ScrollText size={16} /> Open sheet
               </button>
+              <PlayerLinkButton characterId={c.id} playToken={c.play_token} characterName={c.character_name} />
               <button className="btn btn-ghost" onClick={() => startEdit(c)}>
                 Edit
               </button>
@@ -675,7 +737,7 @@ export default function Characters() {
             </div>
             <p style={{ maxWidth: 460, margin: "0 auto" }}>
               Your party lives here: each player&rsquo;s sheet, spells and gear. Share your join link so
-              players build their own, or use Add character.
+              players build their own, or use Add character to build one step by step.
             </p>
           </div>
         )}

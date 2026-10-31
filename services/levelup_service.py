@@ -27,8 +27,6 @@ from domain.character import (
 )
 from domain.enums import CharacterClass
 from domain.level_up import (
-    FeatChoice,
-    FeatOption,
     LevelUpChoices,
     LevelUpPlan,
     LevelUpResult,
@@ -40,11 +38,9 @@ from domain.spell import Spell
 from integrations.dnd_rules import levelup_2024 as rules
 from integrations.dnd_rules import srd_character_options_2024 as srd
 from integrations.event_bus import publish_pc_updated
-from services import character_service, feature_service, spellcasting_service
+from services import character_service, feat_rules, feature_service, spellcasting_service
 
-_ASI = "Ability Score Improvement"
 _PREPARED_CASTERS = {"Cleric", "Druid", "Paladin", "Wizard"}
-_CATEGORY_ORDER = {"general": 0, "fighting_style": 1, "origin": 2}
 
 
 # ── Lookups ───────────────────────────────────────────────────────────────────
@@ -81,51 +77,9 @@ def _mod(score: int) -> int:
     return (score - 10) // 2
 
 
-def _feat_names(feats: list[str]) -> set[str]:
-    return {rules.base_feat_name(f).casefold() for f in feats}
-
-
-def _is_caster(class_name: str, subclass: Optional[str]) -> bool:
-    cls = srd.CLASSES.get(class_name)
-    if cls and cls["spellcasting"]:
-        return True
-    return any(s.casefold() in (subclass or "").casefold() for s in rules.CASTER_SUBCLASSES)
-
-
-def _armor_training(class_name: str, feats: list[str]) -> set[str]:
-    out = set(srd.CLASSES.get(class_name, {}).get("armor", []))
-    names = _feat_names(feats)
-    if "lightly armored" in names:
-        out |= {"light", "shields"}
-    if "moderately armored" in names:
-        out |= {"medium", "shields"}
-    if "heavily armored" in names:
-        out.add("heavy")
-    return out
-
-
-def _has_fighting_style(class_name: str, level: int, feats: list[str]) -> bool:
-    at = rules.FIGHTING_STYLE_LEVEL.get(class_name)
-    if at is not None and level >= at:
-        return True
-    styles = {f["name"].casefold() for f in rules.FEATS if f["category"] == "fighting_style"}
-    return bool(_feat_names(feats) & styles)
-
-
 def _hp_bonus_per_level(pc: PlayerCharacter, feats: list[str]) -> int:
     """Extra max HP each level brings: Tough, Dwarven Toughness, Draconic Resilience."""
-    bonus = sum(
-        f["hp_per_level"]
-        for f in rules.FEATS
-        if f["hp_per_level"] and f["name"].casefold() in _feat_names(feats)
-    )
-    race = (pc.race or "").casefold()
-    bonus += sum(
-        n for sp, n in rules.HP_PER_LEVEL_SPECIES.items() if race.startswith(sp.casefold())
-    )
-    sub = (pc.subclass or "").casefold()
-    bonus += sum(n for sc, n in rules.HP_PER_LEVEL_SUBCLASS.items() if sc.casefold() in sub)
-    return bonus
+    return feat_rules.hp_bonus_per_level(pc.race, pc.subclass, feats)
 
 
 def _hit_die(class_name: str) -> int:
@@ -183,7 +137,7 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
     old, new = pc.level, pc.level + 1
     feats = list(pc.feats or [])
     scores = _scores(pc)
-    caster = _is_caster(class_name, pc.subclass)
+    caster = feat_rules.is_caster(class_name, pc.subclass)
     cls = srd.CLASSES.get(class_name, {})
     die = _hit_die(class_name)
     con = _mod(scores["CON"])
@@ -199,51 +153,9 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
         new_features.append(NewFeature(name=name, note=note))
 
     asi_level = new in rules.asi_levels(class_name)
-    feat_options: list[FeatOption] = []
-    if asi_level:
-        popular = rules.POPULAR_FEATS.get(class_name, [])
-        training = _armor_training(class_name, feats)
-        style = _has_fighting_style(class_name, new, feats)
-        for row in rules.FEATS:
-            ok, reason = rules.feat_qualifies(
-                row,
-                scores=scores,
-                is_caster=caster,
-                armor_training=training,
-                has_fighting_style=style,
-                current_feats=feats,
-            )
-            feat_options.append(
-                FeatOption(
-                    name=row["name"],
-                    category=row["category"],
-                    blurb=row["blurb"],
-                    ok=ok,
-                    reason=reason,
-                    popular=row["name"] in popular,
-                    srd=row["srd"],
-                    asi_options=(
-                        list(rules.ABILITIES) if row["asi_options"] == "any" else row["asi_options"]
-                    ),
-                    save_prof=row["save_prof"],
-                    fixed_spells=row["fixed_spells"],
-                    spell_picks=row["spell_picks"],
-                    skill_pick=row["skill_pick"],
-                    expertise_pick=row["expertise_pick"],
-                    choice=row["choice"],
-                    hp_per_level=row["hp_per_level"],
-                    ac_bonus_in_armor=row["ac_bonus_in_armor"],
-                )
-            )
-        rank = {name: i for i, name in enumerate(popular)}
-        feat_options.sort(
-            key=lambda f: (
-                not f.ok,
-                rank.get(f.name, len(rank)),
-                _CATEGORY_ORDER.get(f.category, 9),
-                f.name,
-            )
-        )
+    feat_options = (
+        feat_rules.feat_options(class_name, new, scores, feats, pc.subclass) if asi_level else []
+    )
 
     all_spells = SpellRepo.list_all(db)
     known = _known_spells(db, pc, dm)
@@ -400,154 +312,6 @@ def plan_for(db: Session, pc_id: uuid.UUID) -> LevelUpPlan:
     return _build_plan(db, pc, _dm_email(db, pc))
 
 
-def _increase(
-    asi: dict[str, int], allowed: list[str], *, feat: str, total: int, max_each: int
-) -> dict[str, int]:
-    picks = {a: int(v) for a, v in asi.items() if int(v)}
-    if any(a not in allowed for a in picks):
-        raise ValueError(f"{feat} can raise only " + ", ".join(allowed) + ".")
-    if any(v < 0 or v > max_each for v in picks.values()) or sum(picks.values()) != total:
-        if feat == _ASI:
-            raise ValueError("Ability Score Improvement is +2 to one score or +1 to two.")
-        raise ValueError(f"{feat} gives +1 to one ability: pick which.")
-    return picks
-
-
-def _assign_spell_picks(
-    names: list[str], specs: list[dict[str, Any]], choice: Optional[str], catalog: dict[str, Spell]
-) -> tuple[list[str], int]:
-    """Match feat spell picks to the feat's pick rules; returns (spell names, picks left)."""
-    remaining = list(dict.fromkeys(n.strip() for n in names if n.strip()))
-    chosen: list[str] = []
-    left = 0
-    for spec in specs:
-        want = int(spec["count"])
-        for name in list(remaining):
-            if want == 0:
-                break
-            spell = catalog.get(name.casefold())
-            if spell is None or spell.level != spec["level"]:
-                continue
-            if spec.get("schools") and spell.school not in spec["schools"]:
-                continue
-            if spec.get("list_from_choice") and choice not in (spell.classes or []):
-                continue
-            chosen.append(spell.name)
-            remaining.remove(name)
-            want -= 1
-        left += want
-    if remaining:
-        raise ValueError(f"{remaining[0]} doesn't fit this feat's spell choice.")
-    return chosen, left
-
-
-def _apply_feat(
-    fc: FeatChoice,
-    plan: LevelUpPlan,
-    feats: list[str],
-    saves: list[str],
-    skills: dict[str, int],
-    catalog: dict[str, Spell],
-    summary: list[str],
-    warnings: list[str],
-) -> tuple[dict[str, int], list[str], dict[str, Any]]:
-    """Validate a feat pick and fold it into the sheet lists; returns (increase, spells, row)."""
-    if fc.from_book:
-        name = fc.name.strip()
-        if name.casefold() in _feat_names(feats) and name.casefold() != _ASI.casefold():
-            raise ValueError(f"You already have {name}.")
-        inc = {}
-        if fc.asi:
-            inc = _increase(fc.asi, rules.ABILITIES, feat=name, total=1, max_each=1)
-        feats.append(name)
-        summary.append(f"Feat: {name} (from your book)")
-        warnings.append(f"{name} is recorded by name: play it from your book.")
-        return inc, [], {}
-
-    row = rules.FEATS_BY_NAME.get(fc.name.strip().casefold())
-    if row is None:
-        raise ValueError(f"Unknown feat {fc.name!r}. Pick 'From my book' for others.")
-    opt = next(f for f in plan.feats if f.name == row["name"])
-    if not opt.ok:
-        raise ValueError(f"{row['name']}: {opt.reason}")
-
-    if row["name"] == _ASI:
-        inc = _increase(fc.asi, rules.ABILITIES, feat=_ASI, total=2, max_each=2)
-    elif opt.asi_options:
-        inc = _increase(fc.asi, opt.asi_options, feat=row["name"], total=1, max_each=1)
-    elif fc.asi:
-        raise ValueError(f"{row['name']} doesn't raise an ability score.")
-    else:
-        inc = {}
-
-    label = row["name"]
-    if row["choice"]:
-        if fc.choice not in row["choice"]["options"]:
-            raise ValueError(f"Pick a {row['choice']['label'].lower()} for {row['name']}.")
-        label = f"{row['name']} ({fc.choice})"
-        if label.casefold() in {f.casefold() for f in feats}:
-            raise ValueError(f"You already have {label}.")
-    if row["name"] != _ASI:
-        feats.append(label)
-
-    if row["save_prof"]:
-        ability = next(iter(inc))
-        if ability in saves:
-            raise ValueError(f"You're already proficient in {ability} saves: pick another ability.")
-        saves.append(ability)
-
-    spells = [s for s in row["fixed_spells"]]
-    if row["spell_picks"]:
-        picked, left = _assign_spell_picks(fc.spells, row["spell_picks"], fc.choice, catalog)
-        spells += picked
-        if left:
-            warnings.append(
-                f"{label}: {left} spell pick{'s' if left > 1 else ''} still open. "
-                "Tell your DM what you chose."
-            )
-    elif fc.spells:
-        raise ValueError(f"{row['name']} doesn't grant a spell choice.")
-
-    sp = row["skill_pick"]
-    if sp:
-        pool = sp["from"] or list(srd.SKILLS)
-        picks = list(dict.fromkeys(fc.skills))
-        if len(picks) > sp["count"]:
-            raise ValueError(f"{row['name']} gives {sp['count']} skill pick(s).")
-        for s in picks:
-            if s not in pool:
-                raise ValueError(f"{s} isn't one of {row['name']}'s skills.")
-            if skills.get(s, 0) >= 1:
-                if not sp["upgrade"]:
-                    raise ValueError(f"You're already proficient in {s}.")
-                if skills[s] >= 2:
-                    raise ValueError(f"You already have expertise in {s}.")
-                skills[s] = 2
-            else:
-                skills[s] = 1
-        if len(picks) < sp["count"]:
-            warnings.append(f"{label}: {sp['count'] - len(picks)} skill pick(s) still open.")
-    elif fc.skills:
-        raise ValueError(f"{row['name']} doesn't grant skills.")
-
-    if row["expertise_pick"]:
-        picks = list(dict.fromkeys(fc.expertise))
-        if len(picks) > row["expertise_pick"]:
-            raise ValueError(f"{row['name']} gives {row['expertise_pick']} expertise pick.")
-        for s in picks:
-            if skills.get(s, 0) < 1:
-                raise ValueError(f"Expertise needs proficiency in {s} first.")
-            if skills[s] >= 2:
-                raise ValueError(f"You already have expertise in {s}.")
-            skills[s] = 2
-    elif fc.expertise:
-        raise ValueError(f"{row['name']} doesn't grant expertise.")
-
-    gained = ", ".join(f"+{v} {a}" for a, v in inc.items())
-    summary.append(f"{label}" + (f" ({gained})" if gained else ""))
-    return inc, spells, row
-
-
 def _validate_spell_list(
     names: list[str], allowed: int, pool: dict[str, SpellOption], *, cantrip: bool
 ) -> list[str]:
@@ -612,8 +376,8 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
     if plan.asi_level:
         if choices.feat is None:
             raise ValueError("Pick your Ability Score Improvement or a feat.")
-        inc, feat_spells, feat_row = _apply_feat(
-            choices.feat, plan, feats, saves, skills, catalog, summary, warnings
+        inc, feat_spells, feat_row = feat_rules.apply_feat(
+            choices.feat, plan.feats, feats, saves, skills, catalog, summary, warnings
         )
         for ability, v in inc.items():
             if new_scores[ability] + v > 20:
@@ -690,8 +454,8 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
     # Armor class: only the part a raised ability (or the Defense style) changes.
     ac = pc.ac
     deltas = {a: _mod(new_scores[a]) - _mod(old_scores[a]) for a in plan.ac_abilities}
-    mam_now = "medium armor master" in _feat_names(feats)
-    mam_before = "medium armor master" in _feat_names(list(pc.feats or []))
+    mam_now = "medium armor master" in feat_rules.feat_names(feats)
+    mam_before = "medium armor master" in feat_rules.feat_names(list(pc.feats or []))
     affects = (
         any(deltas.values()) or feat_row.get("ac_bonus_in_armor") or (mam_now and not mam_before)
     )

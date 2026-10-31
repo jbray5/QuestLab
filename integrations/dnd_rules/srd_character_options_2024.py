@@ -632,7 +632,9 @@ def max_spell_level(class_name: str, level: int) -> int:
     if not sc:
         return 0
     if class_name in ("Paladin", "Ranger"):
-        return min(5, (level + 1) // 4) if level >= 2 else 1 if level == 1 else 0
+        # 2024 half casters: 1st-level spells from level 1, 2nd at 5, 3rd at 9, 4th at 13,
+        # 5th at 17 (Plan 126: the old formula gave 0 at level 2 and 1st at level 5).
+        return min(5, (max(1, level) + 3) // 4)
     if class_name == "Warlock":
         return min(5, (level + 1) // 2)
     return min(9, (level + 1) // 2)

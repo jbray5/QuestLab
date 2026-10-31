@@ -150,6 +150,7 @@ export default function App() {
           path="campaigns/:campaignId/characters"
           element={lazyRoute(<Characters />)}
         />
+        <Route path="campaigns/:campaignId/characters/new" element={lazyRoute(<CharacterCreator mode="dm" />)} />
         <Route
           path="campaigns/:campaignId/npcs"
           element={lazyRoute(<Npcs />)}

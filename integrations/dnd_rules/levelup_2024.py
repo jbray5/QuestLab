@@ -281,7 +281,197 @@ FEATURE_NOTES: dict[str, str] = {
     "Memorize Spell": "On a Short Rest, swap one prepared spell for another in your spellbook.",
     "Stunning Strike": "Spend Focus to try to stun a creature you hit.",
     "Aura of Protection": "You and allies within 10 ft. add your CHA modifier to saves.",
+    # Plan 126 — the character creator explains every feature it lists. Own words, not book
+    # text. "Class: Feature" keys win over plain names where two classes' versions differ.
+    "Spellcasting": "Cast spells from your class list with spell slots; cantrips cost nothing.",
+    "Weapon Mastery": "Use the mastery property (Cleave, Topple, Vex...) of a few weapon kinds "
+    "you choose; swap one after a Long Rest.",
+    "Fighting Style": "Choose a Fighting Style feat, such as Defense (+1 AC in armor) or "
+    "Archery (+2 to ranged attacks). Note it on your sheet.",
+    "Expertise": "Double your proficiency bonus on two skills you're already proficient in. "
+    "Mark them on your sheet.",
+    "Channel Divinity": "A few uses of divine power that come back on a Short or Long Rest.",
+    "Rage": "Bonus action: rage, kept up turn by turn for up to 10 minutes. Extra damage on "
+    "Strength attacks, resistance to weapon damage, advantage on Strength checks and saves.",
+    "Barbarian: Unarmored Defense": "With no armor, your Armor Class is 10 + your Dexterity "
+    "and Constitution modifiers (a shield still adds 2).",
+    "Danger Sense": "Advantage on Dexterity saves unless you're Incapacitated.",
+    "Reckless Attack": "Strength attacks with advantage this turn; attacks against you have "
+    "advantage until your next turn.",
+    "Primal Knowledge": "One more Barbarian skill; while raging, some checks can use Strength.",
+    "Bardic Inspiration": "Bonus action: give an ally a die to add to a d20 test they fail. "
+    "Uses equal your Charisma modifier per Long Rest.",
+    "Jack of All Trades": "Add half your proficiency bonus to skill checks you aren't "
+    "proficient in.",
+    "Divine Order": "Choose Protector (heavy armor, martial weapons) or Thaumaturge (one more "
+    "cantrip, Wisdom added to Arcana and Religion). Note it on your sheet.",
+    "Druidic": "You know Druidic, the secret language, and always have Speak with Animals "
+    "prepared.",
+    "Primal Order": "Choose Magician (one more cantrip, Wisdom added to Arcana and Nature) or "
+    "Warden (martial weapons, medium armor). Note it on your sheet.",
+    "Wild Shape": "Bonus action: become a beast form you know for a while; a few uses that "
+    "come back on rests.",
+    "Wild Companion": "Spend a slot or a Wild Shape use to summon a familiar.",
+    "Second Wind": "Bonus action: regain 1d10 + your Fighter level hit points; a few uses that "
+    "come back on rests.",
+    "Action Surge": "Once per Short or Long Rest, take one extra action on your turn.",
+    "Tactical Mind": "Spend a Second Wind use to add 1d10 to an ability check you fail.",
+    "Martial Arts": "Use Dexterity for unarmed strikes and Monk weapons, roll your Martial Arts "
+    "die for their damage, and strike unarmed as a bonus action.",
+    "Monk: Unarmored Defense": "With no armor or shield, your Armor Class is 10 + your "
+    "Dexterity and Wisdom modifiers.",
+    "Monk's Focus": "Focus Points fuel Flurry of Blows, Patient Defense and Step of the Wind; "
+    "they come back on a Short or Long Rest.",
+    "Unarmored Movement": "Your speed rises while you wear no armor and carry no shield.",
+    "Uncanny Metabolism": "Once per Long Rest, rolling initiative restores your Focus Points "
+    "and some hit points.",
+    "Deflect Attacks": "Reaction: shrink the damage of an attack that hits you, and throw it "
+    "back if it drops to 0.",
+    "Lay On Hands": "A healing pool of 5 hit points per Paladin level, spent by touch; it "
+    "refills on a Long Rest.",
+    "Paladin's Smite": "Divine Smite is always prepared: extra radiant damage when you hit.",
+    "Favored Enemy": "Hunter's Mark is always prepared, and a few casts a day cost no slot.",
+    "Deft Explorer": "Expertise in one skill and two more languages. Note them on your sheet.",
+    "Sneak Attack": "Once a turn, extra damage when you hit with advantage or an ally is next "
+    "to your target.",
+    "Thieves' Cant": "The rogues' secret language, and one more language.",
+    "Cunning Action": "Bonus action: Dash, Disengage or Hide.",
+    "Steady Aim": "Bonus action: advantage on your next attack, if you haven't moved this turn.",
+    "Innate Sorcery": "Bonus action: for a minute your spells are harder to resist and your "
+    "spell attacks have advantage; twice per Long Rest.",
+    "Font of Magic": "Sorcery Points: turn them into spell slots, or slots into points.",
+    "Metamagic": "Spend Sorcery Points to bend your spells: farther, quieter, doubled and more.",
+    "Eldritch Invocations": "Gifts from your patron, such as Agonizing Blast or Armor of "
+    "Shadows. Note your picks on your sheet.",
+    "Pact Magic": "A few spell slots, all at your highest slot level, back on a Short Rest.",
+    "Magical Cunning": "Once per Long Rest, a short rite brings back half your Pact Magic slots.",
+    "Ritual Adept": "Cast any ritual in your spellbook without preparing it.",
+    "Arcane Recovery": "Once a day on a Short Rest, regain some spent spell slots.",
+    "Scholar": "Expertise in one knowledge skill, such as Arcana or History.",
+    "Fast Movement": "+10 ft. speed while you aren't in heavy armor.",
+    "Evasion": "A Dexterity save against an area effect: no damage on a success, half on a "
+    "failure.",
+    "Reliable Talent": "Ability checks you're proficient in never roll below 10.",
+    # SRD subclass features at the level they arrive (see SUBCLASS_LEVEL_FEATURES).
+    "Frenzy": "Raging with Reckless Attack, your first Strength hit each turn deals extra "
+    "damage.",
+    "Bonus Proficiencies": "Three more skills of your choice. Note them on your sheet.",
+    "Cutting Words": "Reaction: spend Bardic Inspiration to take the die off a foe's attack, "
+    "check or damage roll.",
+    "Disciple of Life": "Your healing spells restore 2 + the spell's level more.",
+    "Life Domain Spells": "Extra healing spells, always prepared.",
+    "Preserve Life": "Channel Divinity: share out healing among nearby wounded allies.",
+    "Circle of the Land Spells": "Choose a land; its spells are always prepared.",
+    "Land's Aid": "Spend a Wild Shape use to blast foes and heal an ally in a burst of thorns "
+    "and flowers.",
+    "Improved Critical": "Your weapon and unarmed attacks score a critical hit on 19 or 20.",
+    "Remarkable Athlete": "Advantage on initiative and Athletics checks; slip away after a "
+    "critical hit.",
+    "Open Hand Technique": "Flurry of Blows hits can knock a foe prone, push it, or stop its "
+    "reactions.",
+    "Oath of Devotion Spells": "Extra spells of your oath, always prepared.",
+    "Sacred Weapon": "Channel Divinity: add your Charisma modifier to attacks with a glowing "
+    "weapon for 10 minutes.",
+    "Hunter's Lore": "You know your Hunter's Mark target's resistances and weaknesses.",
+    "Hunter's Prey": "Choose Colossus Slayer (extra damage to the wounded) or Horde Breaker "
+    "(an extra attack on a second foe).",
+    "Fast Hands": "Cunning Action can also pick a lock, disarm a trap or use an object.",
+    "Second-Story Work": "Climb at full speed and jump farther, using Dexterity.",
+    "Draconic Resilience": "+1 hit point per Sorcerer level, and with no armor your Armor "
+    "Class is 10 + your Dexterity and Charisma modifiers.",
+    "Draconic Spells": "Extra dragon-themed spells, always prepared.",
+    "Dark One's Blessing": "Temporary hit points whenever you drop a foe to 0.",
+    "Fiend Spells": "Extra fiendish spells, always prepared.",
+    "Evocation Savant": "Two Evocation spells go into your spellbook free, and one more each "
+    "new spell level.",
+    "Potent Cantrip": "A damaging cantrip that misses (or is saved against) still deals half "
+    "damage.",
 }
+
+# Plan 126 — feature names each SRD 5.2.1 subclass gains, by level (names from the SRD class
+# chapters). The creator lists them so "what does this subclass give me?" has an answer.
+SUBCLASS_LEVEL_FEATURES: dict[str, dict[int, list[str]]] = {
+    "Berserker": {
+        3: ["Frenzy"],
+        6: ["Mindless Rage"],
+        10: ["Retaliation"],
+        14: ["Intimidating Presence"],
+    },
+    "College of Lore": {
+        3: ["Bonus Proficiencies", "Cutting Words"],
+        6: ["Magical Discoveries"],
+        14: ["Peerless Skill"],
+    },
+    "Life Domain": {
+        3: ["Disciple of Life", "Life Domain Spells", "Preserve Life"],
+        6: ["Blessed Healer"],
+        17: ["Supreme Healing"],
+    },
+    "Circle of the Land": {
+        3: ["Circle of the Land Spells", "Land's Aid"],
+        6: ["Natural Recovery"],
+        10: ["Nature's Ward"],
+        14: ["Nature's Sanctuary"],
+    },
+    "Champion": {
+        3: ["Improved Critical", "Remarkable Athlete"],
+        7: ["Additional Fighting Style"],
+        10: ["Heroic Warrior"],
+        15: ["Superior Critical"],
+        18: ["Survivor"],
+    },
+    "Warrior of the Open Hand": {
+        3: ["Open Hand Technique"],
+        6: ["Wholeness of Body"],
+        11: ["Fleet Step"],
+        17: ["Quivering Palm"],
+    },
+    "Oath of Devotion": {
+        3: ["Oath of Devotion Spells", "Sacred Weapon"],
+        7: ["Aura of Devotion"],
+        15: ["Smite of Protection"],
+        20: ["Holy Nimbus"],
+    },
+    "Hunter": {
+        3: ["Hunter's Lore", "Hunter's Prey"],
+        7: ["Defensive Tactics"],
+        11: ["Superior Hunter's Prey"],
+        15: ["Superior Hunter's Defense"],
+    },
+    "Thief": {
+        3: ["Fast Hands", "Second-Story Work"],
+        9: ["Supreme Sneak"],
+        13: ["Use Magic Device"],
+        17: ["Thief's Reflexes"],
+    },
+    "Draconic Sorcery": {
+        3: ["Draconic Resilience", "Draconic Spells"],
+        6: ["Elemental Affinity"],
+        14: ["Dragon Wings"],
+        18: ["Dragon Companion"],
+    },
+    "Fiend Patron": {
+        3: ["Dark One's Blessing", "Fiend Spells"],
+        6: ["Dark One's Own Luck"],
+        10: ["Fiendish Resilience"],
+        14: ["Hurl Through Hell"],
+    },
+    "Evoker": {
+        3: ["Evocation Savant", "Potent Cantrip"],
+        6: ["Sculpt Spells"],
+        10: ["Empowered Evocation"],
+        14: ["Overchannel"],
+    },
+}
+
+# Subclasses whose unarmored Armor Class adds a third ability (Draconic Resilience: CHA).
+UNARMORED_AC_SUBCLASS: dict[str, str] = {"Draconic Sorcery": "CHA"}
+
+
+def feature_note(class_name: str, name: str) -> str | None:
+    """The plain-words note for a feature, preferring a class-specific one."""
+    return FEATURE_NOTES.get(f"{class_name}: {name}") or FEATURE_NOTES.get(name)
+
 
 # Classes whose 2024 rules let you replace one cantrip whenever you gain a level in them.
 CANTRIP_SWAP_CLASSES = frozenset({"Bard", "Cleric", "Druid", "Sorcerer", "Warlock", "Wizard"})

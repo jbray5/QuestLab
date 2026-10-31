@@ -6,8 +6,9 @@ from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB, CurrentUser
 from domain.character import PlayerCharacter, PlayerCharacterCreate, PlayerCharacterUpdate
+from domain.character_builder import BuilderOptions, BuildResult, CharacterBuild
 from domain.level_up import LevelUpGrant
-from services import character_service, levelup_service
+from services import character_builder_service, character_service, levelup_service
 
 router = APIRouter(tags=["characters"])
 
@@ -84,6 +85,55 @@ def create_character(
             notes=body.notes,
             portrait_url=body.portrait_url,
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.get("/campaigns/{campaign_id}/character-builder/options", response_model=BuilderOptions)
+def builder_options(campaign_id: uuid.UUID, db: DB, user: CurrentUser) -> BuilderOptions:
+    """The character creator's compendium for the campaign's DM (Plan 126).
+
+    Same data the player's creator gets, without the join code or the sign-up switch.
+
+    Args:
+        campaign_id: UUID of the campaign.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        BuilderOptions.
+    """
+    try:
+        return character_builder_service.options_for_dm(db, campaign_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post(
+    "/campaigns/{campaign_id}/character-builder",
+    response_model=BuildResult,
+    status_code=status.HTTP_201_CREATED,
+)
+def builder_create(
+    campaign_id: uuid.UUID, body: CharacterBuild, db: DB, user: CurrentUser
+) -> BuildResult:
+    """The DM builds a character with the guided, rules-checked creator (Plan 126).
+
+    Args:
+        campaign_id: UUID of the campaign.
+        body: The finished build.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        BuildResult with the new pc_id and its player-link key.
+    """
+    try:
+        return character_builder_service.create_for_dm(db, campaign_id, user, body)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except PermissionError as exc:

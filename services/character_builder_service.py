@@ -1,25 +1,35 @@
-"""Character builder (Plan 74) — the player-facing creator's brain.
+"""Character builder (Plan 74) — the creator wizard's brain, for players and DMs.
 
 ``options`` hands the wizard the SRD compendium; ``create`` validates a
 build, derives the sheet (HP, AC, saves, skills, speed), creates the PC
 under the campaign owner's identity, learns the chosen spells, grants
 class features via the existing level sync, and stocks the starting kit.
+
+Plan 126: the DM gets the same wizard (``options_for_dm`` / ``create_for_dm``:
+campaign owner only, no join code, the player sign-up switch doesn't apply),
+and a build at level 4+ makes its Ability Score Improvement or feat picks,
+validated with the level-up guide's rules (``services.feat_rules``) and applied
+before hit points, Armor Class, saves and skills are worked out.
 """
 
 import uuid
-from typing import Any
+from typing import Any, Optional
 
 from sqlmodel import Session as DBSession
 
 from db.repos.campaign_repo import CampaignRepo
 from db.repos.item_repo import ItemRepo
 from db.repos.spell_repo import SpellRepo
+from domain.campaign import Campaign
 from domain.character import CharacterItemCreate, CharacterSpellCreate
 from domain.character_builder import BuilderOptions, BuildResult, CharacterBuild
 from domain.enums import CharacterClass
+from domain.spell import Spell
+from integrations.dnd_rules import levelup_2024 as rules
 from integrations.dnd_rules import srd_character_options_2024 as srd
 from services import (
     character_service,
+    feat_rules,
     feature_service,
     inventory_service,
     player_service,
@@ -28,7 +38,7 @@ from services import (
 
 
 def options(db: DBSession, campaign_id: uuid.UUID) -> BuilderOptions:
-    """The compendium the creator renders, scoped to a campaign.
+    """The compendium the creator renders, scoped to a campaign (player path).
 
     Args:
         db: Active database session.
@@ -38,9 +48,31 @@ def options(db: DBSession, campaign_id: uuid.UUID) -> BuilderOptions:
         BuilderOptions.
 
     Raises:
-        ValueError: If the campaign is unknown or has player sign-up off.
+        ValueError: If the campaign is unknown.
+        PermissionError: If the campaign has player sign-up off.
     """
-    campaign = _campaign_open(db, campaign_id)
+    return _options(db, _campaign_open(db, campaign_id))
+
+
+def options_for_dm(db: DBSession, campaign_id: uuid.UUID, dm_email: str) -> BuilderOptions:
+    """The same compendium for the campaign's DM (Plan 126): no join code, no sign-up switch.
+
+    Args:
+        db: Active database session.
+        campaign_id: UUID of the campaign.
+        dm_email: The signed-in DM.
+
+    Returns:
+        BuilderOptions.
+
+    Raises:
+        ValueError: If the campaign is unknown.
+        PermissionError: If the DM doesn't own the campaign.
+    """
+    return _options(db, _campaign_owned(db, campaign_id, dm_email))
+
+
+def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
     spells = [
         {"name": s.name, "level": s.level, "classes": list(s.classes or []), "school": s.school}
         for s in SpellRepo.list_all(db)
@@ -70,15 +102,43 @@ def options(db: DBSession, campaign_id: uuid.UUID) -> BuilderOptions:
         armor=srd.ARMOR,
         spells=spells,
         weapons=weapons,
+        feats=[dict(row) for row in rules.FEATS],
+        asi_levels={c: sorted(rules.asi_levels(c)) for c in srd.CLASSES},
+        popular_feats={c: list(v) for c, v in rules.POPULAR_FEATS.items()},
+        class_features={c: rules.CLASS_LEVEL_FEATURES.get(c, {}) for c in srd.CLASSES},
+        subclass_features=rules.SUBCLASS_LEVEL_FEATURES,
+        feature_notes=rules.FEATURE_NOTES,
+        fighting_style_level=rules.FIGHTING_STYLE_LEVEL,
+        caster_subclasses=sorted(rules.CASTER_SUBCLASSES),
+        hp_per_level_species=rules.HP_PER_LEVEL_SPECIES,
+        hp_per_level_subclass=rules.HP_PER_LEVEL_SUBCLASS,
+        unarmored_ac_subclass=rules.UNARMORED_AC_SUBCLASS,
+        spell_slots={
+            c: [
+                character_service.compute_spell_slots(CharacterClass(c), lvl)
+                for lvl in range(1, 21)
+            ]
+            for c in srd.CLASSES
+        },
     )
 
 
-def _campaign_open(db: DBSession, campaign_id: uuid.UUID):
+def _campaign_open(db: DBSession, campaign_id: uuid.UUID) -> Campaign:
     campaign = CampaignRepo.get_by_id(db, campaign_id)
     if campaign is None:
         raise ValueError("Campaign not found.")
     if not getattr(campaign, "allow_player_signup", True):
         raise PermissionError("This campaign's DM has turned off player sign-up.")
+    return campaign
+
+
+def _campaign_owned(db: DBSession, campaign_id: uuid.UUID, dm_email: str) -> Campaign:
+    """The DM path: the campaign must exist and belong to ``dm_email`` (fail closed)."""
+    campaign = CampaignRepo.get_by_id(db, campaign_id)
+    if campaign is None:
+        raise ValueError("Campaign not found.")
+    if not dm_email or campaign.dm_email != dm_email.strip().lower():
+        raise PermissionError("You can only add characters to your own campaigns.")
     return campaign
 
 
@@ -107,7 +167,7 @@ def _validate_scores(build: CharacterBuild) -> dict[str, int]:
 
 
 def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> BuildResult:
-    """Turn a build into a real PC owned by the campaign's DM.
+    """Turn a player's build into a real PC owned by the campaign's DM.
 
     Args:
         db: Active database session.
@@ -118,10 +178,155 @@ def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> Buil
         BuildResult with the new pc_id.
 
     Raises:
-        ValueError: On any invalid choice (scores, skills, class, spells).
+        ValueError: On any invalid choice (scores, skills, class, improvements, spells).
         PermissionError: If player sign-up is off for the campaign.
     """
-    campaign = _campaign_open(db, campaign_id)
+    return _create(db, _campaign_open(db, campaign_id), build)
+
+
+def create_for_dm(
+    db: DBSession, campaign_id: uuid.UUID, dm_email: str, build: CharacterBuild
+) -> BuildResult:
+    """The DM builds a character with the same rules (Plan 126).
+
+    Args:
+        db: Active database session.
+        campaign_id: UUID of the campaign.
+        dm_email: The signed-in DM.
+        build: The validated wizard output.
+
+    Returns:
+        BuildResult with the new pc_id and its player-link key.
+
+    Raises:
+        ValueError: On any invalid choice, or an unknown campaign.
+        PermissionError: If the DM doesn't own the campaign.
+    """
+    return _create(db, _campaign_owned(db, campaign_id, dm_email), build)
+
+
+def _join(items: list[Any]) -> str:
+    """[4] → "4"; [4, 6] → "4 and 6"; [4, 6, 8] → "4, 6 and 8"."""
+    words = [str(i) for i in items]
+    return words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
+
+
+def _apply_improvements(
+    build: CharacterBuild,
+    class_name: str,
+    scores: dict[str, int],
+    feats: list[str],
+    saves: list[str],
+    skills: dict[str, int],
+    subclass: Optional[str],
+    catalog: dict[str, Spell],
+    warnings: list[str],
+) -> tuple[list[str], list[str]]:
+    """Validate and apply one Ability Score Improvement (or feat) per improvement level.
+
+    Each pick is checked against the build as it stands at that level: the scores after the
+    background bonus and the earlier picks, the feats taken so far, armor training and
+    spellcasting. ``scores``, ``feats``, ``saves`` and ``skills`` change in place.
+
+    Returns:
+        (summary lines such as "Level 4: Ability Score Improvement (+2 STR)", feat spells to
+        learn).
+
+    Raises:
+        ValueError: If the picks don't match the improvement levels or break a rule.
+    """
+    level = build.level
+    due = sorted(lvl for lvl in rules.asi_levels(class_name) if lvl <= level)
+    picks = sorted(build.asi, key=lambda p: p.level)
+    if [p.level for p in picks] != due:
+        if not due:
+            first = min(rules.asi_levels(class_name))
+            raise ValueError(
+                f"A level {level} {class_name} has no Ability Score Improvement yet: "
+                f"the first comes at level {first}."
+            )
+        many = len(due) != 1
+        raise ValueError(
+            f"A level {level} {class_name} has {len(due)} Ability Score Improvement"
+            + ("s (levels " if many else " (level ")
+            + _join(due)
+            + "): choose +2/+1 or a feat for each."
+        )
+    summary_out: list[str] = []
+    feat_spells: list[str] = []
+    picked_spells: list[str] = []
+    for pick in picks:
+        options = feat_rules.feat_options(class_name, pick.level, scores, feats, subclass)
+        summary: list[str] = []
+        try:
+            inc, spells, row = feat_rules.apply_feat(
+                pick, options, feats, saves, skills, catalog, summary, warnings
+            )
+        except ValueError as exc:
+            raise ValueError(f"Level {pick.level}: {exc}") from exc
+        for ability, v in inc.items():
+            if scores[ability] + v > 20:
+                raise ValueError(
+                    f"Level {pick.level}: {ability} is {scores[ability]}, and 20 is the most."
+                )
+            scores[ability] += v
+        fixed = list(row.get("fixed_spells") or [])
+        feat_spells += spells
+        picked_spells += spells[len(fixed) :]
+        summary_out += [f"Level {pick.level}: {line}" for line in summary]
+    # A feat's spell pick can't double up a class pick (a fixed spell you already know just
+    # stays known, as the book says for Telekinetic's Mage Hand).
+    class_picks = {n.strip().casefold() for n in build.cantrips + build.spells if n.strip()}
+    seen: set[str] = set()
+    for name in picked_spells:
+        key = name.casefold()
+        if key in class_picks or key in seen:
+            raise ValueError(f"{name} is picked twice: choose a different spell for the feat.")
+        seen.add(key)
+    return summary_out, feat_spells
+
+
+def _armor_class(
+    class_name: str,
+    scores: dict[str, int],
+    kit: Optional[dict[str, Any]],
+    feats: list[str],
+    subclass: Optional[str],
+    warnings: list[str],
+) -> int:
+    """Armor Class from the kit's armor and shield, or the class's unarmored defense."""
+    dex_mod = srd.ability_mod(scores["DEX"])
+    taken = feat_rules.feat_names(feats)
+    armor_name = kit["armor"] if kit else None
+    shield = bool(kit and kit.get("shield"))
+    if armor_name and armor_name in srd.ARMOR:
+        a = srd.ARMOR[armor_name]
+        cap = a["dex_cap"]
+        if a["category"] == "medium" and "medium armor master" in taken:
+            cap = 3
+        ac = a["base"] + (dex_mod if cap is None else min(dex_mod, cap))
+        if a.get("str_min") and scores["STR"] < a["str_min"]:
+            warnings.append(
+                f"{armor_name} wants Strength {a['str_min']} — speed drops by 10 ft. until then."
+            )
+        # The Defense fighting style: +1 while wearing armor.
+        ac += sum(f["ac_bonus_in_armor"] for f in rules.FEATS if f["name"].casefold() in taken)
+    else:
+        ac = 10 + dex_mod
+        if class_name == "Barbarian":
+            ac = 10 + dex_mod + srd.ability_mod(scores["CON"])
+        elif class_name == "Monk" and not shield:
+            ac = 10 + dex_mod + srd.ability_mod(scores["WIS"])
+        extra = rules.UNARMORED_AC_SUBCLASS.get(subclass or "")
+        if extra:
+            ac = max(ac, 10 + dex_mod + srd.ability_mod(scores[extra]))
+    if shield:
+        ac += srd.SHIELD_BONUS
+    return ac
+
+
+def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildResult:
+    """Validate a build, derive the sheet and create the PC (shared by both paths)."""
     warnings: list[str] = []
 
     class_name = build.character_class.strip().title()
@@ -138,6 +343,7 @@ def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> Buil
     speed = species_row["speed"] if species_row else 30
     if species_row is None:
         warnings.append(f"Species {build.species!r} isn't in the SRD — traits are yours to track.")
+    race = species_row["name"] if species_row else build.species.strip()
 
     # Subclass gate: only at the class's subclass level.
     subclass = (build.subclass or "").strip() or None
@@ -145,6 +351,7 @@ def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> Buil
         warnings.append(f"Subclass recorded; it comes online at level {cls['subclass_level']}.")
     if subclass and subclass not in cls["srd_subclasses"]:
         warnings.append(f"Subclass {subclass!r} isn't in the SRD — features are yours to track.")
+    active_subclass = subclass if subclass and level >= cls["subclass_level"] else None
 
     # Background: SRD or free text.
     bg = next(
@@ -182,39 +389,50 @@ def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> Buil
     skill_profs: dict[str, int] = {s: 1 for s in class_picks}
     for s in bg_skills:
         skill_profs[s] = 1
+    saves = list(cls["saves"])
 
-    # Derived numbers.
-    con_mod = srd.ability_mod(scores["CON"])
-    dex_mod = srd.ability_mod(scores["DEX"])
-    hd = cls["hit_die"]
-    hp = hd + con_mod + (hd // 2 + 1 + con_mod) * (level - 1)
-    hp += level * (species_row or {}).get("hp_per_level_bonus", 0)
+    # Feats so far: the background's origin feat, and a Human's Versatile pick.
+    origin_feat = (build.origin_feat or "").strip() or None
+    if origin_feat:
+        if origin_feat not in {f["name"] for f in srd.ORIGIN_FEATS}:
+            raise ValueError(f"{origin_feat} isn't an Origin feat.")
+        if species_row is not None and not species_row.get("bonus_origin_feat"):
+            warnings.append(f"Only a Human picks an extra Origin feat; {origin_feat} was left off.")
+            origin_feat = None
     feat_names = [bg["feat"].split(" (")[0]] if bg else []
-    if build.origin_feat:
-        feat_names.append(build.origin_feat)
-    if "Tough" in feat_names:
-        hp += 2 * level
+    if origin_feat:
+        row = rules.FEATS_BY_NAME.get(origin_feat.casefold())
+        if origin_feat in feat_names and not (row and row["repeatable"]):
+            raise ValueError(f"Your background already gives {origin_feat}: pick another feat.")
+        feat_names.append(origin_feat)
+
+    # Plan 126 — Ability Score Improvements and feats, before any number is derived: a CON
+    # increase raises HP at every level, a DEX increase raises AC, saves and skills.
+    catalog = {s.name.casefold(): s for s in SpellRepo.list_all(db)}
+    asi_summary, feat_spells = _apply_improvements(
+        build,
+        class_name,
+        scores,
+        feat_names,
+        saves,
+        skill_profs,
+        active_subclass,
+        catalog,
+        warnings,
+    )
+
+    # Hit points (2024): the full die at level 1 and the fixed value after, each level adding
+    # the CON modifier (at least 1 a level), plus Tough / Dwarven Toughness / Draconic Resilience.
+    con_mod = srd.ability_mod(scores["CON"])
+    hd = cls["hit_die"]
+    hp = max(1, hd + con_mod) + max(1, hd // 2 + 1 + con_mod) * (level - 1)
+    hp += level * feat_rules.hp_bonus_per_level(race, active_subclass, feat_names)
     hp = max(1, hp)
 
     kit = next(
         (k for k in cls["kits"] if k["name"] == build.kit), cls["kits"][0] if cls["kits"] else None
     )
-    armor_name = kit["armor"] if kit else None
-    ac = 10 + dex_mod
-    if armor_name and armor_name in srd.ARMOR:
-        a = srd.ARMOR[armor_name]
-        dex_part = dex_mod if a["dex_cap"] is None else min(dex_mod, a["dex_cap"])
-        ac = a["base"] + dex_part
-        if a.get("str_min") and scores["STR"] < a["str_min"]:
-            warnings.append(
-                f"{armor_name} wants Strength {a['str_min']} — speed drops by 10 ft. until then."
-            )
-    if kit and kit.get("shield"):
-        ac += srd.SHIELD_BONUS
-    if class_name == "Monk" and not armor_name:
-        ac = 10 + dex_mod + srd.ability_mod(scores["WIS"])
-    if class_name == "Barbarian" and not armor_name:
-        ac = 10 + dex_mod + con_mod
+    ac = _armor_class(class_name, scores, kit, feat_names, active_subclass, warnings)
 
     try:
         class_enum = CharacterClass(class_name)
@@ -227,7 +445,7 @@ def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> Buil
         dm_email=campaign.dm_email,
         player_name=build.player_name.strip(),
         character_name=build.character_name.strip(),
-        race=(species_row["name"] if species_row else build.species.strip()),
+        race=race,
         character_class=class_enum,
         level=level,
         score_str=scores["STR"],
@@ -242,11 +460,11 @@ def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> Buil
         speed=speed,
         subclass=subclass,
         background=(bg["name"] if bg else build.background.strip()),
-        saving_throw_proficiencies=list(cls["saves"]),
+        saving_throw_proficiencies=saves,
         skill_proficiencies=skill_profs,
         feats=feat_names or None,
         backstory=build.backstory or None,
-        notes=_notes(species_row, bg, build.origin_feat, kit),
+        notes=_notes(species_row, bg, origin_feat, kit, asi_summary),
     )
     pc_id = uuid.UUID(str(pc.id))
     dm = campaign.dm_email
@@ -283,6 +501,16 @@ def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> Buil
             )
     elif build.cantrips or build.spells:
         warnings.append(f"{class_name} doesn't cast spells at level {level}; spell picks ignored.")
+
+    # Feat spells (Fey Touched, Magic Initiate, Telekinetic...): always known, off the caps.
+    for name in feat_spells:
+        spell = catalog.get(name.casefold())
+        if spell is None:
+            warnings.append(f"{name} isn't in the spell catalog yet: ask your DM to add it.")
+            continue
+        spellcasting_service.learn_spell(
+            db, pc_id, CharacterSpellCreate(spell_id=spell.id, known=True, prepared=True), dm
+        )
 
     granted = feature_service.sync_for_level(db, pc_id, dm)
 
@@ -351,7 +579,11 @@ def _attend_newest_session(db: DBSession, campaign_id: uuid.UUID, pc_id: uuid.UU
 
 
 def _notes(
-    species_row: dict[str, Any] | None, bg: dict[str, Any] | None, feat: str | None, kit
+    species_row: dict[str, Any] | None,
+    bg: dict[str, Any] | None,
+    feat: str | None,
+    kit,
+    improvements: Optional[list[str]] = None,
 ) -> str:
     lines = ["Built with the QuestLab character creator (SRD 5.2.1)."]
     if species_row:
@@ -362,4 +594,6 @@ def _notes(
         lines.append(f"Origin feat (Versatile): {feat}.")
     if kit:
         lines.append(f"Starting kit: {kit['name']}.")
+    if improvements:
+        lines.append("Ability Score Improvements and feats: " + "; ".join(improvements) + ".")
     return "\n".join(lines)
