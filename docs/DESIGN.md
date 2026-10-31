@@ -109,6 +109,11 @@ Line icons from `lucide-react` (already a dependency), 16px in nav and buttons, 
 (set globally in index.css). **No emoji as icons** — not in nav, buttons, headings or status.
 An icon-only button needs `aria-label`. Typographic marks that are text (×, →, ·, –) are fine.
 
+**Class crests** (Plan 127): a character without a picture wears its class crest: `components/ClassCrest.tsx`, with
+glyphs in `lib/classGlyphs.ts` and class colours `--class-<name>` in index.css. The glyphs are drawn by people
+(game-icons.net, Lorc and Delapouite, CC BY 3.0, credited on the Terms page), never emoji and never generated.
+`Monogram` (both versions) takes `cls` and falls back to initials for NPCs and unknown classes.
+
 ## 6. Don'ts (the "AI look")
 
 Gradient washes, glows and text shadows on UI; cards with a colored left border; emoji icons;

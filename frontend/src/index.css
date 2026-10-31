@@ -15,6 +15,19 @@
 
   /* text */
   --text:      #ECE7DA;
+  /* Class colours: only the soft field behind a ClassCrest (Plan 127). */
+  --class-barbarian: #A85A34;
+  --class-bard:      #B05C7E;
+  --class-cleric:    #C9A24A;
+  --class-druid:     #5F8F4E;
+  --class-fighter:   #7F8D96;
+  --class-monk:      #4B9A8E;
+  --class-paladin:   #D49A3C;
+  --class-ranger:    #758E3F;
+  --class-rogue:     #6B6B8E;
+  --class-sorcerer:  #C2453D;
+  --class-warlock:   #7C4FA0;
+  --class-wizard:    #4A74AC;
   --text2:     #CBC6B8;
   --muted:     #A2A89C;
 

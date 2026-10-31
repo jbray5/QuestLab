@@ -558,7 +558,7 @@ export default function Characters() {
                   }}
                 />
               ) : (
-                <Monogram name={c.character_name} />
+                <Monogram name={c.character_name} cls={c.character_class} />
               )}
               <div style={{ minWidth: 0, flex: "1 1 0" }}>
                 <h3

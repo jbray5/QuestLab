@@ -32,7 +32,7 @@ export default function DyingScreen() {
   return (
     <main style={{ flex: 1, padding: "30px 22px calc(22px + env(safe-area-inset-bottom, 0px))", display: "flex", flexDirection: "column", gap: 18, background: "#161210", minHeight: "100dvh" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <Monogram name={pc.character_name} url={pc.portrait_url ? portraitSrc(pc.portrait_url, pc.updated_at) : null} size={36} />
+        <Monogram name={pc.character_name} cls={pc.character_class} url={pc.portrait_url ? portraitSrc(pc.portrait_url, pc.updated_at) : null} size={36} />
         <span className="story" style={{ fontWeight: 700, fontSize: 18 }}>{pc.character_name.split(" ")[0]}</span>
         <span className="num" style={{ marginLeft: "auto", fontWeight: 600, color: "var(--danger-text)" }}>0 / {pc.hp_max}</span>
       </div>

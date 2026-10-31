@@ -35,7 +35,7 @@ export default function FirstOpen({ onDone }: { onDone: (help: HelpLevel) => voi
         Welcome to the table{pc.player_name ? `, ${pc.player_name}` : ""}.
       </h1>
       <Panel style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <Monogram name={pc.character_name} url={pc.portrait_url ? portraitSrc(pc.portrait_url, pc.updated_at) : null} size={50} />
+        <Monogram name={pc.character_name} cls={pc.character_class} url={pc.portrait_url ? portraitSrc(pc.portrait_url, pc.updated_at) : null} size={50} />
         <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
           <span className="story" style={{ fontWeight: 700, fontSize: 21 }}>{pc.character_name}</span>
           <span style={{ fontSize: 14, color: "var(--muted)" }}>{[`${pc.character_class} ${pc.level}`, pc.subclass, pc.race].filter(Boolean).join(" · ")}</span>

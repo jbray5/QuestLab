@@ -23,7 +23,7 @@ export default function CharacterTab() {
   return (
     <>
       <header style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: 16 }}>
-        <Monogram name={pc.character_name} url={pc.portrait_url ? portraitSrc(pc.portrait_url, pc.updated_at) : null} size={48} />
+        <Monogram name={pc.character_name} cls={pc.character_class} url={pc.portrait_url ? portraitSrc(pc.portrait_url, pc.updated_at) : null} size={48} />
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
           <span className="story" style={{ fontWeight: 700, fontSize: 22, lineHeight: 1.1 }}>{pc.character_name}</span>
           <span style={{ fontSize: 13, color: "var(--muted)" }}>{subline}</span>

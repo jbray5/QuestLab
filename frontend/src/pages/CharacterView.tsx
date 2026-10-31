@@ -363,7 +363,7 @@ export default function CharacterView() {
         <div className="cv-pics">
           <div className="cv-pic">
             <div className="im">
-              {model ? <img src={model} {...zoomable(model, `${pc.character_name}: model`)} alt="Your model" /> : <Monogram name={pc.character_name} size={56} />}
+              {model ? <img src={model} {...zoomable(model, `${pc.character_name}: model`)} alt="Your model" /> : <Monogram name={pc.character_name} size={56} cls={pc.character_class} />}
             </div>
             <div className="cap">Your picture</div>
           </div>

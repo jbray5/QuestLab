@@ -198,7 +198,7 @@ export default function JoinView() {
                   <img src={portraitSrc(row.portrait_url, "")} alt="" loading="lazy" />
                 ) : (
                   <div className="ph">
-                    <Monogram name={row.character_name} size={72} />
+                    <Monogram name={row.character_name} size={72} cls={row.character_class} />
                   </div>
                 )}
                 <span className="qj-text">

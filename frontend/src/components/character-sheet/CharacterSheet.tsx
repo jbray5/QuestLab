@@ -196,7 +196,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
           }}
         />
       ) : (
-        <Monogram name={pc.character_name} size={phone ? 44 : 56} />
+        <Monogram name={pc.character_name} size={phone ? 44 : 56} cls={pc.character_class} />
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <h2 className="story" style={{ margin: 0, fontSize: phone ? "1.3rem" : "1.5rem", lineHeight: 1.2 }}>

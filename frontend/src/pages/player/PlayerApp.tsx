@@ -214,7 +214,7 @@ function TopBar() {
   const sub = [`${pc.character_class} ${pc.level}`, pc.player_name].filter(Boolean).join(" · ");
   return (
     <header style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px 10px" }}>
-      <Monogram name={pc.character_name} url={pc.portrait_url ? portraitSrc(pc.portrait_url, pc.updated_at) : null} size={38} />
+      <Monogram name={pc.character_name} cls={pc.character_class} url={pc.portrait_url ? portraitSrc(pc.portrait_url, pc.updated_at) : null} size={38} />
       <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
         <span className="story" style={{ fontWeight: 700, fontSize: 19, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {pc.character_name.split(" ")[0]}

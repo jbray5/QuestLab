@@ -5,6 +5,7 @@ the QR is only shown in the room). It must expose names and portraits only,
 never sheet stats, and 404 for unknown campaigns.
 """
 
+import json
 import uuid
 
 import pytest
@@ -61,9 +62,11 @@ def test_join_roster_is_public_and_sorted(client, api_engine):
         "portrait_url",
         "character_class",
     }
-    # No sheet data leaks through the join roster.
-    assert "hp" not in resp.text.lower()
-    assert "score" not in resp.text.lower()
+    # No sheet data leaks through the join roster. (The random link key is left
+    # out: a key like "chp…" contains the letters "hp" by chance.)
+    safe = json.dumps([{k: v for k, v in r.items() if k != "key"} for r in rows]).lower()
+    assert "hp" not in safe
+    assert "score" not in safe
 
 
 def test_join_roster_unknown_campaign_404(client):

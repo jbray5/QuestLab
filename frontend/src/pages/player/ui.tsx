@@ -7,6 +7,8 @@ import { Lightbulb } from "lucide-react";
 
 import type { HelpLevel } from "../../stores/usePlayerPrefs";
 import { hpColor } from "./rules";
+import ClassCrest from "../../components/ClassCrest";
+import { hasClassCrest } from "../../lib/classGlyphs";
 
 // ── building blocks ──────────────────────────────────────────────────────────
 
@@ -29,10 +31,12 @@ export function Label({ children, style }: { children: ReactNode; style?: CSSPro
   return <span style={{ fontSize: 13, color: "var(--muted)", ...style }}>{children}</span>;
 }
 
-export function Monogram({ name, url, size = 36 }: { name: string; url?: string | null; size?: number }) {
+export function Monogram({ name, url, size = 36, cls }: { name: string; url?: string | null; size?: number; cls?: string | null }) {
   if (url) {
     return <img src={url} alt="" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: "inset 0 0 0 1px var(--border2)" }} />;
   }
+  // Plan 127 — a character with a class wears its crest until a picture is added.
+  if (hasClassCrest(cls)) return <ClassCrest cls={cls} size={size} round />;
   const letters = name.replace(/["“”].*?["“”]/g, "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   return (
     <span aria-hidden style={{ width: size, height: size, flexShrink: 0, borderRadius: "50%", background: "var(--surface3)", boxShadow: "inset 0 0 0 1px var(--border2)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-story)", fontWeight: 700, fontSize: Math.round(size * 0.42), color: "var(--text)" }}>

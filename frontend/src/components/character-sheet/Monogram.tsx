@@ -1,18 +1,25 @@
 import { initials } from "../../lib/classEmoji";
+import ClassCrest from "../ClassCrest";
+import { hasClassCrest } from "../../lib/classGlyphs";
 
 /**
- * The stand-in for a character or NPC without a portrait (Plan 121): their
- * initials, set in the story face on a quiet tile. Replaces the class emoji.
+ * The stand-in for a character or NPC without a portrait. A character with a
+ * known class wears its class crest (Plan 127); anyone else gets their
+ * initials, set in the story face on a quiet tile (Plan 121).
  */
 export default function Monogram({
   name,
   size = 52,
   radius = 6,
+  cls,
 }: {
   name: string;
   size?: number;
   radius?: number;
+  /** The character's class, for the crest. */
+  cls?: string | null;
 }) {
+  if (hasClassCrest(cls)) return <ClassCrest cls={cls} size={size} radius={radius} title={`${name} (no picture yet)`} />;
   return (
     <div
       aria-hidden="true"

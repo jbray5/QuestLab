@@ -66,6 +66,8 @@ import type {
   SessionCombatant,
 } from "../api/types";
 import { plural } from "../lib/plural";
+import ClassCrest from "../components/ClassCrest";
+import { hasClassCrest } from "../lib/classGlyphs";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -1698,6 +1700,9 @@ export default function SessionHud() {
                         loading="lazy"
                         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                       />
+                    ) : hasClassCrest(pc.character_class) ? (
+                      // Plan 127 — the class crest until a picture is added.
+                      <ClassCrest cls={pc.character_class} size={44} radius={0} />
                     ) : (
                       <span className="story" aria-hidden style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--text2)" }}>
                         {initials(pc.character_name)}
@@ -2738,7 +2743,11 @@ export default function SessionHud() {
                       {pc.portrait_url ? (
                         <img src={pc.portrait_url} {...zoomable(pc.portrait_url, pc.character_name)} alt="" style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flex: "none" }} />
                       ) : (
-                        <PersonDot label={initials(pc.character_name)} />
+                        hasClassCrest(pc.character_class) ? (
+                          <ClassCrest cls={pc.character_class} size={36} round />
+                        ) : (
+                          <PersonDot label={initials(pc.character_name)} />
+                        )
                       )}
                       <div style={{ minWidth: 0 }}>
                         <div className="story" style={{ fontSize: "1rem", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{pc.character_name}</div>

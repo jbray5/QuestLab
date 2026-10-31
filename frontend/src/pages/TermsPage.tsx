@@ -29,6 +29,7 @@ export default function TermsPage() {
 
       <h2>Rules content</h2>
       <p>Game rules content is from the System Reference Document 5.2.1, used under the Creative Commons Attribution 4.0 license. QuestLab is not affiliated with Wizards of the Coast.</p>
+      <p>The class icons a character wears until it has a picture are by Lorc and Delapouite from <a href="https://game-icons.net" target="_blank" rel="noreferrer">game-icons.net</a>, used under the <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noreferrer">Creative Commons Attribution 3.0</a> license. They are drawn by people, not generated.</p>
 
       <h2>Accounts and privacy</h2>
       <p>Signing in with Discord or Patreon shares your account id, display name, avatar and email with QuestLab; the email identifies your campaigns; a Patreon membership supports the project and unlocks nothing you need to play. Player links carry no personal data. We keep no payment details. Delete your campaigns any time from the app.</p>
