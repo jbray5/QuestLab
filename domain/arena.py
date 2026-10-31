@@ -15,6 +15,37 @@ from pydantic import BaseModel, Field
 Cost = Literal["action", "bonus", "reaction", "free"]
 
 
+class TurnOption(BaseModel):
+    """One thing a character can do on a live turn, numbers worked out (Plan 122)."""
+
+    key: str
+    name: str
+    kind: str
+    to_hit: Optional[int] = None
+    save: Optional[str] = None
+    damage: str = ""
+    damage_type: str = ""
+    spell_level: int = 0
+    uses_left: Optional[int] = None
+    note: str = ""
+
+
+class TurnKit(BaseModel):
+    """What a character can do on a turn at the real table, grouped by cost (Plan 122).
+
+    Built from the same rules the Arena referees with, so the phone's numbers
+    match the practice fights; ``tips`` are the coach's plain-language reminders.
+    """
+
+    speed: int
+    action: list[TurnOption] = Field(default_factory=list)
+    bonus: list[TurnOption] = Field(default_factory=list)
+    reaction: list[TurnOption] = Field(default_factory=list)
+    free: list[TurnOption] = Field(default_factory=list)
+    basic_actions: list[str] = Field(default_factory=list)
+    tips: list[str] = Field(default_factory=list)
+
+
 class ArenaAttack(BaseModel):
     """One thing the player can do: a weapon, a cantrip, a spell, a feature with dice.
 

@@ -113,6 +113,18 @@ def _emit_turn_change(
                 round=combat_round,
                 active_combatant_name=new.name,
             )
+        # Plan 122 — every other player's phone learns who is up, so "Bram is up"
+        # is live instead of whatever was true when the page loaded.
+        if new:
+            for other in SessionCombatantRepo.list_for_session(db, session_id):
+                if other.character_id and other.character_id != new.character_id:
+                    publish_pc_turn_changed(
+                        other.character_id,
+                        active=False,
+                        session_id=session_id,
+                        round=combat_round,
+                        active_combatant_name=new.name,
+                    )
 
 
 # ---------------------------------------------------------------------------

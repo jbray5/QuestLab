@@ -4,7 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from sqlalchemy import Column
 from sqlalchemy.types import JSON, DateTime
 from sqlmodel import Field, SQLModel
@@ -74,6 +74,8 @@ class PlayerCharacter(SQLModel, table=True):
     hero_locked: bool = Field(default=False)
     backstory: Optional[str] = None
     notes: Optional[str] = None
+    # Plan 122 — the player's own notes from the phone. The DM's screens never show them.
+    player_notes: Optional[str] = None
     # JSON columns for complex fields
     saving_throw_proficiencies: Optional[list] = Field(
         default=None, sa_column=Column(JSON, nullable=True)
@@ -200,6 +202,7 @@ class PlayerCharacterRead(BaseModel):
     pending_level: Optional[int] = None
     backstory: Optional[str] = None
     notes: Optional[str] = None
+    player_notes: Optional[str] = None
     portrait_url: Optional[str] = None
     figure_url: Optional[str] = None
     model_url: Optional[str] = None
@@ -248,7 +251,7 @@ class PlayerCharacterUpdate(BaseModel):
     spells_known: Optional[list[dict[str, Any]]] = None
     spell_slots: Optional[dict[str, Any]] = None
     # Combat state (Plan 00023) — DM can set any of these via PATCH
-    temp_hp: Optional[int] = Field(default=None, ge=0)
+    temp_hp: Optional[int] = Field(default=None, ge=0, le=999)
     heroic_inspiration: Optional[bool] = None
     concentration_on: Optional[str] = Field(default=None, max_length=120)
     death_save_successes: Optional[int] = Field(default=None, ge=0, le=3)
@@ -278,12 +281,52 @@ class PlayerCharacterUpdate(BaseModel):
 
 
 class PlayerRollBody(BaseModel):
-    """Request body for a player dice roll thrown to the table (Plan 66)."""
+    """Request body for a player dice roll thrown to the table (Plan 66, Plan 122).
+
+    ``mode`` rolls a single d20 twice and keeps the higher (advantage) or lower
+    (disadvantage). ``real`` carries what physical dice showed: the server logs
+    them to the table instead of rolling.
+    """
 
     die: Literal["d4", "d6", "d8", "d10", "d12", "d20", "d100"]
     count: int = Field(default=1, ge=1, le=10)
     modifier: int = Field(default=0, ge=-20, le=20)
     label: Optional[str] = Field(default=None, max_length=60)
+    mode: Literal["normal", "advantage", "disadvantage"] = "normal"
+    real: Optional[list[int]] = Field(default=None, min_length=1, max_length=10)
+
+    @model_validator(mode="after")
+    def _check_dice(self) -> "PlayerRollBody":
+        """Advantage is one d20 rolled twice; real dice must fit the die and the count."""
+        if self.mode != "normal" and (self.die != "d20" or self.count != 1):
+            raise ValueError("Advantage and disadvantage apply to a single d20.")
+        if self.real is not None:
+            sides = int(self.die[1:])
+            want = 2 if self.mode != "normal" else self.count
+            if len(self.real) != want:
+                raise ValueError(f"Enter {want} die result{'s' if want != 1 else ''}.")
+            if any(r < 1 or r > sides for r in self.real):
+                raise ValueError(f"A {self.die} shows 1 to {sides}.")
+        return self
+
+
+class PlayerCastBody(BaseModel):
+    """A player casting one of their spells from the phone (Plan 122)."""
+
+    slot_level: Optional[int] = Field(default=None, ge=1, le=9)
+    ritual: bool = False
+
+
+class PlayerPrepareBody(BaseModel):
+    """A player preparing or unpreparing one of their spells (Plan 122)."""
+
+    prepared: bool
+
+
+class PlayerNotesBody(BaseModel):
+    """The player's private notes (Plan 122)."""
+
+    text: str = Field(default="", max_length=4000)
 
 
 class HeroLockBody(BaseModel):

@@ -208,6 +208,9 @@ def patch_duckdb_schema() -> None:
         # 0050 — rigged 3D figures for the immersive table (Plan 111)
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS model_url VARCHAR(500)",
         "ALTER TABLE monster_stat_blocks ADD COLUMN IF NOT EXISTS model_url VARCHAR(500)",
+        # 0054 / 0055 — pending level (Plan 115); the player's own notes (Plan 122)
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS pending_level INTEGER",
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS player_notes VARCHAR",
         # 0035 — 2024 PHB recovery numbers (Paladin CD 2 uses; the
         # regain-one-on-short-rest pattern for CD + Second Wind).
         # seed_catalog() only fires on an empty table, so already-seeded

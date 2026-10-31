@@ -139,7 +139,9 @@ event_bus = _EventBus()
 # so the event taxonomy lives in one place.
 
 
-def publish_pc_updated(pc_id: Any, campaign_id: Any, kind: str = "pc.updated") -> None:
+def publish_pc_updated(
+    pc_id: Any, campaign_id: Any, kind: str = "pc.updated", notice: str | None = None
+) -> None:
     """Publish a PC-mutation event to both per-PC and per-campaign topics.
 
     Args:
@@ -150,13 +152,15 @@ def publish_pc_updated(pc_id: Any, campaign_id: Any, kind: str = "pc.updated") -
             ``"pc.features.updated"``, etc.) when the caller knows what
             React-Query keys to invalidate. The default is fine for
             "anything about this PC may have changed."
+        notice: Optional sentence the player's phone shows ("Bram gave you a
+            Potion of Healing", Plan 122). Only the PC's own topic carries it.
     """
     payload: Event = {
         "type": kind,
         "pc_id": str(pc_id),
         "campaign_id": str(campaign_id),
     }
-    event_bus.publish(f"pc:{pc_id}", payload)
+    event_bus.publish(f"pc:{pc_id}", {**payload, "notice": notice} if notice else payload)
     event_bus.publish(f"campaign:{campaign_id}", payload)
 
 

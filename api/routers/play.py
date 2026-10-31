@@ -14,6 +14,7 @@ allowed table-state scope.
 import uuid
 
 from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import ValidationError
 
 from api.deps import DB, gate_ai_for_pc
 from domain.arena import (
@@ -23,8 +24,17 @@ from domain.arena import (
     ArenaFoeOption,
     ArenaStartBody,
     ArenaState,
+    TurnKit,
 )
-from domain.character import HeroLockBody, PlayerCharacter, PlayerRollBody
+from domain.character import (
+    HeroLockBody,
+    NoSpellSlotError,
+    PlayerCastBody,
+    PlayerCharacter,
+    PlayerNotesBody,
+    PlayerPrepareBody,
+    PlayerRollBody,
+)
 from domain.character_builder import BuilderOptions, BuildResult, CharacterBuild
 from domain.level_up import LevelUpChoices, LevelUpPlan, LevelUpResult
 from domain.shop import (
@@ -44,7 +54,7 @@ router = APIRouter(tags=["play"])
 # ── Reads ──────────────────────────────────────────────────────────────────────
 
 
-@router.get("/play/{pc_id}")
+@router.get("/play/{pc_id}", response_model=PlayerCharacter, response_model_exclude={"notes"})
 def get_pc(pc_id: uuid.UUID, db: DB):
     """Return the PC sheet (read-only) for the player view.
 
@@ -171,7 +181,9 @@ def turn_state(pc_id: uuid.UUID, db: DB) -> dict:
 # ── Writes (table-state self-service) ─────────────────────────────────────────
 
 
-@router.post("/play/{pc_id}/damage", response_model=PlayerCharacter)
+@router.post(
+    "/play/{pc_id}/damage", response_model=PlayerCharacter, response_model_exclude={"notes"}
+)
 def apply_damage(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
     """Player applies damage to themselves. Body: ``{"amount": <int>}``."""
     try:
@@ -180,7 +192,7 @@ def apply_damage(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
-@router.post("/play/{pc_id}/heal", response_model=PlayerCharacter)
+@router.post("/play/{pc_id}/heal", response_model=PlayerCharacter, response_model_exclude={"notes"})
 def apply_healing(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
     """Player heals themselves. Body: ``{"amount": <int>}``."""
     try:
@@ -189,7 +201,9 @@ def apply_healing(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
-@router.post("/play/{pc_id}/death-save", response_model=PlayerCharacter)
+@router.post(
+    "/play/{pc_id}/death-save", response_model=PlayerCharacter, response_model_exclude={"notes"}
+)
 def resolve_death_save(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
     """Player resolves a death save. Body: ``{"d20": <1..20>}``."""
     try:
@@ -199,7 +213,9 @@ def resolve_death_save(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
 
-@router.post("/play/{pc_id}/spend-hit-dice", response_model=PlayerCharacter)
+@router.post(
+    "/play/{pc_id}/spend-hit-dice", response_model=PlayerCharacter, response_model_exclude={"notes"}
+)
 def spend_hit_dice(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
     """Player spends N hit dice. Body: ``{"count": <int>}``."""
     try:
@@ -270,11 +286,13 @@ def level_up_apply(pc_id: uuid.UUID, body: LevelUpChoices, db: DB) -> LevelUpRes
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
 
-@router.patch("/play/{pc_id}/state", response_model=PlayerCharacter)
+@router.patch(
+    "/play/{pc_id}/state", response_model=PlayerCharacter, response_model_exclude={"notes"}
+)
 def patch_state(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
     """Bounded player-scope PATCH.
 
-    Accepted fields: ``heroic_inspiration``, ``concentration_on``,
+    Accepted fields: ``temp_hp`` (Plan 122), ``heroic_inspiration``, ``concentration_on``,
     ``exhaustion``, ``cp``, ``sp``, ``ep``, ``gp``, ``pp``. Anything else
     raises 403 — those are DM-only.
     """
@@ -282,6 +300,8 @@ def patch_state(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
         return player_service.patch_state(db, pc_id, body)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+    except ValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
@@ -306,7 +326,9 @@ def list_gear(pc_id: uuid.UUID, db: DB) -> list[dict]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
-@router.patch("/play/{pc_id}/appearance", response_model=PlayerCharacter)
+@router.patch(
+    "/play/{pc_id}/appearance", response_model=PlayerCharacter, response_model_exclude={"notes"}
+)
 def set_appearance(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
     """Save the player's appearance notes.
 
@@ -459,7 +481,14 @@ def throw_dice(pc_id: uuid.UUID, body: PlayerRollBody, db: DB) -> dict:
     """
     try:
         return player_service.throw_dice(
-            db, pc_id, body.die, count=body.count, modifier=body.modifier, label=body.label
+            db,
+            pc_id,
+            body.die,
+            count=body.count,
+            modifier=body.modifier,
+            label=body.label,
+            mode=body.mode,
+            real=body.real,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
@@ -871,3 +900,94 @@ def use_item(pc_id: uuid.UUID, body: dict, db: DB) -> dict:
         if "not found" in msg.lower():
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=msg)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=msg)
+
+
+# ── Plan 122 — the companion phone ────────────────────────────────────────────
+
+
+def _companion_error(exc: Exception) -> HTTPException:
+    """Unknown link or spell → 404; no slot left → 409; a rules problem → 422."""
+    if isinstance(exc, LookupError):
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    if isinstance(exc, NoSpellSlotError):
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
+
+
+@router.get("/play/{pc_id}/turn-kit", response_model=TurnKit)
+def turn_kit(pc_id: uuid.UUID, db: DB) -> TurnKit:
+    """What this character can do on a turn: actions, bonus actions, reactions, tips.
+
+    Args:
+        pc_id: UUID of the player character (capability URL).
+        db: Database session.
+
+    Returns:
+        The turn kit.
+    """
+    try:
+        return player_service.turn_kit(db, pc_id)
+    except (LookupError, ValueError) as exc:
+        raise _companion_error(exc)
+
+
+@router.post("/play/{pc_id}/spells/{character_spell_id}/cast")
+def cast_spell(
+    pc_id: uuid.UUID, character_spell_id: uuid.UUID, body: PlayerCastBody, db: DB
+) -> dict:
+    """Cast a spell from the phone: the slot is spent and concentration starts.
+
+    Args:
+        pc_id: UUID of the player character (capability URL).
+        character_spell_id: The character's spell-list row.
+        body: Slot level and whether it's cast as a ritual.
+        db: Database session.
+
+    Returns:
+        ``{"spell", "slot_level", "concentration"}``.
+    """
+    try:
+        return player_service.cast_spell(
+            db, pc_id, character_spell_id, slot_level=body.slot_level, ritual=body.ritual
+        )
+    except (LookupError, ValueError) as exc:
+        raise _companion_error(exc)
+
+
+@router.post("/play/{pc_id}/spells/{character_spell_id}/prepare")
+def prepare_spell(
+    pc_id: uuid.UUID, character_spell_id: uuid.UUID, body: PlayerPrepareBody, db: DB
+) -> dict:
+    """Prepare or unprepare a spell (classes that change spells after a Long Rest).
+
+    Args:
+        pc_id: UUID of the player character (capability URL).
+        character_spell_id: The character's spell-list row.
+        body: The new prepared state.
+        db: Database session.
+
+    Returns:
+        ``{"id", "prepared", "count", "cap"}``.
+    """
+    try:
+        return player_service.set_spell_prepared(db, pc_id, character_spell_id, body.prepared)
+    except (LookupError, ValueError) as exc:
+        raise _companion_error(exc)
+
+
+@router.put("/play/{pc_id}/notes")
+def put_notes(pc_id: uuid.UUID, body: PlayerNotesBody, db: DB) -> dict:
+    """Save the player's private notes.
+
+    Args:
+        pc_id: UUID of the player character (capability URL).
+        body: The notes text (up to 4,000 characters).
+        db: Database session.
+
+    Returns:
+        ``{"player_notes": text}``.
+    """
+    try:
+        return player_service.set_player_notes(db, pc_id, body.text)
+    except (LookupError, ValueError) as exc:
+        raise _companion_error(exc)

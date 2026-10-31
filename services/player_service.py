@@ -273,6 +273,27 @@ def combat_state(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     }
 
 
+def _initiative_order(db: Session, game_session: Any, pc_id: uuid.UUID) -> list[dict[str, Any]]:
+    """The running fight's order for a player's phone (Plan 122): names, rolls, sides."""
+    from db.repos.session_repo import SessionCombatantRepo
+
+    sides = {"pc": "party", "monster": "foe"}
+    rows = sorted(
+        SessionCombatantRepo.list_for_session(db, game_session.id), key=lambda c: c.sort_index
+    )
+    return [
+        {
+            "name": c.name,
+            "initiative": c.initiative_roll,
+            "side": sides.get(c.type, "other"),
+            "you": c.character_id == pc_id,
+            "current": c.id == game_session.combat_active_combatant_id,
+            "defeated": bool(c.defeated),
+        }
+        for c in rows
+    ]
+
+
 def turn_state(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     """Return whether it's currently this PC's turn (Plan 00028).
 
@@ -315,6 +336,7 @@ def turn_state(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
                     "session_id": str(target.id),
                     "round": target.combat_round,
                     "active_combatant_name": active.name,
+                    "order": _initiative_order(db, target, pc_id),
                 }
         return {"active": False}
     game_session, combatant = found
@@ -323,6 +345,7 @@ def turn_state(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
         "session_id": str(game_session.id),
         "round": game_session.combat_round,
         "active_combatant_name": combatant.name,
+        "order": _initiative_order(db, game_session, pc_id),
     }
 
 
@@ -377,6 +400,7 @@ def spend_feature(db: Session, pc_id: uuid.UUID, character_feature_id: uuid.UUID
 # Only these fields can be set via the player /state endpoint. Everything
 # else (level, class, scores, identity, etc.) is DM-only.
 _PLAYER_PATCHABLE = {
+    "temp_hp",
     "heroic_inspiration",
     "concentration_on",
     "exhaustion",
@@ -697,8 +721,10 @@ def throw_dice(
     count: int = 1,
     modifier: int = 0,
     label: str | None = None,
+    mode: str = "normal",
+    real: list[int] | None = None,
 ) -> dict[str, Any]:
-    """Roll dice server-side and land them on the live table (Plan 66).
+    """Roll dice server-side and land them on the live table (Plan 66, Plan 122).
 
     The server is the authority (SystemRandom) — phones only ask. The
     roll broadcasts on the table topic of the PC's live session:
@@ -711,9 +737,11 @@ def throw_dice(
         count: Number of dice (1-10).
         modifier: Flat modifier (-20..20).
         label: Optional roll label, e.g. "Stealth".
+        mode: "normal", or "advantage"/"disadvantage" — one d20 rolled twice, keep one.
+        real: What physical dice showed; logged as-is, nothing is rolled.
 
     Returns:
-        ``{"die", "rolls", "modifier", "total", "session_id"}``.
+        ``{"die", "rolls", "kept", "mode", "real", "modifier", "total", "session_id"}``.
 
     Raises:
         ValueError: If the PC is unknown or the campaign has no sessions.
@@ -729,8 +757,20 @@ def throw_dice(
 
     rng = random.SystemRandom()
     sides = int(die[1:])
-    rolls = [rng.randint(1, sides) for _ in range(count)]
-    total = sum(rolls) + modifier
+    n = 2 if mode != "normal" else count
+    rolls = list(real) if real else [rng.randint(1, sides) for _ in range(n)]
+    if mode == "advantage":
+        kept = [max(rolls)]
+    elif mode == "disadvantage":
+        kept = [min(rolls)]
+    else:
+        kept = rolls
+    total = sum(kept) + modifier
+    shown = label or f"{count}{die}"
+    if mode != "normal":
+        shown = f"{shown} ({mode})"
+    if real:
+        shown = f"{shown}, real dice"
     publish_table_roll(
         target.id,
         roller=pc.character_name,
@@ -738,7 +778,7 @@ def throw_dice(
         rolls=rolls,
         modifier=modifier,
         total=total,
-        label=label,
+        label=shown[:60],
     )
     # Plan 85 — the rest of the party sees it on their phones too (Priya).
     from db.repos.character_repo import CharacterRepo
@@ -749,17 +789,20 @@ def throw_dice(
         mates,
         pc.campaign_id,
         {
-            "label": (label or f"{count}{die}")[:40],
+            "label": shown[:40],
             "detail": f"[{', '.join(map(str, rolls))}]" + (f" {modifier:+d}" if modifier else ""),
             "total": total,
-            "crit": count == 1 and sides == 20 and rolls[0] == 20,
-            "fumble": count == 1 and sides == 20 and rolls[0] == 1,
+            "crit": len(kept) == 1 and sides == 20 and kept[0] == 20,
+            "fumble": len(kept) == 1 and sides == 20 and kept[0] == 1,
             "roller": pc.character_name,
         },
     )
     return {
         "die": die,
         "rolls": rolls,
+        "kept": kept,
+        "mode": mode,
+        "real": bool(real),
         "modifier": modifier,
         "total": total,
         "session_id": str(target.id),
@@ -1090,7 +1133,9 @@ def give_coin(db: Session, pc_id: uuid.UUID, to_pc_id: uuid.UUID, amount_gp: flo
         db, to_pc, PlayerCharacterUpdate(**_redenominate(_purse_copper(to_pc) + amount_cp))
     )
     publish_pc_updated(pc.id, pc.campaign_id)
-    publish_pc_updated(to_pc.id, to_pc.campaign_id)
+    publish_pc_updated(
+        to_pc.id, to_pc.campaign_id, notice=f"{pc.character_name} gave you {amount_gp:g} gp."
+    )
 
     refreshed = _get_pc_or_raise(db, pc_id)
     return TransferReceipt(
@@ -1219,7 +1264,11 @@ def use_item(
         left = 0
 
     publish_pc_updated(pc.id, pc.campaign_id, kind="pc.inventory.updated")
-    publish_pc_updated(target.id, target.campaign_id)
+    publish_pc_updated(
+        target.id,
+        target.campaign_id,
+        notice=f"{pc.character_name} used {item.name} on you." if target.id != pc.id else None,
+    )
     refreshed = _get_pc_or_raise(db, target.id)
     return {
         "item_name": item.name,
@@ -1336,3 +1385,169 @@ def party_for_arena(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
         }
         for row in sorted(rows, key=lambda r: r.character_name)
     ]
+
+
+# ---------------------------------------------------------------------------
+# Plan 122 — the companion phone: turn kit, casting, preparing, private notes
+# ---------------------------------------------------------------------------
+
+# Classes that change prepared spells day to day (after a Long Rest), 2024 PHB.
+_DAILY_PREPARERS = {"Cleric", "Druid", "Paladin", "Ranger", "Wizard"}
+
+
+def _pc_or_lookup(db: Session, pc_id: uuid.UUID) -> PlayerCharacter:
+    """The PC, or LookupError (a missing link is a 404, not a rules problem)."""
+    pc = CharacterRepo.get_by_id(db, pc_id)
+    if pc is None:
+        raise LookupError("Character not found.")
+    return pc
+
+
+def _own_spell(db: Session, pc: PlayerCharacter, character_spell_id: uuid.UUID):
+    """The PC's spell-list row and its spell, or LookupError."""
+    from db.repos.character_spell_repo import CharacterSpellRepo
+    from db.repos.spell_repo import SpellRepo
+
+    row = CharacterSpellRepo.get_by_id(db, character_spell_id)
+    if row is None or row.character_id != pc.id:
+        raise LookupError("That spell isn't on this character's sheet.")
+    spell = SpellRepo.get_by_id(db, row.spell_id)
+    if spell is None:
+        raise LookupError("That spell is missing from the catalog.")
+    return row, spell
+
+
+def turn_kit(db: Session, pc_id: uuid.UUID):
+    """What this character can do on a turn, grouped by cost, with coach tips (Plan 122).
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC (capability URL).
+
+    Returns:
+        A ``TurnKit``.
+
+    Raises:
+        LookupError: If the PC does not exist.
+    """
+    from services import arena_service
+
+    pc = _pc_or_lookup(db, pc_id)
+    return arena_service.turn_kit(db, pc, _dm_email_for(db, pc_id))
+
+
+def cast_spell(
+    db: Session,
+    pc_id: uuid.UUID,
+    character_spell_id: uuid.UUID,
+    slot_level: Optional[int] = None,
+    ritual: bool = False,
+) -> dict[str, Any]:
+    """Cast one of the PC's spells from the phone: spend the slot, start concentration (Plan 122).
+
+    Cantrips and rituals cost no slot. A leveled spell must be prepared and cast
+    with a slot of its level or higher.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC.
+        character_spell_id: The PC's spell-list row.
+        slot_level: Slot to spend; defaults to the spell's level.
+        ritual: Cast as a ritual (no slot; the spell must be a ritual).
+
+    Returns:
+        ``{"spell", "slot_level", "concentration"}``.
+
+    Raises:
+        LookupError: Unknown PC or a spell that isn't on this sheet.
+        ValueError: Not prepared, not a ritual, or a slot below the spell's level.
+        NoSpellSlotError: No slot of that level left.
+    """
+    pc = _pc_or_lookup(db, pc_id)
+    row, spell = _own_spell(db, pc, character_spell_id)
+    dm = _dm_email_for(db, pc_id)
+    used: Optional[int] = None
+    if spell.level > 0 and ritual:
+        if not spell.is_ritual:
+            raise ValueError(f"{spell.name} isn't a ritual.")
+    elif spell.level > 0:
+        if not row.prepared:
+            raise ValueError(f"Prepare {spell.name} before you cast it.")
+        used = slot_level or spell.level
+        if used < spell.level:
+            raise ValueError(f"{spell.name} needs a slot of level {spell.level} or higher.")
+        spellcasting_service.expend_slot(db, pc.id, used, dm)
+    if spell.is_concentration:
+        from domain.character import PlayerCharacterUpdate
+
+        character_service.update_character(
+            db, pc.id, dm, PlayerCharacterUpdate(concentration_on=spell.name[:120])
+        )
+    return {"spell": spell.name, "slot_level": used, "concentration": spell.is_concentration}
+
+
+def set_spell_prepared(
+    db: Session, pc_id: uuid.UUID, character_spell_id: uuid.UUID, prepared: bool
+) -> dict[str, Any]:
+    """Prepare or unprepare one of the PC's spells from the phone (Plan 122).
+
+    Only classes that change their list after a Long Rest; the class's
+    prepared-spell count is the cap.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC.
+        character_spell_id: The PC's spell-list row.
+        prepared: The new state.
+
+    Returns:
+        ``{"id", "prepared", "count", "cap"}``.
+
+    Raises:
+        LookupError: Unknown PC or spell row.
+        ValueError: A cantrip, a class that swaps on level-up only, or the cap is reached.
+    """
+    from db.repos.character_spell_repo import CharacterSpellRepo
+    from db.repos.spell_repo import SpellRepo
+    from integrations.dnd_rules.srd_character_options_2024 import spells_prepared
+
+    pc = _pc_or_lookup(db, pc_id)
+    row, spell = _own_spell(db, pc, character_spell_id)
+    if spell.level == 0:
+        raise ValueError("Cantrips are always ready; there's nothing to prepare.")
+    cls = str(getattr(pc.character_class, "value", pc.character_class)).title()
+    if cls not in _DAILY_PREPARERS:
+        raise ValueError(f"A {cls} changes spells when they level up, not after a rest.")
+    leveled = []
+    for r in CharacterSpellRepo.list_for_character(db, pc.id):
+        s = SpellRepo.get_by_id(db, r.spell_id)
+        if s is not None and s.level > 0 and r.prepared:
+            leveled.append(r.id)
+    cap = spells_prepared(cls, pc.level)
+    if prepared and not row.prepared and len(leveled) >= cap:
+        raise ValueError(f"You can have {cap} spells prepared. Unprepare one first.")
+    was = bool(row.prepared)
+    spellcasting_service.set_prepared(db, row.id, prepared, _dm_email_for(db, pc_id))
+    count = len(leveled) + (1 if prepared and not was else 0) - (1 if was and not prepared else 0)
+    return {"id": str(row.id), "prepared": prepared, "count": count, "cap": cap}
+
+
+def set_player_notes(db: Session, pc_id: uuid.UUID, text: str) -> dict[str, Any]:
+    """Save the player's private notes (Plan 122). The DM's screens never show them.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC.
+        text: The notes (already length-checked by the request body).
+
+    Returns:
+        ``{"player_notes": text}``.
+
+    Raises:
+        LookupError: If the PC does not exist.
+    """
+    pc = _pc_or_lookup(db, pc_id)
+    pc.player_notes = text.strip() or None
+    db.add(pc)
+    db.commit()
+    return {"player_notes": pc.player_notes or ""}

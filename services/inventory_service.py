@@ -34,9 +34,9 @@ ATTUNEMENT_CAP = 3
 """Max items a PC may be attuned to (D&D 5e 2024 RAW)."""
 
 
-def _emit_inv_event(pc: PlayerCharacter) -> None:
-    """Publish pc.inventory.updated for a PC after a mutation."""
-    publish_pc_updated(pc.id, pc.campaign_id, kind="pc.inventory.updated")
+def _emit_inv_event(pc: PlayerCharacter, notice: Optional[str] = None) -> None:
+    """Publish pc.inventory.updated for a PC after a mutation (with an optional notice)."""
+    publish_pc_updated(pc.id, pc.campaign_id, kind="pc.inventory.updated", notice=notice)
 
 
 def _assert_pc_owner(db: Session, character_id: uuid.UUID, dm_email: str) -> PlayerCharacter:
@@ -111,6 +111,7 @@ def add_item(
     character_id: uuid.UUID,
     payload: CharacterItemCreate,
     dm_email: str,
+    notice: Optional[str] = None,
 ) -> CharacterItem:
     """Add an item to a PC's inventory.
 
@@ -124,6 +125,7 @@ def add_item(
         character_id: UUID of the PC.
         payload: Validated creation payload.
         dm_email: Email of the requesting DM.
+        notice: Optional sentence for the player's phone (Plan 122).
 
     Returns:
         The created or merged CharacterItem.
@@ -146,7 +148,7 @@ def add_item(
             existing,
             CharacterItemUpdate(quantity=existing.quantity + payload.quantity),
         )
-        _emit_inv_event(pc)
+        _emit_inv_event(pc, notice)
         return merged
 
     if payload.attuned:
@@ -157,7 +159,7 @@ def add_item(
             )
 
     created = CharacterItemRepo.create(db, character_id, payload)
-    _emit_inv_event(pc)
+    _emit_inv_event(pc, notice)
     return created
 
 
@@ -181,11 +183,13 @@ def add_handout(
     Returns:
         The created or merged inventory row.
     """
+    item = ItemRepo.get_by_id(db, item_id)
     return add_item(
         db,
         character_id,
         CharacterItemCreate(item_id=item_id, quantity=1),
         dm_email,
+        notice=f"The DM handed you {item.name}." if item else None,
     )
 
 

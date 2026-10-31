@@ -38,6 +38,8 @@ from domain.arena import (
     ArenaSlot,
     ArenaState,
     ArenaStats,
+    TurnKit,
+    TurnOption,
 )
 from domain.character import PlayerCharacter
 from integrations import arena_signing
@@ -921,6 +923,141 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
         metamagic=_metamagic(pc),
         wild_magic=bool(personal and cls == "sorcerer" and "wild" in (pc.subclass or "").lower()),
     )
+
+
+# ── The live table (Plan 122) ────────────────────────────────────────────────
+
+# The 2024 actions anyone can take instead of attacking.
+_BASIC_ACTIONS = [
+    "Dash",
+    "Disengage",
+    "Dodge",
+    "Help",
+    "Hide",
+    "Influence",
+    "Ready",
+    "Search",
+    "Study",
+    "Utilize",
+]
+_ABILITY_NAMES = {
+    "str": "Strength",
+    "dex": "Dexterity",
+    "con": "Constitution",
+    "int": "Intelligence",
+    "wis": "Wisdom",
+    "cha": "Charisma",
+}
+# Reaction spells the referee knows, by their rule key.
+_REACTION_SPELLS = {
+    "shield": ("Shield", "When you're hit: +5 AC until the start of your next turn."),
+    "hellish_rebuke": (
+        "Hellish Rebuke",
+        "When a creature damages you: it makes a DEX save or burns.",
+    ),
+}
+
+
+def _turn_option(a: ArenaAttack) -> TurnOption:
+    """One arena attack, as the phone shows it: to-hit or save, damage in plain dice."""
+    save = None
+    if a.save_ability and a.save_dc:
+        save = f"DC {a.save_dc} {_ABILITY_NAMES.get(a.save_ability[:3].lower(), a.save_ability)}"
+    damage = "" if a.damage in ("", "0") else a.damage
+    return TurnOption(
+        key=a.key,
+        name=a.name,
+        kind=a.kind,
+        to_hit=None if save else a.hit_bonus,
+        save=save,
+        damage=damage,
+        damage_type=a.damage_type if damage else "",
+        spell_level=a.spell_level,
+        note=a.note,
+    )
+
+
+def _live_tips(apc: ArenaPc) -> list[str]:
+    """The coach's reminders for a real turn: what a newer player forgets, by what they have."""
+    cls = apc.character_class.lower()
+    ready = {f.key for f in apc.features if f.uses_left > 0}
+    tips: list[str] = []
+    if apc.sneak_dice:
+        tips.append(
+            f"Sneak Attack: once per turn, add {apc.sneak_dice}d6 to a hit when you have "
+            "advantage, or a friend stands next to your target."
+        )
+    if cls == "rogue" and apc.level >= 2:
+        tips.append("Cunning Action: Dash, Disengage or Hide as your bonus action.")
+    if "rage" in ready:
+        tips.append("Rage is a bonus action: do it before you attack.")
+    if "second_wind" in ready:
+        tips.append("Second Wind is a bonus action: heal yourself when you're below half.")
+    if "action_surge" in ready:
+        tips.append("Action Surge gives you a whole second action this turn.")
+    if apc.attacks_per_action > 1:
+        tips.append(
+            f"Extra Attack: the Attack action lets you attack {apc.attacks_per_action} times."
+        )
+    if any(a.effect == "divine_smite" for a in apc.attacks):
+        tips.append("Divine Smite: after a melee hit, spend a slot for extra radiant damage.")
+    if any(a.kind == "cantrip" for a in apc.attacks):
+        tips.append("Cantrips never run out: cast them as often as you like.")
+    if any(a.cost == "bonus" and a.spell_level > 0 for a in apc.attacks):
+        tips.append(
+            "Spend a slot on a bonus-action spell and you can't spend another slot this turn."
+        )
+    return tips[:4]
+
+
+def turn_kit(db: Session, pc: PlayerCharacter, dm_email: str) -> TurnKit:
+    """What this character can do on a turn at the real table, grouped by cost (Plan 122).
+
+    The same snapshot the Arena referees with, so the phone's to-hit and damage
+    match practice fights. Nothing is written.
+
+    Args:
+        db: Active database session.
+        pc: The player character.
+        dm_email: The owning DM (feature and spell rows are DM-scoped).
+
+    Returns:
+        The turn kit.
+    """
+    apc = _build_pc(db, pc, dm_email)
+    kit = TurnKit(speed=pc.speed or 30, basic_actions=list(_BASIC_ACTIONS), tips=_live_tips(apc))
+    for a in apc.attacks:
+        getattr(kit, a.cost).append(_turn_option(a))
+    for f in apc.features:
+        getattr(kit, f.cost).append(
+            TurnOption(key=f.key, name=f.name, kind="feature", uses_left=f.uses_left, note=f.blurb)
+        )
+    if _class_of(pc) == "rogue" and pc.level >= 2:
+        kit.bonus.insert(
+            0,
+            TurnOption(
+                key="cunning_action",
+                name="Cunning Action",
+                kind="feature",
+                note="Dash, Disengage or Hide.",
+            ),
+        )
+    kit.reaction.insert(
+        0,
+        TurnOption(
+            key="opportunity_attack",
+            name="Opportunity Attack",
+            kind="basic",
+            note="When an enemy you can see leaves your reach, make one melee attack.",
+        ),
+    )
+    for feat in apc.feats:
+        if feat.startswith("reaction:"):
+            name, note = _REACTION_SPELLS.get(feat.split(":", 1)[1], (feat.split(":", 1)[1], ""))
+            kit.reaction.append(
+                TurnOption(key=f"r-{name.lower()}", name=name, kind="spell", note=note)
+            )
+    return kit
 
 
 # ── Foe catalog ──────────────────────────────────────────────────────────────
