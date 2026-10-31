@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Dices, RotateCcw } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { charactersApi } from "../../api/characters";
@@ -26,7 +27,7 @@ function fmt(n: number): string {
  * Visual pip chain — one per total HD = level. Filled = available, empty
  * = spent. Click an available pip to open the spend flow:
  *
- *   1. Reminds the player to roll a real dN (or 🎲 digital fallback)
+ *   1. Reminds the player to roll a real dN (or a digital fallback)
  *   2. Enter the die result; total = result + CON mod is computed live
  *   3. "Apply" spends 1 HD AND applies the healing in two atomic calls
  *
@@ -109,14 +110,13 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
       >
         <h4
           style={{
-            fontSize: "0.7rem",
+            fontSize: "0.9375rem",
+            fontWeight: 600,
             margin: 0,
-            color: "var(--muted)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
+            color: "var(--text)",
           }}
         >
-          Hit Dice
+          Hit dice
         </h4>
         <InfoTip title="Hit Dice (short-rest healing)">
           Each PC has one Hit Die per level (this PC: d{dieSize}).{"\n\n"}
@@ -126,8 +126,8 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
           Half (min 1) recover on a long rest. Click an available pip
           below to roll one now.
         </InfoTip>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}>
-          <strong style={{ color: "var(--gold)" }}>{available}</strong>
+        <span className="num" style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
+          <strong style={{ color: "var(--text)", fontWeight: 600 }}>{available}</strong>
           /{total} · d{dieSize}
         </span>
       </div>
@@ -161,27 +161,37 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
                     ? "Spent"
                     : "Spent — click to restore (DM override)"
               }
-              style={{
-                width: 24,
-                height: 24,
-                padding: 0,
-                borderRadius: 4,
-                border: isFilled
-                  ? "1px solid var(--gold)"
+              aria-label={
+                isFilled
+                  ? `Spend a hit die (d${dieSize})`
                   : restoreClickable
-                    ? "1px dashed var(--gold)"
-                    : "1px solid var(--gold)",
-                background: isFilled ? "var(--gold)" : "transparent",
+                    ? "Restore a spent hit die"
+                    : "Spent hit die"
+              }
+              style={{
+                width: 28,
+                height: 28,
+                padding: 0,
+                borderRadius: 6,
+                border: isFilled
+                  ? "1px solid var(--teal)"
+                  : restoreClickable
+                    ? "1px dashed var(--border2)"
+                    : "1px solid var(--border2)",
+                background: isFilled ? "var(--teal-soft)" : "transparent",
                 cursor: clickable ? "pointer" : "default",
-                color: "var(--bg, #1a1a1a)",
-                fontSize: "0.65rem",
-                fontWeight: 700,
+                color: isFilled ? "var(--teal-text)" : "var(--muted)",
+                fontSize: "0.75rem",
+                fontWeight: 600,
                 fontFamily: "var(--font-mono)",
                 lineHeight: 1,
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
                 opacity: !isFilled && !restoreClickable ? 0.55 : 1,
               }}
             >
-              {isFilled ? `d${dieSize}` : restoreClickable ? "↺" : ""}
+              {isFilled ? `d${dieSize}` : restoreClickable ? <RotateCcw size={12} /> : ""}
             </button>
           );
         })}
@@ -193,20 +203,23 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
             marginTop: "0.6rem",
             padding: "0.6rem 0.75rem",
             background: "var(--surface2)",
-            border: "1px solid var(--gold)",
-            borderRadius: 6,
+            border: "1px solid var(--border2)",
+            borderRadius: 8,
           }}
         >
           <div
             style={{
-              fontSize: "0.72rem",
-              color: "var(--muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
-              marginBottom: "0.4rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              fontSize: "0.875rem",
+              color: "var(--text2)",
+              marginBottom: "0.45rem",
             }}
           >
-            🎲 Roll 1d{dieSize} + CON {fmt(conMod)}
+            <Dices size={15} style={{ color: "var(--muted)" }} />
+            Roll <span className="num">1d{dieSize}</span> + Constitution modifier{" "}
+            <span className="num">({fmt(conMod)})</span>
           </div>
           <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}>
             <input
@@ -221,39 +234,35 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
                 if (e.key === "Escape") setFlowOpen(false);
               }}
               placeholder="?"
+              aria-label={`Hit die result (1–${dieSize})`}
+              className="num"
               style={{
                 width: 70,
                 fontSize: "1.2rem",
-                fontFamily: "var(--font-mono)",
-                fontWeight: 700,
+                fontWeight: 600,
                 textAlign: "center",
                 padding: "0.25rem 0.4rem",
-                background: "var(--surface)",
-                border: "1px solid var(--gold)",
-                borderRadius: 4,
-                color: "var(--text)",
               }}
             />
             <button
               onClick={rollDigital}
               className="btn btn-ghost"
-              style={{ fontSize: "0.72rem", padding: "0.25rem 0.55rem" }}
+              style={{ fontSize: "0.8125rem", padding: "0.25rem 0.6rem", minHeight: 0 }}
               title="Roll a digital die instead"
             >
-              🎲 Digital
+              <Dices size={14} /> Digital
             </button>
             <span
               style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "0.95rem",
-                color: totalHeal !== null ? "var(--green2, #4caf50)" : "var(--muted)",
-                fontWeight: 700,
+                fontSize: "0.9375rem",
+                color: totalHeal !== null ? "var(--teal-text)" : "var(--muted)",
+                fontWeight: 600,
               }}
             >
-              Heal {totalHeal !== null ? `+${totalHeal}` : "—"}
+              Heal <span className="num">{totalHeal !== null ? `+${totalHeal}` : "—"}</span>
             </span>
             {valid && (
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--muted)" }}>
+              <span className="num" style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>
                 ({value} + {fmt(conMod)})
               </span>
             )}
@@ -262,9 +271,9 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
               onClick={handleApply}
               disabled={totalHeal === null || spend.isPending}
               className="btn btn-primary"
-              style={{ fontSize: "0.78rem", padding: "0.3rem 0.7rem" }}
+              style={{ fontSize: "0.875rem", padding: "0.3rem 0.8rem", minHeight: 0 }}
             >
-              Apply heal &amp; spend 1 HD
+              Heal and spend 1 hit die
             </button>
             <button
               onClick={() => {
@@ -272,7 +281,7 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
                 setDieResult("");
               }}
               className="btn btn-ghost"
-              style={{ fontSize: "0.72rem", padding: "0.3rem 0.55rem" }}
+              style={{ fontSize: "0.8125rem", padding: "0.3rem 0.6rem", minHeight: 0 }}
             >
               Cancel
             </button>
@@ -280,8 +289,8 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
           {spend.isError && (
             <div
               style={{
-                fontSize: "0.75rem",
-                color: "var(--red, #ef5350)",
+                fontSize: "0.8125rem",
+                color: "var(--danger-text)",
                 marginTop: "0.3rem",
               }}
             >
@@ -294,13 +303,13 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
       {!flowOpen && (
         <p
           style={{
-            fontSize: "0.7rem",
+            fontSize: "0.8125rem",
             color: "var(--muted)",
-            margin: "0.4rem 0 0",
+            margin: "0.45rem 0 0",
           }}
         >
-          Short rest: click an available pip → roll d{dieSize} + CON {fmt(conMod)} → apply heal.
-          Long rest restores half (min 1).
+          On a short rest, click a die to heal d{dieSize} + Constitution modifier ({fmt(conMod)}).
+          A long rest gives back half (at least 1).
         </p>
       )}
     </div>

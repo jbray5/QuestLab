@@ -1,5 +1,17 @@
 import { useMemo, useState } from "react";
+import { BookOpen, ChevronDown, ChevronRight, Moon, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+import {
+  PANEL_HEAD_STYLE,
+  PANEL_ROW_STYLE,
+  PANEL_STYLE,
+  PANEL_TITLE_STYLE,
+  REMOVE_BTN,
+  SMALL_BTN,
+  pipStyle,
+  toggleStyle,
+} from "./character-sheet/panelStyles";
 
 import { spellcastingApi } from "../api/spellcasting";
 import { spellsApi } from "../api/spells";
@@ -168,24 +180,26 @@ export default function SpellPanel({
     : [];
 
   return (
-    <div className="card" style={{ marginTop: "0.5rem" }}>
-      <div
-        className="flex items-center"
-        style={{ justifyContent: "space-between", cursor: "pointer" }}
-        onClick={() => setOpen((p) => !p)}
-      >
-        <h4 style={{ margin: 0, fontSize: "0.9rem" }}>
-          📖 Spells{open && known.length > 0 ? ` (${known.length})` : ""}
+    <div style={PANEL_STYLE}>
+      <div style={PANEL_HEAD_STYLE} onClick={() => setOpen((p) => !p)}>
+        <h4 style={PANEL_TITLE_STYLE}>
+          <BookOpen size={16} style={{ color: "var(--muted)" }} />
+          Spells
+          {open && known.length > 0 && (
+            <span className="num" style={{ color: "var(--muted)", fontWeight: 400 }}>{known.length}</span>
+          )}
         </h4>
-        <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-          {open ? "▾" : "▸"}
-        </span>
+        {open ? (
+          <ChevronDown size={16} style={{ color: "var(--muted)" }} />
+        ) : (
+          <ChevronRight size={16} style={{ color: "var(--muted)" }} />
+        )}
       </div>
 
       {open && (
         <div style={{ marginTop: "0.6rem" }}>
           {error && (
-            <p style={{ color: "var(--red)", fontSize: "0.8rem", marginBottom: "0.5rem" }}>
+            <p style={{ color: "var(--danger-text)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
               {error}
             </p>
           )}
@@ -210,24 +224,24 @@ export default function SpellPanel({
                 return (
                   <div
                     key={lvl}
+                    title={`Level ${lvl} spell slots: ${s.remaining} of ${s.max} left`}
                     style={{
                       display: "flex",
-                      gap: "0.25rem",
+                      gap: "0.3rem",
                       alignItems: "center",
-                      padding: "0.25rem 0.4rem",
+                      padding: "0.25rem 0.5rem",
                       background: "var(--surface2)",
-                      borderRadius: 4,
+                      borderRadius: 6,
                     }}
                   >
                     <span
                       style={{
-                        fontSize: "0.7rem",
-                        color: "var(--gold)",
-                        fontWeight: 700,
-                        minWidth: 16,
+                        fontSize: "0.8125rem",
+                        color: "var(--muted)",
+                        marginRight: "0.1rem",
                       }}
                     >
-                      L{lvl}
+                      Level <span className="num">{lvl}</span>
                     </span>
                     {/* Filled pips for remaining; hollow for used */}
                     {Array.from({ length: s.max }).map((_, i) => {
@@ -241,15 +255,8 @@ export default function SpellPanel({
                             else restoreMutation.mutate(lvl);
                           }}
                           title={filled ? "Click to spend" : "Click to restore"}
-                          style={{
-                            width: 14,
-                            height: 14,
-                            borderRadius: "50%",
-                            border: "1px solid var(--gold)",
-                            background: filled ? "var(--gold)" : "transparent",
-                            cursor: "pointer",
-                            padding: 0,
-                          }}
+                          aria-label={filled ? `Spend a level ${lvl} slot` : `Restore a level ${lvl} slot`}
+                          style={pipStyle(filled)}
                         />
                       );
                     })}
@@ -258,12 +265,12 @@ export default function SpellPanel({
               })}
               <button
                 className="btn btn-ghost"
-                style={{ fontSize: "0.65rem", padding: "0.15rem 0.5rem" }}
+                style={SMALL_BTN}
                 onClick={() => longRestMutation.mutate()}
                 disabled={longRestMutation.isPending}
                 title="Restore all spell slots"
               >
-                🌙 Long rest
+                <Moon size={14} /> Long rest
               </button>
             </div>
           )}
@@ -287,15 +294,16 @@ export default function SpellPanel({
               <div key={lvl} style={{ marginTop: "0.5rem" }}>
                 <strong
                   style={{
-                    fontSize: "0.7rem",
-                    color: "var(--gold)",
+                    fontSize: "0.8125rem",
+                    fontWeight: 600,
+                    color: "var(--muted)",
                     display: "block",
                     marginBottom: "0.25rem",
                   }}
                 >
                   {lvl === 0 ? "Cantrips" : `Level ${lvl}`}
                 </strong>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                   {knownByLevel[lvl].map((row) => {
                     const s = spellsById[row.spell_id];
                     const name = s?.name ?? row.spell_id.slice(0, 8) + "…";
@@ -304,10 +312,9 @@ export default function SpellPanel({
                       <div
                         key={row.id}
                         style={{
-                          background: "var(--surface2)",
-                          border: "1px solid var(--border)",
-                          borderRadius: 4,
-                          fontSize: "0.8rem",
+                          ...PANEL_ROW_STYLE,
+                          display: "block",
+                          padding: 0,
                           overflow: "hidden",
                         }}
                       >
@@ -316,7 +323,7 @@ export default function SpellPanel({
                             display: "flex",
                             alignItems: "center",
                             gap: "0.4rem",
-                            padding: "0.3rem 0.5rem",
+                            padding: "0.3rem 0.4rem 0.3rem 0.55rem",
                           }}
                         >
                           <button
@@ -340,22 +347,18 @@ export default function SpellPanel({
                               gap: "0.35rem",
                             }}
                             title={expanded ? "Hide details" : "Show details"}
+                            aria-expanded={expanded}
                           >
-                            <span
-                              style={{
-                                color: "var(--muted)",
-                                fontSize: "0.7rem",
-                                width: "0.7rem",
-                                display: "inline-block",
-                              }}
-                            >
-                              {expanded ? "▾" : "▸"}
-                            </span>
+                            {expanded ? (
+                              <ChevronDown size={14} style={{ color: "var(--muted)" }} />
+                            ) : (
+                              <ChevronRight size={14} style={{ color: "var(--muted)" }} />
+                            )}
                             <span>{name}</span>
                           </button>
                           <button
                             className="btn btn-secondary"
-                            style={{ fontSize: "0.65rem", padding: "0.15rem 0.45rem" }}
+                            style={SMALL_BTN}
                             onClick={() => {
                               if (lvl > 0) expendMutation.mutate(lvl);
                               noteCast(s);
@@ -365,8 +368,9 @@ export default function SpellPanel({
                             Cast
                           </button>
                           <button
-                            className={`btn ${row.prepared ? "btn-primary" : "btn-ghost"}`}
-                            style={{ fontSize: "0.65rem", padding: "0.15rem 0.45rem" }}
+                            className="btn btn-secondary"
+                            style={toggleStyle(row.prepared)}
+                            aria-pressed={row.prepared}
                             onClick={() =>
                               togglePreparedMutation.mutate({
                                 rowId: row.id,
@@ -379,23 +383,20 @@ export default function SpellPanel({
                                 : "Click to prepare"
                             }
                           >
-                            {row.prepared ? "Prepped" : "Prep"}
+                            {row.prepared ? "Prepared" : "Prepare"}
                           </button>
                           <button
                             className="btn btn-ghost"
-                            style={{
-                              fontSize: "0.65rem",
-                              padding: "0.15rem 0.4rem",
-                              opacity: 0.5,
-                            }}
+                            style={REMOVE_BTN}
                             onClick={() => {
                               if (window.confirm(`Forget ${name} for ${characterName}?`)) {
                                 forgetMutation.mutate(row.id);
                               }
                             }}
                             title="Forget this spell"
+                            aria-label={`Forget ${name}`}
                           >
-                            ✕
+                            <X size={15} />
                           </button>
                         </div>
                         {expanded && s && <SpellDetails spell={s} />}
@@ -410,15 +411,16 @@ export default function SpellPanel({
           <div
             style={{
               marginTop: "0.75rem",
-              paddingTop: "0.5rem",
-              borderTop: "1px dashed var(--border)",
+              paddingTop: "0.6rem",
+              borderTop: "1px solid var(--border)",
             }}
           >
             <input
               placeholder={`Search ${characterClass} spells to learn…`}
+              aria-label={`Search ${characterClass} spells to learn`}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ width: "100%", fontSize: "0.8rem" }}
+              style={{ width: "100%", fontSize: "0.875rem" }}
             />
             {search.trim().length >= 1 && (
               <div
@@ -441,16 +443,18 @@ export default function SpellPanel({
                     disabled={learnMutation.isPending}
                     className="btn btn-ghost"
                     style={{
-                      fontSize: "0.75rem",
-                      padding: "0.2rem 0.45rem",
+                      fontSize: "0.875rem",
+                      padding: "0.25rem 0.55rem",
+                      minHeight: 0,
+                      border: "none",
                       textAlign: "left",
                       display: "flex",
                       justifyContent: "space-between",
                     }}
                   >
                     <span>+ {s.name}</span>
-                    <span style={{ color: "var(--muted)", fontSize: "0.65rem" }}>
-                      {s.level === 0 ? "Cantrip" : `Lvl ${s.level} ${s.school}`}
+                    <span style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
+                      {s.level === 0 ? "Cantrip" : `Level ${s.level} ${s.school}`}
                     </span>
                   </button>
                 ))}
@@ -473,83 +477,64 @@ function SpellDetails({ spell }: { spell: Spell }) {
   if (spell.is_ritual) tags.push("Ritual");
   if (spell.is_concentration) tags.push("Concentration");
 
+  const fact = (label: string, value: React.ReactNode) => (
+    <span>
+      <span style={{ color: "var(--muted)" }}>{label}</span>{" "}
+      <span style={{ color: "var(--text)" }}>{value}</span>
+    </span>
+  );
+  const factsRow: React.CSSProperties = {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: "0.35rem 1rem",
+    marginBottom: "0.5rem",
+    fontSize: "0.8125rem",
+  };
+
   return (
     <div
       style={{
-        borderTop: "1px dashed var(--border)",
-        background: "var(--surface, #1a1a1a)",
-        padding: "0.6rem 0.75rem",
-        fontSize: "0.78rem",
-        lineHeight: 1.45,
-        color: "var(--text)",
+        borderTop: "1px solid var(--border)",
+        background: "var(--surface)",
+        padding: "0.65rem 0.75rem",
+        fontSize: "0.875rem",
+        lineHeight: 1.5,
+        color: "var(--text2)",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "0.4rem 1rem",
-          marginBottom: "0.5rem",
-          fontSize: "0.72rem",
-          color: "var(--muted)",
-        }}
-      >
-        <span>
-          <strong style={{ color: "var(--gold)" }}>Level:</strong>{" "}
-          {spell.level === 0 ? "Cantrip" : spell.level} · {spell.school}
-        </span>
-        <span>
-          <strong style={{ color: "var(--gold)" }}>Cast:</strong>{" "}
-          {spell.casting_time}
-        </span>
-        <span>
-          <strong style={{ color: "var(--gold)" }}>Range:</strong>{" "}
-          {spell.range}
-        </span>
-        <span>
-          <strong style={{ color: "var(--gold)" }}>Duration:</strong>{" "}
-          {spell.duration}
-        </span>
-        <span>
-          <strong style={{ color: "var(--gold)" }}>Components:</strong>{" "}
-          {components.length > 0 ? components.join(", ") : "—"}
-        </span>
-        {tags.length > 0 && (
-          <span style={{ color: "var(--accent, #d4a73a)" }}>
-            {tags.join(" · ")}
+      <div style={factsRow}>
+        {fact("Level", `${spell.level === 0 ? "Cantrip" : spell.level} · ${spell.school}`)}
+        {fact("Casting time", spell.casting_time)}
+        {fact("Range", spell.range)}
+        {fact("Duration", spell.duration)}
+        {fact("Components", components.length > 0 ? components.join(", ") : "—")}
+        {tags.map((t) => (
+          <span
+            key={t}
+            className={t === "Concentration" ? "pill pill-amber" : "pill"}
+            title={
+              t === "Concentration"
+                ? "The caster must keep focus; taking damage calls for a Constitution save, and casting another concentration spell ends this one"
+                : "Can be cast as a ritual: 10 minutes longer, no spell slot"
+            }
+          >
+            {t}
           </span>
-        )}
+        ))}
       </div>
       {(spell.damage_dice || spell.attack_type || spell.save_ability) && (
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "0.4rem 1rem",
-            marginBottom: "0.5rem",
-            fontSize: "0.72rem",
-            color: "var(--muted)",
-          }}
-        >
-          {spell.damage_dice && (
-            <span>
-              <strong style={{ color: "var(--gold)" }}>Damage:</strong>{" "}
-              {spell.damage_dice}
-              {spell.damage_type ? ` ${spell.damage_type}` : ""}
-            </span>
-          )}
-          {spell.attack_type && (
-            <span>
-              <strong style={{ color: "var(--gold)" }}>Attack:</strong>{" "}
-              {spell.attack_type}
-            </span>
-          )}
-          {spell.save_ability && (
-            <span>
-              <strong style={{ color: "var(--gold)" }}>Save:</strong>{" "}
-              {spell.save_ability}
-            </span>
-          )}
+        <div style={factsRow}>
+          {spell.damage_dice &&
+            fact(
+              "Damage",
+              <span className="num">
+                {spell.damage_dice}
+                {spell.damage_type ? ` ${spell.damage_type}` : ""}
+              </span>,
+            )}
+          {spell.attack_type && fact("Attack", spell.attack_type)}
+          {spell.save_ability && fact("Saving throw", spell.save_ability)}
         </div>
       )}
       <div style={{ whiteSpace: "pre-wrap" }}>{spell.description}</div>
@@ -557,12 +542,11 @@ function SpellDetails({ spell }: { spell: Spell }) {
         <div
           style={{
             marginTop: "0.5rem",
-            paddingTop: "0.4rem",
-            borderTop: "1px dotted var(--border)",
-            fontSize: "0.74rem",
+            paddingTop: "0.45rem",
+            borderTop: "1px solid var(--border)",
           }}
         >
-          <strong style={{ color: "var(--gold)" }}>At higher levels:</strong>{" "}
+          <strong style={{ color: "var(--text)", fontWeight: 600 }}>At higher levels.</strong>{" "}
           <span style={{ whiteSpace: "pre-wrap" }}>{spell.higher_levels}</span>
         </div>
       )}

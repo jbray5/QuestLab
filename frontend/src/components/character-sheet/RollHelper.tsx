@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Dices, X } from "lucide-react";
 
 import Confetti from "../Confetti";
 import { useGatedSfx } from "../../hooks/useDicePrefs";
@@ -41,11 +42,11 @@ function fmt(n: number): string {
  *      - dis: two d20 inputs; total uses the lower
  *   3. Live-updating total as they type
  *   4. Crit / fumble color hints when the selected d20 is 1 or 20
- *   5. "🎲 Roll digital" fallback button(s)
+ *   5. "Roll digital" (dice icon) fallback button(s)
  *   6. Optional pass/fail hint if a DC was provided
  *   7. Optional damage formula for attacks (real damage dice rolled by hand)
  *
- * Closes on ESC, click-outside, or the ✕ button.
+ * Closes on ESC, click-outside, or the close button.
  */
 export default function RollHelper({ context, onClose }: Props) {
   // Guard OUTSIDE the hook-bearing component so hook order is always stable.
@@ -95,11 +96,13 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
   const total = selected !== null ? selected + context.mod : null;
   const isCrit = selected === 20;
   const isFumble = selected === 1;
+  // Lamplit: neutral until the die lands; a nat 20 reads teal, a nat 1 red.
   const accent = isCrit
-    ? "var(--green2, #4caf50)"
+    ? "var(--teal)"
     : isFumble
-      ? "var(--red, #ef5350)"
-      : "var(--gold)";
+      ? "var(--danger)"
+      : "var(--border2)";
+  const accentText = isCrit ? "var(--teal-text)" : isFumble ? "var(--danger-text)" : "var(--text)";
 
   // Plan 29 — fire confetti exactly once per nat-20, and shake the dialog
   // once per nat-1. Keying on `selected` triggers when the user lands on
@@ -148,16 +151,14 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
           position: "fixed",
           top: "1rem",
           right: "1rem",
-          background: "var(--surface, #1f1f1f)",
-          border: `2px solid ${accent}`,
-          borderRadius: 8,
+          background: "var(--surface)",
+          border: `1px solid ${accent}`,
+          borderRadius: 10,
           padding: "0.85rem 1.1rem",
           zIndex: 9999,
           minWidth: 300,
-          maxWidth: 380,
-          boxShadow: isCrit
-            ? "0 0 28px rgba(76, 175, 80, 0.55), 0 6px 28px rgba(0,0,0,0.65)"
-            : "0 6px 28px rgba(0,0,0,0.65)",
+          maxWidth: "min(380px, calc(100vw - 2rem))",
+          boxShadow: "0 10px 28px rgba(0,0,0,0.55)",
           fontFamily: "inherit",
           animation: isFumble ? "ql-shake 500ms ease-in-out 1 both" : undefined,
         }}
@@ -166,30 +167,24 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
       >
         <div
           className="flex items-center"
-          style={{ justifyContent: "space-between", marginBottom: "0.35rem" }}
+          style={{ justifyContent: "space-between", marginBottom: "0.35rem", flexWrap: "nowrap" }}
         >
-          <strong style={{ color: accent, fontSize: "0.95rem" }}>{context.label}</strong>
+          <strong style={{ color: "var(--text)", fontSize: "1rem", fontWeight: 600 }}>{context.label}</strong>
           <button
             onClick={onClose}
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "var(--muted)",
-              cursor: "pointer",
-              fontSize: "1.1rem",
-              padding: 0,
-              lineHeight: 1,
-            }}
+            className="btn btn-ghost"
+            style={{ border: "none", padding: "0.2rem", minHeight: 0, color: "var(--muted)" }}
             title="Close (Esc)"
+            aria-label="Close roll helper"
           >
-            ×
+            <X size={16} />
           </button>
         </div>
 
         {context.breakdown && (
           <p
             style={{
-              fontSize: "0.72rem",
+              fontSize: "0.8125rem",
               color: "var(--muted)",
               margin: "0 0 0.5rem",
             }}
@@ -200,7 +195,7 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
 
         <div
           style={{
-            fontSize: "0.7rem",
+            fontSize: "0.8125rem",
             color: "var(--muted)",
             marginBottom: "0.3rem",
           }}
@@ -208,11 +203,11 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
           Modifier
         </div>
         <div
+          className="num"
           style={{
             fontSize: "1.6rem",
-            fontWeight: 700,
-            color: "var(--gold)",
-            fontFamily: "var(--font-mono)",
+            fontWeight: 600,
+            color: "var(--text)",
             marginBottom: "0.55rem",
             lineHeight: 1,
           }}
@@ -242,20 +237,26 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
                   setMode(m);
                   if (m === "normal") setD20b("");
                 }}
+                title={
+                  m === "normal"
+                    ? "One d20"
+                    : m === "adv"
+                      ? "Advantage: roll two d20s, keep the higher"
+                      : "Disadvantage: roll two d20s, keep the lower"
+                }
                 style={{
-                  fontSize: "0.7rem",
-                  padding: "0.3rem 0.4rem",
-                  background: isActive ? "var(--gold)" : "var(--surface2)",
-                  color: isActive ? "var(--bg, #1a1a1a)" : "var(--text)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 4,
+                  fontSize: "0.8125rem",
+                  padding: "0.3rem 0.25rem",
+                  background: isActive ? "var(--accent-active)" : "transparent",
+                  color: isActive ? "var(--accent-active-text)" : "var(--text2)",
+                  border: `1px solid ${isActive ? "var(--accent-line)" : "var(--border2)"}`,
+                  borderRadius: 6,
                   cursor: "pointer",
-                  fontWeight: 600,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
+                  fontWeight: 500,
+                  fontFamily: "inherit",
                 }}
               >
-                {m === "normal" ? "Normal" : m === "adv" ? "Adv" : "Dis"}
+                {m === "normal" ? "Normal" : m === "adv" ? "Advantage" : "Disadvantage"}
               </button>
             );
           })}
@@ -264,17 +265,15 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
         <label
           style={{
             display: "block",
-            fontSize: "0.7rem",
-            color: "var(--muted)",
-            marginBottom: "0.2rem",
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
+            fontSize: "0.8125rem",
+            color: "var(--text2)",
+            marginBottom: "0.25rem",
           }}
         >
           {mode === "normal" ? "Your real d20 result" : "Your two real d20 results"}
         </label>
 
-        <div className="flex" style={{ gap: "0.4rem", alignItems: "center" }}>
+        <div className="flex" style={{ gap: "0.4rem", alignItems: "center", flexWrap: "nowrap" }}>
           <input
             ref={inputRef}
             type="number"
@@ -283,19 +282,22 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
             value={d20a}
             onChange={(e) => setD20a(clamp(e.target.value))}
             placeholder="?"
+            aria-label="d20 result"
+            className="num"
             style={dieInputStyle(accent)}
           />
           <button
             onClick={rollDigitalA}
             className="btn btn-ghost"
-            style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem" }}
+            style={{ padding: "0.3rem 0.45rem", minHeight: 0 }}
             title="Roll a digital d20 instead"
+            aria-label="Roll a digital d20"
           >
-            🎲
+            <Dices size={16} />
           </button>
           {mode !== "normal" && (
             <>
-              <span style={{ color: "var(--muted)", fontWeight: 700 }}>
+              <span style={{ color: "var(--muted)", fontWeight: 700 }} aria-hidden="true">
                 {mode === "adv" ? "▲" : "▼"}
               </span>
               <input
@@ -305,15 +307,18 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
                 value={d20b}
                 onChange={(e) => setD20b(clamp(e.target.value))}
                 placeholder="?"
+                aria-label="Second d20 result"
+                className="num"
                 style={dieInputStyle(accent)}
               />
               <button
                 onClick={rollDigitalB}
                 className="btn btn-ghost"
-                style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem" }}
+                style={{ padding: "0.3rem 0.45rem", minHeight: 0 }}
                 title="Roll a digital d20 instead"
+                aria-label="Roll a second digital d20"
               >
-                🎲
+                <Dices size={16} />
               </button>
             </>
           )}
@@ -324,31 +329,29 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
           style={{
             marginTop: "0.75rem",
             paddingTop: "0.5rem",
-            borderTop: `1px solid ${selected !== null ? accent : "var(--border)"}`,
+            borderTop: "1px solid var(--border)",
           }}
         >
           <div
             style={{
-              fontSize: "0.7rem",
+              fontSize: "0.8125rem",
               color: "var(--muted)",
-              marginBottom: "0.15rem",
-              textTransform: "uppercase",
-              letterSpacing: "0.05em",
+              marginBottom: "0.2rem",
             }}
           >
             Total
             {mode !== "normal" && (
-              <span style={{ marginLeft: 6, color: accent, fontWeight: 700 }}>
-                ({mode === "adv" ? "higher" : "lower"})
+              <span style={{ marginLeft: 6, color: "var(--text2)" }}>
+                (keeps the {mode === "adv" ? "higher" : "lower"} die)
               </span>
             )}
           </div>
           <div
+            className="num"
             style={{
               fontSize: "2.2rem",
-              fontWeight: 700,
-              color: total !== null ? accent : "var(--muted)",
-              fontFamily: "var(--font-mono)",
+              fontWeight: 600,
+              color: total !== null ? accentText : "var(--muted)",
               lineHeight: 1,
             }}
           >
@@ -356,11 +359,11 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
           </div>
           {selected !== null && (
             <div
+              className="num"
               style={{
-                fontSize: "0.75rem",
+                fontSize: "0.8125rem",
                 color: "var(--muted)",
-                marginTop: "0.2rem",
-                fontFamily: "var(--font-mono)",
+                marginTop: "0.25rem",
               }}
             >
               {selected} (d20) {context.mod >= 0 ? "+" : "−"} {Math.abs(context.mod)}
@@ -371,12 +374,12 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
             <div
               style={{
                 marginTop: "0.4rem",
-                fontSize: "0.8rem",
-                fontWeight: 700,
-                color: total >= context.dc ? "var(--green2, #4caf50)" : "var(--red, #ef5350)",
+                fontSize: "0.875rem",
+                fontWeight: 600,
+                color: total >= context.dc ? "var(--teal-text)" : "var(--danger-text)",
               }}
             >
-              {total >= context.dc ? `✓ Meets DC ${context.dc}` : `✗ Below DC ${context.dc}`}
+              {total >= context.dc ? `Meets DC ${context.dc}` : `Below DC ${context.dc}`}
             </div>
           )}
 
@@ -385,19 +388,19 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
               style={{
                 marginTop: "0.5rem",
                 textAlign: "center",
-                color: "var(--bg, #1a1a1a)",
-                background: "linear-gradient(90deg, var(--gold), #f4d068, var(--gold))",
+                color: "var(--teal-text)",
+                background: "var(--teal-soft)",
+                border: "1px solid var(--teal)",
                 fontWeight: 700,
-                fontSize: "0.95rem",
+                fontSize: "1rem",
                 padding: "0.35rem 0.5rem",
-                borderRadius: 6,
-                letterSpacing: "0.08em",
-                fontFamily: "var(--font-story)",
-                animation: "ql-crit-pulse 900ms ease-out both",
-                boxShadow: "0 0 16px rgba(214, 175, 54, 0.7)",
+                borderRadius: 8,
+                // A crit is a moment: the one place this panel moves. (ql-crit-pulse
+                // ends at opacity 0, which hid the banner after 0.9 s.)
+                animation: "ql-modal-in 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both",
               }}
             >
-              ✨ CRITICAL! ✨
+              Natural 20 — critical!
             </div>
           )}
           {isFumble && (
@@ -405,17 +408,16 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
               style={{
                 marginTop: "0.5rem",
                 textAlign: "center",
-                color: "#fff",
-                background: "linear-gradient(90deg, #6a0d0d, var(--red), #6a0d0d)",
+                color: "var(--danger-text)",
+                background: "var(--danger-soft)",
+                border: "1px solid var(--danger-line)",
                 fontWeight: 700,
-                fontSize: "0.9rem",
+                fontSize: "0.9375rem",
                 padding: "0.35rem 0.5rem",
-                borderRadius: 6,
-                letterSpacing: "0.08em",
-                fontFamily: "var(--font-story)",
+                borderRadius: 8,
               }}
             >
-              💀 Natural 1 — critical miss
+              Natural 1 — critical miss
             </div>
           )}
         </div>
@@ -424,16 +426,16 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
           <div
             style={{
               marginTop: "0.6rem",
-              padding: "0.45rem 0.6rem",
-              background: "rgba(139,26,26,0.18)",
-              borderLeft: "3px solid var(--crimson2, #8b1a1a)",
-              borderRadius: 4,
-              fontSize: "0.82rem",
+              padding: "0.5rem 0.65rem",
+              background: "var(--surface2)",
+              border: "1px solid var(--border)",
+              borderRadius: 8,
+              fontSize: "0.875rem",
             }}
           >
-            <strong style={{ color: "var(--gold)" }}>Damage:</strong>{" "}
-            <span style={{ fontFamily: "var(--font-mono)" }}>{context.damage}</span>
-            <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginTop: "0.15rem" }}>
+            <span style={{ color: "var(--muted)" }}>Damage</span>{" "}
+            <span className="num" style={{ color: "var(--text)" }}>{context.damage}</span>
+            <div style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: "0.2rem" }}>
               Roll real damage dice and add the modifier shown.
             </div>
           </div>
@@ -447,13 +449,10 @@ function dieInputStyle(accent: string): React.CSSProperties {
   return {
     width: 60,
     fontSize: "1.2rem",
-    fontFamily: "var(--font-mono)",
-    fontWeight: 700,
+    fontWeight: 600,
     textAlign: "center",
     padding: "0.25rem 0.4rem",
-    background: "var(--surface2)",
     border: `1px solid ${accent}`,
-    borderRadius: 4,
     color: "var(--text)",
   };
 }

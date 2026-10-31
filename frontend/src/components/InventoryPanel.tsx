@@ -1,10 +1,22 @@
 import { useMemo, useState } from "react";
+import { Backpack, ChevronDown, ChevronRight, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { inventoryApi } from "../api/inventory";
 import { itemsApi } from "../api/items";
 import type { MagicItem } from "../api/items";
 import type { CharacterItem } from "../api/types";
+
+import {
+  PANEL_HEAD_STYLE,
+  PANEL_ROW_STYLE,
+  PANEL_STYLE,
+  PANEL_TITLE_STYLE,
+  REMOVE_BTN,
+  rarityClass,
+  rarityLabel,
+  toggleStyle,
+} from "./character-sheet/panelStyles";
 
 interface Props {
   characterId: string;
@@ -103,47 +115,37 @@ export default function InventoryPanel({
     const rarity = item?.rarity ?? "Common";
 
     return (
-      <div
-        key={row.id}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.5rem",
-          padding: "0.4rem 0.6rem",
-          background: "var(--surface2)",
-          border: "1px solid var(--border)",
-          borderRadius: 4,
-        }}
-      >
-        <span style={{ flex: 1, fontSize: "0.85rem" }}>
+      <div key={row.id} style={{ ...PANEL_ROW_STYLE, flexWrap: "wrap" }}>
+        <span style={{ flex: "1 1 8rem", minWidth: 0 }}>
           {itemName}
           {row.quantity > 1 && (
-            <span style={{ color: "var(--muted)", marginLeft: "0.3rem" }}>
+            <span className="num" style={{ color: "var(--muted)", marginLeft: "0.3rem" }}>
               ×{row.quantity}
             </span>
           )}
         </span>
-        <span
-          className={`badge badge-${rarity === "Common" ? "draft" : "artifact"}`}
-          style={{ fontSize: "0.65rem" }}
-        >
-          {isWeapon ? "Weapon" : rarity}
+        <span className={isWeapon ? "badge badge-common" : rarityClass(rarity)}>
+          {isWeapon ? "Weapon" : rarityLabel(rarity)}
         </span>
         <input
           type="number"
           min={0}
           value={row.quantity}
+          aria-label={`Quantity of ${itemName}`}
+          title="Quantity"
+          className="num"
           onChange={(e) =>
             updateMutation.mutate({
               ciId: row.id,
               patch: { quantity: Math.max(0, Number(e.target.value)) },
             })
           }
-          style={{ width: 52, fontSize: "0.75rem", padding: "0.15rem 0.3rem" }}
+          style={{ width: 56, fontSize: "0.8125rem", padding: "0.15rem 0.35rem" }}
         />
         <button
-          className={`btn ${row.equipped ? "btn-primary" : "btn-ghost"}`}
-          style={{ fontSize: "0.65rem", padding: "0.15rem 0.45rem" }}
+          className="btn btn-secondary"
+          style={toggleStyle(row.equipped)}
+          aria-pressed={row.equipped}
           onClick={() =>
             updateMutation.mutate({ ciId: row.id, patch: { equipped: !row.equipped } })
           }
@@ -152,8 +154,9 @@ export default function InventoryPanel({
           {row.equipped ? "Equipped" : "Equip"}
         </button>
         <button
-          className={`btn ${row.attuned ? "btn-primary" : "btn-ghost"}`}
-          style={{ fontSize: "0.65rem", padding: "0.15rem 0.45rem" }}
+          className="btn btn-secondary"
+          style={toggleStyle(row.attuned)}
+          aria-pressed={row.attuned}
           onClick={() =>
             updateMutation.mutate({ ciId: row.id, patch: { attuned: !row.attuned } })
           }
@@ -167,50 +170,54 @@ export default function InventoryPanel({
         </button>
         <button
           className="btn btn-ghost"
-          style={{ fontSize: "0.65rem", padding: "0.15rem 0.4rem", opacity: 0.5 }}
+          style={REMOVE_BTN}
           onClick={() => {
             if (window.confirm(`Remove ${itemName} from ${characterName}?`)) {
               removeMutation.mutate(row.id);
             }
           }}
           title="Remove from inventory"
+          aria-label={`Remove ${itemName}`}
         >
-          ✕
+          <X size={15} />
         </button>
       </div>
     );
   }
 
   return (
-    <div className="card" style={{ marginTop: "0.75rem" }}>
-      <div
-        className="flex items-center"
-        style={{ justifyContent: "space-between", cursor: "pointer" }}
-        onClick={() => setOpen((p) => !p)}
-      >
-        <h4 style={{ margin: 0, fontSize: "0.9rem" }}>
-          📦 Inventory{open && rows.length > 0 ? ` (${rows.length})` : ""}
+    <div style={PANEL_STYLE}>
+      <div style={PANEL_HEAD_STYLE} onClick={() => setOpen((p) => !p)}>
+        <h4 style={PANEL_TITLE_STYLE}>
+          <Backpack size={16} style={{ color: "var(--muted)" }} />
+          Inventory
+          {open && rows.length > 0 && (
+            <span className="num" style={{ color: "var(--muted)", fontWeight: 400 }}>{rows.length}</span>
+          )}
           {open && attunedCount > 0 && (
             <span
               style={{
-                fontSize: "0.7rem",
-                marginLeft: "0.5rem",
-                color: attunedCount >= 3 ? "var(--red)" : "var(--muted)",
+                fontSize: "0.8125rem",
+                fontWeight: 400,
+                color: attunedCount >= 3 ? "var(--amber-text)" : "var(--muted)",
               }}
+              title="Magic items a character can be attuned to at once: 3"
             >
-              · Attuned {attunedCount}/3
+              · attuned <span className="num">{attunedCount}/3</span>
             </span>
           )}
         </h4>
-        <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-          {open ? "▾" : "▸"}
-        </span>
+        {open ? (
+          <ChevronDown size={16} style={{ color: "var(--muted)" }} />
+        ) : (
+          <ChevronRight size={16} style={{ color: "var(--muted)" }} />
+        )}
       </div>
 
       {open && (
         <div style={{ marginTop: "0.6rem" }}>
           {error && (
-            <p style={{ color: "var(--red)", fontSize: "0.8rem", marginBottom: "0.5rem" }}>
+            <p style={{ color: "var(--danger-text)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
               {error}
             </p>
           )}
@@ -237,15 +244,16 @@ export default function InventoryPanel({
           <div
             style={{
               marginTop: "0.75rem",
-              paddingTop: "0.5rem",
-              borderTop: "1px dashed var(--border)",
+              paddingTop: "0.6rem",
+              borderTop: "1px solid var(--border)",
             }}
           >
             <input
-              placeholder="Search compendium to add an item…"
+              placeholder="Search the compendium to add an item…"
+              aria-label="Search the compendium to add an item"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ width: "100%", fontSize: "0.8rem" }}
+              style={{ width: "100%", fontSize: "0.875rem" }}
             />
             {search.trim().length >= 2 && (
               <div
@@ -271,16 +279,18 @@ export default function InventoryPanel({
                     disabled={addMutation.isPending}
                     className="btn btn-ghost"
                     style={{
-                      fontSize: "0.75rem",
-                      padding: "0.2rem 0.45rem",
+                      fontSize: "0.875rem",
+                      padding: "0.25rem 0.55rem",
+                      minHeight: 0,
+                      border: "none",
                       textAlign: "left",
                       display: "flex",
                       justifyContent: "space-between",
                     }}
                   >
                     <span>+ {h.name}</span>
-                    <span style={{ color: "var(--muted)", fontSize: "0.65rem" }}>
-                      {h.rarity}
+                    <span style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
+                      {rarityLabel(h.rarity)}
                     </span>
                   </button>
                 ))}

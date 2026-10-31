@@ -70,14 +70,13 @@ export default function AttacksList({ characterId, onRoll, readOnly = false }: P
     <div>
       <h4
         style={{
-          fontSize: "0.7rem",
-          margin: "0 0 0.4rem",
-          color: "var(--muted)",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
+          fontSize: "0.9375rem",
+          fontWeight: 600,
+          margin: "0 0 0.5rem",
+          color: "var(--text)",
         }}
       >
-        Attacks (Equipped)
+        Attacks <span style={{ fontWeight: 400, color: "var(--muted)" }}>· equipped weapons</span>
       </h4>
       {equippedWeapons.length === 0 && (
         <p className="text-muted text-sm" style={{ margin: 0 }}>
@@ -108,31 +107,34 @@ export default function AttacksList({ characterId, onRoll, readOnly = false }: P
                 padding: "0.4rem 0.6rem",
                 background: "var(--surface2)",
                 border: "1px solid var(--border)",
-                borderRadius: 4,
+                borderRadius: 6,
                 cursor: clickable && preview ? "pointer" : "default",
                 fontFamily: "inherit",
                 color: "inherit",
-                fontSize: "0.85rem",
+                fontSize: "0.875rem",
                 textAlign: "left",
+                flexWrap: "wrap",
               }}
               title={clickable ? `Roll attack with ${entry.item.name}` : ""}
             >
-              <span style={{ flex: 1, fontWeight: 600 }}>{entry.item.name}</span>
+              <span style={{ flex: 1, fontWeight: 500 }}>{entry.item.name}</span>
               {isLoading ? (
                 <span className="text-muted text-sm">…</span>
               ) : preview ? (
                 <>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>
-                    {preview.hit_bonus >= 0 ? "+" : ""}
-                    {preview.hit_bonus} hit
+                  <span title="Added to the d20 attack roll">
+                    <span className="num" style={{ color: "var(--text)" }}>
+                      {preview.hit_bonus >= 0 ? "+" : ""}
+                      {preview.hit_bonus}
+                    </span>{" "}
+                    <span style={{ color: "var(--muted)" }}>to hit</span>
                   </span>
-                  <span style={{ fontFamily: "var(--font-mono)" }}>
+                  <span className="num" style={{ color: "var(--text2)" }}>
                     {preview.damage_roll} {preview.damage_type}
                   </span>
                   {preview.mastery && (
                     <span
-                      className="badge badge-artifact"
-                      style={{ fontSize: "0.65rem" }}
+                      className="pill"
                       title={`Weapon mastery: ${preview.mastery}`}
                     >
                       {preview.mastery}

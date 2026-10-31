@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 
 import {
@@ -43,27 +44,26 @@ export default function SuggestionsPanel({ adventureId, onAdd, onAddAll }: Props
       >
         <strong
           style={{
-            fontSize: "0.75rem",
-            color: "var(--gold)",
-            letterSpacing: "0.06em",
-            textTransform: "uppercase",
-            fontFamily: "var(--font-story)",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.4rem",
+            fontSize: "0.9375rem",
+            fontWeight: 600,
+            color: "var(--text)",
           }}
         >
-          ✨ Themed suggestions
+          <Sparkles size={15} style={{ color: "var(--muted)" }} /> Themed suggestions
         </strong>
 
-        <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>Target</span>
+        <span style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>Target</span>
         <select
           value={target}
           onChange={(e) => setTarget(e.target.value as EncounterDifficulty)}
+          aria-label="Target difficulty"
           style={{
-            fontSize: "0.78rem",
-            padding: "0.2rem 0.4rem",
-            background: "var(--surface2)",
-            border: "1px solid var(--border)",
-            borderRadius: 4,
-            color: "var(--text)",
+            width: "auto",
+            fontSize: "0.875rem",
+            padding: "0.25rem 0.5rem",
           }}
         >
           {DIFFICULTIES.map((d) => (
@@ -74,8 +74,8 @@ export default function SuggestionsPanel({ adventureId, onAdd, onAddAll }: Props
         </select>
 
         <button
-          className="btn btn-primary"
-          style={{ fontSize: "0.78rem", padding: "0.3rem 0.7rem", marginLeft: "auto" }}
+          className="btn btn-secondary"
+          style={{ fontSize: "0.875rem", padding: "0.3rem 0.75rem", minHeight: 0, marginLeft: "auto" }}
           onClick={() => suggest.mutate()}
           disabled={suggest.isPending}
         >
@@ -84,7 +84,7 @@ export default function SuggestionsPanel({ adventureId, onAdd, onAddAll }: Props
       </div>
 
       {suggest.isError && (
-        <p style={{ color: "var(--crimson2)", fontSize: "0.78rem", margin: 0 }}>
+        <p style={{ color: "var(--danger-text)", fontSize: "0.875rem", margin: 0 }}>
           {(suggest.error as Error)?.message ?? "Suggestion request failed."}
         </p>
       )}
@@ -93,16 +93,12 @@ export default function SuggestionsPanel({ adventureId, onAdd, onAddAll }: Props
         <>
           {suggest.data.encounter_concept && (
             <p
+              className="read-aloud"
               style={{
-                fontStyle: "italic",
-                fontSize: "0.85rem",
-                color: "var(--text)",
+                fontSize: "1rem",
                 marginTop: 0,
                 marginBottom: "0.6rem",
-                padding: "0.5rem 0.7rem",
-                background: "var(--surface)",
-                borderLeft: "3px solid var(--gold)",
-                borderRadius: 4,
+                padding: "0.55rem 0.8rem",
               }}
             >
               {suggest.data.encounter_concept}
@@ -110,7 +106,7 @@ export default function SuggestionsPanel({ adventureId, onAdd, onAddAll }: Props
           )}
 
           {suggest.data.suggestions.length === 0 ? (
-            <p style={{ color: "var(--muted)", fontSize: "0.78rem", margin: 0 }}>
+            <p style={{ color: "var(--muted)", fontSize: "0.875rem", margin: 0 }}>
               No suggestions came back. Try again — or pick a different difficulty.
             </p>
           ) : (
@@ -121,22 +117,27 @@ export default function SuggestionsPanel({ adventureId, onAdd, onAddAll }: Props
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
-                          fontWeight: 700,
-                          color: "var(--gold)",
-                          fontSize: "0.88rem",
+                          color: "var(--text)",
+                          fontSize: "0.9375rem",
                         }}
                       >
-                        ×{s.count} {s.monster_name}{" "}
-                        <span style={{ color: "var(--muted)", fontWeight: 400, fontSize: "0.7rem" }}>
-                          CR {s.challenge_rating} · {s.xp} XP each
+                        <span className="num" style={{ color: "var(--muted)" }}>×{s.count}</span>{" "}
+                        <span className="story" style={{ fontWeight: 700, fontSize: "1.05rem" }}>
+                          {s.monster_name}
+                        </span>{" "}
+                        <span
+                          style={{ color: "var(--muted)", fontWeight: 400, fontSize: "0.8125rem" }}
+                          title="Challenge rating · experience points per monster"
+                        >
+                          CR <span className="num">{s.challenge_rating}</span> ·{" "}
+                          <span className="num">{s.xp}</span> XP each
                         </span>
                       </div>
                       <div
                         style={{
-                          fontSize: "0.78rem",
-                          color: "var(--muted)",
+                          fontSize: "0.875rem",
+                          color: "var(--text2)",
                           marginTop: "0.15rem",
-                          fontStyle: "italic",
                         }}
                       >
                         {s.rationale}
@@ -144,7 +145,7 @@ export default function SuggestionsPanel({ adventureId, onAdd, onAddAll }: Props
                     </div>
                     <button
                       className="btn btn-ghost"
-                      style={{ fontSize: "0.75rem", padding: "0.25rem 0.55rem", flexShrink: 0 }}
+                      style={{ fontSize: "0.8125rem", padding: "0.25rem 0.6rem", minHeight: 0, flexShrink: 0 }}
                       onClick={() => onAdd(s)}
                     >
                       + Add
@@ -157,8 +158,9 @@ export default function SuggestionsPanel({ adventureId, onAdd, onAddAll }: Props
                 <button
                   className="btn btn-ghost"
                   style={{
-                    fontSize: "0.75rem",
+                    fontSize: "0.8125rem",
                     padding: "0.3rem 0.7rem",
+                    minHeight: 0,
                     marginTop: "0.6rem",
                   }}
                   onClick={() => onAddAll(suggest.data!.suggestions)}
@@ -174,7 +176,7 @@ export default function SuggestionsPanel({ adventureId, onAdd, onAddAll }: Props
       {!suggest.data && !suggest.isPending && (
         <p
           style={{
-            fontSize: "0.75rem",
+            fontSize: "0.8125rem",
             color: "var(--muted)",
             margin: "0.5rem 0 0",
           }}
@@ -189,9 +191,9 @@ export default function SuggestionsPanel({ adventureId, onAdd, onAddAll }: Props
 
 const wrapperStyle: React.CSSProperties = {
   background: "var(--surface2)",
-  border: "1px solid var(--gold)",
-  borderRadius: 8,
-  padding: "0.7rem 0.85rem",
+  border: "1px solid var(--border)",
+  borderRadius: 10,
+  padding: "0.75rem 0.9rem",
   marginBottom: "0.75rem",
 };
 
@@ -202,5 +204,5 @@ const cardStyle: React.CSSProperties = {
   padding: "0.5rem 0.7rem",
   background: "var(--surface)",
   border: "1px solid var(--border)",
-  borderRadius: 6,
+  borderRadius: 8,
 };

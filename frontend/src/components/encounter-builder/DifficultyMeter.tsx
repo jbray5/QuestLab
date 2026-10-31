@@ -1,16 +1,11 @@
-import type { DifficultyPreview, EncounterDifficulty } from "../../api/encounters";
+import type { DifficultyPreview } from "../../api/encounters";
+import InfoTip from "../character-sheet/InfoTip";
+import { DIFFICULTY_HELP, DIFFICULTY_HOW, DIFFICULTY_TONE } from "./difficultyHelp";
 
 interface Props {
   preview: DifficultyPreview | undefined;
   isLoading?: boolean;
 }
-
-const DIFFICULTY_COLOR: Record<EncounterDifficulty, string> = {
-  Low: "#4caf50",
-  Moderate: "#f9a825",
-  High: "#ff5722",
-  Deadly: "#c62828",
-};
 
 /**
  * Live difficulty meter (Plan 00031).
@@ -23,7 +18,7 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
   if (!preview || preview.party_levels.length === 0) {
     return (
       <div style={emptyStyle}>
-        Add characters to the campaign to see live difficulty.
+        Add characters to the campaign to see how hard this fight is for them.
       </div>
     );
   }
@@ -40,7 +35,8 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
   const modPct = (moderate_threshold / deadly) * 100;
   const hardPct = (high_threshold / deadly) * 100;
 
-  const color = difficulty ? DIFFICULTY_COLOR[difficulty] : "var(--muted)";
+  const tone = difficulty ? DIFFICULTY_TONE[difficulty] : null;
+  const markerColor = tone?.strong ?? "var(--muted)";
 
   return (
     <div style={wrapperStyle}>
@@ -48,43 +44,49 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
       <div
         style={{
           display: "flex",
-          alignItems: "baseline",
-          gap: "0.6rem",
-          marginBottom: "0.4rem",
+          alignItems: "center",
+          gap: "0.5rem",
+          marginBottom: "0.5rem",
           flexWrap: "wrap",
         }}
       >
-        <strong style={{ fontSize: "0.75rem", color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        <strong style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--muted)" }}>
           Difficulty
         </strong>
         {difficulty && (
           <span
+            title={DIFFICULTY_HELP[difficulty]}
             style={{
               fontSize: "1rem",
-              fontWeight: 700,
-              fontFamily: "var(--font-story)",
-              color,
+              fontWeight: 600,
+              color: tone?.text ?? "var(--text)",
               transition: "color 200ms ease",
             }}
           >
             {difficulty}
           </span>
         )}
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--muted)", marginLeft: "auto" }}>
+        <InfoTip title="How difficulty works">
+          {difficulty ? `${DIFFICULTY_HELP[difficulty]}\n\n` : ""}
+          {DIFFICULTY_HOW}
+          {"\n\n"}The bar runs from no XP to the informal Deadly line (1.5 × High). The marker is
+          this encounter.
+        </InfoTip>
+        <span className="num" style={{ fontSize: "0.875rem", color: "var(--muted)", marginLeft: "auto" }}>
           {raw_xp.toLocaleString()} XP
-          {isLoading && <span style={{ marginLeft: "0.4rem", opacity: 0.6 }}>updating…</span>}
+          {isLoading && <span style={{ marginLeft: "0.4rem", opacity: 0.7 }}>updating…</span>}
         </span>
       </div>
 
       {/* The bar */}
-      <div style={barOuterStyle}>
+      <div style={barOuterStyle} title={DIFFICULTY_HOW}>
         {/* Threshold bands */}
         <div
           style={{
             ...bandStyle,
             left: 0,
             width: `${easyPct}%`,
-            background: "rgba(76, 175, 80, 0.18)",
+            background: DIFFICULTY_TONE.Low.soft,
           }}
         />
         <div
@@ -92,7 +94,7 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
             ...bandStyle,
             left: `${easyPct}%`,
             width: `${modPct - easyPct}%`,
-            background: "rgba(249, 168, 37, 0.18)",
+            background: DIFFICULTY_TONE.Moderate.soft,
           }}
         />
         <div
@@ -100,7 +102,7 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
             ...bandStyle,
             left: `${modPct}%`,
             width: `${hardPct - modPct}%`,
-            background: "rgba(255, 87, 34, 0.20)",
+            background: DIFFICULTY_TONE.High.soft,
           }}
         />
         <div
@@ -109,22 +111,7 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
             left: `${hardPct}%`,
             right: 0,
             width: `${100 - hardPct}%`,
-            background: "rgba(198, 40, 40, 0.25)",
-          }}
-        />
-
-        {/* Marker */}
-        <div
-          style={{
-            position: "absolute",
-            left: `calc(${pct}% - 6px)`,
-            top: -4,
-            width: 12,
-            height: 24,
-            background: color,
-            borderRadius: 3,
-            boxShadow: `0 0 8px ${color}`,
-            transition: "left 250ms ease, background 200ms ease",
+            background: DIFFICULTY_TONE.Deadly.soft,
           }}
         />
 
@@ -138,30 +125,48 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
               top: 0,
               bottom: 0,
               width: 1,
-              background: "var(--border)",
-              opacity: 0.5,
+              background: "var(--bg)",
             }}
           />
         ))}
+
+        {/* Marker */}
+        <div
+          style={{
+            position: "absolute",
+            left: `calc(${pct}% - 3px)`,
+            top: 0,
+            width: 6,
+            height: "100%",
+            background: markerColor,
+            borderRadius: 3,
+            boxShadow: "0 0 0 2px var(--surface2)",
+            transition: "left 250ms ease, background 200ms ease",
+          }}
+        />
       </div>
 
       {/* Threshold labels */}
       <div style={labelsRowStyle}>
-        <span style={{ flex: easyPct, color: "#4caf50" }}>
-          Low<br />
-          <strong style={{ fontFamily: "var(--font-mono)" }}>{low_threshold}</strong>
+        <span style={{ flex: easyPct }} title={DIFFICULTY_HELP.Low}>
+          Low
+          <br />
+          <span className="num" style={{ color: "var(--text2)" }}>{low_threshold}</span>
         </span>
-        <span style={{ flex: modPct - easyPct, color: "#f9a825" }}>
-          Moderate<br />
-          <strong style={{ fontFamily: "var(--font-mono)" }}>{moderate_threshold}</strong>
+        <span style={{ flex: modPct - easyPct }} title={DIFFICULTY_HELP.Moderate}>
+          Moderate
+          <br />
+          <span className="num" style={{ color: "var(--text2)" }}>{moderate_threshold}</span>
         </span>
-        <span style={{ flex: hardPct - modPct, color: "#ff5722" }}>
-          High<br />
-          <strong style={{ fontFamily: "var(--font-mono)" }}>{high_threshold}</strong>
+        <span style={{ flex: hardPct - modPct }} title={DIFFICULTY_HELP.High}>
+          High
+          <br />
+          <span className="num" style={{ color: "var(--text2)" }}>{high_threshold}</span>
         </span>
-        <span style={{ flex: 100 - hardPct, color: "#c62828" }}>
-          Deadly<br />
-          <strong style={{ fontFamily: "var(--font-mono)" }}>{deadly}+</strong>
+        <span style={{ flex: 100 - hardPct }} title={DIFFICULTY_HELP.Deadly}>
+          Deadly
+          <br />
+          <span className="num" style={{ color: "var(--text2)" }}>{deadly}+</span>
         </span>
       </div>
     </div>
@@ -171,15 +176,15 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
 const wrapperStyle: React.CSSProperties = {
   background: "var(--surface2)",
   border: "1px solid var(--border)",
-  borderRadius: 8,
-  padding: "0.7rem 0.85rem",
+  borderRadius: 10,
+  padding: "0.75rem 0.9rem",
 };
 
 const barOuterStyle: React.CSSProperties = {
   position: "relative",
-  height: 16,
+  height: 12,
   background: "var(--surface)",
-  borderRadius: 8,
+  borderRadius: 6,
   overflow: "hidden",
 };
 
@@ -191,19 +196,18 @@ const bandStyle: React.CSSProperties = {
 
 const labelsRowStyle: React.CSSProperties = {
   display: "flex",
-  marginTop: "0.3rem",
-  fontSize: "0.62rem",
+  marginTop: "0.35rem",
+  fontSize: "0.75rem",
+  color: "var(--muted)",
   textAlign: "center",
-  letterSpacing: "0.04em",
-  textTransform: "uppercase",
+  lineHeight: 1.35,
 };
 
 const emptyStyle: React.CSSProperties = {
   padding: "0.7rem 0.85rem",
   background: "var(--surface2)",
-  border: "1px dashed var(--border)",
-  borderRadius: 8,
-  fontSize: "0.78rem",
+  border: "1px solid var(--border)",
+  borderRadius: 10,
+  fontSize: "0.875rem",
   color: "var(--muted)",
-  fontStyle: "italic",
 };

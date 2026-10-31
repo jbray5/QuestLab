@@ -18,9 +18,20 @@ import { Walker } from "../engine/Walker";
 const A = new THREE.Vector3(-1.1, 0, 0);
 const B = new THREE.Vector3(1.1, 0, 0);
 
+/** A Lamplit token's value, for the three.js scene (which can't read CSS variables). */
+function token(name: string, fallback: string): string {
+  if (typeof document === "undefined") return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
+
 export default function FigurePreview({ url, heightFt }: { url: string; heightFt: number }) {
   const gltf = useGLTF(url, true, true);
   const info = useMemo(() => analyzeFigure(gltf), [gltf]);
+  // Plan 121 — the preview box sits on the page ground; the ring wears the lantern.
+  const colors = useMemo(
+    () => ({ bg: token("--bg", "black"), floor: token("--surface3", "dimgray"), accent: token("--accent", "orange") }),
+    [],
+  );
   const [pacing, setPacing] = useState(false);
   const [target, setTarget] = useState(A);
   useEffect(() => {
@@ -40,27 +51,27 @@ export default function FigurePreview({ url, heightFt }: { url: string; heightFt
   const clips = info.ownClips.length ? `own clips: ${info.ownClips.join(", ")}` : "no clips of its own";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", width: 240 }}>
-      <div style={{ height: 250, borderRadius: "0.5rem", overflow: "hidden", background: "#0b0a10", border: "1px solid var(--border)" }}>
+      <div style={{ height: 250, borderRadius: 8, overflow: "hidden", background: "var(--bg)", border: "1px solid var(--border)" }}>
         <Canvas shadows={{ type: THREE.PCFShadowMap }} dpr={[1, 1.5]} camera={{ fov: 30, near: 0.05, far: 50, position: [2.4, 1.4, 2.8] }}>
-          <color attach="background" args={["#0b0a10"]} />
+          <color attach="background" args={[colors.bg]} />
           <hemisphereLight args={["#b9c8e6", "#4a3a2a", 0.7]} />
           <directionalLight position={[3, 6, 2]} intensity={1.8} color="#ffe2b8" castShadow shadow-mapSize={[1024, 1024]} />
-          <Walker cell={pacing ? target : A} model={{ url, heightFt }} tint="#d6af36" />
+          <Walker cell={pacing ? target : A} model={{ url, heightFt }} tint={colors.accent} />
           <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
             <circleGeometry args={[2.2, 48]} />
-            <meshStandardMaterial color="#2a2530" roughness={0.95} />
+            <meshStandardMaterial color={colors.floor} roughness={0.95} />
           </mesh>
           <OrbitControls target={[0, h * 0.5, 0]} autoRotate={!pacing} autoRotateSpeed={0.9} enablePan={false} minDistance={1} maxDistance={8} />
         </Canvas>
       </div>
-      <div style={{ fontSize: "0.7rem", color: "var(--muted)", lineHeight: 1.35 }}>
+      <div style={{ fontSize: "0.8125rem", color: "var(--muted)", lineHeight: 1.4 }}>
         <div>{rig}</div>
         <div>
           {info.rawHeight > 0 ? `${info.rawHeight.toFixed(2)} m in the file → ` : ""}
           stands {heightFt.toFixed(1)} ft on the table · {info.bones} bones · {clips}
         </div>
       </div>
-      <button type="button" className="btn btn-ghost" style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem", alignSelf: "flex-start" }} onClick={() => setPacing((p) => !p)}>
+      <button type="button" className="btn btn-secondary" style={{ fontSize: "0.8125rem", padding: "0.25rem 0.65rem", minHeight: 0, alignSelf: "flex-start" }} onClick={() => setPacing((p) => !p)}>
         {pacing ? "Stand" : "Walk"}
       </button>
     </div>

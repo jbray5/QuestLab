@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { ImagePlus } from "lucide-react";
 
 import { apiBase, authHeaders } from "../api/client";
 
@@ -68,8 +69,8 @@ export default function ImageUpload({
         style={{
           width: size,
           height: size,
-          borderRadius: "0.5rem",
-          border: "2px dashed var(--border)",
+          borderRadius: 8,
+          border: "1px dashed var(--border2)",
           overflow: "hidden",
           cursor: "pointer",
           display: "flex",
@@ -80,10 +81,10 @@ export default function ImageUpload({
           transition: "border-color 0.15s",
         }}
         onMouseEnter={(e) =>
-          ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--gold)")
+          ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--muted)")
         }
         onMouseLeave={(e) =>
-          ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)")
+          ((e.currentTarget as HTMLDivElement).style.borderColor = "var(--border2)")
         }
         title={`Click or drag to upload ${label.toLowerCase()}`}
       >
@@ -94,8 +95,27 @@ export default function ImageUpload({
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : (
-          <span style={{ fontSize: "0.7rem", color: "var(--muted)", textAlign: "center", padding: "0.5rem" }}>
-            {uploading ? "Uploading…" : `📷 ${label}`}
+          <span
+            style={{
+              fontSize: "0.75rem",
+              color: "var(--muted)",
+              textAlign: "center",
+              padding: "0.4rem",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "0.25rem",
+              lineHeight: 1.2,
+            }}
+          >
+            {uploading ? (
+              "Uploading…"
+            ) : (
+              <>
+                <ImagePlus size={size < 64 ? 16 : 20} />
+                {size >= 64 && label}
+              </>
+            )}
           </span>
         )}
       </div>
@@ -116,11 +136,11 @@ export default function ImageUpload({
           onChange={(e) => setUrlInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleUrlSet()}
           placeholder="or paste URL…"
-          style={{ flex: 1, fontSize: "0.72rem", padding: "0.25rem 0.5rem" }}
+          style={{ flex: 1, minWidth: 0, fontSize: "0.8125rem", padding: "0.3rem 0.5rem" }}
         />
         <button
-          className="btn btn-ghost"
-          style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem", flexShrink: 0 }}
+          className="btn btn-secondary"
+          style={{ fontSize: "0.8125rem", padding: "0.25rem 0.6rem", minHeight: 0, flexShrink: 0 }}
           onClick={handleUrlSet}
           disabled={!urlInput.trim()}
         >
@@ -128,7 +148,7 @@ export default function ImageUpload({
         </button>
       </div>
 
-      {error && <p style={{ color: "var(--danger)", fontSize: "0.72rem", margin: 0 }}>{error}</p>}
+      {error && <p style={{ color: "var(--danger-text)", fontSize: "0.8125rem", margin: 0 }}>{error}</p>}
     </div>
   );
 }

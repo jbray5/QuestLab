@@ -1,8 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { type Npc, NPC_STATUS_COLORS, npcsApi } from "../../api/npcs";
+import { Lock, Target, Undo2, VenetianMask } from "lucide-react";
+import { type Npc, type NpcStatus, npcsApi } from "../../api/npcs";
 import { zoomable } from "../../lib/lightbox";
 import { portraitSrc } from "../../lib/portrait";
 import ObsidianLink from "../dm/ObsidianLink";
+import Monogram from "../character-sheet/Monogram";
 
 /**
  * NPC Table-face — the at-the-table glance read (Plan 40).
@@ -26,12 +28,23 @@ import ObsidianLink from "../dm/ObsidianLink";
  *
  * onOpenPrep — clicking the card surfaces the rich Prep face. Required
  * because the Table face is read-only by design.
+ *
+ * Plan 121 (Lamplit): no status stripe — a status other than Alive shows as
+ * a pill; names and table lines are set in the story face.
  */
 interface Props {
   npc: Npc;
   onOpenPrep: () => void;
   compact?: boolean;
 }
+
+/** Only a status worth noticing gets a pill; Alive is the quiet default. */
+const STATUS_PILL: Partial<Record<NpcStatus, string>> = {
+  Dead: "pill pill-danger",
+  Imprisoned: "pill pill-amber",
+  Missing: "pill",
+  Unknown: "pill",
+};
 
 export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props) {
   // Plan 91 — the face the table sees: the true form once revealed, else the disguise.
@@ -41,7 +54,7 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
     mutationFn: (v: boolean) => npcsApi.update(npc.id, { true_form_revealed: v }),
     onSuccess: () => void qc.invalidateQueries(),
   });
-  const statusColor = NPC_STATUS_COLORS[npc.status];
+  const statusPill = STATUS_PILL[npc.status];
   const hasAnyTableContent =
     npc.quick_who ||
     npc.want_now ||
@@ -49,6 +62,7 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
     npc.voice ||
     npc.secret_short ||
     (npc.relationship_pings && npc.relationship_pings.length > 0);
+  const size = compact ? 40 : 52;
 
   return (
     <article
@@ -62,19 +76,21 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
         }
       }}
       title="Tap to open the prep face"
+      className="card-clickable"
       style={{
-        background: "var(--surface, #1f1f1f)",
+        background: "var(--surface)",
         border: "1px solid var(--border)",
-        borderLeft: `4px solid ${statusColor}`,
-        borderRadius: 8,
-        padding: compact ? "0.65rem 0.75rem" : "0.85rem 1rem",
+        borderRadius: 10,
+        padding: compact ? "0.65rem 0.75rem" : "0.9rem 1rem",
         display: "flex",
         flexDirection: "column",
-        gap: compact ? "0.4rem" : "0.55rem",
+        gap: compact ? "0.45rem" : "0.6rem",
         cursor: "pointer",
         fontFamily: "var(--font-ui)",
         // Glance read needs space to breathe — line-height up.
         lineHeight: 1.4,
+        transition: "border-color 0.15s",
+        minWidth: 0,
       }}
     >
       {/* Identity row — portrait + name + who-they-are */}
@@ -84,38 +100,24 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
             src={portraitSrc(face)} {...zoomable(portraitSrc(face), npc.name)}
             alt={npc.name}
             style={{
-              width: compact ? 40 : 52,
-              height: compact ? 40 : 52,
+              width: size,
+              height: size,
               borderRadius: 6,
               objectFit: "cover",
-              border: `1px solid ${statusColor}`,
+              border: "1px solid var(--border2)",
               flexShrink: 0,
             }}
           />
         ) : (
-          <div
-            style={{
-              width: compact ? 40 : 52,
-              height: compact ? 40 : 52,
-              borderRadius: 6,
-              background: "var(--surface2)",
-              border: "1px dashed var(--border)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: compact ? "1rem" : "1.4rem",
-              flexShrink: 0,
-            }}
-          >
-            👤
-          </div>
+          <Monogram name={npc.name} size={size} />
         )}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div
+            className="story"
             style={{
-              fontSize: compact ? "1.05rem" : "1.2rem",
+              fontSize: compact ? "1.1rem" : "1.25rem",
               fontWeight: 700,
-              color: "var(--gold)",
+              color: "var(--text)",
               lineHeight: 1.15,
               wordBreak: "break-word",
             }}
@@ -124,33 +126,39 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
           </div>
           {(npc.quick_who || npc.role) && (
             <div
+              className="story"
               style={{
-                fontSize: compact ? "0.85rem" : "0.92rem",
-                color: "var(--text)",
+                fontSize: compact ? "0.95rem" : "1rem",
+                color: "var(--text2)",
                 marginTop: "0.15rem",
                 fontStyle: "italic",
-                opacity: 0.92,
               }}
             >
               {npc.quick_who || npc.role}
             </div>
           )}
         </div>
-        {!npc.is_revealed && (
-          <span
-            className="badge badge-draft"
-            style={{ fontSize: "0.6rem", alignSelf: "flex-start", flexShrink: 0 }}
-            title="Players haven't met them yet — flip the switch in the prep face when they do"
-          >
-            hidden
-          </span>
-        )}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "0.3rem", alignSelf: "flex-start" }}>
+          {statusPill && <span className={statusPill}>{npc.status}</span>}
+          {!npc.is_revealed && (
+            <span
+              className="pill"
+              style={{ flexShrink: 0 }}
+              title="Players haven't met them yet — flip the switch in the prep face when they do"
+            >
+              Hidden
+            </span>
+          )}
+        </div>
         <ObsidianLink dmNote={npc.dm_note} compact />
-        {npc.true_form_url && (
+      </div>
+
+      {npc.true_form_url && (
+        <div>
           <button
             type="button"
-            className={`btn ${npc.true_form_revealed ? "btn-ghost" : "btn-danger"}`}
-            style={{ fontSize: "0.62rem", padding: "0.15rem 0.45rem", alignSelf: "flex-start", flexShrink: 0 }}
+            className={npc.true_form_revealed ? "btn btn-ghost" : "btn btn-secondary"}
+            style={{ fontSize: "0.8125rem", padding: "0.2rem 0.6rem", minHeight: 0 }}
             disabled={reveal.isPending}
             onClick={() => reveal.mutate(!npc.true_form_revealed)}
             title={
@@ -159,40 +167,57 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
                 : "Swap the portrait to the true form — players' phones and the table see it at once"
             }
           >
-            {npc.true_form_revealed ? "↩ Disguise" : "🎭 Reveal true form"}
+            {npc.true_form_revealed ? (
+              <>
+                <Undo2 size={14} /> Disguise
+              </>
+            ) : (
+              <>
+                <VenetianMask size={14} /> Reveal true form
+              </>
+            )}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Empty-state nudge so the DM knows to author Table-face content. */}
       {!hasAnyTableContent && (
         <div
           style={{
-            fontSize: "0.82rem",
+            fontSize: "0.875rem",
             color: "var(--muted)",
-            fontStyle: "italic",
-            padding: "0.4rem 0",
-            borderTop: "1px dashed var(--border)",
+            padding: "0.5rem 0 0",
+            borderTop: "1px solid var(--border)",
           }}
         >
           {npc.motivation || npc.personality || npc.secret ? (
             // Plan 83 — the record is the source of truth: prep fields stand in
             // until the table face is written.
-            <span style={{ fontStyle: "normal" }}>
-              {npc.motivation && <span>🎯 {npc.motivation} </span>}
+            <span className="story" style={{ fontSize: "1rem", color: "var(--text2)" }}>
+              {npc.motivation && (
+                <span>
+                  <Target size={13} style={{ verticalAlign: "-1px", marginRight: 4, color: "var(--muted)" }} />
+                  {npc.motivation}{" "}
+                </span>
+              )}
               {npc.personality && <span style={{ color: "var(--text)" }}>{npc.personality} </span>}
-              {npc.secret && <span style={{ color: "#c8a2ff" }}>🔒 {npc.secret}</span>}
+              {npc.secret && (
+                <span>
+                  <Lock size={13} style={{ verticalAlign: "-1px", marginRight: 4, color: "var(--danger-text)" }} />
+                  {npc.secret}
+                </span>
+              )}
             </span>
           ) : (
-            <>No table-face filled yet — tap to add WANT / KNOWS / VOICE / SECRET.</>
+            <>Nothing for the table yet — open it to add what they want, know, sound like and hide.</>
           )}
         </div>
       )}
 
-      {npc.want_now && <Block label="WANT" body={npc.want_now} accent="var(--gold)" compact={compact} />}
+      {npc.want_now && <Block label="Wants" body={npc.want_now} compact={compact} />}
       {npc.knows && npc.knows.length > 0 && (
         <Block
-          label="KNOWS"
+          label="Knows"
           body={
             <ul style={{ margin: 0, paddingLeft: "1.1rem" }}>
               {npc.knows.slice(0, 5).map((k, i) => (
@@ -202,40 +227,23 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
               ))}
             </ul>
           }
-          accent="var(--gold)"
           compact={compact}
         />
       )}
       {npc.voice && (
         <Block
-          label="VOICE"
+          label="Voice"
           body={<span style={{ fontStyle: "italic" }}>{npc.voice}</span>}
-          accent="var(--gold)"
           compact={compact}
         />
       )}
       {npc.secret_short && (
-        <Block
-          label="SECRET"
-          body={npc.secret_short}
-          accent="var(--crimson2, #8b1a1a)"
-          compact={compact}
-        />
+        <Block label="Secret" body={npc.secret_short} accent="var(--danger-text)" compact={compact} />
       )}
       {npc.relationship_pings && npc.relationship_pings.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem", marginTop: "0.1rem" }}>
           {npc.relationship_pings.map((p, i) => (
-            <span
-              key={i}
-              style={{
-                fontSize: "0.7rem",
-                padding: "0.15rem 0.45rem",
-                background: "var(--surface2)",
-                border: "1px solid var(--border)",
-                borderRadius: 999,
-                color: "var(--text)",
-              }}
-            >
+            <span key={i} className="pill" style={{ whiteSpace: "normal" }}>
               {p}
             </span>
           ))}
@@ -245,35 +253,36 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
   );
 }
 
-/** Single labeled block — label is small caps gold, body is large readable text. */
+/** Single labeled block — a small muted label, the line itself in the story face. */
 function Block({
   label,
   body,
-  accent,
+  accent = "var(--muted)",
   compact,
 }: {
   label: string;
   body: React.ReactNode;
-  accent: string;
+  accent?: string;
   compact: boolean;
 }) {
   return (
     <div>
       <div
         style={{
-          fontSize: "0.66rem",
-          letterSpacing: "0.1em",
-          fontWeight: 700,
+          fontSize: "0.75rem",
+          fontWeight: 600,
           color: accent,
-          marginBottom: "0.15rem",
+          marginBottom: "0.1rem",
         }}
       >
         {label}
       </div>
       <div
+        className="story"
         style={{
-          fontSize: compact ? "0.92rem" : "1.02rem",
+          fontSize: compact ? "1rem" : "1.075rem",
           color: "var(--text)",
+          lineHeight: 1.45,
         }}
       >
         {body}

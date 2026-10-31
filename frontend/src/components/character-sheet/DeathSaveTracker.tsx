@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Dices, Moon, Skull } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { charactersApi } from "../../api/characters";
@@ -40,16 +41,17 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
   const dead = failures >= 3;
 
   const stateLabel = dead
-    ? "💀 DEAD — 3 failures"
+    ? "Dead — 3 failed death saves"
     : stable
-      ? "💤 STABLE — 3 successes"
-      : "💀 DYING — Make death saves";
+      ? "Stable — 3 successful death saves"
+      : "Dying — roll a death save each turn";
 
   const stateColor = dead
-    ? "var(--red, #ef5350)"
+    ? "var(--danger-text)"
     : stable
-      ? "var(--muted)"
-      : "var(--gold)";
+      ? "var(--text2)"
+      : "var(--danger-text)";
+  const StateIcon = stable ? Moon : Skull;
 
   function handleRoll() {
     if (pendingD20 === "") return;
@@ -65,9 +67,9 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
   return (
     <section
       style={{
-        background: "var(--surface)",
-        border: `2px solid ${stateColor}`,
-        borderRadius: 8,
+        background: stable ? "var(--surface)" : "var(--danger-soft)",
+        border: `1px solid ${stable ? "var(--border2)" : "var(--danger-line)"}`,
+        borderRadius: 10,
         padding: "0.85rem 1rem",
       }}
     >
@@ -81,12 +83,15 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
       >
         <strong
           style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.45rem",
             color: stateColor,
-            fontSize: "0.95rem",
-            fontFamily: "var(--font-story)",
-            letterSpacing: "0.04em",
+            fontSize: "0.9375rem",
+            fontWeight: 600,
           }}
         >
+          <StateIcon size={16} />
           {stateLabel}
         </strong>
         <InfoTip title="Death Saves">
@@ -109,8 +114,8 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
           marginBottom: "0.7rem",
         }}
       >
-        <PipRow label="Successes" filled={successes} color="var(--green2, #4caf50)" />
-        <PipRow label="Failures" filled={failures} color="var(--red, #ef5350)" />
+        <PipRow label="Successes" filled={successes} color="var(--teal)" />
+        <PipRow label="Failures" filled={failures} color="var(--danger)" />
       </div>
 
       {!readOnly && !stable && !dead && (
@@ -128,10 +133,9 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
             <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
               <label
                 style={{
-                  fontSize: "0.7rem",
-                  color: "var(--muted)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
+                  fontSize: "0.8125rem",
+                  color: "var(--text2)",
+                  margin: 0,
                 }}
               >
                 Your real d20 result (1–20)
@@ -154,24 +158,21 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
                     }
                   }}
                   placeholder="?"
+                  aria-label="Death save d20 result"
+                  className="num"
                   style={{
                     width: 70,
                     fontSize: "1.2rem",
-                    fontFamily: "var(--font-mono)",
-                    fontWeight: 700,
+                    fontWeight: 600,
                     textAlign: "center",
                     padding: "0.25rem 0.4rem",
-                    background: "var(--surface2)",
-                    border: "1px solid var(--gold)",
-                    borderRadius: 4,
-                    color: "var(--text)",
                   }}
                 />
                 <button
                   onClick={handleRoll}
                   disabled={pendingD20 === "" || mutate.isPending}
                   className="btn btn-primary"
-                  style={{ fontSize: "0.8rem", padding: "0.3rem 0.7rem" }}
+                  style={{ fontSize: "0.875rem", padding: "0.3rem 0.8rem", minHeight: 0 }}
                 >
                   Apply
                 </button>
@@ -179,10 +180,10 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
                   onClick={rollDigital}
                   disabled={mutate.isPending}
                   className="btn btn-ghost"
-                  style={{ fontSize: "0.75rem", padding: "0.3rem 0.65rem" }}
+                  style={{ fontSize: "0.8125rem", padding: "0.3rem 0.65rem", minHeight: 0 }}
                   title="Roll a digital d20 instead"
                 >
-                  🎲 Digital
+                  <Dices size={14} /> Digital
                 </button>
                 <button
                   onClick={() => {
@@ -190,13 +191,14 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
                     setPendingD20("");
                   }}
                   className="btn btn-ghost"
-                  style={{ fontSize: "0.75rem", padding: "0.3rem 0.65rem" }}
+                  style={{ fontSize: "0.8125rem", padding: "0.3rem 0.65rem", minHeight: 0 }}
                 >
                   Cancel
                 </button>
               </div>
-              <div style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
-                ≥10 success · &lt;10 failure · nat 1 = 2 failures · nat 20 = revive at 1 HP
+              <div style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>
+                10 or more succeeds · under 10 fails · a natural 1 counts as two failures · a
+                natural 20 revives at 1 HP
               </div>
             </div>
           )}
@@ -204,8 +206,8 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
             <div
               style={{
                 marginTop: "0.4rem",
-                fontSize: "0.75rem",
-                color: "var(--red, #ef5350)",
+                fontSize: "0.8125rem",
+                color: "var(--danger-text)",
               }}
             >
               {(mutate.error as Error)?.message ?? "Failed to apply death save"}
@@ -222,14 +224,12 @@ function PipRow({ label, filled, color }: { label: string; filled: number; color
     <div>
       <div
         style={{
-          fontSize: "0.65rem",
+          fontSize: "0.8125rem",
           color: "var(--muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em",
-          marginBottom: "0.2rem",
+          marginBottom: "0.25rem",
         }}
       >
-        {label}
+        {label} <span className="num">{filled}/3</span>
       </div>
       <div style={{ display: "flex", gap: "0.4rem" }}>
         {[0, 1, 2].map((i) => (

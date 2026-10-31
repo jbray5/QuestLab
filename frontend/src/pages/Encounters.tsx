@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, ChevronRight, Minus, Plus, Swords, X } from "lucide-react";
 import { AI_ON } from "../lib/flags";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -13,20 +14,21 @@ import DifficultyMeter from "../components/encounter-builder/DifficultyMeter";
 import SuggestionsPanel from "../components/encounter-builder/SuggestionsPanel";
 import { plural } from "../lib/plural";
 import RowMenu from "../components/RowMenu";
+import {
+  DIFFICULTY_HELP,
+  DIFFICULTY_HOW,
+  DIFFICULTY_PILL,
+} from "../components/encounter-builder/difficultyHelp";
 
-const DIFFICULTY_BADGE: Record<string, string> = {
-  Low: "badge-ready",
-  Moderate: "badge-draft",
-  High: "badge-progress",
-  Deadly: "badge-artifact",
+/** Roster table header cell (Console table: small, muted, sentence case). */
+const TH: React.CSSProperties = {
+  padding: "0.4rem 0.6rem",
+  color: "var(--muted)",
+  fontWeight: 500,
+  fontSize: "0.75rem",
+  background: "var(--surface2)",
 };
-
-const DIFFICULTY_COLOR: Record<string, string> = {
-  Low: "#4caf50",
-  Moderate: "#ff9800",
-  High: "#ff5722",
-  Deadly: "#f44336",
-};
+const TD: React.CSSProperties = { padding: "0.45rem 0.6rem" };
 
 // ── Roster editor (inline inside expanded encounter card) ─────────────────────
 
@@ -233,30 +235,34 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
 
       {/* ── Monster search ──────────────────────────────────────────────── */}
       <div style={{ marginBottom: "0.75rem" }}>
-        <label style={{ display: "block", fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.3rem" }}>
-          Search monsters to add
+        <label
+          htmlFor={`monster-search-${encounter.id}`}
+          style={{ display: "block", fontSize: "0.875rem", color: "var(--text2)", marginBottom: "0.3rem" }}
+        >
+          Add monsters
         </label>
-        <div style={{ position: "relative", maxWidth: 380 }}>
+        <div style={{ position: "relative", maxWidth: 420 }}>
           <input
+            id={`monster-search-${encounter.id}`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="e.g. Goblin, Troll, Beholder…"
+            placeholder="Search by name — e.g. Goblin, Troll, Beholder…"
             style={{ width: "100%" }}
           />
           {search.trim().length >= 2 && (
             <div style={{
-              position: "absolute", top: "110%", left: 0, right: 0, zIndex: 30,
-              background: "var(--surface)", border: "1px solid var(--border)",
-              borderRadius: 6, maxHeight: 240, overflowY: "auto",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+              position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 30,
+              background: "var(--surface)", border: "1px solid var(--border2)",
+              borderRadius: 8, maxHeight: 260, overflowY: "auto",
+              boxShadow: "0 10px 28px rgba(0,0,0,0.5)",
             }}>
               {searching && (
-                <div style={{ padding: "0.5rem 0.75rem", color: "var(--muted)", fontSize: "0.8rem" }}>
+                <div style={{ padding: "0.5rem 0.75rem", color: "var(--muted)", fontSize: "0.875rem" }}>
                   Searching…
                 </div>
               )}
               {!searching && searchResults.length === 0 && (
-                <div style={{ padding: "0.5rem 0.75rem", color: "var(--muted)", fontSize: "0.8rem" }}>
+                <div style={{ padding: "0.5rem 0.75rem", color: "var(--muted)", fontSize: "0.875rem" }}>
                   No monsters found.
                 </div>
               )}
@@ -265,18 +271,18 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
                   key={m.id}
                   onClick={() => addMonster(m)}
                   style={{
-                    display: "flex", width: "100%",
+                    display: "flex", width: "100%", gap: "0.75rem",
                     alignItems: "center", justifyContent: "space-between",
                     padding: "0.5rem 0.75rem", background: "none",
                     border: "none", cursor: "pointer", textAlign: "left",
                     borderBottom: "1px solid var(--border)",
-                    color: "var(--text)",
+                    color: "var(--text)", fontFamily: "inherit",
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface2)")}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface3)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
                 >
-                  <span style={{ fontWeight: 600, fontSize: "0.85rem" }}>{m.name}</span>
-                  <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+                  <span className="story" style={{ fontWeight: 700, fontSize: "1rem" }}>{m.name}</span>
+                  <span className="num" style={{ fontSize: "0.8125rem", color: "var(--muted)", whiteSpace: "nowrap" }}>
                     CR {m.challenge_rating} · {m.xp} XP · {m.hp_average} HP
                   </span>
                 </button>
@@ -288,92 +294,107 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
 
       {/* ── Current roster ─────────────────────────────────────────────── */}
       {roster.length === 0 ? (
-        <p style={{ color: "var(--muted)", fontSize: "0.85rem", fontStyle: "italic" }}>
+        <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
           No monsters yet — search above to add some.
         </p>
       ) : (
         <div style={{ marginBottom: "0.75rem" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+          <div className="ql-table" style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem", minWidth: 460 }}>
             <thead>
               <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                <th style={{ textAlign: "left", padding: "0.3rem 0.5rem", color: "var(--muted)", fontWeight: 600, fontSize: "0.7rem" }}>Monster</th>
-                <th style={{ textAlign: "center", padding: "0.3rem 0.5rem", color: "var(--muted)", fontWeight: 600, fontSize: "0.7rem" }}>CR</th>
-                <th style={{ textAlign: "center", padding: "0.3rem 0.5rem", color: "var(--muted)", fontWeight: 600, fontSize: "0.7rem" }}>Count</th>
-                <th style={{ textAlign: "right", padding: "0.3rem 0.5rem", color: "var(--muted)", fontWeight: 600, fontSize: "0.7rem" }}>XP each</th>
-                <th style={{ textAlign: "right", padding: "0.3rem 0.5rem", color: "var(--muted)", fontWeight: 600, fontSize: "0.7rem" }}>Subtotal</th>
-                <th style={{ width: 32 }}></th>
+                <th style={{ ...TH, textAlign: "left" }}>Monster</th>
+                <th style={{ ...TH, textAlign: "center" }} title="Challenge rating — roughly the party level it's a fair fight for">CR</th>
+                <th style={{ ...TH, textAlign: "center" }}>How many</th>
+                <th style={{ ...TH, textAlign: "right" }} title="Experience points for one">XP each</th>
+                <th style={{ ...TH, textAlign: "right" }}>XP total</th>
+                <th style={{ ...TH, width: 40 }}></th>
               </tr>
             </thead>
             <tbody>
               {roster.map((r) => (
-                <tr key={r.monster_id} style={{ borderBottom: "1px solid var(--border)" }}>
-                  <td style={{ padding: "0.4rem 0.5rem", fontWeight: 600, color: "var(--gold)" }}>
-                    {r.name}
-                  </td>
-                  <td style={{ textAlign: "center", padding: "0.4rem 0.5rem" }}>
-                    <span className="badge badge-draft" style={{ fontSize: "0.65rem" }}>
-                      {r.cr}
+                <tr key={r.monster_id} className="ql-table-row">
+                  <td style={TD}>
+                    <span className="story" style={{ fontWeight: 700, fontSize: "1rem", color: "var(--text)" }}>
+                      {r.name}
                     </span>
                   </td>
-                  <td style={{ textAlign: "center", padding: "0.4rem 0.5rem" }}>
-                    <div className="flex" style={{ alignItems: "center", justifyContent: "center", gap: "0.3rem" }}>
+                  <td className="num" style={{ ...TD, textAlign: "center", color: "var(--text2)" }}>
+                    {r.cr}
+                  </td>
+                  <td style={{ ...TD, textAlign: "center" }}>
+                    <div className="flex" style={{ alignItems: "center", justifyContent: "center", gap: "0.3rem", flexWrap: "nowrap" }}>
                       <button
                         className="btn btn-ghost"
-                        style={{ padding: "0 0.35rem", fontSize: "0.8rem" }}
+                        style={{ padding: "0.15rem", minHeight: 0, border: "none" }}
                         onClick={() => setCount(r.monster_id, r.count - 1)}
-                      >−</button>
-                      <span style={{ minWidth: 20, textAlign: "center", fontWeight: 700 }}>{r.count}</span>
+                        aria-label={`One fewer ${r.name}`}
+                        title="One fewer"
+                      >
+                        <Minus size={14} />
+                      </button>
+                      <span className="num" style={{ minWidth: 22, textAlign: "center", fontWeight: 600 }}>{r.count}</span>
                       <button
                         className="btn btn-ghost"
-                        style={{ padding: "0 0.35rem", fontSize: "0.8rem" }}
+                        style={{ padding: "0.15rem", minHeight: 0, border: "none" }}
                         onClick={() => setCount(r.monster_id, r.count + 1)}
-                      >+</button>
+                        aria-label={`One more ${r.name}`}
+                        title="One more"
+                      >
+                        <Plus size={14} />
+                      </button>
                     </div>
                   </td>
-                  <td style={{ textAlign: "right", padding: "0.4rem 0.5rem", color: "var(--muted)" }}>
+                  <td className="num" style={{ ...TD, textAlign: "right", color: "var(--muted)" }}>
                     {r.xp.toLocaleString()}
                   </td>
-                  <td style={{ textAlign: "right", padding: "0.4rem 0.5rem", fontWeight: 600 }}>
+                  <td className="num" style={{ ...TD, textAlign: "right", fontWeight: 600 }}>
                     {(r.xp * r.count).toLocaleString()}
                   </td>
-                  <td style={{ padding: "0.4rem 0.5rem" }}>
+                  <td style={{ ...TD, textAlign: "right" }}>
                     <button
                       className="btn btn-ghost"
-                      style={{ fontSize: "0.65rem", padding: "0.1rem 0.3rem", opacity: 0.5 }}
+                      style={{ padding: "0.2rem", minHeight: 0, border: "none", color: "var(--muted)" }}
                       onClick={() => removeMonster(r.monster_id)}
                       title="Remove"
-                    >✕</button>
+                      aria-label={`Remove ${r.name}`}
+                    >
+                      <X size={15} />
+                    </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
 
           {/* XP summary */}
           <div className="flex gap-2" style={{
-            marginTop: "0.5rem", padding: "0.5rem 0.5rem",
-            background: "var(--surface2)", borderRadius: 6, fontSize: "0.82rem",
+            marginTop: "0.5rem", padding: "0.5rem 0.65rem",
+            background: "var(--surface2)", borderRadius: 8, fontSize: "0.875rem",
             alignItems: "center", flexWrap: "wrap",
           }}>
             <span style={{ color: "var(--muted)" }}>
-              {totalMonsters} monster{totalMonsters !== 1 ? "s" : ""}
+              <span className="num">{totalMonsters}</span> monster{totalMonsters !== 1 ? "s" : ""}
             </span>
             <span style={{ color: "var(--muted)" }}>·</span>
-            <span>
-              Raw XP: <strong>{rawXp.toLocaleString()}</strong>
+            <span title="The monsters' XP added up, before any adjustment">
+              <span style={{ color: "var(--muted)" }}>Total XP</span>{" "}
+              <strong className="num" style={{ fontWeight: 600 }}>{rawXp.toLocaleString()}</strong>
             </span>
             {pcLevels.length > 0 && (
               <>
                 <span style={{ color: "var(--muted)" }}>·</span>
-                <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
-                  Party: {plural(pcLevels.length, "PC")} (avg lvl {Math.round(pcLevels.reduce((a, b) => a + b, 0) / pcLevels.length)})
-                  — adjusted XP + difficulty calculated on save
+                <span style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
+                  Party: {plural(pcLevels.length, "PC")}, average level{" "}
+                  <span className="num">{Math.round(pcLevels.reduce((a, b) => a + b, 0) / pcLevels.length)}</span>
+                  {" "}— the saved difficulty updates as the roster saves
                 </span>
               </>
             )}
             {pcLevels.length === 0 && (
-              <span style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
-                Add characters to your campaign for auto difficulty
+              <span style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
+                Add characters to your campaign to see the difficulty
               </span>
             )}
           </div>
@@ -381,9 +402,9 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
       )}
 
       {saveError && (
-        <p className="text-sm" style={{ color: "var(--crimson2)", marginBottom: "0.5rem" }}>
+        <p className="text-sm" style={{ color: "var(--danger-text)", marginBottom: "0.5rem" }}>
           Couldn&rsquo;t save the roster: {saveError}{" "}
-          <button className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => save(roster)}>
+          <button className="btn btn-ghost" style={{ fontSize: "0.8125rem", minHeight: 0, padding: "0.2rem 0.6rem" }} onClick={() => save(roster)}>
             Try again
           </button>
         </p>
@@ -391,7 +412,7 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
 
       <div className="flex gap-2" style={{ alignItems: "center" }}>
         <button
-          className="btn btn-primary"
+          className="btn btn-secondary"
           onClick={() => {
             if (dirty) save(roster, { onSuccess: () => onSaved() });
             else onSaved();
@@ -400,14 +421,27 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
         >
           Done
         </button>
-        <span className="text-sm" role="status" style={{ color: dirty || saveError ? "var(--gold)" : "var(--muted)" }}>
-          {saveMut.isPending
-            ? "Saving…"
-            : saveError
-              ? "Unsaved changes"
-              : dirty
-                ? "Unsaved changes — saving…"
-                : "✓ All changes saved"}
+        <span
+          className="text-sm"
+          role="status"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "0.3rem",
+            color: dirty || saveError ? "var(--amber-text)" : "var(--muted)",
+          }}
+        >
+          {saveMut.isPending ? (
+            "Saving…"
+          ) : saveError ? (
+            "Unsaved changes"
+          ) : dirty ? (
+            "Unsaved changes — saving…"
+          ) : (
+            <>
+              <Check size={14} /> All changes saved
+            </>
+          )}
         </span>
       </div>
     </div>
@@ -472,12 +506,12 @@ export default function Encounters() {
   return (
     <div className="fade-in">
       {/* Breadcrumb */}
-      <nav className="text-sm" style={{ marginBottom: "0.75rem", opacity: 0.7 }}>
-        <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate("/")}>Dashboard</span>
+      <nav className="text-sm" style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
+        <span style={{ cursor: "pointer", color: "var(--accent-text)" }} onClick={() => navigate("/")}>Dashboard</span>
         {activeCampaign && (
           <>
             {" / "}
-            <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate(`/campaigns/${activeCampaign.id}/sessions`)}>
+            <span style={{ cursor: "pointer", color: "var(--accent-text)" }} onClick={() => navigate(`/campaigns/${activeCampaign.id}/sessions`)}>
               {activeCampaign.name}
             </span>
           </>
@@ -485,25 +519,38 @@ export default function Encounters() {
         {(activeAdventure || adventure) && (
           <>
             {" / "}
-            <span style={{ cursor: "pointer", color: "var(--gold)" }}
+            <span style={{ cursor: "pointer", color: "var(--accent-text)" }}
               onClick={() => navigate(`/adventures/${(activeAdventure ?? adventure)!.id}/sessions`)}>
               {activeAdventure?.title ?? adventure?.title}
             </span>
           </>
         )}
         {" / "}
-        <strong>Encounters</strong>
+        <span style={{ color: "var(--text2)" }}>Encounters</span>
       </nav>
-      <div className="flex items-center" style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}>
-        <h1>Encounters</h1>
+      <div className="flex items-center" style={{ marginBottom: "1.5rem", justifyContent: "space-between", gap: "1rem" }}>
+        <div>
+          <h1 style={{ marginBottom: "0.2rem" }}>Encounters</h1>
+          <p className="text-sm text-muted" style={{ margin: 0 }}>
+            The fights you plan for this arc — pick the monsters and see how hard they are for your party.
+          </p>
+        </div>
         <button className={showForm ? "btn btn-secondary" : "btn btn-primary"} onClick={() => setShowForm(!showForm)}>
-          {showForm ? "✕ Cancel" : "+ New Encounter"}
+          {showForm ? (
+            <>
+              <X size={16} /> Cancel
+            </>
+          ) : (
+            <>
+              <Plus size={16} /> New encounter
+            </>
+          )}
         </button>
       </div>
 
       {showForm && (
         <div className="card" style={{ marginBottom: "1.5rem", maxWidth: 480 }}>
-          <h3>New Encounter</h3>
+          <h3>New encounter</h3>
           <div className="form-group">
             <label>Name *</label>
             <input
@@ -523,7 +570,9 @@ export default function Encounters() {
             />
           </div>
           <div className="form-group">
-            <label>Starting Difficulty</label>
+            <label title="A first guess — once it has monsters, the difficulty is worked out for your party">
+              Starting difficulty
+            </label>
             <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
               <option value="Low">Low</option>
               <option value="Moderate">Moderate</option>
@@ -532,7 +581,7 @@ export default function Encounters() {
             </select>
           </div>
           {createError && (
-            <p className="text-sm" style={{ color: "var(--crimson2)", marginBottom: "0.5rem" }}>
+            <p className="text-sm" style={{ color: "var(--danger-text)", marginBottom: "0.5rem" }}>
               Error: {createError}
             </p>
           )}
@@ -541,7 +590,7 @@ export default function Encounters() {
             onClick={() => create.mutate()}
             disabled={!name.trim() || create.isPending}
           >
-            {create.isPending ? "Creating…" : "Create Encounter"}
+            {create.isPending ? "Creating…" : "Create encounter"}
           </button>
         </div>
       )}
@@ -562,39 +611,46 @@ export default function Encounters() {
               <div className="flex items-center" style={{ justifyContent: "space-between" }}>
                 <button
                   onClick={() => setExpandedId(isOpen ? null : e.id)}
+                  aria-expanded={isOpen}
                   style={{
                     background: "none", border: "none", cursor: "pointer",
-                    display: "flex", alignItems: "center", gap: "0.5rem",
-                    padding: 0, flex: 1, textAlign: "left",
+                    display: "flex", alignItems: "center", gap: "0.55rem",
+                    padding: 0, flex: 1, textAlign: "left", flexWrap: "wrap",
+                    color: "inherit", fontFamily: "inherit", minWidth: 0,
                   }}
                 >
-                  <span style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-                    {isOpen ? "▼" : "▶"}
-                  </span>
-                  <strong style={{ color: "var(--gold)", fontSize: "1rem" }}>{e.name}</strong>
+                  {isOpen ? (
+                    <ChevronDown size={16} style={{ color: "var(--muted)" }} />
+                  ) : (
+                    <ChevronRight size={16} style={{ color: "var(--muted)" }} />
+                  )}
+                  <strong className="story" style={{ color: "var(--text)", fontSize: "1.2rem", fontWeight: 700 }}>
+                    {e.name}
+                  </strong>
                   <span
-                    className={`badge ${DIFFICULTY_BADGE[e.difficulty] ?? "badge-draft"}`}
-                    style={{ color: DIFFICULTY_COLOR[e.difficulty] }}
+                    className={DIFFICULTY_PILL[e.difficulty] ?? "pill"}
                     title={
-                      pcLevels.length && e.xp_budget > 0
-                        ? "Worked out from the monsters and your party's levels"
-                        : "Your pick — add characters and monsters for live difficulty"
+                      (DIFFICULTY_HELP[e.difficulty] ?? e.difficulty) +
+                      " " +
+                      (pcLevels.length && e.xp_budget > 0
+                        ? DIFFICULTY_HOW
+                        : "This is your pick for now — add characters and monsters and it's worked out for you.")
                     }
                   >
                     {e.difficulty}
                   </span>
                   {e.xp_budget > 0 && (
-                    <span className="text-mono text-sm" style={{ color: "var(--muted)" }}>
+                    <span className="num text-sm" style={{ color: "var(--muted)" }} title="The monsters' total XP">
                       {e.xp_budget.toLocaleString()} XP
                     </span>
                   )}
                   {rosterCount > 0 && (
                     <span className="text-sm" style={{ color: "var(--muted)" }}>
-                      · {monsterTotal} monster{monsterTotal !== 1 ? "s" : ""} ({rosterCount} type{rosterCount !== 1 ? "s" : ""})
+                      · {monsterTotal} monster{monsterTotal !== 1 ? "s" : ""} ({rosterCount} kind{rosterCount !== 1 ? "s" : ""})
                     </span>
                   )}
                   {rosterCount === 0 && (
-                    <span className="text-sm" style={{ color: "var(--muted)", fontStyle: "italic" }}>
+                    <span className="text-sm" style={{ color: "var(--muted)" }}>
                       · no monsters yet
                     </span>
                   )}
@@ -615,21 +671,23 @@ export default function Encounters() {
 
               {/* ── Description ───────────────────────────────────────── */}
               {e.description && (
-                <p className="text-sm text-muted" style={{ marginTop: "0.4rem", marginBottom: 0 }}>
+                <p
+                  className="story"
+                  style={{ marginTop: "0.4rem", marginBottom: 0, fontSize: "1rem", color: "var(--text2)" }}
+                >
                   {e.description}
                 </p>
               )}
 
               {/* ── Monster roster (collapsed summary) ────────────────── */}
               {!isOpen && rosterCount > 0 && (
-                <div className="flex" style={{ gap: "0.4rem", marginTop: "0.5rem", flexWrap: "wrap" }}>
+                <div className="flex" style={{ gap: "0.4rem", marginTop: "0.6rem", flexWrap: "wrap" }}>
                   {(e.monster_roster ?? []).map((r: Record<string, unknown>, i: number) => (
-                    <span
-                      key={i}
-                      className="badge badge-draft"
-                      style={{ fontSize: "0.7rem" }}
-                    >
-                      {String(r.name ?? "?")} ×{Number(r.count ?? 1)}
+                    <span key={i} className="pill">
+                      <span className="story" style={{ fontSize: "0.9375rem", color: "var(--text)" }}>
+                        {String(r.name ?? "?")}
+                      </span>
+                      <span className="num">×{Number(r.count ?? 1)}</span>
                     </span>
                   ))}
                 </div>
@@ -649,8 +707,13 @@ export default function Encounters() {
         })}
         {!isLoading && encounters.length === 0 && (
           <div className="empty-state">
-            <div className="empty-icon">💀</div>
-            <p>No encounters yet — create one above.</p>
+            <div className="empty-icon">
+              <Swords size={28} />
+            </div>
+            <p style={{ maxWidth: 460, margin: "0 auto" }}>
+              Plan a fight before the session: name it, add monsters, and the difficulty is worked
+              out for your party. Start with New encounter.
+            </p>
           </div>
         )}
       </div>

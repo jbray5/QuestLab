@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ArrowUp, Dices, ExternalLink, Plus, ScrollText, Users, X } from "lucide-react";
 import { zoomable } from "../lib/lightbox";
 import { useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -15,27 +16,30 @@ import InventoryPanel from "../components/InventoryPanel";
 import SpellPanel from "../components/SpellPanel";
 import { portraitSrc } from "../lib/portrait";
 import RowMenu from "../components/RowMenu";
+import Monogram from "../components/character-sheet/Monogram";
 
 function mod(score: number) {
   const m = Math.floor((score - 10) / 2);
   return m >= 0 ? `+${m}` : `${m}`;
 }
 
+/** A muted label over a mono value — the card's stat tiles (Plan 121). */
+function Stat({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: "0.4rem" }}>
+      <span style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>{label}</span>
+      <span className="num" style={{ fontSize: "0.95rem", color: "var(--text)" }}>{children}</span>
+    </div>
+  );
+}
+
 function HpBar({ hp, maxHp }: { hp: number; maxHp: number }) {
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (hp / maxHp) * 100)) : 0;
+  // Lamplit health: teal → amber at half → red when critical.
   const cls = pct > 50 ? "green" : pct > 20 ? "yellow" : "red";
   return (
-    <div>
-      <div
-        className="flex items-center"
-        style={{ justifyContent: "space-between", marginBottom: "0.2rem" }}
-      >
-        <span className="text-sm text-muted">HP</span>
-        <span className="text-sm text-mono">{hp}/{maxHp}</span>
-      </div>
-      <div className="hp-bar-track">
-        <div className={`hp-bar-fill ${cls}`} style={{ width: `${pct}%` }} />
-      </div>
+    <div className="hp-bar-track" style={{ marginTop: "0.35rem" }}>
+      <div className={`hp-bar-fill ${cls}`} style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -70,6 +74,7 @@ const STATS = [
   "score_cha",
 ] as const;
 const STAT_LABELS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
+const ABILITY_NAMES = ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"];
 
 export default function Characters() {
   const { campaignId } = useParams<{ campaignId: string }>();
@@ -226,7 +231,7 @@ export default function Characters() {
               Players join from your join link or the QR on the TV
               {joinCode ? (
                 <>
-                  , type <strong style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.1em" }}>{joinCode}</strong>, and build or pick their character.
+                  , type <strong className="num" style={{ color: "var(--text)" }}>{joinCode}</strong>, and build or pick their character.
                 </>
               ) : (
                 " and build their character. Add a join code so only your table can see the party."
@@ -237,7 +242,7 @@ export default function Characters() {
         <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
           {/* Plan 74 — players build their own characters from the join link. */}
           <label
-            style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8rem", color: "var(--muted)", cursor: "pointer" }}
+            style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8125rem", color: "var(--text2)", cursor: "pointer", margin: 0 }}
             title="When on, anyone with your join link / QR can create a character in this campaign"
           >
             <input
@@ -249,7 +254,7 @@ export default function Characters() {
             Players can create their own characters
           </label>
           <label
-            style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8rem", color: "var(--muted)" }}
+            style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8125rem", color: "var(--text2)", margin: 0 }}
             title="Players open your join link (or scan the QR on the TV), type this code, then pick or build their character. Without a code, anyone with the link can see the party."
           >
             Join code
@@ -264,7 +269,8 @@ export default function Characters() {
               }}
               placeholder="no code"
               maxLength={12}
-              style={{ width: 132, fontFamily: "var(--font-mono)", letterSpacing: "0.12em", padding: "2px 6px" }}
+              className="num"
+              style={{ width: 120, padding: "0.3rem 0.5rem", fontSize: "0.875rem" }}
             />
             {/* Review 10/30 — sign-up on with no code showed "Join code: none"
                 and no way forward. One tap makes one; the hint says how it's used. */}
@@ -272,7 +278,7 @@ export default function Characters() {
               <button
                 type="button"
                 className="btn btn-ghost"
-                style={{ fontSize: "0.72rem", padding: "2px 8px" }}
+                style={{ fontSize: "0.8125rem", padding: "0.3rem 0.6rem", minHeight: 0 }}
                 disabled={codeMut.isPending}
                 onClick={() => {
                   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -283,34 +289,45 @@ export default function Characters() {
                 }}
                 title="Make a short code the join page asks for"
               >
-                🎲 Generate
+                <Dices size={14} /> Generate
               </button>
             )}
           </label>
           <button
-            className="btn btn-ghost"
-            style={{ color: "var(--gold)" }}
-            title="Open a level-up for everyone at the party's level; each player picks on their phone"
-            onClick={() => void levelUpParty()}
-            disabled={!characters.length}
-          >
-            ⬆ Level up the party
-          </button>
-          <button
-            className="btn btn-primary"
+            className={showForm && !editing ? "btn btn-secondary" : "btn btn-primary"}
             onClick={() => {
               resetForm();
               setShowForm(!showForm);
             }}
           >
-            {showForm && !editing ? "✕ Cancel" : "+ Add Character"}
+            {showForm && !editing ? (
+              <>
+                <X size={16} /> Cancel
+              </>
+            ) : (
+              <>
+                <Plus size={16} /> Add character
+              </>
+            )}
           </button>
+          {/* Usability pass — a party level-up happens every few sessions, so it
+              lives in the page's ⋯ menu (it still confirms with the names). */}
+          <RowMenu
+            label="More for the party"
+            items={[
+              {
+                label: "Level up the party…",
+                disabled: !characters.length,
+                onSelect: () => void levelUpParty(),
+              },
+            ]}
+          />
         </div>
       </div>
 
       {showForm && (
         <div className="card" style={{ marginBottom: "1.5rem", maxWidth: 600 }}>
-          <h3>{editing ? "Edit Character" : "New Character"}</h3>
+          <h3>{editing ? "Edit character" : "New character"}</h3>
 
           <div style={{ display: "flex", gap: "1.25rem", alignItems: "flex-start", marginBottom: "0.75rem" }}>
             <ImageUpload
@@ -322,11 +339,11 @@ export default function Characters() {
             <div style={{ flex: 1 }}>
               <div className="grid-2">
                 <div className="form-group">
-                  <label>Character Name *</label>
+                  <label>Character name *</label>
                   <input value={form.character_name} onChange={f("character_name")} />
                 </div>
                 <div className="form-group">
-                  <label>Player Name</label>
+                  <label>Player name</label>
                   <input value={form.player_name} onChange={f("player_name")} />
                 </div>
                 <div className="form-group">
@@ -435,8 +452,8 @@ export default function Characters() {
           </div>
 
           {formError && (
-            <p style={{ color: "var(--danger)", fontSize: "0.8rem", margin: "0.25rem 0 0.5rem" }}>
-              ⚠ {formError}
+            <p style={{ color: "var(--danger-text)", fontSize: "0.875rem", margin: "0.25rem 0 0.5rem" }}>
+              {formError}
             </p>
           )}
 
@@ -453,7 +470,7 @@ export default function Characters() {
             >
               {editing ? "Save" : "Create"}
             </button>
-            <button className="btn btn-ghost" onClick={resetForm}>Cancel</button>
+            <button className="btn btn-secondary" onClick={resetForm}>Cancel</button>
           </div>
         </div>
       )}
@@ -463,7 +480,7 @@ export default function Characters() {
       <div className="ql-card-grid">
         {characters.map((c) => (
           <div key={c.id} className="card">
-            <div className="flex items-center" style={{ gap: "0.75rem", marginBottom: "0.75rem" }}>
+            <div className="flex items-center" style={{ gap: "0.75rem", marginBottom: "0.85rem" }}>
               {c.portrait_url ? (
                 <img
                   src={portraitSrc(c.portrait_url, c.updated_at)} {...zoomable(portraitSrc(c.portrait_url, c.updated_at), c.character_name)}
@@ -471,47 +488,41 @@ export default function Characters() {
                   style={{
                     width: 52,
                     height: 52,
-                    borderRadius: "0.375rem",
+                    borderRadius: 6,
                     objectFit: "cover",
-                    border: "1px solid var(--border)",
+                    border: "1px solid var(--border2)",
                     flexShrink: 0,
                   }}
                 />
               ) : (
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: "0.375rem",
-                    background: "var(--surface2)",
-                    border: "1px dashed var(--border)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "1.4rem",
-                    flexShrink: 0,
-                  }}
-                >
-                  🧙
-                </div>
+                <Monogram name={c.character_name} />
               )}
-              <div style={{ minWidth: 0 }}>
-                <div className="flex items-center" style={{ gap: "0.4rem", flexWrap: "wrap" }}>
-                  <strong style={{ color: "var(--gold)" }}>{c.character_name}</strong>
-                  <span className="badge badge-draft">Lv {c.level}</span>
-                </div>
-                {c.player_name && (
-                  <span className="text-sm text-muted">({c.player_name})</span>
-                )}
+              <div style={{ minWidth: 0, flex: "1 1 0" }}>
+                <h3
+                  className="story"
+                  style={{ margin: 0, fontSize: "1.2rem", lineHeight: 1.2, wordBreak: "break-word" }}
+                >
+                  {c.character_name}
+                </h3>
+                <p style={{ margin: "0.15rem 0 0", fontSize: "0.875rem", color: "var(--muted)" }}>
+                  {[`Level ${c.level}`, [c.race, c.character_class].filter(Boolean).join(" ")]
+                    .filter(Boolean)
+                    .join(" ")}
+                  {c.player_name ? ` · played by ${c.player_name}` : ""}
+                </p>
               </div>
             </div>
 
-            {(c.race || c.character_class) && (
-              <p className="text-sm text-muted" style={{ marginBottom: "0.5rem" }}>
-                {[c.race, c.character_class].filter(Boolean).join(" · ")}
-              </p>
-            )}
-            <p className="text-sm" style={{ marginBottom: "0.5rem" }}>AC {c.ac}</p>
+            <div style={{ display: "flex", gap: "1.25rem", alignItems: "baseline", flexWrap: "wrap" }}>
+              <span title="Armor Class — what an attack roll must reach to hit">
+                <Stat label="AC">{c.ac}</Stat>
+              </span>
+              <span title="Hit points — current / maximum">
+                <Stat label="HP">
+                  {c.hp_current}/{c.hp_max}
+                </Stat>
+              </span>
+            </div>
             <HpBar hp={c.hp_current} maxHp={c.hp_max} />
 
             <div
@@ -519,32 +530,41 @@ export default function Characters() {
                 display: "grid",
                 gridTemplateColumns: "repeat(6, 1fr)",
                 gap: "0.25rem",
-                marginTop: "0.75rem",
+                marginTop: "0.85rem",
+                padding: "0.45rem 0.25rem",
+                background: "var(--surface2)",
+                borderRadius: 8,
                 textAlign: "center",
               }}
             >
               {STATS.map((s, i) => (
-                <div key={s}>
-                  <div style={{ fontSize: "0.6rem", color: "var(--muted)" }}>{STAT_LABELS[i]}</div>
-                  <div className="text-mono" style={{ fontSize: "0.85rem" }}>{mod(c[s])}</div>
-                  <div style={{ fontSize: "0.65rem", color: "var(--muted)" }}>{c[s]}</div>
+                <div key={s} title={`${ABILITY_NAMES[i]} ${c[s]} (modifier ${mod(c[s])})`}>
+                  <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{STAT_LABELS[i]}</div>
+                  <div className="num" style={{ fontSize: "0.95rem", color: "var(--text)" }}>{mod(c[s])}</div>
+                  <div className="num" style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{c[s]}</div>
                 </div>
               ))}
             </div>
 
-            <div style={{ marginTop: "0.75rem", display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
-              <ImageUpload
-                currentUrl={portraitSrc(c.portrait_url, c.updated_at) ?? null}
-                onUrlChange={(url) => updateImage.mutate({ id: c.id, url })}
-                label="Portrait"
-                size={48}
-              />
-              <ModelUpload
-                currentUrl={c.model_url}
-                onUrlChange={(url) => updateModel.mutate({ id: c.id, url })}
-                heightFt={heightFtForRace(c.race)}
-              />
-            </div>
+            {/* Usability pass — art is set once, so it folds away under the stats. */}
+            <details style={{ marginTop: "0.75rem" }}>
+              <summary style={{ cursor: "pointer", fontSize: "0.8125rem", color: "var(--muted)" }}>
+                Portrait and 3D figure
+              </summary>
+              <div style={{ marginTop: "0.6rem", display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
+                <ImageUpload
+                  currentUrl={portraitSrc(c.portrait_url, c.updated_at) ?? null}
+                  onUrlChange={(url) => updateImage.mutate({ id: c.id, url })}
+                  label="Portrait"
+                  size={48}
+                />
+                <ModelUpload
+                  currentUrl={c.model_url}
+                  onUrlChange={(url) => updateModel.mutate({ id: c.id, url })}
+                  heightFt={heightFtForRace(c.race)}
+                />
+              </div>
+            </details>
 
             <InventoryPanel characterId={c.id} characterName={c.character_name} />
 
@@ -561,54 +581,70 @@ export default function Characters() {
               characterName={c.character_name}
             />
 
-            <div className="flex gap-2" style={{ marginTop: "0.75rem", flexWrap: "wrap" }}>
+            {/* A pending level-up is live: the player's guide is waiting. */}
+            {c.pending_level && c.pending_level > c.level ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  marginTop: "0.75rem",
+                  padding: "0.35rem 0.35rem 0.35rem 0.75rem",
+                  background: "var(--accent-soft)",
+                  border: "1px solid var(--accent-line)",
+                  borderRadius: 8,
+                  fontSize: "0.875rem",
+                }}
+              >
+                <ArrowUp size={14} style={{ color: "var(--accent-text)" }} />
+                <span style={{ flex: 1, color: "var(--text2)" }}>Level {c.level + 1} is waiting for the player</span>
+                <a
+                  className="btn btn-ghost"
+                  style={{ fontSize: "0.8125rem", padding: "0.25rem 0.55rem", minHeight: 0, color: "var(--accent-text)", borderColor: "var(--accent-line)" }}
+                  href={`/play/${c.id}/level-up`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="The player's guide — open it here to walk them through it"
+                >
+                  Open guide <ExternalLink size={13} />
+                </a>
+                <button
+                  className="btn btn-ghost"
+                  style={{ padding: "0.25rem 0.4rem", minHeight: 0, border: "none" }}
+                  title="Withdraw the level-up"
+                  aria-label={`Withdraw ${c.character_name}'s level-up`}
+                  onClick={() => revokeLevel.mutate(c.id)}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            ) : null}
+
+            <div className="flex gap-2" style={{ marginTop: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>
               <button
-                className="btn btn-primary"
-                style={{ fontSize: "0.75rem" }}
+                className="btn btn-secondary"
                 onClick={() => setSheetPcId(c.id)}
                 title="Open full character sheet"
               >
-                📜 Open Sheet
+                <ScrollText size={16} /> Open sheet
               </button>
-              <button className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => startEdit(c)}>
+              <button className="btn btn-ghost" onClick={() => startEdit(c)}>
                 Edit
               </button>
-              {c.pending_level && c.pending_level > c.level ? (
-                <>
-                  <a
-                    className="btn btn-ghost"
-                    style={{ fontSize: "0.7rem", color: "var(--gold)" }}
-                    href={`/play/${c.id}/level-up`}
-                    target="_blank"
-                    rel="noreferrer"
-                    title="The player's guide — open it here to walk them through it"
-                  >
-                    ✨ Level {c.level + 1} guide ↗
-                  </a>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: "0.7rem" }}
-                    title="Withdraw the level-up"
-                    onClick={() => revokeLevel.mutate(c.id)}
-                  >
-                    ✕
-                  </button>
-                </>
-              ) : (
-                <button
-                  className="btn btn-ghost"
-                  style={{ fontSize: "0.7rem", color: "var(--gold)" }}
-                  title="Open a level-up: the player picks HP, feat and spells on their sheet"
-                  onClick={() => grantLevel.mutate(c.id)}
-                  disabled={c.level >= 20}
-                >
-                  ⬆ Level up
-                </button>
-              )}
               <span style={{ marginLeft: "auto" }}>
                 <RowMenu
                   label={`More for ${c.character_name}`}
                   items={[
+                    // Usability pass — a single PC's level-up is occasional: it lives here.
+                    ...(c.pending_level && c.pending_level > c.level
+                      ? []
+                      : [
+                          {
+                            label: `Level up to ${c.level + 1}`,
+                            disabled: c.level >= 20,
+                            onSelect: () => grantLevel.mutate(c.id),
+                          },
+                        ]),
                     {
                       label: "Delete character…",
                       danger: true,
@@ -622,9 +658,14 @@ export default function Characters() {
           </div>
         ))}
         {!isLoading && characters.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-icon">🧙</div>
-            <p>No characters yet — add one above.</p>
+          <div className="empty-state" style={{ gridColumn: "1 / -1" }}>
+            <div className="empty-icon">
+              <Users size={28} />
+            </div>
+            <p style={{ maxWidth: 460, margin: "0 auto" }}>
+              Your party lives here: each player&rsquo;s sheet, spells and gear. Share your join link so
+              players build their own, or use Add character.
+            </p>
           </div>
         )}
       </div>

@@ -31,11 +31,13 @@ export default function ExhaustionTracker({ pc, readOnly = false }: Props) {
 
   const penalty = level * -2;
   const dead = level >= 6;
+  // Lamplit: a condition reads amber; level 6 is death, red.
   const accent = dead
-    ? "var(--red, #ef5350)"
+    ? "var(--danger)"
     : level > 0
-      ? "var(--crimson2, #8b1a1a)"
-      : "var(--muted)";
+      ? "var(--amber)"
+      : "var(--border2)";
+  const textAccent = dead ? "var(--danger-text)" : level > 0 ? "var(--amber-text)" : "var(--muted)";
 
   return (
     <div>
@@ -49,11 +51,10 @@ export default function ExhaustionTracker({ pc, readOnly = false }: Props) {
       >
         <h4
           style={{
-            fontSize: "0.7rem",
+            fontSize: "0.9375rem",
+            fontWeight: 600,
             margin: 0,
-            color: "var(--muted)",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
+            color: "var(--text)",
           }}
         >
           Exhaustion
@@ -70,23 +71,22 @@ export default function ExhaustionTracker({ pc, readOnly = false }: Props) {
         </InfoTip>
         <span
           style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: "0.85rem",
-            color: accent,
-            fontWeight: 600,
+            fontSize: "0.875rem",
+            color: textAccent,
+            fontWeight: 500,
           }}
         >
-          Lv {level}
+          Level <span className="num">{level}</span>
           {level > 0 && !dead && (
             <span style={{ color: "var(--muted)", fontWeight: 400 }}>
               {" "}
-              · {penalty} to all D20 Tests
+              · <span className="num">{penalty}</span> to every d20 roll
             </span>
           )}
-          {dead && <span style={{ color: "var(--red)" }}> · DEAD</span>}
+          {dead && <span> · dead</span>}
         </span>
       </div>
-      <div style={{ display: "flex", gap: "0.3rem" }}>
+      <div style={{ display: "flex", gap: "0.35rem" }}>
         {[1, 2, 3, 4, 5, 6].map((i) => {
           const filled = i <= level;
           return (
@@ -103,7 +103,7 @@ export default function ExhaustionTracker({ pc, readOnly = false }: Props) {
                 width: 22,
                 height: 22,
                 borderRadius: "50%",
-                border: `2px solid ${i === 6 ? "var(--red, #ef5350)" : accent}`,
+                border: `2px solid ${i === 6 ? "var(--danger-line)" : accent}`,
                 background: filled ? accent : "transparent",
                 cursor: readOnly ? "default" : "pointer",
                 padding: 0,

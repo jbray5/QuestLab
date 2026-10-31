@@ -1,9 +1,19 @@
 import { useMemo, useState } from "react";
+import { Check, ChevronDown, ChevronRight, Moon, Tent, X, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { featuresApi } from "../api/features";
 import { restApi } from "../api/rest";
 import type { CharacterFeature } from "../api/types";
+import {
+  PANEL_HEAD_STYLE,
+  PANEL_ROW_STYLE,
+  PANEL_STYLE,
+  PANEL_TITLE_STYLE,
+  REMOVE_BTN,
+  SMALL_BTN,
+  pipStyle,
+} from "./character-sheet/panelStyles";
 
 interface Props {
   characterId: string;
@@ -16,18 +26,22 @@ interface Props {
   readOnly?: boolean;
 }
 
-const RECOVERY_COLOR: Record<string, string> = {
-  short: "#64b5f6",
-  long: "#a78bfa",
-  short_one: "#64b5f6",
-  none: "var(--muted)",
-  per_turn: "var(--gold)",
-};
-
-/** Compact badge text — "short +1" = regain one use per short rest (2024). */
+/** Compact recovery text — "short rest +1" = regain one use per short rest (2024). */
 const RECOVERY_LABEL: Record<string, string> = {
   none: "—",
-  short_one: "short +1",
+  short: "short rest",
+  long: "long rest",
+  short_one: "short rest +1",
+  per_turn: "each turn",
+};
+
+/** The plain sentence behind each recovery label (hover/tap). */
+const RECOVERY_HELP: Record<string, string> = {
+  none: "Always on: no uses to track",
+  short: "All uses come back after a short or long rest",
+  long: "Uses come back after a long rest",
+  short_one: "One use comes back after each short rest",
+  per_turn: "Usable once each turn",
 };
 
 /**
@@ -151,23 +165,14 @@ export default function FeaturePanel({
   function renderFeatureRow(row: CharacterFeature) {
     const filled = Math.max(0, row.max_uses - row.uses_spent);
     return (
-      <div
-        key={row.id}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "0.4rem",
-          padding: "0.35rem 0.55rem",
-          background: "var(--surface2)",
-          border: "1px solid var(--border)",
-          borderRadius: 4,
-          fontSize: "0.82rem",
-        }}
-      >
-        <span style={{ flex: 1, fontWeight: 600 }}>{row.feature_name}</span>
+      <div key={row.id} style={PANEL_ROW_STYLE}>
+        <span style={{ flex: 1, minWidth: 0, fontWeight: 500 }}>{row.feature_name}</span>
 
         {row.max_uses > 0 ? (
-          <div style={{ display: "flex", gap: "0.2rem", alignItems: "center" }}>
+          <div
+            style={{ display: "flex", gap: "0.25rem", alignItems: "center", flexWrap: "wrap" }}
+            title={`${filled} of ${row.max_uses} uses left`}
+          >
             {Array.from({ length: row.max_uses }).map((_, i) => {
               const isFilled = i < filled;
               return (
@@ -179,99 +184,81 @@ export default function FeaturePanel({
                       : restoreMutation.mutate(row.id)
                   }
                   title={isFilled ? "Click to spend" : "Click to restore"}
-                  style={{
-                    width: 12,
-                    height: 12,
-                    borderRadius: "50%",
-                    // Psionic features glow cyan instead of the recovery hue.
-                    border: `1px solid ${
-                      /psionic/i.test(row.feature_name)
-                        ? "#22d3ee"
-                        : RECOVERY_COLOR[row.recovery] ?? "var(--gold)"
-                    }`,
-                    background: isFilled
-                      ? /psionic/i.test(row.feature_name)
-                        ? "#22d3ee"
-                        : RECOVERY_COLOR[row.recovery] ?? "var(--gold)"
-                      : "transparent",
-                    boxShadow:
-                      /psionic/i.test(row.feature_name) && isFilled
-                        ? "0 0 7px rgba(34,211,238,0.85)"
-                        : undefined,
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
+                  aria-label={isFilled ? `Spend a use of ${row.feature_name}` : `Restore a use of ${row.feature_name}`}
+                  style={pipStyle(isFilled, 13)}
                 />
               );
             })}
           </div>
         ) : (
-          <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>passive</span>
+          <span style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>passive</span>
         )}
 
         <span
           style={{
-            fontSize: "0.65rem",
-            color: RECOVERY_COLOR[row.recovery] ?? "var(--muted)",
-            textTransform: "uppercase",
-            minWidth: 36,
+            fontSize: "0.75rem",
+            color: "var(--muted)",
+            minWidth: 52,
             textAlign: "right",
           }}
+          title={RECOVERY_HELP[row.recovery]}
         >
           {RECOVERY_LABEL[row.recovery] ?? row.recovery}
         </span>
 
         <button
           className="btn btn-ghost"
-          style={{
-            fontSize: "0.6rem",
-            padding: "0.1rem 0.35rem",
-            opacity: 0.5,
-          }}
+          style={REMOVE_BTN}
           onClick={() => {
             if (window.confirm(`Forget ${row.feature_name} for ${characterName}?`)) {
               forgetMutation.mutate(row.id);
             }
           }}
           title="Remove this feature"
+          aria-label={`Remove ${row.feature_name}`}
         >
-          ✕
+          <X size={15} />
         </button>
       </div>
     );
   }
 
   return (
-    <div className="card" style={{ marginTop: "0.5rem" }}>
-      <div
-        className="flex items-center"
-        style={{ justifyContent: "space-between", cursor: "pointer" }}
-        onClick={() => setOpen((p) => !p)}
-      >
-        <h4 style={{ margin: 0, fontSize: "0.9rem" }}>
-          ⚡ Features{open && known.length > 0 ? ` (${known.length})` : ""}
+    <div style={PANEL_STYLE}>
+      <div style={PANEL_HEAD_STYLE} onClick={() => setOpen((p) => !p)}>
+        <h4 style={PANEL_TITLE_STYLE}>
+          <Zap size={16} style={{ color: "var(--muted)" }} />
+          Features
+          {open && known.length > 0 && (
+            <span className="num" style={{ color: "var(--muted)", fontWeight: 400 }}>{known.length}</span>
+          )}
         </h4>
-        <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-          {open ? "▾" : "▸"}
-        </span>
+        {open ? (
+          <ChevronDown size={16} style={{ color: "var(--muted)" }} />
+        ) : (
+          <ChevronRight size={16} style={{ color: "var(--muted)" }} />
+        )}
       </div>
 
       {open && (
         <div style={{ marginTop: "0.6rem" }}>
           {error && (
-            <p style={{ color: "var(--red)", fontSize: "0.8rem", marginBottom: "0.5rem" }}>
+            <p style={{ color: "var(--danger-text)", fontSize: "0.875rem", marginBottom: "0.5rem" }}>
               {error}
             </p>
           )}
           {restStatus && (
             <p
               style={{
-                color: "var(--green2, #4caf50)",
-                fontSize: "0.78rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.35rem",
+                color: "var(--teal-text)",
+                fontSize: "0.875rem",
                 marginBottom: "0.5rem",
               }}
             >
-              ✓ {restStatus}
+              <Check size={14} /> {restStatus}
             </p>
           )}
 
@@ -279,21 +266,21 @@ export default function FeaturePanel({
           <div className="flex gap-2" style={{ marginBottom: "0.5rem", flexWrap: "wrap" }}>
             <button
               className="btn btn-secondary"
-              style={{ fontSize: "0.7rem", padding: "0.25rem 0.6rem" }}
+              style={SMALL_BTN}
               onClick={() => shortRestMutation.mutate()}
               disabled={shortRestMutation.isPending}
               title="Restore short-rest features (and Warlock pact slots)"
             >
-              ⛺ Short rest
+              <Tent size={14} /> Short rest
             </button>
             <button
               className="btn btn-secondary"
-              style={{ fontSize: "0.7rem", padding: "0.25rem 0.6rem" }}
+              style={SMALL_BTN}
               onClick={() => longRestMutation.mutate()}
               disabled={longRestMutation.isPending}
               title="Restore all features, slots, and HP"
             >
-              🌙 Long rest
+              <Moon size={14} /> Long rest
             </button>
           </div>
 
@@ -317,15 +304,16 @@ export default function FeaturePanel({
           <div
             style={{
               marginTop: "0.75rem",
-              paddingTop: "0.5rem",
-              borderTop: "1px dashed var(--border)",
+              paddingTop: "0.6rem",
+              borderTop: "1px solid var(--border)",
             }}
           >
             <input
               placeholder={`Search ${characterClass} features to learn…`}
+              aria-label={`Search ${characterClass} features to learn`}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{ width: "100%", fontSize: "0.8rem" }}
+              style={{ width: "100%", fontSize: "0.875rem" }}
             />
             {(search.trim().length >= 1 || pickerHits.length <= 10) && (
               <div
@@ -350,22 +338,25 @@ export default function FeaturePanel({
                     disabled={learnMutation.isPending}
                     className="btn btn-ghost"
                     style={{
-                      fontSize: "0.75rem",
-                      padding: "0.25rem 0.5rem",
+                      fontSize: "0.875rem",
+                      padding: "0.25rem 0.55rem",
+                      minHeight: 0,
+                      border: "none",
                       textAlign: "left",
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "flex-start",
                       gap: "0.5rem",
+                      whiteSpace: "normal",
                     }}
                     title={f.description}
                   >
                     <span style={{ flex: 1 }}>+ {f.name}</span>
                     <span
                       style={{
-                        fontSize: "0.6rem",
-                        color: RECOVERY_COLOR[f.recovery] ?? "var(--muted)",
-                        textTransform: "uppercase",
+                        fontSize: "0.75rem",
+                        color: "var(--muted)",
+                        whiteSpace: "nowrap",
                       }}
                     >
                       {f.recovery === "none" ? "passive" : RECOVERY_LABEL[f.recovery] ?? f.recovery}

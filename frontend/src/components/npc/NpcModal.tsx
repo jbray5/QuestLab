@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { X } from "lucide-react";
 
 import {
   type Npc,
   type NpcStatus,
   type NpcCreate,
-  NPC_STATUS_COLORS,
   npcsApi,
 } from "../../api/npcs";
 import PortraitGenerator from "../PortraitGenerator";
@@ -96,50 +96,77 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  const statusColor = NPC_STATUS_COLORS[form.status ?? "Alive"];
-
   return (
     <div role="dialog" aria-label="NPC editor" style={overlayStyle} onClick={onClose}>
       <div
         className="ql-modal-in"
-        style={{ ...sheetStyle, borderLeft: `5px solid ${statusColor}` }}
+        style={sheetStyle}
         onClick={(e) => e.stopPropagation()}
       >
         <header style={headerStyle}>
-          <h2 style={{ margin: 0, fontSize: "1.2rem", color: "var(--gold)" }}>
-            {initial ? `Edit · ${initial.name}` : "New NPC"}
+          <h2 style={{ margin: 0, fontSize: "1.2rem", minWidth: 0 }}>
+            {initial ? (
+              <>
+                <span style={{ color: "var(--muted)", fontWeight: 500 }}>Edit · </span>
+                <span className="story" style={{ fontWeight: 700, fontSize: "1.35rem" }}>{initial.name}</span>
+              </>
+            ) : (
+              "New NPC"
+            )}
           </h2>
-          <button onClick={onClose} style={closeBtnStyle} title="Close (Esc)">
-            ✕
+          <button
+            onClick={onClose}
+            className="btn btn-ghost"
+            style={closeBtnStyle}
+            title="Close (Esc)"
+            aria-label="Close NPC editor"
+          >
+            <X size={18} />
           </button>
         </header>
 
         <div style={bodyStyle}>
+          {/* Identity — first, so the autofocused Name opens at the top
+              (usability pass: it used to sit below the table face). */}
+          <Row>
+            <Field label="Name" required>
+              <input
+                className="story"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                onFocus={(e) => e.currentTarget.select()}
+                placeholder="e.g. Captain Aldric"
+                autoFocus
+                style={{ fontSize: "1.1rem", fontWeight: 700 }}
+              />
+            </Field>
+            <Field label="Role">
+              <input
+                value={form.role ?? ""}
+                onChange={(e) => set("role", e.target.value || null)}
+                placeholder="e.g. innkeeper, sage, mob boss…"
+              />
+            </Field>
+          </Row>
+
           {/* ── TABLE FACE (Plan 40) ─────────────────────────────────────
               These six fields render at the table. Keep them SHORT — they
               are meant to be glanced at, not read. The rich Prep-face
               content below is what you author beforehand. */}
           <section
             style={{
-              border: "1px solid var(--gold)",
-              borderRadius: 8,
-              padding: "0.7rem 0.85rem",
-              marginBottom: "1rem",
-              background: "rgba(201, 168, 76, 0.04)",
+              border: "1px solid var(--border)",
+              borderRadius: 10,
+              padding: "0.8rem 0.9rem 0.3rem",
+              marginBottom: "1.1rem",
+              background: "var(--surface)",
             }}
           >
-            <div
-              style={{
-                fontSize: "0.7rem",
-                color: "var(--gold)",
-                letterSpacing: "0.1em",
-                fontWeight: 700,
-                marginBottom: "0.55rem",
-              }}
-            >
-              🎯 TABLE FACE — what you read at arm's length
-            </div>
-            <Field label="Quick who (one line)">
+            <SectionHead
+              title="Table face"
+              hint="the short lines you glance at mid-scene, one line each"
+            />
+            <Field label="Who they are (one line)">
               <input
                 value={form.quick_who ?? ""}
                 onChange={(e) => set("quick_who", e.target.value || null)}
@@ -147,7 +174,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                 placeholder='Wenneth — dryad innkeeper, dreamy & warm'
               />
             </Field>
-            <Field label="WANT — what they want right now (one line)">
+            <Field label="Wants — what they want right now (one line)">
               <input
                 value={form.want_now ?? ""}
                 onChange={(e) => set("want_now", e.target.value || null)}
@@ -155,7 +182,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                 placeholder="e.g. To know if the party will help her tend the grove tonight."
               />
             </Field>
-            <Field label="KNOWS — one bullet per line (cap to 3)">
+            <Field label="Knows — one thing per line (three at most)">
               <textarea
                 value={knowsText}
                 onChange={(e) => setKnowsText(e.target.value)}
@@ -163,7 +190,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                 placeholder={"One line per thing they know.\nThe mill's been dark since the new moon.\nThe captain pays in foreign coin."}
               />
             </Field>
-            <Field label="VOICE — one tic, writable so you can perform it">
+            <Field label="Voice — one habit of speech you can perform">
               <input
                 value={form.voice ?? ""}
                 onChange={(e) => set("voice", e.target.value || null)}
@@ -171,7 +198,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                 placeholder={`British, warm — "oooh, s'alright, love"`}
               />
             </Field>
-            <Field label="SECRET (table-length, one line)">
+            <Field label="Secret (one line)">
               <input
                 value={form.secret_short ?? ""}
                 onChange={(e) => set("secret_short", e.target.value || null)}
@@ -179,7 +206,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                 placeholder="e.g. She knows the shrine is dying."
               />
             </Field>
-            <Field label="Relationship pings (one per line, optional)">
+            <Field label="Ties to the party (one per line, optional)">
               <textarea
                 value={relPingsText}
                 onChange={(e) => setRelPingsText(e.target.value)}
@@ -190,17 +217,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
           </section>
 
           {/* ── PREP FACE — rich content the DM reads BEFORE a session ── */}
-          <div
-            style={{
-              fontSize: "0.7rem",
-              color: "var(--muted)",
-              letterSpacing: "0.1em",
-              fontWeight: 700,
-              margin: "0.5rem 0 0.6rem",
-            }}
-          >
-            📚 PREP FACE — depth & connections (not for at-table reading)
-          </div>
+          <SectionHead title="Prep face" hint="the depth you read before the session, not at the table" />
 
           {/* Portrait + AI generation (only for persisted NPCs) */}
           {initial && (
@@ -248,7 +265,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                   />
                   <span>
                     {form.true_form_revealed ? (
-                      <strong style={{ color: "var(--green2, #4caf50)" }}>True form showing</strong>
+                      <strong style={{ color: "var(--teal-text)" }}>True form showing</strong>
                     ) : (
                       <strong style={{ color: "var(--muted)" }}>Disguise showing</strong>
                     )}
@@ -263,25 +280,6 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
             <ObsidianNoteInput value={form.dm_note} onChange={(v) => set("dm_note", v)} />
           </Field>
 
-          {/* Identity */}
-          <Row>
-            <Field label="Name" required>
-              <input
-                value={form.name}
-                onChange={(e) => set("name", e.target.value)}
-                onFocus={(e) => e.currentTarget.select()}
-                placeholder="e.g. Captain Aldric"
-                autoFocus
-              />
-            </Field>
-            <Field label="Role">
-              <input
-                value={form.role ?? ""}
-                onChange={(e) => set("role", e.target.value || null)}
-                placeholder="e.g. innkeeper, sage, mob boss…"
-              />
-            </Field>
-          </Row>
           <Row>
             <Field label="Race">
               <input
@@ -407,7 +405,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
               <span>
                 {form.is_revealed ?? false ? (
                   <>
-                    <strong style={{ color: "var(--green2, #4caf50)" }}>Revealed</strong>
+                    <strong style={{ color: "var(--teal-text)" }}>Revealed</strong>
                     {" — shows on player phones in 'People You've Met'"}
                   </>
                 ) : (
@@ -422,7 +420,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
         </div>
 
         {save.isError && (
-          <p style={{ color: "var(--red)", margin: "0 1.25rem 0.5rem", fontSize: "0.85rem" }}>
+          <p style={{ color: "var(--danger-text)", margin: "0 1.25rem 0.5rem", fontSize: "0.875rem" }}>
             {(save.error as Error)?.message ?? "Save failed"}
           </p>
         )}
@@ -430,8 +428,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
         <footer style={footerStyle}>
           {initial && (
             <button
-              className="btn btn-ghost"
-              style={{ color: "var(--red)", borderColor: "var(--red)" }}
+              className="btn btn-danger"
               onClick={() => {
                 if (window.confirm(`Delete "${initial.name}"? This cannot be undone.`)) {
                   del.mutate();
@@ -443,7 +440,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
             </button>
           )}
           <span style={{ flex: 1 }} />
-          <button className="btn btn-ghost" onClick={onClose}>
+          <button className="btn btn-secondary" onClick={onClose}>
             Cancel
           </button>
           <button
@@ -520,16 +517,16 @@ function ImageSlot({
         <img
           src={src}
           alt=""
-          style={{ width: 56, height: 56, borderRadius: 6, objectFit: "cover", border: "1px solid var(--border)" }}
+          style={{ width: 56, height: 56, borderRadius: 6, objectFit: "cover", border: "1px solid var(--border2)" }}
         />
       ) : (
-        <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>{empty}</span>
+        <span style={{ fontSize: "0.875rem", color: "var(--muted)" }}>{empty}</span>
       )}
       <input
         type="file"
         accept="image/*"
         disabled={busy}
-        style={{ width: "auto", fontSize: "0.8rem" }}
+        style={{ width: "auto", maxWidth: "100%", fontSize: "0.8125rem" }}
         onChange={async (e) => {
           const f = e.target.files?.[0];
           if (!f) return;
@@ -545,11 +542,11 @@ function ImageSlot({
         }}
       />
       {url && (
-        <button type="button" className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => onChange(null)}>
+        <button type="button" className="btn btn-ghost" style={{ fontSize: "0.8125rem", minHeight: 0, padding: "0.25rem 0.6rem" }} onClick={() => onChange(null)}>
           Remove
         </button>
       )}
-      {err && <span style={{ fontSize: "0.75rem", color: "var(--danger, #e57373)" }}>{err}</span>}
+      {err && <span style={{ fontSize: "0.8125rem", color: "var(--danger-text)" }}>{err}</span>}
     </div>
   );
 }
@@ -579,22 +576,31 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label style={{ display: "block", marginBottom: "0.55rem" }}>
+    <label style={{ display: "block", marginBottom: "0.7rem" }}>
       <span
         style={{
-          fontSize: "0.65rem",
-          color: "var(--muted)",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
+          fontSize: "0.875rem",
+          fontWeight: 500,
+          color: "var(--text2)",
           display: "block",
-          marginBottom: "0.2rem",
+          marginBottom: "0.25rem",
         }}
       >
         {label}
-        {required && <span style={{ color: "var(--red)" }}> *</span>}
+        {required && <span style={{ color: "var(--danger-text)" }}> *</span>}
       </span>
       {children}
     </label>
+  );
+}
+
+/** A section heading inside the editor: a title and a muted one-line hint. */
+function SectionHead({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div style={{ margin: "0 0 0.65rem" }}>
+      <span style={{ fontSize: "1rem", fontWeight: 600, color: "var(--text)" }}>{title}</span>
+      <span style={{ fontSize: "0.8125rem", color: "var(--muted)" }}> — {hint}</span>
+    </div>
   );
 }
 
@@ -603,7 +609,7 @@ function Field({
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0, 0, 0, 0.78)",
+  background: "rgba(5, 8, 7, 0.78)",
   zIndex: 350,
   display: "flex",
   alignItems: "flex-start",
@@ -616,8 +622,8 @@ const overlayStyle: React.CSSProperties = {
 };
 
 const sheetStyle: React.CSSProperties = {
-  background: "var(--bg, #1a1a1a)",
-  border: "1px solid var(--gold)",
+  background: "var(--bg)",
+  border: "1px solid var(--border2)",
   borderRadius: 12,
   maxWidth: 760,
   width: "100%",
@@ -637,13 +643,11 @@ const headerStyle: React.CSSProperties = {
 };
 
 const closeBtnStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "1px solid var(--border)",
-  borderRadius: 4,
-  color: "var(--text)",
-  width: 32,
-  height: 32,
-  cursor: "pointer",
+  width: 36,
+  height: 36,
+  minHeight: 0,
+  padding: 0,
+  flexShrink: 0,
 };
 
 const bodyStyle: React.CSSProperties = {

@@ -11,12 +11,13 @@ interface Props {
 
 type Denom = "pp" | "gp" | "ep" | "sp" | "cp";
 
+// Plan 121 — spelled out, one quiet label color; the coin names do the work.
 const DENOMS: { key: Denom; label: string; color: string; help: string }[] = [
-  { key: "pp", label: "PP", color: "#e0e6f0", help: "Platinum" },
-  { key: "gp", label: "GP", color: "var(--gold)", help: "Gold" },
-  { key: "ep", label: "EP", color: "#c0a060", help: "Electrum" },
-  { key: "sp", label: "SP", color: "#c0c8cf", help: "Silver" },
-  { key: "cp", label: "CP", color: "#b87333", help: "Copper" },
+  { key: "pp", label: "Platinum", color: "var(--muted)", help: "Platinum pieces (pp) — 1 pp = 10 gp" },
+  { key: "gp", label: "Gold", color: "var(--muted)", help: "Gold pieces (gp)" },
+  { key: "ep", label: "Electrum", color: "var(--muted)", help: "Electrum pieces (ep) — 2 ep = 1 gp" },
+  { key: "sp", label: "Silver", color: "var(--muted)", help: "Silver pieces (sp) — 10 sp = 1 gp" },
+  { key: "cp", label: "Copper", color: "var(--muted)", help: "Copper pieces (cp) — 100 cp = 1 gp" },
 ];
 
 /**
@@ -31,19 +32,18 @@ export default function CurrencyBar({ pc, readOnly = false }: Props) {
     <div>
       <h4
         style={{
-          fontSize: "0.7rem",
-          margin: "0 0 0.4rem",
-          color: "var(--muted)",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
+          fontSize: "0.9375rem",
+          fontWeight: 600,
+          margin: "0 0 0.5rem",
+          color: "var(--text)",
         }}
       >
-        Currency
+        Coins
       </h4>
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(68px, 1fr))",
           gap: "0.4rem",
         }}
       >
@@ -108,18 +108,15 @@ function DenominationCell({
       style={{
         background: "var(--surface2)",
         border: "1px solid var(--border)",
-        borderRadius: 6,
+        borderRadius: 8,
         padding: "0.3rem 0.4rem",
         textAlign: "center",
       }}
     >
       <div
         style={{
-          fontSize: "0.6rem",
+          fontSize: "0.75rem",
           color,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          fontWeight: 700,
         }}
       >
         {label}
@@ -129,19 +126,21 @@ function DenominationCell({
         min={0}
         disabled={readOnly || save.isPending}
         value={local}
+        aria-label={`${help}`}
         onChange={(e) => setLocal(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
+        className="num"
         style={{
           width: "100%",
           background: "transparent",
           border: "none",
+          boxShadow: "none",
           color: "var(--text)",
-          fontFamily: "var(--font-mono)",
-          fontSize: "0.95rem",
-          fontWeight: 700,
+          fontSize: "1rem",
+          fontWeight: 600,
           textAlign: "center",
           padding: "0.15rem 0",
         }}

@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
+import { Check, ChevronDown, ChevronRight, Coins } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { charactersApi } from "../api/characters";
 import { itemsApi } from "../api/items";
 import { sessionsApi } from "../api/sessions";
 import type { GameSession, PlayerCharacter } from "../api/types";
+import { PANEL_ROW_STYLE, rarityClass, rarityLabel } from "./character-sheet/panelStyles";
 
 interface Props {
   sessionId: string;
@@ -17,15 +19,6 @@ interface Props {
 }
 
 const RARITIES = ["any", "Common", "Uncommon", "Rare", "VeryRare", "Legendary", "Artifact"] as const;
-
-const RARITY_BADGE: Record<string, string> = {
-  Common: "draft",
-  Uncommon: "ready",
-  Rare: "primary",
-  VeryRare: "artifact",
-  Legendary: "artifact",
-  Artifact: "artifact",
-};
 
 /**
  * Mid-session magic-item handout panel (Plan 00016).
@@ -91,13 +84,17 @@ export default function LootPanel({
     <div className="card" style={{ marginTop: "1rem" }}>
       <div
         className="flex items-center"
-        style={{ justifyContent: "space-between", cursor: "pointer" }}
+        style={{ justifyContent: "space-between", cursor: "pointer", gap: "0.5rem" }}
         onClick={() => setOpen((p) => !p)}
       >
-        <h3 style={{ margin: 0 }}>💰 Loot — hand out an item</h3>
-        <span style={{ fontSize: "0.8rem", color: "var(--muted)" }}>
-          {open ? "▾" : "▸"}
-        </span>
+        <h3 style={{ margin: 0, display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "1.05rem" }}>
+          <Coins size={17} style={{ color: "var(--muted)" }} /> Loot — hand out an item
+        </h3>
+        {open ? (
+          <ChevronDown size={16} style={{ color: "var(--muted)" }} />
+        ) : (
+          <ChevronRight size={16} style={{ color: "var(--muted)" }} />
+        )}
       </div>
 
       {open && (
@@ -105,18 +102,20 @@ export default function LootPanel({
           <div className="flex gap-2" style={{ marginBottom: "0.75rem", flexWrap: "wrap" }}>
             <input
               placeholder="Search items by name…"
+              aria-label="Search items by name"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              style={{ flex: "2 1 180px", fontSize: "0.85rem" }}
+              style={{ flex: "2 1 180px", fontSize: "0.875rem" }}
             />
             <select
               value={rarity}
+              aria-label="Rarity"
               onChange={(e) => setRarity(e.target.value as (typeof RARITIES)[number])}
-              style={{ flex: "1 1 120px", fontSize: "0.85rem" }}
+              style={{ flex: "1 1 120px", fontSize: "0.875rem" }}
             >
               {RARITIES.map((r) => (
                 <option key={r} value={r}>
-                  {r === "VeryRare" ? "Very Rare" : r === "any" ? "Any rarity" : r}
+                  {r === "VeryRare" ? "Very rare" : r === "any" ? "Any rarity" : r}
                 </option>
               ))}
             </select>
@@ -140,42 +139,32 @@ export default function LootPanel({
             <p
               className="text-sm"
               style={{
-                color: "var(--green2, #4caf50)",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.35rem",
+                color: "var(--teal-text)",
                 marginBottom: "0.5rem",
               }}
             >
-              ✓ {lastHandout}
+              <Check size={14} /> {lastHandout}
             </p>
           )}
 
           <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem", maxHeight: 360, overflowY: "auto" }}>
             {visible.map((item) => {
               const pcId = pcSelection[item.id] ?? attendingPcs[0]?.id ?? "";
-              const badge = RARITY_BADGE[item.rarity] ?? "draft";
               return (
-                <div
-                  key={item.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem",
-                    padding: "0.4rem 0.6rem",
-                    background: "var(--surface2)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 6,
-                  }}
-                >
-                  <span style={{ flex: 1, fontSize: "0.85rem" }}>{item.name}</span>
-                  <span className={`badge badge-${badge}`} style={{ fontSize: "0.65rem" }}>
-                    {item.rarity}
-                  </span>
+                <div key={item.id} style={{ ...PANEL_ROW_STYLE, padding: "0.4rem 0.6rem", flexWrap: "wrap" }}>
+                  <span style={{ flex: "1 1 8rem", minWidth: 0 }}>{item.name}</span>
+                  <span className={rarityClass(item.rarity)}>{rarityLabel(item.rarity)}</span>
                   <select
                     value={pcId}
+                    aria-label={`Give ${item.name} to`}
                     onChange={(e) =>
                       setPcSelection((p) => ({ ...p, [item.id]: e.target.value }))
                     }
                     disabled={attendingPcs.length === 0}
-                    style={{ fontSize: "0.75rem", maxWidth: 140 }}
+                    style={{ fontSize: "0.8125rem", maxWidth: 150, width: "auto", padding: "0.25rem 0.45rem" }}
                   >
                     {attendingPcs.length === 0 ? (
                       <option value="">No PCs</option>
@@ -189,7 +178,7 @@ export default function LootPanel({
                   </select>
                   <button
                     className="btn btn-secondary"
-                    style={{ fontSize: "0.7rem", padding: "0.2rem 0.55rem" }}
+                    style={{ fontSize: "0.8125rem", padding: "0.2rem 0.65rem", minHeight: 0 }}
                     disabled={!pcId || handout.isPending}
                     onClick={() => handout.mutate({ pcId, itemId: item.id })}
                     title="Log this item as given to the selected PC"
@@ -208,7 +197,7 @@ export default function LootPanel({
           )}
 
           {handout.isError && (
-            <p style={{ color: "var(--red)", fontSize: "0.85rem", marginTop: "0.5rem" }}>
+            <p style={{ color: "var(--danger-text)", fontSize: "0.875rem", marginTop: "0.5rem" }}>
               {(handout.error as Error).message}
             </p>
           )}

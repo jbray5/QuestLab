@@ -50,28 +50,26 @@ export default function SkillsList({
     <div>
       <h4
         style={{
-          fontSize: "0.7rem",
-          margin: "0 0 0.4rem",
-          color: "var(--muted)",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
+          fontSize: "0.9375rem",
+          fontWeight: 600,
+          margin: "0 0 0.5rem",
+          color: "var(--text)",
         }}
+        title="● = trained (proficient) · ◆ = expertise (double proficiency)"
       >
         Skills
       </h4>
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: "0.2rem 0.6rem",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))",
+          gap: "0.1rem 0.8rem",
         }}
       >
         {SKILLS.map((s) => {
           const bonus = bonuses[s.key] ?? 0;
           const profLevel = proficiencies[s.key] ?? 0;
-          const dot = profLevel === 2 ? "◆" : profLevel === 1 ? "●" : "○";
-          const dotColor =
-            profLevel === 2 ? "var(--gold)" : profLevel === 1 ? "var(--gold)" : "var(--muted)";
+          const dotColor = profLevel > 0 ? "var(--text)" : "var(--muted)";
           return (
             <button
               key={s.key}
@@ -94,30 +92,48 @@ export default function SkillsList({
                 gap: "0.4rem",
                 background: "transparent",
                 border: "none",
-                padding: "0.1rem 0.25rem",
+                borderRadius: 6,
+                padding: "0.15rem 0.3rem",
                 cursor: clickable ? "pointer" : "default",
                 color: "inherit",
                 fontFamily: "inherit",
-                fontSize: "0.78rem",
+                fontSize: "0.875rem",
+                minWidth: 0,
               }}
-              title={clickable ? `Roll ${s.label}` : ""}
+              title={
+                (clickable ? `Roll ${s.label}` : s.label) +
+                (profLevel === 2 ? " (expertise)" : profLevel === 1 ? " (proficient)" : "")
+              }
             >
-              <span style={{ fontSize: "0.65rem", color: dotColor, minWidth: 10 }}>
-                {dot}
-              </span>
+              <span
+                aria-hidden="true"
+                style={{
+                  display: "inline-block",
+                  width: 8,
+                  height: 8,
+                  flexShrink: 0,
+                  margin: "0 1px",
+                  // ◆ expertise = a diamond, ● proficient = a dot, ○ = a ring.
+                  borderRadius: profLevel === 2 ? 1 : "50%",
+                  transform: profLevel === 2 ? "rotate(45deg)" : undefined,
+                  background: profLevel > 0 ? dotColor : "transparent",
+                  border: profLevel > 0 ? "none" : `1.5px solid ${dotColor}`,
+                }}
+              />
               <span
                 style={{
                   flex: 1,
-                  color: profLevel > 0 ? "var(--gold)" : undefined,
+                  color: profLevel > 0 ? "var(--text)" : "var(--text2)",
+                  fontWeight: profLevel > 0 ? 500 : 400,
                   textAlign: "left",
                 }}
               >
                 {s.label}{" "}
-                <span style={{ fontSize: "0.65rem", color: "var(--muted)" }}>
-                  ({s.ability})
+                <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+                  {s.ability}
                 </span>
               </span>
-              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600 }}>{fmt(bonus)}</span>
+              <span className="num" style={{ fontWeight: 600, color: "var(--text)" }}>{fmt(bonus)}</span>
             </button>
           );
         })}

@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { classEmoji } from "../../lib/classEmoji";
+import { Focus, X } from "lucide-react";
 import { zoomable } from "../../lib/lightbox";
+import { AI_ON } from "../../lib/flags";
+import { useIsCompact } from "../../hooks/useIsCompact";
+import Monogram from "./Monogram";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { charactersApi } from "../../api/characters";
@@ -77,6 +80,9 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
   const qc = useQueryClient();
   const [rollCtx, setRollCtx] = useState<RollContext | null>(null);
   const [hpDelta, setHpDelta] = useState<number | "">("");
+  // Usability pass — full words on the stat tiles; a phone keeps the short form
+  // (each tile's tooltip spells it out).
+  const narrow = useIsCompact(560);
 
   const { data: pc, isLoading } = useQuery({
     queryKey: ["character", characterId],
@@ -181,67 +187,39 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                   height: 56,
                   borderRadius: 6,
                   objectFit: "cover",
-                  border: "1px solid var(--gold)",
+                  border: "1px solid var(--border2)",
                 }}
               />
             ) : (
-              <div
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 6,
-                  background: "var(--surface2)",
-                  border: "1px dashed var(--border)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "1.5rem",
-                }}
-              >
-                {classEmoji(pc.character_class)}
-              </div>
+              <Monogram name={pc.character_name} size={56} />
             )}
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: "1.4rem",
-                  color: "var(--gold)",
-                  fontFamily: "var(--font-story)",
-                }}
-              >
+              <h2 className="story" style={{ margin: 0, fontSize: "1.5rem" }}>
                 {pc.character_name}
               </h2>
               <p
                 style={{
                   margin: "0.1rem 0 0",
-                  fontSize: "0.85rem",
+                  fontSize: "0.875rem",
                   color: "var(--muted)",
                 }}
               >
-                Lv {pc.level} {pc.character_class}
+                Level {pc.level} {pc.character_class}
                 {pc.subclass ? ` (${pc.subclass})` : ""} · {pc.race}
                 {pc.background ? ` · ${pc.background}` : ""}
               </p>
             </div>
             <button
               onClick={onClose}
-              style={{
-                background: "transparent",
-                border: "1px solid var(--border)",
-                borderRadius: 4,
-                color: "var(--text)",
-                fontSize: "1.1rem",
-                width: 32,
-                height: 32,
-                cursor: "pointer",
-              }}
+              className="btn btn-ghost"
+              style={{ width: 36, height: 36, minHeight: 0, padding: 0 }}
               title="Close (Esc)"
+              aria-label="Close character sheet"
             >
-              ✕
+              <X size={18} />
             </button>
           </div>
-          <div style={{ marginTop: "0.4rem" }}>
+          <div style={{ marginTop: "0.5rem" }}>
             <PlayerLinkButton characterId={characterId} />
           </div>
 
@@ -250,15 +228,13 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "0.5rem",
+              gap: "0.6rem",
               marginTop: "0.65rem",
-              fontSize: "0.65rem",
+              fontSize: "0.8125rem",
               color: "var(--muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
             }}
           >
-            <span>DM help:</span>
+            <span>Rules help:</span>
             <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
               Temp HP
               <InfoTip title="Temporary HP">
@@ -266,7 +242,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                 source replaces the old (don't add).{"\n\n"}
                 Common sources: False Life, Heroism, Inspiring Leader, Tempest Cleric's
                 Channel Divinity. Lost on long rest.{"\n\n"}
-                Use the −Damage button — the waterfall is applied server-side.
+                Use the Damage button — Temp HP is used up first automatically.
               </InfoTip>
             </span>
             <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
@@ -279,7 +255,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                 2024 rules grant Heroic Inspiration automatically on any
                 natural 20. Also grant it for cool roleplay, clever solutions,
                 or anything you want to reward at the table.{"\n\n"}
-                Click the Insp chip to toggle on/off.
+                Click the Inspiration tile to toggle it on or off.
               </InfoTip>
             </span>
           </div>
@@ -294,21 +270,27 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
             }}
           >
             <StatChip
-              label="HP"
+              label={narrow ? "HP" : "Hit points"}
               value={`${pc.hp_current}/${pc.hp_max}`}
-              accent={pc.hp_current === 0 ? "var(--red, #ef5350)" : undefined}
+              accent={pc.hp_current === 0 ? "var(--danger-text)" : undefined}
+              title="Hit points: current / maximum"
             />
             <StatChip
-              label="Temp HP"
+              label={narrow ? "Temp" : "Temp HP"}
               value={pc.temp_hp > 0 ? `+${pc.temp_hp}` : "—"}
-              accent={pc.temp_hp > 0 ? "var(--green2, #4caf50)" : undefined}
+              accent={pc.temp_hp > 0 ? "var(--teal-text)" : undefined}
+              title="Temporary hit points: lost first, gone after a long rest"
             />
-            <StatChip label="AC" value={String(pc.ac)} />
-            <StatChip label="Speed" value={`${pc.speed} ft`} />
             <StatChip
-              label="Insp"
-              value={pc.heroic_inspiration ? "●" : "○"}
-              accent={pc.heroic_inspiration ? "var(--gold)" : "var(--muted)"}
+              label={narrow ? "AC" : "Armor Class"}
+              value={String(pc.ac)}
+              title="Armor Class: what an attack roll must reach to hit"
+            />
+            <StatChip label="Speed" value={`${pc.speed} ft`} title="Speed: feet moved per turn" />
+            <StatChip
+              label={narrow ? "Insp." : "Inspiration"}
+              value={pc.heroic_inspiration ? "Yes" : "No"}
+              accent={pc.heroic_inspiration ? "var(--accent-text)" : "var(--muted)"}
               clickable={!readOnly}
               onClick={() =>
                 patchPc.mutate({
@@ -322,7 +304,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
               }
             />
             <StatChip
-              label="Init"
+              label={narrow ? "Init." : "Initiative"}
               value={fmt(initiativeMod)}
               clickable={!readOnly}
               onClick={() =>
@@ -332,9 +314,18 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                   breakdown: `DEX mod (${fmt(initiativeMod)})`,
                 })
               }
+              title="Initiative: roll d20 + Dexterity modifier"
             />
-            <StatChip label="Prof Bonus" value={fmt(profBonus)} />
-            <StatChip label="Pass. Perc." value={String(passivePerception)} />
+            <StatChip
+              label={narrow ? "Prof." : "Proficiency"}
+              value={fmt(profBonus)}
+              title="Proficiency bonus: added to anything this character is trained in"
+            />
+            <StatChip
+              label={narrow ? "Perc." : "Passive Perception"}
+              value={String(passivePerception)}
+              title="Passive Perception: noticing things without rolling (10 + Perception bonus)"
+            />
           </div>
 
           {/* HP damage / heal controls */}
@@ -349,16 +340,17 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
               }}
             >
               <label
+                htmlFor={`hp-delta-${characterId}`}
                 style={{
-                  fontSize: "0.65rem",
+                  fontSize: "0.8125rem",
                   color: "var(--muted)",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
+                  margin: 0,
                 }}
               >
-                Adjust HP
+                Adjust hit points
               </label>
               <input
+                id={`hp-delta-${characterId}`}
                 type="number"
                 min={0}
                 value={hpDelta}
@@ -366,15 +358,11 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                   setHpDelta(e.target.value === "" ? "" : Math.max(0, Number(e.target.value)))
                 }
                 placeholder="0"
+                className="num"
                 style={{
-                  width: 70,
-                  padding: "0.25rem 0.4rem",
-                  fontFamily: "var(--font-mono)",
-                  fontSize: "0.85rem",
-                  background: "var(--surface2)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 4,
-                  color: "var(--text)",
+                  width: 76,
+                  padding: "0.3rem 0.45rem",
+                  fontSize: "0.9375rem",
                 }}
               />
               <button
@@ -383,12 +371,12 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                   damageMut.mutate(Number(hpDelta));
                 }}
                 disabled={hpDelta === "" || hpDelta === 0 || damageMut.isPending}
-                className="btn btn-ghost"
+                className="btn btn-secondary"
                 style={{
-                  fontSize: "0.78rem",
-                  padding: "0.25rem 0.6rem",
-                  color: "var(--red, #ef5350)",
-                  borderColor: "var(--red, #ef5350)",
+                  fontSize: "0.875rem",
+                  padding: "0.3rem 0.7rem",
+                  minHeight: 0,
+                  color: "var(--danger-text)",
                 }}
               >
                 − Damage
@@ -399,18 +387,18 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                   healMut.mutate(Number(hpDelta));
                 }}
                 disabled={hpDelta === "" || hpDelta === 0 || healMut.isPending}
-                className="btn btn-ghost"
+                className="btn btn-secondary"
                 style={{
-                  fontSize: "0.78rem",
-                  padding: "0.25rem 0.6rem",
-                  color: "var(--green2, #4caf50)",
-                  borderColor: "var(--green2, #4caf50)",
+                  fontSize: "0.875rem",
+                  padding: "0.3rem 0.7rem",
+                  minHeight: 0,
+                  color: "var(--teal-text)",
                 }}
               >
                 + Heal
               </button>
-              <span style={{ fontSize: "0.7rem", color: "var(--muted)" }}>
-                (damage hits Temp HP first)
+              <span style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>
+                Damage uses up Temp HP first.
               </span>
             </div>
           )}
@@ -423,17 +411,18 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                 alignItems: "center",
                 gap: "0.6rem",
                 marginTop: "0.55rem",
-                padding: "0.4rem 0.6rem",
-                background: "rgba(76, 175, 80, 0.08)",
-                border: "1px solid var(--green2, #4caf50)",
-                borderRadius: 6,
-                fontSize: "0.82rem",
+                padding: "0.4rem 0.4rem 0.4rem 0.7rem",
+                background: "var(--amber-soft)",
+                border: "1px solid var(--amber-soft)",
+                borderRadius: 8,
+                fontSize: "0.875rem",
+                flexWrap: "wrap",
               }}
             >
-              <span>🌀</span>
-              <span style={{ flex: 1 }}>
-                Concentrating on:{" "}
-                <strong style={{ color: "var(--green2, #4caf50)" }}>
+              <Focus size={16} style={{ color: "var(--amber-text)" }} />
+              <span style={{ flex: 1, color: "var(--text2)" }}>
+                Concentrating on{" "}
+                <strong style={{ color: "var(--amber-text)" }}>
                   {pc.concentration_on}
                 </strong>
               </span>
@@ -447,10 +436,11 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                         breakdown: "CON mod · DC = max(10, half damage taken)",
                       })
                     }
-                    className="btn btn-ghost"
-                    style={{ fontSize: "0.72rem", padding: "0.2rem 0.5rem" }}
+                    className="btn btn-secondary"
+                    style={{ fontSize: "0.8125rem", padding: "0.2rem 0.6rem", minHeight: 0 }}
+                    title="Constitution saving throw — DC 10 or half the damage taken, whichever is higher"
                   >
-                    Roll CON save
+                    Roll Constitution save
                   </button>
                   <button
                     onClick={() =>
@@ -459,7 +449,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                       })
                     }
                     className="btn btn-ghost"
-                    style={{ fontSize: "0.72rem", padding: "0.2rem 0.5rem" }}
+                    style={{ fontSize: "0.8125rem", padding: "0.2rem 0.6rem", minHeight: 0 }}
                   >
                     Drop
                   </button>
@@ -480,8 +470,9 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
         <div style={bodyStyle}>
           {pc.hp_current === 0 && <DeathSaveTracker pc={pc} readOnly={readOnly} />}
 
-          {!readOnly && (
-            <Section title="🎨 Portrait">
+          {/* The generator is AI-only (Plan 86); without it this box was empty. */}
+          {!readOnly && AI_ON && (
+            <Section title="Portrait">
               <PortraitGenerator
                 currentUrl={portraitSrc(pc.portrait_url, pc.updated_at) ?? null}
                 onGenerate={async (hints) => {
@@ -496,15 +487,15 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
             </Section>
           )}
 
-          <Section title="Ability Scores">
+          <Section title="Ability scores">
             <AbilityBlock abilities={abilities} onRoll={setRollCtx} readOnly={readOnly} />
           </Section>
 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(220px, 1fr) minmax(280px, 2fr)",
-              gap: "1.25rem",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 240px), 1fr))",
+              gap: "1rem",
             }}
           >
             <Section>
@@ -525,7 +516,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
             </Section>
           </div>
 
-          <Section title="⚔ Attacks">
+          <Section>
             <AttacksList
               characterId={characterId}
               onRoll={setRollCtx}
@@ -539,37 +530,30 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
               <div
                 style={{
                   display: "flex",
-                  alignItems: "center",
-                  gap: "0.75rem",
-                  padding: "0.5rem 0.85rem",
+                  alignItems: "baseline",
+                  gap: "0.5rem 1.25rem",
                   flexWrap: "wrap",
+                  fontSize: "0.875rem",
                 }}
               >
-                <span
-                  style={{
-                    fontSize: "0.7rem",
-                    color: "var(--muted)",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                  }}
-                >
+                <span style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--text)" }}>
                   Spellcasting
                 </span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>
+                <span style={{ color: "var(--muted)" }} title="The ability this character casts spells with">
                   Ability{" "}
-                  <strong style={{ color: "var(--gold)" }}>
+                  <strong className="num" style={{ color: "var(--text)", fontWeight: 600 }}>
                     {spellStats.ability}
                   </strong>
                 </span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>
-                  Save DC{" "}
-                  <strong style={{ color: "var(--gold)" }}>
+                <span style={{ color: "var(--muted)" }} title="What a target must roll to resist this character's spells">
+                  Spell save DC{" "}
+                  <strong className="num" style={{ color: "var(--text)", fontWeight: 600 }}>
                     {spellStats.save_dc}
                   </strong>
                 </span>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>
-                  Attack{" "}
-                  <strong style={{ color: "var(--gold)" }}>
+                <span style={{ color: "var(--muted)" }} title="Added to the d20 for a spell attack">
+                  Spell attack{" "}
+                  <strong className="num" style={{ color: "var(--text)", fontWeight: 600 }}>
                     {spellStats.attack_bonus !== null &&
                     spellStats.attack_bonus >= 0
                       ? "+"
@@ -612,46 +596,47 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
+              gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
               gap: "1rem",
             }}
           >
-            <Section title="🎲 Hit Dice">
+            <Section>
               <HitDiceTracker
                 pc={pc}
                 dieSize={HIT_DIE_BY_CLASS[pc.character_class] ?? 8}
                 readOnly={readOnly}
               />
             </Section>
-            <Section title="😵 Exhaustion">
+            <Section>
               <ExhaustionTracker pc={pc} readOnly={readOnly} />
             </Section>
           </div>
-          <Section title="💰 Currency">
+          <Section>
             <CurrencyBar pc={pc} readOnly={readOnly} />
           </Section>
 
           {(pc.backstory || pc.notes) && (
-            <Section title="📝 Backstory & Notes">
+            <Section title="Backstory and notes">
               {pc.backstory && (
                 <div style={{ marginBottom: "0.75rem" }}>
                   <h5
                     style={{
-                      fontSize: "0.7rem",
+                      fontSize: "0.8125rem",
+                      fontWeight: 500,
                       color: "var(--muted)",
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
                       margin: "0 0 0.3rem",
                     }}
                   >
                     Backstory
                   </h5>
                   <p
+                    className="story"
                     style={{
                       whiteSpace: "pre-wrap",
                       margin: 0,
-                      fontSize: "0.9rem",
-                      lineHeight: 1.5,
+                      fontSize: "1.05rem",
+                      lineHeight: 1.55,
+                      color: "var(--story-text)",
                     }}
                   >
                     {pc.backstory}
@@ -662,10 +647,9 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                 <div>
                   <h5
                     style={{
-                      fontSize: "0.7rem",
+                      fontSize: "0.8125rem",
+                      fontWeight: 500,
                       color: "var(--muted)",
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
                       margin: "0 0 0.3rem",
                     }}
                   >
@@ -675,7 +659,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                     style={{
                       whiteSpace: "pre-wrap",
                       margin: 0,
-                      fontSize: "0.9rem",
+                      fontSize: "0.9375rem",
                       lineHeight: 1.5,
                     }}
                   >
@@ -719,8 +703,8 @@ function StatChip({
       style={{
         padding: "0.4rem 0.5rem",
         background: "var(--surface2)",
-        border: `1px solid ${accent ?? "var(--border)"}`,
-        borderRadius: 6,
+        border: `1px solid ${clickable ? "var(--border2)" : "var(--border)"}`,
+        borderRadius: 8,
         textAlign: "center",
         cursor: clickable ? "pointer" : "default",
         fontFamily: "inherit",
@@ -730,19 +714,21 @@ function StatChip({
     >
       <div
         style={{
-          fontSize: "0.62rem",
+          fontSize: "0.75rem",
           color: "var(--muted)",
-          letterSpacing: "0.06em",
-          textTransform: "uppercase",
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
         }}
       >
         {label}
       </div>
       <div
+        className="num"
         style={{
-          fontSize: "1.1rem",
-          fontWeight: 700,
-          color: accent ?? "var(--gold)",
+          fontSize: "1.15rem",
+          fontWeight: 600,
+          color: accent ?? "var(--text)",
         }}
       >
         {value}
@@ -773,13 +759,13 @@ function ConcentrationStarter({
           onClick={() => setEditing(true)}
           className="btn btn-ghost"
           style={{
-            fontSize: "0.72rem",
-            padding: "0.25rem 0.55rem",
-            color: "var(--muted)",
+            fontSize: "0.8125rem",
+            padding: "0.25rem 0.6rem",
+            minHeight: 0,
           }}
           title="Mark this PC as concentrating on a spell/effect"
         >
-          🌀 Start concentration
+          <Focus size={14} /> Start concentration
         </button>
         <InfoTip title="Concentration">
           Spells tagged "Concentration" require ongoing focus. Casting another
@@ -819,14 +805,11 @@ function ConcentrationStarter({
             setEditing(false);
           }
         }}
+        aria-label="Spell or effect being concentrated on"
         style={{
           flex: 1,
-          padding: "0.25rem 0.5rem",
-          background: "var(--surface2)",
-          border: "1px solid var(--border)",
-          borderRadius: 4,
-          color: "var(--text)",
-          fontSize: "0.82rem",
+          padding: "0.3rem 0.55rem",
+          fontSize: "0.875rem",
         }}
       />
       <button
@@ -837,8 +820,8 @@ function ConcentrationStarter({
           setEditing(false);
         }}
         disabled={!value.trim()}
-        className="btn btn-primary"
-        style={{ fontSize: "0.72rem", padding: "0.25rem 0.55rem" }}
+        className="btn btn-secondary"
+        style={{ fontSize: "0.8125rem", padding: "0.3rem 0.65rem", minHeight: 0 }}
       >
         Set
       </button>
@@ -848,7 +831,7 @@ function ConcentrationStarter({
           setEditing(false);
         }}
         className="btn btn-ghost"
-        style={{ fontSize: "0.72rem", padding: "0.25rem 0.55rem" }}
+        style={{ fontSize: "0.8125rem", padding: "0.3rem 0.65rem", minHeight: 0 }}
       >
         Cancel
       </button>
@@ -862,18 +845,17 @@ function Section({ title, children }: { title?: string; children: React.ReactNod
       style={{
         background: "var(--surface)",
         border: "1px solid var(--border)",
-        borderRadius: 8,
-        padding: title ? "0.75rem 1rem" : "0",
+        borderRadius: 10,
+        padding: "0.75rem 1rem",
       }}
     >
       {title && (
         <h3
           style={{
             margin: "0 0 0.5rem",
-            fontSize: "0.85rem",
-            letterSpacing: "0.04em",
-            color: "var(--gold)",
-            fontFamily: "var(--font-story)",
+            fontSize: "0.9375rem",
+            fontWeight: 600,
+            color: "var(--text)",
           }}
         >
           {title}
@@ -889,7 +871,7 @@ function Section({ title, children }: { title?: string; children: React.ReactNod
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
   inset: 0,
-  background: "rgba(0,0,0,0.78)",
+  background: "rgba(5, 8, 7, 0.78)",
   zIndex: 300,
   display: "flex",
   alignItems: "flex-start",
@@ -903,8 +885,8 @@ const overlayStyle: React.CSSProperties = {
 const sheetStyle: React.CSSProperties = {
   maxWidth: 920,
   width: "100%",
-  background: "var(--bg, #1a1a1a)",
-  border: "1px solid var(--gold)",
+  background: "var(--bg)",
+  border: "1px solid var(--border2)",
   borderRadius: 12,
   display: "flex",
   flexDirection: "column",
@@ -916,7 +898,7 @@ const sheetStyle: React.CSSProperties = {
 const stickyHeaderStyle: React.CSSProperties = {
   padding: "1rem 1.25rem",
   borderBottom: "1px solid var(--border)",
-  background: "var(--surface, #222)",
+  background: "var(--surface)",
   flexShrink: 0,
 };
 

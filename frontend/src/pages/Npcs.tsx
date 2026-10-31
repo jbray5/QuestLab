@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Plus, Sparkles, UserRound } from "lucide-react";
 import { AI_ON } from "../lib/flags";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,7 +9,6 @@ import {
   type NpcStatus,
   npcsApi,
 } from "../api/npcs";
-import Flourish from "../components/Flourish";
 import NpcModal from "../components/npc/NpcModal";
 import NpcTableFace from "../components/npc/NpcTableFace";
 
@@ -50,60 +50,60 @@ export default function Npcs() {
 
   return (
     <div className="fade-in">
-      <h1 style={{ textAlign: "center", marginBottom: 0 }}>👤 NPCs</h1>
-      <Flourish />
-      <p
-        className="text-muted"
-        style={{ textAlign: "center", fontStyle: "italic", marginBottom: "1.5rem" }}
-      >
-        Story characters who recur across the campaign. Click any card to edit.
-      </p>
-
-      {/* Action bar */}
       <div
-        style={{
-          display: "flex",
-          gap: "0.6rem",
-          alignItems: "center",
-          flexWrap: "wrap",
-          marginBottom: "1.25rem",
-          padding: "0.7rem 0.9rem",
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: 8,
-        }}
+        className="flex items-center"
+        style={{ justifyContent: "space-between", gap: "1rem", marginBottom: "1.25rem" }}
       >
+        <div>
+          <h1 style={{ marginBottom: "0.2rem" }}>NPCs</h1>
+          <p className="text-sm text-muted" style={{ margin: 0 }}>
+            The people your party meets more than once. Click a card to edit it.
+          </p>
+        </div>
         <button className="btn btn-primary" onClick={() => setEditing("new")}>
-          + New NPC
+          <Plus size={16} /> New NPC
         </button>
-
-        {AI_ON && (
-          <>
-        <span style={{ width: 1, height: 24, background: "var(--border)" }} />
-
-        <input
-          type="text"
-          value={generateRole}
-          onChange={(e) => setGenerateRole(e.target.value)}
-          placeholder="e.g. corrupt guard captain"
-          style={{ flex: 1, minWidth: 180, padding: "0.4rem 0.6rem" }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && generateRole.trim() && !generate.isPending) {
-              generate.mutate();
-            }
-          }}
-        />
-        <button
-          className="btn btn-ghost"
-          onClick={() => generate.mutate()}
-          disabled={!generateRole.trim() || generate.isPending}
-          title="Ask Claude to invent an NPC matching this role"
-        >
-          {generate.isPending ? "Conjuring…" : "✨ Generate"}
-        </button>
-          </>
-        )}
       </div>
+
+      {AI_ON && (
+        <div
+          style={{
+            display: "flex",
+            gap: "0.6rem",
+            alignItems: "center",
+            flexWrap: "wrap",
+            marginBottom: "1.25rem",
+          }}
+        >
+          <input
+            type="text"
+            value={generateRole}
+            onChange={(e) => setGenerateRole(e.target.value)}
+            placeholder="e.g. corrupt guard captain"
+            aria-label="Role for a generated NPC"
+            style={{ flex: 1, minWidth: 180, maxWidth: 420, padding: "0.4rem 0.6rem" }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && generateRole.trim() && !generate.isPending) {
+                generate.mutate();
+              }
+            }}
+          />
+          <button
+            className="btn btn-secondary"
+            onClick={() => generate.mutate()}
+            disabled={!generateRole.trim() || generate.isPending}
+            title="Ask Claude to invent an NPC matching this role"
+          >
+            {generate.isPending ? (
+              "Conjuring…"
+            ) : (
+              <>
+                <Sparkles size={16} /> Generate
+              </>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* Tag filter */}
       {tags.length > 0 && (
@@ -115,8 +115,8 @@ export default function Npcs() {
             marginBottom: "1rem",
           }}
         >
-          <span style={{ fontSize: "0.7rem", color: "var(--muted)", alignSelf: "center" }}>
-            FILTER:
+          <span style={{ fontSize: "0.8125rem", color: "var(--muted)", alignSelf: "center" }}>
+            Show:
           </span>
           <TagChip
             label="All"
@@ -138,25 +138,21 @@ export default function Npcs() {
       {isLoading ? (
         <p className="text-muted">Loading NPCs…</p>
       ) : filtered.length === 0 ? (
-        <div
-          style={{
-            padding: "3rem 1rem",
-            textAlign: "center",
-            color: "var(--muted)",
-            background: "var(--surface)",
-            border: "1px dashed var(--border)",
-            borderRadius: 8,
-            fontStyle: "italic",
-          }}
-        >
-          No NPCs yet. Click <strong>+ New NPC</strong> to begin.
+        <div className="empty-state">
+          <div className="empty-icon">
+            <UserRound size={28} />
+          </div>
+          <p style={{ maxWidth: 460, margin: "0 auto" }}>
+            Keep the innkeeper, the rival and the patron here, with what each one wants, knows
+            and hides — ready to glance at mid-scene. Add the first with New NPC.
+          </p>
         </div>
       ) : (
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-            gap: "0.85rem",
+            gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))",
+            gap: "1rem",
           }}
         >
           {filtered.map((npc) => (
@@ -200,13 +196,14 @@ function TagChip({
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       style={{
-        fontSize: "0.72rem",
-        padding: "0.25rem 0.6rem",
-        background: active ? "var(--gold)" : "var(--surface2)",
-        color: active ? "var(--bg, #1a1a1a)" : "var(--text)",
-        border: `1px solid ${active ? "var(--gold)" : "var(--border)"}`,
-        borderRadius: 12,
+        fontSize: "0.8125rem",
+        padding: "0.2rem 0.7rem",
+        background: active ? "var(--accent-active)" : "transparent",
+        color: active ? "var(--accent-active-text)" : "var(--text2)",
+        border: `1px solid ${active ? "var(--accent-line)" : "var(--border2)"}`,
+        borderRadius: 999,
         cursor: "pointer",
         fontFamily: "inherit",
       }}

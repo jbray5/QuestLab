@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Palette, PersonStanding, X } from "lucide-react";
 import { AI_ON } from "../lib/flags";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Monster } from "../api/types";
@@ -36,16 +37,30 @@ function capitalized(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+/** Full names for the ability tiles' tooltips (usability pass, Plan 121). */
+const ABILITY_NAME: Record<string, string> = {
+  STR: "Strength",
+  DEX: "Dexterity",
+  CON: "Constitution",
+  INT: "Intelligence",
+  WIS: "Wisdom",
+  CHA: "Charisma",
+};
+
+/** A hairline rule between stat-block sections (.stat-block hr). */
 function Divider() {
+  return <hr style={{ margin: "0.75rem 0" }} />;
+}
+
+/** One "Label value" property line: muted-strong label, readable value. */
+function Prop({ label, title, children }: { label: string; title?: string; children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        height: "2px",
-        background: "var(--crimson)",
-        margin: "0.75rem 0",
-        borderRadius: "1px",
-      }}
-    />
+    <p style={{ marginBottom: "0.3rem" }}>
+      <strong style={{ color: "var(--text)", fontWeight: 600 }} title={title}>
+        {label}
+      </strong>{" "}
+      <span style={{ color: "var(--text2)" }}>{children}</span>
+    </p>
   );
 }
 
@@ -57,25 +72,23 @@ interface SectionProps {
 function ActionSection({ title, entries }: SectionProps) {
   if (!entries || entries.length === 0) return null;
   return (
-    <div style={{ marginTop: "0.75rem" }}>
+    <div style={{ marginTop: "0.9rem" }}>
       <h3
         style={{
-          fontFamily: "var(--font-serif)",
-          color: "var(--crimson)",
-          fontSize: "1.1rem",
-          borderBottom: "1px solid var(--crimson)",
-          paddingBottom: "0.2rem",
+          color: "var(--text)",
+          fontSize: "1.05rem",
+          fontWeight: 600,
+          borderBottom: "1px solid var(--accent-line)",
+          paddingBottom: "0.25rem",
           marginBottom: "0.5rem",
-          letterSpacing: "0.05em",
-          textTransform: "uppercase",
         }}
       >
         {title}
       </h3>
       {entries.map((entry, i) => (
-        <p key={i} style={{ marginBottom: "0.5rem", lineHeight: 1.5 }}>
-          <strong style={{ color: "var(--text)" }}>{entry.name}.</strong>{" "}
-          <span style={{ color: "var(--text-muted)" }}>{entry.desc}</span>
+        <p key={i} style={{ marginBottom: "0.55rem", lineHeight: 1.55 }}>
+          <strong style={{ color: "var(--text)", fontWeight: 600, fontStyle: "italic" }}>{entry.name}.</strong>{" "}
+          <span style={{ color: "var(--text2)" }}>{entry.desc}</span>
         </p>
       ))}
     </div>
@@ -116,7 +129,7 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
         position: "fixed",
         inset: 0,
         zIndex: 1000,
-        background: "rgba(0,0,0,0.8)",
+        background: "rgba(5, 8, 7, 0.8)",
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
@@ -125,15 +138,16 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
       }}
     >
       <div
-        className="card fade-in"
+        className="stat-block fade-in"
+        role="dialog"
+        aria-label={`${monster.name} stat block`}
         onClick={(e) => e.stopPropagation()}
         style={{
           position: "relative",
           maxWidth: "600px",
           width: "100%",
-          background: "var(--surface)",
-          borderColor: "var(--gold)",
-          padding: "1.5rem",
+          padding: "1.4rem 1.5rem",
+          borderColor: "var(--border2)",
         }}
       >
         {/* Close button */}
@@ -144,18 +158,19 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
             position: "absolute",
             top: "0.75rem",
             right: "0.75rem",
-            padding: "0.25rem 0.6rem",
-            lineHeight: 1,
-            fontSize: "1.1rem",
+            width: 36,
+            height: 36,
+            minHeight: 0,
+            padding: 0,
             zIndex: 1,
           }}
           aria-label="Close"
         >
-          ✕
+          <X size={18} />
         </button>
 
         {/* Header */}
-        <div style={{ paddingRight: "2rem", display: "flex", gap: "1rem", alignItems: "flex-start" }}>
+        <div style={{ paddingRight: "2.5rem", display: "flex", gap: "1rem", alignItems: "flex-start", flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "center" }}>
             <ImageUpload
               currentUrl={monster.image_url}
@@ -167,22 +182,21 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
             {AI_ON && <MonsterFigureButton monsterId={monster.id} hasFigure={!!monster.figure_url} />}
             <ModelUpload currentUrl={monster.model_url} onUrlChange={(url) => updateModel.mutate(url)} heightFt={heightFtForSize(monster.size)} />
           </div>
-          <div>
+          <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <h2
+                className="monster-name"
                 style={{
-                  fontFamily: "var(--font-serif)",
-                  color: "var(--gold)",
-                  fontSize: "1.6rem",
-                  marginBottom: "0.2rem",
-                  lineHeight: 1.2,
+                  fontSize: "1.75rem",
+                  lineHeight: 1.15,
+                  flex: 1,
                 }}
               >
                 {monster.name}
               </h2>
               <ObsidianLink dmNote={monster.dm_note} />
             </div>
-            <p style={{ fontStyle: "italic", color: "var(--text-muted)", fontSize: "0.9rem" }}>
+            <p style={{ fontStyle: "italic", color: "var(--muted)", fontSize: "0.9375rem" }}>
               {monster.size} {monster.creature_type}
               {monster.alignment ? `, ${monster.alignment}` : ""}
             </p>
@@ -195,7 +209,7 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
         <label
           style={{
             display: "block",
-            fontSize: "0.72rem",
+            fontSize: "0.8125rem",
             color: "var(--muted)",
             marginBottom: "0.5rem",
           }}
@@ -207,134 +221,83 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
         </label>
 
         {/* AC / HP / Speed */}
-        <div style={{ marginBottom: "0.5rem" }}>
-          <p style={{ marginBottom: "0.25rem" }}>
-            <strong style={{ color: "var(--crimson)" }}>Armor Class</strong>{" "}
-            <span style={{ color: "var(--text)" }}>
-              {monster.ac}
-              {monster.ac_notes ? ` (${monster.ac_notes})` : ""}
-            </span>
-          </p>
-          <p style={{ marginBottom: "0.25rem" }}>
-            <strong style={{ color: "var(--crimson)" }}>Hit Points</strong>{" "}
-            <span style={{ color: "var(--text)" }}>
-              {monster.hp_average} ({monster.hp_formula})
-            </span>
-          </p>
-          <p style={{ marginBottom: "0.25rem" }}>
-            <strong style={{ color: "var(--crimson)" }}>Speed</strong>{" "}
-            <span style={{ color: "var(--text)" }}>{formatSpeed(monster.speed)}</span>
-          </p>
+        <div style={{ marginBottom: "0.5rem", fontSize: "0.9375rem" }}>
+          <Prop label="Armor Class" title="What an attack roll must reach to hit">
+            <span className="num" style={{ color: "var(--text)" }}>{monster.ac}</span>
+            {monster.ac_notes ? ` (${monster.ac_notes})` : ""}
+          </Prop>
+          <Prop label="Hit Points" title="Average hit points (the dice to roll them instead)">
+            <span className="num" style={{ color: "var(--text)" }}>{monster.hp_average}</span>{" "}
+            <span className="num">({monster.hp_formula})</span>
+          </Prop>
+          <Prop label="Speed">{formatSpeed(monster.speed)}</Prop>
         </div>
 
-        <Divider />
-
         {/* Ability Scores */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(6, 1fr)",
-            gap: "0.25rem",
-            textAlign: "center",
-            margin: "0.5rem 0",
-          }}
-        >
+        <div className="ability-grid">
           {scores.map(({ label, value }) => (
-            <div key={label}>
-              <div
-                style={{
-                  fontWeight: "bold",
-                  color: "var(--crimson)",
-                  fontSize: "0.8rem",
-                  letterSpacing: "0.05em",
-                }}
-              >
+            <div key={label} title={`${ABILITY_NAME[label] ?? label} ${value} (modifier ${abilityModifier(value)})`}>
+              <div style={{ color: "var(--muted)", fontSize: "0.75rem", fontFamily: "var(--font-ui)" }}>
                 {label}
               </div>
-              <div style={{ color: "var(--text)", fontSize: "0.9rem" }}>
+              <div style={{ color: "var(--text)", fontSize: "0.95rem", fontWeight: 600 }}>
                 {value}
               </div>
-              <div style={{ color: "var(--text-muted)", fontSize: "0.8rem" }}>
+              <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>
                 ({abilityModifier(value)})
               </div>
             </div>
           ))}
         </div>
 
-        <Divider />
-
         {/* Properties */}
-        <div style={{ fontSize: "0.9rem" }}>
+        <div style={{ fontSize: "0.9375rem", marginTop: "0.75rem" }}>
           {monster.saving_throws && Object.keys(monster.saving_throws).length > 0 && (
-            <p style={{ marginBottom: "0.25rem" }}>
-              <strong style={{ color: "var(--crimson)" }}>Saving Throws</strong>{" "}
-              <span style={{ color: "var(--text)" }}>
-                {Object.entries(monster.saving_throws)
-                  .map(([k, v]) => `${capitalized(k)} ${formatSignedNumber(v)}`)
-                  .join(", ")}
-              </span>
-            </p>
+            <Prop label="Saving Throws">
+              {Object.entries(monster.saving_throws)
+                .map(([k, v]) => `${capitalized(k)} ${formatSignedNumber(v)}`)
+                .join(", ")}
+            </Prop>
           )}
           {monster.skills && Object.keys(monster.skills).length > 0 && (
-            <p style={{ marginBottom: "0.25rem" }}>
-              <strong style={{ color: "var(--crimson)" }}>Skills</strong>{" "}
-              <span style={{ color: "var(--text)" }}>
-                {Object.entries(monster.skills)
-                  .map(([k, v]) => `${capitalized(k)} ${formatSignedNumber(v)}`)
-                  .join(", ")}
-              </span>
-            </p>
+            <Prop label="Skills">
+              {Object.entries(monster.skills)
+                .map(([k, v]) => `${capitalized(k)} ${formatSignedNumber(v)}`)
+                .join(", ")}
+            </Prop>
           )}
           {monster.damage_resistances.length > 0 && (
-            <p style={{ marginBottom: "0.25rem" }}>
-              <strong style={{ color: "var(--crimson)" }}>Damage Resistances</strong>{" "}
-              <span style={{ color: "var(--text)" }}>{monster.damage_resistances.join(", ")}</span>
-            </p>
+            <Prop label="Damage Resistances" title="Takes half damage of these types">
+              {monster.damage_resistances.join(", ")}
+            </Prop>
           )}
           {monster.damage_immunities.length > 0 && (
-            <p style={{ marginBottom: "0.25rem" }}>
-              <strong style={{ color: "var(--crimson)" }}>Damage Immunities</strong>{" "}
-              <span style={{ color: "var(--text)" }}>{monster.damage_immunities.join(", ")}</span>
-            </p>
+            <Prop label="Damage Immunities" title="Takes no damage of these types">
+              {monster.damage_immunities.join(", ")}
+            </Prop>
           )}
           {monster.condition_immunities && monster.condition_immunities.length > 0 && (
-            <p style={{ marginBottom: "0.25rem" }}>
-              <strong style={{ color: "var(--crimson)" }}>Condition Immunities</strong>{" "}
-              <span style={{ color: "var(--text)" }}>
-                {monster.condition_immunities.join(", ")}
-              </span>
-            </p>
+            <Prop label="Condition Immunities">{monster.condition_immunities.join(", ")}</Prop>
           )}
           {monster.senses && Object.keys(monster.senses).length > 0 && (
-            <p style={{ marginBottom: "0.25rem" }}>
-              <strong style={{ color: "var(--crimson)" }}>Senses</strong>{" "}
-              <span style={{ color: "var(--text)" }}>
-                {Object.entries(monster.senses)
-                  .map(([k, v]) => {
-                    const label = capitalized(k.replace(/_/g, " "));
-                    if (/passive/i.test(k)) return `${label} ${v}`;
-                    return typeof v === "number" ? `${label} ${v} ft.` : `${label} ${v}`;
-                  })
-                  .join(", ")}
-              </span>
-            </p>
+            <Prop label="Senses">
+              {Object.entries(monster.senses)
+                .map(([k, v]) => {
+                  const label = capitalized(k.replace(/_/g, " "));
+                  if (/passive/i.test(k)) return `${label} ${v}`;
+                  return typeof v === "number" ? `${label} ${v} ft.` : `${label} ${v}`;
+                })
+                .join(", ")}
+            </Prop>
           )}
-          <p style={{ marginBottom: "0.25rem" }}>
-            <strong style={{ color: "var(--crimson)" }}>Languages</strong>{" "}
-            <span style={{ color: "var(--text)" }}>{monster.languages || "—"}</span>
-          </p>
-          <p style={{ marginBottom: "0.25rem" }}>
-            <strong style={{ color: "var(--crimson)" }}>Challenge</strong>{" "}
-            <span style={{ color: "var(--text)" }}>
-              {monster.challenge_rating} ({monster.xp.toLocaleString()} XP)
-            </span>
-          </p>
-          <p style={{ marginBottom: "0.25rem" }}>
-            <strong style={{ color: "var(--crimson)" }}>Proficiency Bonus</strong>{" "}
-            <span style={{ color: "var(--text)" }}>
-              {formatSignedNumber(monster.proficiency_bonus)}
-            </span>
-          </p>
+          <Prop label="Languages">{monster.languages || "—"}</Prop>
+          <Prop label="Challenge" title="Challenge rating — roughly the party level this monster is a fair fight for">
+            <span className="num" style={{ color: "var(--text)" }}>{monster.challenge_rating}</span>{" "}
+            (<span className="num">{monster.xp.toLocaleString()}</span> XP)
+          </Prop>
+          <Prop label="Proficiency Bonus">
+            <span className="num">{formatSignedNumber(monster.proficiency_bonus)}</span>
+          </Prop>
         </div>
 
         <Divider />
@@ -343,9 +306,9 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
         {monster.traits && monster.traits.length > 0 && (
           <div style={{ marginBottom: "0.5rem" }}>
             {monster.traits.map((trait, i) => (
-              <p key={i} style={{ marginBottom: "0.5rem", fontSize: "0.9rem", lineHeight: 1.5 }}>
-                <strong style={{ color: "var(--text)" }}>{trait.name}.</strong>{" "}
-                <span style={{ color: "var(--text-muted)" }}>{trait.desc}</span>
+              <p key={i} style={{ marginBottom: "0.55rem", fontSize: "0.9375rem", lineHeight: 1.55 }}>
+                <strong style={{ color: "var(--text)", fontWeight: 600, fontStyle: "italic" }}>{trait.name}.</strong>{" "}
+                <span style={{ color: "var(--text2)" }}>{trait.desc}</span>
               </p>
             ))}
           </div>
@@ -360,7 +323,7 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
 
         {/* Source badge */}
         <div style={{ marginTop: "1rem", textAlign: "right" }}>
-          <span className="badge" style={{ fontSize: "0.75rem", opacity: 0.7 }}>
+          <span className="pill" title="Where this stat block comes from">
             {monster.source}
           </span>
         </div>
@@ -370,7 +333,7 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
 }
 
 /**
- * "🧍 Minifig" button — generates the transparent full-body standee the 3D
+ * "Minifig" button — generates the transparent full-body standee the 3D
  * board uses (Plan 45). Stored on the stat block, so every token of this
  * monster in every session wears it.
  */
@@ -394,17 +357,18 @@ function MonsterFigureButton({ monsterId, hasFigure }: { monsterId: string; hasF
         onClick={() => gen.mutate()}
         disabled={gen.isPending}
         className="btn btn-ghost"
-        style={{ fontSize: "0.7rem", padding: "0.25rem 0.55rem", whiteSpace: "nowrap" }}
+        style={{ fontSize: "0.8125rem", padding: "0.25rem 0.55rem", minHeight: 0, whiteSpace: "nowrap" }}
         title={
           hasFigure
             ? "Regenerate the 3D-board standee for this monster (~30s)"
             : "Generate the 3D-board standee for this monster (~30s)"
         }
       >
-        {gen.isPending ? "🧍 Sculpting…" : hasFigure ? "🧍 Minifig ✓" : "🧍 Minifig"}
+        <PersonStanding size={14} />
+        {gen.isPending ? "Sculpting…" : hasFigure ? "Minifig (made)" : "Minifig"}
       </button>
       {error && (
-        <div style={{ fontSize: "0.62rem", color: "var(--danger, #ef5350)", maxWidth: 130 }}>
+        <div style={{ fontSize: "0.75rem", color: "var(--danger-text)", maxWidth: 130 }}>
           {error}
         </div>
       )}
@@ -413,7 +377,7 @@ function MonsterFigureButton({ monsterId, hasFigure }: { monsterId: string; hasF
 }
 
 /**
- * Small "🎨 Generate" button for monster portraits.
+ * Small "Generate" button for monster portraits.
  *
  * Sits under the manual ImageUpload — paste a URL OR generate via AI,
  * the DM's choice. Optional style-hints input expands on click.
@@ -442,10 +406,10 @@ function MonsterPortraitButton({ monsterId }: { monsterId: string }) {
       <button
         onClick={() => setExpanded(true)}
         className="btn btn-ghost"
-        style={{ fontSize: "0.7rem", padding: "0.25rem 0.55rem", whiteSpace: "nowrap" }}
+        style={{ fontSize: "0.8125rem", padding: "0.25rem 0.55rem", minHeight: 0, whiteSpace: "nowrap" }}
         title="Generate a portrait via AI (~$0.04 / image)"
       >
-        🎨 Generate
+        <Palette size={14} /> Generate
       </button>
     );
   }
@@ -458,16 +422,17 @@ function MonsterPortraitButton({ monsterId }: { monsterId: string }) {
         onChange={(e) => setHints(e.target.value)}
         placeholder="style hints…"
         disabled={gen.isPending}
-        style={{ fontSize: "0.7rem", padding: "0.2rem 0.35rem", width: "100%" }}
+        aria-label="Style hints"
+        style={{ fontSize: "0.8125rem", padding: "0.2rem 0.4rem", width: "100%" }}
       />
       <div style={{ display: "flex", gap: "0.25rem" }}>
         <button
           onClick={() => gen.mutate()}
           disabled={gen.isPending}
-          className="btn btn-primary"
-          style={{ fontSize: "0.7rem", padding: "0.25rem 0.5rem", flex: 1 }}
+          className="btn btn-secondary"
+          style={{ fontSize: "0.8125rem", padding: "0.25rem 0.5rem", minHeight: 0, flex: 1 }}
         >
-          {gen.isPending ? "Painting…" : "🎨 Go"}
+          {gen.isPending ? "Painting…" : "Go"}
         </button>
         <button
           onClick={() => {
@@ -475,14 +440,15 @@ function MonsterPortraitButton({ monsterId }: { monsterId: string }) {
             setError(null);
           }}
           className="btn btn-ghost"
-          style={{ fontSize: "0.7rem", padding: "0.25rem 0.5rem" }}
+          style={{ padding: "0.25rem 0.4rem", minHeight: 0 }}
           disabled={gen.isPending}
+          aria-label="Cancel"
         >
-          ✕
+          <X size={14} />
         </button>
       </div>
       {error && (
-        <span style={{ fontSize: "0.65rem", color: "var(--red)" }}>{error}</span>
+        <span style={{ fontSize: "0.75rem", color: "var(--danger-text)" }}>{error}</span>
       )}
     </div>
   );

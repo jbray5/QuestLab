@@ -1,5 +1,7 @@
 import { useMemo, useRef, useState } from "react";
+import { ArrowLeft, Map as MapIcon, PenLine, Plus, Square, X } from "lucide-react";
 import { useToast } from "../components/Toast";
+import RowMenu from "../components/RowMenu";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -178,11 +180,17 @@ export default function BattleMaps() {
   }
 
   return (
-    <div style={{ padding: "1.5rem", maxWidth: 1400, margin: "0 auto" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ fontFamily: "var(--font-story)", color: "var(--gold)", margin: 0 }}>
-          Battle Maps
-        </h1>
+    <div className="fade-in" style={{ maxWidth: 1400, margin: "0 auto" }}>
+      <div
+        className="flex"
+        style={{ alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1.25rem" }}
+      >
+        <div>
+          <h1 style={{ marginBottom: "0.2rem" }}>Battle maps</h1>
+          <p className="text-sm text-muted" style={{ margin: 0 }}>
+            Maps for the table, with fog regions you reveal one tap at a time.
+          </p>
+        </div>
         <div
           onDrop={(e) => {
             e.preventDefault();
@@ -191,9 +199,13 @@ export default function BattleMaps() {
           onDragOver={(e) => e.preventDefault()}
           style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}
         >
-          {uploading && <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Uploading…</span>}
-          <button className="btn" onClick={() => fileRef.current?.click()} disabled={uploading}>
-            ＋ Import maps
+          {uploading && <span style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Uploading…</span>}
+          <button
+            className={selected ? "btn btn-secondary" : "btn btn-primary"}
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+          >
+            <Plus size={16} /> Import maps
           </button>
           <input
             ref={fileRef}
@@ -205,7 +217,7 @@ export default function BattleMaps() {
           />
         </div>
       </div>
-      {uploadError && <p style={{ color: "var(--danger, #ef5350)" }}>{uploadError}</p>}
+      {uploadError && <p style={{ color: "var(--danger-text)" }}>{uploadError}</p>}
 
       {!selected ? (
         <MapGrid maps={maps} onSelect={setSelectedId} onImport={() => fileRef.current?.click()} />
@@ -237,18 +249,20 @@ function MapGrid({
     return (
       <div
         onClick={onImport}
-        className="card"
+        className="card card-clickable"
         style={{
-          padding: "3rem",
+          padding: "3rem 1.5rem",
           textAlign: "center",
           color: "var(--muted)",
           cursor: "pointer",
-          border: "2px dashed var(--border)",
-          borderRadius: 12,
+          border: "1px dashed var(--border2)",
         }}
       >
-        <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>🗺️</div>
-        Drop your Czepeku / Roll20 map exports here, or click to import.
+        <MapIcon size={28} style={{ marginBottom: "0.6rem", opacity: 0.8 }} />
+        <p style={{ maxWidth: 460, margin: "0 auto" }}>
+          Your battle maps live here, ready to put on the table. Drop map images or video loops
+          (Czepeku, Roll20 exports, your own) here, or click to import.
+        </p>
       </div>
     );
   }
@@ -256,40 +270,52 @@ function MapGrid({
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+        gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))",
         gap: "1rem",
       }}
     >
       {maps.map((m) => (
         <button
           key={m.id}
-          className="card"
+          className="card card-clickable"
           onClick={() => onSelect(m.id)}
           style={{
             padding: 0,
             overflow: "hidden",
-            borderRadius: 12,
             cursor: "pointer",
             textAlign: "left",
-            background: "var(--surface)",
-            border: "1px solid var(--border)",
+            color: "inherit",
+            fontFamily: "inherit",
           }}
         >
-          <div style={{ aspectRatio: "16 / 10", background: "#0a0a10", overflow: "hidden" }}>
+          <div style={{ aspectRatio: "16 / 10", background: "var(--bg)", overflow: "hidden" }}>
             <img
               src={m.thumb_url ?? m.image_url}
               loading="lazy"
               decoding="async"
               alt={m.name}
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
           </div>
-          <div style={{ padding: "0.6rem 0.8rem" }}>
-            <div style={{ fontWeight: 700, color: "var(--text)" }}>{m.name}</div>
-            <div style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
-              {m.width}×{m.height}
-              {m.grid_size ? ` · ${m.grid_size}px grid` : " · gridless"}
-              {m.regions.length ? ` · ${m.regions.length} region${m.regions.length > 1 ? "s" : ""}` : ""}
+          <div style={{ padding: "0.65rem 0.85rem" }}>
+            <div className="story" style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--text)" }}>
+              {m.name}
+            </div>
+            <div style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>
+              <span className="num">
+                {m.width}×{m.height}
+              </span>
+              {m.grid_size ? (
+                <>
+                  {" · "}
+                  <span title="Pixels per 5-foot square">
+                    <span className="num">{m.grid_size}</span> px squares
+                  </span>
+                </>
+              ) : (
+                " · no grid"
+              )}
+              {m.regions.length ? ` · ${m.regions.length} fog region${m.regions.length > 1 ? "s" : ""}` : ""}
             </div>
           </div>
         </button>
@@ -396,22 +422,34 @@ function MapEditor({
       }}
     >
       <div>
-        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.6rem", flexWrap: "wrap" }}>
-          <button className="btn btn-ghost" onClick={onBack}>← Library</button>
+        <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.6rem", flexWrap: "wrap", alignItems: "center" }}>
+          <button className="btn btn-ghost" onClick={onBack}>
+            <ArrowLeft size={16} /> All maps
+          </button>
+          <span style={{ width: 1, height: 24, background: "var(--border)", margin: "0 0.15rem" }} />
+          <span style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>Draw a fog region:</span>
           <button
-            className={tool === "rect" ? "btn" : "btn btn-ghost"}
+            className="btn btn-secondary"
+            style={toolStyle(tool === "rect")}
+            aria-pressed={tool === "rect"}
             onClick={() => setTool("rect")}
+            title="Drag on the map to draw a rectangle"
           >
-            ▭ Rectangle
+            <Square size={15} /> Rectangle
           </button>
           <button
-            className={tool === "poly" ? "btn" : "btn btn-ghost"}
+            className="btn btn-secondary"
+            style={toolStyle(tool === "poly")}
+            aria-pressed={tool === "poly"}
             onClick={() => setTool("poly")}
+            title="Click points on the map; double-click or Finish to close the shape"
           >
-            ✎ Polygon
+            <PenLine size={15} /> Polygon
           </button>
           {tool === "poly" && draftPoly.length >= 3 && (
-            <button className="btn" onClick={finishPoly}>Finish region ({draftPoly.length} pts)</button>
+            <button className="btn btn-secondary" onClick={finishPoly}>
+              Finish region (<span className="num">{draftPoly.length}</span> points)
+            </button>
           )}
           {tool === "poly" && draftPoly.length > 0 && (
             <button className="btn btn-ghost" onClick={() => setDraftPoly([])}>Cancel draft</button>
@@ -420,7 +458,7 @@ function MapEditor({
 
         <div
           style={{
-            background: "#0a0a10",
+            background: "var(--bg)",
             borderRadius: 10,
             overflow: "hidden",
             border: "1px solid var(--border)",
@@ -441,8 +479,7 @@ function MapEditor({
               <polygon
                 key={r.id}
                 points={r.points.map((p) => `${p[0]},${p[1]}`).join(" ")}
-                fill="rgba(214,175,54,0.22)"
-                stroke="var(--gold, #d6af36)"
+                style={{ fill: "var(--accent)", fillOpacity: 0.22, stroke: "var(--accent)" }}
                 strokeWidth={Math.max(2, map.width * 0.002)}
               />
             ))}
@@ -452,8 +489,7 @@ function MapEditor({
                 y={previewRect.y}
                 width={previewRect.w}
                 height={previewRect.h}
-                fill="rgba(214,175,54,0.2)"
-                stroke="var(--gold)"
+                style={{ fill: "var(--accent)", fillOpacity: 0.2, stroke: "var(--accent)" }}
                 strokeDasharray="8 6"
                 strokeWidth={Math.max(2, map.width * 0.002)}
               />
@@ -463,12 +499,18 @@ function MapEditor({
                 <polyline
                   points={draftPoly.map((p) => `${p[0]},${p[1]}`).join(" ")}
                   fill="none"
-                  stroke="var(--gold)"
+                  style={{ stroke: "var(--accent)" }}
                   strokeWidth={Math.max(2, map.width * 0.002)}
                   strokeDasharray="8 6"
                 />
                 {draftPoly.map((p, i) => (
-                  <circle key={i} cx={p[0]} cy={p[1]} r={Math.max(3, map.width * 0.004)} fill="var(--gold)" />
+                  <circle
+                    key={i}
+                    cx={p[0]}
+                    cy={p[1]}
+                    r={Math.max(3, map.width * 0.004)}
+                    style={{ fill: "var(--accent)" }}
+                  />
                 ))}
               </>
             )}
@@ -476,75 +518,104 @@ function MapEditor({
         </div>
       </div>
 
-      <aside style={{ display: "flex", flexDirection: "column", gap: "0.8rem" }}>
-        <label style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
+      <aside style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+        <label style={ASIDE_LABEL}>
           Map name
-          <input value={name} onChange={(e) => setName(e.target.value)} style={{ width: "100%", marginTop: 4 }} />
+          <input
+            className="story"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            style={{ width: "100%", marginTop: 4, fontSize: "1.05rem", fontWeight: 700 }}
+          />
         </label>
         {/* Plan 93 — DM-only: this location's page in the vault. Saved with the map. */}
-        <label style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
+        <label style={ASIDE_LABEL}>
           <span style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
             Obsidian note
             <ObsidianLink dmNote={dmNote} compact />
           </span>
           <ObsidianNoteInput value={dmNote} onChange={setDmNote} />
         </label>
-        <label style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
-          Grid size (px per square) — blank = gridless
+        <label style={ASIDE_LABEL} title="How many pixels wide one 5-foot square is in this image">
+          Grid square size in pixels — leave blank for no grid
           <input
             type="number"
             value={grid}
             onChange={(e) => setGrid(e.target.value)}
             placeholder="e.g. 140"
+            className="num"
             style={{ width: "100%", marginTop: 4 }}
           />
         </label>
 
         <div>
-          <div style={{ fontSize: "0.72rem", color: "var(--muted)", marginBottom: 4 }}>
+          <div style={{ ...ASIDE_LABEL, marginBottom: 6 }}>
             Fog regions — reveal these one tap at a time during play
           </div>
           {regions.length === 0 && (
-            <p style={{ fontSize: "0.72rem", color: "var(--muted)", fontStyle: "italic" }}>
-              None yet. Draw with the tools on the map.
+            <p style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>
+              None yet. Draw one on the map with Rectangle or Polygon.
             </p>
           )}
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {regions.map((r) => (
               <div key={r.id} style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 <input
                   value={r.name}
+                  aria-label="Region name"
                   onChange={(e) =>
                     setRegions((rs) => rs.map((x) => (x.id === r.id ? { ...x, name: e.target.value } : x)))
                   }
-                  style={{ flex: 1, fontSize: "0.75rem" }}
+                  style={{ flex: 1, fontSize: "0.875rem", padding: "0.35rem 0.55rem" }}
                 />
                 <button
                   className="btn btn-ghost"
-                  style={{ padding: "0 0.4rem", color: "var(--danger, #ef5350)" }}
+                  style={{ padding: "0.3rem", minHeight: 0, border: "none", color: "var(--muted)" }}
                   onClick={() => setRegions((rs) => rs.filter((x) => x.id !== r.id))}
                   title="Delete region"
+                  aria-label={`Delete region ${r.name}`}
                 >
-                  ✕
+                  <X size={16} />
                 </button>
               </div>
             ))}
           </div>
         </div>
 
-        <button className="btn" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
-          {saveMut.isPending ? "Saving…" : "Save map"}
-        </button>
-        <button
-          className="btn btn-ghost"
-          style={{ color: "var(--danger, #ef5350)" }}
-          onClick={() => {
-            if (confirm(`Delete "${map.name}"? This cannot be undone.`)) onDelete();
-          }}
-        >
-          Delete map
-        </button>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <button
+            className="btn btn-primary"
+            style={{ flex: 1 }}
+            onClick={() => saveMut.mutate()}
+            disabled={saveMut.isPending}
+          >
+            {saveMut.isPending ? "Saving…" : "Save map"}
+          </button>
+          {/* Review 10/30 — deleting lives in the ⋯ menu and asks first. */}
+          <RowMenu
+            label={`More for ${map.name}`}
+            items={[
+              {
+                label: "Delete map…",
+                danger: true,
+                confirm: `Delete "${map.name}"? This cannot be undone.`,
+                onSelect: onDelete,
+              },
+            ]}
+          />
+        </div>
       </aside>
     </div>
   );
+}
+
+const ASIDE_LABEL: React.CSSProperties = { fontSize: "0.8125rem", color: "var(--text2)", margin: 0 };
+
+/** A drawing-tool toggle: lit while it's the active tool. */
+function toolStyle(on: boolean): React.CSSProperties {
+  return {
+    background: on ? "var(--accent-active)" : "transparent",
+    color: on ? "var(--accent-active-text)" : "var(--text2)",
+    borderColor: on ? "var(--accent-line)" : "var(--border2)",
+  };
 }

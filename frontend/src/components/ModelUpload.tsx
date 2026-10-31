@@ -1,4 +1,5 @@
 import { Component, lazy, type ReactNode, Suspense, useRef, useState } from "react";
+import { Box, Check } from "lucide-react";
 
 import { tableApi } from "../api/table";
 
@@ -37,7 +38,7 @@ class PreviewBoundary extends Component<{ children: ReactNode; resetKey: string 
   render() {
     if (this.state.error)
       return (
-        <p style={{ color: "var(--danger)", fontSize: "0.72rem", margin: 0, maxWidth: 240 }}>
+        <p style={{ color: "var(--danger-text)", fontSize: "0.8125rem", margin: 0, maxWidth: 240 }}>
           The table couldn't load this model: {this.state.error}
         </p>
       );
@@ -78,12 +79,19 @@ export default function ModelUpload({ currentUrl, onUrlChange, heightFt, label =
   // Review 10/30 — file formats, rigs and bone counts are for whoever builds
   // figures, not for every DM looking at a character card: folded away.
   return (
-    <details style={{ fontSize: "0.75rem" }}>
+    <details style={{ fontSize: "0.8125rem" }}>
       <summary style={{ cursor: "pointer", color: "var(--muted)", listStyle: "revert" }}>
-        {label}: {currentUrl ? <span style={{ color: "var(--gold)" }}>✓ set</span> : "add"}
+        {label}:{" "}
+        {currentUrl ? (
+          <span style={{ color: "var(--teal-text)", display: "inline-flex", alignItems: "center", gap: 3 }}>
+            <Check size={13} /> set
+          </span>
+        ) : (
+          "add"
+        )}
       </summary>
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", marginTop: "0.5rem" }}>
-      <small style={{ color: "var(--muted)" }}>Advanced: the figure the immersive table walks for this character.</small>
+      <small style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>Advanced: the figure the immersive table walks for this character.</small>
       <div
         onClick={() => inputRef.current?.click()}
         onDrop={(e) => {
@@ -97,16 +105,25 @@ export default function ModelUpload({ currentUrl, onUrlChange, heightFt, label =
           width: 240,
           maxWidth: "100%",
           padding: "0.5rem 0.6rem",
-          borderRadius: "0.5rem",
-          border: "2px dashed var(--border)",
+          borderRadius: 8,
+          border: "1px dashed var(--border2)",
           cursor: "pointer",
           background: "var(--surface2)",
-          fontSize: "0.72rem",
+          fontSize: "0.8125rem",
           color: "var(--muted)",
           textAlign: "center",
         }}
       >
-        {uploading ? "Uploading…" : currentUrl ? `⬡ Replace the ${label.toLowerCase()} (.glb)` : `⬡ Drop a .glb — the ${label.toLowerCase()} for the immersive table`}
+        {uploading ? (
+          "Uploading…"
+        ) : (
+          <>
+            <Box size={14} style={{ verticalAlign: "-2px", marginRight: 5 }} />
+            {currentUrl
+              ? `Replace the ${label.toLowerCase()} (.glb)`
+              : `Drop a .glb — the ${label.toLowerCase()} for the immersive table`}
+          </>
+        )}
       </div>
       <input ref={inputRef} type="file" accept=".glb,model/gltf-binary" style={{ display: "none" }} onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])} />
       <div style={{ display: "flex", gap: "0.35rem", width: 240, maxWidth: "100%" }}>
@@ -116,21 +133,21 @@ export default function ModelUpload({ currentUrl, onUrlChange, heightFt, label =
           onChange={(e) => setUrlInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleUrlSet()}
           placeholder="or paste a .glb URL…"
-          style={{ flex: 1, fontSize: "0.72rem", padding: "0.25rem 0.5rem", minWidth: 0 }}
+          style={{ flex: 1, fontSize: "0.8125rem", padding: "0.3rem 0.5rem", minWidth: 0 }}
         />
-        <button className="btn btn-ghost" style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem", flexShrink: 0 }} onClick={handleUrlSet} disabled={!urlInput.trim()}>
+        <button className="btn btn-secondary" style={{ fontSize: "0.8125rem", padding: "0.25rem 0.6rem", minHeight: 0, flexShrink: 0 }} onClick={handleUrlSet} disabled={!urlInput.trim()}>
           Set
         </button>
         {currentUrl && (
-          <button className="btn btn-ghost" style={{ fontSize: "0.72rem", padding: "0.25rem 0.5rem", flexShrink: 0 }} onClick={() => onUrlChange(null)} title="Back to the placeholder">
+          <button className="btn btn-ghost" style={{ fontSize: "0.8125rem", padding: "0.25rem 0.6rem", minHeight: 0, flexShrink: 0 }} onClick={() => onUrlChange(null)} title="Back to the placeholder">
             Remove
           </button>
         )}
       </div>
-      {error && <p style={{ color: "var(--danger)", fontSize: "0.72rem", margin: 0, maxWidth: 240 }}>{error}</p>}
+      {error && <p style={{ color: "var(--danger-text)", fontSize: "0.8125rem", margin: 0, maxWidth: 240 }}>{error}</p>}
       {currentUrl && (
         <PreviewBoundary resetKey={currentUrl}>
-          <Suspense fallback={<small style={{ color: "var(--muted)", fontSize: "0.72rem" }}>Loading the figure…</small>}>
+          <Suspense fallback={<small style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>Loading the figure…</small>}>
             <FigurePreview url={currentUrl} heightFt={heightFt} />
           </Suspense>
         </PreviewBoundary>

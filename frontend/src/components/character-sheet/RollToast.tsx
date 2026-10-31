@@ -36,11 +36,8 @@ export default function RollToast({ roll, onClose }: Props) {
   const total = roll.d20 + roll.mod;
   const isCrit = roll.d20 === 20;
   const isFumble = roll.d20 === 1;
-  const accent = isCrit
-    ? "var(--green2, #4caf50)"
-    : isFumble
-      ? "var(--red, #ef5350)"
-      : "var(--gold)";
+  const accent = isCrit ? "var(--teal)" : isFumble ? "var(--danger)" : "var(--border2)";
+  const accentText = isCrit ? "var(--teal-text)" : isFumble ? "var(--danger-text)" : "var(--text)";
 
   return (
     <div
@@ -49,20 +46,20 @@ export default function RollToast({ roll, onClose }: Props) {
         top: "1rem",
         right: "1rem",
         background: "var(--surface)",
-        border: `2px solid ${accent}`,
-        borderRadius: 8,
+        border: `1px solid ${accent}`,
+        borderRadius: 10,
         padding: "0.75rem 1rem",
         zIndex: 9999,
         minWidth: 240,
-        boxShadow: "0 6px 24px rgba(0,0,0,0.6)",
-        fontFamily: "var(--font-mono, monospace)",
+        boxShadow: "0 10px 28px rgba(0,0,0,0.55)",
+        fontFamily: "var(--font-ui)",
       }}
     >
       <div
         className="flex items-center"
         style={{ justifyContent: "space-between", marginBottom: "0.3rem" }}
       >
-        <strong style={{ color: accent, fontSize: "0.9rem" }}>{roll.label}</strong>
+        <strong style={{ color: "var(--text)", fontSize: "0.9375rem", fontWeight: 600 }}>{roll.label}</strong>
         <button
           onClick={onClose}
           style={{
@@ -79,30 +76,31 @@ export default function RollToast({ roll, onClose }: Props) {
           ×
         </button>
       </div>
-      <div style={{ fontSize: "1.4rem", fontWeight: 700 }}>
-        <span style={{ color: accent }}>{total}</span>
-        <span style={{ color: "var(--muted)", fontSize: "0.85rem", marginLeft: "0.4rem" }}>
+      <div className="num" style={{ fontSize: "1.4rem", fontWeight: 600 }}>
+        <span style={{ color: accentText }}>{total}</span>
+        <span style={{ color: "var(--muted)", fontSize: "0.875rem", marginLeft: "0.4rem" }}>
           = d20 ({roll.d20}) {roll.mod >= 0 ? "+" : "−"} {Math.abs(roll.mod)}
         </span>
       </div>
       {roll.breakdown && (
-        <p style={{ fontSize: "0.72rem", color: "var(--muted)", margin: "0.15rem 0 0" }}>
+        <p style={{ fontSize: "0.8125rem", color: "var(--muted)", margin: "0.15rem 0 0" }}>
           {roll.breakdown}
         </p>
       )}
       {roll.damage && (
-        <p style={{ fontSize: "0.85rem", margin: "0.4rem 0 0" }}>
-          <strong style={{ color: "var(--gold)" }}>Damage:</strong> {roll.damage}
+        <p style={{ fontSize: "0.875rem", margin: "0.4rem 0 0" }}>
+          <span style={{ color: "var(--muted)" }}>Damage</span>{" "}
+          <span className="num">{roll.damage}</span>
         </p>
       )}
       {isCrit && (
-        <p style={{ fontSize: "0.75rem", color: accent, margin: "0.25rem 0 0", fontWeight: 700 }}>
-          ✨ Critical!
+        <p style={{ fontSize: "0.875rem", color: accentText, margin: "0.25rem 0 0", fontWeight: 600 }}>
+          Critical!
         </p>
       )}
       {isFumble && (
-        <p style={{ fontSize: "0.75rem", color: accent, margin: "0.25rem 0 0", fontWeight: 700 }}>
-          💀 Critical miss
+        <p style={{ fontSize: "0.875rem", color: accentText, margin: "0.25rem 0 0", fontWeight: 600 }}>
+          Critical miss
         </p>
       )}
     </div>
