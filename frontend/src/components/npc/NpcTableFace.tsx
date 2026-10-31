@@ -72,7 +72,7 @@ export default function NpcTableFace({ npc, onOpenPrep, compact = false }: Props
         flexDirection: "column",
         gap: compact ? "0.4rem" : "0.55rem",
         cursor: "pointer",
-        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontFamily: "var(--font-ui)",
         // Glance read needs space to breathe — line-height up.
         lineHeight: 1.4,
       }}

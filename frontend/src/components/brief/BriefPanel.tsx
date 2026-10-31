@@ -121,7 +121,7 @@ function BriefModal({ sessionId, onClose }: { sessionId: string; onClose: () => 
         >
           <strong
             style={{
-              fontFamily: "Cinzel Decorative, Cinzel, serif",
+              fontFamily: "var(--font-story)",
               color: "var(--gold)",
               fontSize: "1.1rem",
               letterSpacing: "0.04em",
@@ -200,7 +200,7 @@ function BriefBody({ brief }: { brief: SessionBrief }) {
               borderLeft: "3px solid var(--gold)",
               background: "rgba(214,175,54,0.07)",
               borderRadius: "0 6px 6px 0",
-              fontFamily: "Georgia, 'Cinzel', serif",
+              fontFamily: "var(--font-story)",
               fontStyle: "italic",
               lineHeight: 1.5,
               color: "var(--text)",
@@ -276,7 +276,7 @@ function BriefBody({ brief }: { brief: SessionBrief }) {
                   padding: "0.55rem 0.7rem",
                 }}
               >
-                <div style={{ color: "var(--gold)", fontWeight: 700, fontFamily: "Cinzel, serif" }}>
+                <div style={{ color: "var(--gold)", fontWeight: 700, fontFamily: "var(--font-story)" }}>
                   {n.name}
                 </div>
                 {n.quick_who && <div style={{ fontSize: "0.8rem", color: "var(--text)" }}>{n.quick_who}</div>}

@@ -26,10 +26,10 @@ const CSS = `
 .qj-root {
   min-height: 100vh; padding: 2.2rem 1.2rem 3rem;
   background: radial-gradient(ellipse at 50% -10%, #241a38 0%, #0d0a16 55%, #06050a 100%);
-  color: #e6ddc8; font-family: Georgia, 'Palatino Linotype', serif;
+  color: #e6ddc8; font-family: var(--font-ui);
 }
 .qj-title {
-  font-family: Cinzel, Georgia, serif; text-align: center; color: #f0e6c8;
+  font-family: var(--font-story); text-align: center; color: #f0e6c8;
   font-size: clamp(1.4rem, 5vw, 2rem); letter-spacing: 0.08em; margin: 0 0 0.3rem;
 }
 .qj-sub { text-align: center; color: #b3a789; font-style: italic; margin: 0 0 1.6rem; }
@@ -42,13 +42,13 @@ const CSS = `
 .qj-card:hover, .qj-card:focus-visible { transform: translateY(-3px); border-color: #d6af36; }
 .qj-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
 .qj-card .ph { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 3rem; opacity: 0.35; }
-.qj-name { font-family: Cinzel, Georgia, serif; color: #f0e6c8; font-size: 0.95rem; padding: 8px 6px 2px; }
+.qj-name { font-family: var(--font-story); color: #f0e6c8; font-size: 0.95rem; padding: 8px 6px 2px; }
 .qj-player { color: #9a9078; font-size: 0.72rem; padding-bottom: 10px; }
 .qj-msg { text-align: center; color: #6b6b7a; margin-top: 4rem; font-style: italic; }
 .qj-code { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.qj-code button { border: 1px solid #d6af36; background: rgba(214,175,54,0.16); color: #f0e6c8; font-family: Cinzel, Georgia, serif;
+.qj-code button { border: 1px solid #d6af36; background: rgba(214,175,54,0.16); color: #f0e6c8; font-family: var(--font-story);
   letter-spacing: 0.08em; font-size: 0.95rem; border-radius: 999px; padding: 10px 26px; cursor: pointer; }
-.qj-code input { font-family: Cinzel, Georgia, serif; font-size: 1.4rem; letter-spacing: 0.3em; text-align: center;
+.qj-code input { font-family: var(--font-story); font-size: 1.4rem; letter-spacing: 0.3em; text-align: center;
   width: 11ch; padding: 10px 6px; border-radius: 12px; border: 1px solid rgba(214,175,54,0.55);
   background: rgba(20,16,30,0.75); color: #f0e6c8; text-transform: uppercase; }
 `;

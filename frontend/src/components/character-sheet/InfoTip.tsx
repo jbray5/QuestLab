@@ -104,7 +104,7 @@ export default function InfoTip({ title, children, size = "sm" }: Props) {
               fontWeight: 700,
               color: "var(--gold)",
               marginBottom: "0.3rem",
-              fontFamily: "Cinzel Decorative, serif",
+              fontFamily: "var(--font-story)",
               letterSpacing: "0.04em",
             }}
           >

@@ -644,7 +644,7 @@ export default function BoardView() {
         <Link to={`/sessions/${sessionId}/hud`} style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
           ← HUD
         </Link>
-        <strong style={{ fontFamily: "Cinzel, serif", color: "var(--gold)", fontSize: "0.95rem" }}>
+        <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)", fontSize: "0.95rem" }}>
           🎲 3D Board{session ? ` — ${session.title}` : ""}
         </strong>
         <select
@@ -971,7 +971,7 @@ export default function BoardView() {
           {/* backdrop generator */}
           {backdropOpen && activeMap && (
             <div style={{ position: "absolute", top: 12, right: 12, background: "var(--surface, #16161c)", border: "1px solid var(--border)", borderRadius: 12, padding: "0.8rem 1rem", display: "flex", flexDirection: "column", gap: "0.6rem", width: 300 }}>
-              <strong style={{ fontFamily: "Cinzel, serif", color: "var(--gold)", fontSize: "0.85rem" }}>
+              <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)", fontSize: "0.85rem" }}>
                 🌌 Backdrop for {activeMap.name}
               </strong>
               <textarea
@@ -1004,7 +1004,7 @@ export default function BoardView() {
           {pendingAttack && targetToken && (
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(3,3,7,0.45)" }}>
               <div style={{ background: "var(--surface, #16161c)", border: "1px solid var(--border)", borderRadius: 12, padding: "1rem 1.2rem", display: "flex", flexDirection: "column", gap: "0.7rem", minWidth: 260 }}>
-                <strong style={{ fontFamily: "Cinzel, serif", color: "var(--gold)", fontSize: "0.9rem" }}>
+                <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)", fontSize: "0.9rem" }}>
                   ⚔ Damage to {targetToken.label}
                 </strong>
                 <input

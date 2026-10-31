@@ -185,7 +185,7 @@ export default function DmDock() {
           borderRight: 0,
           borderRadius: "8px 0 0 8px",
           color: "var(--gold)",
-          fontFamily: "Cinzel, Georgia, serif",
+          fontFamily: "var(--font-story)",
           fontSize: "0.7rem",
           letterSpacing: "0.1em",
           cursor: "pointer",
@@ -237,7 +237,7 @@ export default function DmDock() {
         }}
         title="Drag to move · resize from the corner"
       >
-        <strong style={{ fontFamily: "Cinzel, Georgia, serif", color: "var(--gold)", fontSize: "0.78rem", letterSpacing: "0.06em" }}>
+        <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)", fontSize: "0.78rem", letterSpacing: "0.06em" }}>
           📝 DM Notes
         </strong>
         <span style={{ fontSize: "0.6rem", color: "var(--muted)" }}>N to hide</span>

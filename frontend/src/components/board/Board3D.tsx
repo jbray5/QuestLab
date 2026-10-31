@@ -763,7 +763,7 @@ function Standee({
             <Html center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
               <div
                 style={{
-                  fontFamily: "Cinzel, serif",
+                  fontFamily: "var(--font-story)",
                   fontWeight: 700,
                   fontSize: 26,
                   color: defeated ? "#777" : baseColor,
@@ -972,7 +972,7 @@ function FxBurst({
         <Html center position={[0, unit * 0.9, 0]} zIndexRange={[40, 0]} style={{ pointerEvents: "none" }}>
           <div
             style={{
-              fontFamily: "Cinzel, serif",
+              fontFamily: "var(--font-story)",
               fontSize: 34,
               fontWeight: 800,
               color: kind === "heal" ? "#7cfc9b" : "#ff6b57",
@@ -1563,7 +1563,7 @@ const FLOAT_CSS = `
   top: -38px;
   left: 50%;
   transform: translateX(-50%);
-  font-family: Cinzel, Georgia, serif;
+  font-family: var(--font-story);
   font-size: 30px;
   font-weight: 800;
   color: #ff6b57;

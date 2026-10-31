@@ -29,14 +29,14 @@ interface Plan {
 const CSS = `
 .ql-paywall { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; background: rgba(6,5,10,0.78); backdrop-filter: blur(4px); padding: 1rem; }
 .ql-paywall-card { width: min(720px, 94vw); max-height: 92vh; overflow-y: auto; background: var(--surface, #16121f); border: 1px solid var(--gold, #d6af36); border-radius: 14px; padding: 1.4rem 1.5rem; color: var(--text, #e6ddc8); box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
-.ql-paywall h3 { font-family: Cinzel, Georgia, serif; color: var(--gold, #d6af36); margin: 0 0 0.5rem; letter-spacing: 0.04em; }
+.ql-paywall h3 { font-family: var(--font-story); color: var(--gold, #d6af36); margin: 0 0 0.5rem; letter-spacing: 0.04em; }
 .ql-paywall p { margin: 0.4rem 0; line-height: 1.5; }
 .ql-paywall .row { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
 .ql-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.6rem; margin-top: 0.9rem; }
 .ql-plan { border: 1px solid var(--border, #2c2638); border-radius: 10px; padding: 0.7rem 0.8rem; background: var(--surface2, #1d1827); display: flex; flex-direction: column; gap: 0.3rem; }
 .ql-plan.need { border-color: var(--gold, #d6af36); box-shadow: 0 0 0 1px rgba(214,175,54,0.25) inset; }
 .ql-plan.have { opacity: 0.75; }
-.ql-plan b { font-family: Cinzel, Georgia, serif; color: var(--gold, #d6af36); font-size: 0.95rem; }
+.ql-plan b { font-family: var(--font-story); color: var(--gold, #d6af36); font-size: 0.95rem; }
 .ql-plan .price { font-size: 1.15rem; font-weight: 700; }
 .ql-plan .price small { font-size: 0.7rem; color: var(--muted, #9a9078); font-weight: 400; }
 .ql-plan .blurb { font-size: 0.78rem; color: var(--muted, #9a9078); line-height: 1.45; flex: 1; }

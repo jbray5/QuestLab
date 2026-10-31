@@ -8,15 +8,15 @@ import { Link } from "react-router-dom";
  */
 
 const CSS = `
-.gd { max-width: 820px; margin: 0 auto; padding: 2.5rem 1.3rem 5rem; color: #cfc2a4; font-family: Georgia, 'Palatino Linotype', serif; line-height: 1.6; }
-.gd h1 { font-family: Cinzel, Georgia, serif; color: #f0e6c8; font-size: clamp(1.7rem, 5vw, 2.4rem); letter-spacing: 0.05em; margin: 0 0 0.3rem; }
-.gd h2 { font-family: Cinzel, Georgia, serif; color: #d6af36; font-size: 1.25rem; letter-spacing: 0.05em; margin: 2.2rem 0 0.6rem; }
+.gd { max-width: 820px; margin: 0 auto; padding: 2.5rem 1.3rem 5rem; color: #cfc2a4; font-family: var(--font-ui); line-height: 1.6; }
+.gd h1 { font-family: var(--font-story); color: #f0e6c8; font-size: clamp(1.7rem, 5vw, 2.4rem); letter-spacing: 0.05em; margin: 0 0 0.3rem; }
+.gd h2 { font-family: var(--font-story); color: #d6af36; font-size: 1.25rem; letter-spacing: 0.05em; margin: 2.2rem 0 0.6rem; }
 .gd h3 { color: #f0e6c8; margin: 1.2rem 0 0.3rem; font-size: 1.05rem; }
 .gd .lede { color: #f0e6c8; font-style: italic; font-size: 1.1rem; }
 .gd .step { background: rgba(26,20,38,0.7); border: 1px solid #3a2f52; border-radius: 12px; padding: 1rem 1.2rem; margin: 0.8rem 0; }
 .gd .step b { color: #f0e6c8; }
-.gd .k { display: inline-block; min-width: 1.6em; text-align: center; background: #d6af36; color: #100c18; border-radius: 6px; margin-right: 0.5rem; font-family: Cinzel, serif; font-weight: 700; }
-.gd .btnref { font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; background: #221a33; border: 1px solid #3a2f52; border-radius: 6px; padding: 0.05rem 0.45rem; color: #ffd76a; }
+.gd .k { display: inline-block; min-width: 1.6em; text-align: center; background: #d6af36; color: #100c18; border-radius: 6px; margin-right: 0.5rem; font-family: var(--font-story); font-weight: 700; }
+.gd .btnref { font-family: var(--font-mono); font-size: 0.85rem; background: #221a33; border: 1px solid #3a2f52; border-radius: 6px; padding: 0.05rem 0.45rem; color: #ffd76a; }
 .gd .note { border-left: 3px solid #c25f45; padding: 0.4rem 0.9rem; margin: 0.8rem 0; background: rgba(194,95,69,0.08); }
 .gd .watch { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin: 0.6rem 0 0.4rem; }
 .gd .watch figure { margin: 0; }

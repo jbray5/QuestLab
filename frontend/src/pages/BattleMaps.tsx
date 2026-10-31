@@ -180,7 +180,7 @@ export default function BattleMaps() {
   return (
     <div style={{ padding: "1.5rem", maxWidth: 1400, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: "1rem" }}>
-        <h1 style={{ fontFamily: "Cinzel Decorative, serif", color: "var(--gold)", margin: 0 }}>
+        <h1 style={{ fontFamily: "var(--font-story)", color: "var(--gold)", margin: 0 }}>
           Battle Maps
         </h1>
         <div

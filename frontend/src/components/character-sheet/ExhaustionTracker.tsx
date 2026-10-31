@@ -70,7 +70,7 @@ export default function ExhaustionTracker({ pc, readOnly = false }: Props) {
         </InfoTip>
         <span
           style={{
-            fontFamily: "monospace",
+            fontFamily: "var(--font-mono)",
             fontSize: "0.85rem",
             color: accent,
             fontWeight: 600,

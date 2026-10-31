@@ -24,22 +24,22 @@ const BOOK = "__book";
 type Armor = "none" | "light" | "medium" | "heavy";
 
 const CSS = `
-.lu { min-height: 100dvh; padding: 1.2rem 1rem 7rem; color: #e6ddc8; font-family: Georgia, 'Palatino Linotype', serif;
+.lu { min-height: 100dvh; padding: 1.2rem 1rem 7rem; color: #e6ddc8; font-family: var(--font-ui);
   background: radial-gradient(ellipse at 50% -10%, #3a2a12 0%, #140e08 55%, #070504 100%); }
 .lu-inner { max-width: 640px; margin: 0 auto; }
-.lu h1 { font-family: Cinzel, Georgia, serif; font-size: clamp(1.4rem, 6vw, 2rem); letter-spacing: 0.06em; color: #ffd76a; margin: 0.2rem 0 0.1rem; }
+.lu h1 { font-family: var(--font-story); font-size: clamp(1.4rem, 6vw, 2rem); letter-spacing: 0.06em; color: #ffd76a; margin: 0.2rem 0 0.1rem; }
 .lu .sub { color: #b3a789; font-style: italic; margin: 0 0 1rem; font-size: 0.95rem; }
 .lu .steps { display: flex; gap: 5px; margin-bottom: 1rem; }
 .lu .steps i { flex: 1; height: 4px; border-radius: 2px; background: rgba(240,230,200,0.15); }
 .lu .steps i.on { background: #d6af36; }
-.lu h2 { font-family: Cinzel, Georgia, serif; font-size: 1.1rem; color: #d6af36; letter-spacing: 0.05em; margin: 0.6rem 0 0.5rem; }
+.lu h2 { font-family: var(--font-story); font-size: 1.1rem; color: #d6af36; letter-spacing: 0.05em; margin: 0.6rem 0 0.5rem; }
 .lu label, .lu .lbl { display: block; font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9078; margin: 0.9rem 0 0.35rem; }
 .lu input[type=text] { width: 100%; font-size: 16px; padding: 0.6rem 0.7rem; border-radius: 9px; border: 1px solid rgba(240,230,200,0.2); background: #14101d; color: #e6ddc8; box-sizing: border-box; }
 .lu .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 9px; }
 .lu .card { text-align: left; border: 1px solid rgba(240,230,200,0.18); border-radius: 12px; background: rgba(20,16,30,0.75); color: #e6ddc8; padding: 0.7rem 0.75rem; cursor: pointer; font: inherit; }
 .lu .card.on { border-color: #d6af36; box-shadow: inset 0 0 22px rgba(214,175,54,0.16); }
 .lu .card:disabled { opacity: 0.4; cursor: not-allowed; }
-.lu .card b { display: block; font-family: Cinzel, Georgia, serif; font-size: 0.95rem; color: #f0e6c8; margin-bottom: 0.2rem; }
+.lu .card b { display: block; font-family: var(--font-story); font-size: 0.95rem; color: #f0e6c8; margin-bottom: 0.2rem; }
 .lu .card small { color: #9a9078; font-size: 0.78rem; line-height: 1.3; display: block; }
 .lu .card .tag { display: inline-block; font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase; color: #ffd76a; border: 1px solid rgba(214,175,54,0.5); border-radius: 999px; padding: 0 0.4rem; margin-left: 0.3rem; vertical-align: middle; }
 .lu .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -50,18 +50,18 @@ const CSS = `
 .lu .panel { border: 1px solid rgba(214,175,54,0.35); border-radius: 12px; padding: 0.8rem 0.9rem; background: rgba(20,16,30,0.7); margin: 0.6rem 0; }
 .lu .new { padding: 0.5rem 0; border-bottom: 1px solid rgba(240,230,200,0.08); }
 .lu .new:last-child { border-bottom: 0; }
-.lu .new b { display: block; font-family: Cinzel, Georgia, serif; color: #f0e6c8; font-size: 1rem; }
+.lu .new b { display: block; font-family: var(--font-story); color: #f0e6c8; font-size: 1rem; }
 .lu .new span { display: block; color: #b3a789; font-size: 0.9rem; margin-top: 0.15rem; }
 .lu ul.plain { margin: 0.2rem 0 0; padding-left: 1.1rem; color: #cfc4a8; font-size: 0.92rem; }
 .lu ul.plain li { margin: 0.25rem 0; }
-.lu .big { font-family: Cinzel, Georgia, serif; font-size: 2.4rem; color: #ffd76a; text-align: center; margin: 0.4rem 0; }
+.lu .big { font-family: var(--font-story); font-size: 2.4rem; color: #ffd76a; text-align: center; margin: 0.4rem 0; }
 .lu .note { color: #9a9078; font-size: 0.84rem; margin: 0.4rem 0; }
 .lu .err { color: #ef5350; margin: 0.5rem 0; }
 .lu .warn { color: #f0b354; font-size: 0.88rem; margin: 0.3rem 0; }
 .lu .row { display: flex; justify-content: space-between; gap: 1rem; padding: 0.3rem 0; border-bottom: 1px solid rgba(240,230,200,0.08); font-size: 0.95rem; }
 .lu .row span:last-child { color: #f0e6c8; text-align: right; }
 .lu .nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; align-items: center; padding: 0.8rem 1rem calc(0.8rem + env(safe-area-inset-bottom)); background: rgba(7,5,4,0.94); border-top: 1px solid rgba(240,230,200,0.12); backdrop-filter: blur(6px); }
-.lu .btn { flex: 1; padding: 0.8rem; border-radius: 10px; font-family: Cinzel, serif; font-size: 0.95rem; letter-spacing: 0.06em; cursor: pointer; border: 1px solid rgba(240,230,200,0.25); background: transparent; color: #e6ddc8; }
+.lu .btn { flex: 1; padding: 0.8rem; border-radius: 10px; font-family: var(--font-story); font-size: 0.95rem; letter-spacing: 0.06em; cursor: pointer; border: 1px solid rgba(240,230,200,0.25); background: transparent; color: #e6ddc8; }
 .lu .btn.primary { background: #8b6a1a; border-color: #d6af36; color: #fff; }
 .lu .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .lu .hint { flex: 1.4; font-size: 0.8rem; color: #9a9078; }
@@ -445,7 +445,7 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
                 </>
               ) : feat && (
                 <>
-                  <b style={{ fontFamily: "Cinzel, serif", color: "#ffd76a" }}>{feat.name}</b>
+                  <b style={{ fontFamily: "var(--font-story)", color: "#ffd76a" }}>{feat.name}</b>
                   <p className="note" style={{ marginTop: 4 }}>{feat.blurb}</p>
                   {feat.name === ASI ? (
                     <>

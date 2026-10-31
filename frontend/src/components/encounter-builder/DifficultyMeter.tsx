@@ -62,7 +62,7 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
             style={{
               fontSize: "1rem",
               fontWeight: 700,
-              fontFamily: "Cinzel Decorative, serif",
+              fontFamily: "var(--font-story)",
               color,
               transition: "color 200ms ease",
             }}
@@ -70,7 +70,7 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
             {difficulty}
           </span>
         )}
-        <span style={{ fontFamily: "monospace", fontSize: "0.78rem", color: "var(--muted)", marginLeft: "auto" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", color: "var(--muted)", marginLeft: "auto" }}>
           {raw_xp.toLocaleString()} XP
           {isLoading && <span style={{ marginLeft: "0.4rem", opacity: 0.6 }}>updating…</span>}
         </span>
@@ -149,19 +149,19 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
       <div style={labelsRowStyle}>
         <span style={{ flex: easyPct, color: "#4caf50" }}>
           Low<br />
-          <strong style={{ fontFamily: "monospace" }}>{low_threshold}</strong>
+          <strong style={{ fontFamily: "var(--font-mono)" }}>{low_threshold}</strong>
         </span>
         <span style={{ flex: modPct - easyPct, color: "#f9a825" }}>
           Moderate<br />
-          <strong style={{ fontFamily: "monospace" }}>{moderate_threshold}</strong>
+          <strong style={{ fontFamily: "var(--font-mono)" }}>{moderate_threshold}</strong>
         </span>
         <span style={{ flex: hardPct - modPct, color: "#ff5722" }}>
           High<br />
-          <strong style={{ fontFamily: "monospace" }}>{high_threshold}</strong>
+          <strong style={{ fontFamily: "var(--font-mono)" }}>{high_threshold}</strong>
         </span>
         <span style={{ flex: 100 - hardPct, color: "#c62828" }}>
           Deadly<br />
-          <strong style={{ fontFamily: "monospace" }}>{deadly}+</strong>
+          <strong style={{ fontFamily: "var(--font-mono)" }}>{deadly}+</strong>
         </span>
       </div>
     </div>

@@ -126,7 +126,7 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
           Half (min 1) recover on a long rest. Click an available pip
           below to roll one now.
         </InfoTip>
-        <span style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}>
           <strong style={{ color: "var(--gold)" }}>{available}</strong>
           /{total} · d{dieSize}
         </span>
@@ -176,7 +176,7 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
                 color: "var(--bg, #1a1a1a)",
                 fontSize: "0.65rem",
                 fontWeight: 700,
-                fontFamily: "monospace",
+                fontFamily: "var(--font-mono)",
                 lineHeight: 1,
                 opacity: !isFilled && !restoreClickable ? 0.55 : 1,
               }}
@@ -224,7 +224,7 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
               style={{
                 width: 70,
                 fontSize: "1.2rem",
-                fontFamily: "monospace",
+                fontFamily: "var(--font-mono)",
                 fontWeight: 700,
                 textAlign: "center",
                 padding: "0.25rem 0.4rem",
@@ -244,7 +244,7 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
             </button>
             <span
               style={{
-                fontFamily: "monospace",
+                fontFamily: "var(--font-mono)",
                 fontSize: "0.95rem",
                 color: totalHeal !== null ? "var(--green2, #4caf50)" : "var(--muted)",
                 fontWeight: 700,
@@ -253,7 +253,7 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
               Heal {totalHeal !== null ? `+${totalHeal}` : "—"}
             </span>
             {valid && (
-              <span style={{ fontFamily: "monospace", fontSize: "0.72rem", color: "var(--muted)" }}>
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "var(--muted)" }}>
                 ({value} + {fmt(conMod)})
               </span>
             )}

@@ -108,7 +108,7 @@ export default function EditableRunbookText(props: Props) {
         rows={Math.max(3, Math.min(14, draft.split("\n").length + 1))}
         style={{
           width: "100%",
-          fontFamily: variant === "read_aloud" ? "EB Garamond, Georgia, serif" : "inherit",
+          fontFamily: variant === "read_aloud" ? "var(--font-story)" : "inherit",
           fontStyle: variant === "read_aloud" ? "italic" : "normal",
           fontSize: fontSize ?? "0.95rem",
           lineHeight: 1.6,

@@ -245,7 +245,7 @@ const stepBadgeStyle: React.CSSProperties = {
   color: "var(--muted)",
   letterSpacing: "0.12em",
   textTransform: "uppercase",
-  fontFamily: "monospace",
+  fontFamily: "var(--font-mono)",
 };
 
 const closeBtnStyle: React.CSSProperties = {
@@ -265,7 +265,7 @@ const cardTitleStyle: React.CSSProperties = {
   margin: "0.1rem 0 0",
   fontSize: "1.05rem",
   color: "var(--gold)",
-  fontFamily: "Cinzel Decorative, serif",
+  fontFamily: "var(--font-story)",
   letterSpacing: "0.03em",
 };
 

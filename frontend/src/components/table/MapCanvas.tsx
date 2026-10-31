@@ -111,7 +111,7 @@ export default function MapCanvas({
           justifyContent: "center",
           color: "#5a5a66",
           fontStyle: "italic",
-          fontFamily: "Cinzel, serif",
+          fontFamily: "Alegreya, Georgia, serif",
           letterSpacing: "0.08em",
         }}
       >
@@ -385,7 +385,7 @@ export default function MapCanvas({
                 fontSize={r * 0.95}
                 fontWeight={700}
                 fill={ring}
-                fontFamily="Cinzel, serif"
+                fontFamily="Alegreya, Georgia, serif"
               >
                 {(t.label || "?").slice(0, 1).toUpperCase()}
               </text>
@@ -412,7 +412,7 @@ export default function MapCanvas({
                   textAnchor="middle"
                   fontSize={r * 0.38}
                   fill="#ece7da"
-                  fontFamily="Cinzel, serif"
+                  fontFamily="Alegreya, Georgia, serif"
                   letterSpacing="0.02em"
                 >
                   {t.label}
@@ -528,7 +528,7 @@ export default function MapCanvas({
               x={tok.x}
               y={tok.y - tokenUnit * 0.7}
               textAnchor="middle"
-              fontFamily="Cinzel, Georgia, serif"
+              fontFamily="Alegreya, Georgia, serif"
               fontWeight={800}
               fontSize={size}
               fill={f.kind === "heal" ? "#7fd98a" : "#ff6b57"}

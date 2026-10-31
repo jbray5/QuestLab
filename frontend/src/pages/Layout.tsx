@@ -294,7 +294,7 @@ export default function Layout() {
             color: "var(--text)",
             margin: "0 0 0.5rem",
             wordBreak: "break-all",
-            fontFamily: "monospace",
+            fontFamily: "var(--font-mono)",
           }}
           title={dmEmail}
         >
@@ -358,7 +358,7 @@ export default function Layout() {
             ☰
           </button>
           <strong
-            style={{ fontFamily: "Cinzel Decorative, serif", color: "var(--gold)", fontSize: "0.95rem" }}
+            style={{ fontFamily: "var(--font-story)", color: "var(--gold)", fontSize: "0.95rem" }}
           >
             ⚔ QuestLab
           </strong>

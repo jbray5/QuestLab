@@ -30,14 +30,14 @@ const CSS = `
   box-shadow: 0 0 60px rgba(214,175,54,0.25);
 }
 .qjqr-overlay h2 {
-  font-family: Cinzel, Georgia, serif; color: #f0e6c8; margin: 0;
+  font-family: var(--font-story); color: #f0e6c8; margin: 0;
   font-size: clamp(1.2rem, 3.5vw, 2rem); letter-spacing: 0.1em;
 }
-.qjqr-overlay p { color: #b3a789; font-style: italic; margin: 0; font-family: Georgia, serif; }
+.qjqr-overlay p { color: #b3a789; font-style: italic; margin: 0; font-family: var(--font-ui); }
 .qjqr-copy {
   border: 1px solid rgba(240,230,200,0.35); border-radius: 8px;
   background: rgba(20,16,30,0.85); color: #e6ddc8; cursor: pointer;
-  padding: 8px 16px; font-size: 0.85rem; font-family: Georgia, serif;
+  padding: 8px 16px; font-size: 0.85rem; font-family: var(--font-ui);
 }
 .qjqr-copy:hover { border-color: #d6af36; color: #f0e6c8; }
 `;

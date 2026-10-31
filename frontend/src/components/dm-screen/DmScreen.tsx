@@ -222,7 +222,7 @@ const titleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "1.15rem",
   color: "var(--gold)",
-  fontFamily: "Cinzel Decorative, serif",
+  fontFamily: "var(--font-story)",
   whiteSpace: "nowrap",
 };
 
@@ -295,7 +295,7 @@ const cardTitleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "0.95rem",
   color: "var(--gold)",
-  fontFamily: "Cinzel Decorative, serif",
+  fontFamily: "var(--font-story)",
   letterSpacing: "0.03em",
 };
 

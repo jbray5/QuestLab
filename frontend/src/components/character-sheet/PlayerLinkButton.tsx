@@ -133,7 +133,7 @@ export default function PlayerLinkButton({ characterId, compact = false }: Props
                 border: "1px solid var(--border)",
                 borderRadius: 4,
                 color: "var(--text)",
-                fontFamily: "monospace",
+                fontFamily: "var(--font-mono)",
                 fontSize: "0.78rem",
                 marginBottom: "0.5rem",
               }}

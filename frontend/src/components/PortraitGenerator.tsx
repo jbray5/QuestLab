@@ -100,7 +100,7 @@ export default function PortraitGenerator({
               color: "var(--gold)",
               fontSize: "0.7rem",
               letterSpacing: "0.08em",
-              fontFamily: "Cinzel Decorative, serif",
+              fontFamily: "var(--font-story)",
               animation: "ql-fade-in 200ms ease-out both",
             }}
           >

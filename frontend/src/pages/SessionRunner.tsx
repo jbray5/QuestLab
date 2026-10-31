@@ -495,7 +495,7 @@ export default function SessionRunner() {
         }}
       >
         <div style={{ fontSize: "2rem" }} className="dice-rolling">🎲</div>
-        <p style={{ color: "var(--gold)", fontFamily: "Cinzel Decorative, serif" }}>
+        <p style={{ color: "var(--gold)", fontFamily: "var(--font-story)" }}>
           {runbookLoading ? "Loading runbook…" : "Loading session…"}
         </p>
       </div>
@@ -530,7 +530,7 @@ export default function SessionRunner() {
           }}
         >
           <div style={{ fontSize: "3rem" }} className="dice-rolling-loop">🎲</div>
-          <p style={{ color: "var(--gold)", fontFamily: "Cinzel Decorative, serif", fontSize: "1.2rem" }}>
+          <p style={{ color: "var(--gold)", fontFamily: "var(--font-story)", fontSize: "1.2rem" }}>
             Claude is writing your runbook…
           </p>
           <p className="text-muted text-sm">

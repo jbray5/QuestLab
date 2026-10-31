@@ -22,12 +22,12 @@ const CSS = `
 .try-root {
   min-height: 100vh; color: #e6ddc8;
   background: radial-gradient(ellipse at 50% -10%, #241a38 0%, #0d0a16 55%, #06050a 100%);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-ui);
 }
 .try-inner { max-width: 1000px; margin: 0 auto; padding: 0 1.2rem 4rem; }
 .try-hero { text-align: center; padding: 4.5rem 0 2.5rem; }
 .try-title {
-  font-family: Cinzel, Georgia, serif; letter-spacing: 0.12em;
+  font-family: var(--font-story); letter-spacing: 0.12em;
   font-size: clamp(2.2rem, 6vw, 3.6rem); color: #f0e6c8; margin: 0;
   text-shadow: 0 2px 24px rgba(214,175,54,0.35);
 }
@@ -35,7 +35,7 @@ const CSS = `
 .try-cta-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 1.8rem; }
 .try-btn {
   padding: 12px 28px; border-radius: 12px; cursor: pointer; text-decoration: none;
-  font-family: Cinzel, Georgia, serif; font-size: 1.05rem; letter-spacing: 0.06em;
+  font-family: var(--font-story); font-size: 1.05rem; letter-spacing: 0.06em;
   color: #1c1508; background: linear-gradient(180deg, #e8c95c, #c9a136);
   border: 1px solid #f0e0a0; box-shadow: 0 2px 22px rgba(224,192,77,0.35);
 }
@@ -47,14 +47,14 @@ const CSS = `
 }
 .try-card img { width: 100%; aspect-ratio: 16/10; object-fit: cover; object-position: top; display: block; }
 .try-card-body { padding: 0.9rem 1rem 1.1rem; }
-.try-card h3 { margin: 0 0 5px; font-family: Cinzel, Georgia, serif; color: #f0e6c8; font-size: 1.1rem; }
+.try-card h3 { margin: 0 0 5px; font-family: var(--font-story); color: #f0e6c8; font-size: 1.1rem; }
 .try-card p { margin: 0; color: #cfc4a9; font-size: 0.9rem; line-height: 1.5; }
 .try-wait {
   margin: 3rem auto 0; max-width: 520px; text-align: center;
   background: rgba(28,23,42,0.6); border: 1px solid rgba(240,230,200,0.16);
   border-radius: 16px; padding: 1.4rem 1.5rem;
 }
-.try-wait h3 { font-family: Cinzel, Georgia, serif; color: #d6c390; margin: 0 0 4px; }
+.try-wait h3 { font-family: var(--font-story); color: #d6c390; margin: 0 0 4px; }
 .try-wait-row { display: flex; gap: 8px; margin-top: 0.9rem; }
 .try-input {
   flex: 1; background: rgba(240,230,200,0.07); border: 1px solid rgba(240,230,200,0.25);

@@ -47,7 +47,7 @@ export default function SuggestionsPanel({ adventureId, onAdd, onAddAll }: Props
             color: "var(--gold)",
             letterSpacing: "0.06em",
             textTransform: "uppercase",
-            fontFamily: "Cinzel Decorative, serif",
+            fontFamily: "var(--font-story)",
           }}
         >
           ✨ Themed suggestions

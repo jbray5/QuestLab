@@ -212,7 +212,7 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
             fontSize: "1.6rem",
             fontWeight: 700,
             color: "var(--gold)",
-            fontFamily: "monospace",
+            fontFamily: "var(--font-mono)",
             marginBottom: "0.55rem",
             lineHeight: 1,
           }}
@@ -348,7 +348,7 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
               fontSize: "2.2rem",
               fontWeight: 700,
               color: total !== null ? accent : "var(--muted)",
-              fontFamily: "monospace",
+              fontFamily: "var(--font-mono)",
               lineHeight: 1,
             }}
           >
@@ -360,7 +360,7 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
                 fontSize: "0.75rem",
                 color: "var(--muted)",
                 marginTop: "0.2rem",
-                fontFamily: "monospace",
+                fontFamily: "var(--font-mono)",
               }}
             >
               {selected} (d20) {context.mod >= 0 ? "+" : "−"} {Math.abs(context.mod)}
@@ -392,7 +392,7 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
                 padding: "0.35rem 0.5rem",
                 borderRadius: 6,
                 letterSpacing: "0.08em",
-                fontFamily: "Cinzel Decorative, serif",
+                fontFamily: "var(--font-story)",
                 animation: "ql-crit-pulse 900ms ease-out both",
                 boxShadow: "0 0 16px rgba(214, 175, 54, 0.7)",
               }}
@@ -412,7 +412,7 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
                 padding: "0.35rem 0.5rem",
                 borderRadius: 6,
                 letterSpacing: "0.08em",
-                fontFamily: "Cinzel Decorative, serif",
+                fontFamily: "var(--font-story)",
               }}
             >
               💀 Natural 1 — critical miss
@@ -432,7 +432,7 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
             }}
           >
             <strong style={{ color: "var(--gold)" }}>Damage:</strong>{" "}
-            <span style={{ fontFamily: "monospace" }}>{context.damage}</span>
+            <span style={{ fontFamily: "var(--font-mono)" }}>{context.damage}</span>
             <div style={{ fontSize: "0.68rem", color: "var(--muted)", marginTop: "0.15rem" }}>
               Roll real damage dice and add the modifier shown.
             </div>
@@ -447,7 +447,7 @@ function dieInputStyle(accent: string): React.CSSProperties {
   return {
     width: 60,
     fontSize: "1.2rem",
-    fontFamily: "monospace",
+    fontFamily: "var(--font-mono)",
     fontWeight: 700,
     textAlign: "center",
     padding: "0.25rem 0.4rem",

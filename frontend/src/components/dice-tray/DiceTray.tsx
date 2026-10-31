@@ -119,7 +119,7 @@ export default function DiceTray() {
             <strong
               style={{
                 color: "var(--gold)",
-                fontFamily: "Cinzel Decorative, serif",
+                fontFamily: "var(--font-story)",
                 fontSize: "0.95rem",
                 letterSpacing: "0.04em",
               }}
@@ -149,7 +149,7 @@ export default function DiceTray() {
               {history.map((r) => (
                 <div key={r.id} style={historyRowStyle}>
                   <span style={{ color: "var(--muted)" }}>{r.label}</span>
-                  <span style={{ fontFamily: "monospace", color: "var(--muted)", fontSize: "0.7rem" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--muted)", fontSize: "0.7rem" }}>
                     [{r.rolls.join(",")}]
                   </span>
                   <span
@@ -160,7 +160,7 @@ export default function DiceTray() {
                         : r.isFumble
                           ? "var(--red, #ef5350)"
                           : "var(--gold)",
-                      fontFamily: "monospace",
+                      fontFamily: "var(--font-mono)",
                       marginLeft: "auto",
                     }}
                   >
@@ -285,7 +285,7 @@ const labelStyle: React.CSSProperties = {
 const numberInputStyle: React.CSSProperties = {
   width: 50,
   padding: "0.25rem 0.4rem",
-  fontFamily: "monospace",
+  fontFamily: "var(--font-mono)",
   fontSize: "0.85rem",
   textAlign: "center",
   background: "var(--surface2)",
@@ -302,7 +302,7 @@ const dieButtonStyle: React.CSSProperties = {
   color: "var(--gold)",
   fontSize: "0.95rem",
   fontWeight: 700,
-  fontFamily: "Cinzel Decorative, serif",
+  fontFamily: "var(--font-story)",
   cursor: "pointer",
   transition: "background 150ms ease, transform 150ms ease",
 };

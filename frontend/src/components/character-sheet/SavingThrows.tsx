@@ -83,7 +83,7 @@ export default function SavingThrows({
               <span style={{ minWidth: 30, color: isProf ? "var(--gold)" : undefined }}>
                 {ab}
               </span>
-              <span style={{ marginLeft: "auto", fontFamily: "monospace", fontWeight: 600 }}>
+              <span style={{ marginLeft: "auto", fontFamily: "var(--font-mono)", fontWeight: 600 }}>
                 {fmt(bonus)}
               </span>
             </button>

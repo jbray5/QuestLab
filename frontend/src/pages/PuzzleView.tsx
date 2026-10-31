@@ -17,12 +17,12 @@ const CSS = `
 .pz-root {
   min-height: 100vh; color: #e6ddc8;
   background: radial-gradient(ellipse at 50% -10%, #1b1730 0%, #0b0a14 55%, #05050a 100%);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-ui);
   display: flex; flex-direction: column; align-items: center;
   padding: 2.5rem 1rem 3rem;
 }
 .pz-title {
-  font-family: Cinzel, Georgia, serif; letter-spacing: 0.16em;
+  font-family: var(--font-story); letter-spacing: 0.16em;
   font-size: clamp(1.1rem, 2.6vw, 1.7rem); color: #d6c390; margin: 0 0 1.6rem;
   text-transform: uppercase;
 }
@@ -38,7 +38,7 @@ const CSS = `
 }
 .pz-solved .pz-glyph { color: #f0e6c8; text-shadow: 0 0 18px rgba(214,175,54,0.75); }
 .pz-letter {
-  font-family: Cinzel, Georgia, serif; font-size: clamp(1.3rem, 3vw, 2.2rem);
+  font-family: var(--font-story); font-size: clamp(1.3rem, 3vw, 2.2rem);
   color: #f0e6c8; border-bottom: 2px solid rgba(240,230,200,0.35);
   width: clamp(2.2rem, 5vw, 3.6rem); text-align: center; min-height: 1.4em;
 }
@@ -50,7 +50,7 @@ const CSS = `
   60% { filter: blur(1.1px); transform: translateX(2px); }
 }
 .pz-resolved {
-  margin-top: 2.4rem; font-family: Cinzel, Georgia, serif;
+  margin-top: 2.4rem; font-family: var(--font-story);
   font-size: clamp(1.4rem, 4vw, 2.6rem); letter-spacing: 0.14em; color: #f0e6c8;
   text-shadow: 0 0 30px rgba(214,175,54,0.5); animation: pz-fade 2.6s ease;
 }

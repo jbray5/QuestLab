@@ -128,7 +128,7 @@ function DungeonRoomNode({ data, selected }: NodeProps) {
         <span
           style={{
             fontSize: "0.78rem",
-            fontFamily: "EB Garamond, Georgia, serif",
+            fontFamily: "var(--font-story)",
             color: "var(--text)",
             fontWeight: 600,
             lineHeight: 1.2,
@@ -389,7 +389,7 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
               fill="none" stroke="#d4aa70" stroke-width="0.9" stroke-dasharray="9,5" opacity="0.35"/>
         ${label
           ? `<text x="${mx}" y="${my}" text-anchor="middle"
-                 font-family="EB Garamond,Georgia,serif" font-size="11"
+                 font-family="Alegreya,Georgia,serif" font-size="11"
                  fill="#5d3a1a" font-style="italic" opacity="0.8"
                  stroke="#f0e8d0" stroke-width="2.5" paint-order="stroke">${label}</text>`
           : ""}`;
@@ -407,7 +407,7 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
       const isMajor = ["City", "Region"].includes(type);
       return `${symbol}
         <text x="${p.cx}" y="${p.cy + LABEL_GAP}" text-anchor="middle"
-              font-family="Cinzel Decorative,Cinzel,Georgia,serif"
+              font-family="Alegreya,Georgia,serif"
               font-size="${isMajor ? 14 : 11.5}" font-weight="${isMajor ? "700" : "600"}"
               stroke="#f0e8d0" stroke-width="3.5" paint-order="stroke"
               fill="#2c1800">${display}</text>`;
@@ -424,7 +424,7 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
     <polygon points="34,0 13,4 19,0 13,-4"  fill="#c8a050" stroke="#8b6020" stroke-width="0.8"/>
     <circle cx="0" cy="0" r="6" fill="#c8a050" stroke="#8b6020" stroke-width="1.5"/>
     <circle cx="0" cy="0" r="2.5" fill="#8b6020"/>
-    <text x="0" y="-38" text-anchor="middle" font-family="Cinzel,Georgia,serif"
+    <text x="0" y="-38" text-anchor="middle" font-family="Alegreya,Georgia,serif"
           font-size="12" fill="#5a3a10" font-weight="700">N</text>
   </g>`;
 
@@ -463,13 +463,13 @@ function exportFantasyMap(nodes: Node[], edges: Edge[], mapName: string) {
   <text x="14" y="${H - 10}" font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
   <text x="${W - 36}" y="${H - 10}" font-family="serif" font-size="20" fill="#7a4a1a" opacity="0.9">✦</text>
   <text x="${W / 2}" y="${TITLE_H - 30}" text-anchor="middle"
-        font-family="Cinzel Decorative,Cinzel,Georgia,serif" font-size="28"
+        font-family="Alegreya,Georgia,serif" font-size="28"
         fill="#3a1800" letter-spacing="5"
         stroke="#f0e0b0" stroke-width="4" paint-order="stroke">${mapName}</text>
   <line x1="${W / 2 - 180}" y1="${TITLE_H - 16}" x2="${W / 2 + 180}" y2="${TITLE_H - 16}"
         stroke="#7a4a1a" stroke-width="1.6" opacity="0.6"/>
   <text x="${W / 2}" y="${TITLE_H - 4}" text-anchor="middle"
-        font-family="EB Garamond,Georgia,serif" font-size="12" font-style="italic"
+        font-family="Alegreya,Georgia,serif" font-size="12" font-style="italic"
         fill="#8b6030" opacity="0.75" letter-spacing="2">— A Fantasy World Map —</text>
   ${terrainSvg}
   ${edgeSvg}
@@ -534,7 +534,7 @@ function toFlowNode(n: MapNode, scale: MapScale, encounters: Encounter[]): Node 
       color: "var(--text)",
       borderRadius: 6,
       fontSize: "0.78rem",
-      fontFamily: "EB Garamond, Georgia, serif",
+      fontFamily: "var(--font-story)",
       minWidth: 80,
       textAlign: "center" as const,
     },

@@ -47,21 +47,21 @@ interface Options {
 }
 
 const CSS = `
-.cc { min-height: 100dvh; padding: 1.2rem 1rem 6rem; color: #e6ddc8; font-family: Georgia, 'Palatino Linotype', serif;
+.cc { min-height: 100dvh; padding: 1.2rem 1rem 6rem; color: #e6ddc8; font-family: var(--font-ui);
   background: radial-gradient(ellipse at 50% -10%, #241a38 0%, #0d0a16 55%, #06050a 100%); }
 .cc-inner { max-width: 640px; margin: 0 auto; }
-.cc h1 { font-family: Cinzel, Georgia, serif; font-size: clamp(1.3rem, 5vw, 1.8rem); letter-spacing: 0.06em; color: #f0e6c8; margin: 0.2rem 0 0.1rem; }
+.cc h1 { font-family: var(--font-story); font-size: clamp(1.3rem, 5vw, 1.8rem); letter-spacing: 0.06em; color: #f0e6c8; margin: 0.2rem 0 0.1rem; }
 .cc .sub { color: #b3a789; font-style: italic; margin: 0 0 1rem; font-size: 0.95rem; }
 .cc .steps { display: flex; gap: 5px; margin-bottom: 1rem; }
 .cc .steps i { flex: 1; height: 4px; border-radius: 2px; background: rgba(240,230,200,0.15); }
 .cc .steps i.on { background: #d6af36; }
-.cc h2 { font-family: Cinzel, Georgia, serif; font-size: 1.1rem; color: #d6af36; letter-spacing: 0.05em; margin: 0.4rem 0 0.6rem; }
+.cc h2 { font-family: var(--font-story); font-size: 1.1rem; color: #d6af36; letter-spacing: 0.05em; margin: 0.4rem 0 0.6rem; }
 .cc label { display: block; font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9078; margin: 0.7rem 0 0.25rem; }
 .cc input[type=text], .cc textarea, .cc select { width: 100%; font-size: 16px; padding: 0.6rem 0.7rem; border-radius: 9px; border: 1px solid rgba(240,230,200,0.2); background: #14101d; color: #e6ddc8; }
 .cc .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; }
 .cc .card { text-align: left; border: 1px solid rgba(240,230,200,0.18); border-radius: 12px; background: rgba(20,16,30,0.75); color: #e6ddc8; padding: 0.7rem 0.75rem; cursor: pointer; }
 .cc .card.on { border-color: #d6af36; box-shadow: inset 0 0 22px rgba(214,175,54,0.14); }
-.cc .card b { display: block; font-family: Cinzel, Georgia, serif; font-size: 0.95rem; color: #f0e6c8; margin-bottom: 0.2rem; }
+.cc .card b { display: block; font-family: var(--font-story); font-size: 0.95rem; color: #f0e6c8; margin-bottom: 0.2rem; }
 .cc .card small { color: #9a9078; font-size: 0.78rem; line-height: 1.3; display: block; }
 .cc .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .cc .chip { border: 1px solid rgba(240,230,200,0.22); border-radius: 999px; padding: 0.3rem 0.7rem; background: transparent; color: #e6ddc8; font-size: 0.85rem; cursor: pointer; }
@@ -69,8 +69,8 @@ const CSS = `
 .cc .chip:disabled { opacity: 0.35; cursor: not-allowed; }
 .cc .scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .cc .score { border: 1px solid rgba(240,230,200,0.18); border-radius: 12px; padding: 0.5rem; text-align: center; background: rgba(20,16,30,0.75); }
-.cc .score b { display: block; font-family: Cinzel, serif; font-size: 0.7rem; letter-spacing: 0.1em; color: #9a9078; }
-.cc .score .v { font-size: 1.6rem; color: #f0e6c8; font-family: Cinzel, serif; }
+.cc .score b { display: block; font-family: var(--font-story); font-size: 0.7rem; letter-spacing: 0.1em; color: #9a9078; }
+.cc .score .v { font-size: 1.6rem; color: #f0e6c8; font-family: var(--font-story); }
 .cc .score .m { font-size: 0.8rem; color: #d6af36; }
 .cc .score select { margin-top: 4px; font-size: 16px; }
 .cc .score .pm { display: flex; justify-content: center; gap: 6px; margin-top: 4px; }
@@ -80,7 +80,7 @@ const CSS = `
 .cc .note { color: #9a9078; font-size: 0.82rem; margin: 0.4rem 0; }
 .cc .err { color: #ef5350; margin: 0.5rem 0; }
 .cc .nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; padding: 0.8rem 1rem calc(0.8rem + env(safe-area-inset-bottom)); background: rgba(6,5,10,0.92); border-top: 1px solid rgba(240,230,200,0.12); backdrop-filter: blur(6px); }
-.cc .btn { flex: 1; padding: 0.8rem; border-radius: 10px; font-family: Cinzel, serif; font-size: 0.95rem; letter-spacing: 0.06em; cursor: pointer; border: 1px solid rgba(240,230,200,0.25); background: transparent; color: #e6ddc8; }
+.cc .btn { flex: 1; padding: 0.8rem; border-radius: 10px; font-family: var(--font-story); font-size: 0.95rem; letter-spacing: 0.06em; cursor: pointer; border: 1px solid rgba(240,230,200,0.25); background: transparent; color: #e6ddc8; }
 .cc .btn.primary { background: #8b2f2a; border-color: #b03a34; color: #fff; }
 .cc .btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .cc .summary { border: 1px solid rgba(214,175,54,0.5); border-radius: 12px; padding: 0.8rem 1rem; background: rgba(20,16,30,0.75); }

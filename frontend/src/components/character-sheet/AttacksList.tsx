@@ -122,11 +122,11 @@ export default function AttacksList({ characterId, onRoll, readOnly = false }: P
                 <span className="text-muted text-sm">…</span>
               ) : preview ? (
                 <>
-                  <span style={{ fontFamily: "monospace", color: "var(--gold)" }}>
+                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>
                     {preview.hit_bonus >= 0 ? "+" : ""}
                     {preview.hit_bonus} hit
                   </span>
-                  <span style={{ fontFamily: "monospace" }}>
+                  <span style={{ fontFamily: "var(--font-mono)" }}>
                     {preview.damage_roll} {preview.damage_type}
                   </span>
                   {preview.mastery && (

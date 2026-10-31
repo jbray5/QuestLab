@@ -296,7 +296,7 @@ function PlayerSheet({ pcId }: { pcId: string }) {
           <Link to={`/play/${pcId}/level-up`} style={levelUpBannerStyle}>
             <span style={{ fontSize: "1.6rem" }}>✨</span>
             <span>
-              <b style={{ display: "block", fontFamily: "Cinzel, Georgia, serif", letterSpacing: "0.05em" }}>
+              <b style={{ display: "block", fontFamily: "var(--font-story)", letterSpacing: "0.05em" }}>
                 Level up! You&rsquo;re reaching level {pc.level + 1}
               </b>
               <span style={{ fontSize: "0.85rem", opacity: 0.85 }}>Tap to make your choices</span>
@@ -389,7 +389,7 @@ function DmRollsFeed({ rolls }: { rolls: DmRoll[] }) {
         style={{
           fontSize: "0.62rem",
           color: "var(--gold)",
-          fontFamily: "Cinzel Decorative, serif",
+          fontFamily: "var(--font-story)",
           letterSpacing: "0.1em",
           textTransform: "uppercase",
           marginBottom: "0.3rem",
@@ -413,7 +413,7 @@ function DmRollsFeed({ rolls }: { rolls: DmRoll[] }) {
               style={{
                 color: "var(--muted)",
                 fontSize: "0.66rem",
-                fontFamily: "monospace",
+                fontFamily: "var(--font-mono)",
               }}
             >
               {r.detail}
@@ -422,7 +422,7 @@ function DmRollsFeed({ rolls }: { rolls: DmRoll[] }) {
               style={{
                 marginLeft: "auto",
                 fontWeight: 700,
-                fontFamily: "monospace",
+                fontFamily: "var(--font-mono)",
                 color: r.crit
                   ? "var(--green2, #4caf50)"
                   : r.fumble
@@ -464,7 +464,7 @@ function ConditionsStrip({ combatState }: { combatState: CombatState | undefined
     >
       <span
         style={{
-          fontFamily: "Cinzel Decorative, serif",
+          fontFamily: "var(--font-story)",
           fontSize: "0.7rem",
           letterSpacing: "0.1em",
           color: "var(--red, #ef5350)",
@@ -521,7 +521,7 @@ function TurnBanner({ turnState }: { turnState: TurnState | undefined }) {
         letterSpacing: "0.04em",
         borderRadius: 10,
         textAlign: "center",
-        fontFamily: "Cinzel Decorative, serif",
+        fontFamily: "var(--font-story)",
         boxShadow: "0 0 20px rgba(214, 175, 54, 0.5)",
         animation: "ql-turn-pulse 2.4s ease-in-out infinite, ql-turn-shine 4s linear infinite",
       }}
@@ -734,7 +734,7 @@ function AbilityStrip({ pc }: { pc: PlayerCharacter }) {
           </div>
           <div
             style={{
-              fontFamily: "monospace",
+              fontFamily: "var(--font-mono)",
               fontWeight: 700,
               color: "var(--gold)",
               fontSize: "1rem",
@@ -1006,7 +1006,7 @@ function HitDiceBlock({
           During a short rest (1 hour), roll a d{dieSize} and add CON mod ({fmt(conMod)}). That's how much you heal.{"\n\n"}
           You have one per level. Half (min 1) recover on a long rest.
         </InfoTip>
-        <span style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}>
           <strong style={{ color: "var(--gold)" }}>{available}</strong>/{total} · d{dieSize}
         </span>
       </div>
@@ -1028,7 +1028,7 @@ function HitDiceBlock({
                 color: "var(--bg, #1a1a1a)",
                 fontSize: "0.65rem",
                 fontWeight: 700,
-                fontFamily: "monospace",
+                fontFamily: "var(--font-mono)",
               }}
             >
               {filled ? `d${dieSize}` : ""}
@@ -1053,7 +1053,7 @@ function HitDiceBlock({
             <button onClick={() => setDie(Math.floor(Math.random() * dieSize) + 1)} style={mobileBtnStyle}>
               🎲 Digital
             </button>
-            <span style={{ fontFamily: "monospace", fontWeight: 700, color: heal != null ? "var(--green2, #4caf50)" : "var(--muted)" }}>
+            <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: heal != null ? "var(--green2, #4caf50)" : "var(--muted)" }}>
               Heal {heal != null ? `+${heal}` : "—"}
             </span>
             <span style={{ flex: 1 }} />
@@ -1085,7 +1085,7 @@ function ExhaustionBlock({ pc, pcId, onUpdate }: { pc: PlayerCharacter; pcId: st
           0–6 scale. Each level applies a cumulative −2 to all D20 Tests
           (attacks, ability checks, saves). Level 6 = death. Long rest reduces by 1.
         </InfoTip>
-        <span style={{ fontFamily: "monospace", fontSize: "0.85rem", color: dead ? "var(--red)" : "var(--text)" }}>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.85rem", color: dead ? "var(--red)" : "var(--text)" }}>
           Lv {level}
           {level > 0 && !dead && <span style={{ color: "var(--muted)" }}> · {level * -2} to D20 Tests</span>}
           {dead && <span style={{ color: "var(--red)" }}> · DEAD</span>}
@@ -1167,7 +1167,7 @@ function CurrencyCell({
         onChange={(e) => setLocal(e.target.value)}
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-        style={{ width: "100%", background: "transparent", border: "none", color: "var(--text)", fontFamily: "monospace", fontWeight: 700, textAlign: "center", fontSize: "0.95rem" }}
+        style={{ width: "100%", background: "transparent", border: "none", color: "var(--text)", fontFamily: "var(--font-mono)", fontWeight: 700, textAlign: "center", fontSize: "0.95rem" }}
       />
     </div>
   );
@@ -1200,7 +1200,7 @@ function SlotBlock({
       </InfoTip>
       {levels.map(([level, state]) => (
         <div key={level} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <span style={{ fontFamily: "monospace", fontWeight: 700, color: "var(--gold)", minWidth: 36 }}>L{level}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--gold)", minWidth: 36 }}>L{level}</span>
           <div style={{ display: "flex", gap: "0.25rem", flexWrap: "wrap" }}>
             {Array.from({ length: state.max }).map((_, i) => {
               const filled = i < state.remaining;
@@ -1222,7 +1222,7 @@ function SlotBlock({
               );
             })}
           </div>
-          <span style={{ fontFamily: "monospace", fontSize: "0.8rem", color: "var(--muted)" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.8rem", color: "var(--muted)" }}>
             {state.remaining}/{state.max}
           </span>
         </div>
@@ -1566,7 +1566,7 @@ function SkillsBlock({ bonuses }: { bonuses: Record<string, number> }) {
       {entries.map(([skill, b]) => (
         <div key={skill} style={{ display: "flex", justifyContent: "space-between", padding: "0.25rem 0.5rem", background: "var(--surface2)", borderRadius: 4 }}>
           <span style={{ fontSize: "0.82rem" }}>{skill}</span>
-          <strong style={{ fontFamily: "monospace", color: "var(--gold)" }}>{fmt(b)}</strong>
+          <strong style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>{fmt(b)}</strong>
         </div>
       ))}
     </div>
@@ -1580,7 +1580,7 @@ function SavesBlock({ saves }: { saves: Record<string, number> }) {
       {order.map((ab) => (
         <div key={ab} style={{ display: "flex", justifyContent: "space-between", padding: "0.3rem 0.5rem", background: "var(--surface2)", borderRadius: 4 }}>
           <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>{ab}</span>
-          <strong style={{ fontFamily: "monospace", color: "var(--gold)" }}>{fmt(saves[ab] ?? 0)}</strong>
+          <strong style={{ fontFamily: "var(--font-mono)", color: "var(--gold)" }}>{fmt(saves[ab] ?? 0)}</strong>
         </div>
       ))}
     </div>
@@ -1730,7 +1730,7 @@ function GearDetail({ g }: { g: GearRow }) {
       }}
     >
       {weaponLine && (
-        <div style={{ fontFamily: "monospace", color: "var(--gold)", marginBottom: g.description || facts.length ? "0.3rem" : 0 }}>
+        <div style={{ fontFamily: "var(--font-mono)", color: "var(--gold)", marginBottom: g.description || facts.length ? "0.3rem" : 0 }}>
           ⚔ {weaponLine}
         </div>
       )}
@@ -1988,7 +1988,7 @@ function NpcsBlock({ pcId }: { pcId: string }) {
               style={{
                 color: "var(--gold)",
                 fontSize: "0.82rem",
-                fontFamily: "Cinzel Decorative, serif",
+                fontFamily: "var(--font-story)",
                 lineHeight: 1.2,
                 display: "block",
               }}
@@ -2090,7 +2090,7 @@ function BigChip({ label, value, accent }: { label: string; value: string; accen
       minWidth: 0,
     }}>
       <div style={{ fontSize: "0.6rem", color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</div>
-      <div style={{ fontSize: "1.1rem", fontWeight: 700, color: accent ?? "var(--gold)", fontFamily: "monospace" }}>{value}</div>
+      <div style={{ fontSize: "1.1rem", fontWeight: 700, color: accent ?? "var(--gold)", fontFamily: "var(--font-mono)" }}>{value}</div>
     </div>
   );
 }
@@ -2234,7 +2234,7 @@ const nameStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "1.3rem",
   color: "var(--gold)",
-  fontFamily: "Cinzel Decorative, serif",
+  fontFamily: "var(--font-story)",
   lineHeight: 1.1,
 };
 
@@ -2258,7 +2258,7 @@ const spellLineStyle: React.CSSProperties = {
   border: "1px solid var(--gold)",
   borderRadius: 4,
   fontSize: "0.82rem",
-  fontFamily: "monospace",
+  fontFamily: "var(--font-mono)",
 };
 
 const cardStyle: React.CSSProperties = {
@@ -2271,7 +2271,7 @@ const cardStyle: React.CSSProperties = {
 const sectionHeadingStyle: React.CSSProperties = {
   fontSize: "0.9rem",
   color: "var(--gold)",
-  fontFamily: "Cinzel Decorative, serif",
+  fontFamily: "var(--font-story)",
   letterSpacing: "0.04em",
 };
 
@@ -2285,7 +2285,7 @@ const subHeadingStyle: React.CSSProperties = {
 const hpInputStyle: React.CSSProperties = {
   width: 80,
   padding: "0.4rem 0.5rem",
-  fontFamily: "monospace",
+  fontFamily: "var(--font-mono)",
   fontSize: "1rem",
   fontWeight: 700,
   textAlign: "center",
@@ -2323,7 +2323,7 @@ const ruleHeadStyle: React.CSSProperties = {
   margin: "0.75rem 0 0.25rem",
   fontSize: "0.8rem",
   color: "var(--gold)",
-  fontFamily: "Cinzel Decorative, serif",
+  fontFamily: "var(--font-story)",
 };
 
 const ruleListStyle: React.CSSProperties = {

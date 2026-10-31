@@ -39,7 +39,7 @@ export default function NotFound() {
           fontSize: "3rem",
           margin: "0.5rem 0 0",
           color: "var(--gold)",
-          fontFamily: "Cinzel Decorative, serif",
+          fontFamily: "var(--font-story)",
           letterSpacing: "0.1em",
         }}
       >

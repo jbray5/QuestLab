@@ -226,7 +226,7 @@ export default function Characters() {
               Players join from your join link or the QR on the TV
               {joinCode ? (
                 <>
-                  , type <strong style={{ fontFamily: "monospace", letterSpacing: "0.1em" }}>{joinCode}</strong>, and build or pick their character.
+                  , type <strong style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.1em" }}>{joinCode}</strong>, and build or pick their character.
                 </>
               ) : (
                 " and build their character. Add a join code so only your table can see the party."
@@ -264,7 +264,7 @@ export default function Characters() {
               }}
               placeholder="no code"
               maxLength={12}
-              style={{ width: 132, fontFamily: "monospace", letterSpacing: "0.12em", padding: "2px 6px" }}
+              style={{ width: 132, fontFamily: "var(--font-mono)", letterSpacing: "0.12em", padding: "2px 6px" }}
             />
             {/* Review 10/30 — sign-up on with no code showed "Join code: none"
                 and no way forward. One tap makes one; the hint says how it's used. */}

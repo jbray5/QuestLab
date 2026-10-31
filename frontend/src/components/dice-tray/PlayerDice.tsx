@@ -37,17 +37,17 @@ const CSS = `
   border-radius: 18px 18px 0 0; padding: 18px 16px calc(20px + env(safe-area-inset-bottom));
   background: linear-gradient(180deg, #221a33 0%, #14101f 100%);
   border-top: 1px solid rgba(240,230,200,0.22);
-  font-family: Georgia, serif; color: #cfc2a4;
+  font-family: var(--font-ui); color: #cfc2a4;
   animation: qdUp 0.22s cubic-bezier(0.16,1,0.3,1);
 }
 @keyframes qdUp { from { transform: translateY(30%); opacity: 0.4; } to { transform: none; opacity: 1; } }
-.qd-title { font-family: Cinzel, Georgia, serif; color: #f0e6c8; font-size: 1rem; letter-spacing: 0.08em; margin: 0 0 10px; }
+.qd-title { font-family: var(--font-story); color: #f0e6c8; font-size: 1rem; letter-spacing: 0.08em; margin: 0 0 10px; }
 .qd-dice { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 .qd-die {
   flex: 1 1 auto; min-width: 56px; padding: 10px 0; text-align: center;
   border-radius: 10px; border: 1px solid rgba(240,230,200,0.25);
   background: rgba(10,8,16,0.6); color: #e6ddc8; cursor: pointer;
-  font-family: Cinzel, Georgia, serif; font-weight: 700;
+  font-family: var(--font-story); font-weight: 700;
 }
 .qd-die.sel { border-color: #d6af36; color: #ffd76a; background: rgba(214,175,54,0.12); }
 .qd-mod { display: flex; align-items: center; gap: 12px; justify-content: center; margin-bottom: 14px; }
@@ -55,7 +55,7 @@ const CSS = `
   width: 40px; height: 40px; border-radius: 50%; font-size: 1.2rem; cursor: pointer;
   border: 1px solid rgba(240,230,200,0.25); background: rgba(10,8,16,0.6); color: #e6ddc8;
 }
-.qd-mod .val { font-family: Cinzel, Georgia, serif; color: #f0e6c8; font-size: 1.2rem; min-width: 52px; text-align: center; }
+.qd-mod .val { font-family: var(--font-story); color: #f0e6c8; font-size: 1.2rem; min-width: 52px; text-align: center; }
 .qd-shake {
   text-align: center; padding: 14px; border-radius: 12px; margin-bottom: 10px;
   border: 1px dashed rgba(240,230,200,0.35); color: #d6c9a6; font-style: italic;
@@ -64,12 +64,12 @@ const CSS = `
 @keyframes qdPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 .qd-roll {
   width: 100%; padding: 13px 0; border-radius: 12px; cursor: pointer;
-  font-family: Cinzel, Georgia, serif; font-weight: 700; font-size: 1.05rem;
+  font-family: var(--font-story); font-weight: 700; font-size: 1.05rem;
   border: 1px solid #d6af36; background: linear-gradient(160deg, #6b5316, #3d2f0c);
   color: #ffe9a8;
 }
 .qd-result { text-align: center; margin-top: 12px; }
-.qd-result .big { font-family: Cinzel, Georgia, serif; font-size: 2.6rem; color: #f2e3ae; }
+.qd-result .big { font-family: var(--font-story); font-size: 2.6rem; color: #f2e3ae; }
 .qd-result .sub { font-size: 0.85rem; color: #9a9078; font-style: italic; }
 `;
 

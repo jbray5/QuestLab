@@ -51,7 +51,7 @@ const TITLE_CSS = `
   left: 0;
   right: 0;
   text-align: center;
-  font-family: Cinzel, serif;
+  font-family: var(--font-story);
   font-size: clamp(2rem, 5vw, 3.6rem);
   letter-spacing: 0.14em;
   color: #e8dcc0;
@@ -71,7 +71,7 @@ const TITLE_CSS = `
   left: 0;
   right: 0;
   text-align: center;
-  font-family: Cinzel, serif;
+  font-family: var(--font-story);
   font-size: clamp(1.1rem, 2.4vw, 1.7rem);
   letter-spacing: 0.1em;
   color: #f0e6c8;
@@ -255,7 +255,7 @@ export default function Table3DView() {
             alignItems: "center",
             justifyContent: "center",
             color: "#6b6b7a",
-            fontFamily: "Cinzel, serif",
+            fontFamily: "var(--font-story)",
             fontSize: "1.15rem",
             letterSpacing: "0.08em",
           }}

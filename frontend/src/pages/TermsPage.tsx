@@ -2,9 +2,9 @@ import { Link } from "react-router-dom";
 
 /** TermsPage (Plan 73) — plain-language terms, content rights, privacy. */
 const CSS = `
-.tm { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.3rem 5rem; color: #cfc2a4; font-family: Georgia, 'Palatino Linotype', serif; line-height: 1.6; }
-.tm h1 { font-family: Cinzel, Georgia, serif; color: #f0e6c8; letter-spacing: 0.05em; margin: 0 0 0.6rem; }
-.tm h2 { font-family: Cinzel, Georgia, serif; color: #d6af36; font-size: 1.15rem; margin: 1.8rem 0 0.4rem; }
+.tm { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.3rem 5rem; color: #cfc2a4; font-family: var(--font-ui); line-height: 1.6; }
+.tm h1 { font-family: var(--font-story); color: #f0e6c8; letter-spacing: 0.05em; margin: 0 0 0.6rem; }
+.tm h2 { font-family: var(--font-story); color: #d6af36; font-size: 1.15rem; margin: 1.8rem 0 0.4rem; }
 .tm a { color: #ffd76a; }
 `;
 

@@ -38,7 +38,7 @@ const CSS = `
 }
 .ql-dicecine-num {
   position: absolute; left: 50%; top: 54%; transform: translate(-50%, -50%);
-  font-family: Cinzel, Georgia, serif; font-weight: 700;
+  font-family: var(--font-story); font-weight: 700;
   font-size: clamp(2.8rem, 10vh, 5.8rem); color: #f2e3ae;
   text-shadow: 0 3px 20px rgba(0,0,0,0.95), 0 0 30px rgba(214,175,54,0.4);
   animation: qlDiceStamp 0.3s cubic-bezier(0.2,1.7,0.4,1);
@@ -48,12 +48,12 @@ const CSS = `
 .ql-dicecine-num.fumble { color: #d8938a; text-shadow: 0 3px 20px rgba(0,0,0,0.95), 0 0 34px rgba(190,70,50,0.6); }
 @keyframes qlDiceStamp { 0% { transform: translate(-50%, -50%) scale(1.9); opacity: 0; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
 .ql-dicecine-name {
-  font-family: Georgia, serif; font-style: italic; color: #f0e6c8;
+  font-family: var(--font-ui); font-style: italic; color: #f0e6c8;
   font-size: clamp(0.9rem, 2vh, 1.3rem); text-shadow: 0 2px 12px rgba(0,0,0,0.9);
   background: rgba(6,6,12,0.72); padding: 0.15em 0.9em; border-radius: 999px;
 }
 .ql-dicecine-total {
-  font-family: Cinzel, Georgia, serif; color: #f2e3ae;
+  font-family: var(--font-story); color: #f2e3ae;
   font-size: clamp(1.4rem, 3.4vh, 2.3rem); letter-spacing: 0.06em;
   padding: 0.25em 0.9em; border-radius: 12px;
   background: rgba(10,8,14,0.82); border: 1px solid rgba(214,175,54,0.7);
@@ -62,7 +62,7 @@ const CSS = `
 }
 .ql-dicecine-total small { font-size: 0.55em; color: #cfc2a4; letter-spacing: 0.1em; margin-right: 0.6em; }
 .ql-dicecine-callout {
-  font-family: Cinzel, Georgia, serif; font-weight: 700; letter-spacing: 0.3em;
+  font-family: var(--font-story); font-weight: 700; letter-spacing: 0.3em;
   font-size: clamp(0.8rem, 2vh, 1.2rem); padding-left: 0.3em;
   opacity: 0; animation: qlDiceTotal 0.4s ease 0.28s forwards; /* mounts at landing */
 }

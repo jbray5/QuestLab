@@ -20,14 +20,14 @@ const CSS = `
 .ql-remote { position: absolute; top: 0; right: 0; bottom: 0; width: min(300px, 86vw); z-index: 30;
   background: linear-gradient(180deg, rgba(14,12,22,0.96), rgba(8,7,14,0.97)); color: #e6ddc8;
   border-left: 1px solid rgba(214,175,54,0.25); box-shadow: -14px 0 30px rgba(0,0,0,0.5);
-  font-family: Georgia, 'Palatino Linotype', serif; display: flex; flex-direction: column;
+  font-family: var(--font-ui); display: flex; flex-direction: column;
   transform: translateX(0); transition: transform 0.22s ease; }
 .ql-remote.closed { transform: translateX(100%); }
 .ql-remote-tab { position: absolute; top: 12px; right: 12px; z-index: 31; border: 1px solid rgba(214,175,54,0.5);
   background: rgba(8,7,14,0.85); color: #f0e6c8; border-radius: 999px; padding: 6px 12px; font-size: 0.8rem;
-  cursor: pointer; font-family: Cinzel, Georgia, serif; letter-spacing: 0.06em; }
+  cursor: pointer; font-family: var(--font-story); letter-spacing: 0.06em; }
 .ql-remote.open ~ .ql-remote-tab { right: calc(min(300px, 86vw) + 12px); }
-.ql-remote h3 { margin: 0; font-family: Cinzel, Georgia, serif; font-size: 0.72rem; letter-spacing: 0.12em;
+.ql-remote h3 { margin: 0; font-family: var(--font-story); font-size: 0.72rem; letter-spacing: 0.12em;
   text-transform: uppercase; color: #d6af36; }
 .ql-remote-head { padding: 14px 14px 8px; display: flex; justify-content: space-between; align-items: baseline; }
 .ql-remote-round { font-size: 0.8rem; color: #b3a789; }
@@ -51,7 +51,7 @@ const CSS = `
 .ql-roll { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; padding: 5px 10px; border-top: 1px solid rgba(240,230,200,0.08); }
 .ql-roll-who { font-size: 0.82rem; color: #f0e6c8; }
 .ql-roll-what { font-size: 0.7rem; color: #9a9078; }
-.ql-roll-total { grid-row: 1 / span 2; align-self: center; font-family: Cinzel, Georgia, serif; font-size: 1.25rem; color: #d6af36; font-variant-numeric: tabular-nums; }
+.ql-roll-total { grid-row: 1 / span 2; align-self: center; font-family: var(--font-story); font-size: 1.25rem; color: #d6af36; font-variant-numeric: tabular-nums; }
 .ql-roll-total.nat20 { color: #6fbf73; } .ql-roll-total.nat1 { color: #ef5350; }
 .ql-remote-foot { margin-top: auto; padding: 8px 14px 12px; font-size: 0.72rem; color: #8f8670; border-top: 1px solid rgba(240,230,200,0.08); }
 `;

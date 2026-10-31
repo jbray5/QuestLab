@@ -4,7 +4,7 @@ import { SUBCLASS_CARD_ART } from "./subclassArt";
  * Legend Cards (Plan 68) — the scroll-stopper.
  *
  * Composites a 1080×1920 story-ready share card on a canvas: the PC's
- * painted render over their subclass art, name set in Cinzel inside a
+ * painted render over their subclass art, name set in Alegreya inside a
  * gold frame, class plate, campaign wordmark. Blob art is CORS-`*` so
  * the canvas stays untainted and exportable.
  */
@@ -51,12 +51,12 @@ function fitFont(
 
 /** Render the card; resolves to a PNG blob ready for the share sheet. */
 export async function renderLegendCard(input: LegendCardInput): Promise<Blob> {
-  // The card is typography-first — make sure Cinzel is actually loaded
+  // The card is typography-first — make sure Alegreya is actually loaded
   // before we draw, or every face falls back to a default serif.
   try {
     await Promise.all([
-      document.fonts.load("700 120px Cinzel"),
-      document.fonts.load("600 44px Cinzel"),
+      document.fonts.load("700 120px Alegreya"),
+      document.fonts.load("600 44px Alegreya"),
     ]);
   } catch {
     /* draw with fallbacks */
@@ -126,15 +126,15 @@ export async function renderLegendCard(input: LegendCardInput): Promise<Blob> {
   // ── Top block: campaign eyebrow.
   ctx.textAlign = "center";
   ctx.fillStyle = "#c9b989";
-  ctx.font = "500 34px Cinzel, Georgia, serif";
+  ctx.font = "500 34px Alegreya, Georgia, serif";
   const campaign = input.campaign.toUpperCase();
   // Manual letterspacing — canvas has none.
   const spaced = campaign.split("").join("  ");
   ctx.fillText(spaced, W / 2, 170);
 
   // ── Name, fitted, with a soft gold glow.
-  const nameSize = fitFont(ctx, input.name, "Cinzel, Georgia, serif", 700, 118, W - 180);
-  ctx.font = `700 ${nameSize}px Cinzel, Georgia, serif`;
+  const nameSize = fitFont(ctx, input.name, "Alegreya, Georgia, serif", 700, 118, W - 180);
+  ctx.font = `700 ${nameSize}px Alegreya, Georgia, serif`;
   ctx.shadowColor = "rgba(214,175,54,0.55)";
   ctx.shadowBlur = 34;
   ctx.fillStyle = "#f2e3ae";
@@ -150,12 +150,12 @@ export async function renderLegendCard(input: LegendCardInput): Promise<Blob> {
   ctx.fillRect(W * 0.24, 330, W * 0.52, 3);
 
   // ── Bottom block: class plate + wordmark.
-  const subSize = fitFont(ctx, input.subtitle, "Cinzel, Georgia, serif", 600, 46, W - 200);
-  ctx.font = `600 ${subSize}px Cinzel, Georgia, serif`;
+  const subSize = fitFont(ctx, input.subtitle, "Alegreya, Georgia, serif", 600, 46, W - 200);
+  ctx.font = `600 ${subSize}px Alegreya, Georgia, serif`;
   ctx.fillStyle = "#e6d6a8";
   ctx.fillText(input.subtitle, W / 2, H * 0.72 + 130);
 
-  ctx.font = "500 30px Cinzel, Georgia, serif";
+  ctx.font = "500 30px Alegreya, Georgia, serif";
   ctx.fillStyle = "rgba(201,185,137,0.75)";
   ctx.fillText("⚔  Q U E S T L A B", W / 2, H - 108);
 

@@ -150,7 +150,7 @@ export function TableConsoleModal({
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <strong style={{ fontFamily: "Cinzel, serif", color: "var(--gold)" }}>Table</strong>
+            <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)" }}>Table</strong>
             <button className="btn btn-ghost" style={{ padding: "0 0.4rem" }} onClick={onClose}>✕</button>
           </div>
 

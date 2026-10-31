@@ -104,7 +104,7 @@ export default function TonightsCastDrawer({ npcs, currentScene, rosterNames = [
       >
         <header style={headerStyle}>
           <strong
-            style={{ fontFamily: "Cinzel Decorative, serif", color: "var(--gold)" }}
+            style={{ fontFamily: "var(--font-story)", color: "var(--gold)" }}
           >
             🎭 Tonight's Cast
           </strong>
@@ -195,7 +195,7 @@ function toggleStyle(open: boolean): React.CSSProperties {
     cursor: "pointer",
     transition: "right 240ms ease, background 200ms ease",
     boxShadow: "-4px 0 10px rgba(0,0,0,0.25)",
-    fontFamily: "Cinzel Decorative, serif",
+    fontFamily: "var(--font-story)",
   };
 }
 

@@ -39,11 +39,11 @@ const FORGE_CSS = `
 .forge-root {
   min-height: 100vh;
   background: radial-gradient(ellipse at 50% -10%, #241a38 0%, #0d0a16 55%, #06050a 100%);
-  color: #e6ddc8; font-family: Georgia, 'Times New Roman', serif; padding-bottom: 3rem;
+  color: #e6ddc8; font-family: var(--font-ui); padding-bottom: 3rem;
 }
 .forge-inner { max-width: 1060px; margin: 0 auto; padding: 0 1rem; }
 .forge-title {
-  font-family: Cinzel, Georgia, serif; letter-spacing: 0.1em;
+  font-family: var(--font-story); letter-spacing: 0.1em;
   font-size: clamp(1.5rem, 4vw, 2.3rem); margin: 1.1rem 0 0; color: #f0e6c8;
   text-shadow: 0 2px 14px #000;
 }
@@ -90,7 +90,7 @@ const FORGE_CSS = `
 }
 @keyframes forge-sheen { from { background-position: 120% 0; } to { background-position: -120% 0; } }
 .forge-h2 {
-  font-family: Cinzel, Georgia, serif; font-size: 1rem; letter-spacing: 0.1em;
+  font-family: var(--font-story); font-size: 1rem; letter-spacing: 0.1em;
   color: #d6c390; margin: 1.4rem 0 0.5rem; text-transform: uppercase;
 }
 .pack { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
@@ -116,7 +116,7 @@ const FORGE_CSS = `
 .forge-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
 .forge-btn {
   padding: 8px 16px; border-radius: 10px; cursor: pointer;
-  font-family: Cinzel, Georgia, serif; font-size: 0.92rem; letter-spacing: 0.06em;
+  font-family: var(--font-story); font-size: 0.92rem; letter-spacing: 0.06em;
   color: #1c1508; background: linear-gradient(180deg, #e8c95c, #c9a136);
   border: 1px solid #f0e0a0;
 }
@@ -128,7 +128,7 @@ const FORGE_CSS = `
 .forge-back { color: #b3a789; text-decoration: none; font-size: 0.85rem; }
 .forge-primary {
   padding: 12px 22px; border-radius: 12px; cursor: pointer; width: 100%;
-  font-family: Cinzel, Georgia, serif; font-size: 1.05rem; letter-spacing: 0.08em;
+  font-family: var(--font-story); font-size: 1.05rem; letter-spacing: 0.08em;
   color: #1c1508; background: linear-gradient(180deg, #f0d570, #c9a136);
   border: 1px solid #f5e6ae; box-shadow: 0 4px 22px rgba(214,175,54,0.35);
 }

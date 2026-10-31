@@ -33,7 +33,7 @@ export const STORE_CSS = `
   min-height: 100vh;
   background: radial-gradient(ellipse at 50% -10%, #1d1830 0%, #0b0a14 55%, #060609 100%);
   color: #e6ddc8;
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-ui);
   padding-bottom: 4rem;
 }
 .store-inner { max-width: 1060px; margin: 0 auto; padding: 0 1rem; }
@@ -44,7 +44,7 @@ export const STORE_CSS = `
   background: linear-gradient(to bottom, rgba(6,6,9,0.1) 40%, rgba(6,6,9,0.92) 100%);
 }
 .store-title {
-  font-family: Cinzel, Georgia, serif; letter-spacing: 0.1em;
+  font-family: var(--font-story); letter-spacing: 0.1em;
   font-size: clamp(1.6rem, 4.5vw, 2.6rem); margin: 0.9rem 0 0.1rem; color: #f0e6c8;
   text-shadow: 0 2px 14px #000;
 }
@@ -75,14 +75,14 @@ export const STORE_CSS = `
 .store-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .store-card-img .ph { font-size: 3.4rem; opacity: 0.5; }
 .store-card-body { padding: 0.7rem 0.85rem 0.85rem; display: flex; flex-direction: column; gap: 5px; flex: 1; }
-.store-card h3 { margin: 0; font-size: 1.02rem; color: #f0e6c8; font-family: Cinzel, Georgia, serif; letter-spacing: 0.02em; }
+.store-card h3 { margin: 0; font-size: 1.02rem; color: #f0e6c8; font-family: var(--font-story); letter-spacing: 0.02em; }
 .store-meta { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; }
 .store-pitch { font-style: italic; color: #b3a789; font-size: 0.83rem; line-height: 1.35; }
 .store-desc { color: #cfc4a9; font-size: 0.83rem; line-height: 1.4; }
 .store-desc.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; cursor: pointer; }
 .store-foot { margin-top: auto; display: flex; align-items: center; justify-content: space-between; padding-top: 6px; }
 .store-price {
-  font-family: Cinzel, Georgia, serif; color: #e0c04d; font-size: 1rem;
+  font-family: var(--font-story); color: #e0c04d; font-size: 1rem;
   text-shadow: 0 1px 6px rgba(224,169,61,0.35);
 }
 .store-stock { font-size: 0.72rem; color: #c98a5a; }
@@ -95,7 +95,7 @@ export const STORE_CSS = `
 }
 .store-buy {
   margin-top: 7px; padding: 7px 0; width: 100%; border-radius: 9px; cursor: pointer;
-  font-family: Cinzel, Georgia, serif; font-size: 0.86rem; letter-spacing: 0.05em;
+  font-family: var(--font-story); font-size: 0.86rem; letter-spacing: 0.05em;
   color: #1c1508; background: linear-gradient(180deg, #e8c95c, #c9a136);
   border: 1px solid #f0e0a0;
 }
@@ -140,5 +140,5 @@ export const STORE_CSS = `
 .market-card-img { aspect-ratio: 21/9; background: #131019; display: flex; align-items: center; justify-content: center; }
 .market-card-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .market-card-body { padding: 0.75rem 0.9rem 0.9rem; }
-.market-card h3 { margin: 0 0 3px; font-family: Cinzel, Georgia, serif; color: #f0e6c8; font-size: 1.08rem; }
+.market-card h3 { margin: 0 0 3px; font-family: var(--font-story); color: #f0e6c8; font-size: 1.08rem; }
 `;

@@ -139,7 +139,7 @@ function DenominationCell({
           background: "transparent",
           border: "none",
           color: "var(--text)",
-          fontFamily: "monospace",
+          fontFamily: "var(--font-mono)",
           fontSize: "0.95rem",
           fontWeight: 700,
           textAlign: "center",

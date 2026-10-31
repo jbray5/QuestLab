@@ -226,15 +226,15 @@ const CSS = `
 .ar-seat small { font-size: 0.68rem; opacity: 0.75; }
 .ar-seat .bar { display: block; height: 4px; border-radius: 3px; background: rgba(255,255,255,0.09); margin: 4px 0 2px; }
 .ar-seat .bar i { display: block; height: 100%; border-radius: 3px; background: #6fbf73; }
-.ar-root { min-height: 100vh; padding: 1rem 0.9rem 4rem; color: #e6ddc8; font-family: Georgia, 'Palatino Linotype', serif;
+.ar-root { min-height: 100vh; padding: 1rem 0.9rem 4rem; color: #e6ddc8; font-family: var(--font-ui);
   background: radial-gradient(ellipse at 50% -10%, #2a1d1d 0%, #120c10 55%, #07050a 100%); }
 .ar-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 0.6rem; }
-.ar-title { font-family: Cinzel, Georgia, serif; color: #f0e6c8; font-size: 1.25rem; letter-spacing: 0.08em; margin: 0; }
+.ar-title { font-family: var(--font-story); color: #f0e6c8; font-size: 1.25rem; letter-spacing: 0.08em; margin: 0; }
 .ar-back { color: #e2c257; text-decoration: none; font-size: 0.8rem; letter-spacing: 0.06em; border: 1px solid rgba(214,175,54,0.5); border-radius: 999px; padding: 3px 10px; background: none; cursor: pointer; font-family: inherit; }
 .ar-sub { color: #c2b89f; font-style: italic; margin: 0 0 1rem; font-size: 0.9rem; }
 .ar-big { width: 100%; padding: 14px; border-radius: 14px; border: 1px solid #d6af36; background: rgba(214,175,54,0.12); color: #f0e6c8;
-  font-family: Cinzel, Georgia, serif; font-size: 1rem; letter-spacing: 0.06em; cursor: pointer; }
-.ar-h { font-family: Cinzel, Georgia, serif; font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: #d6af36; margin: 1rem 0 0.4rem; }
+  font-family: var(--font-story); font-size: 1rem; letter-spacing: 0.06em; cursor: pointer; }
+.ar-h { font-family: var(--font-story); font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: #d6af36; margin: 1rem 0 0.4rem; }
 .ar-foe-list { display: grid; gap: 6px; }
 .ar-foe { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: center; text-align: left; padding: 8px 12px; border-radius: 10px;
   border: 1px solid rgba(240,230,200,0.14); background: rgba(20,16,30,0.7); color: #e6ddc8; cursor: pointer; font-family: inherit; }
@@ -242,7 +242,7 @@ const CSS = `
 .ar-foe small { color: #b3a789; font-size: 0.72rem; }
 .ar-foe.tough small em { color: #e0a030; font-style: normal; }
 .ar-foe.deadly small em { color: #ef5350; font-style: normal; }
-.ar-foe .cr { font-family: Cinzel, Georgia, serif; color: #d6af36; font-size: 0.8rem; grid-row: 1 / span 2; align-self: center; }
+.ar-foe .cr { font-family: var(--font-story); color: #d6af36; font-size: 0.8rem; grid-row: 1 / span 2; align-self: center; }
 .ar-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .ar-card { border: 1px solid rgba(240,230,200,0.14); border-radius: 12px; padding: 10px 12px; background: rgba(20,16,30,0.72); }
 .ar-card.foe { border-color: rgba(200,80,80,0.45); }
@@ -262,7 +262,7 @@ const CSS = `
 .ar-card .ar-chips { justify-content: center; }
 .ar-seat { display: flex; align-items: center; gap: 8px; }
 .ar-seat .who { flex: 1; min-width: 0; }
-.ar-card .nm { font-family: Cinzel, Georgia, serif; font-size: 0.9rem; color: #f0e6c8; margin: 0 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ar-card .nm { font-family: var(--font-story); font-size: 0.9rem; color: #f0e6c8; margin: 0 0 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ar-card .meta { font-size: 0.7rem; color: #b3a789; letter-spacing: 0.04em; }
 .ar-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); overflow: hidden; margin: 6px 0 3px; }
 .ar-bar i { display: block; height: 100%; background: #6fbf73; transition: width 0.35s ease; }
@@ -273,12 +273,12 @@ const CSS = `
 .ar-chips span.cond { border-color: rgba(200,162,255,0.5); color: #c8a2ff; }
 .ar-chips span.bad { border-color: rgba(239,83,80,0.5); color: #ef8b80; }
 .ar-turn { display: flex; justify-content: space-between; align-items: center; margin: 12px 0 6px; font-size: 0.8rem; color: #b3a789; }
-.ar-turn b { color: #f0e6c8; font-family: Cinzel, Georgia, serif; font-weight: 600; }
+.ar-turn b { color: #f0e6c8; font-family: var(--font-story); font-weight: 600; }
 .ar-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 1px solid #d6af36; margin-left: 4px; vertical-align: middle; }
 .ar-dot.on { background: #d6af36; }
 .ar-tips { border-left: 3px solid #d6af36; background: rgba(214,175,54,0.08); padding: 8px 10px; border-radius: 0 10px 10px 0; font-size: 0.84rem; line-height: 1.4; margin-bottom: 8px; }
 .ar-tips p { margin: 0 0 4px; } .ar-tips p:last-child { margin: 0; }
-.ar-sec { font-family: Cinzel, Georgia, serif; font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: #b3a789; margin: 10px 0 4px; }
+.ar-sec { font-family: var(--font-story); font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: #b3a789; margin: 10px 0 4px; }
 .ar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .ar-btn { text-align: left; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(240,230,200,0.18); background: rgba(30,24,40,0.85); color: #e6ddc8; cursor: pointer; font-family: inherit; display: grid; gap: 2px; }
 .ar-btn b { font-size: 0.92rem; color: #f0e6c8; font-weight: 600; }
@@ -286,7 +286,7 @@ const CSS = `
 .ar-btn .ar-why { color: #e0a030; font-size: 0.68rem; }
 .ar-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .ar-btn.primary { grid-column: 1 / -1; border-color: #d6af36; background: rgba(214,175,54,0.14); text-align: center; }
-.ar-btn.primary b { font-family: Cinzel, Georgia, serif; letter-spacing: 0.06em; }
+.ar-btn.primary b { font-family: var(--font-story); letter-spacing: 0.06em; }
 .ar-btn.ghost { background: transparent; }
 .ar-btn.wide { grid-column: 1 / -1; }
 .ar-slots { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
@@ -301,7 +301,7 @@ const CSS = `
 .ar-line.crit { background: rgba(214,175,54,0.1); }
 .ar-line small { display: block; color: #a39a86; font-size: 0.68rem; font-variant-numeric: tabular-nums; margin-top: 1px; }
 .ar-over { text-align: center; padding: 14px 10px; border-radius: 14px; border: 1px solid rgba(214,175,54,0.5); background: rgba(20,16,30,0.8); margin-bottom: 10px; }
-.ar-over h2 { font-family: Cinzel, Georgia, serif; margin: 0 0 4px; color: #f0e6c8; letter-spacing: 0.08em; }
+.ar-over h2 { font-family: var(--font-story); margin: 0 0 4px; color: #f0e6c8; letter-spacing: 0.08em; }
 .ar-over p { margin: 0; color: #c2b89f; font-size: 0.85rem; }
 `;
 

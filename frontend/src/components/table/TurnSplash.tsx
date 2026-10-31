@@ -38,7 +38,7 @@ const CSS = `
   animation: qlPlateIn 0.4s cubic-bezier(0.16,1,0.3,1) 0.08s backwards, qlArtOut 0.3s ease 2.08s forwards;
 }
 .ql-turnsplash-name {
-  font-family: Georgia, 'Palatino Linotype', serif;
+  font-family: var(--font-ui);
   font-size: clamp(1.6rem, 4.2vw, 3.4rem); letter-spacing: 0.06em;
   color: #f2e3ae; text-shadow: 0 2px 18px rgba(0,0,0,0.9);
 }

@@ -207,7 +207,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                   margin: 0,
                   fontSize: "1.4rem",
                   color: "var(--gold)",
-                  fontFamily: "Cinzel Decorative, serif",
+                  fontFamily: "var(--font-story)",
                 }}
               >
                 {pc.character_name}
@@ -369,7 +369,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                 style={{
                   width: 70,
                   padding: "0.25rem 0.4rem",
-                  fontFamily: "monospace",
+                  fontFamily: "var(--font-mono)",
                   fontSize: "0.85rem",
                   background: "var(--surface2)",
                   border: "1px solid var(--border)",
@@ -555,19 +555,19 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
                 >
                   Spellcasting
                 </span>
-                <span style={{ fontFamily: "monospace", fontSize: "0.9rem" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>
                   Ability{" "}
                   <strong style={{ color: "var(--gold)" }}>
                     {spellStats.ability}
                   </strong>
                 </span>
-                <span style={{ fontFamily: "monospace", fontSize: "0.9rem" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>
                   Save DC{" "}
                   <strong style={{ color: "var(--gold)" }}>
                     {spellStats.save_dc}
                   </strong>
                 </span>
-                <span style={{ fontFamily: "monospace", fontSize: "0.9rem" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.9rem" }}>
                   Attack{" "}
                   <strong style={{ color: "var(--gold)" }}>
                     {spellStats.attack_bonus !== null &&
@@ -873,7 +873,7 @@ function Section({ title, children }: { title?: string; children: React.ReactNod
             fontSize: "0.85rem",
             letterSpacing: "0.04em",
             color: "var(--gold)",
-            fontFamily: "Cinzel Decorative, serif",
+            fontFamily: "var(--font-story)",
           }}
         >
           {title}

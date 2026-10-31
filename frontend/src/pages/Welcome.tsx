@@ -54,14 +54,14 @@ const CSS = `
     radial-gradient(900px 520px at 100% 18%, rgba(139,26,26,0.18), transparent 60%),
     var(--bg); }
 .ql-w-top { max-width: 1080px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 0; }
-.ql-w-brand { font-family: "Cinzel Decorative", serif; color: var(--gold); letter-spacing: 0.08em; font-size: 1rem; }
+.ql-w-brand { font-family: var(--font-story); color: var(--gold); letter-spacing: 0.08em; font-size: 1rem; }
 .ql-w-top nav { display: flex; gap: 1.25rem; font-size: 0.85rem; }
 .ql-w-top a { color: var(--muted); text-decoration: none; }
 .ql-w-top a:hover { color: var(--gold); }
 .ql-w-hero { max-width: 1080px; margin: 1.25rem auto 0; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, 420px); gap: 3rem; align-items: center; }
 .ql-w-die { margin: 0 0 0.75rem -6px; }
 .ql-w-eyebrow { text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.7rem; color: var(--gold); margin: 0 0 0.55rem; }
-.ql-w-hero h1 { font-family: "Cinzel Decorative", serif; font-size: clamp(1.7rem, 3.3vw, 2.5rem); line-height: 1.15; color: var(--parch); margin: 0 0 0.9rem; text-wrap: balance; }
+.ql-w-hero h1 { font-family: var(--font-story); font-size: clamp(1.7rem, 3.3vw, 2.5rem); line-height: 1.15; color: var(--parch); margin: 0 0 0.9rem; text-wrap: balance; }
 .ql-w-lede { font-size: 1.12rem; line-height: 1.55; margin: 0 0 1.1rem; max-width: 34em; opacity: 0.92; }
 .ql-w-proof { list-style: none; padding: 0; margin: 0 0 1.1rem; display: flex; flex-direction: column; gap: 0.55rem; }
 .ql-w-proof li { padding-left: 1.4rem; position: relative; line-height: 1.45; font-size: 0.98rem; }
@@ -69,7 +69,7 @@ const CSS = `
 .ql-w-proof b { color: var(--parch2); font-weight: 600; }
 .ql-w-price { font-size: 0.86rem; color: var(--muted); margin: 0; }
 .ql-w-card { background: linear-gradient(180deg, rgba(32,30,38,0.92), rgba(22,22,26,0.96)); border: 1px solid var(--gold); border-radius: 14px; padding: 1.5rem 1.6rem 1.4rem; box-shadow: 0 24px 60px rgba(0,0,0,0.5), 0 0 60px rgba(201,168,76,0.08); }
-.ql-w-card h2 { font-family: "Cinzel Decorative", serif; color: var(--gold); font-size: 1.15rem; margin: 0 0 0.4rem; text-align: center; letter-spacing: 0.03em; }
+.ql-w-card h2 { font-family: var(--font-story); color: var(--gold); font-size: 1.15rem; margin: 0 0 0.4rem; text-align: center; letter-spacing: 0.03em; }
 .ql-w-sub { font-size: 0.84rem; color: var(--muted); text-align: center; line-height: 1.5; margin: 0 0 1rem; }
 .ql-w-form { display: flex; flex-direction: column; gap: 0.5rem; }
 .ql-w-form label { font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
@@ -97,13 +97,13 @@ const CSS = `
 .ql-w-pillar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.1rem 1.2rem; transition: border-color 0.2s, transform 0.2s; }
 .ql-w-pillar:hover { border-color: rgba(201,168,76,0.55); transform: translateY(-2px); }
 .ql-w-pillar .ic { font-size: 1.5rem; margin-bottom: 0.45rem; line-height: 1; }
-.ql-w-pillar h3 { font-family: "Cinzel Decorative", serif; font-size: 0.84rem; color: var(--gold); margin: 0 0 0.4rem; letter-spacing: 0.03em; line-height: 1.35; }
+.ql-w-pillar h3 { font-family: var(--font-story); font-size: 0.84rem; color: var(--gold); margin: 0 0 0.4rem; letter-spacing: 0.03em; line-height: 1.35; }
 .ql-w-pillar p { margin: 0; font-size: 0.86rem; line-height: 1.45; opacity: 0.85; }
 .ql-w-steps { max-width: 1080px; margin: 3rem auto 0; }
-.ql-w-steps h2 { font-family: "Cinzel Decorative", serif; color: var(--parch); font-size: 1.15rem; margin: 0 0 1rem; text-align: center; letter-spacing: 0.03em; }
+.ql-w-steps h2 { font-family: var(--font-story); color: var(--parch); font-size: 1.15rem; margin: 0 0 1rem; text-align: center; letter-spacing: 0.03em; }
 .ql-w-steps ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
 .ql-w-steps li { display: flex; gap: 0.8rem; align-items: flex-start; background: rgba(22,22,26,0.65); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; font-size: 0.9rem; line-height: 1.45; }
-.ql-w-steps .k { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--gold); color: var(--gold); display: flex; align-items: center; justify-content: center; font-family: "Cinzel Decorative", serif; font-size: 0.85rem; }
+.ql-w-steps .k { flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--gold); color: var(--gold); display: flex; align-items: center; justify-content: center; font-family: var(--font-story); font-size: 0.85rem; }
 .ql-w-steps b { color: var(--parch2); }
 .ql-w-foot { max-width: 1080px; margin: 3rem auto 0; display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center; font-size: 0.72rem; color: var(--muted); }
 .ql-w-foot a { color: inherit; }

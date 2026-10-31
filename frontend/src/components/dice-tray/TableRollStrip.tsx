@@ -142,14 +142,14 @@ export default function TableRollStrip({ sessionId }: { sessionId: string }) {
               }}
             >
               <span style={{ color: "var(--muted)" }}>{r.label}</span>
-              <span style={{ color: "var(--muted)", fontSize: "0.65rem", fontFamily: "monospace" }}>
+              <span style={{ color: "var(--muted)", fontSize: "0.65rem", fontFamily: "var(--font-mono)" }}>
                 {r.detail}
               </span>
               <span
                 style={{
                   marginLeft: "auto",
                   fontWeight: 700,
-                  fontFamily: "monospace",
+                  fontFamily: "var(--font-mono)",
                   color: r.crit
                     ? "var(--green2, #4caf50)"
                     : r.fumble
@@ -196,6 +196,6 @@ const dieBtn: React.CSSProperties = {
   color: "var(--gold)",
   fontSize: "0.78rem",
   fontWeight: 700,
-  fontFamily: "Cinzel Decorative, serif",
+  fontFamily: "var(--font-story)",
   cursor: "pointer",
 };

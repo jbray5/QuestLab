@@ -70,7 +70,7 @@ export function FloatingNumber({
     <Html position={[at.x, 1.9 + y * 1.1, at.z]} center distanceFactor={7} style={{ pointerEvents: "none" }}>
       <div
         style={{
-          font: "800 22px Cinzel, Georgia, serif",
+          font: "800 22px var(--font-story)",
           color: kind === "heal" ? "#8ff0a0" : "#ff6a5a",
           textShadow: "0 0 10px rgba(0,0,0,0.9), 0 2px 2px #000",
           opacity: 1 - y * y,

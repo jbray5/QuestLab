@@ -45,11 +45,11 @@ const CSS = `
 }
 .ql-mapreveal-sub {
   color: #c9b989; text-transform: uppercase; letter-spacing: 0.55em;
-  font-size: clamp(0.65rem, 1.4vw, 0.95rem); font-family: Georgia, serif;
+  font-size: clamp(0.65rem, 1.4vw, 0.95rem); font-family: var(--font-ui);
   padding-left: 0.55em; /* optically recenters the tracked-out caps */
 }
 .ql-mapreveal-title {
-  color: #f2e3ae; font-family: Georgia, 'Palatino Linotype', serif;
+  color: #f2e3ae; font-family: var(--font-ui);
   font-size: clamp(1.8rem, 5.5vw, 4.2rem); letter-spacing: 0.12em;
   text-align: center; text-shadow: 0 4px 30px rgba(0,0,0,0.95);
   padding: 0 6vw; text-wrap: balance;

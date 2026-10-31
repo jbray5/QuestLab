@@ -42,7 +42,7 @@ export default function BoardTracker({ sessionId, combat }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", minHeight: 0 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <strong style={{ fontFamily: "Cinzel, serif", color: "var(--gold)", fontSize: "0.85rem" }}>
+        <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)", fontSize: "0.85rem" }}>
           Combat {running ? `· Round ${combat?.round ?? 1}` : combat?.combat_state === "ended" ? "· ended" : "· idle"}
         </strong>
         <span style={{ display: "flex", gap: "0.3rem" }}>

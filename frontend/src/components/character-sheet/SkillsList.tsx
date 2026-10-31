@@ -117,7 +117,7 @@ export default function SkillsList({
                   ({s.ability})
                 </span>
               </span>
-              <span style={{ fontFamily: "monospace", fontWeight: 600 }}>{fmt(bonus)}</span>
+              <span style={{ fontFamily: "var(--font-mono)", fontWeight: 600 }}>{fmt(bonus)}</span>
             </button>
           );
         })}

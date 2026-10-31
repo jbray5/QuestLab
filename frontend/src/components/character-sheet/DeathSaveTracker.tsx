@@ -83,7 +83,7 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
           style={{
             color: stateColor,
             fontSize: "0.95rem",
-            fontFamily: "Cinzel Decorative, serif",
+            fontFamily: "var(--font-story)",
             letterSpacing: "0.04em",
           }}
         >
@@ -157,7 +157,7 @@ export default function DeathSaveTracker({ pc, readOnly = false }: Props) {
                   style={{
                     width: 70,
                     fontSize: "1.2rem",
-                    fontFamily: "monospace",
+                    fontFamily: "var(--font-mono)",
                     fontWeight: 700,
                     textAlign: "center",
                     padding: "0.25rem 0.4rem",

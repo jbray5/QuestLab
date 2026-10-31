@@ -92,7 +92,7 @@ const CSS = `
 .et-root { position: fixed; inset: 0; background: #05060a; }
 .et-hud { position: absolute; top: 12px; left: 12px; right: 12px; z-index: 2; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
   font: 13px system-ui, sans-serif; color: #cfcfd8; }
-.et-hud h1 { font: 600 15px Cinzel, Georgia, serif; color: #f0e6c8; margin: 0 6px 0 0; letter-spacing: 0.04em; }
+.et-hud h1 { font: 600 15px var(--font-story); color: #f0e6c8; margin: 0 6px 0 0; letter-spacing: 0.04em; }
 .et-hud button { font: inherit; padding: 6px 11px; border-radius: 9px; cursor: pointer;
   border: 1px solid #3a3a46; background: rgba(20,16,30,0.8); color: #cfcfd8; }
 .et-hud button.on { border-color: #d6af36; background: rgba(214,175,54,0.16); color: #f0e6c8; }
@@ -101,15 +101,15 @@ const CSS = `
   backdrop-filter: blur(6px); pointer-events: none; transition: opacity 200ms; }
 .et-turn-card.hidden { opacity: 0; }
 .et-turn-card img, .et-turn-card .et-turn-initial { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; object-position: top;
-  border: 2px solid #d6af36; background: #1b1722; display: grid; place-items: center; font: 700 30px Cinzel, Georgia, serif; }
+  border: 2px solid #d6af36; background: #1b1722; display: grid; place-items: center; font: 700 30px var(--font-story); }
 .et-turn-card div { display: flex; flex-direction: column; line-height: 1.15; }
 .et-turn-card small { font: 600 11px system-ui, sans-serif; letter-spacing: 0.12em; text-transform: uppercase; }
-.et-turn-card b { font: 700 20px Cinzel, Georgia, serif; color: #f0e6c8; white-space: nowrap; }
+.et-turn-card b { font: 700 20px var(--font-story); color: #f0e6c8; white-space: nowrap; }
 .et-order { position: absolute; top: 152px; right: 14px; z-index: 3; display: flex; gap: 10px; align-items: flex-start; pointer-events: none; transition: opacity 200ms; }
 .et-order.hidden { opacity: 0; }
 .et-order div { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 46px; }
 .et-order img, .et-order i { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; object-position: top; border: 2px solid #6a6a78;
-  background: #1b1722; display: grid; place-items: center; font: 700 16px Cinzel, Georgia, serif; font-style: normal; color: #cfcfd8; }
+  background: #1b1722; display: grid; place-items: center; font: 700 16px var(--font-story); font-style: normal; color: #cfcfd8; }
 .et-order div.now img, .et-order div.now i { width: 44px; height: 44px; }
 .et-order span { font: 600 10px system-ui, sans-serif; color: #b9b0a0; max-width: 46px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .et-order div.down { opacity: 0.35; }
@@ -129,15 +129,15 @@ const CSS = `
   font: 15px system-ui, sans-serif; text-align: center; padding: 24px; }
 .et-empty a { color: #d6af36; }
 .et-curtain { position: absolute; inset: 0; z-index: 1; display: grid; place-content: center; gap: 12px;
-  background: #05060a; color: #cfc4a9; font: 17px Georgia, serif; text-align: center; pointer-events: none; }
+  background: #05060a; color: #cfc4a9; font: 17px var(--font-ui); text-align: center; pointer-events: none; }
 .et-curtain-bar { width: min(320px, 70vw); height: 4px; border-radius: 3px; background: rgba(240,230,200,0.12); overflow: hidden; }
 .et-curtain-bar i { display: block; height: 100%; background: #d6af36; transition: width 0.3s ease; }
 .et-fail { position: absolute; inset: 0; z-index: 2; display: grid; place-content: center; gap: 10px; text-align: center;
-  background: rgba(5,6,10,0.94); color: #cfc4a9; font: 16px Georgia, serif; padding: 24px; }
+  background: rgba(5,6,10,0.94); color: #cfc4a9; font: 16px var(--font-ui); padding: 24px; }
 .et-fail a { color: #d6af36; }
 .et-title { position: absolute; inset: 0; display: grid; place-items: center; z-index: 3; pointer-events: none;
   animation: et-title 4.2s ease-in-out both; }
-.et-title div { font: 600 clamp(28px, 4vw, 54px) "Cinzel Decorative", Cinzel, Georgia, serif; color: #f0e6c8;
+.et-title div { font: 600 clamp(28px, 4vw, 54px) var(--font-story); color: #f0e6c8;
   letter-spacing: 0.12em; text-align: center; padding: 18px 36px; text-shadow: 0 0 24px rgba(0,0,0,0.9), 0 2px 4px #000;
   border-top: 1px solid rgba(214,175,54,0.5); border-bottom: 1px solid rgba(214,175,54,0.5); }
 @keyframes et-title { 0% { opacity: 0; transform: translateY(8px); } 12% { opacity: 1; transform: none; }
