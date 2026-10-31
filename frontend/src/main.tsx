@@ -6,6 +6,10 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import "./index.css";
 import App from "./App";
 import { ToastProvider } from "./components/Toast";
+import { installStaleChunkReload } from "./lib/freshness";
+
+// Plan 128: an old tab whose page files were replaced by a deploy reloads once.
+installStaleChunkReload();
 
 const queryClient = new QueryClient({
   defaultOptions: {

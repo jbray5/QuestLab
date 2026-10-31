@@ -1,11 +1,15 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RefreshCw, RotateCcw, TriangleAlert } from "lucide-react";
 
+import { isReloadScheduled, isStaleChunkError, reloadForUpdate } from "../lib/freshness";
+
 interface Props {
   /** Label for the boundary — shown in the fallback UI. */
   label?: string;
   /** Content the boundary wraps. */
   children: ReactNode;
+  /** When this changes (e.g. the page address), a caught error is cleared. */
+  resetKey?: string;
 }
 
 interface State {
@@ -27,6 +31,8 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
+    // Plan 128: a page file replaced by a deploy (an old tab) — load the new version.
+    if (isStaleChunkError(error) && reloadForUpdate()) return;
     // Log to the browser console so the DM can screenshot in a pinch.
     // eslint-disable-next-line no-console
     console.error(
@@ -36,11 +42,22 @@ export default class ErrorBoundary extends Component<Props, State> {
     );
   }
 
+  componentDidUpdate(prev: Props): void {
+    if (this.state.error && prev.resetKey !== this.props.resetKey) this.setState({ error: null });
+  }
+
   reset = (): void => {
     this.setState({ error: null });
   };
 
   render(): ReactNode {
+    if (this.state.error && isReloadScheduled()) {
+      return (
+        <p role="status" className="text-muted" style={{ textAlign: "center", padding: "3rem 1rem", fontStyle: "italic" }}>
+          QuestLab was updated. Loading the latest version…
+        </p>
+      );
+    }
     if (this.state.error) {
       return (
         <div

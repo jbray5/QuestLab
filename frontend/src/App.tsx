@@ -1,8 +1,9 @@
 import { lazy, Suspense } from "react";
-import { Navigate, Routes, Route, useParams } from "react-router-dom";
+import { Navigate, Routes, Route, useLocation, useParams } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Lightbox from "./components/Lightbox";
 import PlayLinkGate from "./components/PlayLinkGate";
+import UpdateWatcher from "./components/UpdateWatcher";
 import DmDock from "./components/dm/DmDock";
 
 // Eager — tiny and needed before anything else can render.
@@ -98,10 +99,14 @@ function PrepRedirect() {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
   return (
     <>
     <Lightbox />
     <DmDock />
+    <UpdateWatcher />
+    {/* Plan 128: a page that can't load shows a way out, never a blank screen. */}
+    <ErrorBoundary label="Page" resetKey={pathname}>
     <Routes>
       {/* Plan 25 — Player view: standalone route with no DM chrome */}
       <Route path="/join/:campaignId" element={lazyRoute(<JoinView />)} />
@@ -225,6 +230,7 @@ export default function App() {
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
+    </ErrorBoundary>
     </>
   );
 }

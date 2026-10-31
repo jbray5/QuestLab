@@ -1,3 +1,5 @@
+import { apiBase } from "../api/client";
+
 // Portrait cache-busting (Plan 39 fix).
 //
 // Portrait images are stored at deterministic blob paths — e.g.
@@ -26,6 +28,9 @@ export function portraitSrc(
   version?: string | number | null,
 ): string | undefined {
   if (!url) return undefined;
+  // Plan 128: an older upload saved as "/uploads/x.png" lives on the API, not
+  // on the frontend's origin; in dev apiBase() is "/api" and this is a no-op.
+  if (url.startsWith("/uploads/")) url = `${apiBase().replace(/\/api$/, "")}${url}`;
   const v = version ?? Date.now();
   const sep = url.includes("?") ? "&" : "?";
   return `${url}${sep}v=${encodeURIComponent(String(v))}`;

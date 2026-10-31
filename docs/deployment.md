@@ -61,7 +61,7 @@ Once the web service is up, open **questlab-api → Environment** and set:
 |---|---|---|
 | `BOOTSTRAP_ADMIN_EMAILS` | `you@example.com` | Seeded into admins table on first boot only |
 | `CORS_ORIGINS` | _leave blank until Part 2_ | Comma-separated origins (no trailing slash) |
-| `BLOB_READ_WRITE_TOKEN` | `vercel_blob_rw_…` | Uploaded battle maps and `.glb` figures are stored here (Render's disk is ephemeral). Create a store at Vercel → Storage → Blob → API tokens. |
+| `BLOB_READ_WRITE_TOKEN` | `vercel_blob_rw_…` | Uploaded portraits, battle maps and `.glb` figures are stored here (Render's disk is ephemeral; Plan 128 moved portraits off it). Create a store at Vercel → Storage → Blob → API tokens. |
 
 After saving, click **Manual Deploy → Deploy latest commit** so the new env vars take effect.
 

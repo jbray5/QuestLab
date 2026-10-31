@@ -1,4 +1,9 @@
-"""File upload router — accepts image uploads, stores them in uploads/ dir."""
+"""File upload router — portraits, battle maps and figures.
+
+Everything goes to Vercel Blob when ``BLOB_READ_WRITE_TOKEN`` is set (production:
+Render's disk is wiped on every deploy and the frontend is on another origin), and
+to the local ``uploads/`` dir otherwise (dev and tests).
+"""
 
 import uuid
 from pathlib import Path
@@ -28,6 +33,31 @@ class UploadResponse(BaseModel):
     url: str
 
 
+def _store(folder: str, filename: str, contents: bytes, content_type: str) -> str:
+    """Store an accepted upload and return the URL to save on the record.
+
+    Args:
+        folder: Blob folder, e.g. ``"portraits"`` or ``"maps"``.
+        filename: The stored name (a fresh uuid plus the sniffed extension).
+        contents: The file's bytes, already size- and type-checked.
+        content_type: The MIME type sniffed from the bytes.
+
+    Returns:
+        An absolute Vercel Blob URL, or ``/uploads/{filename}`` when no blob
+        token is configured (local dev, tests).
+    """
+    try:
+        from integrations import blob_storage
+
+        return blob_storage.upload(
+            path=f"{folder}/{filename}", data=contents, content_type=content_type
+        )
+    except PermissionError:
+        _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        (_UPLOAD_DIR / filename).write_bytes(contents)
+        return f"/uploads/{filename}"
+
+
 @router.post("/uploads", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_image(
     file: UploadFile,
@@ -35,9 +65,10 @@ async def upload_image(
 ) -> UploadResponse:
     """Upload an image file and return its public URL.
 
-    Accepts JPEG, PNG, WebP, or GIF up to 5 MB. Saves the file to the
-    ``uploads/`` directory and returns a ``/uploads/{filename}`` URL that
-    FastAPI serves as a static file.
+    Accepts JPEG, PNG, WebP, or GIF up to 5 MB (portraits, notebook pastes).
+    Stored on Vercel Blob under ``portraits/`` in production (Plan 128: these
+    used to land on Render's disk with a relative URL, so they broke on the
+    Vercel frontend and vanished on the next deploy); ``/uploads/`` in dev.
 
     Args:
         file: Multipart image upload.
@@ -63,11 +94,8 @@ async def upload_image(
             detail="Only JPEG, PNG, WebP, or GIF images are allowed.",
         )
 
-    _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4()}.{kind.ext}"
-    (_UPLOAD_DIR / filename).write_bytes(contents)
-
-    return UploadResponse(url=f"/uploads/{filename}")
+    return UploadResponse(url=_store("portraits", filename, contents, kind.content_type))
 
 
 @router.post("/uploads/map", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
@@ -107,20 +135,7 @@ async def upload_map(
         )
 
     filename = f"{uuid.uuid4()}.{kind.ext}"
-    try:
-        from integrations import blob_storage
-
-        url = blob_storage.upload(
-            path=f"maps/{filename}",
-            data=contents,
-            content_type=kind.content_type,
-        )
-        return UploadResponse(url=url)
-    except PermissionError:
-        # No blob token (local dev) — store under uploads/ and serve statically.
-        _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-        (_UPLOAD_DIR / filename).write_bytes(contents)
-        return UploadResponse(url=f"/uploads/{filename}")
+    return UploadResponse(url=_store("maps", filename, contents, kind.content_type))
 
 
 @router.post("/uploads/model", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
@@ -159,16 +174,4 @@ async def upload_model(
         )
 
     filename = f"{uuid.uuid4()}.glb"
-    try:
-        from integrations import blob_storage
-
-        url = blob_storage.upload(
-            path=f"models/{filename}",
-            data=contents,
-            content_type="model/gltf-binary",
-        )
-        return UploadResponse(url=url)
-    except PermissionError:
-        _UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-        (_UPLOAD_DIR / filename).write_bytes(contents)
-        return UploadResponse(url=f"/uploads/{filename}")
+    return UploadResponse(url=_store("models", filename, contents, "model/gltf-binary"))
