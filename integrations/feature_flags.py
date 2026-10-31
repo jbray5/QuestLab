@@ -1,16 +1,10 @@
-"""Product-level switches read from the environment (Plan 86).
+"""Product-level settings read from the environment (Plan 86).
 
-``AI_FEATURES`` — ``off`` (default) or ``on``. QuestLab ships with no
-generative AI: every generation route answers 404 and every generation
-control is hidden unless this is explicitly ``on`` for a private deployment.
+QuestLab has no generative AI (Plan 124 removed the dormant ``AI_FEATURES``
+switch along with the code it guarded).
 """
 
 import os
-
-
-def ai_features_enabled() -> bool:
-    """Whether generative AI routes are reachable at all. Default: no."""
-    return os.environ.get("AI_FEATURES", "off").strip().lower() in ("on", "1", "true", "yes")
 
 
 def public_web_url() -> str:

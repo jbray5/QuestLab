@@ -146,7 +146,7 @@ export function useTableController(sessionId: string, campaignId: string, party:
     if (!activeMap || !state) return;
     let label = "Marker";
     if (kind === "monster") {
-      const name = window.prompt("Foe name (the 3D board's 🧍 Minifig uses it):", "Wolf");
+      const name = window.prompt("Foe name:", "Wolf");
       if (!name) return;
       label = name.slice(0, 60);
     }

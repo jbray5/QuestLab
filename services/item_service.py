@@ -1,4 +1,4 @@
-"""Item service — business logic for magic item browsing and AI lore generation."""
+"""Item service — business logic for magic item browsing."""
 
 import uuid
 from typing import Optional

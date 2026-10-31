@@ -38,10 +38,11 @@ class BattleMap(SQLModel, table=True):
     # JSON list of fog regions: [{id, name, points: [[x,y], ...]}]. Points are
     # image-pixel coords. Authored at prep time; revealed live per-session.
     regions: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
-    # AI-generated 360° panorama wrapped around the 3D board (Plan 45).
+    # 360° panorama wrapped around the 3D board (Plan 45). Generation was
+    # removed in Plan 124; art already stored here still shows.
     backdrop_url: Optional[str] = Field(default=None, max_length=1000)
-    # AI-generated grayscale height map — the 3D board displaces its terrain
-    # from it (black = ground, white = tall features). Plan 45 Tier 3.
+    # Grayscale height map — the 3D board displaces its terrain from it
+    # (black = ground, white = tall features). Plan 45 Tier 3; stored maps only.
     heightmap_url: Optional[str] = Field(default=None, max_length=1000)
     # Productized diorama (Plan 46): the map repainted with tall features
     # removed, plus the upright prop sprites that replace them —

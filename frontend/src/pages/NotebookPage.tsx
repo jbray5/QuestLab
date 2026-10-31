@@ -28,7 +28,7 @@ import {
 } from "../api/notebooks";
 import { BLOCK_MENU, BlockEditor } from "../components/notebook/blocks";
 import EntityPicker, { type EntityHit } from "../components/notebook/EntityPicker";
-import { AiMarginControls, PinCard } from "../components/notebook/MarginRail";
+import { PinCard } from "../components/notebook/MarginRail";
 import ReadMode from "../components/notebook/ReadMode";
 import { pageToMarkdown } from "../components/notebook/markdownLite";
 import { NOTEBOOK_CSS } from "../components/notebook/notebookCss";
@@ -40,8 +40,8 @@ import { useIsCompact } from "../hooks/useIsCompact";
  *
  * The constitution, enforced here:
  *   Law 1 — the ONLY functions that write `blocks` are driven by the
- *           DM's own typing/drawing. AI suggestions become pins; no code
- *           path moves pin text into a block.
+ *           DM's own typing/drawing. No code path moves pin text into a
+ *           block.
  *   Law 2 — pins render in the rail beside the writing.
  *   Law 3 — this page talks only to the notebook API (+ uploads).
  *   Law 4 — read mode + print is the finished session.
@@ -79,9 +79,9 @@ export default function NotebookPage() {
     notebooksQ.isError && String(notebooksQ.error).toLowerCase().includes("not enabled");
 
   const [notebookId, setNotebookId] = useState<string>("");
-  useEffect(() => {
-    if (!notebookId && notebooks.length) setNotebookId(notebooks[0].id);
-  }, [notebooks, notebookId]);
+  // Open the first notebook by default — set during render (the sanctioned
+  // derived-state pattern; an effect would cascade a second render).
+  if (!notebookId && notebooks.length) setNotebookId(notebooks[0].id);
 
   const pagesQ = useQuery({
     queryKey: ["nb-pages", notebookId],
@@ -106,9 +106,13 @@ export default function NotebookPage() {
     enabled: !!pageId,
   });
   const [doc, setDoc] = useState<Page | null>(null);
-  useEffect(() => {
-    if (pageQ.data) setDoc(pageQ.data);
-  }, [pageQ.data]);
+  // Each fresh server copy replaces the working copy — reset during render,
+  // keyed on the copy it came from (no effect, so no cascading render).
+  const [docSource, setDocSource] = useState<Page | null>(null);
+  if (pageQ.data && pageQ.data !== docSource) {
+    setDocSource(pageQ.data);
+    setDoc(pageQ.data);
+  }
 
   // ── Autosave (debounced) + trustworthy indicator ─────────────────────────
   const [saveState, setSaveState] = useState<"saved" | "saving" | "dirty" | "error">("saved");
@@ -354,40 +358,8 @@ export default function NotebookPage() {
     }
   }
 
-  // ── Selection → riff ──────────────────────────────────────────────────────
+  // ── Selection: new pins anchor to the block the DM last selected in ───────
   const [selection, setSelection] = useState<{ text: string; blockId: string }>({ text: "", blockId: "" });
-  const [aiBusy, setAiBusy] = useState(false);
-
-  async function runRiff(ask: { selection?: string; question?: string; blockId?: string }) {
-    if (!doc) return;
-    setAiBusy(true);
-    try {
-      const res = await notebooksApi.riff(doc.id, {
-        selection: ask.selection,
-        question: ask.question,
-        block_id: ask.blockId,
-      });
-      // Law 1: suggestions become PINS. They are never written to blocks.
-      const anchor = ask.blockId || doc.blocks[0]?.id || "";
-      mutate((d) => ({
-        ...d,
-        pins: [
-          ...d.pins,
-          ...res.suggestions.map((s) => ({
-            id: newId(),
-            block_id: anchor,
-            kind: "ai" as const,
-            text: s,
-            model: res.model,
-            at: res.at,
-            prompt: res.prompt,
-          })),
-        ],
-      }), true);
-    } finally {
-      setAiBusy(false);
-    }
-  }
 
   // ── Margin geometry: pins render at their block's height ─────────────────
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
@@ -395,11 +367,12 @@ export default function NotebookPage() {
   useEffect(() => {
     const next = new Map<string, number>();
     blockRefs.current.forEach((el, id) => next.set(id, el.offsetTop));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the state IS the post-layout DOM measurement
     setOffsets(next);
   }, [doc?.blocks, doc?.pins]);
 
   // Rail entries: sort by anchor-block offset, then stack using each pin's
-  // MEASURED height — fixed estimates made tall AI pins overlap unreadably.
+  // MEASURED height — fixed estimates made tall pins overlap unreadably.
   const pinRefs = useRef(new Map<string, HTMLDivElement>());
   const [pinHeights, setPinHeights] = useState<Map<string, number>>(new Map());
   useEffect(() => {
@@ -415,6 +388,7 @@ export default function NotebookPage() {
         }
       }
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- post-layout measurement, guarded so it settles
     if (changed) setPinHeights(next);
   });
 
@@ -603,15 +577,9 @@ export default function NotebookPage() {
     </>
   );
 
-  // ── The margin's header: AI controls (when on) and "pin something" ──
+  // ── The margin's header: "pin something" ──
   const marginTools = (
     <>
-      <AiMarginControls
-        selection={selection.text}
-        busy={aiBusy}
-        onRiff={() => runRiff({ selection: selection.text, blockId: selection.blockId })}
-        onAsk={(q) => runRiff({ question: q, blockId: selection.blockId || doc?.blocks[0]?.id })}
-      />
       <button
         className={`nb-ghost nb-rail-add${addingPin ? " nb-on" : ""}`}
         aria-expanded={addingPin}

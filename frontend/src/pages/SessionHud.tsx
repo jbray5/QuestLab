@@ -20,7 +20,6 @@ import {
   Map as MapIcon, Maximize2, Megaphone, Minimize2, Moon, MoreHorizontal, Plus, QrCode, ScreenShare, ScrollText, Shield,
   Skull, Sparkles, SquareArrowOutUpRight, Tent, Tv, Undo2, UserRound, Users, Warehouse, X,
 } from "lucide-react";
-import { AI_ON } from "../lib/flags";
 import { zoomable } from "../lib/lightbox";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,7 +40,6 @@ import { monstersApi } from "../api/monsters";
 import { restApi } from "../api/rest";
 import { featuresApi } from "../api/features";
 import { spellcastingApi } from "../api/spellcasting";
-import BriefPanel from "../components/brief/BriefPanel";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import DmScreen from "../components/dm-screen/DmScreen";
@@ -1458,7 +1456,7 @@ export default function SessionHud() {
                 key: "prep",
                 label: "Session prep",
                 icon: <ScrollText size={16} />,
-                hint: "Tonight's brief, runbook and notes",
+                hint: "Tonight's runbook and notes",
                 to: `/sessions/${sessionId}/prep`,
               },
             ]}
@@ -1506,7 +1504,6 @@ export default function SessionHud() {
               },
             ]}
           />
-          {AI_ON && sessionId && <BriefPanel sessionId={sessionId} />}
           <button
             className="btn btn-secondary"
             style={BTN_SM}
@@ -2504,7 +2501,7 @@ export default function SessionHud() {
                   )}
                 </div>
 
-                {/* DM Notes — always editable so DM can ADD even if Claude left empty */}
+                {/* DM Notes — always editable, even when the scene has none yet */}
                 <div style={GROUP_LABEL}>Your notes for this scene</div>
                 <div style={{
                   background: "var(--surface2)",

@@ -99,11 +99,6 @@ export const DOOR_ICONS: Record<DoorType, string> = {
   portcullis: "⊞",
 };
 
-export interface GenerateWorldResponse {
-  nodes: MapNode[];
-  edges: MapEdge[];
-}
-
 export const mapsApi = {
   list: (adventureId: string) =>
     api.get<AdventureMap[]>(`/adventures/${adventureId}/maps`),
@@ -151,7 +146,4 @@ export const mapsApi = {
     api.patch<MapEdge>(`/maps/${mapId}/edges/${edgeId}`, data),
   deleteEdge: (mapId: string, edgeId: string) =>
     api.delete(`/maps/${mapId}/edges/${edgeId}`),
-
-  generateWorld: (mapId: string, prompt: string) =>
-    api.post<GenerateWorldResponse>(`/maps/${mapId}/generate`, { prompt }),
 };

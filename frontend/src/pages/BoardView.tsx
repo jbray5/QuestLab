@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AI_ON } from "../lib/flags";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 
@@ -160,9 +159,6 @@ export default function BoardView() {
       return next;
     });
   }
-  const [backdropOpen, setBackdropOpen] = useState(false);
-  const [backdropHints, setBackdropHints] = useState("");
-  const [backdropBusy, setBackdropBusy] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
   const [soundVol, setSoundVol] = useState(0.7);
   const [presets, setPresets] = useState<ScenePreset[]>(() => loadScenePresets(sessionId ?? ""));
@@ -249,7 +245,7 @@ export default function BoardView() {
     if (party.length === 0) {
       window.alert(
         "This campaign has no player characters yet, so there's no party to add. " +
-          "(Existing tokens still work — select one and hit 🧍 Minifig.)",
+          "Tokens already on the board still work.",
       );
       return;
     }
@@ -294,7 +290,7 @@ export default function BoardView() {
 
   function addLooseFoe() {
     if (!activeMap || !state) return;
-    const name = window.prompt("Foe name (also used for its minifig):", "Wolf");
+    const name = window.prompt("Foe name:", "Wolf");
     if (!name) return;
     torchSeq.current += 1;
     const t: TableToken = {
@@ -355,73 +351,6 @@ export default function BoardView() {
     if (fresh.length) patchTokens([...state.tokens, ...fresh]);
   }
 
-  const [figureBusy, setFigureBusy] = useState(false);
-
-  async function generateMinifig() {
-    if (!selectedToken || !state) return;
-    // Art direction is the DM's, not the model's: whatever is typed here is
-    // appended to the standee prompt. Remembered per token so a re-roll keeps
-    // the description instead of retyping it. Empty = house style only.
-    const hintKey = `ql-figure-hints-${selectedToken.ref_id ?? selectedToken.id}`;
-    const previous = localStorage.getItem(hintKey) ?? "";
-    const hints = window.prompt(
-      `Art direction for "${selectedToken.label}" — appearance, mood, pose, wardrobe.
-` +
-        "Leave blank for the house style alone. Cancel to abort.",
-      previous,
-    );
-    if (hints === null) return;
-    const styleHints = hints.trim();
-    if (styleHints) localStorage.setItem(hintKey, styleHints);
-    else localStorage.removeItem(hintKey);
-    setFigureBusy(true);
-    try {
-      let figureUrl: string | null = null;
-      let matches: (t: TableToken) => boolean = () => false;
-      const linkedMonsterId =
-        selectedToken.kind === "monster" && selectedToken.ref_id
-          ? combatantByRef.get(selectedToken.ref_id)?.monster_id
-          : null;
-      if (selectedToken.kind === "pc" && selectedToken.ref_id) {
-        // Entity-backed: store on the PC so every future session reuses it.
-        const pc = await charactersApi.generateFigure(selectedToken.ref_id, styleHints || undefined);
-        figureUrl = pc.figure_url;
-        matches = (t) => t.ref_id === selectedToken.ref_id;
-        void qc.invalidateQueries({ queryKey: ["characters", campaignId] });
-      } else if (linkedMonsterId) {
-        // Entity-backed: every token whose combatant shares this stat block.
-        const m = await monstersApi.generateFigure(linkedMonsterId, styleHints || undefined);
-        figureUrl = m.figure_url;
-        matches = (t) => {
-          const c = t.ref_id ? combatantByRef.get(t.ref_id) : undefined;
-          return c?.monster_id === linkedMonsterId;
-        };
-      } else {
-        // Unlinked token (demo boards, ad-hoc markers): generate from the
-        // label and write onto this token only.
-        const res = await tableApi.generateTokenFigure(
-          sessionId!,
-          [selectedToken.label || "mysterious fantasy creature", styleHints]
-            .filter(Boolean)
-            .join(". "),
-        );
-        figureUrl = res.url;
-        matches = (t) => t.id === selectedToken.id;
-      }
-      if (figureUrl) {
-        patchTokens(
-          state.tokens.map((t) =>
-            matches(t) ? { ...t, image_url: figureUrl, style: "figure" as const } : t,
-          ),
-        );
-      }
-    } catch (err) {
-      window.alert(`Minifig generation failed: ${err instanceof Error ? err.message : err}`);
-    } finally {
-      setFigureBusy(false);
-    }
-  }
-
   function addTorch() {
     if (!activeMap || !state) return;
     torchSeq.current += 1;
@@ -436,26 +365,6 @@ export default function BoardView() {
       size: 1,
     };
     patchTokens([...state.tokens, t]);
-  }
-
-  async function generateBackdrop() {
-    if (!activeMap) return;
-    setBackdropBusy(true);
-    try {
-      await tableApi.generateBackdrop(activeMap.id, backdropHints || undefined);
-      await qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
-      setBackdropOpen(false);
-    } catch (err) {
-      window.alert(`Backdrop generation failed: ${err instanceof Error ? err.message : err}`);
-    } finally {
-      setBackdropBusy(false);
-    }
-  }
-
-  async function removeBackdrop() {
-    if (!activeMap) return;
-    await tableApi.updateMap(activeMap.id, { backdrop_url: null });
-    await qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
   }
 
   function fireStrike(fx: Omit<StrikeFx, "seq">) {
@@ -516,21 +425,6 @@ export default function BoardView() {
 
   function measurePoint(x: number, y: number) {
     setMeasurePts((prev) => (prev.length >= 2 ? [{ x, y }] : [...prev, { x, y }]));
-  }
-
-  const [dioramaBusy, setDioramaBusy] = useState(false);
-
-  async function dioramify() {
-    if (!activeMap) return;
-    setDioramaBusy(true);
-    try {
-      await tableApi.generateProps(activeMap.id);
-      await qc.invalidateQueries({ queryKey: ["battle-maps", campaignId] });
-    } catch (err) {
-      window.alert(`Dioramify failed: ${err instanceof Error ? err.message : err}`);
-    } finally {
-      setDioramaBusy(false);
-    }
   }
 
   function fireStinger(kind: string) {
@@ -723,28 +617,6 @@ export default function BoardView() {
         >
           🎯 Follow
         </button>
-        {AI_ON && (
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
-            onClick={() => setBackdropOpen((v) => !v)}
-            disabled={!activeMap}
-            title="AI-generate a 360° horizon around the board"
-          >
-            🌌 Backdrop
-          </button>
-        )}
-        {AI_ON && (
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
-            onClick={() => void dioramify()}
-            disabled={!activeMap || dioramaBusy}
-            title="Dioramify: AI removes the map's trees/stones from the paint and re-plants them as upright props (1-3 min). Works on ANY map."
-          >
-            {dioramaBusy ? "🌲 Growing…" : activeMap?.props?.length ? "🌲 Diorama ↻" : "🌲 Dioramify"}
-          </button>
-        )}
         <a
           href={`${window.location.origin}/table/${sessionId}/3d`}
           target="_blank"
@@ -968,38 +840,6 @@ export default function BoardView() {
             </div>
           )}
 
-          {/* backdrop generator */}
-          {backdropOpen && activeMap && (
-            <div style={{ position: "absolute", top: 12, right: 12, background: "var(--surface, #16161c)", border: "1px solid var(--border)", borderRadius: 12, padding: "0.8rem 1rem", display: "flex", flexDirection: "column", gap: "0.6rem", width: 300 }}>
-              <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)", fontSize: "0.85rem" }}>
-                🌌 Backdrop for {activeMap.name}
-              </strong>
-              <textarea
-                value={backdropHints}
-                onChange={(e) => setBackdropHints(e.target.value)}
-                placeholder="Scene hints — e.g. 'forest road at dusk, silver light on the horizon behind'"
-                rows={3}
-                style={{ fontSize: "0.75rem", resize: "vertical" }}
-              />
-              <div style={{ display: "flex", gap: 6 }}>
-                <button className="btn" style={{ fontSize: "0.75rem" }} onClick={() => void generateBackdrop()} disabled={backdropBusy}>
-                  {backdropBusy ? "Generating…" : activeMap.backdrop_url ? "Regenerate" : "Generate"}
-                </button>
-                {activeMap.backdrop_url && (
-                  <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }} onClick={() => void removeBackdrop()} disabled={backdropBusy}>
-                    Remove
-                  </button>
-                )}
-                <button className="btn btn-ghost" style={{ fontSize: "0.75rem", marginLeft: "auto" }} onClick={() => setBackdropOpen(false)}>
-                  ✕
-                </button>
-              </div>
-              <div style={{ fontSize: "0.65rem", color: "var(--muted)" }}>
-                One OpenAI image per generate (~20–60s). The horizon appears at low camera angles (Y).
-              </div>
-            </div>
-          )}
-
           {/* damage prompt */}
           {pendingAttack && targetToken && (
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(3,3,7,0.45)" }}>
@@ -1059,7 +899,7 @@ export default function BoardView() {
               style={{ fontSize: "0.72rem" }}
               onClick={addLooseFoe}
               disabled={!activeMap}
-              title="Quick unlinked enemy — name it, then 🧍 Minifig it. No combat roster needed."
+              title="A quick enemy token with no combat roster needed"
             >
               + Foe
             </button>
@@ -1094,17 +934,6 @@ export default function BoardView() {
                 ✋ Stand down: {g}
               </button>
             ))}
-            {AI_ON && (
-              <button
-                className="btn"
-                style={{ fontSize: "0.72rem" }}
-                onClick={() => void generateMinifig()}
-                disabled={figureBusy || !selectedToken || selectedToken.kind === "light"}
-                title="AI-generate a full-body standee for the selected token (~30s). You are asked for art direction first, and it is remembered for re-rolls."
-              >
-                {figureBusy ? "🧍 Generating…" : "🧍 Minifig"}
-              </button>
-            )}
           </div>
           <BoardTracker sessionId={sessionId!} combat={combat} />
         </aside>

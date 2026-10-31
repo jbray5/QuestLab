@@ -173,13 +173,12 @@ export const playApi = {
   patchState: (pcId: string, patch: PlayerStatePatch) =>
     api.patch<PlayerCharacter>(`/play/${pcId}/state`, patch),
 
-  // Plan 48 — Character Forge
+  // Plan 48 — paper-doll gear and appearance
   gear: (pcId: string) => api.get<GearRow[]>(`/play/${pcId}/gear`),
   setAppearance: (pcId: string, appearance: string) =>
     api.patch<PlayerCharacter>(`/play/${pcId}/appearance`, { appearance }),
   setEquipped: (pcId: string, characterItemId: string, equipped: boolean) =>
     api.post<GearRow>(`/play/${pcId}/gear/${characterItemId}/equip`, { equipped }),
-  forgeHero: (pcId: string) => api.post<{ hero_url: string }>(`/play/${pcId}/hero`),
   campaignName: (pcId: string) => api.get<{ name: string }>(`/play/${pcId}/campaign`),
   // SEC-002 — the link's current key and the character's identity (not a key).
   link: (key: string) => api.get<PlayLink>(`/play/${key}/link`, { quiet: true }),
@@ -208,17 +207,6 @@ export const playApi = {
       `/play/${pcId}/roll`,
       { die, modifier, label },
     ),
-  setHeroLock: (pcId: string, locked: boolean) =>
-    api.post<{ hero_locked: boolean }>(`/play/${pcId}/identity/lock`, { locked }),
-  dressModel: (pcId: string) => api.post<{ loadout_url: string }>(`/play/${pcId}/loadout`),
-  /** Plan 62 — the full chain: model → dressed → portrait + board minifig. */
-  forgeIdentity: (pcId: string) =>
-    api.post<{
-      hero_url: string | null;
-      loadout_url: string | null;
-      portrait_url: string | null;
-      figure_url: string | null;
-    }>(`/play/${pcId}/identity`),
   // Plan 50 — buy a shop item with coin from this PC's purse
   buy: (pcId: string, shopItemId: string) =>
     api.post<PurchaseReceipt>(`/play/${pcId}/buy`, { shop_item_id: shopItemId }),

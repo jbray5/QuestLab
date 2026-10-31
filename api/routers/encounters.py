@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 
-from api.deps import DB, AiUser, CurrentUser
+from api.deps import DB, CurrentUser
 from domain.encounter import Encounter, EncounterCreate, EncounterUpdate
 from services import encounter_service
 
@@ -155,37 +155,6 @@ def preview_difficulty_endpoint(
     """
     try:
         return encounter_service.preview_difficulty(db, adventure_id, body.get("roster", []), user)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-
-
-@router.post("/adventures/{adventure_id}/encounters/suggest-monsters")
-def suggest_monsters_endpoint(adventure_id: uuid.UUID, body: dict, db: DB, user: AiUser) -> dict:
-    """Ask Claude for monsters that fit the adventure's theme.
-
-    Body: ``{"target_difficulty": "Moderate"}`` (defaults to Moderate).
-
-    Returns ``{encounter_concept, suggestions: [{monster_id, monster_name,
-    count, rationale, challenge_rating, xp}]}``.
-
-    Args:
-        adventure_id: UUID of the adventure to theme around.
-        body: JSON with optional ``target_difficulty``.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        Themed-suggestion dict.
-    """
-    try:
-        return encounter_service.suggest_themed_monsters(
-            db,
-            adventure_id,
-            user,
-            target_difficulty=str(body.get("target_difficulty") or "Moderate"),
-        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:

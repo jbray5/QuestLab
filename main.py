@@ -1,4 +1,4 @@
-"""QuestLab — AI-powered D&D 5e DM planning and session execution tool.
+"""QuestLab — D&D 5e DM planning and session execution tool.
 
 Entry point for the Streamlit application. Configures global page settings,
 injects the dark fantasy CSS theme, loads Google Fonts, and renders the main
@@ -101,7 +101,7 @@ def _render_home() -> None:
         <div style='text-align:center; padding: 3rem 0 2rem;'>
             <h1 style='font-size:3rem; letter-spacing:0.15em;'>⚔️ QuestLab</h1>
             <p style='font-size:1.3rem; color:#B0A090; font-style:italic;'>
-                Your AI-powered Dungeon Master companion for D&amp;D 5e (2024)
+                Your Dungeon Master companion for D&amp;D 5e (2024)
             </p>
         </div>
         """,
@@ -131,10 +131,10 @@ def _render_home() -> None:
             st.switch_page("pages/encounters.py")
 
     with col3:
-        st.markdown("### 🎲 AI Session Runner")
+        st.markdown("### 🎲 Session Runner")
         st.markdown(
-            "Generate full session runbooks with quotable dialog, encounter flows, "
-            "and improv hooks. Run live sessions with initiative tracking."
+            "Follow your session runbook — scenes, NPC dialog, encounter flows — "
+            "and run live sessions with initiative tracking."
         )
         if st.button("Open Session Runner", key="nav_sessions", use_container_width=True):
             st.switch_page("pages/session_runner.py")
@@ -142,15 +142,17 @@ def _render_home() -> None:
     st.divider()
 
     st.markdown("### Getting Started")
-    st.markdown("""
+    st.markdown(
+        """
         1. **Create a Campaign** — Set your world, tone, and setting.
         2. **Add Adventures** — Structure story arcs within your campaign.
         3. **Add Player Characters** — Input full 5e 2024 character sheets.
         4. **Build Encounters** — Roster monsters, check XP budget, set terrain.
         5. **Build Maps** — Connect rooms and areas, link encounters and loot.
-        6. **Generate a Session Runbook** — Let the AI write your session plan.
+        6. **Write a Session Runbook** — Plan your scenes, dialog and encounters.
         7. **Run Your Session** — Track initiative, HP, and progress live.
-        """)
+        """
+    )
 
 
 # ── App bootstrap ──────────────────────────────────────────────────────────────

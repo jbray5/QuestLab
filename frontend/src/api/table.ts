@@ -39,9 +39,6 @@ export const tableApi = {
     api.post<BattleMap>(`/campaigns/${campaignId}/battle-maps`, data),
   updateMap: (mapId: string, data: BattleMapUpdate) =>
     api.patch<BattleMap>(`/battle-maps/${mapId}`, data),
-  generateBackdrop: (mapId: string, styleHints?: string) =>
-    api.post<BattleMap>(`/battle-maps/${mapId}/backdrop`, { style_hints: styleHints ?? "" }),
-  generateProps: (mapId: string) => api.post<BattleMap>(`/battle-maps/${mapId}/props`, {}),
   deleteMap: (mapId: string) => api.delete(`/battle-maps/${mapId}`),
   uploadMap,
   uploadModel,
@@ -59,11 +56,6 @@ export const tableApi = {
       y,
       kind: kind ?? null,
       amount: amount ?? null,
-    }),
-  generateTokenFigure: (sessionId: string, name: string, styleHints?: string) =>
-    api.post<{ url: string }>(`/sessions/${sessionId}/table/figure`, {
-      name,
-      style_hints: styleHints ?? null,
     }),
 
   // Player-safe projection (projector)

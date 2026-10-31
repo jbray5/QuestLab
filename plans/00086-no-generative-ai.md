@@ -51,7 +51,7 @@ our own code is fine (the ink maps, the arena's referee, the dice).
   AI pillar; the sample map is served as image/jpeg (415 KB) and Justin's
   existing sample swapped to it on the next press (2304×1536, grid 96).
 
-## Phase B — removal (needs Justin's go-ahead: deletes files and packages)
+## Phase B — removal (approved 2026-10-31; done in Plan 124 step 4)
 Physically remove: `services/ai_service.py`, `services/session_pack_service.py`,
 `services/session_brief_service.py` (the AI brief), `services/portrait_service.py`,
 `integrations/claude_client.py`, `integrations/openai_client.py`, the AI parts

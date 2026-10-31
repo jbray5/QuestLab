@@ -1,5 +1,5 @@
 """Auth API (Plan 73): providers, OAuth completion with a stubbed provider, bearer
-sessions, header rejection in oauth mode, and the 402 AI gate."""
+sessions, and header rejection in oauth mode."""
 
 import pytest
 
@@ -16,7 +16,6 @@ def _env(monkeypatch):
     monkeypatch.setenv("OAUTH_REDIRECT_BASE", "http://testserver/api")
     monkeypatch.setenv("FRONTEND_ORIGIN", "http://front.test")
     monkeypatch.delenv("AUTH_MODE", raising=False)
-    monkeypatch.delenv("AI_GATE", raising=False)
 
 
 def _stub_exchange(monkeypatch, email="new.dm@example.com"):
@@ -36,9 +35,8 @@ def _stub_exchange(monkeypatch, email="new.dm@example.com"):
 
 def test_providers_reports_config(client):
     body = client.get("/api/auth/providers").json()
-    assert (
-        body["providers"] == ["discord"] and body["mode"] == "header" and body["ai_gate"] == "off"
-    )
+    assert body["providers"] == ["discord"] and body["mode"] == "header"
+    assert "ai_gate" not in body
 
 
 def test_start_redirects_to_provider(client):
@@ -50,7 +48,7 @@ def test_start_redirects_to_provider(client):
 
 def test_callback_issues_session_and_me_works(client, monkeypatch):
     _stub_exchange(monkeypatch)
-    state = session_token.issue("anon", kind="state", extra={"provider": "discord", "link": False})
+    state = session_token.issue("anon", kind="state", extra={"provider": "discord"})
     resp = client.get(f"/api/auth/discord/callback?code=abc&state={state}", follow_redirects=False)
     assert resp.status_code == 302
     loc = resp.headers["location"]
@@ -83,20 +81,15 @@ def test_oauth_mode_ignores_client_header(client, monkeypatch):
     assert ok.status_code == 200
 
 
-def test_ai_gate_returns_402_with_patreon_link(client, monkeypatch):
-    monkeypatch.setenv("AI_GATE", "patreon")
-    monkeypatch.setenv("PATREON_URL", "https://patreon.com/questlab")
-    dm = "gated@example.com"
-    campaign = client.post(
-        "/api/campaigns",
-        headers={_AUTH_HEADER: dm},
-        json={"name": "C", "setting": "s", "tone": "t"},
-    ).json()
-    resp = client.post(
-        f"/api/campaigns/{campaign['id']}/npcs/generate",
-        headers={_AUTH_HEADER: dm},
-        json={"role": "innkeeper"},
-    )
-    assert resp.status_code == 402, resp.text
-    assert resp.json()["detail"]["code"] == "patreon_required"
-    assert resp.json()["detail"]["patreon_url"] == "https://patreon.com/questlab"
+def test_patreon_sign_in_stores_identity_only(client, monkeypatch):
+    """Patreon still signs people in; no membership snapshot is written (Plan 124)."""
+    monkeypatch.setenv("PATREON_CLIENT_ID", "pid")
+    monkeypatch.setenv("PATREON_CLIENT_SECRET", "psecret")
+    _stub_exchange(monkeypatch, email="patron.dm@example.com")
+    state = session_token.issue("anon", kind="state", extra={"provider": "patreon"})
+    resp = client.get(f"/api/auth/patreon/callback?code=abc&state={state}", follow_redirects=False)
+    assert resp.status_code == 302
+    token = resp.headers["location"].split("#token=", 1)[1]
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"}).json()
+    assert me["email"] == "patron.dm@example.com" and me["patreon_linked"] is True
+    assert "patron_active" not in me and "tier" not in me

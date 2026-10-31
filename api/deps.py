@@ -50,7 +50,7 @@ def current_user(request: Request) -> str:
     # Plan 54 — public demo deployments pin EVERY visitor to one shared
     # demo identity, ignoring the client header entirely. The demo runs on
     # its own service + database, so this identity can only ever touch
-    # demo data (and the AI kill switch is thrown there besides).
+    # demo data.
     if os.environ.get("DEMO_MODE", "").strip().lower() in ("1", "true", "yes"):
         return os.environ.get("DEMO_DM_EMAIL", "demo@questlab.app").strip().lower()
 
@@ -131,109 +131,3 @@ def play_pc_id(pc_id: str, db: DB) -> uuid.UUID:
 
 
 PlayPcId = Annotated[uuid.UUID, Depends(play_pc_id)]
-
-
-def _ai_dep(kind: str):
-    """Build a dependency that resolves the DM AND checks an AI entitlement of ``kind``.
-
-    Args:
-        kind: ``text``, ``art`` or ``pack`` (Plan 77 tiers gate art and packs).
-
-    Returns:
-        A FastAPI dependency returning the DM email when entitled.
-    """
-
-    def dep(user: CurrentUser, db: DB) -> str:
-        """Resolve the DM and check they may run this generation right now (Plan 73).
-
-        Raises:
-            HTTPException 404: Generative AI is switched off for this deployment (Plan 86).
-            HTTPException 402: Patreon membership or a higher tier is required.
-            HTTPException 429: Today's generation quota is spent.
-        """
-        from services import entitlement_service
-
-        require_ai_features()
-        ent = entitlement_service.check_ai(db, user, kind)
-        if not ent.allowed:
-            raise HTTPException(
-                status_code=(
-                    status.HTTP_429_TOO_MANY_REQUESTS
-                    if ent.reason == "daily_limit"
-                    else status.HTTP_402_PAYMENT_REQUIRED
-                ),
-                detail={
-                    "code": ent.reason,
-                    "patreon_url": ent.patreon_url,
-                    "tier": ent.tier,
-                    "required_tier": ent.required_tier,
-                },
-            )
-        entitlement_service.record_ai(db, user)
-        return user
-
-    return dep
-
-
-ai_user = _ai_dep("text")
-AiUser = Annotated[str, Depends(ai_user)]
-AiArtUser = Annotated[str, Depends(_ai_dep("art"))]
-AiPackUser = Annotated[str, Depends(_ai_dep("pack"))]
-
-
-def require_ai_features() -> None:
-    """404 unless generative AI is explicitly switched on (Plan 86).
-
-    QuestLab ships without generative AI. The routes stay in the codebase for
-    a private deployment that opts in with ``AI_FEATURES=on``.
-
-    Raises:
-        HTTPException 404: When AI features are off (the default).
-    """
-    from integrations.feature_flags import ai_features_enabled
-
-    if not ai_features_enabled():
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Generative AI is not part of QuestLab.",
-        )
-
-
-def gate_ai_for_pc(db: Session, pc_id, kind: str = "art") -> str:
-    """Player-facing AI (the forge) is charged to, and gated on, the campaign owner.
-
-    Args:
-        db: Database session.
-        pc_id: UUID of the player character.
-        kind: ``text``, ``art`` or ``pack`` (the forge is art).
-
-    Returns:
-        The owner's email.
-
-    Raises:
-        HTTPException 402/429: As ``ai_user``.
-        HTTPException 404: If the PC is unknown.
-    """
-    from services import entitlement_service
-
-    require_ai_features()
-    owner = entitlement_service.owner_email_for_pc(db, pc_id)
-    if owner is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found.")
-    ent = entitlement_service.check_ai(db, owner, kind)
-    if not ent.allowed:
-        raise HTTPException(
-            status_code=(
-                status.HTTP_429_TOO_MANY_REQUESTS
-                if ent.reason == "daily_limit"
-                else status.HTTP_402_PAYMENT_REQUIRED
-            ),
-            detail={
-                "code": ent.reason,
-                "patreon_url": ent.patreon_url,
-                "tier": ent.tier,
-                "required_tier": ent.required_tier,
-            },
-        )
-    entitlement_service.record_ai(db, owner)
-    return owner

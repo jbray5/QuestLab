@@ -27,11 +27,10 @@ already merged; this is ~15 minutes of dashboard clicks.
    | `AUTH_EMAIL_HEADER` | `X-MS-CLIENT-PRINCIPAL-NAME` |
    | `ENV` | `production` |
    | **`DEMO_MODE`** | **`true`** |
-   | **`AI_GENERATION_ENABLED`** | **`false`** |
    | `BOOTSTRAP_ADMIN_EMAILS` | `demo@questlab.app` |
-   - **Do NOT set** `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or
-     `BLOB_READ_WRITE_TOKEN` — the demo gets no keys at all (belt and
-     braces on top of the kill switch).
+   - **Do NOT set** `BLOB_READ_WRITE_TOKEN` — the demo stores no uploads
+     beyond its own disk. (There are no AI keys to set: QuestLab has no
+     generative AI since Plan 124.)
 4. Deploy; wait until `/api/health` answers.
 
 ## 2. Vercel: demo frontend (~4 min)
@@ -62,7 +61,7 @@ re-seeds from scratch every night.
 ## 5. Sanity checklist before posting the link
 - [ ] `https://<demo>.vercel.app/try` renders the landing, waitlist works
 - [ ] "Enter the demo world" lands on the dashboard with the 🧪 banner
-- [ ] Any AI button (🎨/🪄/✨) returns "AI generation is disabled…" — not a bill
+- [ ] No generate buttons anywhere; the demo's map is the drawn sample map
 - [ ] Prod (`quest-lab-tau.vercel.app`) still requires the email sign-in
       (DEMO_MODE never set there) and The Severance is untouched
 - [ ] Waitlist signups appear: `SELECT * FROM waitlist_entries` on the
@@ -70,8 +69,7 @@ re-seeds from scratch every night.
 
 ## Safety model (why this is safe to put on Reddit)
 - Separate DB: demo visitors can only ever touch demo data.
-- No API keys on the service + `AI_GENERATION_ENABLED=false`: zero spend,
-  double-enforced.
+- No paid third-party APIs exist in the code: zero per-visitor spend.
 - `DEMO_MODE=true` pins all visitors to one shared identity server-side —
   the spoofable-header problem is moot because there is nothing to spoof
   into.

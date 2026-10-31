@@ -197,12 +197,6 @@ export const NOTEBOOK_CSS = `
 
 /* ── Margin rail ── */
 .nb-rail { position: relative; border-left: 1px solid var(--border); padding-left: 0.8rem; min-width: 0; }
-.nb-ai-controls { display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.5rem; }
-.nb-ask-input {
-  width: 100%; box-sizing: border-box; background: var(--bg);
-  border: 1px solid var(--border2); border-radius: 8px; color: inherit;
-  font: inherit; font-size: 0.8125rem; padding: 0.3rem 0.6rem;
-}
 .nb-rail-add { margin-bottom: 0.4rem; }
 .nb-rail-adder { position: relative; margin-bottom: 0.5rem; }
 .nb-rail-adder .nb-picker { position: static; }
@@ -213,7 +207,7 @@ export const NOTEBOOK_CSS = `
   background: var(--surface); padding: 0.45rem 1.6rem 0.45rem 0.55rem; margin-bottom: 0.4rem;
   font-size: 0.8125rem;
 }
-/* AI pins keep their own tint and provenance line, so they never pass for the DM's writing. */
+/* Legacy suggestion pins (kind "ai") keep their own tint, so they never pass for the DM's writing. */
 .nb-pin-ai {
   background: rgba(143, 134, 201, 0.10); border-color: rgba(143, 134, 201, 0.45);
 }
@@ -316,7 +310,7 @@ export const NOTEBOOK_CSS = `
   .nb-block-tools .nb-ghost { min-width: 44px; justify-content: center; }
   .nb-nb, .nb-pg { min-height: 44px; display: flex; align-items: center; font-size: 1rem; }
   .nb-hit { padding: 0.7rem 0.2rem; }
-  .nb-search, .nb-ask-input, .nb-picker-search { font-size: 16px; min-height: 44px; }
+  .nb-search, .nb-picker-search { font-size: 16px; min-height: 44px; }
   .nb-picker-row, .nb-slash-row { min-height: 44px; font-size: 0.9375rem; }
   .nb-picker, .nb-slash { left: 0; right: 0; min-width: 0; max-width: none; }
   .nb-sketch-tools { gap: 6px; padding: 6px 8px; }

@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { ChevronRight, FlaskConical, ScrollText } from "lucide-react";
-import { AI_ON } from "../lib/flags";
+import { ChevronRight, FlaskConical } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { itemsApi } from "../api/items";
 import type { MagicItem } from "../api/items";
-import { useCampaignStore } from "../stores/useCampaignStore";
 import ImageUpload from "../components/ImageUpload";
 import PhoneSheet from "../components/PhoneSheet";
 import { useIsCompact } from "../hooks/useIsCompact";
@@ -41,14 +39,11 @@ function rarityBadgeClass(rarity: string): string {
 
 export default function MagicItems() {
   const phone = useIsCompact(640);
-  const { activeAdventure } = useCampaignStore();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [rarity, setRarity] = useState("All");
   const [itemType, setItemType] = useState("All Types");
   const [selected, setSelected] = useState<MagicItem | null>(null);
-  const [lore, setLore] = useState<string | null>(null);
-  const [loreTied, setLoreTied] = useState(false);
 
   const queryParams = {
     q: search.trim() || undefined,
@@ -61,14 +56,6 @@ export default function MagicItems() {
     queryFn: () => itemsApi.list(queryParams),
   });
 
-  const loreMutation = useMutation({
-    mutationFn: (itemId: string) =>
-      itemsApi.generateLore(itemId, {
-        adventure_id: loreTied && activeAdventure ? activeAdventure.id : undefined,
-      }),
-    onSuccess: (data) => setLore(data.lore),
-  });
-
   const updateImage = useMutation({
     mutationFn: ({ id, url }: { id: string; url: string }) => itemsApi.updateImage(id, url),
     onSuccess: (updated) => {
@@ -79,7 +66,6 @@ export default function MagicItems() {
 
   function handleSelect(item: MagicItem) {
     setSelected(item);
-    setLore(null);
   }
 
   const detail = selected && (
@@ -87,13 +73,6 @@ export default function MagicItems() {
       item={selected}
       phone={phone}
       onImage={(url) => updateImage.mutate({ id: selected.id, url })}
-      lore={lore}
-      loreTied={loreTied}
-      onLoreTied={setLoreTied}
-      adventureTitle={activeAdventure?.title ?? null}
-      lorePending={loreMutation.isPending}
-      loreError={loreMutation.isError ? (loreMutation.error as Error).message : null}
-      onGenerateLore={() => loreMutation.mutate(selected.id)}
     />
   );
 
@@ -232,11 +211,7 @@ export default function MagicItems() {
                 <div className="empty-icon">
                   <FlaskConical size={28} aria-hidden />
                 </div>
-                <p style={{ margin: 0 }}>
-                  {AI_ON
-                    ? "Select an item to view its details and generate adventure lore."
-                    : "Pick an item from the list to see what it does."}
-                </p>
+                <p style={{ margin: 0 }}>Pick an item from the list to see what it does.</p>
               </div>
             )}
           </div>
@@ -252,29 +227,15 @@ export default function MagicItems() {
   );
 }
 
-/** One item: rarity, type, attunement, value, art, rules text and (AI builds only) lore. */
+/** One item: rarity, type, attunement, value, art and rules text. */
 function ItemDetail({
   item,
   phone,
   onImage,
-  lore,
-  loreTied,
-  onLoreTied,
-  adventureTitle,
-  lorePending,
-  loreError,
-  onGenerateLore,
 }: {
   item: MagicItem;
   phone: boolean;
   onImage: (url: string) => void;
-  lore: string | null;
-  loreTied: boolean;
-  onLoreTied: (v: boolean) => void;
-  adventureTitle: string | null;
-  lorePending: boolean;
-  loreError: string | null;
-  onGenerateLore: () => void;
 }) {
   // SEC-003 — shared items are admin-only to change; homebrew belongs to its DM.
   const canEdit = useCanEditCatalog(item.created_by_email);
@@ -323,70 +284,6 @@ function ItemDetail({
       )}
 
       {phone && art}
-
-      {/* AI lore: only in builds with AI features on. */}
-      {AI_ON && (
-        <>
-          <hr className="divider" style={{ margin: "1rem 0" }} />
-          <div>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.75rem",
-                marginBottom: "0.75rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <h3 style={{ fontSize: "1rem", margin: 0, display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <ScrollText size={16} aria-hidden /> Lore
-              </h3>
-              {adventureTitle && (
-                <label
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.35rem",
-                    fontSize: "0.8125rem",
-                    color: "var(--muted)",
-                    cursor: "pointer",
-                    margin: 0,
-                    minHeight: phone ? 44 : undefined,
-                  }}
-                >
-                  <input type="checkbox" checked={loreTied} onChange={(e) => onLoreTied(e.target.checked)} />
-                  Tie to <em className="story">{adventureTitle}</em>
-                </label>
-              )}
-              <button
-                className="btn btn-primary"
-                style={{ marginLeft: "auto", fontSize: "0.8125rem", padding: "0.35rem 0.9rem" }}
-                disabled={lorePending}
-                onClick={onGenerateLore}
-              >
-                {lorePending ? "Generating…" : "Generate lore"}
-              </button>
-            </div>
-
-            {loreError && <p style={{ color: "var(--danger-text)", fontSize: "0.8125rem" }}>{loreError}</p>}
-
-            {lore && (
-              <div className="read-aloud" style={{ fontSize: "1rem", lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
-                {lore}
-              </div>
-            )}
-
-            {!lore && !lorePending && (
-              <p className="text-muted text-sm" style={{ margin: 0 }}>
-                Generate lore that ties this item to your campaign&rsquo;s story.
-                {adventureTitle
-                  ? " Check the box above to anchor it to your active arc."
-                  : " Select an arc in the sidebar to tie lore to your campaign."}
-              </p>
-            )}
-          </div>
-        </>
-      )}
     </>
   );
 }

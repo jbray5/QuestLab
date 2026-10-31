@@ -1,4 +1,4 @@
-"""User accounts and AI usage (Plan 73 — publishable QuestLab).
+"""User accounts (Plan 73 — publishable QuestLab).
 
 A ``User`` row appears the first time someone signs in through OAuth (or
 is seen through the trusted header). Email stays the identity every other
@@ -26,7 +26,8 @@ class User(SQLModel, table=True):
     avatar_url: Optional[str] = Field(default=None, max_length=1000)
     discord_id: Optional[str] = Field(default=None, index=True, max_length=64)
     patreon_id: Optional[str] = Field(default=None, index=True, max_length=64)
-    # Membership snapshot — refreshed on every Patreon sign-in / link.
+    # Former Patreon membership snapshot (Plan 77 AI tiers, removed in Plan 124).
+    # The columns stay so existing rows keep their data; nothing writes them now.
     patron_active: bool = Field(default=False)
     patron_tier_cents: int = Field(default=0, ge=0)
     patron_checked_at: Optional[datetime] = Field(default=None)
@@ -37,7 +38,11 @@ class User(SQLModel, table=True):
 
 
 class AiUsage(SQLModel, table=True):
-    """Per-user, per-day count of AI generations (quota + cost visibility)."""
+    """Per-user, per-day count of AI generations — historical (Plan 124 removed generative AI).
+
+    Nothing reads or writes this table any more. The class stays so the table
+    (and its rows) stays in the schema; no migration drops it.
+    """
 
     __tablename__ = "ai_usage"
     __table_args__ = {"extend_existing": True}
@@ -56,14 +61,7 @@ class UserRead(BaseModel):
     avatar_url: Optional[str] = None
     discord_linked: bool = False
     patreon_linked: bool = False
-    patron_active: bool = False
     is_admin: bool = False
-    ai_allowed: bool = True
-    ai_reason: Optional[str] = None
-    ai_remaining_today: Optional[int] = None
-    # Plan 77 — "open" (gate off), "free", a tier name, or "admin".
-    tier: str = "open"
-    ai_daily_limit: Optional[int] = None
 
 
 class SignupRequest(BaseModel):
@@ -99,23 +97,3 @@ class AuthProviders(BaseModel):
     password_signup: bool = False
     mode: str  # "oauth" | "header"
     patreon_url: Optional[str] = None
-    ai_gate: str  # "off" | "patreon"
-
-
-class AiPlan(BaseModel):
-    """One Patreon tier as shown in the paywall and the guide (Plan 77)."""
-
-    name: str
-    label: str
-    price_cents: int
-    daily: int
-    scope: str  # "text" | "all"
-    blurb: str
-
-
-class AiPlans(BaseModel):
-    """The public tier table."""
-
-    gate: str  # "off" | "patreon"
-    patreon_url: Optional[str] = None
-    plans: list[AiPlan]

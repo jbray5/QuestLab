@@ -60,7 +60,7 @@ _SPELLS_MADE: list[uuid.UUID] = []
 @pytest.fixture(autouse=True)
 def _owners_table(monkeypatch):
     """The suite plays at the owner's table: PHB subclass mechanics are allowed."""
-    monkeypatch.setattr(arena.entitlement_service, "personal_content_allowed", lambda email: True)
+    monkeypatch.setattr(arena.auth_service, "personal_content_allowed", lambda email: True)
 
 
 @pytest.fixture(autouse=True)

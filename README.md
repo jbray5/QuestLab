@@ -35,7 +35,7 @@ pip install -r requirements.txt
 
 # 4. Configure environment
 cp .env.example .env
-# Edit .env — set ANTHROPIC_API_KEY and CURRENT_USER_EMAIL at minimum
+# Edit .env — set CURRENT_USER_EMAIL at minimum
 
 # 5a. Start the FastAPI backend
 uvicorn api.main:app --reload --port 8000
@@ -69,7 +69,7 @@ streamlit run main.py    # http://localhost:8501
 
 ## Going public
 
-QuestLab runs in **personal mode** by default (trusted-header identity, AI open). To let strangers in — Discord/Patreon sign-in, signed sessions, the AI paywall — follow [docs/LAUNCH.md](docs/LAUNCH.md). New DMs start at `/guide`.
+QuestLab runs in **personal mode** by default (trusted-header identity). To let strangers in — Discord/Patreon sign-in and signed sessions — follow [docs/LAUNCH.md](docs/LAUNCH.md). QuestLab contains no generative AI (Plan 86, removed in Plan 124). New DMs start at `/guide`.
 
 ## Environment Variables
 
@@ -86,7 +86,6 @@ QuestLab runs in **personal mode** by default (trusted-header identity, AI open)
 | `AUTH_EMAIL_HEADER` | No | `X-MS-CLIENT-PRINCIPAL-NAME` | Identity header (prod) |
 | `CURRENT_USER_EMAIL` | Dev only | — | Dev identity fallback |
 | `BOOTSTRAP_ADMIN_EMAILS` | No | — | Seed admins on first run |
-| `ANTHROPIC_API_KEY` | Yes | — | Claude API key |
 | `LOG_LEVEL` | No | `INFO` | Logging verbosity |
 | `ENV` | No | `production` | `development` enables dev fallbacks |
 
@@ -136,7 +135,6 @@ questlab/
 │   └── repos/               # DB access only
 ├── integrations/
 │   ├── identity.py          # Auth header parsing
-│   ├── claude_client.py     # Anthropic SDK wrapper
 │   └── dnd_rules/           # 5e 2024 rules engine
 ├── static/styles/main.css   # Dark fantasy theme
 ├── tests/                   # pytest test suite

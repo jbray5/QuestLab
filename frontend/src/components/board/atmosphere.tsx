@@ -8,7 +8,7 @@ import { getHorizonTexture, type WeatherKind } from "./boardTheme";
  * atmosphere — the immersion layer for the 3D board (Plan 45 Tier 1+2).
  *
  * Lighting rig (the darkness dial becomes actual light), weather particle
- * systems, and the AI-backdrop skybox dome. All animation mutates refs inside
+ * systems, and the saved-backdrop skybox dome. All animation mutates refs inside
  * useFrame; particle layouts use a seeded PRNG so render stays pure
  * (react-compiler rules). Non-component shared values live in boardTheme.ts.
  */
@@ -251,7 +251,7 @@ function skyTexture(bucket: number): THREE.CanvasTexture {
 }
 
 /** Gradient sky dome + a sun/moon riding the darkness dial. Used when the
- * map has no AI backdrop, so no scene ever opens onto void. */
+ * map has no saved backdrop, so no scene ever opens onto void. */
 export function ProceduralSky({ fit, darkness }: { fit: number; darkness: number }) {
   const bucket = Math.round(darkness * 20);
   const tex = useMemo(() => skyTexture(bucket), [bucket]);
@@ -377,7 +377,7 @@ interface DomeProps {
   darkness: number;
 }
 
-/** Inverted sphere carrying the AI-generated panorama; fog-immune.
+/** Inverted sphere carrying the map's saved backdrop panorama; fog-immune.
  *
  * The dome is kept dimmer than the board (the board is the star) and a
  * horizon gradient band blends its base into the dark under-world so the

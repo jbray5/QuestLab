@@ -1,29 +1,16 @@
-"""Magic item browser and AI lore router."""
+"""Magic item browser router."""
 
 import uuid
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel
 
-from api.deps import DB, AiUser, CurrentUser
+from api.deps import DB, CurrentUser
 from db.repos.character_repo import CharacterRepo
 from domain.item import ItemCreate, ItemRead, ItemUpdate, WeaponAttackPreview
-from services import ai_service, attack_service, item_service
+from services import attack_service, item_service
 
 router = APIRouter(tags=["items"])
-
-
-class LoreRequest(BaseModel):
-    """Request body for AI lore generation."""
-
-    adventure_id: Optional[uuid.UUID] = None
-
-
-class LoreResponse(BaseModel):
-    """Response body for AI lore generation."""
-
-    lore: str
 
 
 @router.get("/items", response_model=list[ItemRead])
@@ -209,48 +196,3 @@ def update_item(
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     return ItemRead.model_validate(updated)
-
-
-@router.post("/items/{item_id}/lore", response_model=LoreResponse)
-def generate_lore(
-    item_id: uuid.UUID,
-    body: LoreRequest,
-    db: DB,
-    user: AiUser,
-) -> LoreResponse:
-    """Generate AI flavor lore for a magic item.
-
-    Optionally ties the lore to the current adventure/campaign setting.
-    Lore is generated on demand and not persisted.
-
-    Args:
-        item_id: UUID of the item.
-        body: Optional adventure_id to anchor the lore to.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        LoreResponse containing 2-3 paragraphs of flavor lore.
-
-    Raises:
-        HTTPException 404: If item not found.
-        HTTPException 403: If DM does not own the adventure.
-        HTTPException 502: If Claude API call fails.
-    """
-    try:
-        lore = ai_service.generate_item_lore(
-            db,
-            item_id=item_id,
-            dm_email=user,
-            adventure_id=body.adventure_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"AI generation failed: {exc}",
-        )
-    return LoreResponse(lore=lore)

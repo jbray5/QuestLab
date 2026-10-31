@@ -35,7 +35,6 @@ serverless edge hosting (Vercel) plus a long-running Python service
 - GitHub repo pushed: this repo, on the `main` branch
 - Vercel account: <https://vercel.com>
 - Render account: <https://render.com>
-- Anthropic API key (Claude) for runbook generation: <https://console.anthropic.com>
 
 ---
 
@@ -60,11 +59,9 @@ Once the web service is up, open **questlab-api → Environment** and set:
 
 | Key | Value | Notes |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | `sk-ant-…` | Required for `/api/sessions/{id}/runbook` |
 | `BOOTSTRAP_ADMIN_EMAILS` | `you@example.com` | Seeded into admins table on first boot only |
 | `CORS_ORIGINS` | _leave blank until Part 2_ | Comma-separated origins (no trailing slash) |
-| `OPENAI_API_KEY` | `sk-…` _(optional)_ | Required for AI portrait generation (Plan 34). Without it, the "🎨 Generate Portrait" button surfaces a friendly error. |
-| `BLOB_READ_WRITE_TOKEN` | `vercel_blob_rw_…` _(optional)_ | Required alongside `OPENAI_API_KEY`. Generated portraits upload here for permanent URLs. Create a store at Vercel → Storage → Blob → API tokens. |
+| `BLOB_READ_WRITE_TOKEN` | `vercel_blob_rw_…` | Uploaded battle maps and `.glb` figures are stored here (Render's disk is ephemeral). Create a store at Vercel → Storage → Blob → API tokens. |
 
 After saving, click **Manual Deploy → Deploy latest commit** so the new env vars take effect.
 
@@ -155,7 +152,7 @@ sidebar.
 1. Set your DM email
 2. Create a test campaign — should appear on the dashboard
 3. Create a PC — should round-trip
-4. Open the HUD for a session, generate a runbook (tests the Claude API key)
+4. Open the HUD for a session, start a blank runbook and roll initiative
 
 If the dashboard shows "API unreachable", inspect the browser's
 DevTools → Network → look at the failed `/campaigns` call:
@@ -206,7 +203,6 @@ files changed).
 | Vercel | Hobby | $0 | 100GB bandwidth / month |
 | Render Web | Free | $0 | 750h/mo, sleeps after 15min idle |
 | Render Postgres | Free | $0 | 1GB storage, **deleted after 90 days** |
-| Claude API | Pay-as-you-go | $$ | ~$0.01–0.05 per runbook |
 
 > 🪙 **Render free Postgres expires after 90 days.** Before then, either
 > upgrade to a paid plan, swap to Azure Postgres (set the PG env vars

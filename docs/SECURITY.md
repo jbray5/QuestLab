@@ -51,7 +51,7 @@ Never on a player surface: hidden NPCs, NPC secrets/KNOWS/WANT/VOICE, beat cards
 
 ## Authorization
 - Authorization checks live in `services/` — never in the UI alone.
-- **AI entitlement** (`services/entitlement_service.py`): generation is off by default (`AI_FEATURES`, Plan 86); when a private build turns it on, `AiUser` gates and counts it.
+- **No generative AI** (Plan 124): no model client or API key exists, so no DM content leaves for a model. The PHB personal-content gate (`personal_content_allowed`) lives in `services/auth_service.py`.
 
 ## Data Security Rules
 | Rule | Enforcement |

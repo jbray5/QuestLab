@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { AI_ON } from "../lib/flags";
 import { zoomable } from "../lib/lightbox";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,8 +11,6 @@ import {
   Hand,
   HardHat,
   Layers,
-  Lock,
-  Pin,
   Share2,
   Shield,
   Shirt,
@@ -87,7 +84,6 @@ button.cv-slot .cv-slot-cap { color: var(--text); }
   background: var(--surface); display: flex; align-items: center; justify-content: center; position: relative;
 }
 .cv-model img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.cv-model.busy { opacity: 0.6; }
 .cv-list { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 2px 12px; }
 .cv-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .cv-item:last-child { border-bottom: none; }
@@ -153,7 +149,7 @@ function Slot({
   );
 }
 
-function Doll({ pcId, campaignId, model, name, busy }: { pcId: string; campaignId: string; model: string | null; name: string; busy: boolean }) {
+function Doll({ pcId, campaignId, model, name }: { pcId: string; campaignId: string; model: string | null; name: string }) {
   const qc = useQueryClient();
   const gearKey = ["forge-gear", pcId];
   const { data: gear = [], isLoading } = useQuery({ queryKey: gearKey, queryFn: () => playApi.gear(pcId) });
@@ -199,7 +195,7 @@ function Doll({ pcId, campaignId, model, name, busy }: { pcId: string; campaignI
       <p className="cv-help">Tap something you wear to take it off. Tap Equip on anything in your pack to put it on.</p>
       <div className="cv-doll">
         <div className="cv-slots">{LEFT_SLOTS.map(renderSlot)}</div>
-        <div className={busy ? "cv-model busy" : "cv-model"}>
+        <div className="cv-model">
           {model ? <img src={model} {...zoomable(model, name)} alt={name} /> : <Monogram name={name} size={96} />}
         </div>
         <div className="cv-slots">{RIGHT_SLOTS.map(renderSlot)}</div>
@@ -270,7 +266,6 @@ export default function CharacterView() {
 
   const [draft, setDraft] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [forgeError, setForgeError] = useState<string | null>(null);
 
   // Seed the textarea once the PC loads — reset during render (the sanctioned
   // derived-state pattern; an effect would cascade a second render).
@@ -289,46 +284,6 @@ export default function CharacterView() {
     },
   });
 
-  // "Render me wearing this" — the identity-preserving image-to-image that
-  // paints the equipped gear onto the persistent model.
-  const dressMut = useMutation({
-    mutationFn: () => playApi.dressModel(pcId as string),
-    onSuccess: () => {
-      setForgeError(null);
-      void qc.invalidateQueries({ queryKey: pcKey });
-    },
-    onError: (err: Error) => setForgeError(err.message),
-  });
-
-  // "New base look" — regenerates the base identity from the description
-  // (clears any dressed render server-side).
-  const forgeMut = useMutation({
-    mutationFn: async () => {
-      if (draft !== null && draft !== (pc?.appearance ?? "")) {
-        await playApi.setAppearance(pcId as string, draft);
-      }
-      return playApi.forgeHero(pcId as string);
-    },
-    onSuccess: () => {
-      setForgeError(null);
-      void qc.invalidateQueries({ queryKey: pcKey });
-    },
-    onError: (err: Error) => setForgeError(err.message),
-  });
-  // Plan 62 — the full identity chain: one press, every surface.
-  const identityMut = useMutation({
-    mutationFn: async () => {
-      if (draft !== null && draft !== (pc?.appearance ?? "")) {
-        await playApi.setAppearance(pcId as string, draft);
-      }
-      return playApi.forgeIdentity(pcId as string);
-    },
-    onSuccess: () => {
-      setForgeError(null);
-      void qc.invalidateQueries({ queryKey: pcKey });
-    },
-    onError: (err: Error) => setForgeError(err.message),
-  });
   // Legend Cards (Plan 68) — the share loop.
   const [cardState, setCardState] = useState<"idle" | "busy" | "shared" | "downloaded" | "failed">(
     "idle",
@@ -359,16 +314,6 @@ export default function CharacterView() {
     window.setTimeout(() => setCardState("idle"), 3500);
   }
 
-  // Golden base (Plan 62 follow-up): pin the render you love.
-  const lockMut = useMutation({
-    mutationFn: (locked: boolean) => playApi.setHeroLock(pcId as string, locked),
-    onSuccess: () => {
-      setForgeError(null);
-      void qc.invalidateQueries({ queryKey: pcKey });
-    },
-    onError: (err: Error) => setForgeError(err.message),
-  });
-  const busy = dressMut.isPending || forgeMut.isPending || identityMut.isPending;
   const sheetPath = `/play/${pcId}?tab=character`;
   const backLink = (
     <Link className="cv-back" to={sheetPath}>
@@ -390,9 +335,8 @@ export default function CharacterView() {
     );
   }
 
-  // Show the dressed render if the player has made one, else the base model
-  // (board standee / portrait as last resorts). The dressed render only
-  // changes when they deliberately press "Render me wearing this".
+  // An existing picture, best first: a dressed render or base model made
+  // before Plan 124, then the board standee, then the portrait.
   const model = pc.loadout_url || pc.hero_url || pc.figure_url || pc.portrait_url || null;
   const subline = [`Level ${pc.level} ${pc.race} ${pc.character_class}`, pc.subclass, pc.player_name ? `played by ${pc.player_name}` : null]
     .filter(Boolean)
@@ -412,24 +356,7 @@ export default function CharacterView() {
         </div>
 
         <h2 className="cv-h2">What you&rsquo;re wearing</h2>
-        <Doll pcId={pcId as string} campaignId={pc.campaign_id} model={model} name={pc.character_name} busy={busy} />
-
-        {AI_ON && (
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ marginTop: 14, width: "100%", minHeight: 48, whiteSpace: "normal" }}
-            disabled={busy}
-            onClick={() => identityMut.mutate()}
-          >
-            {identityMut.isPending
-              ? "Updating your model, portrait and board mini (a minute or two)…"
-              : "Update my look: model, portrait and board mini"}
-          </button>
-        )}
-        {forgeError && (
-          <p style={{ color: "var(--danger-text)", fontSize: "0.875rem", marginTop: 6 }}>{forgeError}</p>
-        )}
+        <Doll pcId={pcId as string} campaignId={pc.campaign_id} model={model} name={pc.character_name} />
 
         {(model || pc.portrait_url || pc.figure_url) && (<>
         <h2 className="cv-h2">Where you appear</h2>
@@ -509,40 +436,7 @@ export default function CharacterView() {
           >
             {saved ? <><Check size={16} /> Saved</> : "Save description"}
           </button>
-          {AI_ON && (
-            <button type="button" className="btn btn-secondary" style={{ minHeight: 44 }} disabled={busy} onClick={() => dressMut.mutate()}>
-              {dressMut.isPending ? "Dressing…" : "Gear only"}
-            </button>
-          )}
-          {!pc.hero_locked && AI_ON && (
-            <button type="button" className="btn btn-secondary" style={{ minHeight: 44 }} disabled={busy} onClick={() => forgeMut.mutate()}>
-              {forgeMut.isPending ? "Repainting…" : "New base look"}
-            </button>
-          )}
-          {pc.hero_url && (
-            <button
-              type="button"
-              className="btn btn-ghost"
-              style={{ minHeight: 44 }}
-              disabled={lockMut.isPending}
-              title={
-                pc.hero_locked
-                  ? "Unlock to allow a new base look"
-                  : "Pin this base — gear and portraits keep deriving from it, and it can't be re-rolled"
-              }
-              onClick={() => lockMut.mutate(!pc.hero_locked)}
-            >
-              {pc.hero_locked ? <><Lock size={16} /> Base look locked</> : <><Pin size={16} /> Lock this look</>}
-            </button>
-          )}
         </div>
-        {AI_ON && (
-          <p className="cv-note" style={{ marginTop: 8 }}>
-            {pc.hero_locked
-              ? "Your base look is pinned: gear and portraits build on it, and it can't be accidentally re-rolled."
-              : "New base look rebuilds the character from your description (then re-render your gear)."}
-          </p>
-        )}
 
         <nav aria-label="Back" style={{ marginTop: 28 }}>{backLink}</nav>
       </div>

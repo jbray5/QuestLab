@@ -101,8 +101,8 @@ export default function GuidePage() {
         <span className="k">4</span>
         <div>
           <b>Prep the session.</b> Campaign &rarr; Sessions keeps your arcs and sessions in order;{" "}
-          <span className="btnref">Prep</span> opens tonight&rsquo;s brief, the runbook and the
-          read-aloud text. For a fight, open Encounters &rarr;{" "}
+          <span className="btnref">Prep</span> opens tonight&rsquo;s runbook, its read-aloud text
+          and your notes. For a fight, open Encounters &rarr;{" "}
           <span className="btnref">New encounter</span> and pick monsters from the SRD catalog; the
           difficulty meter updates as you add them.
         </div>

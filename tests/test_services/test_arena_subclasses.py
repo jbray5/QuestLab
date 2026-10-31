@@ -60,7 +60,7 @@ class TestWildMagic:
         assert any("Lightning: 40" in line.text for line in st.log)
 
     def test_no_surge_without_the_owner_gate(self, duckdb_session: Session, monkeypatch):
-        monkeypatch.setattr(arena.entitlement_service, "personal_content_allowed", lambda e: False)
+        monkeypatch.setattr(arena.auth_service, "personal_content_allowed", lambda e: False)
         monkeypatch.setattr(arena, "_RNG", _Fixed(high=True))
         pc, _dm = _pc(duckdb_session, CharacterClass.SORCERER, level=3, subclass="Wild Magic")
         st = arena.start(duckdb_session, pc.id, _foe(duckdb_session).id)

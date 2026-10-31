@@ -22,13 +22,7 @@ interface Profile {
   avatar_url: string | null;
   discord_linked: boolean;
   patreon_linked: boolean;
-  patron_active: boolean;
   is_admin: boolean;
-  ai_allowed: boolean;
-  ai_reason: string | null;
-  ai_remaining_today: number | null;
-  tier?: string;
-  ai_daily_limit?: number | null;
 }
 
 interface Providers {

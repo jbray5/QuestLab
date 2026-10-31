@@ -42,12 +42,4 @@ export const charactersApi = {
     api.post<PlayerCharacter>(`/characters/${id}/spend-hit-dice`, { count }),
   restoreHitDice: (id: string, count: number) =>
     api.post<PlayerCharacter>(`/characters/${id}/restore-hit-dice`, { count }),
-  generatePortrait: (id: string, styleHints?: string) =>
-    api.post<PlayerCharacter>(`/characters/${id}/portrait`, {
-      style_hints: styleHints ?? null,
-    }),
-  generateFigure: (id: string, styleHints?: string) =>
-    api.post<PlayerCharacter>(`/characters/${id}/figure`, {
-      style_hints: styleHints ?? null,
-    }),
 };

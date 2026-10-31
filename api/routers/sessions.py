@@ -1,13 +1,12 @@
 """Sessions router — session lifecycle, initiative, runbook, and notes."""
 
-import json
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 
-from api.deps import DB, AiPackUser, AiUser, CurrentUser
+from api.deps import DB, CurrentUser
 from domain.session import (
     DiceRollBroadcast,
 )
@@ -24,8 +23,7 @@ from domain.session import (
     SessionRunbookUpdate,
     SessionUpdate,
 )
-from domain.session_brief import SessionBriefRead, SessionBriefUpdate
-from services import ai_service, session_brief_service, session_service
+from services import session_service
 
 router = APIRouter(tags=["sessions"])
 
@@ -271,76 +269,6 @@ def create_blank_runbook(session_id: uuid.UUID, db: DB, user: CurrentUser) -> Se
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
-@router.post("/sessions/{session_id}/runbook", response_model=SessionRunbook)
-def generate_runbook(
-    session_id: uuid.UUID, db: DB, user: AiUser, body: dict[str, str] | None = None
-) -> SessionRunbook:
-    """Generate (or regenerate) an AI runbook for a session.
-
-    Args:
-        session_id: UUID of the session.
-        db: Database session.
-        user: Authenticated DM email.
-        body: Optional JSON body with a ``notes`` key for DM guidance.
-
-    Returns:
-        Newly generated SessionRunbook.
-    """
-    try:
-        extra_notes = (body or {}).get("notes", "")
-        session_service.get_session(db, session_id, user)  # ownership check
-        runbook_create = ai_service.generate_session_runbook(db, session_id, user, extra_notes)
-        return session_service.save_runbook(db, session_id, user, runbook_create)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except (RuntimeError, json.JSONDecodeError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Runbook generation failed: {exc}",
-        )
-
-
-@router.post("/sessions/{session_id}/pack")
-def generate_session_pack(
-    session_id: uuid.UUID, db: DB, user: AiPackUser, body: dict[str, str] | None = None
-) -> dict:
-    """Generate a fully LINKED session pack from a premise (Plan 70).
-
-    Creates real encounter rows (catalog monsters resolved), campaign
-    NPCs, loot notes, and the runbook — everything wired into the HUD.
-
-    Args:
-        session_id: UUID of the session.
-        db: Database session.
-        user: Authenticated DM email.
-        body: JSON body with a ``premise`` key.
-
-    Returns:
-        Pack summary: created encounters/NPCs, scene count, warnings.
-    """
-    from services import session_pack_service
-
-    premise = (body or {}).get("premise", "").strip()
-    if not premise:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Give the pack a premise — a paragraph about tonight.",
-        )
-    try:
-        return session_pack_service.generate_session_pack(db, session_id, user, premise)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except (RuntimeError, json.JSONDecodeError) as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Pack generation failed: {exc}",
-        )
-
-
 @router.patch("/sessions/{session_id}/runbook", response_model=SessionRunbook)
 def patch_runbook(
     session_id: uuid.UUID,
@@ -351,7 +279,7 @@ def patch_runbook(
     """Partial-update a saved runbook (Plan 38 inline edit).
 
     Lets the DM edit individual fields — a scene's read_aloud, an NPC's
-    dialog hooks, closing_hooks, etc. — without re-running the AI.
+    dialog hooks, closing_hooks, etc.
     Any field omitted from the payload is left unchanged.
 
     Args:
@@ -614,88 +542,6 @@ def rewind_combat_turn(session_id: uuid.UUID, db: DB, user: CurrentUser) -> Sess
         return session_service.rewind_combat_turn(db, session_id, user)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-
-
-# ── DM brief (Plan 43 — the glanceable session-2 format) ────────────────────────
-
-
-class BriefGenerateBody(BaseModel):
-    """Optional planning notes to weave into a generated brief."""
-
-    notes: str = ""
-
-
-@router.get("/sessions/{session_id}/brief", response_model=Optional[SessionBriefRead])
-def get_brief(session_id: uuid.UUID, db: DB, user: CurrentUser) -> Optional[SessionBriefRead]:
-    """Return the session's glanceable DM brief, or null if none exists yet.
-
-    Args:
-        session_id: UUID of the session.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        The SessionBriefRead, or None.
-    """
-    try:
-        brief = session_brief_service.get_brief(db, session_id, user)
-        return SessionBriefRead.model_validate(brief) if brief is not None else None
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-
-
-@router.post(
-    "/sessions/{session_id}/brief",
-    response_model=SessionBriefRead,
-    status_code=status.HTTP_201_CREATED,
-)
-def generate_brief(
-    session_id: uuid.UUID, body: BriefGenerateBody, db: DB, user: AiUser
-) -> SessionBriefRead:
-    """Generate (or regenerate) the session's glanceable DM brief.
-
-    Args:
-        session_id: UUID of the session.
-        body: Optional planning notes.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        The persisted SessionBriefRead.
-    """
-    try:
-        brief = session_brief_service.generate_brief(db, session_id, user, notes=body.notes or None)
-        return SessionBriefRead.model_validate(brief)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-
-
-@router.patch("/sessions/{session_id}/brief", response_model=SessionBriefRead)
-def update_brief(
-    session_id: uuid.UUID, body: SessionBriefUpdate, db: DB, user: CurrentUser
-) -> SessionBriefRead:
-    """Apply inline edits to the session's brief.
-
-    Args:
-        session_id: UUID of the session.
-        body: Partial update payload.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        The updated SessionBriefRead.
-    """
-    try:
-        brief = session_brief_service.update_brief(db, session_id, user, body)
-        return SessionBriefRead.model_validate(brief)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 

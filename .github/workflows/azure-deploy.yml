@@ -86,12 +86,10 @@ jobs:
                     PGSSLMODE=require \
                     CURRENT_USER_EMAIL=${{ secrets.CURRENT_USER_EMAIL }} \
                     BOOTSTRAP_ADMIN_EMAILS=${{ secrets.BOOTSTRAP_ADMIN_EMAILS }} \
-                    ANTHROPIC_API_KEY=secretref:anthropickey \
                     LOG_LEVEL=INFO \
                     ENV=production \
                 --secrets \
-                    pgpassword=${{ secrets.PGPASSWORD }} \
-                    anthropickey=${{ secrets.ANTHROPIC_API_KEY }}
+                    pgpassword=${{ secrets.PGPASSWORD }}
             fi
 
       - name: Print app URL

@@ -3,7 +3,7 @@
 One click gives a newcomer a campaign with an adventure, four pregens they
 can hand to players, a battle map already staged with tokens, and an
 encounter — a table they can run tonight, and a template for their own.
-Every asset here is shippable: SRD monsters and AI-generated art only.
+Every asset here is shippable: SRD monsters and procedural art only.
 """
 
 import uuid

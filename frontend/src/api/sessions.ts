@@ -5,8 +5,6 @@ import type {
   SessionCombatant,
   SessionCombatantCreate,
   SessionCombatantUpdate,
-  SessionBrief,
-  SessionBriefUpdate,
   SessionCombatStateRead,
   SessionCombatStateWrite,
   SessionCreate,
@@ -31,24 +29,8 @@ export const sessionsApi = {
     api.get<SessionRunbook | null>(`/sessions/${id}/runbook`),
   // Plan 86 — an empty runbook to write by hand.
   createBlankRunbook: (id: string) => api.put<SessionRunbook>(`/sessions/${id}/runbook/blank`, {}),
-  generateRunbook: (id: string, notes?: string) =>
-    api.post<SessionRunbook>(`/sessions/${id}/runbook`, { notes: notes ?? "" }),
-  generatePack: (id: string, premise: string) =>
-    api.post<{
-      encounters: { id: string; name: string; difficulty: string }[];
-      npcs: { name: string; role: string }[];
-      scenes: number;
-      loot: string[];
-      warnings: string[];
-    }>(`/sessions/${id}/pack`, { premise }),
   patchRunbook: (id: string, update: Partial<SessionRunbook>) =>
     api.patch<SessionRunbook>(`/sessions/${id}/runbook`, update),
-  // ── DM brief (Plan 43) ──────────────────────────────────────────────────
-  getBrief: (id: string) => api.get<SessionBrief | null>(`/sessions/${id}/brief`),
-  generateBrief: (id: string, notes?: string) =>
-    api.post<SessionBrief>(`/sessions/${id}/brief`, { notes: notes ?? "" }),
-  updateBrief: (id: string, update: SessionBriefUpdate) =>
-    api.patch<SessionBrief>(`/sessions/${id}/brief`, update),
   broadcastDiceRoll: (
     id: string,
     roll: {

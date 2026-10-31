@@ -41,7 +41,15 @@ tests/
 - `test_integrations/test_encounter_math.py` — known CR/party-size/difficulty combinations
 
 ### Stage 7
-- `test_services/test_ai_service.py` — mocked Claude client; verify prompt structure, output parsing
+- (Removed in Plan 124: the AI service and its mocked-Claude tests. `test_api/test_plan86_no_ai.py` now asserts every former generation route is gone.)
+
+### Plan 124 — safe to share
+- `test_api/test_sec002_play_links.py` — token links open; a new PC's UUID is 410 with the campaign; the grace period; reset kills old token and UUID; only the owner resets; roster gives keys; join code; PC stream; feature-row ownership; one-campaign duels
+- `test_api/test_sec003_catalog.py` — shared rows admin-only; homebrew is its author's; lists scoped
+- `test_api/test_sec004_uploads.py` — magic-byte typing; HTML/SVG refused; served uploads inert and nosniff
+- `test_services/test_sec005_hardening.py` — crier webhook host check; inventory owner checks; session/tracker PCs from the campaign
+- `test_api/test_ux001_conditions.py` — conditions last between fights and reach the phone; players can't set them
+- Older suites that address players by UUID opt into `conftest.uuid_play_links` (pre-token links)
 
 ### Plan 115 — level-up guide
 - `test_services/test_levelup_service.py` — the live party at L3→4 as goldens (average HP 28 / 34 / 28 / 29; spell picks 1+1, 1+1, 0+1, none), feat prerequisites, ASI shape and the 20 cap, retroactive CON and Tough HP, swaps limited to class-list spells, multi-level grants. An autouse fixture deletes `character_spells` after each test: a leftover row pins its spell and breaks later suites that wipe the spells table.

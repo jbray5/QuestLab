@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import {
-  Check, Dices, Lightbulb, MonitorPlay, NotebookPen, PenLine, RefreshCw, Sparkles, Undo2, X,
+  Check, Dices, Lightbulb, MonitorPlay, NotebookPen, PenLine, Undo2, X,
 } from "lucide-react";
-import { AI_ON } from "../lib/flags";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adventuresApi } from "../api/adventures";
@@ -554,7 +553,6 @@ export default function SessionRunner() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [dmNotes, setDmNotes] = useState("");
-  const [extraNotes, setExtraNotes] = useState("");
   // Plan 123 — a phone stacks the runbook, the notes, then initiative and loot.
   const phone = useIsCompact(640);
 
@@ -593,25 +591,10 @@ export default function SessionRunner() {
     }
   }, [session?.actual_notes, notesDirty]);
 
-  const generateRunbook = useMutation({
-    mutationFn: () => sessionsApi.generateRunbook(sessionId!, extraNotes),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["runbook", sessionId] }),
-  });
-
-  // Plan 86 — no generative AI: start an empty runbook and write it in the editor.
+  // Plan 86 — start an empty runbook and write it in the editor.
   const createBlank = useMutation({
     mutationFn: () => sessionsApi.createBlankRunbook(sessionId!),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["runbook", sessionId] }),
-  });
-  // Plan 70 — AI Session Pack: premise in, LINKED session out (real
-  // encounters with catalog monsters, campaign NPCs, loot, runbook).
-  const generatePack = useMutation({
-    mutationFn: () => sessionsApi.generatePack(sessionId!, extraNotes),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["runbook", sessionId] });
-      void qc.invalidateQueries({ queryKey: ["encounters"] });
-      void qc.invalidateQueries({ queryKey: ["npcs"] });
-    },
   });
 
   const saveNotes = useMutation({
@@ -665,31 +648,6 @@ export default function SessionRunner() {
   return (
     // On a phone the last card clears the dice button at the bottom-right.
     <div className="fade-in" style={phone ? { paddingBottom: 64 } : undefined}>
-      {/* Generating overlay */}
-      {generateRunbook.isPending && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(5,8,7,0.78)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 999,
-            gap: "1rem",
-          }}
-        >
-          <Dices size={44} aria-hidden className="dice-rolling-loop" style={{ color: "var(--text2)" }} />
-          <p style={{ color: "var(--text)", fontSize: "1.1rem", fontWeight: 500 }}>
-            Claude is writing your runbook…
-          </p>
-          <p className="text-muted text-sm">
-            Big sessions can take 1–5 minutes. The die keeps spinning while it's working.
-          </p>
-        </div>
-      )}
-
       <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", marginBottom: "0.35rem" }}>
         <h1 className="story" style={{ minWidth: 0 }}>
           Session {toRoman(session.session_number)}
@@ -718,12 +676,13 @@ export default function SessionRunner() {
       >
         {/* ── Left: runbook ── */}
         <div style={{ minWidth: 0 }}>
-          {!runbook && !AI_ON ? (
+          {!runbook ? (
+            /* No runbook yet: start one and write it by hand */
             <div className="card" style={{ marginBottom: "1rem" }}>
               <h3>Write tonight&rsquo;s runbook</h3>
               <p className="text-muted text-sm" style={{ marginBottom: "1rem", lineHeight: 1.55 }}>
                 The runbook is your script for the night: read-aloud text, your notes and how each fight
-                should go, scene by scene. Start blank and fill it in as you prep — at the table, the
+                should go, scene by scene. Start with a blank page and fill it in as you prep — at the table, the
                 HUD&rsquo;s Script button reads it back to you.
               </p>
               <button
@@ -740,91 +699,10 @@ export default function SessionRunner() {
                 </p>
               )}
             </div>
-          ) : !runbook ? (
-            /* No runbook yet */
-            <div className="card" style={{ marginBottom: "1rem" }}>
-              <h3>Plan tonight&rsquo;s session</h3>
-              <p className="text-muted text-sm" style={{ marginBottom: "1rem" }}>
-                Write a paragraph about tonight. <b>Session Pack</b> builds the whole night
-                and wires it in: real encounters (catalog monsters, balanced to the party),
-                new NPCs on your roster, loot, and the runbook — everything already in the
-                HUD. <b>Runbook only</b> writes the script without creating anything.
-              </p>
-              <div className="form-group">
-                <label>Tonight's premise</label>
-                <textarea
-                  value={extraNotes}
-                  onChange={(e) => setExtraNotes(e.target.value)}
-                  placeholder="e.g. The party returns to town to find the inn shuttered and the innkeeper missing. A stranger delivers an invitation nobody should trust…"
-                  rows={4}
-                  style={{ resize: "vertical" }}
-                />
-              </div>
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => generatePack.mutate()}
-                  disabled={generatePack.isPending || generateRunbook.isPending || !extraNotes.trim()}
-                  title="Generates and LINKS everything: encounters, NPCs, loot, runbook"
-                >
-                  <Sparkles size={16} aria-hidden />
-                  {generatePack.isPending ? "Building the night… (~1 min)" : "Generate session pack"}
-                </button>
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => generateRunbook.mutate()}
-                  disabled={generateRunbook.isPending || generatePack.isPending}
-                >
-                  {generateRunbook.isPending ? "Writing…" : "Runbook only"}
-                </button>
-              </div>
-              {generatePack.isSuccess && (
-                <div
-                  style={{
-                    marginTop: "0.9rem",
-                    padding: "0.7rem 0.9rem",
-                    border: "1px solid var(--border2)",
-                    background: "var(--surface2)",
-                    borderRadius: 10,
-                    fontSize: "0.875rem",
-                  }}
-                >
-                  <b>Pack ready:</b> {generatePack.data.scenes} scenes ·{" "}
-                  {generatePack.data.encounters.map((e) => `${e.name} (${e.difficulty})`).join(", ") || "no encounters"} ·{" "}
-                  NPCs: {generatePack.data.npcs.map((n) => n.name).join(", ") || "none"} ·{" "}
-                  loot: {generatePack.data.loot.length}
-                  {generatePack.data.warnings.length > 0 && (
-                    <div style={{ color: "var(--muted)", marginTop: 4 }}>
-                      {generatePack.data.warnings.join(" · ")}
-                    </div>
-                  )}
-                </div>
-              )}
-              {(generateRunbook.isError || generatePack.isError) && (
-                <p style={{ color: "var(--danger-text)", marginTop: "0.75rem", fontSize: "0.875rem" }}>
-                  Error: {((generatePack.error || generateRunbook.error) as Error).message}
-                </p>
-              )}
-            </div>
           ) : (
             /* Runbook exists */
             <div>
-              <div
-                className="flex items-center"
-                style={{ justifyContent: "space-between", marginBottom: "1rem" }}
-              >
-                <h2 style={{ margin: 0 }}>Session runbook</h2>
-                {AI_ON && (
-                  <button
-                    className="btn btn-ghost"
-                    style={{ minHeight: 32, fontSize: "0.8125rem", padding: "0.25rem 0.65rem" }}
-                    onClick={() => generateRunbook.mutate()}
-                    disabled={generateRunbook.isPending}
-                  >
-                    <RefreshCw size={14} aria-hidden /> Regenerate
-                  </button>
-                )}
-              </div>
+              <h2 style={{ margin: "0 0 1rem" }}>Session runbook</h2>
               <RunbookView runbook={runbook} />
             </div>
           )}

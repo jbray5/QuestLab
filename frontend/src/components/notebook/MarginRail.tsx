@@ -1,17 +1,16 @@
 import { useState } from "react";
-import { Sparkles, StickyNote, X } from "lucide-react";
-import { AI_ON } from "../../lib/flags";
+import { Lightbulb, StickyNote, X } from "lucide-react";
 
 import type { Pin } from "../../api/notebooks";
 import { entityHref, monogram } from "./EntityPicker";
 
 /**
- * MarginRail (Plan 57) — the DM's margin. Entity faces, images, notes,
- * and AI suggestions live HERE, beside the writing, never in it (Law 2).
+ * MarginRail (Plan 57) — the DM's margin. Entity faces, images and notes
+ * live HERE, beside the writing, never in it.
  *
- * AI pins are tinted, carry a provenance line, and have keep/dismiss
- * only. There is deliberately no "insert into page" affordance anywhere
- * in this file (Law 1) — if the DM wants a phrase, he retypes it.
+ * Older pages may still hold "ai" pins from a feature removed in Plan 124.
+ * They render as plain "Suggestion" pins: read and dismiss only, with no
+ * "insert into page" affordance.
  */
 
 const KIND_LABEL: Record<string, string> = { pc: "PC", npc: "NPC", item: "Item", map: "Map", preset: "Scene" };
@@ -39,7 +38,7 @@ export function PinCard({
       ) : (
         <span className="nb-pin-mini-mono">
           {pin.kind === "ai" ? (
-            <Sparkles size={14} aria-label="AI suggestion" />
+            <Lightbulb size={14} aria-label="Suggestion" />
           ) : pin.kind === "note" ? (
             <StickyNote size={14} aria-label="Note" />
           ) : (
@@ -83,7 +82,7 @@ export function PinCard({
         <div>
           <div className="nb-pin-ai-text">{pin.text}</div>
           <div className="nb-pin-provenance">
-            <Sparkles size={11} aria-hidden /> {pin.model ?? "AI"} · {pin.at ? new Date(pin.at).toLocaleTimeString() : ""}
+            <Lightbulb size={11} aria-hidden /> Suggestion
             {pin.prompt ? ` · on: “${pin.prompt.slice(0, 40)}${(pin.prompt.length > 40 && "…") || ""}”` : ""}
           </div>
         </div>
@@ -93,58 +92,6 @@ export function PinCard({
           Collapse
         </button>
       )}
-    </div>
-  );
-}
-
-/** The margin header: Riff-on-selection + Ask-the-margin. */
-export function AiMarginControls({
-  selection,
-  busy,
-  onRiff,
-  onAsk,
-}: {
-  selection: string;
-  busy: boolean;
-  onRiff: () => void;
-  onAsk: (question: string) => void;
-}) {
-  const [q, setQ] = useState("");
-  if (!AI_ON) return null;
-  return (
-    <div className="nb-ai-controls">
-      <button
-        className="nb-ghost"
-        disabled={!selection || busy}
-        title={selection ? `Riff on: “${selection.slice(0, 60)}”` : "Select text in the page first"}
-        onClick={onRiff}
-      >
-        {busy ? (
-          "Thinking…"
-        ) : (
-          <>
-            <Sparkles size={14} /> Riff on selection
-          </>
-        )}
-      </button>
-      <form
-        className="nb-ask"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (q.trim() && !busy) {
-            onAsk(q.trim());
-            setQ("");
-          }
-        }}
-      >
-        <input
-          className="nb-ask-input"
-          aria-label="Ask the margin"
-          placeholder="Ask the margin…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-      </form>
     </div>
   );
 }

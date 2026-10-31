@@ -181,7 +181,20 @@ export default function BattleMaps() {
 
   return (
     // `.ql-s6`: thumb-sized controls on a phone (index.css, Plan 123 S6).
-    <div className="fade-in ql-s6" style={{ maxWidth: 1400, margin: "0 auto" }}>
+    // UX-003 — the whole page takes dropped files (the empty state invites a drop),
+    // except while a map is open in the editor, which has its own pointer work.
+    <div
+      className="fade-in ql-s6"
+      style={{ maxWidth: 1400, margin: "0 auto" }}
+      onDragOver={(e) => {
+        if (!selected && e.dataTransfer.types.includes("Files")) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        if (selected || !e.dataTransfer.files.length) return;
+        e.preventDefault();
+        void handleFiles(e.dataTransfer.files);
+      }}
+    >
       <div
         className="flex"
         style={{ alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1.25rem" }}
@@ -192,14 +205,7 @@ export default function BattleMaps() {
             Maps for the table, with fog regions you reveal one tap at a time.
           </p>
         </div>
-        <div
-          onDrop={(e) => {
-            e.preventDefault();
-            void handleFiles(e.dataTransfer.files);
-          }}
-          onDragOver={(e) => e.preventDefault()}
-          style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}
-        >
+        <div style={{ display: "flex", gap: "0.6rem", alignItems: "center" }}>
           {uploading && <span style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Uploading…</span>}
           <button
             className={selected ? "btn btn-secondary" : "btn btn-primary"}
@@ -261,8 +267,8 @@ function MapGrid({
       >
         <MapIcon size={28} style={{ marginBottom: "0.6rem", opacity: 0.8 }} />
         <p style={{ maxWidth: 460, margin: "0 auto" }}>
-          Your battle maps live here, ready to put on the table. Drop map images or video loops
-          (Czepeku, Roll20 exports, your own) here, or click to import.
+          Your battle maps live here, ready to put on the table. Drag map images or video loops
+          here (map packs you own, Roll20 exports, your own drawings), or tap to choose files.
         </p>
       </div>
     );

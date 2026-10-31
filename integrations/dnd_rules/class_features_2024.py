@@ -14,7 +14,7 @@ from domain.enums import CharacterClass, RecoveryType, UsesFormula
 
 # Plan 77 — these subclasses are not in SRD 5.2.1; their feature text is
 # seeded for the deployment owner's own table and never granted to, or
-# listed for, anyone else (see feature_service + entitlement_service).
+# listed for, anyone else (see feature_service + auth_service.personal_content_allowed).
 NON_SRD_SUBCLASSES: frozenset[str] = frozenset({"Circle of Stars", "Soulknife"})
 
 

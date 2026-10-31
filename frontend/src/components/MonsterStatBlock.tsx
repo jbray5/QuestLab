@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Palette, PersonStanding, X } from "lucide-react";
-import { AI_ON } from "../lib/flags";
+import { X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Monster } from "../api/types";
 import { monstersApi } from "../api/monsters";
@@ -129,7 +128,7 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
     { label: "CHA", value: monster.score_cha },
   ];
 
-  // The art, the AI buttons and the 3D figure. On a phone it moves to the end of the
+  // The art and the 3D figure. On a phone it moves to the end of the
   // sheet so the numbers come first.
   const art = !canEdit ? (
     monster.image_url ? (
@@ -147,8 +146,6 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
         label="Monster Art"
         size={90}
       />
-      {AI_ON && <MonsterPortraitButton monsterId={monster.id} />}
-      {AI_ON && <MonsterFigureButton monsterId={monster.id} hasFigure={!!monster.figure_url} />}
       {/* The 3D figure's preview is a WebGL scene (those crashed phones) and only
           the laptop table uses it, so a phone just says where to set it. */}
       {phone ? (
@@ -396,128 +393,6 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
         </button>
         {body}
       </div>
-    </div>
-  );
-}
-
-/**
- * "Minifig" button — generates the transparent full-body standee the 3D
- * board uses (Plan 45). Stored on the stat block, so every token of this
- * monster in every session wears it.
- */
-function MonsterFigureButton({ monsterId, hasFigure }: { monsterId: string; hasFigure: boolean }) {
-  const qc = useQueryClient();
-  const [error, setError] = useState<string | null>(null);
-
-  const gen = useMutation({
-    mutationFn: () => monstersApi.generateFigure(monsterId),
-    onSuccess: () => {
-      setError(null);
-      qc.invalidateQueries({ queryKey: ["monsters"] });
-      qc.invalidateQueries({ queryKey: ["monster", monsterId] });
-    },
-    onError: (e) => setError((e as Error)?.message ?? "Generation failed"),
-  });
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
-      <button
-        onClick={() => gen.mutate()}
-        disabled={gen.isPending}
-        className="btn btn-ghost"
-        style={{ fontSize: "0.8125rem", padding: "0.25rem 0.55rem", minHeight: 0, whiteSpace: "nowrap" }}
-        title={
-          hasFigure
-            ? "Regenerate the 3D-board standee for this monster (~30s)"
-            : "Generate the 3D-board standee for this monster (~30s)"
-        }
-      >
-        <PersonStanding size={14} />
-        {gen.isPending ? "Sculpting…" : hasFigure ? "Minifig (made)" : "Minifig"}
-      </button>
-      {error && (
-        <div style={{ fontSize: "0.75rem", color: "var(--danger-text)", maxWidth: 130 }}>
-          {error}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * Small "Generate" button for monster portraits.
- *
- * Sits under the manual ImageUpload — paste a URL OR generate via AI,
- * the DM's choice. Optional style-hints input expands on click.
- */
-function MonsterPortraitButton({ monsterId }: { monsterId: string }) {
-  const qc = useQueryClient();
-  const [expanded, setExpanded] = useState(false);
-  const [hints, setHints] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  const gen = useMutation({
-    mutationFn: () =>
-      monstersApi.generatePortrait(monsterId, hints.trim() || undefined),
-    onSuccess: () => {
-      setExpanded(false);
-      setHints("");
-      setError(null);
-      qc.invalidateQueries({ queryKey: ["monsters"] });
-      qc.invalidateQueries({ queryKey: ["monster", monsterId] });
-    },
-    onError: (e) => setError((e as Error)?.message ?? "Generation failed"),
-  });
-
-  if (!expanded) {
-    return (
-      <button
-        onClick={() => setExpanded(true)}
-        className="btn btn-ghost"
-        style={{ fontSize: "0.8125rem", padding: "0.25rem 0.55rem", minHeight: 0, whiteSpace: "nowrap" }}
-        title="Generate a portrait via AI (~$0.04 / image)"
-      >
-        <Palette size={14} /> Generate
-      </button>
-    );
-  }
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem", width: 130 }}>
-      <input
-        type="text"
-        value={hints}
-        onChange={(e) => setHints(e.target.value)}
-        placeholder="style hints…"
-        disabled={gen.isPending}
-        aria-label="Style hints"
-        style={{ fontSize: "0.8125rem", padding: "0.2rem 0.4rem", width: "100%" }}
-      />
-      <div style={{ display: "flex", gap: "0.25rem" }}>
-        <button
-          onClick={() => gen.mutate()}
-          disabled={gen.isPending}
-          className="btn btn-secondary"
-          style={{ fontSize: "0.8125rem", padding: "0.25rem 0.5rem", minHeight: 0, flex: 1 }}
-        >
-          {gen.isPending ? "Painting…" : "Go"}
-        </button>
-        <button
-          onClick={() => {
-            setExpanded(false);
-            setError(null);
-          }}
-          className="btn btn-ghost"
-          style={{ padding: "0.25rem 0.4rem", minHeight: 0 }}
-          disabled={gen.isPending}
-          aria-label="Cancel"
-        >
-          <X size={14} />
-        </button>
-      </div>
-      {error && (
-        <span style={{ fontSize: "0.75rem", color: "var(--danger-text)" }}>{error}</span>
-      )}
     </div>
   );
 }

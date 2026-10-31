@@ -97,17 +97,12 @@ export const shopsApi = {
   update: (shopId: string, data: Partial<Pick<ShopRead, "name" | "keeper" | "blurb" | "location" | "hidden">>) =>
     api.patch<ShopRead>(`/shops/${shopId}`, data),
   remove: (shopId: string) => api.delete<void>(`/shops/${shopId}`),
-  stock: (shopId: string, concept: string | undefined, count: number) =>
-    api.post<StorefrontRead>(`/shops/${shopId}/stock`, { concept: concept || null, count }),
-  generateBanner: (shopId: string) => api.post<ShopRead>(`/shops/${shopId}/banner`, {}),
   addItem: (shopId: string, data: ShopItemAdd) =>
     api.post<StorefrontItem>(`/shops/${shopId}/items`, data),
   updateItem: (shopId: string, shopItemId: string, data: ShopItemUpdate) =>
     api.patch<StorefrontItem>(`/shops/${shopId}/items/${shopItemId}`, data),
   removeItem: (shopId: string, shopItemId: string) =>
     api.delete<void>(`/shops/${shopId}/items/${shopItemId}`),
-  generateItemImage: (shopId: string, shopItemId: string) =>
-    api.post<{ url: string }>(`/shops/${shopId}/items/${shopItemId}/image`, {}),
   // Player capability reads
   storefront: (shopId: string) => api.get<StorefrontRead>(`/storefront/${shopId}`),
   market: (campaignId: string) => api.get<MarketRead>(`/market/${campaignId}`),

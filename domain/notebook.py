@@ -11,7 +11,8 @@ Constitutional shape (encoded here, enforced in the service and UI):
 Block: ``{id, type, content}`` with type one of
 text · verbatim · prompt · key · card · sketch · image · divider.
 Pin: ``{id, block_id, kind, ...}`` with kind one of
-entity · image · note · ai (ai pins carry model/at/prompt provenance).
+entity · image · note · ai. (``ai`` pins are suggestions saved before Plan 124
+removed generative AI; they still load and show as plain suggestions.)
 """
 
 import uuid
@@ -143,24 +144,3 @@ class SearchHit(BaseModel):
     notebook_title: str
     page_title: str
     snippet: str
-
-
-class RiffRequest(BaseModel):
-    """Input to the AI margin: a selection to riff on, or an open question."""
-
-    selection: Optional[str] = PField(default=None, max_length=2000)
-    question: Optional[str] = PField(default=None, max_length=500)
-    block_id: Optional[str] = PField(default=None, max_length=64)
-
-
-class RiffResponse(BaseModel):
-    """AI margin output — suggestions only, never page content (Law 1).
-
-    The client stores these as ``ai`` pins with this provenance; no code
-    path exists that inserts them into blocks.
-    """
-
-    suggestions: list[str]
-    model: str
-    at: datetime
-    prompt: str

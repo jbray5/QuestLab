@@ -1,11 +1,13 @@
-"""OAuth providers for sign-in (Plan 73): Discord for identity, Patreon for
-identity *and* membership. Env-driven; a provider is "configured" only when
-its client id + secret are present, so a personal deployment with neither
-keeps the trusted-header model untouched.
+"""OAuth providers for sign-in (Plan 73): Discord and Patreon, identity only.
+
+Env-driven; a provider is "configured" only when its client id + secret are
+present, so a personal deployment with neither keeps the trusted-header model
+untouched. (Patreon membership — the tier data that fed the AI quotas — is no
+longer requested; Plan 124 removed generative AI.)
 
 Env:
     DISCORD_CLIENT_ID / DISCORD_CLIENT_SECRET
-    PATREON_CLIENT_ID / PATREON_CLIENT_SECRET / PATREON_CAMPAIGN_ID
+    PATREON_CLIENT_ID / PATREON_CLIENT_SECRET
     OAUTH_REDIRECT_BASE   e.g. https://questlab-api.onrender.com/api
 """
 
@@ -33,8 +35,6 @@ class OAuthProfile:
     email: Optional[str]
     display_name: str
     avatar_url: Optional[str]
-    patron_active: bool = False
-    patron_tier_cents: int = 0
     # Plan 120 — whether the provider vouches that this person owns ``email``.
     # An unverified address proves nothing, so it never claims an account.
     email_verified: bool = False
@@ -89,7 +89,7 @@ def authorize_url(provider: str, state: str) -> str:
         "client_id": _env("PATREON_CLIENT_ID"),
         "response_type": "code",
         "redirect_uri": redirect_uri(provider),
-        "scope": "identity identity[email] identity.memberships",
+        "scope": "identity identity[email]",
         "state": state,
     }
     return f"{_PATREON_AUTH}?{urlencode(q)}"
@@ -165,55 +165,33 @@ def _patreon(code: str, timeout: float) -> OAuthProfile:
         if tok.status_code != 200:
             raise ValueError("Patreon rejected the sign-in code.")
         access = tok.json().get("access_token")
-        params = {
-            "include": "memberships,memberships.campaign",
-            "fields[user]": "email,full_name,image_url,is_email_verified",
-            "fields[member]": "patron_status,currently_entitled_amount_cents",
-        }
+        params = {"fields[user]": "email,full_name,image_url,is_email_verified"}
         me = client.get(_PATREON_ME, params=params, headers={"Authorization": f"Bearer {access}"})
         if me.status_code != 200:
             raise ValueError("Patreon did not return a profile.")
         data = me.json()
-    return parse_patreon_identity(data, _env("PATREON_CAMPAIGN_ID"))
+    return parse_patreon_identity(data)
 
 
-def parse_patreon_identity(data: dict[str, Any], campaign_id: str) -> OAuthProfile:
-    """Turn Patreon's identity document into a profile with membership.
+def parse_patreon_identity(data: dict[str, Any]) -> OAuthProfile:
+    """Turn Patreon's identity document into a sign-in profile.
 
-    Pure function so it can be tested without HTTP. A user is an active
-    patron when a membership to ``campaign_id`` (or any campaign, when
-    unset) has ``patron_status == active_patron``.
+    Pure function so it can be tested without HTTP. Identity only — any
+    membership data in the document is ignored.
 
     Args:
         data: The JSON:API identity response.
-        campaign_id: The creator campaign id to match (empty = any).
 
     Returns:
-        An OAuthProfile with patron fields filled.
+        An OAuthProfile.
     """
     user = data.get("data") or {}
     attrs = user.get("attributes") or {}
-    active = False
-    cents = 0
-    for inc in data.get("included") or []:
-        if inc.get("type") != "member":
-            continue
-        a = inc.get("attributes") or {}
-        camp = (((inc.get("relationships") or {}).get("campaign") or {}).get("data") or {}).get(
-            "id"
-        )
-        if campaign_id and str(camp) != str(campaign_id):
-            continue
-        if a.get("patron_status") == "active_patron":
-            active = True
-            cents = max(cents, int(a.get("currently_entitled_amount_cents") or 0))
     return OAuthProfile(
         provider="patreon",
         provider_id=str(user.get("id", "")),
         email=(attrs.get("email") or None),
         display_name=attrs.get("full_name") or "Dungeon Master",
         avatar_url=attrs.get("image_url"),
-        patron_active=active,
-        patron_tier_cents=cents,
         email_verified=bool(attrs.get("is_email_verified")),
     )

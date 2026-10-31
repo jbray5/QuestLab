@@ -3,11 +3,9 @@ import { api, apiBase, authHeaders } from "./client";
 // Plan 57 — the Session Notebook. DM-only; every route 403s until the
 // server sets NOTEBOOK_ENABLED=true (ship dark).
 //
-// The constitution, client-side:
-//   Law 1 — nothing in this module (or any notebook component) writes AI
-//   text into blocks. `riff` returns suggestions; the ONLY thing done
-//   with them is creating `ai` margin pins.
-//   Law 3 — the notebook API is the notebook's only write surface.
+// The notebook API is the notebook's only write surface. Older pages may
+// still carry `ai` margin pins from a retired feature; they are read-only
+// and render as plain "Suggestion" pins.
 
 export type BlockType =
   | "text"
@@ -44,9 +42,9 @@ export interface Pin {
   thumb?: string | null;
   // image
   url?: string;
-  // note / ai
+  // note / ai (legacy suggestion pins)
   text?: string;
-  // ai provenance (Law 1: display-only; no insert path exists)
+  // legacy provenance on old suggestion pins; never shown
   model?: string;
   at?: string;
   prompt?: string;
@@ -86,13 +84,6 @@ export interface SearchHit {
   snippet: string;
 }
 
-export interface RiffResponse {
-  suggestions: string[];
-  model: string;
-  at: string;
-  prompt: string;
-}
-
 export function newId(): string {
   return Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 }
@@ -125,9 +116,6 @@ export const notebooksApi = {
     api.get<SearchHit[]>(`/campaigns/${campaignId}/notebook-search?q=${encodeURIComponent(q)}`),
   runbooks: (campaignId: string) =>
     api.get<PageSummary[]>(`/campaigns/${campaignId}/notebook-runbooks`),
-
-  riff: (pageId: string, data: { selection?: string; question?: string; block_id?: string }) =>
-    api.post<RiffResponse>(`/notebook-pages/${pageId}/riff`, data),
 };
 
 /** Upload a pasted image via the existing uploads route; returns its URL. */

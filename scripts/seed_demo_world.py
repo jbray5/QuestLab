@@ -27,12 +27,9 @@ HEADERS = {
     "X-MS-CLIENT-PRINCIPAL-NAME": "demo@questlab.app",
 }
 
-# Public art from the owner's blob store (generated in-app; free to reuse).
-ART = {
-    "map": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/c708579c-70e1-4811-8f58-d92504868d0c-kDyq5ThugnkcHPxSHyt9aegBQgCHcG.png",  # noqa: E501
-    "hero_paladin": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/heroes/pc-9a450e7d-4def-40f9-8be1-dd060db7a93c-loadout-MonhrHDJ2FtqJRDVyoCBFsKBl2OfeW.png",  # noqa: E501
-    "hero_sorcerer": "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/heroes/pc-c29ba294-345c-4e09-ba3e-f913d06136fc-loadout-NgyLpoCwgu6xpfkohlH3UaRZkJ5O80.png",  # noqa: E501
-}
+# No generative AI (Plan 86 / Plan 124): the demo uses the procedurally drawn
+# sample map that ships with the app, and the party plays as initial discs.
+ART = {"map": "/sample/mill-road.jpg"}
 
 PARTY = [
     dict(
@@ -172,16 +169,14 @@ def main() -> None:
     sid = session["id"]
     print(f"+ campaign/adventure/session ({cid[:8]}...)")
 
-    # 3. Party with real art.
+    # 3. The party, with a little gold.
     pc_ids = []
-    for spec, art in zip(PARTY, [ART["hero_paladin"], ART["hero_sorcerer"]]):
+    for spec in PARTY:
         pc = call(api, "POST", f"/campaigns/{cid}/characters", spec)
-        call(
-            api, "PATCH", f"/characters/{pc['id']}", {"figure_url": art, "hero_url": art, "gp": 40}
-        )
+        call(api, "PATCH", f"/characters/{pc['id']}", {"gp": 40})
         pc_ids.append(pc["id"])
     call(api, "PATCH", f"/sessions/{sid}", {"attending_pc_ids": pc_ids})
-    print(f"+ party of {len(pc_ids)} with art + gold")
+    print(f"+ party of {len(pc_ids)} with gold")
 
     # 4. Battle map staged on the table with tokens.
     bmap = call(
@@ -205,8 +200,6 @@ def main() -> None:
             "kind": "pc",
             "ref_id": pc_ids[i],
             "size": 1,
-            "style": "figure",
-            "image_url": [ART["hero_paladin"], ART["hero_sorcerer"]][i],
         }
         for i in range(len(pc_ids))
     ]

@@ -1,4 +1,4 @@
-"""Session and SessionRunbook domain models — game session lifecycle and AI runbook."""
+"""Session and SessionRunbook domain models — game session lifecycle and the runbook."""
 
 import uuid
 from datetime import UTC, date, datetime
@@ -86,7 +86,7 @@ class SessionUpdate(BaseModel):
 
 
 class SessionRunbook(SQLModel, table=True):
-    """SessionRunbook SQLModel table — AI-generated runbook for a Session (1:1)."""
+    """SessionRunbook SQLModel table — the DM's runbook for a Session (1:1)."""
 
     __tablename__ = "session_runbooks"
     __table_args__ = {"extend_existing": True}

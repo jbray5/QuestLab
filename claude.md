@@ -81,7 +81,7 @@ Important: - Documentation should be a runbook for a new engineer - Must be upda
 
 Claude Code Configuration
 Project-shared Claude Code config lives in `.claude/`. See `.claude/README.md` for the full index. Highlights:
-- **Subagents** in `.claude/agents/` — `boundary-checker`, `migration-reviewer`, `ai-prompt-tuner`, `test-writer`. Auto-delegate based on what you're touching.
+- **Subagents** in `.claude/agents/` — `boundary-checker`, `migration-reviewer`, `test-writer`. Auto-delegate based on what you're touching.
 - **Slash commands** in `.claude/commands/` — `/new-plan`, `/new-migration`, `/quality-gate`, `/new-layer-module`.
 - **Hooks** in `.claude/hooks/` (wired in `.claude/settings.json`) — auto-format Python on edit, block force-push to main, block alembic downgrade, block writes to `.env`.
 - **Path-scoped rules** in `.claude/rules/layers.md` — layer import matrix and per-layer conventions, loaded only when editing those layers.

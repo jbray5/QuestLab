@@ -195,13 +195,3 @@ class NpcUpdate(BaseModel):
     voice: Optional[str] = Field(default=None, max_length=200)
     secret_short: Optional[str] = Field(default=None, max_length=200)
     relationship_pings: Optional[list[str]] = None
-
-
-class NpcGenerate(BaseModel):
-    """Input schema for AI-generated NPCs (Plan 00033)."""
-
-    role: str = Field(min_length=1, max_length=200)
-    """Role hint — 'corrupt guard captain', 'innkeeper', etc."""
-
-    save: bool = True
-    """If True, persist the generated NPC immediately; if False, return as preview."""

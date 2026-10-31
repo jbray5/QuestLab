@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 
-from api.deps import DB, AiArtUser, CurrentUser
+from api.deps import DB, CurrentUser
 from domain.battle_map import BattleMapCreate, BattleMapRead, BattleMapUpdate
 from services import battle_map_service
 
@@ -82,90 +82,6 @@ def update_battle_map(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-
-
-@router.post("/battle-maps/{map_id}/backdrop", response_model=BattleMapRead)
-def generate_battle_map_backdrop(
-    map_id: uuid.UUID, body: dict, db: DB, user: AiArtUser
-) -> BattleMapRead:
-    """Generate an AI 360° backdrop for the map and persist its URL (Plan 45).
-
-    Body: ``{"style_hints": "optional scene description"}``. Calls OpenAI
-    ``gpt-image-1`` in wide landscape and uploads the result to Vercel Blob;
-    the 3D board wraps it around the scene as a skybox dome.
-
-    Args:
-        map_id: UUID of the battle map.
-        body: JSON with optional ``style_hints``.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        The updated BattleMap with backdrop_url set.
-    """
-    try:
-        return BattleMapRead.model_validate(
-            battle_map_service.generate_backdrop(
-                db, map_id, user, style_hints=(body.get("style_hints") or None)
-            )
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
-
-
-@router.post("/battle-maps/{map_id}/props", response_model=BattleMapRead)
-def generate_battle_map_props(map_id: uuid.UUID, db: DB, user: AiArtUser) -> BattleMapRead:
-    """Dioramify the map: AI ground layer + auto-placed upright props (Plan 46).
-
-    Removes tall features from the painted map via gpt-image-1's edit API,
-    finds their footprints by diffing, and places upright sprite props.
-    Takes 1–3 minutes; the board renders the result automatically.
-
-    Args:
-        map_id: UUID of the battle map.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        The updated BattleMap with ground_url + props set.
-    """
-    try:
-        return BattleMapRead.model_validate(battle_map_service.generate_props(db, map_id, user))
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
-
-
-@router.post("/battle-maps/{map_id}/terrain", response_model=BattleMapRead)
-def generate_battle_map_terrain(map_id: uuid.UUID, db: DB, user: AiArtUser) -> BattleMapRead:
-    """Auto-generate 3D terrain (a heightmap) for the map (Plan 45 Tier 3).
-
-    Runs the map image through ``gpt-image-1``'s edit API to produce a
-    grayscale elevation map; the 3D board displaces its geometry from it.
-
-    Args:
-        map_id: UUID of the battle map.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        The updated BattleMap with heightmap_url set.
-    """
-    try:
-        return BattleMapRead.model_validate(battle_map_service.generate_heightmap(db, map_id, user))
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
 
 
 @router.delete("/battle-maps/{map_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -25,7 +25,7 @@ from domain.character import (
 from domain.enums import CharacterClass, UsesFormula
 from integrations.dnd_rules.class_features_2024 import NON_SRD_SUBCLASSES
 from integrations.event_bus import publish_pc_updated
-from services import character_service, entitlement_service
+from services import auth_service, character_service
 
 
 def _ability_mod(score: int) -> int:
@@ -172,7 +172,7 @@ def list_catalog(
         ClassFeatureRead list.
     """
     rows = ClassFeatureRepo.list_all(db, character_class=character_class, max_level=max_level)
-    personal = bool(dm_email) and entitlement_service.personal_content_allowed(dm_email)
+    personal = bool(dm_email) and auth_service.personal_content_allowed(dm_email)
     return [
         ClassFeatureRead.model_validate(r)
         for r in rows
@@ -367,7 +367,7 @@ def sync_for_level(db: Session, character_id: uuid.UUID, dm_email: str) -> list[
             # Plan 77 — PHB-only subclass text never leaves the owner's table.
             if (
                 feature.subclass in NON_SRD_SUBCLASSES
-                and not entitlement_service.personal_content_allowed(dm_email)
+                and not auth_service.personal_content_allowed(dm_email)
             ):
                 continue
         CharacterFeatureRepo.create(db, character_id, CharacterFeatureCreate(feature_id=feature.id))

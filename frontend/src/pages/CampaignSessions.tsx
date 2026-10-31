@@ -12,6 +12,7 @@ import { useCampaignStore } from "../stores/useCampaignStore";
 import { useIsCompact } from "../hooks/useIsCompact";
 import { statusLabel } from "../lib/labels";
 import RowMenu from "../components/RowMenu";
+import { formatDay, localToday } from "../lib/dates";
 
 /**
  * CampaignSessions — every session in the campaign, grouped by arc (Plan 75).
@@ -36,6 +37,54 @@ const NEXT_STATUS_ACTION: Record<string, string> = {
   Ready: "Mark in progress",
   InProgress: "Mark complete",
 };
+/** UX-002 — one step back, for a status advanced by mistake. */
+const PREV_STATUS: Record<string, { status: string; label: string }> = {
+  Ready: { status: "Draft", label: "Move back to draft" },
+  InProgress: { status: "Ready", label: "Move back to ready" },
+  Complete: { status: "InProgress", label: "Reopen (in progress)" },
+};
+
+/** UX-002 — rename a session in place (quick sessions all start as "Quick session, <date>"). */
+function RenameForm({
+  initial,
+  busy,
+  onSave,
+  onCancel,
+}: {
+  initial: string;
+  busy: boolean;
+  onSave: (title: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const clean = value.trim();
+  return (
+    <form
+      className="flex"
+      style={{ gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (clean) onSave(clean);
+      }}
+    >
+      <input
+        autoFocus
+        value={value}
+        maxLength={200}
+        aria-label="Session title"
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => e.key === "Escape" && onCancel()}
+        style={{ flex: "1 1 200px", minWidth: 0 }}
+      />
+      <button type="submit" className="btn btn-primary" disabled={busy || !clean} style={{ fontSize: "0.8125rem" }}>
+        Save
+      </button>
+      <button type="button" className="btn btn-ghost" onClick={onCancel} style={{ fontSize: "0.8125rem" }}>
+        Cancel
+      </button>
+    </form>
+  );
+}
 const TIER_LABELS: Record<string, string> = {
   Tier1: "Tier 1 · levels 1–4",
   Tier2: "Tier 2 · levels 5–10",
@@ -213,6 +262,20 @@ export default function CampaignSessions() {
     mutationFn: (id: string) => sessionsApi.advance(id),
     onSuccess: (s) => void qc.invalidateQueries({ queryKey: ["sessions", s.adventure_id] }),
   });
+  // UX-002 — rename in place; step a status back.
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const rename = useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => sessionsApi.update(id, { title }),
+    onSuccess: (s) => {
+      void qc.invalidateQueries({ queryKey: ["sessions", s.adventure_id] });
+      setRenamingId(null);
+    },
+  });
+  const stepBack = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      sessionsApi.update(id, { status } as Parameters<typeof sessionsApi.update>[1]),
+    onSuccess: (s) => void qc.invalidateQueries({ queryKey: ["sessions", s.adventure_id] }),
+  });
   const del = useMutation({
     mutationFn: ({ id }: { id: string; arcId: string }) => sessionsApi.delete(id),
     onSuccess: (_r, v) => void qc.invalidateQueries({ queryKey: ["sessions", v.arcId] }),
@@ -344,7 +407,7 @@ export default function CampaignSessions() {
         const arcLoading = !!sessionQs[arcs.indexOf(arc)]?.isLoading;
         // "Up next" = the first unfinished session dated today or later; if
         // none is dated, the first unfinished one.
-        const today = new Date().toISOString().slice(0, 10);
+        const today = localToday();
         const open = list.filter((s) => s.status !== "Complete");
         const upNext = open.find((s) => s.date_planned && s.date_planned >= today) ?? open[0];
         const isCollapsed = collapsed.has(arc.id);
@@ -571,7 +634,7 @@ export default function CampaignSessions() {
                     s.attending_pc_ids && s.attending_pc_ids.length > 0 && editingPcsFor !== s.id
                       ? s.attending_pc_ids.map(pcName).join(", ")
                       : "";
-                  const subline = [s.date_planned, players].filter(Boolean).join(" · ");
+                  const subline = [formatDay(s.date_planned), players].filter(Boolean).join(" · ");
                   return (
                     <div
                       key={s.id}
@@ -612,6 +675,14 @@ export default function CampaignSessions() {
                             {toRoman(s.session_number)}
                           </span>
                           <div style={{ minWidth: 0, flex: 1 }}>
+                            {renamingId === s.id ? (
+                              <RenameForm
+                                initial={s.title ?? ""}
+                                busy={rename.isPending}
+                                onSave={(title) => rename.mutate({ id: s.id, title })}
+                                onCancel={() => setRenamingId(null)}
+                              />
+                            ) : (
                             <div
                               className="story"
                               style={{
@@ -630,6 +701,7 @@ export default function CampaignSessions() {
                                 `Session ${s.session_number}`
                               )}
                             </div>
+                            )}
                             {(isNext || subline || phone) && (
                               <div
                                 className="text-sm text-muted"
@@ -685,7 +757,7 @@ export default function CampaignSessions() {
                           <Link
                             className="btn btn-secondary"
                             style={compactBtn}
-                            title="Before the night: brief, runbook, session pack"
+                            title="Before the night: write the runbook and your notes"
                             to={`/sessions/${s.id}/prep`}
                             onClick={() => setActiveAdventure(arc)}
                           >
@@ -703,6 +775,7 @@ export default function CampaignSessions() {
                           <RowMenu
                             label={`More for session ${s.session_number}`}
                             items={[
+                              { label: "Rename…", onSelect: () => setRenamingId(s.id) },
                               {
                                 label: "Who's playing…",
                                 onSelect: () => {
@@ -710,6 +783,15 @@ export default function CampaignSessions() {
                                   setEditPcIds(s.attending_pc_ids ?? []);
                                 },
                               },
+                              ...(PREV_STATUS[s.status]
+                                ? [
+                                    {
+                                      label: PREV_STATUS[s.status].label,
+                                      onSelect: () =>
+                                        stepBack.mutate({ id: s.id, status: PREV_STATUS[s.status].status }),
+                                    },
+                                  ]
+                                : []),
                               {
                                 label: "Delete session…",
                                 danger: true,

@@ -10,6 +10,7 @@ import { useIsCompact } from "../hooks/useIsCompact";
 import PcPicker from "../components/sessions/PcPicker";
 import { statusLabel } from "../lib/labels";
 import RowMenu from "../components/RowMenu";
+import { formatDay, localToday } from "../lib/dates";
 
 const STATUS_BADGE: Record<string, string> = {
   Draft: "badge-draft",
@@ -24,6 +25,54 @@ const NEXT_STATUS_ACTION: Record<string, string> = {
   Ready: "Mark in progress",
   InProgress: "Mark complete",
 };
+/** UX-002 — one step back, for a status advanced by mistake. */
+const PREV_STATUS: Record<string, { status: string; label: string }> = {
+  Ready: { status: "Draft", label: "Move back to draft" },
+  InProgress: { status: "Ready", label: "Move back to ready" },
+  Complete: { status: "InProgress", label: "Reopen (in progress)" },
+};
+
+/** UX-002 — rename a session in place (quick sessions all start as "Quick session, <date>"). */
+function RenameForm({
+  initial,
+  busy,
+  onSave,
+  onCancel,
+}: {
+  initial: string;
+  busy: boolean;
+  onSave: (title: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  const clean = value.trim();
+  return (
+    <form
+      className="flex"
+      style={{ gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (clean) onSave(clean);
+      }}
+    >
+      <input
+        autoFocus
+        value={value}
+        maxLength={200}
+        aria-label="Session title"
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => e.key === "Escape" && onCancel()}
+        style={{ flex: "1 1 200px", minWidth: 0 }}
+      />
+      <button type="submit" className="btn btn-primary" disabled={busy || !clean} style={{ fontSize: "0.8125rem" }}>
+        Save
+      </button>
+      <button type="button" className="btn btn-ghost" onClick={onCancel} style={{ fontSize: "0.8125rem" }}>
+        Cancel
+      </button>
+    </form>
+  );
+}
 
 /** Session numbers are set as Roman numerals in the story face (DESIGN.md \u00A71). */
 function toRoman(n: number): string {
@@ -118,6 +167,20 @@ export default function Sessions() {
     mutationFn: (id: string) => sessionsApi.advance(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["sessions", adventureId] }),
   });
+  // UX-002 — rename in place; step a status back.
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const rename = useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => sessionsApi.update(id, { title }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["sessions", adventureId] });
+      setRenamingId(null);
+    },
+  });
+  const stepBack = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      sessionsApi.update(id, { status } as Parameters<typeof sessionsApi.update>[1]),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["sessions", adventureId] }),
+  });
 
   const del = useMutation({
     mutationFn: (id: string) => sessionsApi.delete(id),
@@ -136,7 +199,7 @@ export default function Sessions() {
   // "Up next" = the first unfinished session dated today or later; if none is
   // dated, the first unfinished one (same rule as the campaign sessions page).
   const ordered = [...sessions].sort((x, y) => x.session_number - y.session_number);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localToday();
   const unfinished = ordered.filter((s) => s.status !== "Complete");
   const upNext = unfinished.find((s) => s.date_planned && s.date_planned >= today) ?? unfinished[0];
   const longestNumeral = ordered.reduce((m, s) => Math.max(m, toRoman(s.session_number).length), 1);
@@ -244,7 +307,7 @@ export default function Sessions() {
               s.attending_pc_ids && s.attending_pc_ids.length > 0 && editingPcsFor !== s.id
                 ? s.attending_pc_ids.map(pcName).join(", ")
                 : "";
-            const subline = [s.date_planned, players].filter(Boolean).join(" · ");
+            const subline = [formatDay(s.date_planned), players].filter(Boolean).join(" · ");
             return (
               <div
                 key={s.id}
@@ -285,6 +348,14 @@ export default function Sessions() {
                       {toRoman(s.session_number)}
                     </span>
                     <div style={{ minWidth: 0, flex: 1 }}>
+                      {renamingId === s.id ? (
+                        <RenameForm
+                          initial={s.title ?? ""}
+                          busy={rename.isPending}
+                          onSave={(title) => rename.mutate({ id: s.id, title })}
+                          onCancel={() => setRenamingId(null)}
+                        />
+                      ) : (
                       <div
                         className="story"
                         style={{
@@ -303,6 +374,7 @@ export default function Sessions() {
                           `Session ${s.session_number}`
                         )}
                       </div>
+                      )}
                       {(isNext || subline || phone) && (
                         <div
                           className="text-sm text-muted"
@@ -367,10 +439,19 @@ export default function Sessions() {
                     <RowMenu
                       label={`More for session ${s.session_number}`}
                       items={[
+                        { label: "Rename…", onSelect: () => setRenamingId(s.id) },
                         {
                           label: "Who's playing…",
                           onSelect: () => openPcEditor(s.id, s.attending_pc_ids),
                         },
+                        ...(PREV_STATUS[s.status]
+                          ? [
+                              {
+                                label: PREV_STATUS[s.status].label,
+                                onSelect: () => stepBack.mutate({ id: s.id, status: PREV_STATUS[s.status].status }),
+                              },
+                            ]
+                          : []),
                         {
                           label: "Delete session…",
                           danger: true,

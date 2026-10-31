@@ -1,8 +1,8 @@
 """Plan 57 tests — the Session Notebook.
 
 What must not be wrong, in constitutional order:
-  1. Law 1 — the riff path returns suggestions and has no write path to
-     blocks: a riff call must leave the page document untouched.
+  1. Laws 1 and 2 — only the DM's own saves write blocks; margin pins
+     (including suggestion pins saved before Plan 124) stay beside them.
   2. The feature flag: everything refuses while NOTEBOOK_ENABLED is off.
   3. Ownership gates every operation.
   4. Search finds what the DM wrote, with mention tokens collapsed.
@@ -19,7 +19,6 @@ from domain.notebook import (
     NotebookCreate,
     PageCreate,
     PageUpdate,
-    RiffRequest,
 )
 
 
@@ -215,86 +214,29 @@ def test_runbook_flag_is_the_only_promotion(duckdb_session):
     assert nb.list_runbooks(duckdb_session, camp.id, dm) == []
 
 
-# ── The AI margin (Law 1) ─────────────────────────────────────────────────────
+# ── The margin (Law 2) ────────────────────────────────────────────────────────
 
 
-def test_riff_returns_suggestions_and_never_touches_the_page(duckdb_session, monkeypatch):
-    """Law 1: a riff leaves the document byte-identical."""
+def test_saved_suggestion_pins_still_load_beside_the_page(duckdb_session):
+    """Suggestion pins saved before Plan 124 round-trip untouched and never enter blocks."""
     dm = _dm()
     camp = _campaign(duckdb_session, dm)
     notebook = _notebook(duckdb_session, camp.id, dm)
     page = _page(duckdb_session, notebook.id, dm)
     blocks = [{"id": "b1", "type": "text", "content": {"text": "They board at midnight."}}]
-    nb.update_page(duckdb_session, page.id, dm, PageUpdate(blocks=blocks))
+    pins = [
+        {
+            "id": "p1",
+            "block_id": "b1",
+            "kind": "ai",
+            "text": "The rail is wet.",
+            "model": "older-model",
+            "at": "2026-08-01T00:00:00Z",
+            "prompt": "They board at midnight.",
+        }
+    ]
+    nb.update_page(duckdb_session, page.id, dm, PageUpdate(blocks=blocks, pins=pins))
 
-    captured = {}
-
-    def _fake_complete_json(system, user, schema, **kwargs):
-        captured["system"] = system
-        captured["user"] = user
-        return schema(
-            suggestions=["The rail is wet.", "A rope goes taut.", "Nobody hears the splash."]
-        )
-
-    import integrations.claude_client as cc
-
-    monkeypatch.setattr(cc, "complete_json", _fake_complete_json)
-
-    result = nb.riff(
-        duckdb_session,
-        page.id,
-        dm,
-        RiffRequest(selection="They board at midnight.", block_id="b1"),
-    )
-    assert len(result.suggestions) == 3
-    assert result.prompt == "They board at midnight."
-    assert result.model  # provenance travels
-    # Campaign context and the page reached the prompt.
-    assert "Blackreef" in captured["system"]
-    assert "They board at midnight." in captured["user"]
-
-    # The page document is untouched — no write path exists.
     after = nb.get_page(duckdb_session, page.id, dm)
     assert after.blocks == blocks
-    assert after.pins == []
-
-
-def test_riff_requires_selection_or_question(duckdb_session):
-    """An empty ask is a client bug — refuse loudly."""
-    dm = _dm()
-    camp = _campaign(duckdb_session, dm)
-    notebook = _notebook(duckdb_session, camp.id, dm)
-    page = _page(duckdb_session, notebook.id, dm)
-
-    with pytest.raises(ValueError, match="selection.*or.*question"):
-        nb.riff(duckdb_session, page.id, dm, RiffRequest())
-
-
-def test_riff_respects_the_ai_kill_switch(duckdb_session, monkeypatch):
-    """AI_GENERATION_ENABLED=false must stop riffs like every AI path."""
-    dm = _dm()
-    camp = _campaign(duckdb_session, dm)
-    notebook = _notebook(duckdb_session, camp.id, dm)
-    page = _page(duckdb_session, notebook.id, dm)
-
-    monkeypatch.setenv("AI_GENERATION_ENABLED", "false")
-    with pytest.raises(PermissionError):
-        nb.riff(duckdb_session, page.id, dm, RiffRequest(question="what could go wrong?"))
-
-
-def test_riff_caps_suggestions_at_three(duckdb_session, monkeypatch):
-    """A chatty model still yields at most three margin pins."""
-    dm = _dm()
-    camp = _campaign(duckdb_session, dm)
-    notebook = _notebook(duckdb_session, camp.id, dm)
-    page = _page(duckdb_session, notebook.id, dm)
-
-    import integrations.claude_client as cc
-
-    monkeypatch.setattr(
-        cc,
-        "complete_json",
-        lambda system, user, schema, **kw: schema(suggestions=[f"s{i}" for i in range(7)]),
-    )
-    result = nb.riff(duckdb_session, page.id, dm, RiffRequest(question="ideas?"))
-    assert len(result.suggestions) == 3
+    assert after.pins == pins

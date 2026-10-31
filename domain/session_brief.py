@@ -5,15 +5,18 @@ triggers (hp_lte / round_gte / on_defeated), NPC play-faces (how to PLAY them li
 reusing the Plan 40 dual-face vocabulary), per-PC spotlight cues, a danger dial, and
 optional "roads" for an open ending. Deliberately the inverse of a read-aloud runbook —
 cues the DM glances at and looks up from, not scripts to read.
+
+Briefs were AI-generated; Plan 124 removed generative AI, so nothing creates
+new ones. The table and its models stay so existing rows keep their data and
+the session-delete cascade still clears them.
 """
 
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel
 from pydantic import Field as PydField
-from pydantic import field_validator
 from sqlalchemy import Column
 from sqlalchemy.types import JSON
 from sqlmodel import Field, SQLModel
@@ -111,28 +114,3 @@ class SessionBriefUpdate(BaseModel):
     npc_faces: Optional[list[NpcFace]] = None
     spotlight: Optional[list[Spotlight]] = None
     roads: Optional[list[Road]] = None
-
-
-class SessionBriefRead(BaseModel):
-    """Output schema for reading a brief."""
-
-    id: uuid.UUID
-    session_id: uuid.UUID
-    model_used: str
-    generated_at: datetime
-    cold_open: str = ""
-    premise: str = ""
-    danger_dial: str = ""
-    fallback: Optional[str] = None
-    beats: list[dict[str, Any]] = PydField(default_factory=list)
-    npc_faces: list[dict[str, Any]] = PydField(default_factory=list)
-    spotlight: list[dict[str, Any]] = PydField(default_factory=list)
-    roads: list[dict[str, Any]] = PydField(default_factory=list)
-
-    model_config = {"from_attributes": True}
-
-    @field_validator("beats", "npc_faces", "spotlight", "roads", mode="before")
-    @classmethod
-    def _none_to_list(cls, v: object) -> object:
-        """Coerce nullable JSON columns to empty lists (DB default is NULL)."""
-        return [] if v is None else v

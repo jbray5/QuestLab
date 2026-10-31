@@ -1,0 +1,76 @@
+# Plan 124 — uptime alerts. Every 15 minutes, check that the web app and the API
+# answer. When either fails, open (or comment on) one "Production is down" issue,
+# which GitHub emails to the repo owner; when both answer again, close it.
+# Override the targets with repo variables UPTIME_API_URL / UPTIME_WEB_URL.
+name: uptime
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the web app and the API
+        id: probe
+        env:
+          API_URL: ${{ vars.UPTIME_API_URL || 'https://questlab-api-9yhe.onrender.com/api/health' }}
+          WEB_URL: ${{ vars.UPTIME_WEB_URL || 'https://quest-lab-tau.vercel.app/' }}
+        run: |
+          probe() {
+            # A sleeping free-tier API can take ~60 s to wake: allow 90 s, retry once.
+            for attempt in 1 2; do
+              code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 90 "$1" || echo 000)
+              if [ "$code" = "200" ]; then echo "ok"; return; fi
+              sleep 20
+            done
+            echo "HTTP $code"
+          }
+          api=$(probe "$API_URL")
+          web=$(probe "$WEB_URL")
+          echo "api=$api web=$web"
+          {
+            echo "api=$api"
+            echo "web=$web"
+          } >> "$GITHUB_OUTPUT"
+          if [ "$api" = "ok" ] && [ "$web" = "ok" ]; then
+            echo "down=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "down=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open or update the outage issue
+        if: steps.probe.outputs.down == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          body="Uptime check at $(date -u '+%Y-%m-%d %H:%M UTC'): API ${{ steps.probe.outputs.api }}, web ${{ steps.probe.outputs.web }}. Check Render (API) and Vercel (web)."
+          open=$(gh issue list --state open --label outage --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          else
+            gh label create outage --color B60205 --description "Production uptime alert" 2>/dev/null || true
+            gh issue create --title "Production is down" --label outage --body "$body"
+          fi
+
+      - name: Close the outage issue when everything answers
+        if: steps.probe.outputs.down == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          open=$(gh issue list --state open --label outage --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue close "$open" --comment "Back up at $(date -u '+%Y-%m-%d %H:%M UTC')."
+          fi

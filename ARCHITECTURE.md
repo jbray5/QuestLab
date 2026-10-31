@@ -4,7 +4,7 @@ Bird's-eye codemap for new contributors. The detailed layered diagram and design
 
 ## What QuestLab is
 
-AI-powered D&D 5e (2024) campaign planning + session execution tool for Dungeon Masters. Build campaigns → adventures → encounters → maps → run live sessions with initiative tracking, AI-generated runbooks, dialog, monster stat blocks, and loot.
+D&D 5e (2024) campaign planning + session tool for Dungeon Masters at an in-person table. Build campaigns → arcs → sessions → encounters, then run the night from the HUD (initiative, party, rolls) while players use their phones as a companion. No generative AI anywhere (Plan 86/124): everything is written by the DM, drawn by code, or uploaded.
 
 ## Two front-ends, one backend
 
@@ -81,14 +81,12 @@ One per aggregate above. Each exposes `get`, `list`, `create`, `update`, `delete
 | [`arena_service.py`](services/arena_service.py) | The 5e rules engine: turns, attacks, saves, slots, class features |
 | [`duel_service.py`](services/duel_service.py) | Who may act in a multi-device fight (duel, or the party vs a boss — Plan 116), where it rests between turns, handing an absent player's seat to the referee |
 | [`levelup_service.py`](services/levelup_service.py) | Level-up guide (Plan 115): DM grants a level (`pending_level`), the player's guide plans and applies HP, ASI/feat, subclass and spell picks |
-| [`ai_service.py`](services/ai_service.py) | Claude-driven runbook, dialog, stat block, loot generation |
 
 ### Integrations ([`integrations/`](integrations/))
 
 | File | Purpose |
 |------|---------|
 | [`identity.py`](integrations/identity.py) | Parse the trusted Azure Front Door / Entra identity header |
-| [`claude_client.py`](integrations/claude_client.py) | Thin wrapper around the `anthropic` SDK (Opus 4.6 + Haiku 4.5) |
 | [`dnd_rules/encounter_math.py`](integrations/dnd_rules/encounter_math.py) | CR-to-XP, encounter difficulty curves |
 | [`dnd_rules/stat_blocks.py`](integrations/dnd_rules/stat_blocks.py) | Stat block validation against 5e rules |
 | [`dnd_rules/magic_items.py`](integrations/dnd_rules/magic_items.py) | Magic item reference data |
@@ -137,7 +135,7 @@ Subagents, slash commands, hooks, rules. See [`.claude/README.md`](.claude/READM
 2. **No in-app auth.** Azure Front Door + Entra ID inject identity via a trusted HTTP header. Missing header = deny.
 3. **Authorization lives in `services/`**, never in pages alone. Every public service method's first line is a role check.
 4. **No SQL string concatenation.** ORM or `text()` with bound params. Pydantic-validate every external input.
-5. **Two model tiers:** `claude-opus-4-6` for long-form generation, `claude-haiku-4-5-20251001` for short/fast calls (autocomplete). Don't swap silently.
+5. **No generative AI.** No LLM or image-model client exists in the codebase (removed in Plan 124); don't add one. Content is DM-written, procedural, or uploaded.
 6. **Layer imports are one-way.** `pages|api → services → repos → domain`. `integrations/` is a sibling to `services/`, never imported from `domain/`.
 7. **ExecPlans for anything >20 min or >1 layer.** Living documents — Progress, Surprises, Decision Log updated every stop.
 

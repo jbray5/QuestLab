@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Contrast, ExternalLink, NotebookPen, X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { useIsCompact } from "../../hooks/useIsCompact";
 import { useAuthStore } from "../../stores/useAuthStore";
-import DmDockBody from "./DmDockBody";
 import { readDockSession, rememberDockSession, sessionIdFromPath } from "./dmSession";
+
+// Plan 124 — the notes editor loads only when the dock opens (not on player pages).
+const DmDockBody = lazy(() => import("./DmDockBody"));
 
 /**
  * DmDock — the DM's notes, floating over any DM page (Plan 75).
@@ -273,7 +275,9 @@ export default function DmDock() {
         </span>
       </div>
       <div style={{ flex: 1, minHeight: 0 }}>
-        <DmDockBody key={sid} sessionId={sid!} onSessionChange={setPinned} />
+        <Suspense fallback={null}>
+          <DmDockBody key={sid} sessionId={sid!} onSessionChange={setPinned} />
+        </Suspense>
       </div>
     </div>
   );

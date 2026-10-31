@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Focus, X } from "lucide-react";
 import { zoomable } from "../../lib/lightbox";
-import { AI_ON } from "../../lib/flags";
 import { useIsCompact } from "../../hooks/useIsCompact";
 import Monogram from "./Monogram";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +19,6 @@ import ExhaustionTracker from "./ExhaustionTracker";
 import HitDiceTracker from "./HitDiceTracker";
 import InfoTip from "./InfoTip";
 import PlayerLinkButton from "./PlayerLinkButton";
-import PortraitGenerator from "../PortraitGenerator";
 import { portraitSrc } from "../../lib/portrait";
 import RollHelper from "./RollHelper";
 import type { RollContext } from "./RollHelper";
@@ -500,23 +498,6 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
         <div style={phone ? { ...bodyStyle, padding: "0.85rem 0.75rem calc(1.5rem + env(safe-area-inset-bottom, 0px))" } : bodyStyle}>
           {phone && <div>{quick}</div>}
           {pc.hp_current === 0 && <DeathSaveTracker pc={pc} readOnly={readOnly} />}
-
-          {/* The generator is AI-only (Plan 86); without it this box was empty. */}
-          {!readOnly && AI_ON && (
-            <Section title="Portrait">
-              <PortraitGenerator
-                currentUrl={portraitSrc(pc.portrait_url, pc.updated_at) ?? null}
-                onGenerate={async (hints) => {
-                  const updated = await charactersApi.generatePortrait(
-                    characterId,
-                    hints,
-                  );
-                  invalidatePc();
-                  return updated.portrait_url ?? "";
-                }}
-              />
-            </Section>
-          )}
 
           <Section title="Ability scores">
             <AbilityBlock abilities={abilities} onRoll={setRollCtx} readOnly={readOnly} />

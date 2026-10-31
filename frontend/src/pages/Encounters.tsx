@@ -1,17 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Minus, Plus, Swords, X } from "lucide-react";
-import { AI_ON } from "../lib/flags";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { encountersApi } from "../api/encounters";
-import type { ThemedMonsterSuggestion } from "../api/encounters";
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
 import { monstersApi } from "../api/monsters";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Encounter, Monster, RosterEntry } from "../api/types";
 import DifficultyMeter from "../components/encounter-builder/DifficultyMeter";
-import SuggestionsPanel from "../components/encounter-builder/SuggestionsPanel";
 import { plural } from "../lib/plural";
 import RowMenu from "../components/RowMenu";
 import { useIsCompact } from "../hooks/useIsCompact";
@@ -191,47 +188,8 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
     staleTime: 30_000,
   });
 
-  function addSuggestion(s: ThemedMonsterSuggestion) {
-    setRoster((prev) => {
-      const existing = prev.find((r) => r.monster_id === s.monster_id);
-      if (existing) {
-        return prev.map((r) =>
-          r.monster_id === s.monster_id
-            ? { ...r, count: r.count + s.count }
-            : r,
-        );
-      }
-      // Pull monster details lazily — store what we know now; details
-      // for HP/AC come from the catalog when we display them, but the
-      // suggestion already carries enough for XP math + display.
-      return [
-        ...prev,
-        {
-          monster_id: s.monster_id,
-          count: s.count,
-          name: s.monster_name,
-          xp: s.xp,
-          cr: s.challenge_rating,
-          hp: 0,
-          ac: 0,
-        },
-      ];
-    });
-  }
-
-  function addAllSuggestions(items: ThemedMonsterSuggestion[]) {
-    items.forEach(addSuggestion);
-  }
-
   return (
     <div style={{ marginTop: "1rem" }}>
-      {/* Plan 31 — themed AI suggestions */}
-      {AI_ON && (<SuggestionsPanel
-        adventureId={adventureId}
-        onAdd={addSuggestion}
-        onAddAll={addAllSuggestions}
-      />)}
-
       {/* Plan 31 — live difficulty meter */}
       <div style={{ marginBottom: "0.75rem" }}>
         <DifficultyMeter preview={difficultyPreview} isLoading={previewLoading} />

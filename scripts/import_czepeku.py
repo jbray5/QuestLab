@@ -21,10 +21,6 @@ Examples:
     # Any exact file also works
     python scripts/import_czepeku.py --file "maps/Windmill Farm/WindmillFarm_Night.jpeg"
 
-    # Optional GPT restyle before upload (lossy: output is 1536x1024)
-    python scripts/import_czepeku.py --pack Windmill --variant Day \\
-        --restyle "make it autumnal, fey-touched, amber leaves"
-
     # Animated loops (Plan 71): MP4s in maps/Animated become video maps.
     # Dimensions come from the MP4 header; the poster is a generated
     # title card unless --poster points at a still.
@@ -178,22 +174,6 @@ def _optimize(path: Path) -> tuple[bytes, int, int]:
     return buf.getvalue(), img.width, img.height
 
 
-def _restyle(data: bytes, prompt: str) -> tuple[bytes, int, int]:
-    """GPT edit pass (lossy — 1536x1024 output). Requires OPENAI_API_KEY."""
-    from dotenv import load_dotenv
-
-    load_dotenv(_ROOT / ".env")
-    from integrations.openai_client import edit_image
-
-    full = (
-        f"{prompt}. Keep the same top-down battle-map layout and scale. "
-        "Bright, evenly lit painterly cartography — do NOT darken the scene."
-    )
-    out = edit_image(full, data, size="1536x1024", quality="high")
-    img = Image.open(io.BytesIO(out))
-    return out, img.width, img.height
-
-
 def main() -> None:
     """CLI entry point."""
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -203,7 +183,6 @@ def main() -> None:
     ap.add_argument("--file", help="exact path to one image (overrides pack/variant)")
     ap.add_argument("--name", help="battle map name (default: prettified filename)")
     ap.add_argument("--grid", type=int, help="grid size in px, if known")
-    ap.add_argument("--restyle", help="GPT edit prompt applied before upload (lossy)")
     ap.add_argument("--poster", help="still image to use as the poster for an animated map")
     ap.add_argument("--campaign", default=DEFAULT_CAMPAIGN_ID)
     ap.add_argument("--api", default=os.environ.get("QUESTLAB_API", DEFAULT_API_BASE))
@@ -284,11 +263,6 @@ def main() -> None:
 
     data, width, height = _optimize(src)
     print(f"Optimized: {width}x{height}, {len(data) / 1e6:.1f} MB")
-
-    if args.restyle:
-        print(f"Restyling via GPT: {args.restyle!r} …")
-        data, width, height = _restyle(data, args.restyle)
-        print(f"Restyled: {width}x{height}, {len(data) / 1e6:.1f} MB")
 
     name = args.name or _prettify(src.stem)
     if args.dry_run:

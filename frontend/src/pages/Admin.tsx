@@ -4,7 +4,6 @@ import { Check, Download, LayoutDashboard, Skull } from "lucide-react";
 import { adminApi } from "../api/admin";
 import { useAuthStore } from "../stores/useAuthStore";
 import { plural } from "../lib/plural";
-import { AI_ON } from "../lib/flags";
 import { useIsCompact } from "../hooks/useIsCompact";
 
 const TABS = [
@@ -96,7 +95,7 @@ export default function Admin() {
             <div className="card">
               <h4>System</h4>
               <p style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
-                FastAPI backend · DuckDB{AI_ON ? " · Claude AI" : ""}
+                FastAPI backend · DuckDB
               </p>
             </div>
           </div>

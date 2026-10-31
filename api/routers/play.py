@@ -18,7 +18,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import ValidationError
 
-from api.deps import DB, PlayPcId, gate_ai_for_pc
+from api.deps import DB, PlayPcId
 from domain.arena import (
     ArenaActBody,
     ArenaBossBody,
@@ -29,7 +29,6 @@ from domain.arena import (
     TurnKit,
 )
 from domain.character import (
-    HeroLockBody,
     NoSpellSlotError,
     PlayerCastBody,
     PlayerCharacter,
@@ -338,12 +337,12 @@ def patch_state(pc_id: PlayPcId, body: dict, db: DB) -> PlayerCharacter:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
-# ── Character Forge (Plan 48) ─────────────────────────────────────────────────
+# ── Gear and appearance (Plan 48) ─────────────────────────────────────────────
 
 
 @router.get("/play/{pc_id}/gear")
 def list_gear(pc_id: PlayPcId, db: DB) -> list[dict]:
-    """Inventory joined with item details for the Forge equipment list.
+    """Inventory joined with item details for the paper-doll equipment list.
 
     Args:
         pc_id: UUID of the player character.
@@ -401,33 +400,6 @@ def set_equipped(pc_id: PlayPcId, character_item_id: uuid.UUID, body: dict, db: 
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-
-
-@router.post("/play/{pc_id}/hero")
-def forge_hero(pc_id: PlayPcId, db: DB) -> dict:
-    """Generate the base character model (appearance-only, 90s cooldown).
-
-    Args:
-        pc_id: UUID of the player character.
-        db: Database session.
-
-    Returns:
-        ``{"hero_url": <url>}``.
-    """
-    gate_ai_for_pc(db, pc_id, "art")  # Plan 73 — charged to the campaign owner
-    try:
-        return player_service.forge_hero(db, pc_id)
-    except ValueError as exc:
-        # The cooldown message is a throttle, not a missing resource.
-        if "forge is still glowing" in str(exc):
-            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc))
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Hero generation failed: {exc}"
-        )
 
 
 @router.get("/play/join/{campaign_id}/options", response_model=BuilderOptions)
@@ -526,79 +498,6 @@ def throw_dice(pc_id: PlayPcId, body: PlayerRollBody, db: DB) -> dict:
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-
-
-@router.post("/play/{pc_id}/identity/lock")
-def set_hero_lock(pc_id: PlayPcId, body: HeroLockBody, db: DB) -> dict:
-    """Pin or unpin the PC's golden base render (Plan 62 follow-up).
-
-    Args:
-        pc_id: UUID of the player character (capability URL).
-        body: ``{"locked": bool}``.
-        db: Database session.
-
-    Returns:
-        ``{"hero_locked": bool}``.
-    """
-    try:
-        return player_service.set_hero_lock(db, pc_id, body.locked)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
-
-
-@router.post("/play/{pc_id}/identity")
-def forge_identity(pc_id: PlayPcId, db: DB) -> dict:
-    """Run the full identity chain: model → dressed → portrait + minifig.
-
-    One look, every surface (Plan 62). 90s cooldown shared with the other
-    forge actions.
-
-    Args:
-        pc_id: UUID of the player character.
-        db: Database session.
-
-    Returns:
-        ``{"hero_url", "loadout_url", "portrait_url", "figure_url"}``.
-    """
-    gate_ai_for_pc(db, pc_id, "art")  # Plan 73 — charged to the campaign owner
-    try:
-        return player_service.forge_identity(db, pc_id)
-    except ValueError as exc:
-        if "forge is still glowing" in str(exc):
-            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc))
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Identity forge failed: {exc}"
-        )
-
-
-@router.post("/play/{pc_id}/loadout")
-def dress_model(pc_id: PlayPcId, db: DB) -> dict:
-    """Render the character wearing their equipped gear (90s cooldown).
-
-    Args:
-        pc_id: UUID of the player character.
-        db: Database session.
-
-    Returns:
-        ``{"loadout_url": <url>}``.
-    """
-    gate_ai_for_pc(db, pc_id, "art")  # Plan 73 — charged to the campaign owner
-    try:
-        return player_service.dress_model(db, pc_id)
-    except ValueError as exc:
-        if "forge is still glowing" in str(exc):
-            raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc))
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Loadout render failed: {exc}"
-        )
 
 
 @router.post("/play/{pc_id}/buy")

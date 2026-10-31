@@ -106,13 +106,6 @@ class ShopItemUpdate(BaseModel):
     sort_order: Optional[int] = None
 
 
-class ShopStockRequest(BaseModel):
-    """AI stocking request — concept prompt + how many items to invent."""
-
-    concept: Optional[str] = None
-    count: int = PField(default=10, ge=1, le=24)
-
-
 class ShopRead(BaseModel):
     """DM-side shop summary (includes the stocked-item count)."""
 

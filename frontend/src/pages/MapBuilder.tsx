@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AI_ON } from "../lib/flags";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -19,7 +18,6 @@ import {
   Plus,
   Save,
   Skull,
-  Sparkles,
   Square,
   Swords,
   TriangleAlert,
@@ -916,12 +914,10 @@ export default function MapBuilder() {
   const [newMapScale, setNewMapScale] = useState<MapScale>("Dungeon");
   const [newNodeLabel, setNewNodeLabel] = useState("");
   const [newNodeType, setNewNodeType] = useState<NodeType>("Room");
-  const [worldPrompt, setWorldPrompt] = useState("");
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
   const [addNodeError, setAddNodeError] = useState<string | null>(null);
-  const [generateError, setGenerateError] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedEdge, setSelectedEdge] = useState<Edge | null>(null);
   const [savingNode, setSavingNode] = useState(false);
@@ -1019,18 +1015,6 @@ export default function MapBuilder() {
       setNewNodeLabel("");
     },
     onError: (err: Error) => setAddNodeError(err.message),
-  });
-
-  const generateWorldMut = useMutation({
-    mutationFn: () => mapsApi.generateWorld(selectedMapId!, worldPrompt),
-    onSuccess: (result) => {
-      setGenerateError(null);
-      setNodes(result.nodes.map((n) => toFlowNode(n, selectedMapScale, encounters)));
-      setEdges(result.edges.map(toFlowEdge));
-      qc.invalidateQueries({ queryKey: ["map-nodes", selectedMapId] });
-      qc.invalidateQueries({ queryKey: ["map-edges", selectedMapId] });
-    },
-    onError: (err: Error) => setGenerateError(err.message),
   });
 
   const addEdgeMut = useMutation({
@@ -1171,7 +1155,6 @@ export default function MapBuilder() {
 
   const nodeTypeOptions = selectedMapScale === "World" ? WORLD_NODE_TYPES : DUNGEON_NODE_TYPES;
   const isDungeon = selectedMapScale === "Dungeon";
-  const isGenerating = generateWorldMut.isPending;
   const isEmpty = nodes.length === 0 && mapNodes.length === 0;
   const canvasBg = isDungeon ? "var(--bg)" : "var(--surface)";
   const selectedMap = maps.find((m) => m.id === selectedMapId) ?? null;
@@ -1288,44 +1271,6 @@ export default function MapBuilder() {
             </p>
           )}
 
-          {/* ── AI Generate panel (World maps only) ───────────────────── */}
-          {AI_ON && !isDungeon && (isEmpty || nodes.length > 0) && (
-            <div className="card">
-              <div className="flex gap-2" style={{ alignItems: "flex-end", flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: phone ? 0 : 240, flexBasis: phone ? "100%" : undefined }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                    <Sparkles size={14} aria-hidden /> Generate a world map
-                  </label>
-                  <textarea
-                    value={worldPrompt}
-                    onChange={(e) => setWorldPrompt(e.target.value)}
-                    rows={phone ? 4 : 2}
-                    placeholder="e.g. A dark fantasy continent ruled by rival undead empires…"
-                    style={{ fontSize: "0.9rem", resize: "vertical" }}
-                  />
-                </div>
-                <button
-                  className="btn btn-primary"
-                  onClick={() => generateWorldMut.mutate()}
-                  disabled={isGenerating || !worldPrompt.trim()}
-                  style={{ marginBottom: "0.1rem" }}
-                >
-                  {isGenerating ? "Generating…" : "Generate world"}
-                </button>
-              </div>
-              {isGenerating && (
-                <p className="text-sm text-muted" style={{ marginTop: "0.5rem" }}>
-                  Claude is building your world — this takes about 15 seconds…
-                </p>
-              )}
-              {generateError && (
-                <p className="text-sm" style={{ color: "var(--danger-text)", marginTop: "0.5rem" }}>
-                  Couldn&rsquo;t generate: {generateError}
-                </p>
-              )}
-            </div>
-          )}
-
           {/* ── Toolbar ────────────────────────────────────────────────── */}
           <div className="flex gap-2" style={{ flexWrap: "wrap", alignItems: "center" }}>
             <input
@@ -1422,11 +1367,9 @@ export default function MapBuilder() {
                     ? phone
                       ? "Add rooms above. Drawing doors between them needs a bigger screen."
                       : "Add rooms above to start your dungeon, then drag from one room's edge handle to another to draw a door."
-                    : AI_ON
-                      ? "Describe your world above and choose Generate world, or add places yourself."
-                      : phone
-                        ? "Add places above. Drawing roads between them needs a bigger screen."
-                        : "Add places above, then drag from one place to another to draw a road."}
+                    : phone
+                      ? "Add places above. Drawing roads between them needs a bigger screen."
+                      : "Add places above, then drag from one place to another to draw a road."}
                 </div>
               ) : nodes.length === 0 ? (
                 <div

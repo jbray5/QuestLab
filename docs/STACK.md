@@ -13,9 +13,11 @@
 | Dev/Test DB | DuckDB (in-memory or file) | Zero-config local setup. Tests run without Postgres. Never promoted to prod. |
 | Validation | Pydantic v2 | All domain models and external data boundaries validated. v2 for performance and strict mode. |
 
-## AI Integration
-- **Anthropic Claude API** (`anthropic` SDK 0.28+) — session runbook generation, NPC dialog, loot tables, encounter flavor text. Claude chosen for superior long-form narrative generation.
-- Model: `claude-opus-4-6` for generation tasks, `claude-haiku-4-5-20251001` for fast autocomplete tasks.
+## No generative AI
+QuestLab ships no LLM or image-model integration. The Anthropic and OpenAI clients, the Patreon AI
+quotas and every generate button were removed in Plan 124 (decision: Plan 86, 2026-09-05). Runbooks,
+NPCs, maps and art are written by the DM, drawn by code (`tools/landing/gen_night_scene.py`, the
+sample map), or uploaded.
 
 ## Code Quality
 | Tool | Config | Enforcement |
@@ -41,6 +43,5 @@
 | Decision | Options | Chosen | Reason |
 |---|---|---|---|
 | ORM | SQLModel vs SQLAlchemy 2.x | SQLModel | Pydantic integration, less boilerplate |
-| AI | OpenAI / Anthropic | Anthropic | User requirement; better long-form narrative |
 | UI (MVP) | Streamlit / FastAPI+React | Streamlit | Fastest path to working MVP |
 | Test DB | Postgres / DuckDB / SQLite | DuckDB | Fast, zero-config, SQL-compatible |

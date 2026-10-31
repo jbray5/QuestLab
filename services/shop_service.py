@@ -16,7 +16,7 @@ from db.repos.item_repo import ItemRepo
 from db.repos.shop_repo import ShopItemRepo, ShopRepo
 from domain.campaign import Campaign
 from domain.enums import ItemRarity
-from domain.item import Item, ItemCreate, ItemUpdate
+from domain.item import Item, ItemCreate
 from domain.shop import (
     MarketRead,
     MarketShop,
@@ -32,10 +32,7 @@ from domain.shop import (
     StorefrontItem,
     StorefrontRead,
 )
-from integrations import blob_storage
-from integrations.openai_client import generate_image
-from services import ai_service, campaign_service
-from services.art_direction import HOUSE_STYLE
+from services import campaign_service
 from services.auth_service import catalog_visible
 
 logger = logging.getLogger(__name__)
@@ -302,160 +299,6 @@ def remove_item(db: DBSession, shop_id: uuid.UUID, shop_item_id: uuid.UUID, dm_e
     if row is None or row.shop_id != shop_id:
         raise ValueError(f"Shop item {shop_item_id} not found.")
     ShopItemRepo.delete(db, row)
-
-
-_RARITY_ALIASES = {
-    "common": ItemRarity.COMMON,
-    "uncommon": ItemRarity.UNCOMMON,
-    "rare": ItemRarity.RARE,
-    "veryrare": ItemRarity.VERY_RARE,
-    "very rare": ItemRarity.VERY_RARE,
-    "legendary": ItemRarity.LEGENDARY,
-    "artifact": ItemRarity.ARTIFACT,
-}
-
-
-def stock_shop(
-    db: DBSession,
-    shop_id: uuid.UUID,
-    dm_email: str,
-    concept: Optional[str] = None,
-    count: int = 10,
-) -> StorefrontRead:
-    """AI-stock a shop: invent keeper + blurb + priced inventory (Plan 47).
-
-    Existing stock is kept; new items append after it. Catalog items are
-    reused by name so art is shared. Keeper/blurb/location fill in only if
-    currently empty (the DM's own flavor wins).
-
-    Args:
-        db: Active database session.
-        shop_id: UUID of the shop.
-        dm_email: Email of the requesting DM.
-        concept: Optional concept prompt ("fey curiosities, festival week").
-        count: Number of items to invent (1-24).
-
-    Returns:
-        The refreshed storefront.
-    """
-    shop = _get_owned_shop(db, shop_id, dm_email)
-    campaign = CampaignRepo.get_by_id(db, shop.campaign_id)
-    generated = ai_service.generate_shop_stock(
-        campaign_name=campaign.name if campaign else "",
-        campaign_setting=campaign.setting if campaign else "",
-        campaign_tone=campaign.tone if campaign else "",
-        shop_name=shop.name,
-        concept=concept,
-        count=count,
-    )
-    if not shop.keeper and generated.keeper:
-        shop.keeper = generated.keeper[:200]
-    if not shop.blurb and generated.blurb:
-        shop.blurb = generated.blurb
-    if not shop.location and generated.location:
-        shop.location = generated.location[:200]
-    ShopRepo.save(db, shop)
-
-    order = ShopItemRepo.count_for_shop(db, shop.id)
-    for entry in generated.items:
-        rarity = _RARITY_ALIASES.get(entry.rarity.strip().lower(), ItemRarity.COMMON)
-        item = _find_or_create_item(
-            db,
-            ShopItemAdd(
-                name=entry.name,
-                item_type=entry.item_type or "Adventuring Gear",
-                rarity=rarity,
-                description=entry.description or None,
-                price_gp=entry.price_gp,
-            ),
-            dm_email,
-        )
-        ShopItemRepo.create(
-            db,
-            ShopItem(
-                shop_id=shop.id,
-                item_id=item.id,
-                price_gp=max(entry.price_gp, 0.0),
-                stock=entry.stock,
-                pitch=(entry.pitch or None) and entry.pitch[:500],
-                sort_order=order,
-            ),
-        )
-        order += 1
-    logger.info("Stocked shop %s with %d AI items", shop.id, len(generated.items))
-    return get_storefront(db, shop.id)
-
-
-def generate_item_image(
-    db: DBSession, shop_id: uuid.UUID, shop_item_id: uuid.UUID, dm_email: str
-) -> str:
-    """Generate catalog art for one stocked item via gpt-image-1 (Plan 47).
-
-    The image saves onto the catalog item, so every shop stocking it shares
-    the art.
-
-    Args:
-        db: Active database session.
-        shop_id: UUID of the shop (authz anchor).
-        shop_item_id: UUID of the shop_items row.
-        dm_email: Email of the requesting DM.
-
-    Returns:
-        The uploaded image URL.
-
-    Raises:
-        ValueError: If the row or catalog item does not exist.
-        RuntimeError: If generation or upload fails.
-    """
-    _get_owned_shop(db, shop_id, dm_email)
-    row = ShopItemRepo.get_by_id(db, shop_item_id)
-    if row is None or row.shop_id != shop_id:
-        raise ValueError(f"Shop item {shop_item_id} not found.")
-    item = ItemRepo.get_by_id(db, row.item_id)
-    if item is None:
-        raise ValueError(f"Item {row.item_id} not found.")
-
-    detail = (item.description or "").strip()[:400]
-    prompt = (
-        f"A single {item.name} — {item.item_type.lower()} from a fantasy world. "
-        f"{detail} One centered object as a shop display piece on a dark "
-        f"parchment background with a subtle vignette. {HOUSE_STYLE}. "
-        "No text, no watermark, no border, no hands."
-    )
-    png = generate_image(prompt, size="1024x1024", quality="medium")
-    url = blob_storage.upload(path=f"items/item-{item.id}.png", data=png, content_type="image/png")
-    ItemRepo.update(db, item, ItemUpdate(image_url=url))
-    logger.info("Generated item art for %s", item.id)
-    return url
-
-
-def generate_banner(db: DBSession, shop_id: uuid.UUID, dm_email: str) -> ShopRead:
-    """Generate storefront banner art for a shop via gpt-image-1 (Plan 47).
-
-    Args:
-        db: Active database session.
-        shop_id: UUID of the shop.
-        dm_email: Email of the requesting DM.
-
-    Returns:
-        The refreshed ShopRead with banner_url set.
-
-    Raises:
-        RuntimeError: If generation or upload fails.
-    """
-    shop = _get_owned_shop(db, shop_id, dm_email)
-    blurb = (shop.blurb or "a fantasy village shop").strip()[:300]
-    keeper = f" run by {shop.keeper}" if shop.keeper else ""
-    prompt = (
-        f'Storefront of "{shop.name}", {blurb}{keeper}. Fantasy village market street, '
-        "warm inviting light, hanging wooden sign, wares visible in the window, "
-        f"wide establishing shot. {HOUSE_STYLE}. "
-        f'The shop sign reads "{shop.name}". No watermark.'
-    )
-    png = generate_image(prompt, size="1536x1024", quality="medium")
-    url = blob_storage.upload(path=f"shops/shop-{shop.id}.png", data=png, content_type="image/png")
-    shop.banner_url = url
-    return _shop_read(db, ShopRepo.save(db, shop))
 
 
 def get_storefront(db: DBSession, shop_id: uuid.UUID) -> StorefrontRead:

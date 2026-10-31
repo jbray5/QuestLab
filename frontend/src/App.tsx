@@ -1,17 +1,18 @@
 import { lazy, Suspense } from "react";
-import { AI_ON } from "./lib/flags";
 import { Navigate, Routes, Route, useParams } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
-import PaywallModal from "./components/PaywallModal";
 import Lightbox from "./components/Lightbox";
 import PlayLinkGate from "./components/PlayLinkGate";
 import DmDock from "./components/dm/DmDock";
 
-// Eager — small, always-needed pages.
-import Layout from "./pages/Layout";
-import Dashboard from "./pages/Dashboard";
+// Eager — tiny and needed before anything else can render.
 import NotFound from "./pages/NotFound";
-import Welcome from "./pages/Welcome";
+
+// Plan 124 — the DM shell, the dashboard and sign-in load on demand too, so a
+// player opening /play or a visitor on /try downloads only what they see.
+const Layout = lazy(() => import("./pages/Layout"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Welcome = lazy(() => import("./pages/Welcome"));
 
 // Lazy — heavy / single-use pages. Code-split so a player on /play/{id}
 // doesn't pay for the HUD bundle, and so the Dashboard doesn't pay for
@@ -99,7 +100,6 @@ function PrepRedirect() {
 export default function App() {
   return (
     <>
-    {AI_ON && <PaywallModal />}
     <Lightbox />
     <DmDock />
     <Routes>
@@ -132,15 +132,15 @@ export default function App() {
       <Route path="/shop/:shopId" element={lazyRoute(<StorefrontView />)} />
 
       {/* Plan 35 — Landing / sign-in: standalone, no DM chrome */}
-      <Route path="/welcome" element={<Welcome />} />
+      <Route path="/welcome" element={lazyRoute(<Welcome />)} />
       {/* Plan 54 — public marketing/demo landing (the Reddit link) */}
       <Route path="/try" element={lazyRoute(<TryLanding />)} />
       {/* Plan 73 — public guide + terms */}
       <Route path="/guide" element={lazyRoute(<GuidePage />)} />
       <Route path="/terms" element={lazyRoute(<TermsPage />)} />
 
-      <Route path="/" element={<Layout />}>
-        <Route index element={<Dashboard />} />
+      <Route path="/" element={lazyRoute(<Layout />)}>
+        <Route index element={lazyRoute(<Dashboard />)} />
         <Route path="campaigns" element={lazyRoute(<Campaigns />)} />
         <Route
           path="campaigns/:campaignId/adventures"

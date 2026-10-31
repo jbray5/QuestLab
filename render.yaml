@@ -7,8 +7,8 @@
 # To deploy: connect this repo at https://dashboard.render.com → "New +" → "Blueprint",
 # then point at this file. See docs/deployment.md for the full walk-through.
 #
-# After the first successful deploy, set ANTHROPIC_API_KEY and CORS_ORIGINS
-# (the Vercel domain) in the dashboard. These are marked sync: false below
+# After the first successful deploy, set CORS_ORIGINS (the Vercel domain) and
+# the other sync: false values in the dashboard. These are marked sync: false below
 # so Render does not overwrite manual edits.
 
 services:
@@ -58,14 +58,9 @@ services:
           name: questlab-db
           property: password
       # Set these in the Render dashboard after first deploy
-      - key: ANTHROPIC_API_KEY
-        sync: false
       - key: BOOTSTRAP_ADMIN_EMAILS
         sync: false
       - key: CORS_ORIGINS
-        sync: false
-      # Plan 00034 — portrait generation. Leave blank to disable.
-      - key: OPENAI_API_KEY
         sync: false
       - key: BLOB_READ_WRITE_TOKEN
         sync: false

@@ -1,7 +1,7 @@
 """Auth router (Plan 73) — sign in with Discord or Patreon, signed sessions.
 
 Public: ``/auth/providers``, ``/auth/{provider}/start``, ``/auth/{provider}/callback``.
-Signed-in: ``/auth/me``, ``/auth/patreon/link``.
+Signed-in: ``/auth/me``.
 """
 
 import os
@@ -12,18 +12,9 @@ from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
 from api.deps import DB, CurrentUser
-from domain.user import (
-    AiPlan,
-    AiPlans,
-    AuthProviders,
-    LoginRequest,
-    SessionResponse,
-    SignupRequest,
-    UserRead,
-)
+from domain.user import AuthProviders, LoginRequest, SessionResponse, SignupRequest, UserRead
 from integrations import oauth
-from integrations.feature_flags import ai_features_enabled
-from services import auth_service, entitlement_service
+from services import auth_service
 
 router = APIRouter(tags=["auth"])
 
@@ -43,36 +34,16 @@ def _frontend_origin(request: Request) -> str:
 
 @router.get("/auth/providers", response_model=AuthProviders)
 def providers() -> AuthProviders:
-    """Which sign-in methods and AI policy this deployment runs.
+    """Which sign-in methods this deployment runs.
 
     Returns:
-        The provider list, auth mode, Patreon page, and AI gate mode.
+        The provider list, auth mode, and Patreon page.
     """
     return AuthProviders(
         providers=oauth.configured_providers(),
         password_signup=bool(os.environ.get("APP_SECRET", "").strip()),
         mode=auth_service.auth_mode(),
         patreon_url=os.environ.get("PATREON_URL", "").strip() or None,
-        ai_gate=entitlement_service.gate_mode(),
-    )
-
-
-@router.get("/auth/plans", response_model=AiPlans)
-def plans() -> AiPlans:
-    """The AI tier table (Plan 77) — public, for the paywall and the guide.
-
-    Returns:
-        Gate mode, the Patreon page, and every tier with price, allowance and scope.
-    """
-    if not ai_features_enabled():
-        # Plan 86 — no AI, so no AI tiers; Patreon is plain support.
-        return AiPlans(
-            gate="off", patreon_url=os.environ.get("PATREON_URL", "").strip() or None, plans=[]
-        )
-    return AiPlans(
-        gate=entitlement_service.gate_mode(),
-        patreon_url=os.environ.get("PATREON_URL", "").strip() or None,
-        plans=[AiPlan(**p) for p in entitlement_service.plans()],
     )
 
 
@@ -165,7 +136,7 @@ def login(body: LoginRequest, db: DB) -> SessionResponse:
 
 @router.get("/auth/me", response_model=UserRead)
 def me(db: DB, user: CurrentUser) -> UserRead:
-    """The signed-in DM's profile and AI entitlement.
+    """The signed-in DM's profile.
 
     Args:
         db: Database session.
@@ -182,22 +153,6 @@ def me(db: DB, user: CurrentUser) -> UserRead:
         if e.strip()
     }
     return _me(db, user, is_admin=user in admins)
-
-
-@router.get("/auth/patreon/link")
-def link_patreon(user: CurrentUser) -> RedirectResponse:
-    """Attach Patreon membership to the signed-in account.
-
-    Args:
-        user: Authenticated DM email.
-
-    Returns:
-        A 302 to Patreon's consent screen.
-    """
-    try:
-        return RedirectResponse(auth_service.start("patreon", link_email=user), status_code=302)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
 @router.get("/auth/dev-token")

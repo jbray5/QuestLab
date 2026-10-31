@@ -289,15 +289,15 @@ A single game session within an Adventure.
 ---
 
 ### session_runbooks
-AI-generated session runbook. One-to-one with Session (unique constraint on session_id).
+The DM's session runbook (scenes, read-aloud, notes). One-to-one with Session (unique constraint on session_id). Older rows may have been AI-generated before Plan 86; new ones start blank.
 
 | Column | Type | Nullable | Constraints | Notes |
 |---|---|---|---|---|
 | id | UUID | No | PK | |
 | session_id | UUID | No | FK → sessions.id, UNIQUE, INDEX | 1:1 with session |
-| model_used | VARCHAR(100) | No | | Claude model ID, e.g. claude-opus-4-6 |
+| model_used | VARCHAR(100) | No | | Where the runbook came from: `manual`, `starter`, or a model id on pre-Plan-86 rows |
 | opening_scene | TEXT | No | | Read-aloud opening text |
-| generated_at | TIMESTAMP | No | | UTC time of AI generation |
+| generated_at | TIMESTAMP | No | | UTC time the runbook was created |
 | closing_hooks | TEXT | Yes | | Adventure hooks for next session |
 | scenes | JSON | Yes | | `[{title, read_aloud, dm_notes, encounter_id}]` |
 | npc_dialog | JSON | Yes | | `[{npc_name, quotes:[str], improv_hooks:[str]}]` |

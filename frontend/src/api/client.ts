@@ -63,21 +63,15 @@ async function request<T>(
     // Plan 29 — dispatch a window event so the global ToastProvider can
     // surface transient API errors that callers don't explicitly handle.
     // 401s are noisy on first load (no DM email yet); skip them.
-    // Plan 73 — the AI paywall / quota answers with a structured detail;
-    // surface it as a dedicated event so one modal serves every AI button.
-    if (typeof window !== "undefined" && (res.status === 402 || res.status === 429) && detail && typeof detail === "object" && "code" in detail) {
-      if (detail.code === "rate_limited") {
-        // Plan 77 — per-IP throttle, not the paywall.
-        throw new Error("Slow down a moment — too many requests. Try again in a few seconds.");
-      }
-      window.dispatchEvent(new CustomEvent("ql:paywall", { detail }));
-      throw new Error(
-        detail.code === "daily_limit"
-          ? "Today's AI allowance is spent."
-          : detail.code === "tier_required"
-            ? "This needs a higher Patreon tier."
-            : "AI features are for QuestLab patrons.",
-      );
+    // Plan 77 — the per-IP throttle answers 429 with a structured detail.
+    if (
+      res.status === 429 &&
+      detail &&
+      typeof detail === "object" &&
+      "code" in detail &&
+      detail.code === "rate_limited"
+    ) {
+      throw new Error("Slow down a moment — too many requests. Try again in a few seconds.");
     }
     if (typeof window !== "undefined" && res.status === 401) {
       // Expired session, or (Plan 120) a browser still holding a bare email

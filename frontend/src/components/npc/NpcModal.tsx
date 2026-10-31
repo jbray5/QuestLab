@@ -9,7 +9,6 @@ import {
   type NpcCreate,
   npcsApi,
 } from "../../api/npcs";
-import PortraitGenerator from "../PortraitGenerator";
 import { portraitSrc } from "../../lib/portrait";
 import { tableApi } from "../../api/table";
 import { ObsidianNoteInput } from "../dm/ObsidianLink";
@@ -235,7 +234,7 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
           {/* ── PREP FACE — rich content the DM reads BEFORE a session ── */}
           <SectionHead title="Prep face" hint="the depth you read before the session, not at the table" />
 
-          {/* Portrait + AI generation (only for persisted NPCs) */}
+          {/* Portrait (only for persisted NPCs) */}
           {initial && (
             <Field label="Portrait">
               <ImageSlot
@@ -243,14 +242,6 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
                 stamp={initial?.updated_at}
                 empty="No portrait yet — upload one."
                 onChange={(url) => set("portrait_url", url)}
-              />
-              <PortraitGenerator
-                currentUrl={portraitSrc(form.portrait_url, initial?.updated_at) ?? null}
-                onGenerate={async (hints) => {
-                  const updated = await npcsApi.generatePortrait(initial.id, hints);
-                  set("portrait_url", updated.portrait_url);
-                  return updated.portrait_url ?? "";
-                }}
               />
             </Field>
           )}

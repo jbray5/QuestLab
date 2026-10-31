@@ -57,9 +57,10 @@ class PlayerCharacter(SQLModel, table=True):
     figure_url: Optional[str] = Field(default=None, max_length=500)
     # Plan 111 — a rigged 3D model (.glb) the immersive table walks for this PC.
     model_url: Optional[str] = Field(default=None, max_length=500)
-    # Plan 00048 — the player's own look: appearance notes they edit from
-    # the Character Forge, the full-body hero render, and the forge
-    # cooldown anchor (player-triggered paid generation).
+    # Plan 00048 — the player's own look: appearance notes they edit on the
+    # paper-doll, plus the full-body hero render and its timestamp. The forge
+    # that painted hero/loadout renders went in Plan 124; stored renders still
+    # show, and the columns stay.
     appearance: Optional[str] = None
     hero_url: Optional[str] = Field(default=None, max_length=500)
     # The "dressed" render: the base model painted wearing the equipped
@@ -357,12 +358,6 @@ class PlayerNotesBody(BaseModel):
     """The player's private notes (Plan 122)."""
 
     text: str = Field(default="", max_length=4000)
-
-
-class HeroLockBody(BaseModel):
-    """Request body for pinning/unpinning the base render (Plan 62)."""
-
-    locked: bool
 
 
 # ---------------------------------------------------------------------------

@@ -1,10 +1,9 @@
-"""Plan 48 tests — the Character Forge (player gear/appearance/hero).
+"""Plan 48 tests — the player's paper-doll: gear, appearance, consumables.
 
-Image + blob calls are monkeypatched on portrait_service; everything else
-(ownership scoping, cooldown, gear join) runs for real on DuckDB.
+The AI hero/loadout/identity forge went with generative AI in Plan 124; the
+gear join, equip scoping, appearance notes and slot derivation stay, and run
+for real on DuckDB.
 """
-
-from datetime import datetime, timezone
 
 import pytest
 from sqlmodel import Session
@@ -12,7 +11,6 @@ from sqlmodel import Session
 import services.inventory_service as inv_svc
 import services.item_service as item_svc
 import services.player_service as play_svc
-import services.portrait_service as portrait_svc
 from domain.character import CharacterItemCreate
 from domain.enums import ItemRarity
 from domain.item import ItemCreate
@@ -25,44 +23,6 @@ def _give_item(db, pc_id, dm, name="Longsword", equipped=False):
         db, ItemCreate(name=name, rarity=ItemRarity.COMMON, item_type="Weapon", value_gp=15)
     )
     return inv_svc.add_item(db, pc_id, CharacterItemCreate(item_id=item.id, equipped=equipped), dm)
-
-
-def _patch_hero_gen(monkeypatch):
-    """Stub the image + blob calls; capture the prompt."""
-    captured: dict = {}
-
-    def fake_generate_image(prompt, **kwargs):
-        captured["prompt"] = prompt
-        captured["kwargs"] = kwargs
-        return b"\x89PNGFAKE"
-
-    monkeypatch.setattr(portrait_svc, "generate_image", fake_generate_image)
-    monkeypatch.setattr(
-        portrait_svc.blob_storage,
-        "upload",
-        lambda *, path, data, content_type="image/png": f"https://fake.blob/{path}",
-    )
-    return captured
-
-
-def _patch_loadout_gen(monkeypatch):
-    """Stub download + edit_image + upload for the dressed-render path."""
-    captured: dict = {}
-
-    def fake_edit_image(prompt, image_bytes, **kwargs):
-        captured["prompt"] = prompt
-        captured["source"] = image_bytes
-        captured["kwargs"] = kwargs
-        return b"\x89DRESSED"
-
-    monkeypatch.setattr(portrait_svc, "edit_image", fake_edit_image)
-    monkeypatch.setattr(portrait_svc.blob_storage, "download", lambda url, **k: b"\x89BASE")
-    monkeypatch.setattr(
-        portrait_svc.blob_storage,
-        "upload",
-        lambda *, path, data, content_type="image/png": f"https://fake.blob/{path}",
-    )
-    return captured
 
 
 class TestGearAndAppearance:
@@ -123,37 +83,6 @@ class TestGearAndAppearance:
         assert updated.appearance.startswith("Storm-grey eyes.")
         assert len(updated.appearance) <= 1500
 
-
-class TestForgeHero:
-    """Hero generation: prompt content, persistence, cooldown."""
-
-    def test_forge_model_is_appearance_only_not_gear(self, duckdb_session: Session, monkeypatch):
-        """The model prompt carries identity + appearance but NOT equipped gear.
-
-        The persistent-model revision: equipping a sword must never change the
-        character render (gear lives in slots), so equipped item names stay out
-        of the prompt.
-        """
-        dm = _dm()
-        c = _campaign(duckdb_session, dm)
-        pc = _pc(duckdb_session, c.id, dm)
-        _give_item(duckdb_session, pc.id, dm, name="Moonblade", equipped=True)
-        play_svc.set_appearance(duckdb_session, pc.id, "Storm-grey eyes, ash-blonde braid")
-        captured = _patch_hero_gen(monkeypatch)
-
-        result = play_svc.forge_hero(duckdb_session, pc.id)
-
-        assert result["hero_url"] == f"https://fake.blob/heroes/pc-{pc.id}.png"
-        assert "Hero" in captured["prompt"]
-        assert "Storm-grey eyes" in captured["prompt"]
-        assert "Moonblade" not in captured["prompt"]
-        assert captured["kwargs"].get("size") == "1024x1536"
-        # Plan 62: transparency now comes from the magenta chroma key,
-        # not the API background param.
-        assert "#FF00FF" in captured["prompt"]
-        refreshed = play_svc.get_character(duckdb_session, pc.id)
-        assert refreshed.hero_url == result["hero_url"]
-
     def test_gear_slot_derivation(self, duckdb_session: Session):
         """Names map to the expected paper-doll slots; consumables get None."""
         assert play_svc._equip_slot("Weapon", "Longsword") == "main_hand"
@@ -165,110 +94,6 @@ class TestForgeHero:
         assert play_svc._equip_slot("Adventuring Gear", "Leather Boots") == "feet"
         assert play_svc._equip_slot("Potion", "Potion of Healing") is None
         assert play_svc._equip_slot("Provisions", "Bramblecrust Loaf") is None
-
-    def test_forge_cooldown_blocks_rapid_regen(self, duckdb_session: Session, monkeypatch):
-        """A second forge inside the window raises with the wait message."""
-        dm = _dm()
-        c = _campaign(duckdb_session, dm)
-        pc = _pc(duckdb_session, c.id, dm)
-        _patch_hero_gen(monkeypatch)
-
-        play_svc.forge_hero(duckdb_session, pc.id)
-
-        with pytest.raises(ValueError, match="forge is still glowing"):
-            play_svc.forge_hero(duckdb_session, pc.id)
-
-    def test_forge_allowed_after_cooldown(self, duckdb_session: Session, monkeypatch):
-        """A stale hero_generated_at lets the forge run again."""
-        from db.repos.character_repo import CharacterRepo
-        from domain.character import PlayerCharacterUpdate
-
-        dm = _dm()
-        c = _campaign(duckdb_session, dm)
-        pc = _pc(duckdb_session, c.id, dm)
-        _patch_hero_gen(monkeypatch)
-        play_svc.forge_hero(duckdb_session, pc.id)
-        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
-        CharacterRepo.update(
-            duckdb_session,
-            row,
-            PlayerCharacterUpdate(hero_generated_at=datetime(2020, 1, 1, tzinfo=timezone.utc)),
-        )
-
-        result = play_svc.forge_hero(duckdb_session, pc.id)
-
-        assert result["hero_url"].startswith("https://fake.blob/heroes/")
-
-
-class TestDressModel:
-    """The image-to-image 'gear on the model' render."""
-
-    def _base_pc(self, db, monkeypatch, *, stale=True):
-        """A PC with a base model already forged (cooldown cleared)."""
-        from db.repos.character_repo import CharacterRepo
-        from domain.character import PlayerCharacterUpdate
-
-        dm = _dm()
-        c = _campaign(db, dm)
-        pc = _pc(db, c.id, dm)
-        _patch_hero_gen(monkeypatch)
-        play_svc.forge_hero(db, pc.id)
-        if stale:
-            row = CharacterRepo.get_by_id(db, pc.id)
-            CharacterRepo.update(
-                db,
-                row,
-                PlayerCharacterUpdate(hero_generated_at=datetime(2020, 1, 1, tzinfo=timezone.utc)),
-            )
-        return dm, pc
-
-    def test_dress_edits_base_and_lists_equipped(self, duckdb_session: Session, monkeypatch):
-        """Dressing edits the base image with the equipped gear, keeps identity."""
-        dm, pc = self._base_pc(duckdb_session, monkeypatch)
-        _give_item(duckdb_session, pc.id, dm, name="Moonblade", equipped=True)
-        _give_item(duckdb_session, pc.id, dm, name="Bedroll", equipped=False)
-        captured = _patch_loadout_gen(monkeypatch)
-
-        result = play_svc.dress_model(duckdb_session, pc.id)
-
-        assert result["loadout_url"] == f"https://fake.blob/heroes/pc-{pc.id}-loadout.png"
-        assert captured["source"] == b"\x89BASE"  # base render fed to image-to-image
-        assert "Moonblade" in captured["prompt"]
-        assert "Bedroll" not in captured["prompt"]
-        assert "identical face" in captured["prompt"].lower()
-        assert "#FF00FF" in captured["prompt"]
-        refreshed = play_svc.get_character(duckdb_session, pc.id)
-        assert refreshed.loadout_url == result["loadout_url"]
-
-    def test_regen_base_clears_loadout(self, duckdb_session: Session, monkeypatch):
-        """Regenerating the base identity drops the stale dressed render."""
-        from db.repos.character_repo import CharacterRepo
-        from domain.character import PlayerCharacterUpdate
-
-        dm, pc = self._base_pc(duckdb_session, monkeypatch)
-        _patch_loadout_gen(monkeypatch)
-        play_svc.dress_model(duckdb_session, pc.id)
-        assert play_svc.get_character(duckdb_session, pc.id).loadout_url is not None
-        # Clear the cooldown, then regenerate the base identity.
-        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
-        CharacterRepo.update(
-            duckdb_session,
-            row,
-            PlayerCharacterUpdate(hero_generated_at=datetime(2020, 1, 1, tzinfo=timezone.utc)),
-        )
-        _patch_hero_gen(monkeypatch)
-
-        play_svc.forge_hero(duckdb_session, pc.id)
-
-        assert play_svc.get_character(duckdb_session, pc.id).loadout_url is None
-
-    def test_dress_cooldown_guarded(self, duckdb_session: Session, monkeypatch):
-        """A dress inside the cooldown window is rejected."""
-        dm, pc = self._base_pc(duckdb_session, monkeypatch, stale=False)
-        _patch_loadout_gen(monkeypatch)
-
-        with pytest.raises(ValueError, match="forge is still glowing"):
-            play_svc.dress_model(duckdb_session, pc.id)
 
 
 class TestUseItem:
@@ -364,171 +189,3 @@ class TestUseItem:
 
         assert receipt["effect"] == "temp_hp"
         assert receipt["target_temp_hp"] == 10  # 1d4 can't beat 10
-
-
-class TestIdentityForge:
-    """Plan 62 — portrait + minifig derived from the current render."""
-
-    def _pc_with_hero(self, db, monkeypatch):
-        """PC with a hero render and stubbed image/blob calls."""
-        captured: dict = {}
-
-        def fake_edit(prompt, image_bytes, **kwargs):
-            captured.setdefault("prompts", []).append(prompt)
-            return b"EDIT"
-
-        monkeypatch.setattr(portrait_svc, "edit_image", fake_edit)
-        monkeypatch.setattr(portrait_svc, "generate_image", lambda *a, **k: b"GEN")
-        monkeypatch.setattr(portrait_svc.blob_storage, "download", lambda url, **k: b"BASE")
-        monkeypatch.setattr(
-            portrait_svc.blob_storage,
-            "upload",
-            lambda *, path, data, content_type="image/png": f"https://fake.blob/{path}",
-        )
-        dm = _dm()
-        c = _campaign(duckdb_session := db, dm)
-        pc = _pc(duckdb_session, c.id, dm)
-        return pc, dm, captured
-
-    def test_derive_portrait_and_figure_from_render(self, duckdb_session, monkeypatch):
-        """Both derivations edit the SAME source render and persist URLs."""
-        from db.repos.character_repo import CharacterRepo
-        from domain.character import PlayerCharacterUpdate
-
-        pc, dm, captured = self._pc_with_hero(duckdb_session, monkeypatch)
-        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
-        CharacterRepo.update(
-            duckdb_session, row, PlayerCharacterUpdate(hero_url="https://fake.blob/heroes/x.png")
-        )
-        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
-
-        portrait_svc.derive_pc_portrait(duckdb_session, row)
-        duckdb_session.refresh(row)
-        portrait_svc.derive_pc_figure(duckdb_session, row)
-        duckdb_session.refresh(row)
-
-        assert row.portrait_url and "portraits/pc-" in row.portrait_url
-        assert row.figure_url and "figures/pc-" in row.figure_url
-        assert any("EXACT character" in pr for pr in captured["prompts"])
-
-    def test_derive_without_render_raises(self, duckdb_session, monkeypatch):
-        """No hero/loadout yet -> clear error, no API calls."""
-        import pytest as _pytest
-
-        from db.repos.character_repo import CharacterRepo
-
-        pc, dm, _ = self._pc_with_hero(duckdb_session, monkeypatch)
-        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
-        with _pytest.raises(ValueError):
-            portrait_svc.derive_pc_portrait(duckdb_session, row)
-
-    def test_forge_identity_chain(self, duckdb_session, monkeypatch):
-        """Chain: hero (absent) -> derive portrait + figure; one result set."""
-        pc, dm, captured = self._pc_with_hero(duckdb_session, monkeypatch)
-
-        out = play_svc.forge_identity(duckdb_session, pc.id)
-
-        assert out["hero_url"] and out["portrait_url"] and out["figure_url"]
-        # No gear equipped -> no loadout step.
-        assert out["loadout_url"] is None
-
-    def test_forge_identity_cooldown(self, duckdb_session, monkeypatch):
-        """Second forge inside 90s raises the glowing-forge error."""
-        import pytest as _pytest
-
-        pc, dm, _ = self._pc_with_hero(duckdb_session, monkeypatch)
-        play_svc.forge_identity(duckdb_session, pc.id)
-        with _pytest.raises(ValueError, match="forge is still glowing"):
-            play_svc.forge_identity(duckdb_session, pc.id)
-
-
-class TestForgeQcGate:
-    """Plan 62 — vision QC catches a bad roll and retries with corrections."""
-
-    def test_hero_retries_once_on_qc_failure(self, duckdb_session, monkeypatch):
-        """First render fails QC -> exactly one corrected regeneration."""
-        prompts: list[str] = []
-
-        def fake_generate(prompt, **kwargs):
-            prompts.append(prompt)
-            return b"GENPNG"
-
-        monkeypatch.setattr(portrait_svc, "generate_image", fake_generate)
-        monkeypatch.setattr(
-            portrait_svc.blob_storage,
-            "upload",
-            lambda *, path, data, content_type="image/png": f"https://fake.blob/{path}",
-        )
-        verdicts = iter([["the figure holds a lute"], []])
-        monkeypatch.setattr(portrait_svc, "_qc_cutout", lambda png, checklist: next(verdicts, []))
-        dm = _dm()
-        c = _campaign(duckdb_session, dm)
-        pc = _pc(duckdb_session, c.id, dm)
-
-        play_svc.forge_hero(duckdb_session, pc.id)
-
-        assert len(prompts) == 2
-        assert "CORRECTIONS" in prompts[1]
-        assert "lute" in prompts[1]
-
-    def test_qc_is_fail_open(self, duckdb_session, monkeypatch):
-        """QC blowing up never blocks the forge."""
-        monkeypatch.setattr(portrait_svc, "generate_image", lambda *a, **k: b"GENPNG")
-        monkeypatch.setattr(
-            portrait_svc.blob_storage,
-            "upload",
-            lambda *, path, data, content_type="image/png": f"https://fake.blob/{path}",
-        )
-
-        def boom(**kwargs):
-            raise RuntimeError("vision down")
-
-        monkeypatch.setattr(portrait_svc, "_QC_INSPECT", boom)
-        dm = _dm()
-        c = _campaign(duckdb_session, dm)
-        pc = _pc(duckdb_session, c.id, dm)
-
-        out = play_svc.forge_hero(duckdb_session, pc.id)
-        assert out["hero_url"]
-
-
-class TestHeroLock:
-    """Golden base models (Plan 62 follow-up): the pinned render."""
-
-    def test_lock_requires_existing_hero(self, duckdb_session: Session):
-        dm = _dm()
-        pc = _pc(duckdb_session, _campaign(duckdb_session, dm).id, dm)
-        with pytest.raises(ValueError, match="nothing to lock"):
-            play_svc.set_hero_lock(duckdb_session, pc.id, True)
-
-    def test_locked_hero_refuses_reroll(self, duckdb_session: Session, monkeypatch):
-        dm = _dm()
-        pc = _pc(duckdb_session, _campaign(duckdb_session, dm).id, dm)
-        from db.repos.character_repo import CharacterRepo
-        from domain.character import PlayerCharacterUpdate
-
-        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
-        CharacterRepo.update(
-            duckdb_session, row, PlayerCharacterUpdate(hero_url="https://blob/x.png")
-        )
-        assert play_svc.set_hero_lock(duckdb_session, pc.id, True) == {"hero_locked": True}
-        with pytest.raises(ValueError, match="locked"):
-            play_svc.forge_hero(duckdb_session, pc.id)
-
-    def test_unlock_restores_reroll(self, duckdb_session: Session, monkeypatch):
-        dm = _dm()
-        pc = _pc(duckdb_session, _campaign(duckdb_session, dm).id, dm)
-        from db.repos.character_repo import CharacterRepo
-        from domain.character import PlayerCharacterUpdate
-        from services import portrait_service
-
-        row = CharacterRepo.get_by_id(duckdb_session, pc.id)
-        CharacterRepo.update(
-            duckdb_session, row, PlayerCharacterUpdate(hero_url="https://blob/x.png")
-        )
-        play_svc.set_hero_lock(duckdb_session, pc.id, True)
-        play_svc.set_hero_lock(duckdb_session, pc.id, False)
-        monkeypatch.setattr(
-            portrait_service, "generate_pc_hero", lambda db, p: "https://blob/new.png"
-        )
-        assert play_svc.forge_hero(duckdb_session, pc.id) == {"hero_url": "https://blob/new.png"}

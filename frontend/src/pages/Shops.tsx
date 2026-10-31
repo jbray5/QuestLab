@@ -6,12 +6,9 @@ import {
   EyeOff,
   ExternalLink,
   Link2,
-  Palette,
   Plus,
-  Sparkles,
   Store,
 } from "lucide-react";
-import { AI_ON } from "../lib/flags";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -29,8 +26,7 @@ import { word } from "../lib/plural";
  * Shops — the DM's marketplace manager (Plan 47), campaigns/:campaignId/shops.
  *
  * Create shops, stock them, tune prices/stock and copy the player-facing
- * capability links (/market, /shop/...). With AI features on, it can also
- * stock a shop and paint item and banner art. Lamplit + phones: Plan 123.
+ * capability links (/market, /shop/...). Lamplit + phones: Plan 123.
  */
 
 function playerUrl(path: string): string {
@@ -74,7 +70,6 @@ function ItemRow({
 }) {
   const [price, setPrice] = useState(String(item.price_gp));
   const [stock, setStock] = useState(item.stock === null || item.stock === undefined ? "" : String(item.stock));
-  const [busy, setBusy] = useState(false);
 
   const save = async () => {
     const priceNum = Number(price);
@@ -86,23 +81,6 @@ function ItemRow({
   };
 
   const menu: RowMenuItem[] = [
-    ...(AI_ON
-      ? [
-          {
-            label: busy ? "Painting…" : "Paint item art",
-            disabled: busy,
-            onSelect: async () => {
-              setBusy(true);
-              try {
-                await shopsApi.generateItemImage(shopId, item.shop_item_id);
-                onChanged();
-              } finally {
-                setBusy(false);
-              }
-            },
-          },
-        ]
-      : []),
     {
       label: "Remove from shop",
       danger: true,
@@ -227,9 +205,6 @@ function ItemRow({
 function ShopCard({ shop, phone, onChanged }: { shop: ShopRead; phone: boolean; onChanged: () => void }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [stockBusy, setStockBusy] = useState(false);
-  const [bannerBusy, setBannerBusy] = useState(false);
-  const [artBusy, setArtBusy] = useState<string | null>(null);
   const [newItem, setNewItem] = useState("");
 
   const storefrontKey = ["storefront", shop.id];
@@ -244,7 +219,6 @@ function ShopCard({ shop, phone, onChanged }: { shop: ShopRead; phone: boolean; 
   };
 
   const items = storefront?.items ?? [];
-  const missingArt = items.filter((i) => !i.image_url);
 
   const menu: RowMenuItem[] = [
     {
@@ -254,23 +228,6 @@ function ShopCard({ shop, phone, onChanged }: { shop: ShopRead; phone: boolean; 
         onChanged();
       },
     },
-    ...(AI_ON
-      ? [
-          {
-            label: bannerBusy ? "Painting the banner…" : "Paint a banner",
-            disabled: bannerBusy,
-            onSelect: async () => {
-              setBannerBusy(true);
-              try {
-                await shopsApi.generateBanner(shop.id);
-                onChanged();
-              } finally {
-                setBannerBusy(false);
-              }
-            },
-          },
-        ]
-      : []),
     {
       label: "Delete shop",
       danger: true,
@@ -334,58 +291,6 @@ function ShopCard({ shop, phone, onChanged }: { shop: ShopRead; phone: boolean; 
         <a className="btn btn-ghost" href={`/shop/${shop.id}`} target="_blank" rel="noreferrer">
           <ExternalLink size={16} /> Preview
         </a>
-        {AI_ON && (
-          <button
-            type="button"
-            className="btn btn-ghost"
-            disabled={stockBusy}
-            title="Stock with AI: keeper, blurb and a priced inventory"
-            onClick={async () => {
-              const concept =
-                window.prompt("Shop concept for the AI (blank = infer from the name):", "") ?? undefined;
-              const countRaw = window.prompt("How many items?", "10");
-              if (countRaw === null) return;
-              setStockBusy(true);
-              setOpen(true);
-              try {
-                await shopsApi.stock(shop.id, concept || undefined, Math.min(24, Math.max(1, Number(countRaw) || 10)));
-                refresh();
-              } finally {
-                setStockBusy(false);
-              }
-            }}
-          >
-            <Sparkles size={16} /> {stockBusy ? "Stocking…" : "Stock with AI"}
-          </button>
-        )}
-        {AI_ON && open && missingArt.length > 0 && (
-          <button
-            type="button"
-            className="btn btn-ghost"
-            disabled={artBusy !== null}
-            title="Paint art for every item that has none (one at a time)"
-            onClick={async () => {
-              for (const item of missingArt) {
-                setArtBusy(item.name);
-                try {
-                  await shopsApi.generateItemImage(shop.id, item.shop_item_id);
-                } catch {
-                  // keep going — one failed image shouldn't stop the batch
-                }
-                void qc.invalidateQueries({ queryKey: storefrontKey });
-              }
-              setArtBusy(null);
-              refresh();
-            }}
-          >
-            <Palette size={16} />
-            {artBusy ? `${artBusy}…` : (
-              <>
-                Paint art for <span className="num">{missingArt.length}</span>
-              </>
-            )}
-          </button>
-        )}
       </div>
       {open && (
         <div style={{ marginTop: "0.9rem" }}>
@@ -479,7 +384,6 @@ export default function Shops() {
           <p className="text-sm text-muted" style={{ margin: 0, maxWidth: 640 }}>
             Players browse the market on their phones. Send them the market link, or one shop&rsquo;s
             link when they step inside.
-            {AI_ON && " Stock with AI invents the keeper and a priced inventory; it can paint item art too."}
           </p>
         </div>
         <div className="ql-actions">

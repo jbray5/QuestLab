@@ -87,10 +87,6 @@ export const npcsApi = {
   get: (id: string) => api.get<Npc>(`/npcs/${id}`),
   update: (id: string, data: NpcUpdate) => api.patch<Npc>(`/npcs/${id}`, data),
   delete: (id: string) => api.delete(`/npcs/${id}`),
-  generate: (campaignId: string, role: string, save = true) =>
-    api.post<Npc>(`/campaigns/${campaignId}/npcs/generate`, { role, save }),
-  generatePortrait: (id: string, styleHints?: string) =>
-    api.post<Npc>(`/npcs/${id}/portrait`, { style_hints: styleHints ?? null }),
 };
 
 export const NPC_STATUS_COLORS: Record<NpcStatus, string> = {

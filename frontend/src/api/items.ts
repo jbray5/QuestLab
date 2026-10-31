@@ -30,10 +30,6 @@ export interface ItemListParams {
   item_type?: string;
 }
 
-export interface LoreRequest {
-  adventure_id?: string;
-}
-
 export const itemsApi = {
   list: (params?: ItemListParams) => {
     const qs = new URLSearchParams();
@@ -44,8 +40,6 @@ export const itemsApi = {
     return api.get<MagicItem[]>(`/items${query ? `?${query}` : ""}`);
   },
   get: (id: string) => api.get<MagicItem>(`/items/${id}`),
-  generateLore: (id: string, body: LoreRequest = {}) =>
-    api.post<{ lore: string }>(`/items/${id}/lore`, body),
   updateImage: (id: string, image_url: string) =>
     api.patch<MagicItem>(`/items/${id}`, { image_url }),
   // ── Weapons (Plan 00018) ──────────────────────────────────────────────

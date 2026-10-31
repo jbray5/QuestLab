@@ -2,8 +2,6 @@
 
 Rules enforced here:
 - A DM must own the parent campaign to manage NPCs in it.
-- AI generation reuses ``ai_service.generate_npc`` and persists the result
-  (unless the caller asks for a preview-only response).
 
 NPCs are story entities — combat stats are optional via a link to a
 Monster row. There is intentionally no embedded statblock.
@@ -16,7 +14,6 @@ import uuid
 from sqlmodel import Session
 
 from db.repos.campaign_repo import CampaignRepo
-from db.repos.character_repo import CharacterRepo
 from db.repos.npc_repo import NpcRepo
 from domain.npc import Npc, NpcCreate, NpcRead, NpcUpdate
 
@@ -171,80 +168,10 @@ def delete_npc(session: Session, npc_id: uuid.UUID, dm_email: str) -> None:
     NpcRepo.delete(session, npc)
 
 
-# ── AI generation ─────────────────────────────────────────────────────────────
-
-
-def generate_npc_from_ai(
-    session: Session,
-    campaign_id: uuid.UUID,
-    dm_email: str,
-    role: str,
-    save: bool = True,
-) -> NpcRead:
-    """Generate an NPC via Claude and (optionally) persist it.
-
-    Uses the existing ``ai_service.generate_npc`` to fill in name,
-    appearance, personality, secret, and dialog hooks. The DM still owns
-    the campaign — this just saves typing.
-
-    Args:
-        session: Active database session.
-        campaign_id: UUID of the parent campaign.
-        dm_email: Email of the requesting DM.
-        role: Role hint (e.g. "innkeeper", "corrupt guard captain").
-        save: If True, persist the result; if False, return as a
-            preview (UUID is freshly generated but not in the DB).
-
-    Returns:
-        NpcRead of the generated (and possibly persisted) NPC.
-    """
-    from services import ai_service
-
-    _assert_campaign_owner(session, campaign_id, dm_email)
-    campaign = CampaignRepo.get_by_id(session, campaign_id)
-    setting = campaign.setting if campaign and campaign.setting else "a fantasy world"
-    tone = campaign.tone if campaign and campaign.tone else "heroic fantasy"
-
-    # Plan 83 — never hand a PC's name (or an existing NPC's) to a new face.
-    taken = [pc.character_name for pc in CharacterRepo.list_by_campaign(session, campaign_id)]
-    taken += [n.name for n in NpcRepo.list_by_campaign(session, campaign_id)]
-    ai_result = ai_service.generate_npc(role=role, setting=setting, tone=tone, avoid_names=taken)
-
-    payload = NpcCreate(
-        name=ai_result.get("name", role.title()),
-        role=role,
-        appearance=ai_result.get("appearance"),
-        personality=ai_result.get("personality"),
-        secret=ai_result.get("secret"),
-        dialog_hooks=ai_result.get("dialog_hooks") or [],
-    )
-
-    if save:
-        npc = NpcRepo.create(session, campaign_id, payload)
-        return NpcRead.model_validate(npc)
-
-    # Preview mode — return as an in-memory NpcRead with a generated UUID
-    # so the frontend can display it before the DM commits.
-    from datetime import UTC, datetime
-
-    return NpcRead.model_validate(
-        {
-            **payload.model_dump(),
-            "id": uuid.uuid4(),
-            "campaign_id": campaign_id,
-            "status": "Alive",
-            "created_at": datetime.now(UTC),
-            "updated_at": datetime.now(UTC),
-            # tags + dialog_hooks default to empty / None already.
-        }
-    )
-
-
 __all__ = [
     "MAX_NPCS_PER_CAMPAIGN",
     "create_npc",
     "delete_npc",
-    "generate_npc_from_ai",
     "get_npc",
     "list_for_campaign",
     "update_npc",

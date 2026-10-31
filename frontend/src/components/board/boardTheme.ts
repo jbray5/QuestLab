@@ -49,8 +49,8 @@ export function getVignetteTexture(): THREE.CanvasTexture {
 
 /** Alpha-curve + auto-crop a minifig cut-out.
  *
- * gpt-image-1 loves painting a soft halo/backdrop glow behind dark subjects
- * even with background=transparent. The halo lives in low-to-mid alpha, so we
+ * Older stored cut-outs often carry a soft halo/backdrop glow behind dark
+ * subjects despite a transparent background. The halo lives in low-to-mid alpha, so we
  * remap alpha (≤LO → 0, LO..HI → ramp) and then letterbox the surviving
  * content into a 2:3 frame anchored to the bottom so feet sit on the base.
  * Returns null on failure (tainted canvas / empty result) — caller keeps the

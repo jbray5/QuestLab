@@ -18,8 +18,6 @@ from domain.notebook import (
     PageRead,
     PageSummary,
     PageUpdate,
-    RiffRequest,
-    RiffResponse,
     SearchHit,
 )
 from services import notebook_service
@@ -35,7 +33,7 @@ def _http(exc: Exception) -> HTTPException:
 
 
 def _forbidden(exc: Exception) -> HTTPException:
-    """403 for ownership, feature-flag, and AI kill-switch refusals."""
+    """403 for ownership and feature-flag refusals."""
     return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
@@ -235,7 +233,7 @@ def delete_page(page_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
         raise _forbidden(exc)
 
 
-# ── Search, runbooks, and the AI margin ───────────────────────────────────────
+# ── Search and runbooks ───────────────────────────────────────────────────────
 
 
 @router.get("/campaigns/{campaign_id}/notebook-search", response_model=list[SearchHit])
@@ -273,28 +271,6 @@ def list_runbooks(campaign_id: uuid.UUID, db: DB, user: CurrentUser) -> list[Pag
     """
     try:
         return notebook_service.list_runbooks(db, campaign_id, user)
-    except ValueError as exc:
-        raise _http(exc)
-    except PermissionError as exc:
-        raise _forbidden(exc)
-
-
-@router.post("/notebook-pages/{page_id}/riff", response_model=RiffResponse)
-def riff(page_id: uuid.UUID, body: RiffRequest, db: DB, user: CurrentUser) -> RiffResponse:
-    """Ask the AI margin for 2–3 suggestions. Returns text only —
-    nothing here (or anywhere) writes the page (Law 1).
-
-    Args:
-        page_id: UUID of the page.
-        body: Selection to riff on, or an open question.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        Suggestions with provenance for the client to pin in the margin.
-    """
-    try:
-        return notebook_service.riff(db, page_id, user, body)
     except ValueError as exc:
         raise _http(exc)
     except PermissionError as exc:

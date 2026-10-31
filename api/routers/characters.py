@@ -4,7 +4,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 
-from api.deps import DB, AiArtUser, CurrentUser
+from api.deps import DB, CurrentUser
 from domain.character import PlayerCharacter, PlayerCharacterCreate, PlayerCharacterUpdate
 from domain.level_up import LevelUpGrant
 from services import character_service, levelup_service
@@ -443,92 +443,3 @@ def restore_hit_dice_endpoint(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-
-
-# ── Plan 00034 — AI portrait generation ────────────────────────────────────
-
-
-@router.post("/characters/{character_id}/figure", response_model=PlayerCharacter)
-def generate_pc_figure(
-    character_id: uuid.UUID, body: dict, db: DB, user: AiArtUser
-) -> PlayerCharacter:
-    """Generate a transparent full-body minifig standee for a PC (Plan 45).
-
-    Body: ``{"style_hints": "optional extra style"}``. Calls OpenAI
-    ``gpt-image-1`` with a transparent background and uploads the cut-out to
-    Vercel Blob; the URL is saved to ``figure_url`` for the 3D board.
-
-    Args:
-        character_id: UUID of the PC.
-        body: JSON with optional ``style_hints``.
-        db: Database session.
-        user: Authenticated DM.
-
-    Returns:
-        Updated PlayerCharacter with figure_url set.
-    """
-    from services import portrait_service
-
-    try:
-        return portrait_service.generate_pc_figure(
-            db, character_id, user, style_hints=(body.get("style_hints") or None)
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Figure generation failed: {exc}",
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Figure generation failed: {type(exc).__name__}: {exc}",
-        )
-
-
-@router.post("/characters/{character_id}/portrait", response_model=PlayerCharacter)
-def generate_pc_portrait(
-    character_id: uuid.UUID, body: dict, db: DB, user: AiArtUser
-) -> PlayerCharacter:
-    """Generate an AI portrait for a PC and persist the URL.
-
-    Body: ``{"style_hints": "optional extra style"}``. Calls OpenAI
-    ``gpt-image-1`` and uploads the result to Vercel Blob; the new URL
-    is saved to ``portrait_url`` so every connected view picks it up.
-
-    Args:
-        character_id: UUID of the PC.
-        body: JSON with optional ``style_hints``.
-        db: Database session.
-        user: Authenticated DM.
-
-    Returns:
-        Updated PlayerCharacter with portrait_url set.
-    """
-    from services import portrait_service
-
-    try:
-        return portrait_service.generate_pc_portrait(
-            db, character_id, user, style_hints=(body.get("style_hints") or None)
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Portrait generation failed: {exc}",
-        )
-    except Exception as exc:
-        # Safety net: any unanticipated error must still produce a real
-        # HTTP response so CORS headers attach. Without this, an
-        # exception path Starlette didn't expect leaves the browser
-        # seeing a misleading CORS error instead of the upstream cause.
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Portrait generation failed: {type(exc).__name__}: {exc}",
-        )

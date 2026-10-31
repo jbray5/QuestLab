@@ -8,16 +8,14 @@ the Table View. Their payloads carry no DM-only data.
 import uuid
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
 
-from api.deps import DB, AiArtUser, AiUser, CurrentUser, require_ai_features
+from api.deps import DB, CurrentUser
 from domain.shop import (
     MarketRead,
     ShopCreate,
     ShopItemAdd,
     ShopItemUpdate,
     ShopRead,
-    ShopStockRequest,
     ShopUpdate,
     StorefrontItem,
     StorefrontRead,
@@ -25,12 +23,6 @@ from domain.shop import (
 from services import shop_service
 
 router = APIRouter(tags=["shops"])
-
-
-class ItemImageResponse(BaseModel):
-    """URL of a freshly generated item image."""
-
-    url: str
 
 
 @router.get("/campaigns/{campaign_id}/shops", response_model=list[ShopRead])
@@ -116,56 +108,6 @@ def delete_shop(shop_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
-@router.post("/shops/{shop_id}/stock", response_model=StorefrontRead)
-def stock_shop(shop_id: uuid.UUID, body: ShopStockRequest, db: DB, user: AiUser) -> StorefrontRead:
-    """AI-stock a shop with keeper, blurb, and priced inventory.
-
-    Args:
-        shop_id: UUID of the shop.
-        body: Concept prompt + item count.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        The refreshed storefront.
-    """
-    try:
-        return shop_service.stock_shop(db, shop_id, user, concept=body.concept, count=body.count)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Shop stocking failed: {exc}"
-        )
-
-
-@router.post("/shops/{shop_id}/banner", response_model=ShopRead)
-def generate_banner(shop_id: uuid.UUID, db: DB, user: CurrentUser) -> ShopRead:
-    """Generate storefront banner art for a shop.
-
-    Args:
-        shop_id: UUID of the shop.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        The refreshed shop with banner_url set.
-    """
-    require_ai_features()
-    try:
-        return shop_service.generate_banner(db, shop_id, user)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Banner generation failed: {exc}"
-        )
-
-
 @router.post(
     "/shops/{shop_id}/items", response_model=StorefrontItem, status_code=status.HTTP_201_CREATED
 )
@@ -233,34 +175,6 @@ def remove_item(shop_id: uuid.UUID, shop_item_id: uuid.UUID, db: DB, user: Curre
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-
-
-@router.post("/shops/{shop_id}/items/{shop_item_id}/image", response_model=ItemImageResponse)
-def generate_item_image(
-    shop_id: uuid.UUID, shop_item_id: uuid.UUID, db: DB, user: AiArtUser
-) -> ItemImageResponse:
-    """Generate catalog art for one stocked item.
-
-    Args:
-        shop_id: UUID of the shop.
-        shop_item_id: UUID of the shop_items row.
-        db: Database session.
-        user: Authenticated DM email.
-
-    Returns:
-        The generated image URL.
-    """
-    try:
-        url = shop_service.generate_item_image(db, shop_id, shop_item_id, user)
-        return ItemImageResponse(url=url)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Item art generation failed: {exc}"
-        )
 
 
 @router.get("/storefront/{shop_id}", response_model=StorefrontRead)

@@ -1,12 +1,11 @@
-"""Repository for users and AI usage counters (Plan 73)."""
+"""Repository for users (Plan 73)."""
 
-import uuid
 from datetime import UTC, datetime
 from typing import Optional
 
 from sqlmodel import Session, select
 
-from domain.user import AiUsage, User
+from domain.user import User
 
 
 class UserRepo:
@@ -56,44 +55,3 @@ class UserRepo:
         session.commit()
         session.refresh(user)
         return user
-
-
-class AiUsageRepo:
-    """Data access for per-day AI usage counters."""
-
-    @staticmethod
-    def get(session: Session, email: str, day: str) -> Optional[AiUsage]:
-        """Fetch today's counter row for a user, if any.
-
-        Args:
-            session: Active database session.
-            email: User email.
-            day: ``YYYY-MM-DD``.
-
-        Returns:
-            The counter row or None.
-        """
-        return session.exec(
-            select(AiUsage).where(AiUsage.email == email, AiUsage.day == day)
-        ).first()
-
-    @staticmethod
-    def increment(session: Session, email: str, day: str) -> int:
-        """Add one generation to today's count and return the new total.
-
-        Args:
-            session: Active database session.
-            email: User email.
-            day: ``YYYY-MM-DD``.
-
-        Returns:
-            The count after incrementing.
-        """
-        row = AiUsageRepo.get(session, email, day)
-        if row is None:
-            row = AiUsage(id=uuid.uuid4(), email=email, day=day, count=0)
-        row.count += 1
-        session.add(row)
-        session.commit()
-        session.refresh(row)
-        return row.count

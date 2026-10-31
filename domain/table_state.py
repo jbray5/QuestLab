@@ -109,19 +109,6 @@ class TableStateUpdate(BaseModel):
     map_shelf: Optional[list[str]] = PydField(default=None, max_length=60)
 
 
-class TokenFigureRequest(BaseModel):
-    """Request body for free-form token minifig generation (Plan 45)."""
-
-    name: str = PydField(min_length=1, max_length=80)
-    style_hints: Optional[str] = PydField(default=None, max_length=400)
-
-
-class TokenFigureResponse(BaseModel):
-    """The generated cut-out's blob URL."""
-
-    url: str
-
-
 class TableMap(BaseModel):
     """Resolved active-map summary embedded in the projection."""
 

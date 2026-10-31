@@ -65,7 +65,6 @@ Add every secret in this table:
 | `PGPASSWORD` | Password you entered when running `provision.sh` |
 | `CURRENT_USER_EMAIL` | Email you want to log in as (e.g. `you@gmail.com`) |
 | `BOOTSTRAP_ADMIN_EMAILS` | Same email — makes you the admin on first run |
-| `ANTHROPIC_API_KEY` | Your key from console.anthropic.com |
 
 ---
 

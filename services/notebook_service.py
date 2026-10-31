@@ -1,8 +1,8 @@
 """Session Notebook service (Plan 57).
 
 The four laws, as they land in code:
-  1. The page belongs to the DM — no function here ever writes block
-     content. ``riff`` RETURNS suggestions; it cannot touch ``blocks``.
+  1. The page belongs to the DM — only the DM's own edits write block
+     content; nothing here generates or rewrites it.
   2. The margin is context — pins are stored beside blocks and validated
      to never merge into them.
   3. Everything is scratch — the only promotion is the ``is_runbook``
@@ -20,7 +20,6 @@ import re
 import uuid
 from datetime import datetime, timezone
 
-from pydantic import BaseModel
 from sqlmodel import Session as DBSession
 
 from db.repos.campaign_repo import CampaignRepo
@@ -33,8 +32,6 @@ from domain.notebook import (
     NotebookUpdate,
     PageCreate,
     PageUpdate,
-    RiffRequest,
-    RiffResponse,
     SearchHit,
 )
 from services import campaign_service
@@ -48,9 +45,6 @@ _TEXTUAL_TYPES = {"text", "verbatim", "prompt", "key"}
 _MENTION_RE = re.compile(r"@\[([^\]]+)\](?:\([^)]*\))?")
 # Page links look like [[Title]] — search wants just the title.
 _LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
-
-_MAX_RIFF_CONTEXT = 6000  # chars of page text sent with a riff
-_MAX_SUGGESTIONS = 3
 
 
 def _require_enabled() -> None:
@@ -426,78 +420,3 @@ def _snippet(text: str, q: str, radius: int = 60) -> str:
     prefix = "…" if start > 0 else ""
     suffix = "…" if end < len(text) else ""
     return f"{prefix}{text[start:end].strip()}{suffix}"
-
-
-# ── The AI margin ─────────────────────────────────────────────────────────────
-
-
-class _RiffOutput(BaseModel):
-    """Schema the model must return for a margin riff."""
-
-    suggestions: list[str]
-
-
-def riff(db: DBSession, page_id: uuid.UUID, dm_email: str, payload: RiffRequest) -> RiffResponse:
-    """Collaborate in the margin: 2–3 short suggestions, never page text.
-
-    Law 1 by construction: this function has no write path to ``blocks``.
-    The client stores the result as ``ai`` margin pins with provenance.
-
-    Args:
-        db: Active database session.
-        page_id: UUID of the page being riffed on.
-        dm_email: Email of the requesting DM.
-        payload: A text selection to riff on, or an open question.
-
-    Returns:
-        RiffResponse with ≤3 suggestions of ≤~60 words.
-
-    Raises:
-        ValueError: If neither selection nor question is given.
-        PermissionError: Flag off, not owner, or AI kill switch thrown.
-    """
-    from integrations.claude_client import DEFAULT_MODEL, complete_json
-
-    _require_enabled()
-    page = _get_owned_page(db, page_id, dm_email)
-    campaign = CampaignRepo.get_by_id(db, page.campaign_id)
-
-    selection = (payload.selection or "").strip()
-    question = (payload.question or "").strip()
-    if not selection and not question:
-        raise ValueError("Give the margin a selection to riff on, or ask it a question.")
-
-    page_text = derive_search_text(page.blocks or [])[:_MAX_RIFF_CONTEXT]
-    setting = getattr(campaign, "setting", "") or ""
-    tone = getattr(campaign, "tone", "") or "dark fantasy"
-
-    system = (
-        f"You are a seasoned D&D 5e co-DM scribbling in the MARGIN of another "
-        f"DM's session notebook for a {tone} campaign"
-        + (f" set in {setting}" if setting else "")
-        + ". You suggest; you never write their page. Offer sparks — twists, "
-        "sensory details, complications, NPC reactions — not prose to paste. "
-        "Each suggestion must stand alone and be at most 60 words."
-    )
-    if selection:
-        ask = f'They selected this passage and want you to riff on it:\n"{selection}"'
-    else:
-        ask = f"They ask the margin: {question}"
-    user = (
-        f"The page so far (their own words, for context only):\n{page_text}\n\n"
-        f"{ask}\n\n"
-        'Return JSON: {"suggestions": ["...", "..."]} with exactly 2 or 3 '
-        "suggestions, each at most 60 words."
-    )
-
-    result: _RiffOutput = complete_json(
-        system=system, user=user, schema=_RiffOutput, max_tokens=600
-    )
-    suggestions = [s.strip() for s in result.suggestions if s.strip()][:_MAX_SUGGESTIONS]
-    logger.info("Notebook riff on page %s returned %d suggestions", page_id, len(suggestions))
-    return RiffResponse(
-        suggestions=suggestions,
-        model=DEFAULT_MODEL,
-        at=datetime.now(timezone.utc),
-        prompt=selection or question,
-    )

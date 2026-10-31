@@ -46,8 +46,8 @@ from integrations import arena_signing
 from integrations.dnd_rules.wild_magic_2024 import RANDOM_SPELLS, surge_entry
 from services import (
     attack_service,
+    auth_service,
     character_service,
-    entitlement_service,
     feature_service,
     spellcasting_service,
 )
@@ -879,7 +879,7 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
         attacks.insert(0, _unarmed(pc, mods, martial))
     spells, reactions = _spell_attacks(db, pc, dm_email, stats, mods)
     attacks += spells
-    personal = entitlement_service.personal_content_allowed(dm_email)
+    personal = auth_service.personal_content_allowed(dm_email)
     extra_attacks, extra_feats = _class_extras(pc, mods, prof, personal, stats)
     attacks += extra_attacks
     species_attacks, species_feats = _species_extras(pc, mods, prof)

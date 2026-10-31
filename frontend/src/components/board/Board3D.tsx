@@ -48,7 +48,7 @@ export interface BoardMapLike {
   backdrop_url?: string | null;
   heightmap_url?: string | null;
   ground_url?: string | null;
-  props?: { x: number; y: number; url: string; h: number }[] | null;
+  props?: BoardProp[] | null;
 }
 
 export interface StrikeFx {
@@ -1007,91 +1007,15 @@ function PingRing({ x, y = 0, z, unit }: { x: number; y?: number; z: number; uni
   );
 }
 
-// ── PROTOTYPE — feat/board-talespire, Plan 46 milestone 2 ───────────────────
-// Ground/prop separation: the board texture is a GROUND LAYER (the map
-// repainted with tall features removed via gpt-image-1 edit) and the tall
-// features return as upright cut-outs at footprints found by diffing the
-// original against the ground layer. Positions below came from that diff
-// (hand-polished: edge forests split into several trees; the two mossy
-// stones re-classed — moss defeats the green-vs-gray color heuristic).
-// NOT for merge as-is: URLs and layout are baked for the Midday map only.
-const PROTO_STONE =
-  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/53a39b2b-66c3-44b5-ac68-dfeed4854874-ZkNobofQW8iGI260PB3lIi8iyu3Dp1.png";
-const PROTO_OAK_A =
-  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/9fdfa2dd-895c-4c3d-90ff-ec46c57809d0-8XuxxfELX6DR1pOB49boi3UvnjZH4N.png";
-const PROTO_OAK_B =
-  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/ce453d27-963d-4a12-a93a-973a3054e3b4-YUYU5Yk4NuPFPXAnCUQDq3gTCQEVcY.png";
-const PROTO_DEAD_TREE =
-  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/b21f57dc-2860-45b2-883d-9ac1c25020b2-b5vbI5uusi3w9IXoK61qf48bWGBcgu.png";
-const PROTO_TAVERN =
-  "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/2d6a8691-891d-4024-8ff2-e65f638b82ae-ifMB9Cpnlne4mXIb6IQUN77kaOOyjT.png";
-
-interface ProtoProp {
+/** One saved upright prop: board-pixel position, sprite URL, height in grid units. */
+interface BoardProp {
   x: number;
   y: number;
   url: string;
-  h: number; // height in grid units
+  h: number;
 }
 
-interface ProtoScene {
-  ground: string;
-  props: ProtoProp[];
-}
-
-const PROTO_SCENES: Record<string, ProtoScene> = {
-  // The Waystone Road — Midday
-  "29553f9a-ef05-4bf2-830a-ebc679fcf88b": {
-    ground:
-      "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/14ee2ba6-ad8c-4240-9f80-8de5ffe48d5a-vCE1gLVz8oc2kjKy4zmBqtkguD5OMp.png",
-    props: [
-      // THE waystone — canon says one; the art's second stone stays gone
-      { x: 665, y: 315, url: PROTO_STONE, h: 1.9 },
-      // west treeline (split from the diff's mega-blob)
-      { x: 110, y: 150, url: PROTO_OAK_A, h: 3.6 },
-      { x: 60, y: 460, url: PROTO_OAK_B, h: 3.2 },
-      { x: 215, y: 570, url: PROTO_OAK_A, h: 3.8 },
-      { x: 140, y: 860, url: PROTO_OAK_B, h: 3.3 },
-      { x: 360, y: 950, url: PROTO_OAK_A, h: 3.1 },
-      // north
-      { x: 700, y: 85, url: PROTO_OAK_B, h: 3.2 },
-      { x: 1310, y: 140, url: PROTO_OAK_A, h: 3.7 },
-      { x: 1450, y: 60, url: PROTO_OAK_B, h: 3.0 },
-      // east + south
-      { x: 1440, y: 360, url: PROTO_OAK_B, h: 3.4 },
-      { x: 1465, y: 630, url: PROTO_OAK_A, h: 3.0 },
-      { x: 1350, y: 905, url: PROTO_OAK_B, h: 3.3 },
-      { x: 860, y: 980, url: PROTO_OAK_A, h: 3.0 },
-      { x: 1140, y: 950, url: PROTO_OAK_B, h: 3.2 },
-    ],
-  },
-  // Hollowmere Green — footprints from the same diff pipeline
-  "94a05017-f6ca-429b-ac04-612ac7067aea": {
-    ground:
-      "https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/5e176368-055c-45fe-9e0f-88d238687167-Y6Cd5vvCXo5RA1imOLf7jyzfctrYqN.png",
-    props: [
-      // the Hearth — busted wall patched with festival banners (Wenneth's
-      // wound; the sprite is mostly transparent canvas, hence the tall h)
-      { x: 1285, y: 335, url: PROTO_TAVERN, h: 7.2 },
-      // the dead tree on the green — the session thesis
-      { x: 722, y: 545, url: PROTO_DEAD_TREE, h: 3.5 },
-      // the tree ring, from diff footprints (base ≈ centroid + size/4)
-      { x: 224, y: 190, url: PROTO_OAK_A, h: 3.4 },
-      { x: 434, y: 290, url: PROTO_OAK_B, h: 2.9 },
-      { x: 600, y: 215, url: PROTO_OAK_A, h: 2.6 },
-      { x: 760, y: 165, url: PROTO_OAK_B, h: 2.5 },
-      { x: 940, y: 220, url: PROTO_OAK_A, h: 2.8 },
-      { x: 81, y: 380, url: PROTO_OAK_B, h: 2.9 },
-      { x: 115, y: 730, url: PROTO_OAK_A, h: 3.3 },
-      { x: 121, y: 990, url: PROTO_OAK_B, h: 3.1 },
-      { x: 590, y: 800, url: PROTO_OAK_A, h: 2.9 },
-      { x: 776, y: 850, url: PROTO_OAK_B, h: 2.7 },
-      { x: 1330, y: 860, url: PROTO_OAK_B, h: 3.2 },
-      { x: 1470, y: 700, url: PROTO_OAK_A, h: 3.4 },
-    ],
-  },
-};
-
-/** One upright prop cut-out standing on the board (prototype). */
+/** One upright prop cut-out standing on the board (the map's saved `props`). */
 function PropSprite({
   prop,
   unit,
@@ -1099,7 +1023,7 @@ function PropSprite({
   mapH,
   darkness,
 }: {
-  prop: ProtoProp;
+  prop: BoardProp;
   unit: number;
   mapW: number;
   mapH: number;
@@ -1174,13 +1098,11 @@ function BoardScene(props: Board3DProps) {
 
   const unit = unitFor(map);
   const fit = Math.max(map.width, map.height) * 1.05;
-  // Diorama: DB-driven ground layer + props (🌲 Dioramify) wins; the two
-  // hand-baked prototype scenes remain as fallback until re-generated.
-  const protoScene = PROTO_SCENES[map.id];
-  const boardImage = map.ground_url ?? protoScene?.ground ?? map.image_url;
+  // A saved ground layer (with its upright props) wins over the plain map image.
+  const boardImage = map.ground_url ?? map.image_url;
   // Plan 71 — an animated surface wins over the still once it can paint.
   const videoTex = useVideoTexture(map.video_url ?? null);
-  const boardProps = map.props?.length ? map.props : protoScene?.props;
+  const boardProps = map.props?.length ? map.props : null;
   const { tex, error } = useBoardTexture(boardImage);
   const { tex: domeTex } = useBoardTexture(map.backdrop_url);
   const heightAt = ZERO_HEIGHT;

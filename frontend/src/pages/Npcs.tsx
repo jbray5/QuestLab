@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
-import { Plus, Sparkles, UserRound } from "lucide-react";
-import { AI_ON } from "../lib/flags";
+import { Plus, UserRound } from "lucide-react";
 import { useParams } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   type Npc,
@@ -19,7 +18,6 @@ export default function Npcs() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Npc | "new" | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
-  const [generateRole, setGenerateRole] = useState("");
 
   const { data: npcs = [], isLoading } = useQuery({
     queryKey: ["npcs", campaignId],
@@ -36,15 +34,6 @@ export default function Npcs() {
   const filtered = tagFilter
     ? npcs.filter((n) => (n.tags ?? []).includes(tagFilter))
     : npcs;
-
-  const generate = useMutation({
-    mutationFn: () => npcsApi.generate(campaignId!, generateRole.trim()),
-    onSuccess: (npc) => {
-      qc.invalidateQueries({ queryKey: ["npcs", campaignId] });
-      setGenerateRole("");
-      setEditing(npc); // open the modal for review/edit
-    },
-  });
 
   if (!campaignId) return <p className="text-muted">No campaign selected.</p>;
 
@@ -65,46 +54,6 @@ export default function Npcs() {
           <Plus size={16} /> New NPC
         </button>
       </div>
-
-      {AI_ON && (
-        <div
-          style={{
-            display: "flex",
-            gap: "0.6rem",
-            alignItems: "center",
-            flexWrap: "wrap",
-            marginBottom: "1.25rem",
-          }}
-        >
-          <input
-            type="text"
-            value={generateRole}
-            onChange={(e) => setGenerateRole(e.target.value)}
-            placeholder="e.g. corrupt guard captain"
-            aria-label="Role for a generated NPC"
-            style={{ flex: 1, minWidth: 180, maxWidth: 420, padding: "0.4rem 0.6rem" }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && generateRole.trim() && !generate.isPending) {
-                generate.mutate();
-              }
-            }}
-          />
-          <button
-            className="btn btn-secondary"
-            onClick={() => generate.mutate()}
-            disabled={!generateRole.trim() || generate.isPending}
-            title="Ask Claude to invent an NPC matching this role"
-          >
-            {generate.isPending ? (
-              "Conjuring…"
-            ) : (
-              <>
-                <Sparkles size={16} /> Generate
-              </>
-            )}
-          </button>
-        </div>
-      )}
 
       {/* Tag filter */}
       {tags.length > 0 && (

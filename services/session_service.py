@@ -481,9 +481,9 @@ def patch_runbook(
 ) -> SessionRunbook:
     """Apply a partial update to an existing runbook (Plan 38 inline edit).
 
-    Lets the DM edit any AI-generated field — opening_scene, scenes,
+    Lets the DM edit any runbook field — opening_scene, scenes,
     npc_dialog, encounter_flows, closing_hooks, xp_awards, loot_awards
-    — without re-generating the whole runbook. Only fields set on the
+    — without rewriting the whole runbook. Only fields set on the
     update payload are touched; the rest of the runbook is preserved.
 
     Args:

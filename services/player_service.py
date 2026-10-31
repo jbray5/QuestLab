@@ -25,7 +25,7 @@ Player write scope:
 - Class feature use spend
 - Inspiration toggle, concentration drop, exhaustion adjust, currency
   set (via PATCH /state)
-- Equip / unequip own gear, appearance notes, hero-render forge (Plan 48)
+- Equip / unequip own gear, appearance notes (Plan 48)
 
 Forbidden in player scope (DM only):
 - Create / delete / edit identity of any PC
@@ -545,12 +545,8 @@ def patch_state(db: Session, pc_id: uuid.UUID, fields: dict[str, Any]) -> Player
 
 
 # ---------------------------------------------------------------------------
-# Plan 00048 — Character Forge: gear, appearance, and the hero render
+# Plan 00048 — gear and appearance (the paper-doll)
 # ---------------------------------------------------------------------------
-
-# Minimum seconds between player-triggered hero generations (paid API call
-# behind a capability URL — the cooldown is the abuse guard).
-_HERO_COOLDOWN_SECONDS = 90
 
 # Player-editable appearance length cap.
 _APPEARANCE_MAX = 1500
@@ -710,7 +706,7 @@ def list_gear(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
 
 
 def set_appearance(db: Session, pc_id: uuid.UUID, appearance: str) -> PlayerCharacter:
-    """Save the player's own appearance notes (Forge customization).
+    """Save the player's own appearance notes (paper-doll customization).
 
     Args:
         db: Active database session.
@@ -907,194 +903,6 @@ def throw_dice(
         "modifier": modifier,
         "total": total,
         "session_id": str(target.id),
-    }
-
-
-def forge_hero(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
-    """Generate the full-body hero render for this PC (cooldown-guarded).
-
-    Args:
-        db: Active database session.
-        pc_id: UUID of the PC.
-
-    Returns:
-        ``{"hero_url": <url>}``.
-
-    Raises:
-        ValueError: If the PC is not found, or the forge is still cooling
-            down (message carries the seconds remaining).
-        PermissionError / RuntimeError: Propagated from generation.
-    """
-    from integrations.event_bus import publish_pc_updated
-    from services import portrait_service
-
-    pc = _get_pc_or_raise(db, pc_id)
-    if pc.hero_locked and pc.hero_url:
-        raise ValueError("This base look is locked. Unlock it first if you truly want a new one.")
-    _check_forge_cooldown(pc)
-    url = portrait_service.generate_pc_hero(db, pc)
-    publish_pc_updated(pc.id, pc.campaign_id)
-    return {"hero_url": url}
-
-
-def set_hero_lock(db: Session, pc_id: uuid.UUID, locked: bool) -> dict[str, Any]:
-    """Pin or unpin the PC's golden base render (Plan 62 follow-up).
-
-    A locked hero is never re-rolled by "New base look"; gear, portrait,
-    and minifig passes keep deriving from it. Free action — no cooldown.
-
-    Args:
-        db: Active database session.
-        pc_id: UUID of the PC.
-        locked: Desired lock state.
-
-    Returns:
-        ``{"hero_locked": bool}``.
-
-    Raises:
-        ValueError: If the PC is not found, or locking with no hero yet.
-    """
-    from domain.character import PlayerCharacterUpdate
-    from integrations.event_bus import publish_pc_updated
-
-    pc = _get_pc_or_raise(db, pc_id)
-    if locked and not pc.hero_url:
-        raise ValueError("Forge a base look first — there is nothing to lock yet.")
-    CharacterRepo.update(db, pc, PlayerCharacterUpdate(hero_locked=locked))
-    publish_pc_updated(pc.id, pc.campaign_id)
-    return {"hero_locked": locked}
-
-
-def _check_forge_cooldown(pc: PlayerCharacter) -> None:
-    """Raise ValueError if the shared image-forge cooldown hasn't elapsed.
-
-    Args:
-        pc: The player character row.
-
-    Raises:
-        ValueError: If the forge is still cooling down (message carries the
-            seconds remaining).
-    """
-    from datetime import datetime, timezone
-
-    if pc.hero_generated_at is None:
-        return
-    last = pc.hero_generated_at
-    if last.tzinfo is None:
-        last = last.replace(tzinfo=timezone.utc)
-    elapsed = (datetime.now(timezone.utc) - last).total_seconds()
-    if elapsed < _HERO_COOLDOWN_SECONDS:
-        wait = int(_HERO_COOLDOWN_SECONDS - elapsed)
-        raise ValueError(f"The forge is still glowing — try again in {wait}s.")
-
-
-def dress_model(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
-    """Render the character wearing their equipped gear (image-to-image).
-
-    Preserves the base model's identity (same face/build) and only changes
-    what the character wears/wields — this is the "gear on the model" action,
-    triggered deliberately, not on every equip. Cooldown-guarded.
-
-    Args:
-        db: Active database session.
-        pc_id: UUID of the PC.
-
-    Returns:
-        ``{"loadout_url": <url>}``.
-
-    Raises:
-        ValueError: PC not found, no base model yet, or cooling down.
-        PermissionError / RuntimeError: Propagated from generation.
-    """
-    from integrations.event_bus import publish_pc_updated
-    from services import portrait_service
-
-    pc = _get_pc_or_raise(db, pc_id)
-    _check_forge_cooldown(pc)
-    # Ensure a base identity exists to dress; make one if the PC has nothing.
-    if not (pc.hero_url or pc.figure_url or pc.portrait_url):
-        portrait_service.generate_pc_hero(db, pc)
-        pc = _get_pc_or_raise(db, pc_id)
-    equipped, item_refs = _equipped_gear_refs(db, pc_id)
-    url = portrait_service.generate_pc_loadout(db, pc, equipped, item_refs=item_refs)
-    publish_pc_updated(pc.id, pc.campaign_id)
-    return {"loadout_url": url}
-
-
-def _equipped_gear_refs(db: Session, pc_id: uuid.UUID) -> tuple[list[str], list[bytes]]:
-    """Equipped item names + their catalog art bytes (Plan 62 snap-on gear).
-
-    Downloads up to four equipped items' catalog images to hand the loadout
-    edit as visual references. Missing art or a failed download just drops
-    that reference — names alone still work.
-
-    Args:
-        db: Active database session.
-        pc_id: UUID of the PC.
-
-    Returns:
-        (equipped item names, downloaded reference PNGs).
-    """
-    from integrations import blob_storage
-
-    names: list[str] = []
-    refs: list[bytes] = []
-    for g in list_gear(db, pc_id):
-        if not g["equipped"]:
-            continue
-        names.append(g["name"])
-        url = g.get("image_url")
-        if url and len(refs) < 4:
-            try:
-                refs.append(blob_storage.download(url))
-            except Exception:  # noqa: BLE001 — reference art is best-effort
-                pass
-    return names, refs
-
-
-def forge_identity(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
-    """The full identity chain (Plan 62): one look, every surface.
-
-    Cooldown-guarded (same 90 s forge guard). Steps:
-    1. If the PC has no base model yet, generate the hero render.
-    2. If gear is equipped, dress the model (image-to-image loadout).
-    3. Derive the portrait AND the board minifig from that same render.
-
-    One publish at the end so sheet, HUD cards, and board tokens refresh
-    together.
-
-    Args:
-        db: Active database session.
-        pc_id: UUID of the PC.
-
-    Returns:
-        ``{"hero_url", "loadout_url", "portrait_url", "figure_url"}`` —
-        the PC's refreshed identity set (some may be unchanged).
-    """
-    from integrations.event_bus import publish_pc_updated
-    from services import portrait_service
-
-    pc = _get_pc_or_raise(db, pc_id)
-    _check_forge_cooldown(pc)
-
-    if not pc.hero_url:
-        portrait_service.generate_pc_hero(db, pc)
-        db.refresh(pc)
-    equipped, item_refs = _equipped_gear_refs(db, pc_id)
-    if equipped:
-        portrait_service.generate_pc_loadout(db, pc, equipped, item_refs=item_refs)
-        db.refresh(pc)
-    portrait_service.derive_pc_portrait(db, pc)
-    db.refresh(pc)
-    portrait_service.derive_pc_figure(db, pc)
-    db.refresh(pc)
-
-    publish_pc_updated(pc.id, pc.campaign_id)
-    return {
-        "hero_url": pc.hero_url,
-        "loadout_url": pc.loadout_url,
-        "portrait_url": pc.portrait_url,
-        "figure_url": pc.figure_url,
     }
 
 

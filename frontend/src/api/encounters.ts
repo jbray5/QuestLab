@@ -24,20 +24,6 @@ export interface DifficultyPreview {
   difficulty: EncounterDifficulty | null;
 }
 
-export interface ThemedMonsterSuggestion {
-  monster_id: string;
-  monster_name: string;
-  count: number;
-  rationale: string;
-  challenge_rating: string;
-  xp: number;
-}
-
-export interface ThemedSuggestionsResponse {
-  encounter_concept: string;
-  suggestions: ThemedMonsterSuggestion[];
-}
-
 export const encountersApi = {
   list: (adventureId: string) =>
     api.get<Encounter[]>(`/adventures/${adventureId}/encounters`),
@@ -56,10 +42,5 @@ export const encountersApi = {
     api.post<DifficultyPreview>(
       `/adventures/${adventureId}/encounters/preview-difficulty`,
       { roster },
-    ),
-  suggestMonsters: (adventureId: string, targetDifficulty: EncounterDifficulty = "Moderate") =>
-    api.post<ThemedSuggestionsResponse>(
-      `/adventures/${adventureId}/encounters/suggest-monsters`,
-      { target_difficulty: targetDifficulty },
     ),
 };
