@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Bell, ClipboardList, LifeBuoy, RefreshCw, Scale, Signpost, Sparkles, Star, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { sessionsApi } from "../../api/sessions";
@@ -12,6 +13,9 @@ import type { BriefBeat, SessionBrief } from "../../api/types";
  * per-PC spotlight cues, a danger dial, and open-ending roads. Nothing here is
  * read aloud except the cold open — it's a sheet the DM glances at and looks up
  * from, the deliberate inverse of a read-aloud runbook.
+ *
+ * Lamplit (Plan 121): Console panels for the tool, Alegreya for the fiction,
+ * the cold open in a read-aloud story panel; no colored stripes, no emoji.
  */
 
 export default function BriefPanel({ sessionId }: { sessionId: string }) {
@@ -20,11 +24,11 @@ export default function BriefPanel({ sessionId }: { sessionId: string }) {
     <>
       <button
         className="btn btn-secondary"
-        style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+        style={{ minHeight: 30, fontSize: "0.8125rem", padding: "0.25rem 0.6rem", gap: "0.35rem" }}
         onClick={() => setOpen(true)}
         title="The glanceable DM brief for this session"
       >
-        📋 Brief
+        <ClipboardList size={15} aria-hidden /> Brief
       </button>
       {open && <BriefModal sessionId={sessionId} onClose={() => setOpen(false)} />}
     </>
@@ -49,12 +53,22 @@ function triggerChip(b: BriefBeat): string | null {
   }
 }
 
-const KIND_ACCENT: Record<string, string> = {
-  combat: "#b0472f",
-  clock: "#c9a24a",
-  reveal: "#6f83c0",
-  rp: "#7a9a72",
+/** Beat kinds read as neutral pills; only a fight beat leans red. */
+const KIND_PILL: Record<string, string> = {
+  combat: "pill pill-danger",
+  clock: "pill pill-amber",
+  reveal: "pill",
+  rp: "pill pill-teal",
 };
+
+const panel: React.CSSProperties = {
+  background: "var(--surface2)",
+  border: "1px solid var(--border)",
+  borderRadius: 10,
+  padding: "0.55rem 0.75rem",
+};
+
+const smallPill: React.CSSProperties = { fontSize: "0.75rem", padding: "0 0.5rem" };
 
 function BriefModal({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
   const qc = useQueryClient();
@@ -81,7 +95,7 @@ function BriefModal({ sessionId, onClose }: { sessionId: string; onClose: () => 
         position: "fixed",
         inset: 0,
         zIndex: 1000,
-        background: "rgba(3,3,7,0.74)",
+        background: "rgba(5,8,7,0.72)",
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
@@ -95,12 +109,12 @@ function BriefModal({ sessionId, onClose }: { sessionId: string; onClose: () => 
         role="dialog"
         aria-label="DM brief"
         style={{
-          background: "var(--surface, #16161c)",
-          border: "1px solid var(--border)",
-          borderRadius: 14,
+          background: "var(--surface)",
+          border: "1px solid var(--border2)",
+          borderRadius: 12,
           width: "min(780px, 96vw)",
           maxWidth: "96vw",
-          boxShadow: "0 12px 48px rgba(0,0,0,0.6)",
+          boxShadow: "0 12px 48px rgba(0,0,0,0.5)",
         }}
       >
         {/* Header */}
@@ -109,73 +123,81 @@ function BriefModal({ sessionId, onClose }: { sessionId: string; onClose: () => 
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            padding: "0.9rem 1.2rem",
+            padding: "0.8rem 1.1rem",
             borderBottom: "1px solid var(--border)",
             position: "sticky",
             top: 0,
-            background: "var(--surface, #16161c)",
-            borderTopLeftRadius: 14,
-            borderTopRightRadius: 14,
+            background: "var(--surface)",
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
             zIndex: 1,
           }}
         >
-          <strong
-            style={{
-              fontFamily: "var(--font-story)",
-              color: "var(--gold)",
-              fontSize: "1.1rem",
-              letterSpacing: "0.04em",
-            }}
-          >
-            DM Brief
+          <strong style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", color: "var(--text)", fontSize: "1.05rem", fontWeight: 600 }}>
+            <ClipboardList size={17} aria-hidden style={{ color: "var(--muted)" }} />
+            DM brief
           </strong>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <button
               className="btn btn-ghost"
-              style={{ fontSize: "0.72rem" }}
+              style={{ minHeight: 30, fontSize: "0.8125rem", padding: "0.2rem 0.6rem", gap: "0.35rem" }}
+              aria-expanded={showNotes}
               onClick={() => setShowNotes((s) => !s)}
             >
-              {brief ? "↻ Regenerate" : "✦ Generate"}
+              {brief ? <RefreshCw size={14} aria-hidden /> : <Sparkles size={14} aria-hidden />}
+              {brief ? "Regenerate" : "Generate"}
             </button>
-            <button className="btn btn-ghost" style={{ padding: "0 0.45rem" }} onClick={onClose}>
-              ✕
+            <button
+              className="btn btn-ghost"
+              style={{ minHeight: 30, width: 32, padding: 0, border: "none" }}
+              onClick={onClose}
+              aria-label="Close"
+              title="Close"
+            >
+              <X size={17} aria-hidden />
             </button>
           </div>
         </div>
 
         {showNotes && (
-          <div style={{ padding: "0.8rem 1.2rem", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ padding: "0.8rem 1.1rem", borderBottom: "1px solid var(--border)" }}>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Optional planning notes to weave in (beats you want, tone, the 'what now' road…)"
+              aria-label="Planning notes"
               rows={3}
-              style={{ width: "100%", fontSize: "0.8rem", resize: "vertical" }}
+              style={{ width: "100%", fontSize: "0.875rem", resize: "vertical" }}
             />
             <button
-              className="btn"
-              style={{ marginTop: 6 }}
+              className="btn btn-primary"
+              style={{ marginTop: 8 }}
               onClick={() => generate.mutate()}
               disabled={generate.isPending}
             >
-              {generate.isPending ? "Conjuring the brief…" : brief ? "Regenerate brief" : "Generate brief"}
+              {generate.isPending ? "Writing the brief…" : brief ? "Regenerate brief" : "Generate brief"}
             </button>
             {generate.isError && (
-              <p style={{ color: "var(--danger, #ef5350)", fontSize: "0.72rem", marginTop: 4 }}>
+              <p style={{ color: "var(--danger-text)", fontSize: "0.8125rem", marginTop: 6 }}>
                 {(generate.error as Error).message}
               </p>
             )}
           </div>
         )}
 
-        <div style={{ padding: "1.1rem 1.2rem", display: "flex", flexDirection: "column", gap: "1.1rem" }}>
-          {isLoading && <div style={{ color: "var(--muted)", fontStyle: "italic" }}>Loading…</div>}
+        <div style={{ padding: "1.1rem", display: "flex", flexDirection: "column", gap: "1.1rem" }}>
+          {isLoading && <div style={{ color: "var(--muted)" }}>Loading…</div>}
 
           {!isLoading && !brief && (
-            <div style={{ textAlign: "center", color: "var(--muted)", padding: "1.5rem 0" }}>
-              <div style={{ fontSize: "2rem", marginBottom: "0.4rem" }}>📋</div>
-              No brief yet. Click <strong>✦ Generate</strong> to write a glanceable one from your
-              campaign, session, and cast.
+            <div style={{ textAlign: "center", color: "var(--muted)", padding: "1.5rem 0", lineHeight: 1.5 }}>
+              <ClipboardList size={28} aria-hidden style={{ marginBottom: "0.4rem", opacity: 0.7 }} />
+              <p style={{ margin: "0 0 0.25rem", color: "var(--text2)" }}>
+                A one-page sheet for the table: the cold open, the beats, how to play each NPC.
+              </p>
+              <p style={{ margin: 0 }}>
+                No brief yet. Click <strong style={{ color: "var(--text2)" }}>Generate</strong> to write one from your
+                campaign, session and cast.
+              </p>
             </div>
           )}
 
@@ -193,19 +215,7 @@ function BriefBody({ brief }: { brief: SessionBrief }) {
       {brief.cold_open && (
         <section>
           <SectionLabel>Cold open · read this aloud</SectionLabel>
-          <blockquote
-            style={{
-              margin: 0,
-              padding: "0.7rem 0.95rem",
-              borderLeft: "3px solid var(--gold)",
-              background: "rgba(214,175,54,0.07)",
-              borderRadius: "0 6px 6px 0",
-              fontFamily: "var(--font-story)",
-              fontStyle: "italic",
-              lineHeight: 1.5,
-              color: "var(--text)",
-            }}
-          >
+          <blockquote className="read-aloud" style={{ margin: 0, fontSize: "1.05rem" }}>
             {brief.cold_open}
           </blockquote>
         </section>
@@ -214,44 +224,39 @@ function BriefBody({ brief }: { brief: SessionBrief }) {
       {brief.premise && (
         <section>
           <SectionLabel>The spine</SectionLabel>
-          <p style={{ margin: 0, color: "var(--text)", fontStyle: "italic" }}>{brief.premise}</p>
+          <p className="story" style={{ margin: 0, color: "var(--story-text)", fontStyle: "italic", fontSize: "1.02rem" }}>
+            {brief.premise}
+          </p>
         </section>
       )}
 
       {/* Beats */}
       {brief.beats.length > 0 && (
         <section>
-          <SectionLabel>Beats · glance, don't read</SectionLabel>
+          <SectionLabel>Beats · glance, don&rsquo;t read</SectionLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
             {brief.beats.map((b, i) => {
-              const accent = KIND_ACCENT[b.kind] ?? "var(--border)";
               const chip = triggerChip(b);
               return (
-                <div
-                  key={i}
-                  style={{
-                    borderLeft: `3px solid ${accent}`,
-                    background: "var(--surface2, #1c1c22)",
-                    borderRadius: "0 8px 8px 0",
-                    padding: "0.55rem 0.75rem",
-                  }}
-                >
+                <div key={i} style={panel}>
                   <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
-                    <strong style={{ color: "var(--text)", fontSize: "0.9rem" }}>{b.title}</strong>
+                    <strong style={{ color: "var(--text)", fontSize: "0.9375rem", fontWeight: 600 }}>{b.title}</strong>
                     {chip && (
-                      <span style={pillStyle("rgba(176,71,47,0.22)", "#e8926f")}>🔔 {chip}</span>
+                      <span className="pill pill-next" style={smallPill}>
+                        <Bell size={12} aria-hidden /> {chip}
+                      </span>
                     )}
-                    <span style={pillStyle("rgba(255,255,255,0.06)", "var(--muted)")}>{b.kind}</span>
+                    <span className={KIND_PILL[b.kind] ?? "pill"} style={smallPill}>{b.kind}</span>
                     {b.spotlight_pc && (
-                      <span style={pillStyle("rgba(214,175,54,0.16)", "var(--gold)")}>
-                        ★ {b.spotlight_pc}
+                      <span className="pill" style={smallPill}>
+                        <Star size={12} aria-hidden /> <span className="story">{b.spotlight_pc}</span>
                       </span>
                     )}
                   </div>
-                  <div style={{ color: "var(--text)", marginTop: 3, lineHeight: 1.4 }}>{b.cue}</div>
+                  <div style={{ color: "var(--text)", marginTop: 4, lineHeight: 1.45, fontSize: "0.9375rem" }}>{b.cue}</div>
                   {b.dm_note && (
-                    <div style={{ color: "var(--muted)", fontSize: "0.76rem", marginTop: 3 }}>
-                      <em>DM:</em> {b.dm_note}
+                    <div style={{ color: "var(--muted)", fontSize: "0.8125rem", marginTop: 4 }}>
+                      DM: {b.dm_note}
                     </div>
                   )}
                 </div>
@@ -264,42 +269,34 @@ function BriefBody({ brief }: { brief: SessionBrief }) {
       {/* NPC play-faces */}
       {brief.npc_faces.length > 0 && (
         <section>
-          <SectionLabel>NPC play-faces · how to play them</SectionLabel>
+          <SectionLabel>How to play the NPCs</SectionLabel>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0.5rem" }}>
             {brief.npc_faces.map((n, i) => (
-              <div
-                key={i}
-                style={{
-                  background: "var(--surface2, #1c1c22)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  padding: "0.55rem 0.7rem",
-                }}
-              >
-                <div style={{ color: "var(--gold)", fontWeight: 700, fontFamily: "var(--font-story)" }}>
+              <div key={i} style={panel}>
+                <div className="story" style={{ color: "var(--text)", fontWeight: 700, fontSize: "1.05rem" }}>
                   {n.name}
                 </div>
-                {n.quick_who && <div style={{ fontSize: "0.8rem", color: "var(--text)" }}>{n.quick_who}</div>}
+                {n.quick_who && <div style={{ fontSize: "0.8125rem", color: "var(--text2)" }}>{n.quick_who}</div>}
                 {n.want_now && (
-                  <div style={{ fontSize: "0.76rem", color: "var(--muted)", marginTop: 3 }}>
-                    <em>wants:</em> {n.want_now}
+                  <div style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: 3 }}>
+                    Wants: <span style={{ color: "var(--text2)" }}>{n.want_now}</span>
                   </div>
                 )}
                 {n.knows.length > 0 && (
-                  <ul style={{ margin: "3px 0 0", paddingLeft: "1.1rem", fontSize: "0.74rem", color: "var(--muted)" }}>
+                  <ul style={{ margin: "3px 0 0", paddingLeft: "1.1rem", fontSize: "0.8125rem", color: "var(--muted)" }}>
                     {n.knows.map((k, j) => (
                       <li key={j}>{k}</li>
                     ))}
                   </ul>
                 )}
                 {n.voice && (
-                  <div style={{ fontSize: "0.74rem", color: "var(--muted)", marginTop: 3, fontStyle: "italic" }}>
+                  <div className="story" style={{ fontSize: "0.9rem", color: "var(--text2)", marginTop: 3, fontStyle: "italic" }}>
                     {n.voice}
                   </div>
                 )}
                 {n.secret_short && (
-                  <div style={{ fontSize: "0.74rem", color: "var(--crimson2, #c96)", marginTop: 3 }}>
-                    🤫 {n.secret_short}
+                  <div style={{ fontSize: "0.8125rem", color: "var(--amber-text)", marginTop: 3 }}>
+                    <span style={{ color: "var(--muted)" }}>Secret:</span> {n.secret_short}
                   </div>
                 )}
               </div>
@@ -314,11 +311,11 @@ function BriefBody({ brief }: { brief: SessionBrief }) {
           <SectionLabel>Spotlight · say these out loud</SectionLabel>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {brief.spotlight.map((s, i) => (
-              <div key={i} style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-                <span style={{ color: "var(--gold)", fontWeight: 700, minWidth: 70, fontSize: "0.82rem" }}>
+              <div key={i} style={{ display: "flex", gap: 10, alignItems: "baseline" }}>
+                <span className="story" style={{ color: "var(--text)", fontWeight: 700, minWidth: 90, fontSize: "0.95rem" }}>
                   {s.pc_name}
                 </span>
-                <span style={{ color: "var(--text)", fontSize: "0.85rem" }}>{s.flag}</span>
+                <span style={{ color: "var(--text2)", fontSize: "0.875rem" }}>{s.flag}</span>
               </div>
             ))}
           </div>
@@ -331,16 +328,17 @@ function BriefBody({ brief }: { brief: SessionBrief }) {
           <SectionLabel>Danger dial</SectionLabel>
           <div
             style={{
-              padding: "0.6rem 0.8rem",
-              background: "rgba(176,71,47,0.1)",
-              borderRadius: 8,
-              border: "1px solid rgba(176,71,47,0.3)",
+              ...panel,
+              display: "flex",
+              gap: "0.5rem",
+              alignItems: "flex-start",
               color: "var(--text)",
-              fontSize: "0.85rem",
+              fontSize: "0.875rem",
               lineHeight: 1.45,
             }}
           >
-            ⚖ {brief.danger_dial}
+            <Scale size={16} aria-hidden style={{ color: "var(--amber-text)", marginTop: 2 }} />
+            <span>{brief.danger_dial}</span>
           </div>
         </section>
       )}
@@ -351,19 +349,13 @@ function BriefBody({ brief }: { brief: SessionBrief }) {
           <SectionLabel>The roads · let the table choose</SectionLabel>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "0.5rem" }}>
             {brief.roads.map((r, i) => (
-              <div
-                key={i}
-                style={{
-                  background: "var(--surface2, #1c1c22)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 8,
-                  padding: "0.55rem 0.7rem",
-                }}
-              >
-                <div style={{ color: "var(--gold)", fontWeight: 700, fontSize: "0.85rem" }}>🛣 {r.label}</div>
-                <div style={{ fontSize: "0.8rem", color: "var(--text)", marginTop: 2 }}>{r.flavor}</div>
+              <div key={i} style={panel}>
+                <div style={{ color: "var(--text)", fontWeight: 600, fontSize: "0.9375rem", display: "flex", gap: 6, alignItems: "center" }}>
+                  <Signpost size={14} aria-hidden style={{ color: "var(--muted)" }} /> {r.label}
+                </div>
+                <div style={{ fontSize: "0.8125rem", color: "var(--text2)", marginTop: 2 }}>{r.flavor}</div>
                 {r.pull && (
-                  <div style={{ fontSize: "0.73rem", color: "var(--muted)", marginTop: 2 }}>pull: {r.pull}</div>
+                  <div style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: 2 }}>Pull: {r.pull}</div>
                 )}
               </div>
             ))}
@@ -372,8 +364,9 @@ function BriefBody({ brief }: { brief: SessionBrief }) {
       )}
 
       {brief.fallback && (
-        <div style={{ fontSize: "0.74rem", color: "var(--muted)", borderTop: "1px solid var(--border)", paddingTop: "0.6rem" }}>
-          🛟 {brief.fallback}
+        <div style={{ fontSize: "0.8125rem", color: "var(--muted)", borderTop: "1px solid var(--border)", paddingTop: "0.6rem", display: "flex", gap: 6 }}>
+          <LifeBuoy size={14} aria-hidden style={{ marginTop: 2, flex: "none" }} />
+          <span>{brief.fallback}</span>
         </div>
       )}
     </>
@@ -384,27 +377,13 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div
       style={{
-        fontSize: "0.66rem",
-        letterSpacing: "0.12em",
-        textTransform: "uppercase",
+        fontSize: "0.8125rem",
         color: "var(--muted)",
         marginBottom: "0.4rem",
-        fontWeight: 700,
+        fontWeight: 600,
       }}
     >
       {children}
     </div>
   );
-}
-
-function pillStyle(bg: string, color: string): React.CSSProperties {
-  return {
-    fontSize: "0.66rem",
-    padding: "0.1rem 0.42rem",
-    borderRadius: 999,
-    background: bg,
-    color,
-    fontWeight: 700,
-    whiteSpace: "nowrap",
-  };
 }

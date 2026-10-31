@@ -44,7 +44,7 @@ export default function SpellChips({ pcId, characterClass }: { pcId: string; cha
   };
   return (
     <div style={{ marginTop: "0.3rem" }}>
-      <div style={{ fontSize: "0.65rem", color: "var(--muted)", marginBottom: "0.2rem" }} title="Tap a spell as it is cast: the table's next hit takes its colour, and a levelled spell spends a slot">
+      <div style={{ fontSize: "0.75rem", color: "var(--muted)", marginBottom: "0.25rem" }} title="Tap a spell as it is cast: the table's next hit takes its colour, and a levelled spell spends a slot">
         Cast
       </div>
       <div className="flex" style={{ flexWrap: "wrap", gap: "0.25rem" }}>
@@ -56,13 +56,24 @@ export default function SpellChips({ pcId, characterClass }: { pcId: string; cha
           return (
             <button
               key={spell.id}
-              className={on ? "btn btn-primary" : "btn btn-ghost"}
-              style={{ fontSize: "0.62rem", padding: "0.05rem 0.4rem", borderColor: on ? fl.color : undefined, opacity: dry ? 0.5 : 1 }}
+              className="btn btn-ghost"
+              aria-pressed={on}
+              style={{
+                fontSize: "0.75rem",
+                minHeight: 30,
+                padding: "0.1rem 0.5rem",
+                gap: "0.35rem",
+                opacity: dry ? 0.5 : 1,
+                background: on ? "var(--accent-active)" : undefined,
+                color: on ? "var(--accent-active-text)" : undefined,
+                borderColor: on ? "var(--accent-line)" : undefined,
+              }}
               onClick={() => void cast(spell, f!)}
               title={`${spell.name} — ${spell.level ? `level ${spell.level}` : "cantrip"} · ${fl.label}${dry ? " · no slots left" : ""}`}
             >
-              {fl.emoji} {spell.name}
-              {spell.level > 0 ? <span style={{ opacity: 0.6 }}> {spell.level}</span> : null}
+              <span aria-hidden style={{ width: 7, height: 7, borderRadius: "50%", background: fl.color, flexShrink: 0 }} />
+              {spell.name}
+              {spell.level > 0 ? <span className="num" style={{ opacity: 0.7 }}>{spell.level}</span> : null}
             </button>
           );
         })}

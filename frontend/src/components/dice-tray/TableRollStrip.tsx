@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Megaphone } from "lucide-react";
 
 import { sessionsApi } from "../../api/sessions";
 
@@ -64,49 +65,54 @@ export default function TableRollStrip({ sessionId }: { sessionId: string }) {
   return (
     <div
       style={{
-        padding: "0.5rem 0.75rem",
+        padding: "0.65rem 0.75rem",
         borderBottom: "1px solid var(--border)",
         background: "var(--surface2)",
       }}
     >
       <div
         style={{
-          fontSize: "0.62rem",
-          color: "var(--muted)",
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          marginBottom: "0.35rem",
+          fontSize: "0.875rem",
+          fontWeight: 600,
+          color: "var(--text)",
+          marginBottom: "0.4rem",
           display: "flex",
           alignItems: "center",
-          gap: "0.4rem",
+          gap: "0.45rem",
+          flexWrap: "wrap",
         }}
       >
-        🎲 Roll for the Table
-        <span style={{ color: "var(--gold)", textTransform: "none", letterSpacing: 0 }}>
-          — players see these
+        <Megaphone size={15} aria-hidden style={{ color: "var(--muted)" }} />
+        Roll for the table
+        <span style={{ color: "var(--muted)", fontWeight: 400, fontSize: "0.8125rem" }}>
+          — every player&rsquo;s phone shows the result
         </span>
       </div>
 
-      <div style={{ display: "flex", gap: "0.35rem", alignItems: "center", marginBottom: "0.4rem" }}>
-        <label style={miniLabel}>×</label>
+      <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginBottom: "0.5rem" }}>
+        <label style={miniLabel} htmlFor="ql-table-roll-count">How many</label>
         <input
+          id="ql-table-roll-count"
           type="number"
           min={1}
           max={20}
           value={count}
           onChange={(e) => setCount(Number(e.target.value))}
           onFocus={(e) => e.currentTarget.select()}
+          className="num"
           style={miniInput}
         />
-        <label style={{ ...miniLabel, marginLeft: "0.3rem" }}>mod</label>
+        <label style={{ ...miniLabel, marginLeft: "0.4rem" }} htmlFor="ql-table-roll-mod">Bonus</label>
         <input
+          id="ql-table-roll-mod"
           type="number"
           value={modifier}
           onChange={(e) => setModifier(Number(e.target.value))}
           onFocus={(e) => e.currentTarget.select()}
+          className="num"
           style={miniInput}
         />
-        {busy && <span style={{ fontSize: "0.65rem", color: "var(--muted)" }}>broadcasting…</span>}
+        {busy && <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Sending…</span>}
       </div>
 
       <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" }}>
@@ -116,6 +122,7 @@ export default function TableRollStrip({ sessionId }: { sessionId: string }) {
             onClick={() => roll(sides)}
             disabled={busy}
             style={dieBtn}
+            className="btn btn-secondary"
             title={`Roll ${Math.max(1, count)}d${sides} and broadcast to players`}
           >
             d{sides}
@@ -124,41 +131,46 @@ export default function TableRollStrip({ sessionId }: { sessionId: string }) {
       </div>
 
       {error && (
-        <div style={{ fontSize: "0.65rem", color: "var(--red, #ef5350)", marginTop: "0.3rem" }}>
+        <div style={{ fontSize: "0.75rem", color: "var(--danger-text)", marginTop: "0.35rem" }}>
           {error}
         </div>
       )}
 
       {log.length > 0 && (
-        <div style={{ marginTop: "0.4rem", display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+        <div style={{ marginTop: "0.5rem", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
           {log.map((r) => (
             <div
               key={r.id}
               style={{
                 display: "flex",
-                gap: "0.4rem",
-                alignItems: "center",
-                fontSize: "0.72rem",
+                gap: "0.5rem",
+                alignItems: "baseline",
+                fontSize: "0.8125rem",
               }}
             >
-              <span style={{ color: "var(--muted)" }}>{r.label}</span>
-              <span style={{ color: "var(--muted)", fontSize: "0.65rem", fontFamily: "var(--font-mono)" }}>
+              <span className="num" style={{ color: "var(--text2)" }}>{r.label}</span>
+              <span className="num" style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
                 {r.detail}
               </span>
+              {(r.crit || r.fumble) && (
+                <span style={{ fontSize: "0.75rem", color: r.crit ? "var(--teal-text)" : "var(--danger-text)" }}>
+                  {r.crit ? "natural 20" : "natural 1"}
+                </span>
+              )}
               <span
+                className="num"
                 style={{
                   marginLeft: "auto",
-                  fontWeight: 700,
-                  fontFamily: "var(--font-mono)",
+                  fontWeight: 600,
+                  fontSize: "0.95rem",
                   color: r.crit
-                    ? "var(--green2, #4caf50)"
+                    ? "var(--teal-text)"
                     : r.fumble
-                      ? "var(--red, #ef5350)"
-                      : "var(--gold)",
+                      ? "var(--danger-text)"
+                      : "var(--text)",
                 }}
               >
                 {r.total}
-                {r.crit ? " ✦" : r.fumble ? " ✦" : ""}
               </span>
             </div>
           ))}
@@ -169,33 +181,31 @@ export default function TableRollStrip({ sessionId }: { sessionId: string }) {
 }
 
 const miniLabel: React.CSSProperties = {
-  fontSize: "0.6rem",
+  fontSize: "0.75rem",
+  fontWeight: 500,
   color: "var(--muted)",
-  textTransform: "uppercase",
-  letterSpacing: "0.05em",
+  margin: 0,
+  display: "inline",
 };
 
 const miniInput: React.CSSProperties = {
-  width: 42,
-  fontSize: "0.72rem",
-  padding: "0.15rem 0.3rem",
+  width: 48,
+  fontSize: "0.8125rem",
+  padding: "0.2rem 0.3rem",
   textAlign: "center",
-  background: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 4,
-  color: "var(--text)",
 };
 
 const dieBtn: React.CSSProperties = {
   flex: "1 0 auto",
-  minWidth: 38,
-  padding: "0.3rem 0.35rem",
-  background: "var(--surface)",
-  border: "1px solid var(--gold)",
-  borderRadius: 5,
-  color: "var(--gold)",
-  fontSize: "0.78rem",
-  fontWeight: 700,
-  fontFamily: "var(--font-story)",
+  minWidth: 42,
+  minHeight: 32,
+  padding: "0.25rem 0.35rem",
+  background: "transparent",
+  border: "1px solid var(--border2)",
+  borderRadius: 8,
+  color: "var(--text)",
+  fontSize: "0.8125rem",
+  fontWeight: 500,
+  fontFamily: "var(--font-mono)",
   cursor: "pointer",
 };

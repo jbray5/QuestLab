@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Contrast, ExternalLink, NotebookPen, X } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 import { useIsCompact } from "../../hooks/useIsCompact";
@@ -21,6 +22,8 @@ import { readDockSession, rememberDockSession, sessionIdFromPath } from "./dmSes
  */
 
 const DM_ROUTE = /^\/(sessions|campaigns|adventures|admin|monsters|spells|weapons|magic-items)(\/|$)|^\/$/;
+/** Compact header buttons (Lamplit, Plan 121). */
+const headBtn: React.CSSProperties = { minHeight: 28, padding: "0.1rem 0.5rem", fontSize: "0.8125rem", gap: "0.3rem", border: "none" };
 const RECT_KEY = "ql-dock-rect";
 const OPEN_KEY = "ql-dock-open";
 const DIM_KEY = "ql-dock-dim";
@@ -179,20 +182,24 @@ export default function DmDock() {
           top: "60%",
           zIndex: 480,
           writingMode: "vertical-rl",
-          padding: "10px 5px",
-          background: "rgba(16,14,24,0.92)",
-          border: "1px solid var(--gold)",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "10px 6px",
+          background: "var(--surface)",
+          border: "1px solid var(--border2)",
           borderRight: 0,
           borderRadius: "8px 0 0 8px",
-          color: "var(--gold)",
-          fontFamily: "var(--font-story)",
-          fontSize: "0.7rem",
-          letterSpacing: "0.1em",
+          color: "var(--text2)",
+          fontFamily: "var(--font-ui)",
+          fontSize: "0.75rem",
+          fontWeight: 500,
           cursor: "pointer",
-          boxShadow: "-4px 0 14px rgba(0,0,0,0.45)",
+          boxShadow: "-4px 0 14px rgba(0,0,0,0.4)",
         }}
       >
-        📝 NOTES · N
+        <NotebookPen size={14} aria-hidden style={{ transform: "rotate(90deg)" }} />
+        Notes · N
       </button>
     );
   }
@@ -215,11 +222,11 @@ export default function DmDock() {
         overflow: "hidden",
         minWidth: 300,
         minHeight: 240,
-        background: dim ? "rgba(16,14,24,0.62)" : "rgba(16,14,24,0.97)",
-        backdropFilter: "blur(8px)",
-        border: "1px solid var(--gold)",
+        background: dim ? "rgba(22,27,25,0.62)" : "var(--surface)",
+        backdropFilter: dim ? "blur(8px)" : undefined,
+        border: "1px solid var(--border2)",
         borderRadius: 12,
-        boxShadow: "0 18px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(214,175,54,0.15)",
+        boxShadow: "0 18px 48px rgba(0,0,0,0.55)",
         transition: "background 0.2s",
       }}
     >
@@ -228,36 +235,40 @@ export default function DmDock() {
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 6,
-          padding: "0.35rem 0.5rem 0.35rem 0.7rem",
+          gap: 8,
+          padding: "0.3rem 0.4rem 0.3rem 0.75rem",
           cursor: "move",
           userSelect: "none",
           borderBottom: "1px solid var(--border)",
-          background: "rgba(214,175,54,0.06)",
+          background: "var(--surface2)",
+          borderRadius: "12px 12px 0 0",
         }}
         title="Drag to move · resize from the corner"
       >
-        <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)", fontSize: "0.78rem", letterSpacing: "0.06em" }}>
-          📝 DM Notes
+        <strong style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--text)", fontSize: "0.875rem", fontWeight: 600 }}>
+          <NotebookPen size={15} aria-hidden style={{ color: "var(--muted)" }} />
+          DM notes
         </strong>
-        <span style={{ fontSize: "0.6rem", color: "var(--muted)" }}>N to hide</span>
+        <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>N to hide</span>
         <span style={{ marginLeft: "auto", display: "flex", gap: 2 }}>
           <button
             className="btn btn-ghost"
-            style={{ fontSize: "0.66rem", padding: "0.05rem 0.4rem" }}
+            style={{ ...headBtn, width: 28, padding: 0, ...(dim ? { color: "var(--accent-active-text)", background: "var(--accent-active)" } : {}) }}
             onClick={() => {
               writeFlag(DIM_KEY, !dim);
               setDim(!dim);
             }}
             title={dim ? "Solid" : "See-through (watch the board behind it)"}
+            aria-label="See-through"
+            aria-pressed={dim}
           >
-            ◐
+            <Contrast size={14} aria-hidden />
           </button>
-          <button className="btn btn-ghost" style={{ fontSize: "0.66rem", padding: "0.05rem 0.4rem" }} onClick={popOut} title="Open in its own small window — park it over Discord">
-            ↗ Pop out
+          <button className="btn btn-ghost" style={headBtn} onClick={popOut} title="Open in its own small window — park it over Discord">
+            <ExternalLink size={14} aria-hidden /> Pop out
           </button>
-          <button className="btn btn-ghost" style={{ fontSize: "0.66rem", padding: "0.05rem 0.4rem" }} onClick={toggle} aria-label="Hide notes">
-            ✕
+          <button className="btn btn-ghost" style={{ ...headBtn, width: 28, padding: 0 }} onClick={toggle} aria-label="Hide notes" title="Hide notes (N)">
+            <X size={15} aria-hidden />
           </button>
         </span>
       </div>

@@ -1,13 +1,18 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export interface HudMenuItem {
   key: string;
   label: string;
+  /** A small line icon (lucide, ~16px) shown before the label. */
+  icon?: ReactNode;
   /** One line saying what it is for. */
   hint?: string;
   /** Marks the pick most people want. */
   recommended?: boolean;
+  /** A destructive pick (ending, clearing): its label reads red. */
+  danger?: boolean;
   disabled?: boolean;
   /** An action that stays on the page. */
   onSelect?: () => void;
@@ -21,14 +26,21 @@ export interface HudMenuItem {
  * A compact dropdown for the HUD's top bar (review 10/30): nine buttons became
  * a few menus, each item with a one-line hint. Closes on a pick, a click
  * elsewhere, or Escape. Navigation items are real links (new tab works).
+ * Lamplit (Plan 121): icon + short label on a neutral outline button.
  */
 export default function HudMenu({
   label,
+  icon,
+  iconOnly = false,
   title,
   items,
   footer,
 }: {
   label: string;
+  /** A small line icon shown before the label. */
+  icon?: ReactNode;
+  /** Show only the icon (a "⋯" menu); the label becomes the accessible name. */
+  iconOnly?: boolean;
   title?: string;
   items: HudMenuItem[];
   footer?: HudMenuItem[];
@@ -53,25 +65,52 @@ export default function HudMenu({
   const row = (it: HudMenuItem) => {
     const body = (
       <>
-        <span style={{ display: "block", color: "var(--text)", fontSize: "0.82rem" }}>
+        <span
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.5rem",
+            color: it.danger ? "var(--danger-text)" : "var(--text)",
+            fontSize: "0.875rem",
+            fontWeight: 500,
+          }}
+        >
+          {it.icon && (
+            <span aria-hidden style={{ display: "inline-flex", color: it.danger ? "var(--danger-text)" : "var(--muted)", width: 16 }}>
+              {it.icon}
+            </span>
+          )}
           {it.label}
           {it.recommended && (
-            <span style={{ marginLeft: 6, fontSize: "0.62rem", color: "var(--gold)", letterSpacing: "0.06em" }}>
-              RECOMMENDED
+            <span className="pill" style={{ fontSize: "0.75rem", padding: "0 0.5rem", marginLeft: "auto" }}>
+              Recommended
             </span>
           )}
         </span>
-        {it.hint && <span style={{ display: "block", color: "var(--muted)", fontSize: "0.7rem", marginTop: 1 }}>{it.hint}</span>}
+        {it.hint && (
+          <span
+            style={{
+              display: "block",
+              color: "var(--muted)",
+              fontSize: "0.78rem",
+              lineHeight: 1.4,
+              marginTop: 2,
+              paddingLeft: it.icon ? "calc(16px + 0.5rem)" : 0,
+            }}
+          >
+            {it.hint}
+          </span>
+        )}
       </>
     );
     const style: React.CSSProperties = {
       display: "block",
       width: "100%",
       textAlign: "left",
-      padding: "0.45rem 0.7rem",
+      padding: "0.5rem 0.7rem",
       background: "transparent",
       border: "none",
-      borderRadius: 6,
+      borderRadius: 7,
       cursor: it.disabled ? "not-allowed" : "pointer",
       opacity: it.disabled ? 0.5 : 1,
       textDecoration: "none",
@@ -114,14 +153,23 @@ export default function HudMenu({
     <div ref={root} style={{ position: "relative" }}>
       <button
         type="button"
-        className="btn btn-secondary"
-        style={{ fontSize: "0.75rem", padding: "0.25rem 0.6rem" }}
+        className={iconOnly ? "btn btn-ghost" : "btn btn-secondary"}
+        style={{
+          minHeight: 30,
+          padding: iconOnly ? "0.25rem 0.45rem" : "0.25rem 0.55rem 0.25rem 0.65rem",
+          fontSize: "0.8125rem",
+          gap: "0.4rem",
+          background: open ? "var(--surface3)" : undefined,
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
-        title={title}
+        aria-label={iconOnly ? label : undefined}
+        title={title ?? (iconOnly ? label : undefined)}
         onClick={() => setOpen((v) => !v)}
       >
-        {label} ▾
+        {icon}
+        {!iconOnly && label}
+        {!iconOnly && <ChevronDown size={14} aria-hidden style={{ color: "var(--muted)", marginLeft: -2 }} />}
       </button>
       {open && (
         <div
@@ -131,11 +179,11 @@ export default function HudMenu({
             top: "calc(100% + 4px)",
             right: 0,
             zIndex: 60,
-            minWidth: 260,
+            minWidth: 290,
             background: "var(--surface)",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            boxShadow: "0 10px 28px rgba(0,0,0,0.5)",
+            border: "1px solid var(--border2)",
+            borderRadius: 10,
+            boxShadow: "0 10px 28px rgba(0,0,0,0.45)",
             padding: "0.3rem",
           }}
         >
@@ -143,8 +191,8 @@ export default function HudMenu({
           {footer && footer.length > 0 && (
             <>
               <div style={{ borderTop: "1px solid var(--border)", margin: "0.3rem 0.4rem" }} />
-              <div style={{ fontSize: "0.6rem", letterSpacing: "0.1em", color: "var(--muted)", padding: "0.1rem 0.7rem" }}>
-                MORE
+              <div style={{ fontSize: "0.75rem", fontWeight: 500, color: "var(--muted)", padding: "0.15rem 0.7rem" }}>
+                More
               </div>
               {footer.map(row)}
             </>

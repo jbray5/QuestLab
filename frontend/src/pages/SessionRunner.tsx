@@ -1,4 +1,7 @@
 import { useEffect, useState } from "react";
+import {
+  Check, Dices, Lightbulb, MonitorPlay, NotebookPen, PenLine, RefreshCw, Sparkles, Undo2, X,
+} from "lucide-react";
 import { AI_ON } from "../lib/flags";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,19 +15,59 @@ import { statusLabel } from "../lib/labels";
 // ── Initiative Tracker ────────────────────────────────────────────────────────
 
 // Review 10/30 — every number in a row sits under a column that names it.
+// Plan 121 — a Console table: labeled columns, hairline rows, the live row lit.
 const rowGrid: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "46px minmax(0, 1fr) 40px 50px 30px",
+  gridTemplateColumns: "58px minmax(0, 1fr) 58px 62px 30px",
   alignItems: "center",
-  gap: "0.4rem",
+  gap: "0.5rem",
 };
 const fieldLabel: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: 2,
-  fontSize: "0.7rem",
+  margin: 0,
+  fontSize: "0.75rem",
+  fontWeight: 500,
   color: "var(--muted)",
 };
+const cellInput: React.CSSProperties = {
+  width: "100%",
+  textAlign: "center",
+  padding: "0.2rem 0.25rem",
+  fontSize: "0.9375rem",
+};
+/** Who's on which side, as a pill: party teal, foes red, NPCs neutral. */
+const SIDE: Record<string, { label: string; cls: string; title: string }> = {
+  pc: { label: "Party", cls: "pill pill-teal", title: "Player character" },
+  monster: { label: "Foe", cls: "pill pill-danger", title: "Monster" },
+  npc: { label: "NPC", cls: "pill", title: "NPC" },
+};
+const STATUS_BADGE: Record<string, string> = {
+  Draft: "badge badge-draft",
+  Ready: "badge badge-ready",
+  InProgress: "badge badge-progress",
+  Complete: "badge badge-complete",
+  Completed: "badge badge-complete",
+};
+
+/** Session numbers are Roman numerals (DESIGN.md §1). */
+function toRoman(n: number): string {
+  if (!Number.isFinite(n) || n <= 0 || n >= 4000) return String(n);
+  const table: Array<[number, string]> = [
+    [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"],
+    [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"],
+  ];
+  let out = "";
+  let rest = Math.floor(n);
+  for (const [v, s] of table) {
+    while (rest >= v) {
+      out += s;
+      rest -= v;
+    }
+  }
+  return out;
+}
 
 function InitiativeTracker({ sessionId }: { sessionId: string }) {
   const {
@@ -90,16 +133,24 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="card">
+    <div className="card" style={{ padding: "1rem" }}>
       <div
         className="flex items-center"
-        style={{ justifyContent: "space-between", marginBottom: "1rem" }}
+        style={{ justifyContent: "space-between", marginBottom: "0.85rem", gap: "0.5rem" }}
       >
-        <h3 style={{ margin: 0 }}>⚔ Initiative — Round {round}</h3>
+        <div className="flex items-center" style={{ gap: "0.5rem" }}>
+          <h3 style={{ margin: 0 }}>Initiative</h3>
+          {combatants.length > 0 && (
+            <span className="pill" title="Combat round">
+              Round <span className="num">{round}</span>
+            </span>
+          )}
+        </div>
         <button
           className="btn btn-ghost"
-          style={{ fontSize: "0.75rem" }}
+          style={{ minHeight: 30, fontSize: "0.8125rem", padding: "0.2rem 0.6rem", border: "none" }}
           onClick={() => void reset()}
+          title="Clear the order and start over"
         >
           Reset
         </button>
@@ -108,14 +159,14 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
       {error && (
         <p
           className="text-sm"
-          style={{ color: "var(--red)", marginBottom: "0.75rem" }}
+          style={{ color: "var(--danger-text)", marginBottom: "0.75rem" }}
         >
           {error}
         </p>
       )}
 
       <div className="flex gap-2" style={{ marginBottom: "1rem", flexWrap: "wrap", alignItems: "flex-end" }}>
-        <label style={{ ...fieldLabel, flex: "2 1 120px" }}>
+        <label style={{ ...fieldLabel, flex: "2 1 140px" }}>
           Name
           <input
             placeholder="e.g. Goblin boss"
@@ -126,13 +177,13 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
         </label>
         <label style={{ ...fieldLabel, flex: "1 1 70px" }} title="The DEX score (10 = +0). Initiative is d20 + its modifier.">
           DEX score
-          <input type="number" placeholder="10" value={newDex} onChange={(e) => setNewDex(e.target.value)} />
+          <input type="number" className="num" placeholder="10" value={newDex} onChange={(e) => setNewDex(e.target.value)} />
         </label>
-        <label style={{ ...fieldLabel, flex: "1 1 60px" }}>
-          HP
-          <input type="number" placeholder="10" value={newHp} onChange={(e) => setNewHp(e.target.value)} />
+        <label style={{ ...fieldLabel, flex: "1 1 70px" }}>
+          Hit points
+          <input type="number" className="num" placeholder="10" value={newHp} onChange={(e) => setNewHp(e.target.value)} />
         </label>
-        <label style={{ ...fieldLabel, flex: "1 1 80px" }}>
+        <label style={{ ...fieldLabel, flex: "1 1 90px" }}>
           Side
           <select value={newType} onChange={(e) => setNewType(e.target.value as "pc" | "monster" | "npc")}>
             <option value="pc">PC</option>
@@ -140,8 +191,8 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
             <option value="npc">NPC</option>
           </select>
         </label>
-        <button className="btn btn-primary" onClick={addCombatant} disabled={roll.isPending}>
-          + Add &amp; roll
+        <button className="btn btn-secondary" onClick={addCombatant} disabled={roll.isPending} title="Add them and roll initiative for everyone">
+          <Dices size={16} aria-hidden /> Add &amp; roll
         </button>
       </div>
 
@@ -150,99 +201,109 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
       )}
 
       {!loading && combatants.length === 0 && (
-        <p className="text-muted text-sm">Add combatants above, then roll initiative.</p>
+        <p className="text-muted text-sm" style={{ lineHeight: 1.5 }}>
+          The turn order for a fight lives here. Add each monster or NPC above — the app rolls initiative
+          for everyone and sorts them, highest first.
+        </p>
       )}
 
       {combatants.length > 0 && (
-        <div style={{ ...rowGrid, padding: "0 0.75rem 0.2rem", fontSize: "0.65rem", letterSpacing: "0.08em", color: "var(--muted)" }}>
-          <span title="Initiative — highest goes first">INIT</span>
-          <span>NAME</span>
-          <span>SIDE</span>
-          <span>HP</span>
-          <span />
+        <div className="ql-table">
+          <div className="ql-table-head" style={{ ...rowGrid, padding: "0.4rem 0.75rem" }}>
+            <span title="Initiative — highest goes first">Initiative</span>
+            <span>Name</span>
+            <span>Side</span>
+            <span>Hit points</span>
+            <span />
+          </div>
+          {/* Highest initiative first, the order the HUD shows and the turns follow. */}
+          <div role="list" aria-label="Initiative order">
+            {[...combatants].sort((a, b) => b.initiative_roll - a.initiative_roll).map((c) => {
+              const isActive = c.id === activeCombatantId;
+              const side = SIDE[c.type] ?? SIDE.npc;
+              return (
+                <div
+                  key={c.id}
+                  role="listitem"
+                  aria-current={isActive ? "true" : undefined}
+                  className={`ql-table-row${isActive ? " lit" : ""}`}
+                  style={{
+                    ...rowGrid,
+                    padding: "0.45rem 0.75rem",
+                    opacity: c.defeated ? 0.45 : 1,
+                  }}
+                >
+                  <input
+                    type="number"
+                    aria-label={`${c.name} initiative`}
+                    title={c.initiative_roll ? "Initiative" : "Not rolled yet — type their roll"}
+                    placeholder="—"
+                    value={c.initiative_roll || ""}
+                    onChange={(e) => void setInitiative(c.id, Number(e.target.value) || 0)}
+                    className="num"
+                    style={{ ...cellInput, fontWeight: 600 }}
+                  />
+                  <span style={{ minWidth: 0 }}>
+                    <span
+                      className="story"
+                      style={{
+                        display: "block",
+                        fontWeight: 700,
+                        fontSize: "1rem",
+                        lineHeight: 1.25,
+                        textDecoration: c.defeated ? "line-through" : "none",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {c.name}
+                    </span>
+                    {isActive && (
+                      <span style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--accent-text)" }}>
+                        Their turn
+                      </span>
+                    )}
+                  </span>
+                  <span className={side.cls} style={{ fontSize: "0.75rem", padding: "0 0.5rem", justifySelf: "start" }} title={side.title}>
+                    {side.label}
+                  </span>
+                  <input
+                    type="number"
+                    aria-label={`${c.name} hit points`}
+                    title="Hit points"
+                    value={c.hp_current}
+                    onChange={(e) =>
+                      void patchCombatant(c.id, { hp_current: Math.max(0, Number(e.target.value)) })
+                    }
+                    className="num"
+                    style={cellInput}
+                  />
+                  <button
+                    className="btn btn-ghost"
+                    title={c.defeated ? "Bring them back" : "Mark defeated"}
+                    aria-label={c.defeated ? `Revive ${c.name}` : `Mark ${c.name} defeated`}
+                    style={{ minHeight: 28, width: 30, padding: 0, border: "none", color: "var(--muted)" }}
+                    onClick={() => void toggleDefeated(c.id)}
+                  >
+                    {c.defeated ? <Undo2 size={15} aria-hidden /> : <X size={15} aria-hidden />}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
-      {/* Highest initiative first, the order the HUD shows and the turns follow. */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }} role="list" aria-label="Initiative order">
-        {[...combatants].sort((a, b) => b.initiative_roll - a.initiative_roll).map((c) => {
-          const isActive = c.id === activeCombatantId;
-          return (
-            <div
-              key={c.id}
-              role="listitem"
-              aria-current={isActive ? "true" : undefined}
-              style={{
-                ...rowGrid,
-                padding: "0.5rem 0.75rem",
-                borderRadius: 6,
-                background: isActive ? "rgba(139,26,26,0.3)" : "var(--surface2)",
-                border: isActive ? "1px solid var(--crimson2)" : "1px solid var(--border)",
-                opacity: c.defeated ? 0.4 : 1,
-              }}
-            >
-              <input
-                type="number"
-                aria-label={`${c.name} initiative`}
-                title={c.initiative_roll ? "Initiative" : "Not rolled yet — type their roll"}
-                placeholder="—"
-                value={c.initiative_roll || ""}
-                onChange={(e) => void setInitiative(c.id, Number(e.target.value) || 0)}
-                className="text-mono"
-                style={{ width: 46, textAlign: "center", padding: "0.2rem 0.2rem", color: "var(--gold)", fontWeight: 700 }}
-              />
-              <span style={{ textDecoration: c.defeated ? "line-through" : "none", fontWeight: isActive ? 700 : 400 }}>
-                {isActive && (
-                  <span style={{ color: "var(--gold)", marginRight: 6 }} aria-hidden>
-                    ▶
-                  </span>
-                )}
-                {c.name}
-                {isActive && <span className="text-muted" style={{ display: "block", fontSize: "0.65rem" }}>their turn</span>}
-              </span>
-              <span
-                className={`badge badge-${
-                  c.type === "pc" ? "ready" : c.type === "monster" ? "artifact" : "draft"
-                }`}
-                style={{ fontSize: "0.58rem", padding: "0.05rem 0.25rem", justifySelf: "start" }}
-                title={c.type === "pc" ? "Player character" : c.type === "monster" ? "Monster" : "NPC"}
-              >
-                {c.type === "monster" ? "MON" : c.type.toUpperCase()}
-              </span>
-              <input
-                type="number"
-                aria-label={`${c.name} hit points`}
-                title="Hit points"
-                value={c.hp_current}
-                onChange={(e) =>
-                  void patchCombatant(c.id, { hp_current: Math.max(0, Number(e.target.value)) })
-                }
-                style={{ width: 50, textAlign: "center", padding: "0.2rem 0.2rem" }}
-              />
-              <button
-                className="btn btn-ghost"
-                title={c.defeated ? "Bring them back" : "Mark defeated"}
-                aria-label={c.defeated ? `Revive ${c.name}` : `Mark ${c.name} defeated`}
-                style={{ fontSize: "0.65rem", padding: "0.2rem 0.3rem" }}
-                onClick={() => void toggleDefeated(c.id)}
-              >
-                {c.defeated ? "Revive" : "✕"}
-              </button>
-            </div>
-          );
-        })}
-      </div>
 
       {combatants.length > 0 && (
         <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>
           <button
-            className="btn"
+            className="btn btn-ghost"
             onClick={() => void prevTurn()}
-            title="Undo an accidental Next Turn — step back one combatant"
+            title="Undo an accidental Next turn — step back one combatant"
           >
             ← Back
           </button>
-          <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => void nextTurn()}>
-            Next Turn →
+          <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => void nextTurn()}>
+            Next turn →
           </button>
         </div>
       )}
@@ -251,6 +312,8 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
 }
 
 // ── Runbook section ───────────────────────────────────────────────────────────
+
+const sectionLabel: React.CSSProperties = { fontSize: "0.8125rem", fontWeight: 600, color: "var(--muted)", marginBottom: "0.35rem" };
 
 function RunbookView({ runbook }: { runbook: SessionRunbook }) {
   const [activeScene, setActiveScene] = useState(0);
@@ -272,11 +335,19 @@ function RunbookView({ runbook }: { runbook: SessionRunbook }) {
           {scenes.map((sc, i) => (
             <button
               key={i}
-              className={`btn ${i === activeScene ? "btn-primary" : "btn-ghost"}`}
-              style={{ fontSize: "0.75rem" }}
+              className="btn btn-ghost"
+              aria-pressed={i === activeScene}
+              style={{
+                minHeight: 32,
+                fontSize: "0.875rem",
+                padding: "0.25rem 0.7rem",
+                ...(i === activeScene
+                  ? { background: "var(--accent-active)", color: "var(--accent-active-text)", borderColor: "var(--accent-line)" }
+                  : {}),
+              }}
               onClick={() => setActiveScene(i)}
             >
-              {i + 1}. {sc.title}
+              <span className="num">{i + 1}</span> {sc.title}
             </button>
           ))}
         </div>
@@ -284,39 +355,46 @@ function RunbookView({ runbook }: { runbook: SessionRunbook }) {
 
       {/* Active scene */}
       {scene && (
-        <div className="parchment-card" style={{ marginBottom: "1rem" }}>
-          <h3 style={{ marginBottom: "0.5rem" }}>{scene.title}</h3>
-          <p style={{ fontSize: "0.8rem", marginBottom: "0.75rem", opacity: 0.6 }}>
-            ⏱ ~{scene.estimated_minutes} min
+        <div className="card" style={{ marginBottom: "1rem" }}>
+          <h3 className="story" style={{ marginBottom: "0.15rem", fontSize: "1.4rem" }}>{scene.title}</h3>
+          <p style={{ fontSize: "0.8125rem", marginBottom: "0.75rem", color: "var(--muted)" }}>
+            About <span className="num">{scene.estimated_minutes}</span> min
           </p>
-          <div className="read-aloud" style={{ marginBottom: "0.75rem" }}>
+          <div style={sectionLabel}>Read aloud</div>
+          <div className="read-aloud" style={{ marginBottom: "0.9rem", whiteSpace: "pre-wrap" }}>
             {scene.read_aloud}
           </div>
-          <p style={{ whiteSpace: "pre-wrap", fontSize: "0.95rem", marginBottom: 0 }}>
-            {scene.dm_notes}
-          </p>
+          {scene.dm_notes && (
+            <>
+              <div style={sectionLabel}>Your notes</div>
+              <p style={{ whiteSpace: "pre-wrap", fontSize: "0.95rem", marginBottom: 0, color: "var(--text2)" }}>
+                {scene.dm_notes}
+              </p>
+            </>
+          )}
         </div>
       )}
 
       {/* NPC Dialog */}
       {(runbook.npc_dialog ?? []).length > 0 && (
         <div className="card" style={{ marginBottom: "1rem" }}>
-          <h3>🎭 NPC Dialog</h3>
+          <h3>What the NPCs might say</h3>
           {runbook.npc_dialog!.map((npc, i) => (
             <div key={i} style={{ marginBottom: "0.75rem" }}>
-              <strong style={{ color: "var(--gold)" }}>{npc.npc_name}</strong>
+              <strong className="story" style={{ color: "var(--text)", fontSize: "1.05rem" }}>{npc.npc_name}</strong>
               <ul style={{ paddingLeft: "1.25rem", margin: "0.25rem 0 0" }}>
                 {npc.lines.map((l, j) => (
-                  <li key={j} style={{ fontSize: "0.9rem", marginBottom: "0.2rem" }}>
-                    "{l}"
+                  <li key={j} className="story" style={{ fontSize: "1rem", fontStyle: "italic", marginBottom: "0.2rem", color: "var(--story-text)" }}>
+                    &ldquo;{l}&rdquo;
                   </li>
                 ))}
                 {npc.improv_hooks.map((h, j) => (
                   <li
                     key={`h-${j}`}
-                    style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "0.2rem" }}
+                    style={{ fontSize: "0.875rem", color: "var(--muted)", marginBottom: "0.2rem", listStyle: "none", marginLeft: "-1.25rem" }}
                   >
-                    💡 {h}
+                    <Lightbulb size={14} aria-hidden style={{ verticalAlign: "-2px", marginRight: 6 }} />
+                    {h}
                   </li>
                 ))}
               </ul>
@@ -328,10 +406,10 @@ function RunbookView({ runbook }: { runbook: SessionRunbook }) {
       {/* Encounter flows */}
       {(runbook.encounter_flows ?? []).length > 0 && (
         <div className="card" style={{ marginBottom: "1rem" }}>
-          <h3>⚔ Encounter Flows</h3>
+          <h3>Encounter flows</h3>
           {runbook.encounter_flows!.map((ef, i) => (
             <div key={i} style={{ marginBottom: "1rem" }}>
-              <strong style={{ color: "var(--gold)" }}>{ef.encounter_name}</strong>
+              <strong className="story" style={{ color: "var(--text)", fontSize: "1.05rem" }}>{ef.encounter_name}</strong>
               {ef.terrain_notes && (
                 <p className="text-sm text-muted" style={{ margin: "0.2rem 0" }}>
                   Terrain: {ef.terrain_notes}
@@ -355,11 +433,11 @@ function RunbookView({ runbook }: { runbook: SessionRunbook }) {
       {/* XP awards */}
       {runbook.xp_awards && Object.keys(runbook.xp_awards).length > 0 && (
         <div className="card" style={{ marginBottom: "1rem" }}>
-          <h3>⭐ XP Awards</h3>
+          <h3>XP awards</h3>
           <ul style={{ paddingLeft: "1.25rem", margin: 0 }}>
             {Object.entries(runbook.xp_awards).map(([k, v]) => (
-              <li key={k} className="text-mono" style={{ marginBottom: "0.2rem" }}>
-                {k}: {v} XP
+              <li key={k} style={{ marginBottom: "0.2rem" }}>
+                {k}: <span className="num">{v}</span> XP
               </li>
             ))}
           </ul>
@@ -369,7 +447,7 @@ function RunbookView({ runbook }: { runbook: SessionRunbook }) {
       {/* Loot notes */}
       {(runbook.loot_awards ?? []).length > 0 && (
         <div className="card" style={{ marginBottom: "1rem" }}>
-          <h3>💰 Loot</h3>
+          <h3>Loot</h3>
           <ul style={{ paddingLeft: "1.25rem", margin: 0 }}>
             {runbook.loot_awards!.map((item, i) => {
               const text =
@@ -391,7 +469,7 @@ function RunbookView({ runbook }: { runbook: SessionRunbook }) {
       {/* Closing hooks */}
       {runbook.closing_hooks && (
         <div className="card">
-          <h3>🪝 Closing Hooks</h3>
+          <h3>Closing hooks</h3>
           <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{runbook.closing_hooks}</p>
         </div>
       )}
@@ -494,8 +572,8 @@ export default function SessionRunner() {
           gap: "1rem",
         }}
       >
-        <div style={{ fontSize: "2rem" }} className="dice-rolling">🎲</div>
-        <p style={{ color: "var(--gold)", fontFamily: "var(--font-story)" }}>
+        <Dices size={30} aria-hidden className="dice-rolling" style={{ color: "var(--muted)" }} />
+        <p style={{ color: "var(--muted)" }}>
           {runbookLoading ? "Loading runbook…" : "Loading session…"}
         </p>
       </div>
@@ -505,7 +583,7 @@ export default function SessionRunner() {
   if (sessionError || !session) {
     return (
       <div className="card" style={{ maxWidth: 480, margin: "4rem auto", textAlign: "center" }}>
-        <p style={{ color: "var(--red)", marginBottom: "1rem" }}>
+        <p style={{ color: "var(--danger-text)", marginBottom: "1rem" }}>
           Failed to load session. Check that the backend is running.
         </p>
       </div>
@@ -520,7 +598,7 @@ export default function SessionRunner() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0,0,0,0.75)",
+            background: "rgba(5,8,7,0.78)",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
@@ -529,8 +607,8 @@ export default function SessionRunner() {
             gap: "1rem",
           }}
         >
-          <div style={{ fontSize: "3rem" }} className="dice-rolling-loop">🎲</div>
-          <p style={{ color: "var(--gold)", fontFamily: "var(--font-story)", fontSize: "1.2rem" }}>
+          <Dices size={44} aria-hidden className="dice-rolling-loop" style={{ color: "var(--text2)" }} />
+          <p style={{ color: "var(--text)", fontSize: "1.1rem", fontWeight: 500 }}>
             Claude is writing your runbook…
           </p>
           <p className="text-muted text-sm">
@@ -539,9 +617,9 @@ export default function SessionRunner() {
         </div>
       )}
 
-      <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.25rem" }}>
-        <h1>
-          Session {session.session_number}
+      <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", marginBottom: "0.35rem" }}>
+        <h1 className="story" style={{ minWidth: 0 }}>
+          Session {toRoman(session.session_number)}
           {session.title ? `: ${session.title}` : ""}
         </h1>
         <button
@@ -550,39 +628,41 @@ export default function SessionRunner() {
           title="Open Session HUD — party HP, combat tracker, dice, rules reference"
           style={{ flexShrink: 0 }}
         >
-          🖥 Open HUD
+          <MonitorPlay size={16} aria-hidden /> Open HUD
         </button>
       </div>
-      <p className="text-muted" style={{ marginBottom: "2rem" }}>
-        Status: <strong style={{ color: "var(--gold)" }}>{statusLabel(session.status)}</strong>
+      <p className="text-muted" style={{ marginBottom: "1.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+        Status <span className={STATUS_BADGE[session.status] ?? "badge"}>{statusLabel(session.status)}</span>
       </p>
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1fr 340px",
+          gridTemplateColumns: "minmax(0, 1fr) minmax(340px, 420px)",
           gap: "1.5rem",
           alignItems: "start",
         }}
       >
         {/* ── Left: runbook ── */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           {!runbook && !AI_ON ? (
             <div className="card" style={{ marginBottom: "1rem" }}>
-              <h3>✍️ Write tonight's runbook</h3>
-              <p className="text-muted text-sm" style={{ marginBottom: "1rem" }}>
-                Read-aloud text, your notes, the fight's flow — yours, in the editor. Start blank
-                and fill it in as you prep; the HUD's 🎬 Script reads it back to you at the table.
+              <h3>Write tonight&rsquo;s runbook</h3>
+              <p className="text-muted text-sm" style={{ marginBottom: "1rem", lineHeight: 1.55 }}>
+                The runbook is your script for the night: read-aloud text, your notes and how each fight
+                should go, scene by scene. Start blank and fill it in as you prep — at the table, the
+                HUD&rsquo;s Script button reads it back to you.
               </p>
               <button
-                className="btn btn-primary"
+                className="btn btn-secondary"
                 onClick={() => createBlank.mutate()}
                 disabled={createBlank.isPending}
               >
-                {createBlank.isPending ? "Starting…" : "✍️ Start a blank runbook"}
+                <PenLine size={16} aria-hidden />
+                {createBlank.isPending ? "Starting…" : "Start a blank runbook"}
               </button>
               {createBlank.isError && (
-                <p className="text-sm" style={{ color: "var(--crimson2)", marginTop: "0.5rem" }}>
+                <p className="text-sm" style={{ color: "var(--danger-text)", marginTop: "0.5rem" }}>
                   {(createBlank.error as Error).message}
                 </p>
               )}
@@ -590,7 +670,7 @@ export default function SessionRunner() {
           ) : !runbook ? (
             /* No runbook yet */
             <div className="card" style={{ marginBottom: "1rem" }}>
-              <h3>✨ Plan tonight's session</h3>
+              <h3>Plan tonight&rsquo;s session</h3>
               <p className="text-muted text-sm" style={{ marginBottom: "1rem" }}>
                 Write a paragraph about tonight. <b>Session Pack</b> builds the whole night
                 and wires it in: real encounters (catalog monsters, balanced to the party),
@@ -609,19 +689,20 @@ export default function SessionRunner() {
               </div>
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
                 <button
-                  className="btn btn-primary"
+                  className="btn btn-secondary"
                   onClick={() => generatePack.mutate()}
                   disabled={generatePack.isPending || generateRunbook.isPending || !extraNotes.trim()}
                   title="Generates and LINKS everything: encounters, NPCs, loot, runbook"
                 >
-                  {generatePack.isPending ? "🎒 Building the night… (~1 min)" : "🎒 Generate Session Pack"}
+                  <Sparkles size={16} aria-hidden />
+                  {generatePack.isPending ? "Building the night… (~1 min)" : "Generate session pack"}
                 </button>
                 <button
                   className="btn btn-ghost"
                   onClick={() => generateRunbook.mutate()}
                   disabled={generateRunbook.isPending || generatePack.isPending}
                 >
-                  {generateRunbook.isPending ? "✨ Writing…" : "✨ Runbook only"}
+                  {generateRunbook.isPending ? "Writing…" : "Runbook only"}
                 </button>
               </div>
               {generatePack.isSuccess && (
@@ -629,9 +710,10 @@ export default function SessionRunner() {
                   style={{
                     marginTop: "0.9rem",
                     padding: "0.7rem 0.9rem",
-                    border: "1px solid var(--gold)",
-                    borderRadius: 8,
-                    fontSize: "0.85rem",
+                    border: "1px solid var(--border2)",
+                    background: "var(--surface2)",
+                    borderRadius: 10,
+                    fontSize: "0.875rem",
                   }}
                 >
                   <b>Pack ready:</b> {generatePack.data.scenes} scenes ·{" "}
@@ -646,7 +728,7 @@ export default function SessionRunner() {
                 </div>
               )}
               {(generateRunbook.isError || generatePack.isError) && (
-                <p style={{ color: "var(--red)", marginTop: "0.75rem", fontSize: "0.85rem" }}>
+                <p style={{ color: "var(--danger-text)", marginTop: "0.75rem", fontSize: "0.875rem" }}>
                   Error: {((generatePack.error || generateRunbook.error) as Error).message}
                 </p>
               )}
@@ -658,15 +740,15 @@ export default function SessionRunner() {
                 className="flex items-center"
                 style={{ justifyContent: "space-between", marginBottom: "1rem" }}
               >
-                <h2 style={{ margin: 0 }}>Session Runbook</h2>
+                <h2 style={{ margin: 0 }}>Session runbook</h2>
                 {AI_ON && (
                   <button
                     className="btn btn-ghost"
-                    style={{ fontSize: "0.75rem" }}
+                    style={{ minHeight: 32, fontSize: "0.8125rem", padding: "0.25rem 0.65rem" }}
                     onClick={() => generateRunbook.mutate()}
                     disabled={generateRunbook.isPending}
                   >
-                    ↺ Regenerate
+                    <RefreshCw size={14} aria-hidden /> Regenerate
                   </button>
                 )}
               </div>
@@ -676,7 +758,9 @@ export default function SessionRunner() {
 
           {/* DM Notes */}
           <div className="card" style={{ marginTop: "1.5rem" }}>
-            <h3>📝 DM Notes</h3>
+            <h3 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <NotebookPen size={18} aria-hidden style={{ color: "var(--muted)" }} /> DM notes
+            </h3>
             <textarea
               value={dmNotes}
               onChange={(e) => {
@@ -684,7 +768,8 @@ export default function SessionRunner() {
                 setNotesDirty(true);
               }}
               rows={6}
-              placeholder="Live session notes…"
+              placeholder="What happened tonight, what they said, what you owe them next time…"
+              aria-label="DM notes"
               style={{ resize: "vertical", marginBottom: "0.5rem" }}
             />
             <div className="flex items-center gap-2">
@@ -697,14 +782,16 @@ export default function SessionRunner() {
                 {saveNotes.isPending ? "Saving…" : notesDirty ? "Save now" : "Saved"}
               </button>
               {!notesDirty && saveNotes.isSuccess && (
-                <span style={{ color: "var(--green2)", fontSize: "0.85rem" }}>✓ Autosaved</span>
+                <span style={{ color: "var(--teal-text)", fontSize: "0.875rem", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <Check size={14} aria-hidden /> Autosaved
+                </span>
               )}
             </div>
           </div>
         </div>
 
         {/* ── Right: initiative + loot ── */}
-        <div>
+        <div style={{ minWidth: 0 }}>
           <InitiativeTracker sessionId={sessionId!} />
           {adventure && (
             <LootPanel

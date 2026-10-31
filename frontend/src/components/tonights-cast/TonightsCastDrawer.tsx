@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Drama, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { useHudPrefs } from "../../stores/useHudPrefs";
@@ -87,38 +88,42 @@ export default function TonightsCastDrawer({ npcs, currentScene, rosterNames = [
       <button
         onClick={() => setOpen((p) => !p)}
         title={open ? "Hide cast" : "Show tonight's cast"}
+        aria-expanded={open}
         style={toggleStyle(open)}
       >
-        {open ? "✕" : "🎭"}
-        <span style={{ display: "block", fontSize: "0.55rem", marginTop: 2 }}>
+        {open ? <X size={18} aria-hidden /> : <Drama size={18} aria-hidden />}
+        <span style={{ display: "block", fontSize: "0.75rem", marginTop: 2 }}>
           {open ? "Close" : "Cast"}
         </span>
       </button>
 
       <aside
         aria-hidden={!open}
+        aria-label="Tonight's cast"
         style={{
           ...drawerStyle,
           transform: open ? "translateX(0)" : "translateX(100%)",
         }}
       >
         <header style={headerStyle}>
-          <strong
-            style={{ fontFamily: "var(--font-story)", color: "var(--gold)" }}
-          >
-            🎭 Tonight's Cast
+          <strong style={{ fontSize: "0.9375rem", fontWeight: 600, color: "var(--text)" }}>
+            Tonight&rsquo;s cast
           </strong>
-          <span style={{ fontSize: "0.65rem", color: "var(--muted)" }}>
-            {currentScene
-              ? `Scene: ${currentScene.title?.slice(0, 30) ?? "—"}`
-              : "No scene"}
+          <span style={{ fontSize: "0.75rem", color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {currentScene ? (
+              <>
+                Scene: <span className="story" style={{ color: "var(--text2)", fontSize: "0.8125rem" }}>{currentScene.title?.slice(0, 40) ?? "—"}</span>
+              </>
+            ) : (
+              "Who you'll voice tonight — click a card for more"
+            )}
           </span>
         </header>
         {(filtering || showAll) && tonight.length > 0 && tonight.length < npcs.length && (
           <button
             type="button"
             className="btn btn-ghost"
-            style={{ fontSize: "0.68rem", margin: "0.4rem 0.75rem 0", padding: "0.15rem 0.5rem" }}
+            style={{ minHeight: 28, fontSize: "0.8125rem", margin: "0.5rem 0.75rem 0", padding: "0.15rem 0.6rem", alignSelf: "flex-start" }}
             onClick={() => setShowAll(!showAll)}
             title="Tonight = on this arc's NPC roster, mentioned in the scene, or tagged with this session"
           >
@@ -127,9 +132,14 @@ export default function TonightsCastDrawer({ npcs, currentScene, rosterNames = [
         )}
         <div style={listStyle}>
           {sortedNpcs.length === 0 && (
-            <p className="text-sm text-muted" style={{ padding: "1rem" }}>
-              No NPCs in this campaign yet.
-            </p>
+            <div style={{ padding: "0.75rem 0.5rem", fontSize: "0.875rem", lineHeight: 1.5 }}>
+              <p style={{ margin: "0 0 0.4rem", color: "var(--text2)" }}>
+                Tonight&rsquo;s cast lists the NPCs you&rsquo;ll voice, with their manner and hooks at a glance.
+              </p>
+              <p style={{ margin: 0, color: "var(--muted)" }}>
+                This campaign has no NPCs yet. Add them from the campaign&rsquo;s NPCs page.
+              </p>
+            </div>
           )}
           {sortedNpcs.map((npc) => {
             const inScene =
@@ -138,8 +148,8 @@ export default function TonightsCastDrawer({ npcs, currentScene, rosterNames = [
             return (
               <div key={npc.id} style={{ position: "relative" }}>
                 {inScene && (
-                  <span style={inSceneBadgeStyle} title="Mentioned in the current scene">
-                    ★ in scene
+                  <span className="pill pill-next" style={inSceneBadgeStyle} title="Mentioned in the current scene">
+                    In this scene
                   </span>
                 )}
                 <NpcTableFace
@@ -183,19 +193,21 @@ function toggleStyle(open: boolean): React.CSSProperties {
     right: open ? DRAWER_WIDTH : 0,
     transform: "translateY(-50%)",
     zIndex: 9501,
-    width: 44,
-    padding: "0.5rem 0.3rem",
-    background: open ? "var(--gold)" : "var(--surface)",
-    color: open ? "var(--bg, #1a1a1a)" : "var(--gold)",
-    border: "1px solid var(--gold)",
+    width: 46,
+    padding: "0.5rem 0.2rem 0.4rem",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    background: open ? "var(--accent-active)" : "var(--surface)",
+    color: open ? "var(--accent-active-text)" : "var(--text)",
+    border: `1px solid ${open ? "var(--accent-line)" : "var(--border2)"}`,
     borderRight: "none",
     borderRadius: "8px 0 0 8px",
-    fontSize: "1.1rem",
     textAlign: "center",
     cursor: "pointer",
     transition: "right 240ms ease, background 200ms ease",
     boxShadow: "-4px 0 10px rgba(0,0,0,0.25)",
-    fontFamily: "var(--font-story)",
+    fontFamily: "var(--font-ui)",
   };
 }
 
@@ -206,8 +218,8 @@ const drawerStyle: React.CSSProperties = {
   bottom: 0,
   width: DRAWER_WIDTH,
   background: "var(--surface)",
-  borderLeft: "1px solid var(--gold)",
-  boxShadow: "-12px 0 36px rgba(0,0,0,0.5)",
+  borderLeft: "1px solid var(--border2)",
+  boxShadow: "-12px 0 36px rgba(0,0,0,0.45)",
   display: "flex",
   flexDirection: "column",
   zIndex: 9500,
@@ -234,14 +246,9 @@ const listStyle: React.CSSProperties = {
 
 const inSceneBadgeStyle: React.CSSProperties = {
   position: "absolute",
-  top: -8,
+  top: -9,
   right: 8,
   zIndex: 1,
-  fontSize: "0.55rem",
-  padding: "0.1rem 0.5rem",
-  background: "var(--gold)",
-  color: "var(--bg, #1a1a1a)",
-  borderRadius: 10,
-  letterSpacing: "0.04em",
-  fontWeight: 700,
+  fontSize: "0.75rem",
+  padding: "0 0.55rem",
 };

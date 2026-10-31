@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Dices, Volume2, VolumeX } from "lucide-react";
 
 import { playDiceClatter } from "../../lib/dice-sound";
 import { useDicePrefs } from "../../hooks/useDicePrefs";
@@ -100,11 +101,11 @@ export default function DiceTray() {
             marginBottom: "0.5rem",
             width: 320,
             maxWidth: "calc(100vw - 32px)",
-            background: "var(--surface, #1f1f1f)",
-            border: "1px solid var(--gold)",
+            background: "var(--surface)",
+            border: "1px solid var(--border2)",
             borderRadius: 10,
             padding: "0.85rem",
-            boxShadow: "0 12px 36px rgba(0, 0, 0, 0.6), 0 0 24px rgba(201, 168, 76, 0.15)",
+            boxShadow: "0 12px 32px rgba(0, 0, 0, 0.5)",
           }}
         >
           {/* Header */}
@@ -113,33 +114,27 @@ export default function DiceTray() {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: "0.5rem",
+              gap: "0.5rem",
+              marginBottom: "0.6rem",
             }}
           >
-            <strong
-              style={{
-                color: "var(--gold)",
-                fontFamily: "var(--font-story)",
-                fontSize: "0.95rem",
-                letterSpacing: "0.04em",
-              }}
-            >
-              🎲 Dice Tray
-            </strong>
+            <div style={{ minWidth: 0 }}>
+              <strong style={{ display: "block", color: "var(--text)", fontSize: "0.9375rem", fontWeight: 600 }}>
+                Dice tray
+              </strong>
+              <span style={{ display: "block", fontSize: "0.75rem", color: "var(--muted)" }}>
+                Private — only you see these rolls
+              </span>
+            </div>
             <button
               onClick={() => setPrefs({ soundEnabled: !prefs.soundEnabled })}
               title={prefs.soundEnabled ? "Mute sound" : "Enable sound"}
-              style={{
-                background: "transparent",
-                border: "1px solid var(--border)",
-                borderRadius: 4,
-                color: prefs.soundEnabled ? "var(--gold)" : "var(--muted)",
-                padding: "0.2rem 0.45rem",
-                fontSize: "0.75rem",
-                cursor: "pointer",
-              }}
+              aria-pressed={prefs.soundEnabled}
+              className="btn btn-ghost"
+              style={{ minHeight: 28, padding: "0.15rem 0.5rem", fontSize: "0.8125rem", gap: "0.3rem", flex: "none" }}
             >
-              {prefs.soundEnabled ? "🔊 On" : "🔇 Off"}
+              {prefs.soundEnabled ? <Volume2 size={14} aria-hidden /> : <VolumeX size={14} aria-hidden />}
+              {prefs.soundEnabled ? "Sound on" : "Sound off"}
             </button>
           </div>
 
@@ -148,19 +143,25 @@ export default function DiceTray() {
             <div style={historyStripStyle}>
               {history.map((r) => (
                 <div key={r.id} style={historyRowStyle}>
-                  <span style={{ color: "var(--muted)" }}>{r.label}</span>
-                  <span style={{ fontFamily: "var(--font-mono)", color: "var(--muted)", fontSize: "0.7rem" }}>
+                  <span className="num" style={{ color: "var(--text2)" }}>{r.label}</span>
+                  <span className="num" style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
                     [{r.rolls.join(",")}]
                   </span>
+                  {(r.isCrit || r.isFumble) && (
+                    <span style={{ fontSize: "0.75rem", color: r.isCrit ? "var(--teal-text)" : "var(--danger-text)" }}>
+                      {r.isCrit ? "natural 20" : "natural 1"}
+                    </span>
+                  )}
                   <span
+                    className="num"
                     style={{
-                      fontWeight: 700,
+                      fontWeight: 600,
+                      fontSize: "0.95rem",
                       color: r.isCrit
-                        ? "var(--green2, #4caf50)"
+                        ? "var(--teal-text)"
                         : r.isFumble
-                          ? "var(--red, #ef5350)"
-                          : "var(--gold)",
-                      fontFamily: "var(--font-mono)",
+                          ? "var(--danger-text)"
+                          : "var(--text)",
                       marginLeft: "auto",
                     }}
                   >
@@ -176,12 +177,13 @@ export default function DiceTray() {
             style={{
               display: "flex",
               gap: "0.45rem",
-              marginBottom: "0.55rem",
+              marginBottom: "0.6rem",
               alignItems: "center",
             }}
           >
-            <label style={labelStyle}>Count</label>
+            <label style={labelStyle} htmlFor="ql-dice-count">How many</label>
             <input
+              id="ql-dice-count"
               type="number"
               min={1}
               max={20}
@@ -190,8 +192,9 @@ export default function DiceTray() {
               onFocus={(e) => e.currentTarget.select()}
               style={numberInputStyle}
             />
-            <label style={{ ...labelStyle, marginLeft: "0.5rem" }}>Mod</label>
+            <label style={{ ...labelStyle, marginLeft: "0.5rem" }} htmlFor="ql-dice-mod">Bonus</label>
             <input
+              id="ql-dice-mod"
               type="number"
               value={modifier}
               onChange={(e) => setModifier(Number(e.target.value))}
@@ -211,6 +214,7 @@ export default function DiceTray() {
             {DICE.map((sides) => (
               <button
                 key={sides}
+                className="btn btn-secondary"
                 onClick={() => roll(sides)}
                 style={dieButtonStyle}
               >
@@ -218,9 +222,10 @@ export default function DiceTray() {
               </button>
             ))}
             <button
+              className="btn btn-ghost"
               onClick={() => setHistory([])}
               disabled={history.length === 0}
-              style={{ ...dieButtonStyle, fontSize: "0.7rem", color: "var(--muted)" }}
+              style={{ ...dieButtonStyle, fontFamily: "var(--font-ui)", fontSize: "0.8125rem", color: "var(--muted)" }}
               title="Clear history"
             >
               Clear
@@ -232,24 +237,25 @@ export default function DiceTray() {
       <button
         data-tour-id="dice-tray"
         onClick={() => setOpen(!open)}
-        title="Open dice tray"
+        title={open ? "Close dice tray" : "Open dice tray"}
+        aria-label="Dice tray"
         aria-expanded={open}
         style={{
-          width: 52,
-          height: 52,
+          width: 48,
+          height: 48,
           borderRadius: "50%",
-          background: open ? "var(--gold)" : "var(--surface, #1f1f1f)",
-          color: open ? "var(--bg, #1a1a1a)" : "var(--gold)",
-          border: "2px solid var(--gold)",
-          fontSize: "1.4rem",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: open ? "var(--accent-active)" : "var(--surface)",
+          color: open ? "var(--accent-active-text)" : "var(--text)",
+          border: `1px solid ${open ? "var(--accent-line)" : "var(--border2)"}`,
           cursor: "pointer",
-          boxShadow:
-            "0 8px 22px rgba(0,0,0,0.5), 0 0 18px rgba(201, 168, 76, 0.25)",
-          transition: "transform 200ms ease, background 200ms ease",
-          transform: open ? "rotate(20deg)" : "rotate(0deg)",
+          boxShadow: "0 6px 18px rgba(0,0,0,0.45)",
+          transition: "background 150ms ease, border-color 150ms ease",
         }}
       >
-        🎲
+        <Dices size={22} aria-hidden />
       </button>
     </div>
   );
@@ -271,38 +277,30 @@ const historyStripStyle: React.CSSProperties = {
 const historyRowStyle: React.CSSProperties = {
   display: "flex",
   gap: "0.5rem",
-  alignItems: "center",
-  fontSize: "0.78rem",
+  alignItems: "baseline",
+  fontSize: "0.8125rem",
 };
 
 const labelStyle: React.CSSProperties = {
-  fontSize: "0.65rem",
+  fontSize: "0.75rem",
+  fontWeight: 500,
   color: "var(--muted)",
-  letterSpacing: "0.06em",
-  textTransform: "uppercase",
+  margin: 0,
+  display: "inline",
 };
 
 const numberInputStyle: React.CSSProperties = {
-  width: 50,
+  width: 52,
   padding: "0.25rem 0.4rem",
   fontFamily: "var(--font-mono)",
-  fontSize: "0.85rem",
+  fontSize: "0.875rem",
   textAlign: "center",
-  background: "var(--surface2)",
-  border: "1px solid var(--border)",
-  borderRadius: 4,
-  color: "var(--text)",
 };
 
 const dieButtonStyle: React.CSSProperties = {
-  padding: "0.55rem 0.4rem",
-  background: "var(--surface2)",
-  border: "1px solid var(--gold)",
-  borderRadius: 6,
-  color: "var(--gold)",
-  fontSize: "0.95rem",
-  fontWeight: 700,
-  fontFamily: "var(--font-story)",
-  cursor: "pointer",
-  transition: "background 150ms ease, transform 150ms ease",
+  minHeight: 38,
+  padding: "0.4rem 0.3rem",
+  fontSize: "0.9375rem",
+  fontWeight: 500,
+  fontFamily: "var(--font-mono)",
 };

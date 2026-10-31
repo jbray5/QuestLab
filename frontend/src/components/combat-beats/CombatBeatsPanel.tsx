@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Check, Plus, RotateCcw, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -163,13 +164,15 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
   }
 
   if (beats.length === 0 && !showHpForm && !showRoundForm) {
-    // Compact placeholder when nothing is authored yet.
+    // Compact placeholder when nothing is authored yet: what beats are, and the next step.
     return (
       <div style={emptyStyle}>
-        <span style={{ fontSize: "0.65rem", color: "var(--muted)" }}>
-          🎯 No state-triggered beats yet.
-        </span>
-        <div style={{ display: "flex", gap: "0.3rem" }}>
+        <div style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text2)" }}>Beats</div>
+        <p style={{ fontSize: "0.8125rem", color: "var(--muted)", lineHeight: 1.45, margin: "0.15rem 0 0.5rem" }}>
+          A reminder that pops up here when a foe&rsquo;s HP drops low or a round arrives — a line to say, a
+          twist to spring.
+        </p>
+        <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
           <button
             className="btn btn-ghost"
             style={addBtnStyle}
@@ -181,14 +184,15 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
                 : "Attach a beat to a combatant's HP threshold"
             }
           >
-            + HP beat
+            <Plus size={14} aria-hidden /> HP beat
           </button>
           <button
             className="btn btn-ghost"
             style={addBtnStyle}
             onClick={() => setShowRoundForm(true)}
+            title="Attach a beat to a round number"
           >
-            + Round beat
+            <Plus size={14} aria-hidden /> Round beat
           </button>
         </div>
       </div>
@@ -199,7 +203,7 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
     <div style={panelStyle}>
       {/* Banner — fired, not dismissed */}
       {fired.length > 0 && (
-        <div style={firedListStyle}>
+        <div style={firedListStyle} role="status">
           {fired.map((b) => (
             <div key={b.id} style={firedItemStyle}>
               <div style={firedTriggerStyle}>
@@ -208,20 +212,20 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
               <div style={firedTextStyle}>{b.text}</div>
               <div style={firedActionsStyle}>
                 <button
-                  className="btn btn-primary"
-                  style={dismissBtnStyle}
-                  onClick={() => dismissMutation.mutate(b.id)}
-                  disabled={dismissMutation.isPending}
-                >
-                  ✓ Dismiss
-                </button>
-                <button
                   className="btn btn-ghost"
                   style={smallBtnStyle}
                   onClick={() => resetMutation.mutate(b.id)}
                   title="Re-arm so it can fire again"
                 >
-                  ⟲ Reset
+                  <RotateCcw size={13} aria-hidden /> Reset
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  style={dismissBtnStyle}
+                  onClick={() => dismissMutation.mutate(b.id)}
+                  disabled={dismissMutation.isPending}
+                >
+                  <Check size={14} aria-hidden /> Dismiss
                 </button>
               </div>
             </div>
@@ -231,8 +235,13 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
 
       {/* Header + attach controls */}
       <div style={headerStyle}>
-        <span style={{ fontSize: "0.65rem", color: "var(--muted)", letterSpacing: "0.08em" }}>
-          🎯 BEATS {pending.length > 0 && `(${pending.length} armed)`}
+        <span style={{ fontSize: "0.8125rem", fontWeight: 600, color: "var(--text2)" }}>
+          Beats
+          {pending.length > 0 && (
+            <span style={{ color: "var(--muted)", fontWeight: 400 }}>
+              {" "}· <span className="num">{pending.length}</span> waiting
+            </span>
+          )}
         </span>
         <div style={{ display: "flex", gap: "0.3rem" }}>
           <button
@@ -240,20 +249,23 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
             style={addBtnStyle}
             onClick={() => setShowHpForm((p) => !p)}
             disabled={combatants.length === 0}
+            aria-expanded={showHpForm}
             title={
               combatants.length === 0
                 ? "Add a combatant first"
                 : "Attach a beat to a combatant's HP threshold"
             }
           >
-            {showHpForm ? "× HP" : "+ HP"}
+            {showHpForm ? <X size={13} aria-hidden /> : <Plus size={13} aria-hidden />} HP
           </button>
           <button
             className="btn btn-ghost"
             style={addBtnStyle}
+            aria-expanded={showRoundForm}
             onClick={() => setShowRoundForm((p) => !p)}
+            title="Attach a beat to a round number"
           >
-            {showRoundForm ? "× Round" : "+ Round"}
+            {showRoundForm ? <X size={13} aria-hidden /> : <Plus size={13} aria-hidden />} Round
           </button>
         </div>
       </div>
@@ -265,29 +277,32 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
             <select
               value={hpCombatant}
               onChange={(e) => setHpCombatant(e.target.value)}
-              style={{ flex: 2, fontSize: "0.72rem" }}
+              aria-label="Combatant"
+              style={{ ...fieldStyle, flex: 2 }}
             >
-              <option value="">Combatant…</option>
+              <option value="">Who…</option>
               {combatants.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
               ))}
             </select>
-            <span style={{ fontSize: "0.7rem", color: "var(--muted)", alignSelf: "center" }}>
-              ≤
+            <span style={{ fontSize: "0.8125rem", color: "var(--muted)", alignSelf: "center" }}>
+              at or below
             </span>
             <input
               type="number"
               min={0}
+              className="num"
               value={hpValue}
               onChange={(e) =>
                 setHpValue(e.target.value === "" ? "" : Number(e.target.value))
               }
-              style={{ width: 56, fontSize: "0.72rem" }}
+              aria-label="HP threshold"
+              style={{ ...fieldStyle, width: 56 }}
               placeholder="HP"
             />
-            <span style={{ fontSize: "0.7rem", color: "var(--muted)", alignSelf: "center" }}>
+            <span style={{ fontSize: "0.8125rem", color: "var(--muted)", alignSelf: "center" }}>
               HP
             </span>
           </div>
@@ -295,12 +310,13 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
             value={hpText}
             onChange={(e) => setHpText(e.target.value)}
             placeholder="e.g. When she's bloodied she whispers: 'help me — it's so loud — make it stop'"
+            aria-label="What to say or do"
             rows={2}
-            style={{ width: "100%", fontSize: "0.74rem", marginBottom: "0.3rem" }}
+            style={{ ...fieldStyle, width: "100%", marginBottom: "0.35rem" }}
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.3rem" }}>
             <button
-              className="btn btn-primary"
+              className="btn btn-secondary"
               style={addBtnStyle}
               onClick={submitHp}
               disabled={
@@ -320,17 +336,19 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
       {showRoundForm && (
         <div style={formStyle}>
           <div style={{ display: "flex", gap: "0.3rem", marginBottom: "0.3rem" }}>
-            <span style={{ fontSize: "0.7rem", color: "var(--muted)", alignSelf: "center" }}>
-              Round ≥
+            <span style={{ fontSize: "0.8125rem", color: "var(--muted)", alignSelf: "center" }}>
+              From round
             </span>
             <input
               type="number"
               min={1}
+              className="num"
               value={roundValue}
               onChange={(e) =>
                 setRoundValue(e.target.value === "" ? "" : Number(e.target.value))
               }
-              style={{ width: 56, fontSize: "0.72rem" }}
+              aria-label="Round"
+              style={{ ...fieldStyle, width: 56 }}
               placeholder="N"
             />
           </div>
@@ -338,12 +356,13 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
             value={roundText}
             onChange={(e) => setRoundText(e.target.value)}
             placeholder="e.g. Wenneth is visibly weakening — her HP drops by 2 at the start of each of her turns."
+            aria-label="What to say or do"
             rows={2}
-            style={{ width: "100%", fontSize: "0.74rem", marginBottom: "0.3rem" }}
+            style={{ ...fieldStyle, width: "100%", marginBottom: "0.35rem" }}
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.3rem" }}>
             <button
-              className="btn btn-primary"
+              className="btn btn-secondary"
               style={addBtnStyle}
               onClick={submitRound}
               disabled={
@@ -363,18 +382,19 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
         <ul style={pendingListStyle}>
           {pending.map((b) => (
             <li key={b.id} style={pendingItemStyle}>
-              <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--muted)", whiteSpace: "nowrap" }}>
                 {beatTriggerLabel(b, combatants)}
               </span>
-              <span style={{ fontSize: "0.78rem", color: "var(--text)", flex: 1 }}>
+              <span style={{ fontSize: "0.8125rem", color: "var(--text)", flex: 1, minWidth: 0 }}>
                 {b.text}
               </span>
               <button
                 onClick={() => deleteMutation.mutate(b.id)}
                 style={deleteBtnStyle}
                 title="Delete this beat"
+                aria-label="Delete this beat"
               >
-                ✕
+                <X size={14} aria-hidden />
               </button>
             </li>
           ))}
@@ -388,57 +408,54 @@ function beatTriggerLabel(b: CombatBeat, combatants: CombatantShape[]): string {
   if (b.trigger_kind === "hp_lte") {
     const c = combatants.find((x) => x.id === b.combatant_id);
     const name = c?.name ?? "combatant gone";
-    return `${name} ≤ ${b.trigger_value} HP`;
+    return `${name} at ${b.trigger_value} HP or less`;
   }
-  return `Round ≥ ${b.trigger_value}`;
+  return `From round ${b.trigger_value}`;
 }
 
-// ── styles ──────────────────────────────────────────────────────────────────
+// ── styles (Lamplit, Plan 121) ──────────────────────────────────────────────
 
 const emptyStyle: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "0.4rem",
-  padding: "0.35rem 0.75rem",
+  padding: "0.55rem 0.75rem",
   borderBottom: "1px solid var(--border)",
-  background: "var(--surface2)",
 };
 
 const panelStyle: React.CSSProperties = {
   borderBottom: "1px solid var(--border)",
-  background: "var(--surface2)",
+};
+
+const fieldStyle: React.CSSProperties = {
+  fontSize: "0.8125rem",
+  padding: "0.25rem 0.4rem",
 };
 
 const firedListStyle: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "0.4rem",
-  padding: "0.5rem 0.65rem",
-  borderBottom: "1px solid var(--gold)",
-  background: "rgba(201, 168, 76, 0.10)",
+  padding: "0.5rem 0.6rem",
+  borderBottom: "1px solid var(--border)",
 };
 
+// A fired beat is the live thing in this panel: lit like the current turn.
 const firedItemStyle: React.CSSProperties = {
-  border: "1px solid var(--gold)",
-  borderRadius: 6,
-  padding: "0.5rem 0.6rem",
-  background: "var(--surface)",
+  border: "1px solid var(--accent-edge)",
+  borderRadius: 10,
+  padding: "0.5rem 0.65rem",
+  background: "var(--accent-soft)",
 };
 
 const firedTriggerStyle: React.CSSProperties = {
-  fontSize: "0.6rem",
-  letterSpacing: "0.1em",
-  fontWeight: 700,
-  color: "var(--gold)",
-  textTransform: "uppercase",
-  marginBottom: "0.25rem",
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  color: "var(--accent-text)",
+  marginBottom: "0.2rem",
 };
 
 const firedTextStyle: React.CSSProperties = {
-  fontSize: "0.92rem",
+  fontSize: "0.95rem",
   color: "var(--text)",
-  lineHeight: 1.4,
+  lineHeight: 1.45,
   marginBottom: "0.4rem",
   whiteSpace: "pre-wrap",
 };
@@ -458,26 +475,31 @@ const headerStyle: React.CSSProperties = {
 };
 
 const addBtnStyle: React.CSSProperties = {
-  fontSize: "0.7rem",
-  padding: "0.18rem 0.5rem",
-  whiteSpace: "nowrap",
+  minHeight: 28,
+  fontSize: "0.8125rem",
+  padding: "0.15rem 0.55rem",
+  gap: "0.3rem",
 };
 
 const dismissBtnStyle: React.CSSProperties = {
-  fontSize: "0.75rem",
-  padding: "0.22rem 0.6rem",
-  fontWeight: 700,
+  minHeight: 28,
+  fontSize: "0.8125rem",
+  padding: "0.15rem 0.65rem",
+  gap: "0.3rem",
 };
 
 const smallBtnStyle: React.CSSProperties = {
-  fontSize: "0.65rem",
-  padding: "0.18rem 0.45rem",
+  minHeight: 28,
+  fontSize: "0.8125rem",
+  padding: "0.15rem 0.5rem",
+  gap: "0.3rem",
+  border: "none",
 };
 
 const formStyle: React.CSSProperties = {
   padding: "0.55rem 0.7rem",
   borderBottom: "1px solid var(--border)",
-  background: "var(--surface)",
+  background: "var(--surface2)",
 };
 
 const pendingListStyle: React.CSSProperties = {
@@ -502,6 +524,7 @@ const deleteBtnStyle: React.CSSProperties = {
   border: "none",
   color: "var(--muted)",
   cursor: "pointer",
-  fontSize: "0.8rem",
-  padding: "0.1rem 0.3rem",
+  padding: "0.15rem 0.25rem",
+  display: "inline-flex",
+  alignItems: "center",
 };

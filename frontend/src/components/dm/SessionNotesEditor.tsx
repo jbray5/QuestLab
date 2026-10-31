@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Check, RefreshCw } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { sessionsApi } from "../../api/sessions";
@@ -67,7 +68,7 @@ export default function SessionNotesEditor({
   }
 
   const statusText =
-    status === "dirty" ? "…" : status === "saving" ? "saving" : status === "saved" ? "saved ✓" : status === "error" ? "not saved — retry" : "";
+    status === "dirty" ? "…" : status === "saving" ? "Saving" : status === "saved" ? "Saved" : status === "error" ? "Not saved — keep typing to retry" : "";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minHeight: 0, height: "100%" }}>
@@ -90,6 +91,7 @@ export default function SessionNotesEditor({
           padding: "0.6rem 0.8rem",
           fontFamily: "inherit",
           outline: "none",
+          boxShadow: "none",
         }}
       />
       <div
@@ -97,25 +99,29 @@ export default function SessionNotesEditor({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          padding: "0.2rem 0.7rem",
+          gap: 8,
+          padding: "0.15rem 0.4rem 0.15rem 0.8rem",
           borderTop: "1px solid var(--border)",
-          fontSize: "0.64rem",
-          color: status === "error" ? "var(--danger, #ef5350)" : "var(--muted)",
+          fontSize: "0.75rem",
+          color: status === "error" ? "var(--danger-text)" : "var(--muted)",
           flexShrink: 0,
+          minWidth: 0,
         }}
       >
-        <span>
+        <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
           {session ? `Session ${session.session_number}${session.title ? ` · ${session.title}` : ""} — notes` : "Notes"}
         </span>
-        <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span style={{ display: "flex", gap: 6, alignItems: "center", flex: "none" }}>
+          {status === "saved" && <Check size={13} aria-hidden style={{ color: "var(--teal-text)" }} />}
           {statusText}
           <button
             onClick={reload}
             className="btn btn-ghost"
-            style={{ fontSize: "0.62rem", padding: "0 0.35rem" }}
+            style={{ minHeight: 24, width: 26, padding: 0, border: "none", color: "var(--muted)" }}
             title="Reload from the server (if you edited notes elsewhere)"
+            aria-label="Reload notes from the server"
           >
-            ↻
+            <RefreshCw size={13} aria-hidden />
           </button>
         </span>
       </div>

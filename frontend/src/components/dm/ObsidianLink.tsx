@@ -12,6 +12,8 @@
  * two mistakes rather than one.
  */
 
+import { Gem } from "lucide-react";
+
 import { obsidianHref, OBSIDIAN_FOLDER } from "../../lib/obsidian";
 
 interface Props {
@@ -34,19 +36,19 @@ export default function ObsidianLink({ dmNote, compact = false }: Props) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: compact ? 20 : 24,
-        height: compact ? 20 : 24,
+        width: compact ? 22 : 26,
+        height: compact ? 22 : 26,
         flexShrink: 0,
-        borderRadius: 5,
-        border: "1px solid var(--border)",
-        background: "rgba(124,77,255,0.12)",
-        fontSize: compact ? "0.7rem" : "0.8rem",
+        borderRadius: 6,
+        border: "1px solid var(--border2)",
+        background: "var(--surface3)",
+        color: "var(--text2)",
         lineHeight: 1,
         textDecoration: "none",
         cursor: "pointer",
       }}
     >
-      🔮
+      <Gem size={compact ? 12 : 14} aria-hidden />
     </a>
   );
 }
@@ -68,7 +70,7 @@ export function ObsidianNoteInput({
         onChange={(e) => onChange(e.target.value.trim() ? e.target.value : null)}
         style={{ width: "100%" }}
       />
-      <small style={{ color: "var(--text-muted)", fontSize: "0.72rem" }}>
+      <small style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
         Vault-relative path inside {OBSIDIAN_FOLDER}. DM-only — never shown on the board or a player's
         phone.
       </small>

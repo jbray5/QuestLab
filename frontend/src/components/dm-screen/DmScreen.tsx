@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BookOpen, X } from "lucide-react";
 
 import { DM_SCREEN_TABS, type RulesEntry } from "./dm-screen-content";
 
@@ -68,17 +69,21 @@ export default function DmScreen({ open, onClose }: Props) {
         {/* Sticky header: title + search + close */}
         <div style={headerStyle}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-            <h2 style={titleStyle}>📖 DM Screen</h2>
+            <h2 style={titleStyle}>
+              <BookOpen size={18} aria-hidden style={{ color: "var(--muted)" }} />
+              DM screen
+            </h2>
             <input
               ref={searchRef}
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search rules (prone, shove, oa…)"
+              aria-label="Search the rules"
               style={searchStyle}
             />
-            <button onClick={onClose} style={closeBtnStyle} title="Close (Esc)">
-              ✕
+            <button onClick={onClose} className="btn btn-ghost" style={closeBtnStyle} title="Close (Esc)" aria-label="Close">
+              <X size={18} aria-hidden />
             </button>
           </div>
 
@@ -88,13 +93,14 @@ export default function DmScreen({ open, onClose }: Props) {
               {DM_SCREEN_TABS.map((tab) => (
                 <button
                   key={tab.id}
+                  className="btn btn-ghost"
+                  aria-pressed={tab.id === activeTab}
                   onClick={() => setActiveTab(tab.id)}
                   style={{
                     ...tabBtnStyle,
-                    background: tab.id === activeTab ? "var(--gold)" : "var(--surface2)",
-                    color: tab.id === activeTab ? "var(--bg, #1a1a1a)" : "var(--text)",
-                    borderColor:
-                      tab.id === activeTab ? "var(--gold)" : "var(--border)",
+                    ...(tab.id === activeTab
+                      ? { background: "var(--accent-active)", color: "var(--accent-active-text)", borderColor: "var(--accent-line)" }
+                      : {}),
                   }}
                 >
                   {tab.label}
@@ -169,14 +175,7 @@ function EntryCard({ entry, tabLabel }: { entry: RulesEntry; tabLabel?: string }
       >
         <h3 style={cardTitleStyle}>{entry.title}</h3>
         {tabLabel && (
-          <span
-            style={{
-              fontSize: "0.65rem",
-              color: "var(--muted)",
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-            }}
-          >
+          <span className="pill" style={{ fontSize: "0.75rem", padding: "0 0.5rem" }}>
             {tabLabel}
           </span>
         )}
@@ -200,52 +199,46 @@ const overlayStyle: React.CSSProperties = {
 };
 
 const modalStyle: React.CSSProperties = {
-  background: "var(--bg, #1a1a1a)",
-  border: "1px solid var(--gold)",
-  borderRadius: 10,
+  background: "var(--bg)",
+  border: "1px solid var(--border2)",
+  borderRadius: 12,
   width: "100%",
   maxWidth: 880,
   maxHeight: "calc(100dvh - 2rem)",
   display: "flex",
   flexDirection: "column",
   overflow: "hidden",
+  boxShadow: "0 18px 48px rgba(0,0,0,0.5)",
 };
 
 const headerStyle: React.CSSProperties = {
   padding: "0.85rem 1rem",
   borderBottom: "1px solid var(--border)",
-  background: "var(--surface, #1f1f1f)",
+  background: "var(--surface)",
   flexShrink: 0,
 };
 
 const titleStyle: React.CSSProperties = {
   margin: 0,
   fontSize: "1.15rem",
-  color: "var(--gold)",
-  fontFamily: "var(--font-story)",
+  color: "var(--text)",
   whiteSpace: "nowrap",
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.5rem",
 };
 
 const searchStyle: React.CSSProperties = {
   flex: 1,
   padding: "0.45rem 0.7rem",
-  background: "var(--surface2)",
-  border: "1px solid var(--border)",
-  borderRadius: 4,
-  color: "var(--text)",
-  fontSize: "0.9rem",
-  fontFamily: "inherit",
+  fontSize: "0.9375rem",
 };
 
 const closeBtnStyle: React.CSSProperties = {
-  background: "transparent",
-  border: "1px solid var(--border)",
-  borderRadius: 4,
-  color: "var(--text)",
-  width: 32,
-  height: 32,
-  cursor: "pointer",
-  fontSize: "1rem",
+  width: 36,
+  minHeight: 36,
+  padding: 0,
+  flex: "none",
 };
 
 const tabsStyle: React.CSSProperties = {
@@ -256,15 +249,10 @@ const tabsStyle: React.CSSProperties = {
 };
 
 const tabBtnStyle: React.CSSProperties = {
-  fontSize: "0.78rem",
-  padding: "0.3rem 0.7rem",
-  background: "var(--surface2)",
-  border: "1px solid var(--border)",
-  borderRadius: 4,
-  color: "var(--text)",
-  cursor: "pointer",
-  fontFamily: "inherit",
-  whiteSpace: "nowrap",
+  minHeight: 30,
+  fontSize: "0.8125rem",
+  padding: "0.2rem 0.7rem",
+  color: "var(--text2)",
 };
 
 const bodyStyle: React.CSSProperties = {
@@ -287,22 +275,21 @@ const entriesStyle: React.CSSProperties = {
 const cardStyle: React.CSSProperties = {
   background: "var(--surface)",
   border: "1px solid var(--border)",
-  borderRadius: 6,
+  borderRadius: 10,
   padding: "0.75rem 0.9rem",
 };
 
 const cardTitleStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: "0.95rem",
-  color: "var(--gold)",
-  fontFamily: "var(--font-story)",
-  letterSpacing: "0.03em",
+  fontSize: "0.9875rem",
+  fontWeight: 600,
+  color: "var(--text)",
 };
 
 const cardBodyStyle: React.CSSProperties = {
   margin: 0,
-  fontSize: "0.86rem",
-  lineHeight: 1.5,
-  color: "var(--text)",
+  fontSize: "0.875rem",
+  lineHeight: 1.55,
+  color: "var(--text2)",
   whiteSpace: "pre-wrap",
 };
