@@ -108,8 +108,9 @@ give Patron to anyone (comp).
 - **The 402 body is structured** (`{code: "plan_limit", limit, message}`), like the existing
   `rate_limited` and `link_replaced` details. `errors.ts` reads it, and `isPlanLimitError` lets a
   screen add "See your plan".
-- **`patron_checked_at` is stored as naive UTC.** The 0040 column has no time zone, and DuckDB
-  shifts aware values to local time.
+- **`patron_checked_at` is stored as aware UTC.** It was naive at first (the 0040 column has no
+  time zone), but SQLModel 0.0.48, which CI and Render install fresh, refuses naive datetimes on
+  bind. CI caught it on the first push; reads accept either.
 
 ---
 

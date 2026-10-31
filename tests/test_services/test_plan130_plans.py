@@ -187,10 +187,10 @@ def test_apply_membership_writes_the_snapshot():
     m = PatreonMembership(found=True, patron_status="active_patron", entitled_cents=400)
     plan_service.apply_membership(user, m, _NOW)
     assert user.patron_active and user.patron_tier_cents == 400
-    assert user.patron_checked_at == _NOW.replace(tzinfo=None)
+    assert user.patron_checked_at == _NOW  # aware UTC (SQLModel 0.0.4x refuses naive)
     # Not asked (no campaign configured): the snapshot is left alone.
     plan_service.apply_membership(user, None, _NOW + timedelta(days=3))
-    assert user.patron_checked_at == _NOW.replace(tzinfo=None)
+    assert user.patron_checked_at == _NOW
     # Asked and not found: a lapsed Patron stops counting straight away.
     plan_service.apply_membership(user, PatreonMembership(), _NOW)
     assert not user.patron_active and user.patron_tier_cents == 0

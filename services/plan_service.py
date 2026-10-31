@@ -366,8 +366,10 @@ def apply_membership(
         return
     user.patron_active = membership.active
     user.patron_tier_cents = membership_cents(membership)
-    # Stored as naive UTC: the column has no time zone (migration 0040).
-    user.patron_checked_at = (now or _now()).astimezone(UTC).replace(tzinfo=None)
+    # Aware UTC: SQLModel 0.0.4x refuses naive datetimes on bind (it broke CI and
+    # would have broken a Patreon sign-in on Render). Reads go through _as_utc,
+    # which accepts either, so rows written naive before this still work.
+    user.patron_checked_at = (now or _now()).astimezone(UTC)
 
 
 def set_comped(db: Session, admin_email: str, email: str, comped: bool) -> CompResult:
