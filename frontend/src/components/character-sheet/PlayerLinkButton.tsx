@@ -1,9 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Link2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Check, Link2, RotateCcw } from "lucide-react";
+
+import { charactersApi } from "../../api/characters";
 
 interface Props {
   characterId: string;
+  /** SEC-002 — the link's secret; the URL is /play/{playToken}. */
+  playToken?: string | null;
+  /** Used in the reset confirmation. */
+  characterName?: string;
   /** Compact icon-only variant for tight rows (HUD party panel). */
   compact?: boolean;
 }
@@ -27,12 +34,21 @@ interface Props {
  * LEFT side of the sheet header, so anchoring the popover's right edge to
  * the button's right edge pushed a 320px popover off-screen to the left.
  * Anchor left = button's left edge, clamped to keep the popover on-screen.
+ *
+ * SEC-002 — the link carries the character's `play_token`, never its id.
+ * "Reset link" gives the character a new one and kills the old at once (a
+ * player left, or the link was posted somewhere public).
  */
 const POPOVER_W = 320;
 
-export default function PlayerLinkButton({ characterId, compact = false }: Props) {
+export default function PlayerLinkButton({ characterId, playToken, characterName, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [freshToken, setFreshToken] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
+  const qc = useQueryClient();
+  const key = freshToken ?? playToken ?? characterId;
   const btnRef = useRef<HTMLButtonElement | null>(null);
   const [anchor, setAnchor] = useState<{ top: number; left: number } | null>(null);
 
@@ -57,8 +73,27 @@ export default function PlayerLinkButton({ characterId, compact = false }: Props
   }, [open]);
 
   const url = typeof window !== "undefined"
-    ? `${window.location.origin}/play/${characterId}`
-    : `/play/${characterId}`;
+    ? `${window.location.origin}/play/${key}`
+    : `/play/${key}`;
+
+  async function handleReset() {
+    const who = characterName || "this character";
+    const ok = window.confirm(
+      `Give ${who} a new player link?\n\nThe old link stops working right away. ` +
+        "If a player left the party, change the campaign's join code too, so they can't pick the character again.",
+    );
+    if (!ok) return;
+    setResetting(true);
+    try {
+      const res = await charactersApi.resetPlayLink(characterId);
+      setFreshToken(res.play_key);
+      setResetDone(true);
+      setCopied(false);
+      void qc.invalidateQueries({ queryKey: ["characters"] });
+    } finally {
+      setResetting(false);
+    }
+  }
 
   async function handleCopy() {
     try {
@@ -75,6 +110,8 @@ export default function PlayerLinkButton({ characterId, compact = false }: Props
     <span style={{ position: "relative", display: "inline-block" }}>
       <button
         ref={btnRef}
+        // Phones (Plan 123): the full button is 44 px tall; the compact HUD icon is left alone.
+        className={compact ? undefined : "ql-s6-tap"}
         onClick={() => setOpen((v) => !v)}
         title="Share this player's view link"
         aria-label={compact ? "Share player link" : undefined}
@@ -126,7 +163,9 @@ export default function PlayerLinkButton({ characterId, compact = false }: Props
                 lineHeight: 1.45,
               }}
             >
-              Send this link to the player. It opens their character only — no sign-in needed.
+              {resetDone
+                ? "New link made. The old one no longer works — send this one to the player."
+                : "Send this link to the player. It opens their character only — no sign-in needed."}
             </div>
             <input
               type="text"
@@ -172,6 +211,16 @@ export default function PlayerLinkButton({ characterId, compact = false }: Props
                 Open
               </a>
             </div>
+            <button
+              type="button"
+              onClick={() => void handleReset()}
+              disabled={resetting}
+              className="btn btn-ghost"
+              title="Make a new link; the old one stops working"
+              style={{ marginTop: "0.5rem", width: "100%", fontSize: "0.8125rem", padding: "0.35rem", color: "var(--muted)", justifyContent: "center" }}
+            >
+              <RotateCcw size={14} aria-hidden /> {resetting ? "Making a new link…" : "Reset link"}
+            </button>
           </div>
         </>,
         document.body,

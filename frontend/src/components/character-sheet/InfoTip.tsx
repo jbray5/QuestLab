@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
+import { useIsCompact } from "../../hooks/useIsCompact";
+import PhoneSheet from "../PhoneSheet";
+
 interface Props {
   /** Short heading shown at the top of the popover. */
   title: string;
@@ -16,14 +19,18 @@ interface Props {
  * with a "when to use this" explanation aimed at new DMs. Clicks outside
  * or ESC closes. Click-toggle (not pure hover) so the DM can read at
  * leisure and copy from the popover if needed.
+ * Phones (Plan 123): the explanation opens as a bottom sheet (a popover beside
+ * a badge near the right edge ran off the screen), and the badge gets a
+ * thumb-sized hit area without changing its look.
  */
 export default function InfoTip({ title, children, size = "sm" }: Props) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLSpanElement | null>(null);
+  const phone = useIsCompact(640);
 
-  // Click outside / ESC dismisses
+  // Click outside / ESC dismisses (on a phone the sheet handles both).
   useEffect(() => {
-    if (!open) return;
+    if (!open || phone) return;
     function handleClick(e: MouseEvent) {
       if (
         containerRef.current &&
@@ -41,7 +48,7 @@ export default function InfoTip({ title, children, size = "sm" }: Props) {
       window.removeEventListener("mousedown", handleClick);
       window.removeEventListener("keydown", handleKey);
     };
-  }, [open]);
+  }, [open, phone]);
 
   const dim = size === "md" ? 18 : 15;
 
@@ -52,6 +59,7 @@ export default function InfoTip({ title, children, size = "sm" }: Props) {
     >
       <button
         type="button"
+        className="ql-s6-hit"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-label={`Help: ${title}`}
@@ -76,7 +84,18 @@ export default function InfoTip({ title, children, size = "sm" }: Props) {
       >
         ?
       </button>
-      {open && (
+      {open && phone && (
+        <PhoneSheet
+          title={<span style={{ fontFamily: "var(--font-ui)", fontWeight: 600 }}>{title}</span>}
+          label={title}
+          onClose={() => setOpen(false)}
+        >
+          <div style={{ whiteSpace: "pre-wrap", fontSize: "1rem", lineHeight: 1.55, color: "var(--text2)" }}>
+            {children}
+          </div>
+        </PhoneSheet>
+      )}
+      {open && !phone && (
         <div
           role="dialog"
           aria-label={title}

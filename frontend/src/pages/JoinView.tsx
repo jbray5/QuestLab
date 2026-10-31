@@ -17,7 +17,8 @@ import { Monogram } from "./player/ui";
  */
 
 interface RosterRow {
-  id: string;
+  /** SEC-002 — the character's link key (opens /play/{key}); not its id. */
+  key: string;
   character_name: string;
   player_name: string | null;
   portrait_url: string | null;
@@ -136,11 +137,11 @@ export default function JoinView() {
 
   function pick(row: RosterRow) {
     try {
-      localStorage.setItem(`qj-pick-${campaignId}`, row.id);
+      localStorage.setItem(`qj-pick-${campaignId}`, row.key);
     } catch {
       /* fine */
     }
-    navigate(`/play/${row.id}`);
+    navigate(`/play/${row.key}`);
   }
 
   return (
@@ -192,7 +193,7 @@ export default function JoinView() {
         {roster && (
           <div className="qj-grid">
             {roster.map((row) => (
-              <button key={row.id} type="button" className="qj-card" onClick={() => pick(row)}>
+              <button key={row.key} type="button" className="qj-card" onClick={() => pick(row)}>
                 {row.portrait_url ? (
                   <img src={portraitSrc(row.portrait_url, "")} alt="" loading="lazy" />
                 ) : (

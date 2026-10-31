@@ -180,7 +180,8 @@ export default function BattleMaps() {
   }
 
   return (
-    <div className="fade-in" style={{ maxWidth: 1400, margin: "0 auto" }}>
+    // `.ql-s6`: thumb-sized controls on a phone (index.css, Plan 123 S6).
+    <div className="fade-in ql-s6" style={{ maxWidth: 1400, margin: "0 auto" }}>
       <div
         className="flex"
         style={{ alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1.25rem" }}
@@ -337,6 +338,7 @@ function MapEditor({
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const compact = useIsCompact(720);
+  const phone = useIsCompact(640);
   const [name, setName] = useState(map.name);
   const [grid, setGrid] = useState<string>(map.grid_size ? String(map.grid_size) : "");
   const [dmNote, setDmNote] = useState<string | null>(map.dm_note ?? null);
@@ -455,6 +457,14 @@ function MapEditor({
             <button className="btn btn-ghost" onClick={() => setDraftPoly([])}>Cancel draft</button>
           )}
         </div>
+        {/* Phones (Plan 123): there's no double-click or hover — say how touch works. */}
+        {phone && (
+          <p className="text-sm text-muted" style={{ margin: "0 0 0.6rem" }}>
+            {tool === "rect"
+              ? "Drag a finger across the map to draw a rectangle."
+              : "Tap each corner on the map, then Finish region."}
+          </p>
+        )}
 
         <div
           style={{
@@ -522,7 +532,7 @@ function MapEditor({
         <label style={ASIDE_LABEL}>
           Map name
           <input
-            className="story"
+            className="story ql-s6-keep"
             value={name}
             onChange={(e) => setName(e.target.value)}
             style={{ width: "100%", marginTop: 4, fontSize: "1.05rem", fontWeight: 700 }}
@@ -569,7 +579,7 @@ function MapEditor({
                   style={{ flex: 1, fontSize: "0.875rem", padding: "0.35rem 0.55rem" }}
                 />
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-ghost ql-s6-sq"
                   style={{ padding: "0.3rem", minHeight: 0, border: "none", color: "var(--muted)" }}
                   onClick={() => setRegions((rs) => rs.filter((x) => x.id !== r.id))}
                   title="Delete region"

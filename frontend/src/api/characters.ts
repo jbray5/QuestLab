@@ -19,6 +19,8 @@ export const charactersApi = {
   grantLevelUp: (id: string, toLevel?: number) =>
     api.post<PlayerCharacter>(`/characters/${id}/level-up`, toLevel ? { to_level: toLevel } : {}),
   revokeLevelUp: (id: string) => api.delete<PlayerCharacter>(`/characters/${id}/level-up`),
+  // SEC-002 — a new player link; the old one stops working at once.
+  resetPlayLink: (id: string) => api.post<{ play_key: string }>(`/characters/${id}/play-link/reset`),
   updateImage: (id: string, portrait_url: string) =>
     api.patch<PlayerCharacter>(`/characters/${id}`, { portrait_url }),
   // Plan 00022 — computed bonuses

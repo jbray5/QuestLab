@@ -122,9 +122,10 @@ export default function Adventures() {
     }));
 
   return (
-    <div className="fade-in">
+    // `.ql-s6`: thumb-sized controls on a phone (index.css, Plan 123 S6).
+    <div className="fade-in ql-s6">
       {/* Breadcrumb */}
-      <nav className="text-sm" style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
+      <nav className="text-sm ql-s6-crumbs" style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
         <Link to="/">Dashboard</Link>
         {activeCampaign && (
           <>
@@ -229,6 +230,7 @@ export default function Adventures() {
                 <h2 className="story" style={{ fontSize: "1.3rem", margin: 0, lineHeight: 1.25 }}>
                   <button
                     type="button"
+                    className="ql-s6-tap"
                     aria-expanded={expandedId === a.id}
                     style={{
                       display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "none",

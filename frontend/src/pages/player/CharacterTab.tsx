@@ -18,7 +18,7 @@ import { HelpSwitch, HpBar, Label, Monogram, Panel, Pips } from "./ui";
 import { ABILITIES, HIT_DIE_BY_CLASS, RECOVERY_TEXT, SKILLS, fmt, mod, profBonus } from "./rules";
 
 export default function CharacterTab() {
-  const { pc, help, setHelp } = usePlayer();
+  const { pc, pcId, help, setHelp } = usePlayer();
   const subline = [`${pc.character_class} ${pc.level}`, pc.subclass, pc.race, pc.player_name].filter(Boolean).join(" · ");
   return (
     <>
@@ -41,8 +41,8 @@ export default function CharacterTab() {
       <HitDice />
       <Exhaustion />
       <nav aria-label="More about your character" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        <MoreLink to={`/play/${pc.id}/character`} icon={<Shirt size={18} />} title="Your look and gear" sub="Equip items, describe how you look." />
-        <MoreLink to={`/play/${pc.id}/arena`} icon={<Swords size={18} />} title="Practice in the Arena" sub="Spar with your real sheet. Nothing here changes your character." />
+        <MoreLink to={`/play/${pcId}/character`} icon={<Shirt size={18} />} title="Your look and gear" sub="Equip items, describe how you look." />
+        <MoreLink to={`/play/${pcId}/arena`} icon={<Swords size={18} />} title="Practice in the Arena" sub="Spar with your real sheet. Nothing here changes your character." />
       </nav>
     </>
   );
@@ -91,7 +91,7 @@ function HitPoints() {
         <button type="button" className="btn btn-secondary" disabled={!n || busy} onClick={() => heal.mutate()} style={{ minHeight: 44, flex: 1 }}>Healed</button>
         <button type="button" className="btn btn-ghost" disabled={!n || busy} onClick={() => temp.mutate()} style={{ minHeight: 44 }} title="Set temporary hit points">Temp</button>
       </div>
-      <button type="button" aria-pressed={pc.heroic_inspiration} onClick={() => insp.mutate()} disabled={insp.isPending} className="btn btn-ghost" style={{ minHeight: 44, justifyContent: "flex-start", borderColor: pc.heroic_inspiration ? "var(--accent-edge)" : undefined, color: pc.heroic_inspiration ? "var(--accent-text)" : undefined }}>
+      <button type="button" aria-pressed={pc.heroic_inspiration} onClick={() => insp.mutate()} disabled={insp.isPending} className="btn btn-ghost" style={{ minHeight: 44, justifyContent: "flex-start", whiteSpace: "normal", textAlign: "left", borderColor: pc.heroic_inspiration ? "var(--accent-edge)" : undefined, color: pc.heroic_inspiration ? "var(--accent-text)" : undefined }}>
         <span aria-hidden style={{ width: 14, height: 14, flexShrink: 0, borderRadius: "50%", border: "2px solid currentColor", background: pc.heroic_inspiration ? "currentColor" : "transparent" }} />
         {pc.heroic_inspiration ? "Heroic Inspiration: tap to spend it" : "No Heroic Inspiration"}
         {help === "teach" && !pc.heroic_inspiration && <span style={{ color: "var(--muted)", fontWeight: 400 }}> · the DM hands it out</span>}

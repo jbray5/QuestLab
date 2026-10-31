@@ -48,6 +48,8 @@ export default function SavingThrows({
         Saving throws
       </h4>
       <div
+        // Phones (Plan 123): each save is a thumb-sized row.
+        className="ql-s6-rows"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(2, minmax(0, 1fr))",

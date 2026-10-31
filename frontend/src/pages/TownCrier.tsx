@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
+import { Plus, Send, Settings2, X } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -11,6 +12,7 @@ import {
   type CrierChannel,
   type CrierNpc,
 } from "../api/crier";
+import { useIsCompact } from "../hooks/useIsCompact";
 
 /**
  * TownCrier — the DM's between-sessions NPC poster (Plan 56),
@@ -22,9 +24,19 @@ import {
  *
  * The webhook URL never arrives in this bundle — the server sends
  * `configured` + a masked tail, and the URL field below is write-only.
+ * Lamplit + phones: Plan 123.
  */
 
-/** Discord's own surface colours, so the preview reads as the real thing. */
+/** A small sentence-case section label (Lamplit: no letter-spaced capitals). */
+const SECTION_LABEL: CSSProperties = {
+  fontSize: "0.875rem",
+  fontWeight: 500,
+  color: "var(--text2)",
+  marginBottom: "0.5rem",
+};
+
+/** Discord's own surface colours, so the preview reads as the real thing
+ * (the one place this page leaves the Lamplit palette on purpose). */
 const DISCORD = {
   bg: "#313338",
   text: "#dbdee1",
@@ -102,7 +114,7 @@ function Preview({
         )}
 
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: "0.25rem 0.5rem", flexWrap: "wrap" }}>
             <span style={{ color: DISCORD.name, fontWeight: 500 }}>
               {npc?.name || "(pick an NPC)"}
             </span>
@@ -169,38 +181,83 @@ function CharCount({ used, max }: { used: number; max: number }) {
   return (
     <span
       style={{
-        fontSize: "0.72rem",
-        color: over ? "var(--danger, #d9534f)" : "var(--muted)",
-        fontVariantNumeric: "tabular-nums",
+        fontSize: "0.75rem",
+        color: over ? "var(--danger-text)" : "var(--muted)",
       }}
+      className="num"
     >
       {used}/{max}
     </span>
   );
 }
 
+/** An icon-only remove button; the caller asks before anything goes. */
+function RemoveButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="btn btn-ghost"
+      aria-label={label}
+      title={label}
+      style={{ padding: 0, minWidth: "2.375rem", flexShrink: 0 }}
+      onClick={onClick}
+    >
+      <X size={16} />
+    </button>
+  );
+}
+
+function AvatarInput({ n, onChanged, style }: { n: CrierNpc; onChanged: () => void; style: CSSProperties }) {
+  return (
+    <input
+      type="url"
+      style={style}
+      aria-label={`Avatar URL for ${n.name}`}
+      placeholder="avatar URL (absolute)"
+      defaultValue={n.avatar_url ?? ""}
+      onBlur={async (e) => {
+        if (e.target.value !== (n.avatar_url ?? "")) {
+          await crierApi.updateNpc(n.id, { avatar_url: e.target.value.trim() || null });
+          onChanged();
+        }
+      }}
+    />
+  );
+}
+
 function RosterEditor({
   campaignId,
   npcs,
+  phone,
   onChanged,
 }: {
   campaignId: string;
   npcs: CrierNpc[];
+  phone: boolean;
   onChanged: () => void;
 }) {
   const [name, setName] = useState("");
 
   return (
     <div>
-      <div className="text-muted" style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
-        Roster
-      </div>
+      <div style={SECTION_LABEL}>Voices (who can speak)</div>
 
       {npcs.map((n) => (
-        <div key={n.id} className="flex" style={{ gap: "0.5rem", alignItems: "center", marginBottom: "0.4rem" }}>
+        <div
+          key={n.id}
+          style={{
+            display: "flex",
+            flexWrap: phone ? "wrap" : "nowrap",
+            gap: "0.5rem",
+            alignItems: "center",
+            marginBottom: phone ? "0.9rem" : "0.4rem",
+          }}
+        >
           <input
-            className="input"
-            style={{ flex: 1 }}
+            type="text"
+            className="story"
+            aria-label="Name"
+            style={{ flex: 1, minWidth: 0 }}
             defaultValue={n.name}
             onBlur={async (e) => {
               if (e.target.value.trim() && e.target.value !== n.name) {
@@ -212,43 +269,31 @@ function RosterEditor({
           <input
             type="color"
             title="Embed accent colour"
+            aria-label={`Accent colour for ${n.name}`}
             value={colorToCss(n.embed_color)}
-            style={{ width: 36, height: 32, padding: 0, border: "none", background: "none" }}
+            style={{ width: 44, height: 40, padding: 0, border: "none", background: "none", flexShrink: 0 }}
             onChange={async (e) => {
               await crierApi.updateNpc(n.id, { embed_color: cssToColor(e.target.value) });
               onChanged();
             }}
           />
-          <input
-            className="input"
-            style={{ flex: 1.4 }}
-            placeholder="avatar URL (absolute)"
-            defaultValue={n.avatar_url ?? ""}
-            onBlur={async (e) => {
-              if (e.target.value !== (n.avatar_url ?? "")) {
-                await crierApi.updateNpc(n.id, { avatar_url: e.target.value.trim() || null });
-                onChanged();
-              }
-            }}
-          />
-          <button
-            className="btn btn-ghost"
-            title="Remove identity"
+          {!phone && <AvatarInput n={n} onChanged={onChanged} style={{ flex: 1.4, minWidth: 0 }} />}
+          <RemoveButton
+            label={`Remove ${n.name}`}
             onClick={async () => {
-              if (confirm(`Remove "${n.name}" from the roster?`)) {
+              if (confirm(`Remove "${n.name}" from the voices?`)) {
                 await crierApi.removeNpc(n.id);
                 onChanged();
               }
             }}
-          >
-            ✕
-          </button>
+          />
+          {/* On a phone the long URL gets its own full-width row. */}
+          {phone && <AvatarInput n={n} onChanged={onChanged} style={{ flexBasis: "100%" }} />}
         </div>
       ))}
 
       <form
-        className="flex"
-        style={{ gap: "0.5rem", marginTop: "0.6rem" }}
+        style={{ display: "flex", gap: "0.5rem", marginTop: "0.6rem" }}
         onSubmit={async (e) => {
           e.preventDefault();
           if (!name.trim()) return;
@@ -258,20 +303,21 @@ function RosterEditor({
         }}
       >
         <input
-          className="input"
-          style={{ flex: 1 }}
-          placeholder="Add an NPC identity…"
+          type="text"
+          style={{ flex: 1, minWidth: 0 }}
+          aria-label="New voice name"
+          placeholder="Add a voice (an NPC name)…"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-        <button className="btn" type="submit">
-          Add
+        <button className="btn btn-secondary" type="submit" disabled={!name.trim()}>
+          <Plus size={16} /> Add
         </button>
       </form>
 
-      <p className="text-muted" style={{ fontSize: "0.72rem", marginTop: "0.5rem" }}>
+      <p className="text-muted" style={{ fontSize: "0.8125rem", marginTop: "0.5rem" }}>
         Avatar URLs must be publicly reachable — Discord fetches the image itself.
-        Leave blank and the post uses the webhook's default face.
+        Leave blank and the post uses the webhook&rsquo;s default face.
       </p>
     </div>
   );
@@ -280,10 +326,12 @@ function RosterEditor({
 function ChannelEditor({
   campaignId,
   channels,
+  phone,
   onChanged,
 }: {
   campaignId: string;
   channels: CrierChannel[];
+  phone: boolean;
   onChanged: () => void;
 }) {
   const [label, setLabel] = useState("");
@@ -292,30 +340,22 @@ function ChannelEditor({
 
   return (
     <div>
-      <div className="text-muted" style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
-        Channels
-      </div>
+      <div style={SECTION_LABEL}>Channels</div>
 
-      {channels.map((c) => (
-        <div key={c.id} className="flex" style={{ gap: "0.5rem", alignItems: "center", marginBottom: "0.4rem" }}>
-          <input
-            className="input"
-            style={{ flex: 1 }}
-            defaultValue={c.label}
-            onBlur={async (e) => {
-              if (e.target.value.trim() && e.target.value !== c.label) {
-                await crierApi.updateChannel(c.id, { label: e.target.value.trim() });
-                onChanged();
-              }
-            }}
-          />
-          <span className="text-muted" style={{ fontSize: "0.72rem", whiteSpace: "nowrap" }}>
-            {c.configured ? `webhook ✓ ${c.url_hint}` : "not configured"}
+      {channels.map((c) => {
+        const hint = (
+          <span
+            className="text-muted"
+            style={{ fontSize: "0.8125rem", whiteSpace: "nowrap", ...(phone ? { flexBasis: "100%" } : {}) }}
+          >
+            {c.configured ? `Webhook set (${c.url_hint})` : "No webhook yet"}
           </span>
+        );
+        const webhook = (
           <input
-            className="input"
-            style={{ flex: 1 }}
             type="password"
+            style={{ flex: 1, minWidth: 0, ...(phone ? { flexBasis: "100%" } : {}) }}
+            aria-label={`Replace the webhook URL for ${c.label}`}
             placeholder="replace webhook URL…"
             onBlur={async (e) => {
               if (e.target.value.trim()) {
@@ -325,24 +365,65 @@ function ChannelEditor({
               }
             }}
           />
-          <button
-            className="btn btn-ghost"
-            title="Remove channel"
+        );
+        const remove = (
+          <RemoveButton
+            label={`Remove ${c.label}`}
             onClick={async () => {
-              if (confirm(`Remove "${c.label}"? The sent-log keeps its history.`)) {
+              if (confirm(`Remove "${c.label}"? The sent log keeps its history.`)) {
                 await crierApi.removeChannel(c.id);
                 onChanged();
               }
             }}
+          />
+        );
+        return (
+          <div
+            key={c.id}
+            style={{
+              display: "flex",
+              flexWrap: phone ? "wrap" : "nowrap",
+              gap: phone ? "0.4rem 0.5rem" : "0.5rem",
+              alignItems: "center",
+              marginBottom: phone ? "0.9rem" : "0.4rem",
+            }}
           >
-            ✕
-          </button>
-        </div>
-      ))}
+            <input
+              type="text"
+              aria-label="Channel name"
+              style={{ flex: 1, minWidth: 0 }}
+              defaultValue={c.label}
+              onBlur={async (e) => {
+                if (e.target.value.trim() && e.target.value !== c.label) {
+                  await crierApi.updateChannel(c.id, { label: e.target.value.trim() });
+                  onChanged();
+                }
+              }}
+            />
+            {phone ? (
+              <>
+                {remove}
+                {hint}
+                {webhook}
+              </>
+            ) : (
+              <>
+                {hint}
+                {webhook}
+                {remove}
+              </>
+            )}
+          </div>
+        );
+      })}
 
       <form
-        className="flex"
-        style={{ gap: "0.5rem", marginTop: "0.6rem" }}
+        style={{
+          display: "flex",
+          flexWrap: phone ? "wrap" : "nowrap",
+          gap: "0.5rem",
+          marginTop: "0.6rem",
+        }}
         onSubmit={async (e) => {
           e.preventDefault();
           setErr(null);
@@ -361,31 +442,32 @@ function ChannelEditor({
         }}
       >
         <input
-          className="input"
-          style={{ flex: 1 }}
+          type="text"
+          style={{ flex: 1, minWidth: 0, ...(phone ? { flexBasis: "100%" } : {}) }}
+          aria-label="New channel name"
           placeholder="#channel-name"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
         />
         <input
-          className="input"
-          style={{ flex: 2 }}
           type="password"
+          style={{ flex: 2, minWidth: 0 }}
+          aria-label="Discord webhook URL"
           placeholder="https://discord.com/api/webhooks/…"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
-        <button className="btn" type="submit">
-          Add
+        <button className="btn btn-secondary" type="submit" disabled={!label.trim() || !url.trim()}>
+          <Plus size={16} /> Add
         </button>
       </form>
 
       {err && (
-        <p style={{ color: "var(--danger, #d9534f)", fontSize: "0.8rem", marginTop: "0.4rem" }}>
+        <p style={{ color: "var(--danger-text)", fontSize: "0.875rem", marginTop: "0.4rem" }}>
           {err}
         </p>
       )}
-      <p className="text-muted" style={{ fontSize: "0.72rem", marginTop: "0.5rem" }}>
+      <p className="text-muted" style={{ fontSize: "0.8125rem", marginTop: "0.5rem" }}>
         Create webhooks in Discord: channel → Edit Channel → Integrations → Webhooks →
         New Webhook → Copy URL. One per channel is enough for every NPC.
         The URL is stored server-side and never sent back to this page.
@@ -397,6 +479,7 @@ function ChannelEditor({
 export default function TownCrier() {
   const { campaignId = "" } = useParams();
   const qc = useQueryClient();
+  const phone = useIsCompact(640);
 
   const { data: channels = [] } = useQuery({
     queryKey: ["crier-channels", campaignId],
@@ -414,21 +497,16 @@ export default function TownCrier() {
     enabled: !!campaignId,
   });
 
-  const [channelId, setChannelId] = useState("");
-  const [npcId, setNpcId] = useState("");
+  // No pick yet (or a removed one) means "the first one", so the common case
+  // is "type and send" with no selecting. Derived, not set from an effect.
+  const [pickedChannel, setChannelId] = useState("");
+  const [pickedNpc, setNpcId] = useState("");
+  const channelId = channels.some((c) => c.id === pickedChannel) ? pickedChannel : (channels[0]?.id ?? "");
+  const npcId = npcs.some((n) => n.id === pickedNpc) ? pickedNpc : (npcs[0]?.id ?? "");
   const [content, setContent] = useState("");
   const [embed, setEmbed] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
-
-  // Default the pickers once the roster loads, so the common case is
-  // "type and send" with no selecting.
-  useEffect(() => {
-    if (!channelId && channels.length) setChannelId(channels[0].id);
-  }, [channels, channelId]);
-  useEffect(() => {
-    if (!npcId && npcs.length) setNpcId(npcs[0].id);
-  }, [npcs, npcId]);
 
   const npc = useMemo(() => npcs.find((n) => n.id === npcId), [npcs, npcId]);
 
@@ -462,151 +540,174 @@ export default function TownCrier() {
     !!channelId && !!npcId && !!(content.trim() || embed.trim()) && !overLimit && !send.isPending;
 
   return (
-    <div>
-      <div className="flex" style={{ justifyContent: "space-between", alignItems: "center" }}>
-        <h1>The Town Crier</h1>
-        <button className="btn btn-ghost" onClick={() => setShowSettings((s) => !s)}>
-          {showSettings ? "Done" : "Channels & roster"}
-        </button>
+    <div className="fade-in">
+      <div
+        className="flex"
+        style={{ justifyContent: "space-between", alignItems: "flex-start", gap: "0.75rem 1rem", marginBottom: "1rem" }}
+      >
+        <div style={{ minWidth: 0, flex: "1 1 320px" }}>
+          <h1 style={{ marginBottom: "0.2rem" }}>Town crier</h1>
+          <p className="text-sm text-muted" style={{ margin: 0 }}>
+            Post to Discord in an NPC&rsquo;s voice. One webhook per channel carries every voice.
+          </p>
+        </div>
+        <div className="ql-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            aria-expanded={showSettings}
+            onClick={() => setShowSettings((s) => !s)}
+          >
+            <Settings2 size={16} /> {showSettings ? "Done" : "Channels & voices"}
+          </button>
+        </div>
       </div>
-      <p className="text-muted" style={{ marginTop: "-0.5rem" }}>
-        Post to Discord in an NPC's voice. One webhook per channel carries every identity.
-      </p>
 
       {showSettings && (
         <div className="card" style={{ marginBottom: "1rem", display: "grid", gap: "1.5rem" }}>
-          <ChannelEditor campaignId={campaignId} channels={channels} onChanged={refresh} />
-          <RosterEditor campaignId={campaignId} npcs={npcs} onChanged={refresh} />
+          <ChannelEditor campaignId={campaignId} channels={channels} phone={phone} onChanged={refresh} />
+          <RosterEditor campaignId={campaignId} npcs={npcs} phone={phone} onChanged={refresh} />
         </div>
       )}
 
       {!channels.length && (
         <div className="card" style={{ marginBottom: "1rem" }}>
-          No channels yet. Open <b>Channels &amp; roster</b> and paste a Discord webhook URL.
+          No channels yet. Open <b>Channels &amp; voices</b> and paste a Discord webhook URL.
         </div>
       )}
 
-      <div style={{ display: "grid", gap: "1rem", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)" }}>
+      <div
+        style={{
+          display: "grid",
+          gap: "1rem",
+          gridTemplateColumns: phone ? "minmax(0, 1fr)" : "minmax(0,1fr) minmax(0,1fr)",
+        }}
+      >
         {/* Composer */}
         <div className="card">
-          <div className="flex" style={{ gap: "0.5rem", marginBottom: "0.75rem" }}>
-            <select
-              className="input"
-              style={{ flex: 1 }}
-              value={channelId}
-              onChange={(e) => setChannelId(e.target.value)}
-            >
-              <option value="">Channel…</option>
-              {channels.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            <select
-              className="input"
-              style={{ flex: 1 }}
-              value={npcId}
-              onChange={(e) => setNpcId(e.target.value)}
-            >
-              <option value="">Speaking as…</option>
-              {npcs.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.name}
-                </option>
-              ))}
-            </select>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: "0.5rem",
+              marginBottom: "0.9rem",
+            }}
+          >
+            <label style={{ margin: 0 }}>
+              Channel
+              <select
+                style={{ marginTop: "0.3rem" }}
+                value={channelId}
+                onChange={(e) => setChannelId(e.target.value)}
+              >
+                {!channels.length && <option value="">No channels yet</option>}
+                {channels.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label style={{ margin: 0 }}>
+              Speaking as
+              <select
+                style={{ marginTop: "0.3rem" }}
+                value={npcId}
+                onChange={(e) => setNpcId(e.target.value)}
+              >
+                {!npcs.length && <option value="">No voices yet</option>}
+                {npcs.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
-          <div className="flex" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-            <label className="text-muted" style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Message
-            </label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "0.5rem" }}>
+            <label htmlFor="crier-message">Message</label>
             <CharCount used={content.length} max={MAX_CONTENT} />
           </div>
           <textarea
-            className="input"
-            rows={4}
+            id="crier-message"
+            rows={phone ? 5 : 4}
             style={{ width: "100%", marginBottom: "0.75rem" }}
             placeholder="Plain text — lands as a normal message."
             value={content}
             onChange={(e) => setContent(e.target.value)}
           />
 
-          <div className="flex" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
-            <label className="text-muted" style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Embed (the boxed, coloured one)
-            </label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "0.5rem" }}>
+            <label htmlFor="crier-embed">Embed (the boxed, coloured one)</label>
             <CharCount used={embed.length} max={MAX_EMBED} />
           </div>
           <textarea
-            className="input"
+            id="crier-embed"
+            className="story"
             rows={6}
-            style={{ width: "100%" }}
+            style={{ width: "100%", fontSize: "1.05rem" }}
             placeholder="In-character prose reads well here — it gets the NPC's accent colour."
             value={embed}
             onChange={(e) => setEmbed(e.target.value)}
           />
 
-          <div className="flex" style={{ gap: "0.75rem", alignItems: "center", marginTop: "0.9rem" }}>
-            <button className="btn" disabled={!canSend} onClick={() => send.mutate()}>
-              {send.isPending ? "Sending…" : "Send to Discord"}
+          <div className="flex" style={{ gap: "0.5rem 0.75rem", alignItems: "center", marginTop: "0.9rem" }}>
+            <button className="btn btn-primary" disabled={!canSend} onClick={() => send.mutate()}>
+              <Send size={16} /> {send.isPending ? "Sending…" : "Send to Discord"}
             </button>
             {flash && (
               <span
+                role="status"
                 style={{
-                  fontSize: "0.85rem",
-                  color: flash.startsWith("Not sent") ? "var(--danger, #d9534f)" : "var(--muted)",
+                  fontSize: "0.875rem",
+                  color: flash.startsWith("Not sent") ? "var(--danger-text)" : "var(--teal-text)",
                 }}
               >
                 {flash}
               </span>
             )}
           </div>
-          <p className="text-muted" style={{ fontSize: "0.72rem", marginTop: "0.5rem" }}>
+          <p className="text-muted" style={{ fontSize: "0.8125rem", marginTop: "0.5rem", marginBottom: 0 }}>
             Sends immediately and cannot be unsent from here — delete in Discord if you misfire.
           </p>
         </div>
 
         {/* Preview */}
         <div>
-          <div className="text-muted" style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.4rem" }}>
-            As Discord will render it
-          </div>
+          <div style={SECTION_LABEL}>As Discord will show it</div>
           <Preview npc={npc} content={content} embed={embed} />
         </div>
       </div>
 
       {/* Sent log */}
       <div className="card" style={{ marginTop: "1rem" }}>
-        <div className="text-muted" style={{ fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "0.5rem" }}>
-          Sent log
-        </div>
+        <div style={SECTION_LABEL}>Sent log</div>
         {!posts.length && <div className="text-muted">Nothing posted yet.</div>}
         {posts.map((p) => (
           <div
             key={p.id}
             style={{
-              borderTop: "1px solid var(--border, #2a2a2a)",
-              padding: "0.5rem 0",
-              fontSize: "0.85rem",
+              borderTop: "1px solid var(--border)",
+              padding: "0.6rem 0",
+              fontSize: "0.9rem",
             }}
           >
-            <div className="flex" style={{ gap: "0.5rem", alignItems: "baseline" }}>
-              <b>{p.npc_name}</b>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.15rem 0.5rem", alignItems: "baseline" }}>
+              <span className="story" style={{ fontWeight: 700, color: "var(--text)", fontSize: "1rem" }}>
+                {p.npc_name}
+              </span>
               <span className="text-muted">{p.channel_label}</span>
-              <span className="text-muted" style={{ fontSize: "0.72rem" }}>
+              <span className="text-muted num" style={{ fontSize: "0.75rem" }}>
                 {new Date(p.sent_at).toLocaleString()}
               </span>
-              {p.status === "failed" && (
-                <span style={{ color: "var(--danger, #d9534f)", fontSize: "0.72rem" }}>failed</span>
-              )}
+              {p.status === "failed" && <span className="pill pill-danger">Failed</span>}
             </div>
-            <div className="text-muted" style={{ whiteSpace: "pre-wrap", marginTop: 2 }}>
+            <div style={{ whiteSpace: "pre-wrap", marginTop: 2, color: "var(--text2)", overflowWrap: "anywhere" }}>
               {(p.content || p.embed_description || "").slice(0, 240)}
             </div>
             {p.error && (
-              <div style={{ color: "var(--danger, #d9534f)", fontSize: "0.75rem" }}>{p.error}</div>
+              <div style={{ color: "var(--danger-text)", fontSize: "0.8125rem" }}>{p.error}</div>
             )}
           </div>
         ))}

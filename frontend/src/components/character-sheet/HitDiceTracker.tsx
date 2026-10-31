@@ -144,6 +144,7 @@ export default function HitDiceTracker({ pc, dieSize, readOnly = false }: Props)
           return (
             <button
               key={i}
+              className="ql-s6-die"
               disabled={!clickable}
               onClick={() => {
                 if (spendClickable) {

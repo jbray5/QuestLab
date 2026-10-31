@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, X } from "lucide-react";
 
+import { useIsCompact } from "../../hooks/useIsCompact";
 import { DM_SCREEN_TABS, type RulesEntry } from "./dm-screen-content";
 
 interface Props {
@@ -23,6 +24,9 @@ export default function DmScreen({ open, onClose }: Props) {
   const [activeTab, setActiveTab] = useState(DM_SCREEN_TABS[0].id);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement | null>(null);
+  // Plan 123 — a phone gets the whole screen: title and close on top, the search
+  // on its own row, the tabs in one sideways-scrolling row.
+  const phone = useIsCompact(640);
 
   // ESC dismisses + autofocus search on open.
   useEffect(() => {
@@ -64,11 +68,16 @@ export default function DmScreen({ open, onClose }: Props) {
   const activeTabData = DM_SCREEN_TABS.find((t) => t.id === activeTab);
 
   return (
-    <div style={overlayStyle} onClick={onClose} role="dialog" aria-label="DM Screen">
-      <div className="ql-modal-in" style={modalStyle} onClick={(e) => e.stopPropagation()}>
+    // On a phone it covers the dice button too (it has its own close); sheets stay above.
+    <div style={phone ? { ...overlayStyle, padding: 0, zIndex: 8500 } : overlayStyle} onClick={onClose} role="dialog" aria-label="DM Screen">
+      <div
+        className="ql-modal-in"
+        style={phone ? { ...modalStyle, height: "100dvh", maxHeight: "100dvh", borderRadius: 0, border: "none" } : modalStyle}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Sticky header: title + search + close */}
-        <div style={headerStyle}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+        <div style={phone ? { ...headerStyle, padding: "0.6rem 0.75rem 0.5rem" } : headerStyle}>
+          <div style={{ display: "flex", alignItems: "center", gap: phone ? "0.5rem" : "0.75rem", flexWrap: phone ? "wrap" : undefined }}>
             <h2 style={titleStyle}>
               <BookOpen size={18} aria-hidden style={{ color: "var(--muted)" }} />
               DM screen
@@ -80,16 +89,25 @@ export default function DmScreen({ open, onClose }: Props) {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search rules (prone, shove, oa…)"
               aria-label="Search the rules"
-              style={searchStyle}
+              style={phone ? { ...searchStyle, order: 3, flexBasis: "100%", minHeight: 44, fontSize: 16 } : searchStyle}
             />
-            <button onClick={onClose} className="btn btn-ghost" style={closeBtnStyle} title="Close (Esc)" aria-label="Close">
+            <button
+              onClick={onClose}
+              className="btn btn-ghost"
+              style={phone ? { ...closeBtnStyle, width: 44, minHeight: 44, marginLeft: "auto" } : closeBtnStyle}
+              title="Close (Esc)"
+              aria-label="Close"
+            >
               <X size={18} aria-hidden />
             </button>
           </div>
 
           {/* Tabs (hidden during search) */}
           {!searching && (
-            <div style={tabsStyle}>
+            <div
+              className={phone ? "ql-scroll-x" : undefined}
+              style={phone ? { ...tabsStyle, flexWrap: "nowrap", gap: "0.4rem", margin: "0.5rem -0.75rem 0", padding: "0 0.75rem" } : tabsStyle}
+            >
               {DM_SCREEN_TABS.map((tab) => (
                 <button
                   key={tab.id}
@@ -98,6 +116,7 @@ export default function DmScreen({ open, onClose }: Props) {
                   onClick={() => setActiveTab(tab.id)}
                   style={{
                     ...tabBtnStyle,
+                    ...(phone ? { minHeight: 44, fontSize: "0.875rem" } : {}),
                     ...(tab.id === activeTab
                       ? { background: "var(--accent-active)", color: "var(--accent-active-text)", borderColor: "var(--accent-line)" }
                       : {}),
@@ -111,7 +130,7 @@ export default function DmScreen({ open, onClose }: Props) {
         </div>
 
         {/* Body */}
-        <div style={bodyStyle}>
+        <div style={phone ? { ...bodyStyle, padding: "0.75rem 0.75rem calc(1rem + env(safe-area-inset-bottom, 0px))" } : bodyStyle}>
           {searching ? (
             <SearchResults matches={matches ?? []} query={q} />
           ) : (

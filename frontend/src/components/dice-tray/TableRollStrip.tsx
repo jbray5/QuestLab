@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Megaphone } from "lucide-react";
 
 import { sessionsApi } from "../../api/sessions";
+import { useIsCompact } from "../../hooks/useIsCompact";
 
 const DICE = [4, 6, 8, 10, 12, 20, 100] as const;
 
@@ -29,6 +30,8 @@ export default function TableRollStrip({ sessionId }: { sessionId: string }) {
   const [log, setLog] = useState<LocalRoll[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Plan 123 — in the HUD's phone sheet: two wide fields and thumb-sized dice.
+  const phone = useIsCompact(640);
 
   async function roll(sides: number) {
     const n = Math.max(1, Math.min(20, Math.floor(count) || 1));
@@ -89,7 +92,7 @@ export default function TableRollStrip({ sessionId }: { sessionId: string }) {
         </span>
       </div>
 
-      <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginBottom: "0.5rem" }}>
+      <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", marginBottom: "0.5rem", flexWrap: phone ? "wrap" : undefined }}>
         <label style={miniLabel} htmlFor="ql-table-roll-count">How many</label>
         <input
           id="ql-table-roll-count"
@@ -100,7 +103,7 @@ export default function TableRollStrip({ sessionId }: { sessionId: string }) {
           onChange={(e) => setCount(Number(e.target.value))}
           onFocus={(e) => e.currentTarget.select()}
           className="num"
-          style={miniInput}
+          style={phone ? phoneInput : miniInput}
         />
         <label style={{ ...miniLabel, marginLeft: "0.4rem" }} htmlFor="ql-table-roll-mod">Bonus</label>
         <input
@@ -110,7 +113,7 @@ export default function TableRollStrip({ sessionId }: { sessionId: string }) {
           onChange={(e) => setModifier(Number(e.target.value))}
           onFocus={(e) => e.currentTarget.select()}
           className="num"
-          style={miniInput}
+          style={phone ? phoneInput : miniInput}
         />
         {busy && <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Sending…</span>}
       </div>
@@ -121,7 +124,7 @@ export default function TableRollStrip({ sessionId }: { sessionId: string }) {
             key={sides}
             onClick={() => roll(sides)}
             disabled={busy}
-            style={dieBtn}
+            style={phone ? { ...dieBtn, minWidth: 64, minHeight: 48, fontSize: "1rem" } : dieBtn}
             className="btn btn-secondary"
             title={`Roll ${Math.max(1, count)}d${sides} and broadcast to players`}
           >
@@ -194,6 +197,8 @@ const miniInput: React.CSSProperties = {
   padding: "0.2rem 0.3rem",
   textAlign: "center",
 };
+
+const phoneInput: React.CSSProperties = { ...miniInput, width: 96, minHeight: 44, fontSize: 16 };
 
 const dieBtn: React.CSSProperties = {
   flex: "1 0 auto",

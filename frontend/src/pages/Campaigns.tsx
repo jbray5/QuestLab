@@ -66,7 +66,8 @@ export default function Campaigns() {
   }
 
   return (
-    <div className="fade-in">
+    // `.ql-s6`: thumb-sized controls on a phone (index.css, Plan 123 S6).
+    <div className="fade-in ql-s6">
       <div
         className="flex items-center"
         style={{ marginBottom: "1.25rem", justifyContent: "space-between", gap: "1rem" }}

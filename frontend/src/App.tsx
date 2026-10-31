@@ -4,6 +4,7 @@ import { Navigate, Routes, Route, useParams } from "react-router-dom";
 import ErrorBoundary from "./components/ErrorBoundary";
 import PaywallModal from "./components/PaywallModal";
 import Lightbox from "./components/Lightbox";
+import PlayLinkGate from "./components/PlayLinkGate";
 import DmDock from "./components/dm/DmDock";
 
 // Eager — small, always-needed pages.
@@ -105,12 +106,12 @@ export default function App() {
       {/* Plan 25 — Player view: standalone route with no DM chrome */}
       <Route path="/join/:campaignId" element={lazyRoute(<JoinView />)} />
       <Route path="/join/:campaignId/new" element={lazyRoute(<CharacterCreator />)} />
-      <Route path="/play/:pcId" element={lazyRoute(<PlayerView />)} />
+      <Route path="/play/:pcId" element={lazyRoute(<PlayLinkGate><PlayerView /></PlayLinkGate>)} />
       {/* Plan 48 — Character Forge: the player's full-body character screen */}
-      <Route path="/play/:pcId/character" element={lazyRoute(<CharacterView />)} />
-      <Route path="/play/:pcId/arena" element={lazyRoute(<Arena />)} />
+      <Route path="/play/:pcId/character" element={lazyRoute(<PlayLinkGate><CharacterView /></PlayLinkGate>)} />
+      <Route path="/play/:pcId/arena" element={lazyRoute(<PlayLinkGate><Arena /></PlayLinkGate>)} />
       {/* Plan 115 — the level-up guide, once the DM grants a level */}
-      <Route path="/play/:pcId/level-up" element={lazyRoute(<LevelUpGuide />)} />
+      <Route path="/play/:pcId/level-up" element={lazyRoute(<PlayLinkGate><LevelUpGuide /></PlayLinkGate>)} />
 
       {/* Plan 42 — Table View: full-screen projected battle map, no DM chrome */}
       <Route path="/table/:sessionId" element={lazyRoute(<TableView />)} />

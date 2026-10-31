@@ -49,7 +49,8 @@ export default function Npcs() {
   if (!campaignId) return <p className="text-muted">No campaign selected.</p>;
 
   return (
-    <div className="fade-in">
+    // `.ql-s6`: thumb-sized buttons and chips on a phone (index.css, Plan 123 S6).
+    <div className="fade-in ql-s6">
       <div
         className="flex items-center"
         style={{ justifyContent: "space-between", gap: "1rem", marginBottom: "1.25rem" }}
@@ -197,6 +198,7 @@ function TagChip({
     <button
       onClick={onClick}
       aria-pressed={active}
+      className="ql-s6-tap"
       style={{
         fontSize: "0.8125rem",
         padding: "0.2rem 0.7rem",

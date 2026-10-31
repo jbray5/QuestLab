@@ -21,6 +21,7 @@ import {
 
 import { apiBase } from "../api/client";
 import { useEventStream } from "../hooks/useEventStream";
+import { usePlayIdentity } from "../hooks/usePlayIdentity";
 import { Monogram, Tip } from "./player/ui";
 
 /**
@@ -435,6 +436,8 @@ const hitOrSave = (a: ArenaAttack) =>
 
 export default function Arena() {
   const { pcId } = useParams<{ pcId: string }>();
+  // SEC-002 — the URL holds the link key; seats, rosters and party rows carry ids.
+  const myId = usePlayIdentity(pcId)?.pc_id;
   const storeKey = `arena-${pcId}`;
   const [foes, setFoes] = useState<FoeOption[] | null>(null);
   const [beasts, setBeasts] = useState<FoeOption[] | null>(null);
@@ -689,11 +692,11 @@ export default function Arena() {
   // Plan 116 — `monsterId` makes it a boss battle with everyone on their own
   // phone; `seats` replays a finished fight's line-up for a rematch.
   async function startLive(monsterId?: string, seats?: string[]) {
-    if (!pcId) return;
+    if (!pcId || !myId) return;
     setBusy(true);
     setErr(null);
     try {
-      const ids = Array.from(new Set([pcId, ...(seats ?? picked)]));
+      const ids = Array.from(new Set([myId, ...(seats ?? picked)]));
       const d = await post<DuelRead>(`/play/${pcId}/duels`, {
         pc_ids: ids,
         monster_id: monsterId ?? null,
@@ -709,11 +712,11 @@ export default function Arena() {
   }
 
   async function startDuel(seats?: string[]) {
-    if (!pcId) return;
+    if (!pcId || !myId) return;
     setBusy(true);
     setErr(null);
     try {
-      const ids = Array.from(new Set([pcId, ...(seats ?? picked)]));
+      const ids = Array.from(new Set([myId, ...(seats ?? picked)]));
       setDuel(null);
       setState(await post<ArenaState>(`/play/${pcId}/arena/duel`, { pc_ids: ids }));
     } catch (e) {
@@ -750,17 +753,17 @@ export default function Arena() {
   }
 
   async function startBoss(monsterId: string, seats?: string[]) {
-    if (!pcId) return;
+    if (!pcId || !myId) return;
     setBusy(true);
     setErr(null);
     try {
-      const ids = Array.from(new Set([pcId, ...(seats ?? picked)]));
+      const ids = Array.from(new Set([myId, ...(seats ?? picked)]));
       setDuel(null);
       setState(
         await post<ArenaState>(`/play/${pcId}/arena/boss`, {
           pc_ids: ids,
           monster_id: monsterId,
-          controlled: pcId,
+          controlled: myId,
         }),
       );
     } catch (e) {
@@ -812,7 +815,7 @@ export default function Arena() {
 
   // On a live duel this phone always shows its own sheet — the working set
   // belongs to whoever is acting, which on their turn is not you.
-  const mySeat = duelId ? roster.find((sl) => sl.pc_id === pcId) : undefined;
+  const mySeat = duelId ? roster.find((sl) => sl.pc_id === myId) : undefined;
   const you = mySeat?.pc ?? state?.pc;
   const foe = state?.foe;
   const yourChips: { label: string; cls?: string }[] = [];
@@ -852,7 +855,7 @@ export default function Arena() {
     : "";
   const myIndex = roster.length
     ? duelId
-      ? roster.findIndex((sl) => sl.pc_id === pcId)
+      ? roster.findIndex((sl) => sl.pc_id === myId)
       : (state?.order?.[state.turn ?? 0] ?? -1)
     : 0;
   const prevHp = useRef("");
@@ -910,7 +913,7 @@ export default function Arena() {
   // roster fight is "won" whenever anybody is left standing, so the loser of a
   // duel used to be told they had won.
   const standing = roster.filter((sl) => ((sl.pc ?? sl.foe)?.hp ?? 0) > 0);
-  const fromHere = duel ? roster.findIndex((sl) => sl.pc_id === pcId) : -1;
+  const fromHere = duel ? roster.findIndex((sl) => sl.pc_id === myId) : -1;
   function verdict(): string {
     if (!state) return "";
     if (!roster.length) {
@@ -922,7 +925,7 @@ export default function Arena() {
       return standing.some((sl) => sl.team === 0) ? "The party wins" : `${names} wins`;
     }
     if (fromHere >= 0) {
-      return standing.some((sl) => sl.pc_id === pcId) ? "You win" : `${names} wins`;
+      return standing.some((sl) => sl.pc_id === myId) ? "You win" : `${names} wins`;
     }
     return `${names} wins`;
   }
@@ -1013,7 +1016,7 @@ export default function Arena() {
               <div className="ar-h">Who&rsquo;s in</div>
               <div className="ar-foe-list">
                 {party
-                  .filter((row) => row.id !== pcId)
+                  .filter((row) => row.id !== myId)
                   .map((row) => {
                     const on = picked.includes(row.id);
                     return (
@@ -1041,7 +1044,7 @@ export default function Arena() {
                       </button>
                     );
                   })}
-                {party.filter((row) => row.id !== pcId).length === 0 && (
+                {party.filter((row) => row.id !== myId).length === 0 && (
                   <p className="ar-sub" style={{ margin: 0 }}>
                     Nobody else in your party has a character yet. Once a friend joins the table, they show up here.
                   </p>
@@ -1665,12 +1668,12 @@ export default function Arena() {
                   <b><Flag size={16} /> End the fight</b>
                   <small>Leave the ring; the referee counts it as a retreat. Nothing changes on your sheet.</small>
                 </button>
-                {duelId && !coveredForMe && pcId && (
+                {duelId && !coveredForMe && myId && (
                   <button
                     type="button"
                     className="ar-btn wide ghost"
                     disabled={busy}
-                    onClick={() => void seatChange("referee", pcId)}
+                    onClick={() => void seatChange("referee", myId)}
                     title="The fight goes on without you holding it up. Come back any time."
                   >
                     <b><Bot size={16} /> Step away: the referee plays me</b>

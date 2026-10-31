@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Sparkles, StickyNote, X } from "lucide-react";
 import { AI_ON } from "../../lib/flags";
 
 import type { Pin } from "../../api/notebooks";
@@ -12,6 +13,8 @@ import { entityHref, monogram } from "./EntityPicker";
  * only. There is deliberately no "insert into page" affordance anywhere
  * in this file (Law 1) — if the DM wants a phrase, he retypes it.
  */
+
+const KIND_LABEL: Record<string, string> = { pc: "PC", npc: "NPC", item: "Item", map: "Map", preset: "Scene" };
 
 export function PinCard({
   pin,
@@ -35,7 +38,13 @@ export function PinCard({
         <img src={pin.url} alt="" className="nb-pin-mini-img" />
       ) : (
         <span className="nb-pin-mini-mono">
-          {pin.kind === "ai" ? "🤖" : pin.kind === "note" ? "✎" : monogram(pin.name ?? "?")}
+          {pin.kind === "ai" ? (
+            <Sparkles size={14} aria-label="AI suggestion" />
+          ) : pin.kind === "note" ? (
+            <StickyNote size={14} aria-label="Note" />
+          ) : (
+            monogram(pin.name ?? "?")
+          )}
         </span>
       );
     return (
@@ -48,8 +57,8 @@ export function PinCard({
   return (
     <div className={`nb-pin nb-pin-${pin.kind}`}>
       {onDismiss && (
-        <button className="nb-pin-x" title="Dismiss" onClick={() => onDismiss(pin.id)}>
-          ✕
+        <button className="nb-pin-x" title="Dismiss" aria-label="Dismiss pin" onClick={() => onDismiss(pin.id)}>
+          <X size={13} />
         </button>
       )}
       {pin.kind === "entity" && (
@@ -65,7 +74,7 @@ export function PinCard({
             <span className="nb-pin-face nb-mono">{monogram(pin.name ?? "?")}</span>
           )}
           <span className="nb-pin-name">{pin.name}</span>
-          <span className="nb-pin-kind">{pin.entity_kind}</span>
+          <span className="nb-pin-kind">{KIND_LABEL[pin.entity_kind ?? ""] ?? pin.entity_kind}</span>
         </a>
       )}
       {pin.kind === "image" && pin.url && <img src={pin.url} alt="" className="nb-pin-image" />}
@@ -74,14 +83,14 @@ export function PinCard({
         <div>
           <div className="nb-pin-ai-text">{pin.text}</div>
           <div className="nb-pin-provenance">
-            🤖 {pin.model ?? "AI"} · {pin.at ? new Date(pin.at).toLocaleTimeString() : ""}
+            <Sparkles size={11} aria-hidden /> {pin.model ?? "AI"} · {pin.at ? new Date(pin.at).toLocaleTimeString() : ""}
             {pin.prompt ? ` · on: “${pin.prompt.slice(0, 40)}${(pin.prompt.length > 40 && "…") || ""}”` : ""}
           </div>
         </div>
       )}
       {collapsed && (
         <button className="nb-pin-collapse" onClick={() => setExpanded(false)}>
-          collapse
+          Collapse
         </button>
       )}
     </div>
@@ -110,7 +119,13 @@ export function AiMarginControls({
         title={selection ? `Riff on: “${selection.slice(0, 60)}”` : "Select text in the page first"}
         onClick={onRiff}
       >
-        {busy ? "…thinking" : "✨ Riff on selection"}
+        {busy ? (
+          "Thinking…"
+        ) : (
+          <>
+            <Sparkles size={14} /> Riff on selection
+          </>
+        )}
       </button>
       <form
         className="nb-ask"
@@ -124,6 +139,7 @@ export function AiMarginControls({
       >
         <input
           className="nb-ask-input"
+          aria-label="Ask the margin"
           placeholder="Ask the margin…"
           value={q}
           onChange={(e) => setQ(e.target.value)}

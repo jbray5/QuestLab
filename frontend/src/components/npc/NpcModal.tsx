@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation } from "@tanstack/react-query";
 import { X } from "lucide-react";
 
@@ -12,6 +13,7 @@ import PortraitGenerator from "../PortraitGenerator";
 import { portraitSrc } from "../../lib/portrait";
 import { tableApi } from "../../api/table";
 import { ObsidianNoteInput } from "../dm/ObsidianLink";
+import { useIsCompact } from "../../hooks/useIsCompact";
 
 const STATUSES: NpcStatus[] = [
   "Alive",
@@ -36,6 +38,9 @@ interface Props {
  * All fields editable in one form. List fields (dialog_hooks, tags) use
  * line-per-entry textareas. Save persists via POST/PATCH; Delete
  * confirms and removes.
+ *
+ * Phones (Plan 123): a full-screen sheet with the header and the save bar
+ * pinned; portalled to <body> so the page's top bar can't sit over it.
  */
 export default function NpcModal({ campaignId, initial, onClose, onSaved, onDeleted }: Props) {
   const [form, setForm] = useState<NpcCreate>(() => fromInitial(initial));
@@ -48,6 +53,8 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
   const [relPingsText, setRelPingsText] = useState(
     (initial?.relationship_pings ?? []).join("\n"),
   );
+
+  const phone = useIsCompact(640);
 
   // ESC dismisses
   useEffect(() => {
@@ -96,14 +103,22 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  return (
-    <div role="dialog" aria-label="NPC editor" style={overlayStyle} onClick={onClose}>
+  return createPortal(
+    <div
+      role="dialog"
+      aria-label="NPC editor"
+      className="ql-s6"
+      // On a phone: a full screen of its own, above the dice button (z 8000)
+      // so it can't cover Save, below bottom sheets (9000).
+      style={phone ? { ...overlayStyle, padding: 0, zIndex: 8500 } : overlayStyle}
+      onClick={onClose}
+    >
       <div
         className="ql-modal-in"
-        style={sheetStyle}
+        style={phone ? { ...sheetStyle, ...sheetPhoneStyle } : sheetStyle}
         onClick={(e) => e.stopPropagation()}
       >
-        <header style={headerStyle}>
+        <header style={phone ? { ...headerStyle, padding: "0.5rem 0.75rem 0.5rem 1rem", gap: "0.5rem" } : headerStyle}>
           <h2 style={{ margin: 0, fontSize: "1.2rem", minWidth: 0 }}>
             {initial ? (
               <>
@@ -116,8 +131,8 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
           </h2>
           <button
             onClick={onClose}
-            className="btn btn-ghost"
-            style={closeBtnStyle}
+            className="btn btn-ghost ql-s6-sq"
+            style={phone ? { ...closeBtnStyle, width: 44, height: 44 } : closeBtnStyle}
             title="Close (Esc)"
             aria-label="Close NPC editor"
           >
@@ -125,18 +140,19 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
           </button>
         </header>
 
-        <div style={bodyStyle}>
+        <div style={phone ? { ...bodyStyle, padding: "1rem", minHeight: 0 } : bodyStyle}>
           {/* Identity — first, so the autofocused Name opens at the top
               (usability pass: it used to sit below the table face). */}
           <Row>
             <Field label="Name" required>
               <input
-                className="story"
+                className="story ql-s6-keep"
                 value={form.name}
                 onChange={(e) => set("name", e.target.value)}
                 onFocus={(e) => e.currentTarget.select()}
                 placeholder="e.g. Captain Aldric"
-                autoFocus
+                // A phone opening an existing NPC to read it shouldn't pop the keyboard.
+                autoFocus={!phone || !initial}
                 style={{ fontSize: "1.1rem", fontWeight: 700 }}
               />
             </Field>
@@ -425,7 +441,13 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
           </p>
         )}
 
-        <footer style={footerStyle}>
+        <footer
+          style={
+            phone
+              ? { ...footerStyle, padding: "0.6rem 1rem calc(0.6rem + env(safe-area-inset-bottom, 0px))" }
+              : footerStyle
+          }
+        >
           {initial && (
             <button
               className="btn btn-danger"
@@ -452,7 +474,8 @@ export default function NpcModal({ campaignId, initial, onClose, onSaved, onDele
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -631,6 +654,15 @@ const sheetStyle: React.CSSProperties = {
   flexDirection: "column",
   maxHeight: "calc(100dvh - 4rem)",
   overflow: "hidden",
+};
+
+/** On a phone the editor is the whole screen: no frame, no rounded corners. */
+const sheetPhoneStyle: React.CSSProperties = {
+  maxWidth: "none",
+  height: "100dvh",
+  maxHeight: "100dvh",
+  border: "none",
+  borderRadius: 0,
 };
 
 const headerStyle: React.CSSProperties = {

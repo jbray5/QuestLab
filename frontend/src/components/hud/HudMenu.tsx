@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { Link } from "react-router-dom";
 
+import { useIsCompact } from "../../hooks/useIsCompact";
+import PhoneSheet from "../PhoneSheet";
+
 export interface HudMenuItem {
   key: string;
   label: string;
@@ -14,7 +17,7 @@ export interface HudMenuItem {
   /** A destructive pick (ending, clearing): its label reads red. */
   danger?: boolean;
   disabled?: boolean;
-  /** An action that stays on the page. */
+  /** An action that stays on the page (also runs, alongside navigation, for `to`/`href` items). */
   onSelect?: () => void;
   /** An in-app page. */
   to?: string;
@@ -27,6 +30,7 @@ export interface HudMenuItem {
  * a few menus, each item with a one-line hint. Closes on a pick, a click
  * elsewhere, or Escape. Navigation items are real links (new tab works).
  * Lamplit (Plan 121): icon + short label on a neutral outline button.
+ * Phones (Plan 123): the list opens as a bottom sheet instead of a popover.
  */
 export default function HudMenu({
   label,
@@ -47,9 +51,11 @@ export default function HudMenu({
 }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const phone = useIsCompact(640);
 
   useEffect(() => {
-    if (!open) return;
+    // On a phone the sheet's backdrop and Escape handler close it.
+    if (!open || phone) return;
     const onDown = (e: MouseEvent) => {
       if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
     };
@@ -60,7 +66,7 @@ export default function HudMenu({
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, phone]);
 
   const row = (it: HudMenuItem) => {
     const body = (
@@ -107,7 +113,7 @@ export default function HudMenu({
       display: "block",
       width: "100%",
       textAlign: "left",
-      padding: "0.5rem 0.7rem",
+      padding: phone ? "0.75rem 0.5rem" : "0.5rem 0.7rem",
       background: "transparent",
       border: "none",
       borderRadius: 7,
@@ -119,14 +125,36 @@ export default function HudMenu({
     const close = () => setOpen(false);
     if (it.to && !it.disabled) {
       return (
-        <Link key={it.key} to={it.to} role="menuitem" style={style} className="ql-hud-menu-item" onClick={close}>
+        <Link
+          key={it.key}
+          to={it.to}
+          role="menuitem"
+          style={style}
+          className="ql-hud-menu-item"
+          onClick={() => {
+            close();
+            it.onSelect?.();
+          }}
+        >
           {body}
         </Link>
       );
     }
     if (it.href && !it.disabled) {
       return (
-        <a key={it.key} href={it.href} target="_blank" rel="noreferrer" role="menuitem" style={style} className="ql-hud-menu-item" onClick={close}>
+        <a
+          key={it.key}
+          href={it.href}
+          target="_blank"
+          rel="noreferrer"
+          role="menuitem"
+          style={style}
+          className="ql-hud-menu-item"
+          onClick={() => {
+            close();
+            it.onSelect?.();
+          }}
+        >
           {body}
         </a>
       );
@@ -171,7 +199,23 @@ export default function HudMenu({
         {!iconOnly && label}
         {!iconOnly && <ChevronDown size={14} aria-hidden style={{ color: "var(--muted)", marginLeft: -2 }} />}
       </button>
-      {open && (
+      {open && phone && (
+        <PhoneSheet title={label} onClose={() => setOpen(false)}>
+          <div role="menu" aria-label={label}>
+            {items.map(row)}
+            {footer && footer.length > 0 && (
+              <>
+                <div style={{ borderTop: "1px solid var(--border)", margin: "0.4rem 0" }} />
+                <div style={{ fontSize: "0.8125rem", fontWeight: 500, color: "var(--muted)", padding: "0.25rem 0.5rem" }}>
+                  More
+                </div>
+                {footer.map(row)}
+              </>
+            )}
+          </div>
+        </PhoneSheet>
+      )}
+      {open && !phone && (
         <div
           role="menu"
           style={{

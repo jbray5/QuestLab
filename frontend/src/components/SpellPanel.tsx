@@ -180,7 +180,7 @@ export default function SpellPanel({
     : [];
 
   return (
-    <div style={PANEL_STYLE}>
+    <div className="ql-s6" style={PANEL_STYLE}>
       <div style={PANEL_HEAD_STYLE} onClick={() => setOpen((p) => !p)}>
         <h4 style={PANEL_TITLE_STYLE}>
           <BookOpen size={16} style={{ color: "var(--muted)" }} />
@@ -256,6 +256,7 @@ export default function SpellPanel({
                           }}
                           title={filled ? "Click to spend" : "Click to restore"}
                           aria-label={filled ? `Spend a level ${lvl} slot` : `Restore a level ${lvl} slot`}
+                          className="ql-s6-pip"
                           style={pipStyle(filled)}
                         />
                       );
@@ -342,6 +343,8 @@ export default function SpellPanel({
                               fontSize: "inherit",
                               fontFamily: "inherit",
                               opacity: row.prepared ? 1 : 0.6,
+                              // The whole row height taps (44 px on a phone).
+                              alignSelf: "stretch",
                               display: "flex",
                               alignItems: "center",
                               gap: "0.35rem",
@@ -386,7 +389,7 @@ export default function SpellPanel({
                             {row.prepared ? "Prepared" : "Prepare"}
                           </button>
                           <button
-                            className="btn btn-ghost"
+                            className="btn btn-ghost ql-s6-sq"
                             style={REMOVE_BTN}
                             onClick={() => {
                               if (window.confirm(`Forget ${name} for ${characterName}?`)) {

@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { ArrowLeft, BookOpen, Copy, KeyRound, MessageCircle, Printer } from "lucide-react";
 
 import type { Block, Page, Pin } from "../../api/notebooks";
 import { renderText } from "./markdownLite";
@@ -23,23 +24,32 @@ function ReadBlock({ block, onPageLink }: { block: Block; onPageLink: (t: string
     case "verbatim":
       return (
         <blockquote className="nbr-verbatim">
-          <span className="nbr-badge">📖 READ</span>
+          <span className="nbr-badge">
+            <BookOpen size={13} aria-hidden /> Read aloud
+          </span>
           {renderText(text, { onPageLink })}
         </blockquote>
       );
     case "prompt":
       return (
         <p className="nbr-prompt">
-          <span className="nbr-badge">💬 ASK</span>
+          <span className="nbr-badge">
+            <MessageCircle size={13} aria-hidden /> Ask
+          </span>
           {renderText(text, { onPageLink })}
         </p>
       );
     case "key":
-      return <p className="nbr-key">🗝 {renderText(text, { onPageLink })}</p>;
+      return (
+        <p className="nbr-key">
+          <KeyRound size={13} aria-label="DM key" style={{ marginRight: 6, verticalAlign: -1 }} />
+          {renderText(text, { onPageLink })}
+        </p>
+      );
     case "card":
       return (
         <div className="nbr-card">
-          <div className="nbr-card-title">🗂 {String(c.title ?? "")}</div>
+          <div className="nbr-card-title">{String(c.title ?? "")}</div>
           <ul>
             {((c.beats as string[]) ?? [])
               .filter((b) => b.trim())
@@ -95,15 +105,15 @@ export default function ReadMode({
     <div className="nb-read-overlay">
       <div className="nbr-chrome">
         <button className="nb-ghost" onClick={onClose}>
-          ← back to writing
+          <ArrowLeft size={14} /> Back to writing
         </button>
         <span className="nbr-chrome-title">{page.title}</span>
         <span style={{ flex: 1 }} />
         <button className="nb-ghost" onClick={onCopyMarkdown}>
-          ⧉ Copy as markdown
+          <Copy size={14} /> Copy as markdown
         </button>
         <button className="nb-ghost" onClick={onPrint}>
-          🖨 Print
+          <Printer size={14} /> Print
         </button>
       </div>
 

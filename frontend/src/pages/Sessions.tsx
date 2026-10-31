@@ -144,9 +144,10 @@ export default function Sessions() {
   const arcTitle = activeAdventure?.title ?? adventure?.title;
 
   return (
-    <div className="fade-in">
+    // `.ql-s6`: thumb-sized controls on a phone (index.css, Plan 123 S6).
+    <div className="fade-in ql-s6">
       {/* Breadcrumb */}
-      <nav className="text-sm" style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
+      <nav className="text-sm ql-s6-crumbs" style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
         <Link to="/">Dashboard</Link>
         {activeCampaign && (
           <>
@@ -187,7 +188,11 @@ export default function Sessions() {
       {showForm && (
         <div className="card" style={{ marginBottom: "1.5rem", maxWidth: 520 }}>
           <h3 style={{ marginBottom: "0.75rem" }}>New session</h3>
-          <div className="grid-2">
+          <div
+            className="grid-2"
+            // Phones (Plan 123): the short number and the date share a row.
+            style={phone ? { gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.2fr)", gap: "0 0.75rem" } : undefined}
+          >
             <div className="form-group">
               <label>Session number *</label>
               <input type="number" value={sessionNumber} onChange={(e) => setSessionNumber(Number(e.target.value))} min={1} />

@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ChevronRight, SearchX } from "lucide-react";
 import { monstersApi } from "../api/monsters";
 import type { Monster } from "../api/types";
 import MonsterStatBlock from "../components/MonsterStatBlock";
+import { useIsCompact } from "../hooks/useIsCompact";
 
 const CR_OPTIONS = [
   "All", "0", "1/8", "1/4", "1/2",
@@ -29,16 +31,26 @@ const CREATURE_TYPES = [
   "Undead",
 ];
 
-function crBadgeClass(cr: string): string {
-  if (cr === "0") return "badge-ready";
-  if (["1/8", "1/4", "1/2"].includes(cr)) return "badge-ready";
-  const n = parseFloat(cr);
-  if (n <= 4) return "badge-draft";
-  if (n <= 10) return "badge-progress";
-  return "badge-artifact";
+/** CR as a calm difficulty tint: neutral up to 4, amber to 10, red beyond (Lamplit). */
+function crPillClass(cr: string): string {
+  const n = cr.includes("/") ? 0 : parseFloat(cr);
+  if (n <= 4) return "pill";
+  if (n <= 10) return "pill pill-amber";
+  return "pill pill-danger";
+}
+
+/** A muted label beside a mono number ("HP 135"); the full name on hover. */
+function Num({ label, title, children }: { label: string; title: string; children: React.ReactNode }) {
+  return (
+    <span title={title} style={{ whiteSpace: "nowrap", fontSize: "0.875rem" }}>
+      <span style={{ color: "var(--muted)" }}>{label}</span>{" "}
+      <span className="num" style={{ color: "var(--text2)" }}>{children}</span>
+    </span>
+  );
 }
 
 export default function Monsters() {
+  const phone = useIsCompact(640);
   const [search, setSearch] = useState("");
   const [cr, setCr] = useState("All");
   const [creatureType, setCreatureType] = useState("All Types");
@@ -55,83 +67,43 @@ export default function Monsters() {
     queryFn: () => monstersApi.list(queryParams),
   });
 
+  const filtered = !!search.trim() || cr !== "All" || creatureType !== "All Types";
+
   return (
-    <div className="fade-in" style={{ maxWidth: "900px", margin: "0 auto", padding: "1.5rem" }}>
+    <div className="fade-in ql-page" style={{ "--page-max": "900px" } as React.CSSProperties}>
       {/* Page Header */}
       <div style={{ marginBottom: "1.5rem" }}>
-        <h1
-          style={{
-            fontFamily: "var(--font-serif)",
-            color: "var(--gold)",
-            fontSize: "2rem",
-            marginBottom: "0.25rem",
-          }}
-        >
-          Monster Compendium
-        </h1>
-        <p className="text-muted text-sm">SRD 5.1 — Systems Reference Document</p>
+        <h1 style={{ marginBottom: "0.25rem" }}>Monster Compendium</h1>
+        <p className="text-muted text-sm" style={{ margin: 0 }}>
+          SRD 5.1 — Systems Reference Document. {phone ? "Tap" : "Click"} a monster for its stat
+          block.
+        </p>
       </div>
 
-      {/* Filters */}
+      {/* Filters: search on its own row on a phone, the two selects under it. */}
       <div className="card" style={{ marginBottom: "1rem", padding: "1rem" }}>
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr auto auto",
-            gap: "0.75rem",
-            alignItems: "end",
-          }}
+          className="ql-filters"
+          style={phone ? undefined : { gridTemplateColumns: "1fr auto auto" }}
         >
-          {/* Search */}
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label
-              htmlFor="monster-search"
-              className="text-sm"
-              style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-muted)" }}
-            >
-              Search
-            </label>
+          <div className="form-group ql-filter-wide">
+            <label htmlFor="monster-search">Search</label>
             <input
               id="monster-search"
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search monsters..."
-              style={{
-                width: "100%",
-                background: "var(--surface2)",
-                border: "1px solid var(--border)",
-                borderRadius: "4px",
-                padding: "0.5rem 0.75rem",
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                boxSizing: "border-box",
-              }}
+              placeholder="Search monsters…"
             />
           </div>
 
-          {/* CR Filter */}
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label
-              htmlFor="cr-filter"
-              className="text-sm"
-              style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-muted)" }}
-            >
-              Challenge Rating
-            </label>
+          <div className="form-group">
+            <label htmlFor="cr-filter">Challenge rating</label>
             <select
               id="cr-filter"
               value={cr}
               onChange={(e) => setCr(e.target.value)}
-              style={{
-                background: "var(--surface2)",
-                border: "1px solid var(--border)",
-                borderRadius: "4px",
-                padding: "0.5rem 0.75rem",
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                minWidth: "120px",
-              }}
+              style={phone ? undefined : { minWidth: 120 }}
             >
               {CR_OPTIONS.map((option) => (
                 <option key={option} value={option}>
@@ -141,32 +113,17 @@ export default function Monsters() {
             </select>
           </div>
 
-          {/* Creature Type Filter */}
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label
-              htmlFor="type-filter"
-              className="text-sm"
-              style={{ display: "block", marginBottom: "0.25rem", color: "var(--text-muted)" }}
-            >
-              Creature Type
-            </label>
+          <div className="form-group">
+            <label htmlFor="type-filter">Creature type</label>
             <select
               id="type-filter"
               value={creatureType}
               onChange={(e) => setCreatureType(e.target.value)}
-              style={{
-                background: "var(--surface2)",
-                border: "1px solid var(--border)",
-                borderRadius: "4px",
-                padding: "0.5rem 0.75rem",
-                color: "var(--text)",
-                fontSize: "0.9rem",
-                minWidth: "140px",
-              }}
+              style={phone ? undefined : { minWidth: 140 }}
             >
               {CREATURE_TYPES.map((type) => (
                 <option key={type} value={type}>
-                  {type}
+                  {type === "All Types" ? "All types" : type}
                 </option>
               ))}
             </select>
@@ -176,132 +133,139 @@ export default function Monsters() {
 
       {/* Count */}
       <div style={{ marginBottom: "0.75rem" }}>
-        {isLoading ? (
-          <span className="text-sm text-muted">Loading...</span>
-        ) : (
-          <span className="text-sm text-muted">
-            Showing {monsters?.length ?? 0} monster{monsters?.length !== 1 ? "s" : ""}
-          </span>
-        )}
+        <span className="text-sm text-muted">
+          {isLoading
+            ? "Loading monsters…"
+            : `Showing ${monsters?.length ?? 0} monster${monsters?.length !== 1 ? "s" : ""}`}
+        </span>
       </div>
-
-      {/* Loading State */}
-      {isLoading && (
-        <div
-          style={{
-            textAlign: "center",
-            padding: "3rem",
-            color: "var(--text-muted)",
-            fontFamily: "var(--font-serif)",
-            fontSize: "1.1rem",
-          }}
-        >
-          Consulting the tomes...
-        </div>
-      )}
 
       {/* Empty State */}
       {!isLoading && monsters && monsters.length === 0 && (
-        <div className="card" style={{ textAlign: "center", padding: "3rem" }}>
-          <p
-            style={{
-              fontFamily: "var(--font-serif)",
-              color: "var(--gold)",
-              fontSize: "1.2rem",
-              marginBottom: "0.5rem",
-            }}
-          >
-            No monsters found
+        <div className="card empty-state">
+          <div className="empty-icon">
+            <SearchX size={28} aria-hidden />
+          </div>
+          <p style={{ color: "var(--text)", marginBottom: "0.35rem" }}>No monsters match.</p>
+          <p className="text-sm" style={{ marginBottom: filtered ? "1rem" : 0 }}>
+            Try another name, challenge rating or creature type.
           </p>
-          <p className="text-muted text-sm">Try adjusting your search or filters.</p>
+          {filtered && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setSearch("");
+                setCr("All");
+                setCreatureType("All Types");
+              }}
+            >
+              Clear the filters
+            </button>
+          )}
         </div>
       )}
 
       {/* Monster List */}
       {!isLoading && monsters && monsters.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          {monsters.map((monster) => (
-            <div
-              key={monster.id}
-              className="card"
-              onClick={() => setSelected(monster)}
-              style={{
-                padding: "0.75rem 1rem",
-                cursor: "pointer",
-              }}
-            >
-              <div
-                className="flex items-center"
-                style={{ justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}
+          {monsters.map((monster) =>
+            phone ? (
+              // Phone: the whole row is the button; name and CR, then type, then the numbers.
+              <button
+                key={monster.id}
+                type="button"
+                className="card"
+                onClick={() => setSelected(monster)}
+                aria-label={`${monster.name}, challenge rating ${monster.challenge_rating}: open the stat block`}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  textAlign: "left",
+                  padding: "0.75rem 0.9rem",
+                  cursor: "pointer",
+                  color: "var(--text)",
+                  fontSize: "1rem",
+                }}
               >
-                {/* Left: Name + CR badge */}
-                <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
-                  <span
-                    style={{
-                      fontFamily: "var(--font-serif)",
-                      color: "var(--gold)",
-                      fontSize: "1rem",
-                      fontWeight: "bold",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                <span style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "0.5rem" }}>
+                  <span className="story" style={{ fontSize: "1.1rem", fontWeight: 700, minWidth: 0 }}>
                     {monster.name}
                   </span>
-                  <span className={`badge ${crBadgeClass(monster.challenge_rating)}`}>
-                    CR {monster.challenge_rating}
+                  <span className={crPillClass(monster.challenge_rating)} style={{ flexShrink: 0 }}>
+                    CR <span className="num">{monster.challenge_rating}</span>
                   </span>
-                </div>
+                </span>
+                <span style={{ display: "block", fontSize: "0.875rem", color: "var(--muted)", marginTop: "0.1rem" }}>
+                  {monster.size} {monster.creature_type}
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: "0.9rem", marginTop: "0.4rem" }}>
+                  <Num label="HP" title="Hit points">{monster.hp_average}</Num>
+                  <Num label="AC" title="Armor class">{monster.ac}</Num>
+                  <Num label="XP" title="Experience points">{monster.xp.toLocaleString()}</Num>
+                  <ChevronRight size={18} aria-hidden style={{ marginLeft: "auto", color: "var(--muted)" }} />
+                </span>
+              </button>
+            ) : (
+              <div
+                key={monster.id}
+                className="card"
+                onClick={() => setSelected(monster)}
+                style={{
+                  padding: "0.75rem 1rem",
+                  cursor: "pointer",
+                }}
+              >
+                <div
+                  className="flex items-center"
+                  style={{ justifyContent: "space-between", gap: "0.75rem", flexWrap: "wrap" }}
+                >
+                  {/* Left: Name + CR */}
+                  <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+                    <span
+                      className="story"
+                      style={{ color: "var(--text)", fontSize: "1rem", fontWeight: 700, whiteSpace: "nowrap" }}
+                    >
+                      {monster.name}
+                    </span>
+                    <span className={crPillClass(monster.challenge_rating)}>
+                      CR <span className="num">{monster.challenge_rating}</span>
+                    </span>
+                  </div>
 
-                {/* Center: Type + Size */}
-                <div style={{ flex: 1, minWidth: "120px" }}>
-                  <span className="text-sm text-muted">
-                    {monster.size} {monster.creature_type}
-                  </span>
-                </div>
+                  {/* Center: Type + Size */}
+                  <div style={{ flex: 1, minWidth: "120px" }}>
+                    <span className="text-sm text-muted">
+                      {monster.size} {monster.creature_type}
+                    </span>
+                  </div>
 
-                {/* Stats */}
-                <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
-                  <span
-                    className="text-sm text-muted text-mono"
-                    title="Hit Points"
-                    style={{ whiteSpace: "nowrap" }}
-                  >
-                    HP {monster.hp_average}
-                  </span>
-                  <span style={{ color: "var(--border)" }}>·</span>
-                  <span
-                    className="text-sm text-muted text-mono"
-                    title="Armor Class"
-                    style={{ whiteSpace: "nowrap" }}
-                  >
-                    AC {monster.ac}
-                  </span>
-                  <span style={{ color: "var(--border)" }}>·</span>
-                  <span
-                    className="text-sm text-muted text-mono"
-                    title="Experience Points"
-                    style={{ whiteSpace: "nowrap" }}
-                  >
-                    {monster.xp.toLocaleString()} XP
-                  </span>
-                  <button
-                    className="btn btn-ghost"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelected(monster);
-                    }}
-                    style={{ padding: "0.25rem 0.6rem", fontSize: "0.8rem", marginLeft: "0.25rem" }}
-                  >
-                    View Stats
-                  </button>
+                  {/* Stats */}
+                  <div className="flex items-center gap-2" style={{ flexShrink: 0 }}>
+                    <Num label="HP" title="Hit points">{monster.hp_average}</Num>
+                    <span style={{ color: "var(--border2)" }}>·</span>
+                    <Num label="AC" title="Armor class">{monster.ac}</Num>
+                    <span style={{ color: "var(--border2)" }}>·</span>
+                    <Num label="XP" title="Experience points">{monster.xp.toLocaleString()}</Num>
+                    <button
+                      className="btn btn-ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelected(monster);
+                      }}
+                      style={{ padding: "0.25rem 0.6rem", fontSize: "0.8125rem", marginLeft: "0.25rem" }}
+                    >
+                      View stats
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ),
+          )}
         </div>
       )}
 
-      {/* Stat Block Modal */}
+      {/* Stat block: a modal on desktop, a bottom sheet on a phone. */}
       {selected && (
         <MonsterStatBlock monster={selected} onClose={() => setSelected(null)} />
       )}

@@ -3,6 +3,7 @@ import { Check, RefreshCw } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { sessionsApi } from "../../api/sessions";
+import { useIsCompact } from "../../hooks/useIsCompact";
 
 /**
  * SessionNotesEditor — the session's running notes, autosaved as you type.
@@ -23,6 +24,8 @@ export default function SessionNotesEditor({
   fontSize?: string;
 }) {
   const qc = useQueryClient();
+  // Plan 123 — never a sliver on a phone: at least five lines, a 44 px reload.
+  const phone = useIsCompact(640);
   const { data: session } = useQuery({
     queryKey: ["session", sessionId],
     queryFn: () => sessionsApi.get(sessionId),
@@ -79,14 +82,15 @@ export default function SessionNotesEditor({
         spellCheck={false}
         style={{
           flex: 1,
-          minHeight: 0,
+          minHeight: phone ? "8rem" : 0,
           width: "100%",
           resize: "none",
           border: 0,
           borderRadius: 0,
           background: "transparent",
           color: "var(--text)",
-          fontSize,
+          // 16 px on a phone: iOS Safari zooms into smaller fields on focus.
+          fontSize: phone ? "16px" : fontSize,
           lineHeight: 1.55,
           padding: "0.6rem 0.8rem",
           fontFamily: "inherit",
@@ -117,7 +121,7 @@ export default function SessionNotesEditor({
           <button
             onClick={reload}
             className="btn btn-ghost"
-            style={{ minHeight: 24, width: 26, padding: 0, border: "none", color: "var(--muted)" }}
+            style={{ minHeight: phone ? 44 : 24, width: phone ? 44 : 26, padding: 0, border: "none", color: "var(--muted)" }}
             title="Reload from the server (if you edited notes elsewhere)"
             aria-label="Reload notes from the server"
           >

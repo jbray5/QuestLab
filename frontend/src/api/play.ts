@@ -130,6 +130,13 @@ export interface VisibleNpc {
   portrait_url: string | null;
 }
 
+/** SEC-002 — what a player link resolves to. `pc_id` identifies; only `play_key` opens the sheet. */
+export interface PlayLink {
+  play_key: string;
+  pc_id: string;
+  campaign_id: string;
+}
+
 export const playApi = {
   get: (pcId: string) => api.get<PlayerCharacter>(`/play/${pcId}`),
   spellcastingStats: (pcId: string) =>
@@ -174,6 +181,8 @@ export const playApi = {
     api.post<GearRow>(`/play/${pcId}/gear/${characterItemId}/equip`, { equipped }),
   forgeHero: (pcId: string) => api.post<{ hero_url: string }>(`/play/${pcId}/hero`),
   campaignName: (pcId: string) => api.get<{ name: string }>(`/play/${pcId}/campaign`),
+  // SEC-002 — the link's current key and the character's identity (not a key).
+  link: (key: string) => api.get<PlayLink>(`/play/${key}/link`, { quiet: true }),
   // Plan 83 — where the table is tonight, for the phone's Table link.
   liveSession: (pcId: string) =>
     api.get<{ session_id: string | null; title: string | null }>(`/play/${pcId}/live-session`),

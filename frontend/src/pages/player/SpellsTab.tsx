@@ -177,19 +177,22 @@ function SpellRow({ spell, last, preparing }: { spell: PlaySpell; last: boolean;
     <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "9px 0", borderBottom: last ? "none" : "1px solid var(--border)", opacity: usable || preparing ? 1 : 0.6 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "transparent", border: "none", color: "inherit", textAlign: "left", padding: 0, cursor: "pointer", font: "inherit" }}>
-          <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            {open ? <ChevronDown size={14} color="var(--muted)" /> : <ChevronRight size={14} color="var(--muted)" />}
-            {spell.name}
-            {cost && <span className={cost === "Reaction" ? "pill pill-teal" : "pill"}>{cost}</span>}
-            {spell.is_concentration && <span className="pill" title="Concentration">{help === "numbers" ? "C" : "Concentration"}</span>}
-            {spell.is_ritual && <span className="pill" title="Ritual">{help === "numbers" ? "R" : "Ritual"}</span>}
-            {!usable && <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 400 }}>not prepared</span>}
+          <span style={{ fontWeight: 600, display: "flex", alignItems: "flex-start", gap: 6 }}>
+            {open ? <ChevronDown size={14} color="var(--muted)" style={{ marginTop: 5 }} /> : <ChevronRight size={14} color="var(--muted)" style={{ marginTop: 5 }} />}
+            {/* Name and tags wrap together, so a wrapped tag lines up under the name (Plan 123). */}
+            <span style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
+              {spell.name}
+              {cost && <span className={cost === "Reaction" ? "pill pill-teal" : "pill"}>{cost}</span>}
+              {spell.is_concentration && <span className="pill" title="Concentration">{help === "numbers" ? "C" : "Concentration"}</span>}
+              {spell.is_ritual && <span className="pill" title="Ritual">{help === "numbers" ? "R" : "Ritual"}</span>}
+              {!usable && <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 400 }}>not prepared</span>}
+            </span>
           </span>
           {summary.length > 0 && <span className="num" style={{ fontSize: 13, color: "var(--text2)", paddingLeft: 20 }}>{summary.join(" · ")}</span>}
         </button>
         {preparing ? (
           <label style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 44, margin: 0, fontSize: 14, color: "var(--text)" }}>
-            <input type="checkbox" checked={spell.prepared} disabled={prep.isPending} onChange={(e) => prep.mutate(e.target.checked)} style={{ width: 20, height: 20 }} />
+            <input type="checkbox" checked={spell.prepared} disabled={prep.isPending} onChange={(e) => prep.mutate(e.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} />
             Prepared
           </label>
         ) : usable || spell.is_ritual ? (

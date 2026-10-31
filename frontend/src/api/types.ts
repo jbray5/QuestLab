@@ -96,6 +96,10 @@ export interface PlayerCharacter {
   pp: number;
   /** Plan 115 — the DM granted a level-up up to this level. */
   pending_level?: number | null;
+  /** UX-001 — conditions the DM set that last between fights ("Poisoned"). */
+  conditions?: string[] | null;
+  /** SEC-002 — the player link's secret (DM reads only): the link is /play/{play_token}. */
+  play_token?: string | null;
   // Proficiencies — JSON columns on the backend (Plan 00022)
   saving_throw_proficiencies: string[] | null;
   skill_proficiencies: Record<string, number> | null;

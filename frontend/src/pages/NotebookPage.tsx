@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowDown,
+  ArrowUp,
+  BookOpen,
+  Check,
+  GripVertical,
+  List,
+  NotebookPen,
+  PanelRight,
+  Play,
+  Plus,
+  Trash2,
+  TriangleAlert,
+  Undo2,
+  X,
+} from "lucide-react";
 
 import {
   newId,
@@ -16,6 +32,8 @@ import { AiMarginControls, PinCard } from "../components/notebook/MarginRail";
 import ReadMode from "../components/notebook/ReadMode";
 import { pageToMarkdown } from "../components/notebook/markdownLite";
 import { NOTEBOOK_CSS } from "../components/notebook/notebookCss";
+import PhoneSheet from "../components/PhoneSheet";
+import { useIsCompact } from "../hooks/useIsCompact";
 
 /**
  * The Session Notebook (Plan 57) — campaigns/:campaignId/notebook.
@@ -27,6 +45,10 @@ import { NOTEBOOK_CSS } from "../components/notebook/notebookCss";
  *   Law 2 — pins render in the rail beside the writing.
  *   Law 3 — this page talks only to the notebook API (+ uploads).
  *   Law 4 — read mode + print is the finished session.
+ *
+ * Phones (Plan 123): one column. The notebooks/pages sidebar and the margin
+ * open as bottom sheets, and the focused block gets a thumb-sized toolbar
+ * (add below, move up/down, delete) in place of the hover gutter.
  */
 
 interface MentionState {
@@ -41,6 +63,9 @@ export default function NotebookPage() {
   const { campaignId = "" } = useParams();
   const [params, setParams] = useSearchParams();
   const qc = useQueryClient();
+  const phone = useIsCompact(640);
+  const [sheet, setSheet] = useState<"pages" | "margin" | null>(null);
+  const [activeBlock, setActiveBlock] = useState<string | null>(null);
 
   // ── Sidebar data ──────────────────────────────────────────────────────────
   const notebooksQ = useQuery({
@@ -214,6 +239,17 @@ export default function NotebookPage() {
       const blocks = [...d.blocks];
       const [moved] = blocks.splice(from, 1);
       blocks.splice(targetIdx, 0, moved);
+      return { ...d, blocks };
+    }, true);
+  }
+
+  // Phones have no drag: the block toolbar moves a block one step instead.
+  function moveBlock(idx: number, dir: -1 | 1) {
+    mutate((d) => {
+      const to = idx + dir;
+      if (to < 0 || to >= d.blocks.length) return d;
+      const blocks = [...d.blocks];
+      [blocks[idx], blocks[to]] = [blocks[to], blocks[idx]];
       return { ...d, blocks };
     }, true);
   }
@@ -431,7 +467,7 @@ export default function NotebookPage() {
     return (
       <div>
         <style>{NOTEBOOK_CSS}</style>
-        <h1>📓 Session Notebook</h1>
+        <h1>Session notebook</h1>
         <div className="card">
           The notebook ships dark. Set <code>NOTEBOOK_ENABLED=true</code> on the API deployment,
           redeploy, and this page lights up. Nothing else in the app is affected.
@@ -452,142 +488,273 @@ export default function NotebookPage() {
     },
   });
 
+  // Pins anchor to the selected text's block, else the block being edited.
+  const pinAnchor = () => selection.blockId || activeBlock || doc?.blocks[0]?.id || "";
+
+  const newNotebook = async () => {
+    const title = prompt("Notebook title:", "Session 5");
+    if (!title?.trim()) return;
+    const nb = await notebooksApi.create(campaignId, title.trim());
+    qc.invalidateQueries({ queryKey: ["notebooks", campaignId] });
+    setNotebookId(nb.id);
+  };
+
+  const newPage = async () => {
+    if (!notebookId) return;
+    const title = prompt("Page title:", "Homecoming");
+    if (!title?.trim()) return;
+    const pg = await notebooksApi.createPage(notebookId, title.trim());
+    qc.invalidateQueries({ queryKey: ["nb-pages", notebookId] });
+    setPageId(pg.id);
+    setSheet(null);
+  };
+
+  // ── The notebooks/pages list: a sidebar on desktop, a sheet on a phone ──
+  const sidebar = (
+    <>
+      <div className="nb-side-head">
+        <span className="nb-side-title">
+          <NotebookPen size={14} aria-hidden /> Notebooks
+        </span>
+        <button className="nb-ghost" title="New notebook" aria-label="New notebook" onClick={newNotebook}>
+          <Plus size={14} />
+        </button>
+      </div>
+
+      <input
+        className="nb-search"
+        aria-label="Search all notebooks"
+        placeholder="Search all notebooks…"
+        value={searchQ}
+        onChange={(e) => setSearchQ(e.target.value)}
+      />
+      {searchQ.trim().length >= 2 ? (
+        <div className="nb-search-results">
+          {(searchResults.data ?? []).map((h) => (
+            <button
+              key={h.page_id}
+              className="nb-hit"
+              onClick={() => {
+                setNotebookId(h.notebook_id);
+                setPageId(h.page_id);
+                setSearchQ("");
+                setSheet(null);
+              }}
+            >
+              <div className="nb-hit-title">
+                {h.page_title} <span className="nb-dim">· {h.notebook_title}</span>
+              </div>
+              <div className="nb-hit-snippet">{h.snippet}</div>
+            </button>
+          ))}
+          {searchResults.data?.length === 0 && <div className="nb-dim nb-pad">No matches.</div>}
+        </div>
+      ) : (
+        <>
+          <div className="nb-nblist">
+            {notebooks.map((n) => (
+              <button
+                key={n.id}
+                className={`nb-nb${n.id === notebookId ? " on" : ""}`}
+                aria-current={n.id === notebookId ? "true" : undefined}
+                onClick={() => setNotebookId(n.id)}
+                onDoubleClick={async () => {
+                  const t = prompt("Rename notebook:", n.title);
+                  if (t?.trim()) {
+                    await notebooksApi.rename(n.id, t.trim());
+                    qc.invalidateQueries({ queryKey: ["notebooks", campaignId] });
+                  }
+                }}
+              >
+                {n.title}
+              </button>
+            ))}
+          </div>
+          {notebookId && (
+            <>
+              <div className="nb-side-head">
+                <span>Pages</span>
+                <button className="nb-ghost" title="New page" aria-label="New page" onClick={newPage}>
+                  <Plus size={14} />
+                </button>
+              </div>
+              <div className="nb-pagelist">
+                {pages.map((p) => (
+                  <button
+                    key={p.id}
+                    className={`nb-pg${p.id === pageId ? " on" : ""}`}
+                    aria-current={p.id === pageId ? "page" : undefined}
+                    onClick={() => {
+                      setPageId(p.id);
+                      setSheet(null);
+                    }}
+                  >
+                    {p.is_runbook && (
+                      <Play size={12} aria-label="Session runbook" style={{ marginRight: 4, verticalAlign: -1 }} />
+                    )}
+                    {p.title}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+
+  // ── The margin's header: AI controls (when on) and "pin something" ──
+  const marginTools = (
+    <>
+      <AiMarginControls
+        selection={selection.text}
+        busy={aiBusy}
+        onRiff={() => runRiff({ selection: selection.text, blockId: selection.blockId })}
+        onAsk={(q) => runRiff({ question: q, blockId: selection.blockId || doc?.blocks[0]?.id })}
+      />
+      <button
+        className={`nb-ghost nb-rail-add${addingPin ? " nb-on" : ""}`}
+        aria-expanded={addingPin}
+        onClick={() => setAddingPin((v) => !v)}
+      >
+        <Plus size={14} /> Pin
+      </button>
+      {addingPin && (
+        <div className="nb-rail-adder">
+          <input
+            className="nb-picker-search"
+            autoFocus
+            aria-label="Pin an entity or a note"
+            placeholder="Pin an entity… (or type a note and press Enter)"
+            value={pinQuery}
+            onChange={(e) => setPinQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && pinQuery.trim() && doc) {
+                addPin({
+                  block_id: pinAnchor(),
+                  kind: "note",
+                  text: pinQuery.trim(),
+                });
+                setPinQuery("");
+                setAddingPin(false);
+              }
+            }}
+          />
+          <EntityPicker
+            campaignId={campaignId}
+            query={pinQuery}
+            onPick={(h) => {
+              if (!doc) return;
+              addPin({
+                block_id: pinAnchor(),
+                kind: "entity",
+                entity_kind: h.kind,
+                ref_id: h.refId,
+                name: h.name,
+                thumb: h.thumb,
+              });
+              setPinQuery("");
+              setAddingPin(false);
+            }}
+            onClose={() => setAddingPin(false)}
+          />
+        </div>
+      )}
+    </>
+  );
+
+  const pinCount = doc?.pins.length ?? 0;
+  const lastIdx = (doc?.blocks.length ?? 0) - 1;
+
   return (
     <div className="nb-root">
       <style>{NOTEBOOK_CSS}</style>
 
-      {/* ── Sidebar ── */}
-      <aside className="nb-sidebar">
-        <div className="nb-side-head">
-          <span>📓 Notebooks</span>
-          <button
-            className="nb-ghost"
-            title="New notebook"
-            onClick={async () => {
-              const title = prompt("Notebook title:", "Session 5");
-              if (!title?.trim()) return;
-              const nb = await notebooksApi.create(campaignId, title.trim());
-              qc.invalidateQueries({ queryKey: ["notebooks", campaignId] });
-              setNotebookId(nb.id);
-            }}
-          >
-            ＋
-          </button>
-        </div>
-
-        <input
-          className="nb-search"
-          placeholder="Search all notebooks…"
-          value={searchQ}
-          onChange={(e) => setSearchQ(e.target.value)}
-        />
-        {searchQ.trim().length >= 2 ? (
-          <div className="nb-search-results">
-            {(searchResults.data ?? []).map((h) => (
-              <button
-                key={h.page_id}
-                className="nb-hit"
-                onClick={() => {
-                  setNotebookId(h.notebook_id);
-                  setPageId(h.page_id);
-                  setSearchQ("");
-                }}
-              >
-                <div className="nb-hit-title">
-                  {h.page_title} <span className="nb-dim">· {h.notebook_title}</span>
-                </div>
-                <div className="nb-hit-snippet">{h.snippet}</div>
-              </button>
-            ))}
-            {searchResults.data?.length === 0 && <div className="nb-dim nb-pad">No matches.</div>}
-          </div>
-        ) : (
-          <>
-            <div className="nb-nblist">
-              {notebooks.map((n) => (
-                <button
-                  key={n.id}
-                  className={`nb-nb${n.id === notebookId ? " on" : ""}`}
-                  onClick={() => setNotebookId(n.id)}
-                  onDoubleClick={async () => {
-                    const t = prompt("Rename notebook:", n.title);
-                    if (t?.trim()) {
-                      await notebooksApi.rename(n.id, t.trim());
-                      qc.invalidateQueries({ queryKey: ["notebooks", campaignId] });
-                    }
-                  }}
-                >
-                  {n.title}
-                </button>
-              ))}
-            </div>
-            <div className="nb-side-head">
-              <span>Pages</span>
-              <button
-                className="nb-ghost"
-                title="New page"
-                onClick={async () => {
-                  if (!notebookId) return;
-                  const title = prompt("Page title:", "Homecoming");
-                  if (!title?.trim()) return;
-                  const pg = await notebooksApi.createPage(notebookId, title.trim());
-                  qc.invalidateQueries({ queryKey: ["nb-pages", notebookId] });
-                  setPageId(pg.id);
-                }}
-              >
-                ＋
-              </button>
-            </div>
-            <div className="nb-pagelist">
-              {pages.map((p) => (
-                <button
-                  key={p.id}
-                  className={`nb-pg${p.id === pageId ? " on" : ""}`}
-                  onClick={() => setPageId(p.id)}
-                >
-                  {p.is_runbook && <span title="Session runbook">▶ </span>}
-                  {p.title}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </aside>
+      {/* ── Sidebar (desktop) ── */}
+      {!phone && <aside className="nb-sidebar">{sidebar}</aside>}
 
       {/* ── Editor column ── */}
       <main className="nb-main">
-        {!doc ? (
-          <div className="nb-dim nb-pad">
-            {pages.length === 0 && notebookId
-              ? "Create the first page — it becomes the session."
-              : "Loading…"}
+        {phone && (
+          <div className="nb-phonebar">
+            <button className="nb-ghost" onClick={() => setSheet("pages")}>
+              <List size={16} /> Pages
+            </button>
+            <span className="nb-dim nb-phonebar-where">
+              {notebooks.find((n) => n.id === notebookId)?.title ?? ""}
+            </span>
+            {doc && (
+              <button className="nb-ghost" data-shot="margin" onClick={() => setSheet("margin")}>
+                <PanelRight size={16} /> Margin
+                {pinCount > 0 && <span className="nb-count num">{pinCount}</span>}
+              </button>
+            )}
           </div>
+        )}
+        {notebooksQ.isSuccess && notebooks.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">
+              <NotebookPen size={28} />
+            </div>
+            <p style={{ maxWidth: 460, margin: "0 auto 1rem" }}>
+              Write each session here: read-aloud text, questions for players, quick sketches, and the
+              faces you mention pinned in the margin. Start with a notebook for the campaign&rsquo;s
+              next session.
+            </p>
+            <button className="btn btn-primary" onClick={newNotebook}>
+              <Plus size={16} /> New notebook
+            </button>
+          </div>
+        ) : !doc ? (
+          pagesQ.isSuccess && pages.length === 0 ? (
+            <div className="empty-state">
+              <p style={{ maxWidth: 420, margin: "0 auto 1rem" }}>
+                This notebook has no pages yet. Create the first one; it becomes the session.
+              </p>
+              <button className="btn btn-primary" onClick={newPage}>
+                <Plus size={16} /> New page
+              </button>
+            </div>
+          ) : (
+            <div className="nb-dim nb-pad">Loading…</div>
+          )
         ) : (
           <>
             <div className="nb-toolbar">
               <input
                 className="nb-title"
+                aria-label="Page title"
                 value={doc.title}
                 onChange={(e) => mutate((d) => ({ ...d, title: e.target.value }))}
               />
-              <span className={`nb-saved nb-saved-${saveState}`}>
-                {saveState === "saved" && "✓ saved"}
-                {saveState === "saving" && "… saving"}
-                {saveState === "dirty" && "· editing"}
-                {saveState === "error" && "⚠ not saved — retrying on next edit"}
+              <span className={`nb-saved nb-saved-${saveState}`} role="status">
+                {saveState === "saved" && (
+                  <>
+                    <Check size={13} /> Saved
+                  </>
+                )}
+                {saveState === "saving" && "Saving…"}
+                {saveState === "dirty" && "Editing"}
+                {saveState === "error" && (
+                  <>
+                    <TriangleAlert size={13} /> Not saved — retrying on next edit
+                  </>
+                )}
               </span>
               <button className="nb-ghost" title="Undo (structural)" onClick={undo}>
-                ↶ Undo
+                <Undo2 size={14} /> Undo
               </button>
               <button
                 className={`nb-ghost${doc.is_runbook ? " nb-on" : ""}`}
+                aria-pressed={doc.is_runbook}
                 title="Promote: flag this page as the session runbook (the only promotion there is)"
                 onClick={() => mutate((d) => ({ ...d, is_runbook: !d.is_runbook }), true)}
               >
-                {doc.is_runbook ? "▶ Runbook ✓" : "▶ Make runbook"}
+                {doc.is_runbook ? <Check size={14} /> : <Play size={14} />}
+                {doc.is_runbook ? "Runbook" : "Make runbook"}
               </button>
-              <button className="nb-ghost" onClick={() => setReading(true)}>
-                📖 Read
+              <button className="nb-ghost" data-shot="read" onClick={() => setReading(true)}>
+                <BookOpen size={14} /> Read
               </button>
             </div>
 
@@ -595,13 +762,15 @@ export default function NotebookPage() {
               {doc.blocks.map((block, idx) => (
                 <div
                   key={block.id}
-                  className="nb-block"
+                  className={`nb-block${phone && activeBlock === block.id ? " nb-active" : ""}`}
                   ref={(el) => {
                     if (el) blockRefs.current.set(block.id, el);
                     else blockRefs.current.delete(block.id);
                   }}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={() => onDrop(idx)}
+                  onFocusCapture={() => setActiveBlock(block.id)}
+                  onPointerDownCapture={phone ? () => setActiveBlock(block.id) : undefined}
                 >
                   <div className="nb-block-gutter">
                     <span
@@ -610,17 +779,23 @@ export default function NotebookPage() {
                       draggable
                       onDragStart={() => (dragIdx.current = idx)}
                     >
-                      ⋮⋮
+                      <GripVertical size={14} aria-hidden />
                     </span>
                     <button
                       className="nb-gutter-btn"
                       title="Add block below"
+                      aria-label="Add block below"
                       onClick={() => setSlashFor(insertBlockAfter(block.id, "text"))}
                     >
-                      ＋
+                      <Plus size={13} />
                     </button>
-                    <button className="nb-gutter-btn" title="Delete block" onClick={() => removeBlock(block.id)}>
-                      ✕
+                    <button
+                      className="nb-gutter-btn"
+                      title="Delete block"
+                      aria-label="Delete block"
+                      onClick={() => removeBlock(block.id)}
+                    >
+                      <X size={13} />
                     </button>
                   </div>
 
@@ -632,6 +807,40 @@ export default function NotebookPage() {
                       onContent={(content) => setBlockContent(block.id, content, block.type === "sketch")}
                     />
 
+                    {phone && activeBlock === block.id && (
+                      <div className="nb-block-tools">
+                        <button
+                          className="nb-ghost"
+                          onClick={() => setSlashFor(insertBlockAfter(block.id, "text"))}
+                        >
+                          <Plus size={16} /> Add below
+                        </button>
+                        <button
+                          className="nb-ghost"
+                          aria-label="Move block up"
+                          disabled={idx === 0}
+                          onClick={() => moveBlock(idx, -1)}
+                        >
+                          <ArrowUp size={16} />
+                        </button>
+                        <button
+                          className="nb-ghost"
+                          aria-label="Move block down"
+                          disabled={idx === lastIdx}
+                          onClick={() => moveBlock(idx, 1)}
+                        >
+                          <ArrowDown size={16} />
+                        </button>
+                        <button
+                          className="nb-ghost"
+                          aria-label="Delete block (Undo brings it back)"
+                          onClick={() => removeBlock(block.id)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
+
                     {slashFor === block.id && (
                       <div className="nb-slash">
                         {BLOCK_MENU.filter((m) =>
@@ -640,7 +849,9 @@ export default function NotebookPage() {
                             .includes(String(block.content.text ?? "").replace("/", "").trim().toLowerCase()),
                         ).map((m) => (
                           <button key={m.type} className="nb-slash-row" onClick={() => changeType(block.id, m.type)}>
-                            <span className="nb-slash-icon">{m.icon}</span>
+                            <span className="nb-slash-icon">
+                              <m.icon size={16} aria-hidden />
+                            </span>
                             <b>{m.label}</b>
                             <span className="nb-dim">{m.hint}</span>
                           </button>
@@ -676,74 +887,51 @@ export default function NotebookPage() {
         )}
       </main>
 
-      {/* ── Margin rail ── */}
-      <aside className="nb-rail">
-        <AiMarginControls
-          selection={selection.text}
-          busy={aiBusy}
-          onRiff={() => runRiff({ selection: selection.text, blockId: selection.blockId })}
-          onAsk={(q) => runRiff({ question: q, blockId: selection.blockId || doc?.blocks[0]?.id })}
-        />
-        <button className="nb-ghost nb-rail-add" onClick={() => setAddingPin((v) => !v)}>
-          ＋ pin
-        </button>
-        {addingPin && (
-          <div className="nb-rail-adder">
-            <input
-              className="nb-picker-search"
-              autoFocus
-              placeholder="Pin an entity… (or type a note and press Enter)"
-              value={pinQuery}
-              onChange={(e) => setPinQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && pinQuery.trim() && doc) {
-                  addPin({
-                    block_id: selection.blockId || doc.blocks[0]?.id || "",
-                    kind: "note",
-                    text: pinQuery.trim(),
-                  });
-                  setPinQuery("");
-                  setAddingPin(false);
-                }
-              }}
-            />
-            <EntityPicker
-              campaignId={campaignId}
-              query={pinQuery}
-              onPick={(h) => {
-                if (!doc) return;
-                addPin({
-                  block_id: selection.blockId || doc.blocks[0]?.id || "",
-                  kind: "entity",
-                  entity_kind: h.kind,
-                  ref_id: h.refId,
-                  name: h.name,
-                  thumb: h.thumb,
-                });
-                setPinQuery("");
-                setAddingPin(false);
-              }}
-              onClose={() => setAddingPin(false)}
-            />
+      {/* ── Margin rail (desktop): pins sit beside their block ── */}
+      {!phone && (
+        <aside className="nb-rail">
+          {marginTools}
+          <div className="nb-rail-pins">
+            {railEntries.map(({ pin, top }) => (
+              <div
+                key={pin.id}
+                className="nb-rail-slot"
+                style={{ top }}
+                ref={(el) => {
+                  if (el) pinRefs.current.set(pin.id, el);
+                  else pinRefs.current.delete(pin.id);
+                }}
+              >
+                <PinCard pin={pin} campaignId={campaignId} onDismiss={dismissPin} />
+              </div>
+            ))}
           </div>
-        )}
+        </aside>
+      )}
 
-        <div className="nb-rail-pins">
-          {railEntries.map(({ pin, top }) => (
-            <div
-              key={pin.id}
-              className="nb-rail-slot"
-              style={{ top }}
-              ref={(el) => {
-                if (el) pinRefs.current.set(pin.id, el);
-                else pinRefs.current.delete(pin.id);
-              }}
-            >
-              <PinCard pin={pin} campaignId={campaignId} onDismiss={dismissPin} />
+      {/* ── Phones: the sidebar and the margin open as bottom sheets ── */}
+      {phone && sheet === "pages" && (
+        <PhoneSheet title="Notebooks and pages" onClose={() => setSheet(null)}>
+          <div className="nb-sheet">{sidebar}</div>
+        </PhoneSheet>
+      )}
+      {phone && sheet === "margin" && doc && (
+        <PhoneSheet title="Margin" onClose={() => setSheet(null)}>
+          <div className="nb-sheet">
+            <p className="nb-dim" style={{ margin: "0 0 0.75rem", fontSize: "0.875rem" }}>
+              Faces, notes and pictures that sit beside the page. A pin goes next to the block you
+              were last editing.
+            </p>
+            {marginTools}
+            <div className="nb-sheet-pins">
+              {railEntries.map(({ pin }) => (
+                <PinCard key={pin.id} pin={pin} campaignId={campaignId} onDismiss={dismissPin} />
+              ))}
+              {pinCount === 0 && <div className="nb-dim">Nothing pinned yet.</div>}
             </div>
-          ))}
-        </div>
-      </aside>
+          </div>
+        </PhoneSheet>
+      )}
 
       {reading && doc && (
         <ReadMode

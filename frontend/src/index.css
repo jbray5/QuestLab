@@ -1,4 +1,5 @@
-@import url("https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,500;0,700;1,400;1,500&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
+/* Fonts are self-hosted (no third-party request from a visitor's browser). */
+@import "./fonts.css";
 
 /* ── Lamplit design tokens (Plan 121 · docs/DESIGN.md) ───────────────────────
    Tools are set like software (Plex Sans, mono numbers, flat panels);
@@ -614,7 +615,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
   .btn, .nav-item { min-height: 44px; }
   /* 16px on text fields stops iOS Safari from zooming on focus; number inputs
      are often tiny inline widgets, so those are left alone on purpose. */
-  input[type="text"], input[type="email"], input[type="url"],
+  input:not([type]), input[type="text"], input[type="email"], input[type="url"],
   input[type="search"], input[type="password"], textarea, select {
     font-size: 16px;
     min-height: 40px;
@@ -734,3 +735,166 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .ql-last-roll-what { font-size: 0.75rem; color: var(--muted); }
 .ql-last-roll-total { font-family: var(--font-mono); font-weight: 600; font-size: 1.3rem; color: var(--accent-text); font-variant-numeric: tabular-nums; }
 @keyframes ql-last-roll-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ── Phones (Plan 123) ─────────────────────────────────────────────────────────
+   Shared building blocks for pages that must work one-handed at 390 px. Desktop
+   layout is unchanged; everything below 640 px reflows. Docs: DESIGN.md "Phones". */
+
+/* A page column: centred, padded on desktop; on a phone <main> already gives the
+   16 px gutter, so the page adds none. Set --page-max inline to change the width. */
+.ql-page { max-width: var(--page-max, 1100px); margin: 0 auto; padding: 1.5rem; min-width: 0; }
+
+/* A filter bar: search first and widest, then the selects. */
+.ql-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+.ql-filters > * { min-width: 0; margin-bottom: 0; }
+.ql-filters input, .ql-filters select { width: 100%; }
+
+/* A list beside its detail on desktop; one column on a phone (the detail moves
+   into a PhoneSheet). */
+.ql-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 1rem;
+  align-items: start;
+}
+.ql-split > * { min-width: 0; }
+
+/* A cluster of header actions: right-aligned on desktop, left-aligned and
+   wrapping on a phone. */
+.ql-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: flex-end; }
+
+/* A row that is meant to scroll sideways (chips, tabs). */
+.ql-scroll-x {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.ql-scroll-x::-webkit-scrollbar { display: none; }
+.ql-scroll-x > * { flex: 0 0 auto; }
+
+/* Tables keep their columns and scroll inside their box instead of the page. */
+.ql-table-wrap { overflow-x: auto; max-width: 100%; -webkit-overflow-scrolling: touch; }
+
+/* The bottom sheet (PhoneSheet, HudMenu on phones). */
+.ql-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  /* Above modals (≤1000) and the dice button (8000); below the tour and toasts. */
+  z-index: 9000;
+  background: rgba(5, 8, 7, 0.62);
+  animation: ql-fade-in 160ms ease both;
+}
+.ql-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9001;
+  max-height: 88dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.5);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  animation: ql-sheet-up 220ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+.ql-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.ql-sheet-head::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  width: 36px;
+  height: 4px;
+  margin-left: -18px;
+  border-radius: 2px;
+  background: var(--border2);
+}
+.ql-sheet-body { overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 1rem; min-height: 0; }
+@keyframes ql-sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.ql-only-phone { display: none; }
+
+@media (max-width: 640px) {
+  .ql-page { padding: 0.25rem 0 1.5rem; }
+  .ql-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ql-filters > .ql-filter-wide { grid-column: 1 / -1; }
+  .ql-split { grid-template-columns: 1fr; }
+  .ql-actions { justify-content: flex-start; }
+  .ql-hide-phone { display: none !important; }
+  .ql-only-phone { display: revert; }
+  /* Fields never push out of their box (checkboxes and radios keep their size). */
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { max-width: 100%; min-width: 0; }
+  img, video { max-width: 100%; height: auto; }
+  .card { padding: 1rem; }
+  h1 { font-size: clamp(1.6rem, 7vw, 2rem); }
+}
+
+/* ── Phone: compendium, admin, guide (Plan 123 S4) ── */
+
+/* ── Phone: HUD, prep, notes, dice, DM screen (Plan 123 S5) ── */
+/* The HUD runs a dense cockpit of 26–30 px buttons on a laptop. On a phone every
+   control inside it, and inside its sheets (.ql-tap), is thumb-sized (DESIGN.md §0.8);
+   the inline laptop heights are left alone above 640 px. */
+@media (max-width: 640px) {
+  .ql-hud-root .btn, .ql-tap .btn { min-height: 44px !important; }
+  .ql-hud-root .ql-icon-btn, .ql-tap .ql-icon-btn { min-width: 44px !important; width: auto !important; }
+  /* 16 px fields: iOS Safari zooms into anything smaller on focus. */
+  .ql-hud-root input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .ql-hud-root select, .ql-hud-root textarea,
+  .ql-tap input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .ql-tap select, .ql-tap textarea { font-size: 16px !important; }
+  .ql-hud-root select, .ql-tap select,
+  .ql-tap input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) { min-height: 44px; }
+  /* The party card's share-link button (PlayerLinkButton, compact). */
+  .ql-hud-pc-tools > span > button { min-width: 44px; min-height: 44px; justify-content: center; }
+}
+
+/* ── Phone: campaign pages, characters, encounters, maps (Plan 123 S6) ── */
+@media (max-width: 640px) {
+  /* `.ql-s6` wraps these pages, the character sheet and the NPC editor: inline
+     `minHeight: 0` buttons and fields grow back to a thumb-sized 44 px. */
+  .ql-s6 .btn, .ql-s6-tap { min-height: 44px !important; }
+  .ql-s6-sq { min-width: 44px !important; min-height: 44px !important; justify-content: center; }
+  .ql-s6 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  .ql-s6 select { min-height: 44px; }
+  /* Under 16 px iOS zooms the page when a field takes focus. `.ql-s6-keep`
+     marks fields that are already larger (the roll helper's d20 boxes). */
+  .ql-s6 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not(.ql-s6-keep),
+  .ql-s6 select, .ql-s6 textarea { font-size: 16px !important; }
+  /* A small round help badge or pip keeps its look and gets a thumb-sized hit area. */
+  .ql-s6-hit { position: relative; }
+  .ql-s6-hit::after { content: ""; position: absolute; inset: -12px; }
+  /* Breadcrumb links were 18 px tall. */
+  .ql-s6-crumbs a { display: inline-flex; align-items: center; min-height: 44px; }
+  .ql-s6-crumbs { margin-bottom: 0.25rem !important; }
+  /* Character sheet: abilities three to a row; saves and skills as roomy rows. */
+  .ql-s6-abilities { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .ql-s6-rows > button { min-height: 44px; }
+  /* Spell-slot and feature-use pips: bigger, and the gap between them taps too. */
+  .ql-s6-pip { min-width: 26px; min-height: 26px; position: relative; }
+  .ql-s6-pip::after { content: ""; position: absolute; inset: -9px -3px; }
+  .ql-s6-die { min-width: 44px; min-height: 40px; }
+  /* Map builder: zoom buttons a thumb can hit. */
+  .ql-s6-flow .react-flow__controls-button { width: 40px; height: 40px; }
+}
+
+/* ── Phone: shops, puzzles, crier, notebook, player satellites (Plan 123 S7) ── */

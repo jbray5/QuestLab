@@ -37,6 +37,12 @@ export default function TourGuide() {
         return;
       }
       const r = (el as HTMLElement).getBoundingClientRect();
+      // A target in the closed phone nav drawer (or otherwise off screen) gets
+      // no spotlight; the card shows centred instead (Plan 123).
+      if (r.width === 0 || r.right <= 0 || r.left >= window.innerWidth) {
+        setRect(null);
+        return;
+      }
       setRect(r);
       // Scroll into view if outside the viewport.
       const vh = window.innerHeight;
@@ -76,11 +82,16 @@ export default function TourGuide() {
     else next();
   }
 
-  // Card position: anchored to the spotlight if there's a target,
-  // otherwise centered.
-  const cardPos = rect
-    ? placeCard(rect, step.placement ?? "right")
-    : { left: "50%", top: "50%", transform: "translate(-50%, -50%)" };
+  // Card position: a bottom card on phones; otherwise anchored to the
+  // spotlight if there's a target, or centred. Centring uses inset + auto
+  // margins, not a transform: the ql-modal-in animation owns `transform`
+  // and used to push the card off-centre (off-screen on a phone, Plan 123).
+  const phone = window.innerWidth <= 640;
+  const cardPos: React.CSSProperties = phone
+    ? { left: 12, right: 12, bottom: "calc(12px + env(safe-area-inset-bottom, 0px))", width: "auto" }
+    : rect
+      ? placeCard(rect, step.placement ?? "right")
+      : { inset: 0, margin: "auto", height: "fit-content" };
 
   return (
     <div
@@ -125,9 +136,8 @@ export default function TourGuide() {
             height={rect.height + 16}
             rx={10}
             fill="none"
-            stroke="#c9a84c"
             strokeWidth={2}
-            style={{ pointerEvents: "none", filter: "drop-shadow(0 0 12px rgba(201,168,76,0.65))" }}
+            style={{ stroke: "var(--accent)", pointerEvents: "none", filter: "drop-shadow(0 0 12px rgba(227,134,58,0.5))" }}
           />
         )}
       </svg>
@@ -136,7 +146,7 @@ export default function TourGuide() {
       <div
         className="ql-modal-in"
         onClick={(e) => e.stopPropagation()}
-        style={{ ...cardStyle, ...cardPos } as React.CSSProperties}
+        style={{ ...cardStyle, ...cardPos }}
       >
         <header style={cardHeaderStyle}>
           <span style={stepBadgeStyle}>
@@ -229,7 +239,7 @@ const cardStyle: React.CSSProperties = {
   border: "1px solid var(--gold)",
   borderRadius: 12,
   padding: "0.85rem 1.1rem 0.95rem",
-  boxShadow: "0 8px 36px rgba(0,0,0,0.65), 0 0 36px rgba(201,168,76,0.15)",
+  boxShadow: "0 8px 36px rgba(0,0,0,0.65)",
   pointerEvents: "auto",
 };
 
@@ -253,8 +263,8 @@ const closeBtnStyle: React.CSSProperties = {
   border: "1px solid var(--border)",
   borderRadius: 4,
   color: "var(--muted)",
-  width: 26,
-  height: 26,
+  width: 36,
+  height: 36,
   cursor: "pointer",
   fontSize: "0.85rem",
   lineHeight: 1,

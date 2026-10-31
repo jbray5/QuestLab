@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Focus, X } from "lucide-react";
 import { zoomable } from "../../lib/lightbox";
 import { AI_ON } from "../../lib/flags";
@@ -75,6 +76,11 @@ function fmt(n: number): string {
  * Built component-driven for Plan 26 (per-player view): every interactive
  * surface accepts ``readOnly`` so flipping a single flag yields the player
  * mode without rewriting.
+ *
+ * Phones (Plan 123): the sheet fills the screen; the sticky header keeps only
+ * the name and the close button, and the stat tiles, hit-point controls and
+ * concentration scroll with the body. Portalled to <body> so the page's top
+ * bar can never sit over it.
  */
 export default function CharacterSheet({ characterId, onClose, readOnly = false }: Props) {
   const qc = useQueryClient();
@@ -83,6 +89,11 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
   // Usability pass — full words on the stat tiles; a phone keeps the short form
   // (each tile's tooltip spells it out).
   const narrow = useIsCompact(560);
+  const phone = useIsCompact(640);
+  // On a phone the sheet is a full screen of its own: above the dice button
+  // (z 8000), below bottom sheets (9000) and the roll helper.
+  const overlay: React.CSSProperties = phone ? { ...overlayStyle, padding: 0, zIndex: 8500 } : overlayStyle;
+  const sheet: React.CSSProperties = phone ? { ...sheetStyle, ...sheetPhoneStyle } : sheetStyle;
 
   const { data: pc, isLoading } = useQuery({
     queryKey: ["character", characterId],
@@ -144,10 +155,11 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
   }, [onClose]);
 
   if (isLoading || !pc) {
-    return (
-      <div style={overlayStyle} onClick={onClose}>
-        <div style={sheetStyle}>Loading…</div>
-      </div>
+    return createPortal(
+      <div className="ql-s6" style={overlay} onClick={onClose}>
+        <div style={sheet}>Loading…</div>
+      </div>,
+      document.body,
     );
   }
 
@@ -167,307 +179,326 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
   const passivePerception =
     10 + mod(pc.score_wis) + profBonus * (skillProfs["Perception"] ?? 0);
 
-  return (
+  // The name row is the sticky header everywhere; on a phone the rest of the
+  // old header (tiles, hit points, concentration) scrolls with the body.
+  const identity = (
+    <div className="flex items-center" style={{ gap: "0.75rem" }}>
+      {pc.portrait_url ? (
+        <img
+          src={portraitSrc(pc.portrait_url, pc.updated_at)}
+          {...zoomable(portraitSrc(pc.portrait_url, pc.updated_at), pc.character_name)}
+          alt={pc.character_name}
+          style={{
+            width: phone ? 44 : 56,
+            height: phone ? 44 : 56,
+            borderRadius: 6,
+            objectFit: "cover",
+            border: "1px solid var(--border2)",
+            flexShrink: 0,
+          }}
+        />
+      ) : (
+        <Monogram name={pc.character_name} size={phone ? 44 : 56} />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <h2 className="story" style={{ margin: 0, fontSize: phone ? "1.3rem" : "1.5rem", lineHeight: 1.2 }}>
+          {pc.character_name}
+        </h2>
+        <p
+          style={{
+            margin: "0.1rem 0 0",
+            fontSize: "0.875rem",
+            color: "var(--muted)",
+            // A phone keeps the header to two lines; the full line is the tooltip.
+            ...(phone ? { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } : {}),
+          }}
+          title={phone ? `Level ${pc.level} ${pc.character_class}${pc.subclass ? ` (${pc.subclass})` : ""} · ${pc.race}${pc.background ? ` · ${pc.background}` : ""}` : undefined}
+        >
+          Level {pc.level} {pc.character_class}
+          {pc.subclass ? ` (${pc.subclass})` : ""} · {pc.race}
+          {pc.background ? ` · ${pc.background}` : ""}
+        </p>
+      </div>
+      <button
+        onClick={onClose}
+        className="btn btn-ghost ql-s6-sq"
+        style={{ width: phone ? 44 : 36, height: phone ? 44 : 36, minHeight: 0, padding: 0, flexShrink: 0 }}
+        title="Close (Esc)"
+        aria-label="Close character sheet"
+      >
+        <X size={18} />
+      </button>
+    </div>
+  );
+
+  const quick = (
+    <>
+      <div style={{ marginTop: "0.5rem" }}>
+        <PlayerLinkButton characterId={characterId} playToken={pc.play_token} characterName={pc.character_name} />
+      </div>
+
+      {/* DM-help inline tooltips */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.6rem",
+          marginTop: "0.65rem",
+          fontSize: "0.8125rem",
+          color: "var(--muted)",
+        }}
+      >
+        <span>Rules help:</span>
+        <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+          Temp HP
+          <InfoTip title="Temporary HP">
+            A separate HP pool, used up before real HP. Doesn't stack — a new
+            source replaces the old (don't add).{"\n\n"}
+            Common sources: False Life, Heroism, Inspiring Leader, Tempest Cleric's
+            Channel Divinity. Lost on long rest.{"\n\n"}
+            Use the Damage button — Temp HP is used up first automatically.
+          </InfoTip>
+        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+          Inspiration
+          <InfoTip title="Heroic Inspiration (2024)">
+            A binary boost. The player either HAS inspiration or not — it
+            doesn't stack.{"\n\n"}
+            Spend BEFORE rolling: re-roll any d20 (attack, save, check)
+            and use either result.{"\n\n"}
+            2024 rules grant Heroic Inspiration automatically on any
+            natural 20. Also grant it for cool roleplay, clever solutions,
+            or anything you want to reward at the table.{"\n\n"}
+            Click the Inspiration tile to toggle it on or off.
+          </InfoTip>
+        </span>
+      </div>
+
+      {/* Combat stat row */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+          gap: "0.5rem",
+          marginTop: "0.5rem",
+        }}
+      >
+        <StatChip
+          label={narrow ? "HP" : "Hit points"}
+          value={`${pc.hp_current}/${pc.hp_max}`}
+          accent={pc.hp_current === 0 ? "var(--danger-text)" : undefined}
+          title="Hit points: current / maximum"
+        />
+        <StatChip
+          label={narrow ? "Temp" : "Temp HP"}
+          value={pc.temp_hp > 0 ? `+${pc.temp_hp}` : "—"}
+          accent={pc.temp_hp > 0 ? "var(--teal-text)" : undefined}
+          title="Temporary hit points: lost first, gone after a long rest"
+        />
+        <StatChip
+          label={narrow ? "AC" : "Armor Class"}
+          value={String(pc.ac)}
+          title="Armor Class: what an attack roll must reach to hit"
+        />
+        <StatChip label="Speed" value={`${pc.speed} ft`} title="Speed: feet moved per turn" />
+        <StatChip
+          label={narrow ? "Insp." : "Inspiration"}
+          value={pc.heroic_inspiration ? "Yes" : "No"}
+          accent={pc.heroic_inspiration ? "var(--accent-text)" : "var(--muted)"}
+          clickable={!readOnly}
+          onClick={() =>
+            patchPc.mutate({
+              heroic_inspiration: !pc.heroic_inspiration,
+            })
+          }
+          title={
+            pc.heroic_inspiration
+              ? "Spend heroic inspiration"
+              : "Grant heroic inspiration"
+          }
+        />
+        <StatChip
+          label={narrow ? "Init." : "Initiative"}
+          value={fmt(initiativeMod)}
+          clickable={!readOnly}
+          onClick={() =>
+            setRollCtx({
+              label: "Initiative",
+              mod: initiativeMod,
+              breakdown: `DEX mod (${fmt(initiativeMod)})`,
+            })
+          }
+          title="Initiative: roll d20 + Dexterity modifier"
+        />
+        <StatChip
+          label={narrow ? "Prof." : "Proficiency"}
+          value={fmt(profBonus)}
+          title="Proficiency bonus: added to anything this character is trained in"
+        />
+        <StatChip
+          label={narrow ? "Perc." : "Passive Perception"}
+          value={String(passivePerception)}
+          title="Passive Perception: noticing things without rolling (10 + Perception bonus)"
+        />
+      </div>
+
+      {/* HP damage / heal controls */}
+      {!readOnly && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.4rem",
+            marginTop: "0.55rem",
+            flexWrap: "wrap",
+          }}
+        >
+          <label
+            htmlFor={`hp-delta-${characterId}`}
+            style={{
+              fontSize: "0.8125rem",
+              color: "var(--muted)",
+              margin: 0,
+            }}
+          >
+            Adjust hit points
+          </label>
+          <input
+            id={`hp-delta-${characterId}`}
+            type="number"
+            min={0}
+            value={hpDelta}
+            onChange={(e) =>
+              setHpDelta(e.target.value === "" ? "" : Math.max(0, Number(e.target.value)))
+            }
+            placeholder="0"
+            className="num"
+            style={{
+              width: 76,
+              padding: "0.3rem 0.45rem",
+              fontSize: "0.9375rem",
+            }}
+          />
+          <button
+            onClick={() => {
+              if (hpDelta === "" || hpDelta === 0) return;
+              damageMut.mutate(Number(hpDelta));
+            }}
+            disabled={hpDelta === "" || hpDelta === 0 || damageMut.isPending}
+            className="btn btn-secondary"
+            style={{
+              fontSize: "0.875rem",
+              padding: "0.3rem 0.7rem",
+              minHeight: 0,
+              color: "var(--danger-text)",
+            }}
+          >
+            − Damage
+          </button>
+          <button
+            onClick={() => {
+              if (hpDelta === "" || hpDelta === 0) return;
+              healMut.mutate(Number(hpDelta));
+            }}
+            disabled={hpDelta === "" || hpDelta === 0 || healMut.isPending}
+            className="btn btn-secondary"
+            style={{
+              fontSize: "0.875rem",
+              padding: "0.3rem 0.7rem",
+              minHeight: 0,
+              color: "var(--teal-text)",
+            }}
+          >
+            + Heal
+          </button>
+          <span style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>
+            Damage uses up Temp HP first.
+          </span>
+        </div>
+      )}
+
+      {/* Concentration line */}
+      {pc.concentration_on && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.6rem",
+            marginTop: "0.55rem",
+            padding: "0.4rem 0.4rem 0.4rem 0.7rem",
+            background: "var(--amber-soft)",
+            border: "1px solid var(--amber-soft)",
+            borderRadius: 8,
+            fontSize: "0.875rem",
+            flexWrap: "wrap",
+          }}
+        >
+          <Focus size={16} style={{ color: "var(--amber-text)" }} />
+          <span style={{ flex: 1, color: "var(--text2)" }}>
+            Concentrating on{" "}
+            <strong style={{ color: "var(--amber-text)" }}>
+              {pc.concentration_on}
+            </strong>
+          </span>
+          {!readOnly && (
+            <>
+              <button
+                onClick={() =>
+                  setRollCtx({
+                    label: "Concentration (CON save)",
+                    mod: mod(pc.score_con),
+                    breakdown: "CON mod · DC = max(10, half damage taken)",
+                  })
+                }
+                className="btn btn-secondary"
+                style={{ fontSize: "0.8125rem", padding: "0.2rem 0.6rem", minHeight: 0 }}
+                title="Constitution saving throw — DC 10 or half the damage taken, whichever is higher"
+              >
+                Roll Constitution save
+              </button>
+              <button
+                onClick={() =>
+                  patchPc.mutate({
+                    concentration_on: null,
+                  })
+                }
+                className="btn btn-ghost"
+                style={{ fontSize: "0.8125rem", padding: "0.2rem 0.6rem", minHeight: 0 }}
+              >
+                Drop
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {!pc.concentration_on && !readOnly && (
+        <ConcentrationStarter
+          onStart={(label) =>
+            patchPc.mutate({ concentration_on: label })
+          }
+        />
+      )}
+    </>
+  );
+
+  return createPortal(
     <div
-      style={overlayStyle}
+      className="ql-s6"
+      style={overlay}
       onClick={onClose}
       role="dialog"
       aria-label={`${pc.character_name} character sheet`}
     >
-      <div className="ql-modal-in" style={sheetStyle} onClick={(e) => e.stopPropagation()}>
+      <div className="ql-modal-in" style={sheet} onClick={(e) => e.stopPropagation()}>
         {/* Sticky header */}
-        <div style={stickyHeaderStyle}>
-          <div className="flex items-center" style={{ gap: "0.75rem" }}>
-            {pc.portrait_url ? (
-              <img
-                src={portraitSrc(pc.portrait_url, pc.updated_at)} {...zoomable(portraitSrc(pc.portrait_url, pc.updated_at), pc.character_name)}
-                alt={pc.character_name}
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 6,
-                  objectFit: "cover",
-                  border: "1px solid var(--border2)",
-                }}
-              />
-            ) : (
-              <Monogram name={pc.character_name} size={56} />
-            )}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 className="story" style={{ margin: 0, fontSize: "1.5rem" }}>
-                {pc.character_name}
-              </h2>
-              <p
-                style={{
-                  margin: "0.1rem 0 0",
-                  fontSize: "0.875rem",
-                  color: "var(--muted)",
-                }}
-              >
-                Level {pc.level} {pc.character_class}
-                {pc.subclass ? ` (${pc.subclass})` : ""} · {pc.race}
-                {pc.background ? ` · ${pc.background}` : ""}
-              </p>
-            </div>
-            <button
-              onClick={onClose}
-              className="btn btn-ghost"
-              style={{ width: 36, height: 36, minHeight: 0, padding: 0 }}
-              title="Close (Esc)"
-              aria-label="Close character sheet"
-            >
-              <X size={18} />
-            </button>
-          </div>
-          <div style={{ marginTop: "0.5rem" }}>
-            <PlayerLinkButton characterId={characterId} />
-          </div>
-
-          {/* DM-help inline tooltips */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.6rem",
-              marginTop: "0.65rem",
-              fontSize: "0.8125rem",
-              color: "var(--muted)",
-            }}
-          >
-            <span>Rules help:</span>
-            <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-              Temp HP
-              <InfoTip title="Temporary HP">
-                A separate HP pool, used up before real HP. Doesn't stack — a new
-                source replaces the old (don't add).{"\n\n"}
-                Common sources: False Life, Heroism, Inspiring Leader, Tempest Cleric's
-                Channel Divinity. Lost on long rest.{"\n\n"}
-                Use the Damage button — Temp HP is used up first automatically.
-              </InfoTip>
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-              Inspiration
-              <InfoTip title="Heroic Inspiration (2024)">
-                A binary boost. The player either HAS inspiration or not — it
-                doesn't stack.{"\n\n"}
-                Spend BEFORE rolling: re-roll any d20 (attack, save, check)
-                and use either result.{"\n\n"}
-                2024 rules grant Heroic Inspiration automatically on any
-                natural 20. Also grant it for cool roleplay, clever solutions,
-                or anything you want to reward at the table.{"\n\n"}
-                Click the Inspiration tile to toggle it on or off.
-              </InfoTip>
-            </span>
-          </div>
-
-          {/* Combat stat row */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-              gap: "0.5rem",
-              marginTop: "0.5rem",
-            }}
-          >
-            <StatChip
-              label={narrow ? "HP" : "Hit points"}
-              value={`${pc.hp_current}/${pc.hp_max}`}
-              accent={pc.hp_current === 0 ? "var(--danger-text)" : undefined}
-              title="Hit points: current / maximum"
-            />
-            <StatChip
-              label={narrow ? "Temp" : "Temp HP"}
-              value={pc.temp_hp > 0 ? `+${pc.temp_hp}` : "—"}
-              accent={pc.temp_hp > 0 ? "var(--teal-text)" : undefined}
-              title="Temporary hit points: lost first, gone after a long rest"
-            />
-            <StatChip
-              label={narrow ? "AC" : "Armor Class"}
-              value={String(pc.ac)}
-              title="Armor Class: what an attack roll must reach to hit"
-            />
-            <StatChip label="Speed" value={`${pc.speed} ft`} title="Speed: feet moved per turn" />
-            <StatChip
-              label={narrow ? "Insp." : "Inspiration"}
-              value={pc.heroic_inspiration ? "Yes" : "No"}
-              accent={pc.heroic_inspiration ? "var(--accent-text)" : "var(--muted)"}
-              clickable={!readOnly}
-              onClick={() =>
-                patchPc.mutate({
-                  heroic_inspiration: !pc.heroic_inspiration,
-                })
-              }
-              title={
-                pc.heroic_inspiration
-                  ? "Spend heroic inspiration"
-                  : "Grant heroic inspiration"
-              }
-            />
-            <StatChip
-              label={narrow ? "Init." : "Initiative"}
-              value={fmt(initiativeMod)}
-              clickable={!readOnly}
-              onClick={() =>
-                setRollCtx({
-                  label: "Initiative",
-                  mod: initiativeMod,
-                  breakdown: `DEX mod (${fmt(initiativeMod)})`,
-                })
-              }
-              title="Initiative: roll d20 + Dexterity modifier"
-            />
-            <StatChip
-              label={narrow ? "Prof." : "Proficiency"}
-              value={fmt(profBonus)}
-              title="Proficiency bonus: added to anything this character is trained in"
-            />
-            <StatChip
-              label={narrow ? "Perc." : "Passive Perception"}
-              value={String(passivePerception)}
-              title="Passive Perception: noticing things without rolling (10 + Perception bonus)"
-            />
-          </div>
-
-          {/* HP damage / heal controls */}
-          {!readOnly && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.4rem",
-                marginTop: "0.55rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <label
-                htmlFor={`hp-delta-${characterId}`}
-                style={{
-                  fontSize: "0.8125rem",
-                  color: "var(--muted)",
-                  margin: 0,
-                }}
-              >
-                Adjust hit points
-              </label>
-              <input
-                id={`hp-delta-${characterId}`}
-                type="number"
-                min={0}
-                value={hpDelta}
-                onChange={(e) =>
-                  setHpDelta(e.target.value === "" ? "" : Math.max(0, Number(e.target.value)))
-                }
-                placeholder="0"
-                className="num"
-                style={{
-                  width: 76,
-                  padding: "0.3rem 0.45rem",
-                  fontSize: "0.9375rem",
-                }}
-              />
-              <button
-                onClick={() => {
-                  if (hpDelta === "" || hpDelta === 0) return;
-                  damageMut.mutate(Number(hpDelta));
-                }}
-                disabled={hpDelta === "" || hpDelta === 0 || damageMut.isPending}
-                className="btn btn-secondary"
-                style={{
-                  fontSize: "0.875rem",
-                  padding: "0.3rem 0.7rem",
-                  minHeight: 0,
-                  color: "var(--danger-text)",
-                }}
-              >
-                − Damage
-              </button>
-              <button
-                onClick={() => {
-                  if (hpDelta === "" || hpDelta === 0) return;
-                  healMut.mutate(Number(hpDelta));
-                }}
-                disabled={hpDelta === "" || hpDelta === 0 || healMut.isPending}
-                className="btn btn-secondary"
-                style={{
-                  fontSize: "0.875rem",
-                  padding: "0.3rem 0.7rem",
-                  minHeight: 0,
-                  color: "var(--teal-text)",
-                }}
-              >
-                + Heal
-              </button>
-              <span style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>
-                Damage uses up Temp HP first.
-              </span>
-            </div>
-          )}
-
-          {/* Concentration line */}
-          {pc.concentration_on && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "0.6rem",
-                marginTop: "0.55rem",
-                padding: "0.4rem 0.4rem 0.4rem 0.7rem",
-                background: "var(--amber-soft)",
-                border: "1px solid var(--amber-soft)",
-                borderRadius: 8,
-                fontSize: "0.875rem",
-                flexWrap: "wrap",
-              }}
-            >
-              <Focus size={16} style={{ color: "var(--amber-text)" }} />
-              <span style={{ flex: 1, color: "var(--text2)" }}>
-                Concentrating on{" "}
-                <strong style={{ color: "var(--amber-text)" }}>
-                  {pc.concentration_on}
-                </strong>
-              </span>
-              {!readOnly && (
-                <>
-                  <button
-                    onClick={() =>
-                      setRollCtx({
-                        label: "Concentration (CON save)",
-                        mod: mod(pc.score_con),
-                        breakdown: "CON mod · DC = max(10, half damage taken)",
-                      })
-                    }
-                    className="btn btn-secondary"
-                    style={{ fontSize: "0.8125rem", padding: "0.2rem 0.6rem", minHeight: 0 }}
-                    title="Constitution saving throw — DC 10 or half the damage taken, whichever is higher"
-                  >
-                    Roll Constitution save
-                  </button>
-                  <button
-                    onClick={() =>
-                      patchPc.mutate({
-                        concentration_on: null,
-                      })
-                    }
-                    className="btn btn-ghost"
-                    style={{ fontSize: "0.8125rem", padding: "0.2rem 0.6rem", minHeight: 0 }}
-                  >
-                    Drop
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-          {!pc.concentration_on && !readOnly && (
-            <ConcentrationStarter
-              onStart={(label) =>
-                patchPc.mutate({ concentration_on: label })
-              }
-            />
-          )}
+        <div style={phone ? { ...stickyHeaderStyle, padding: "0.6rem 0.75rem 0.6rem 1rem" } : stickyHeaderStyle}>
+          {identity}
+          {!phone && quick}
         </div>
 
         {/* Body — scrollable */}
-        <div style={bodyStyle}>
+        <div style={phone ? { ...bodyStyle, padding: "0.85rem 0.75rem calc(1.5rem + env(safe-area-inset-bottom, 0px))" } : bodyStyle}>
+          {phone && <div>{quick}</div>}
           {pc.hp_current === 0 && <DeathSaveTracker pc={pc} readOnly={readOnly} />}
 
           {/* The generator is AI-only (Plan 86); without it this box was empty. */}
@@ -673,7 +704,8 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
       </div>
 
       <RollHelper context={rollCtx} onClose={() => setRollCtx(null)} />
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -893,6 +925,15 @@ const sheetStyle: React.CSSProperties = {
   // dvh = the VISIBLE viewport on phones (100vh hides behind the iOS URL bar).
   maxHeight: "calc(100dvh - 2rem)",
   overflow: "hidden",
+};
+
+/** On a phone the sheet is the whole screen: no frame, no rounded corners. */
+const sheetPhoneStyle: React.CSSProperties = {
+  maxWidth: "none",
+  height: "100dvh",
+  maxHeight: "100dvh",
+  border: "none",
+  borderRadius: 0,
 };
 
 const stickyHeaderStyle: React.CSSProperties = {

@@ -9,6 +9,7 @@ import { adventuresApi } from "../../api/adventures";
 import { npcsApi } from "../../api/npcs";
 import { sessionsApi } from "../../api/sessions";
 import type { RunbookScene } from "../../api/types";
+import { useIsCompact } from "../../hooks/useIsCompact";
 import { zoomable } from "../../lib/lightbox";
 import EditableRunbookText from "../runbook/EditableRunbookText";
 import { rememberDockSession } from "./dmSession";
@@ -47,6 +48,10 @@ interface Props {
 }
 
 export default function DmDockBody({ sessionId, onSessionChange }: Props) {
+  // Plan 123 — the pop-out notes window opened on a phone: 44 px targets, 16 px fields.
+  // (The floating dock itself only shows above 900 px.)
+  const phone = useIsCompact(640);
+  const tap = phone ? 44 : 28;
   const [tab, setTab] = useState<Tab>(() => {
     try {
       const v = localStorage.getItem(TAB_KEY);
@@ -129,7 +134,7 @@ export default function DmDockBody({ sessionId, onSessionChange }: Props) {
       className="btn btn-ghost"
       aria-pressed={tab === k}
       style={{
-        minHeight: 28,
+        minHeight: tap,
         fontSize: "0.8125rem",
         padding: "0.1rem 0.55rem",
         gap: "0.3rem",
@@ -165,7 +170,15 @@ export default function DmDockBody({ sessionId, onSessionChange }: Props) {
           }}
           title="Which session's notes to show"
           aria-label="Session"
-          style={{ fontSize: "0.8125rem", maxWidth: 190, padding: "0.2rem 0.35rem", width: "auto", minWidth: 0, flex: "1 1 120px" }}
+          style={{
+            fontSize: phone ? 16 : "0.8125rem",
+            maxWidth: phone ? "none" : 190,
+            padding: "0.2rem 0.35rem",
+            width: "auto",
+            minWidth: 0,
+            flex: phone ? "1 1 100%" : "1 1 120px",
+            ...(phone ? { minHeight: 44 } : {}),
+          }}
         >
           {siblings.length === 0 && session && (
             <option value={session.id}>
@@ -223,8 +236,8 @@ export default function DmDockBody({ sessionId, onSessionChange }: Props) {
                       aria-pressed={i === sceneIdx}
                       aria-label={`Scene ${i + 1}: ${s.title}`}
                       style={{
-                        minHeight: 26,
-                        minWidth: 30,
+                        minHeight: phone ? 44 : 26,
+                        minWidth: phone ? 44 : 30,
                         fontSize: "0.8125rem",
                         padding: "0.05rem 0.45rem",
                         ...(i === sceneIdx
@@ -260,10 +273,10 @@ export default function DmDockBody({ sessionId, onSessionChange }: Props) {
                   <EditableRunbookText kind="scene" sceneIndex={sceneIdx} field="dm_notes" sessionId={sessionId} runbook={runbook} variant="dm_notes" fontSize="0.875rem" />
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
-                  <button className="btn btn-ghost" style={smallBtn} disabled={sceneIdx === 0} onClick={() => setSceneIdx(sceneIdx - 1)}>
+                  <button className="btn btn-ghost" style={{ ...smallBtn, minHeight: tap }} disabled={sceneIdx === 0} onClick={() => setSceneIdx(sceneIdx - 1)}>
                     ← Previous
                   </button>
-                  <button className="btn btn-secondary" style={smallBtn} disabled={sceneIdx >= scenes.length - 1} onClick={() => setSceneIdx(sceneIdx + 1)}>
+                  <button className="btn btn-secondary" style={{ ...smallBtn, minHeight: tap }} disabled={sceneIdx >= scenes.length - 1} onClick={() => setSceneIdx(sceneIdx + 1)}>
                     Next →
                   </button>
                 </div>
@@ -324,7 +337,7 @@ export default function DmDockBody({ sessionId, onSessionChange }: Props) {
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search name, role, place, tag…"
               aria-label="Search NPCs"
-              style={{ width: "100%", fontSize: "0.875rem", padding: "0.35rem 0.6rem", marginBottom: 8 }}
+              style={{ width: "100%", fontSize: phone ? 16 : "0.875rem", padding: "0.35rem 0.6rem", marginBottom: 8, ...(phone ? { minHeight: 44 } : {}) }}
             />
             {people.length === 0 && (
               <p style={{ color: "var(--muted)", fontSize: "0.875rem", lineHeight: 1.5 }}>
@@ -344,7 +357,7 @@ export default function DmDockBody({ sessionId, onSessionChange }: Props) {
                     padding: "0.45rem 0.6rem",
                   }}
                 >
-                  <summary style={{ cursor: "pointer", listStyle: "none", display: "flex", gap: 8, alignItems: "center" }}>
+                  <summary style={{ cursor: "pointer", listStyle: "none", display: "flex", gap: 8, alignItems: "center", minHeight: phone ? 44 : undefined }}>
                     {npcFace(n) ? (
                       <img
                         src={npcFace(n) ?? undefined}

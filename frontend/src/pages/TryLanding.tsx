@@ -5,6 +5,7 @@ import { ArrowDown, Lock, Play } from "lucide-react";
 import { api } from "../api/client";
 import BrandMark from "../components/BrandMark";
 import { NIGHT_SCENE } from "../components/landing/nightScene.generated";
+import { useIsCompact } from "../hooks/useIsCompact";
 import { useAuthStore } from "../stores/useAuthStore";
 
 /**
@@ -70,6 +71,8 @@ const svg = (html: string, className: string, extra?: CSSProperties) => (
 
 export default function TryLanding() {
   const navigate = useNavigate();
+  // Plan 123: on a phone the tracker mock drops to three columns instead of scrolling sideways.
+  const phone = useIsCompact(640);
   const { setDmEmail } = useAuthStore();
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
@@ -186,24 +189,30 @@ export default function TryLanding() {
           <Copy eyebrow="The tracker" id="tl-tracker" title="Initiative that keeps itself in order." wide>
             Heroes and monsters in one list, sorted the moment the rolls are in. Hit points sit beside every name, a late roll or a changed number re-sorts on the spot, and one button moves the turn along.
           </Copy>
-          <div className="tl-panel" style={{ overflowX: "auto" }}>
-            <div style={{ minWidth: 600 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "14px 20px", background: "var(--surface2)", borderBottom: "1px solid var(--border)" }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+          <div className="tl-panel" style={{ overflowX: phone ? "clip" : "auto" }}>
+            <div style={{ minWidth: phone ? 0 : 600 }}>
+              <div style={{ display: "flex", flexWrap: phone ? "wrap" : undefined, alignItems: "center", justifyContent: "space-between", gap: 12, padding: phone ? "12px 14px" : "14px 20px", background: "var(--surface2)", borderBottom: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", flexWrap: phone ? "wrap" : undefined, alignItems: "baseline", gap: phone ? "2px 12px" : 12 }}>
                   <span style={{ fontSize: 18, fontWeight: 600 }}>Round <span className="num">2</span></span>
                   <span style={{ fontSize: 14, color: "var(--muted)" }}>Bandits in the taproom</span>
                 </div>
                 <span className="btn btn-primary" style={{ minHeight: 42, cursor: "default" }}>End turn</span>
               </div>
-              <div style={{ ...trackerGrid, padding: "9px 20px", fontSize: 12, fontWeight: 500, color: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
-                <span>Initiative</span><span>Name</span><span>Side</span><span>Hit points</span><span />
-              </div>
-              <TrackerRow init={19} name="Sable Quickstep" side="Party" hp="19 / 24" now />
-              <TrackerRow init={15} name="Bandit ×4" side="Foes" hp="4 × 11" />
-              <TrackerRow init={14} name="Bram Oakhelm" side="Party" hp="11 / 31" />
-              <TrackerRow init={12} name="Wren Ashby" side="Party" hp="5 / 17" hurt />
-              <TrackerRow init={9} name="Thug" side="Foes" hp="32 / 32" />
-              <TrackerRow init={7} name="Tamsin Vale" side="Party" hp="24 / 24" last />
+              {phone ? (
+                <div style={{ ...trackerGridPhone, padding: "9px 14px", fontSize: 12, fontWeight: 500, color: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
+                  <span>Initiative</span><span>Name</span><span>Hit points</span>
+                </div>
+              ) : (
+                <div style={{ ...trackerGrid, padding: "9px 20px", fontSize: 12, fontWeight: 500, color: "var(--muted)", borderBottom: "1px solid var(--border)" }}>
+                  <span>Initiative</span><span>Name</span><span>Side</span><span>Hit points</span><span />
+                </div>
+              )}
+              <TrackerRow phone={phone} init={19} name="Sable Quickstep" side="Party" hp="19 / 24" now />
+              <TrackerRow phone={phone} init={15} name="Bandit ×4" side="Foes" hp="4 × 11" />
+              <TrackerRow phone={phone} init={14} name="Bram Oakhelm" side="Party" hp="11 / 31" />
+              <TrackerRow phone={phone} init={12} name="Wren Ashby" side="Party" hp="5 / 17" hurt />
+              <TrackerRow phone={phone} init={9} name="Thug" side="Foes" hp="32 / 32" />
+              <TrackerRow phone={phone} init={7} name="Tamsin Vale" side="Party" hp="24 / 24" last />
             </div>
           </div>
         </section>
@@ -281,6 +290,7 @@ export default function TryLanding() {
 
 const navLink: CSSProperties = { padding: "10px 12px", color: "var(--text2)", textDecoration: "none", fontSize: 15, fontWeight: 500 };
 const trackerGrid: CSSProperties = { display: "grid", gridTemplateColumns: "72px minmax(0, 1fr) 100px 120px 120px", alignItems: "center", gap: 12 };
+const trackerGridPhone: CSSProperties = { display: "grid", gridTemplateColumns: "64px minmax(0, 1fr) auto", alignItems: "center", gap: 10 };
 
 function Copy({ eyebrow, id, title, children, wide }: { eyebrow: string; id: string; title: string; children: ReactNode; wide?: boolean }) {
   return (
@@ -313,7 +323,23 @@ function PartyCard({ name, sub, hp, live, note }: { name: string; sub: string; h
   );
 }
 
-function TrackerRow({ init, name, side, hp, now, hurt, last }: { init: number; name: string; side: "Party" | "Foes"; hp: string; now?: boolean; hurt?: boolean; last?: boolean }) {
+function TrackerRow({ init, name, side, hp, now, hurt, last, phone }: { init: number; name: string; side: "Party" | "Foes"; hp: string; now?: boolean; hurt?: boolean; last?: boolean; phone?: boolean }) {
+  if (phone) {
+    // Three columns: initiative, the name with its side (and "Their turn"), hit points.
+    return (
+      <div style={{ ...trackerGridPhone, padding: "10px 14px", background: now ? "var(--accent-soft)" : undefined, borderBottom: last ? "none" : "1px solid var(--border)" }}>
+        <span className="num" style={{ width: 48, height: 36, borderRadius: 7, border: `1px solid ${now ? "var(--accent-edge)" : "var(--border2)"}`, background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 16, color: now ? "var(--accent-text)" : "var(--text)" }}>{init}</span>
+        <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+          <span className="story" style={{ fontSize: 17, fontWeight: now ? 700 : 500, lineHeight: 1.2 }}>{name}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className={`pill ${side === "Party" ? "pill-teal" : "pill-danger"}`} style={{ fontSize: 12 }}>{side}</span>
+            {now && <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent-text)" }}>Their turn</span>}
+          </span>
+        </span>
+        <span className="num" style={{ fontSize: 15, fontWeight: 600, whiteSpace: "nowrap", color: hurt ? "var(--danger-text)" : undefined }}>{hp}</span>
+      </div>
+    );
+  }
   return (
     <div style={{ ...trackerGrid, padding: "10px 20px", background: now ? "var(--accent-soft)" : undefined, borderBottom: last ? "none" : "1px solid var(--border)" }}>
       <span className="num" style={{ width: 48, height: 36, borderRadius: 7, border: `1px solid ${now ? "var(--accent-edge)" : "var(--border2)"}`, background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontSize: 16, color: now ? "var(--accent-text)" : "var(--text)" }}>{init}</span>

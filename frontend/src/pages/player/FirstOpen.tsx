@@ -48,7 +48,7 @@ export default function FirstOpen({ onDone }: { onDone: (help: HelpLevel) => voi
           const on = help === k;
           return (
             <label key={k} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "14px 16px", borderRadius: 14, border: `1px solid ${on ? "var(--accent-edge)" : "var(--border2)"}`, background: on ? "var(--accent-soft)" : "transparent", cursor: "pointer", margin: 0 }}>
-              <input type="radio" name="help" checked={on} onChange={() => setHelp(k)} style={{ marginTop: 3, width: 18, height: 18 }} />
+              <input type="radio" name="help" checked={on} onChange={() => setHelp(k)} style={{ marginTop: 3, width: 18, height: 18, flexShrink: 0 }} />
               <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <span style={{ fontWeight: 600, fontSize: 16, color: "var(--text)" }}>{title}</span>
                 <span style={{ fontSize: 14, color: "var(--text2)" }}>{desc}</span>

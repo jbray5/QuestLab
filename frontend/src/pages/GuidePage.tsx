@@ -1,118 +1,222 @@
 import { Link } from "react-router-dom";
 
 /**
- * GuidePage (Plan 73) — "Your first session in 15 minutes."
+ * GuidePage (Plan 73; rewritten in Lamplit for Plan 123) — "Your first session in 15 minutes."
  *
- * Public, no chrome. Written for a DM who just clicked a Reddit link:
- * in-person, online, or hybrid. Every step names the exact button.
+ * Public, no chrome. Written for a DM who just clicked a link: QuestLab is the DM
+ * screen and the initiative tracker, with session prep and every player's sheet on
+ * their own phone. Like /try, it never pitches the private 3D table or VTT play; a
+ * TV, if there is one, shows the join QR, whose turn it is and the last roll.
+ * Every step names the exact button.
  */
 
 const CSS = `
-.gd { max-width: 820px; margin: 0 auto; padding: 2.5rem 1.3rem 5rem; color: #cfc2a4; font-family: var(--font-ui); line-height: 1.6; }
-.gd h1 { font-family: var(--font-story); color: #f0e6c8; font-size: clamp(1.7rem, 5vw, 2.4rem); letter-spacing: 0.05em; margin: 0 0 0.3rem; }
-.gd h2 { font-family: var(--font-story); color: #d6af36; font-size: 1.25rem; letter-spacing: 0.05em; margin: 2.2rem 0 0.6rem; }
-.gd h3 { color: #f0e6c8; margin: 1.2rem 0 0.3rem; font-size: 1.05rem; }
-.gd .lede { color: #f0e6c8; font-style: italic; font-size: 1.1rem; }
-.gd .step { background: rgba(26,20,38,0.7); border: 1px solid #3a2f52; border-radius: 12px; padding: 1rem 1.2rem; margin: 0.8rem 0; }
-.gd .step b { color: #f0e6c8; }
-.gd .k { display: inline-block; min-width: 1.6em; text-align: center; background: #d6af36; color: #100c18; border-radius: 6px; margin-right: 0.5rem; font-family: var(--font-story); font-weight: 700; }
-.gd .btnref { font-family: var(--font-mono); font-size: 0.85rem; background: #221a33; border: 1px solid #3a2f52; border-radius: 6px; padding: 0.05rem 0.45rem; color: #ffd76a; }
-.gd .note { border-left: 3px solid #c25f45; padding: 0.4rem 0.9rem; margin: 0.8rem 0; background: rgba(194,95,69,0.08); }
-.gd .watch { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin: 0.6rem 0 0.4rem; }
-.gd .watch figure { margin: 0; }
-.gd .watch video { width: 100%; aspect-ratio: 16 / 9; display: block; border-radius: 10px; border: 1px solid #3a2f52; background: #0b0b10; }
-.gd .watch figcaption { font-size: 0.85rem; color: #9a9078; margin-top: 0.45rem; line-height: 1.45; }
-.gd .watch figcaption b { color: #f4e9c3; }
-.gd .setups { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.8rem; }
-.gd .setup { background: rgba(26,20,38,0.7); border: 1px solid #3a2f52; border-radius: 12px; padding: 0.9rem 1rem; }
-.gd .setup h3 { margin-top: 0; }
-.gd ul { padding-left: 1.2rem; } .gd li { margin: 0.3rem 0; }
-.gd a { color: #ffd76a; }
-.gd .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 0.9rem; }
+.gd { max-width: 820px; margin: 0 auto; padding: 2.5rem 1.3rem 5rem; color: var(--text2); font-family: var(--font-ui); line-height: 1.6; }
+.gd h1 { font-family: var(--font-story); font-weight: 700; color: var(--text); font-size: clamp(1.9rem, 6vw, 2.6rem); line-height: 1.1; margin: 0 0 0.6rem; }
+.gd h2 { color: var(--text); font-size: 1.3rem; font-weight: 600; margin: 2.4rem 0 0.6rem; }
+.gd h3 { color: var(--text); font-size: 1.05rem; font-weight: 600; margin: 1.2rem 0 0.3rem; }
+.gd .lede { color: var(--text); font-size: 1.1rem; }
+.gd .step { display: flex; gap: 0.8rem; align-items: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; margin: 0.7rem 0; }
+.gd .step > div { min-width: 0; }
+.gd b { color: var(--text); font-weight: 600; }
+.gd .k { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; width: 1.8rem; height: 1.8rem; border-radius: 7px; background: var(--surface3); color: var(--text); font-family: var(--font-mono); font-weight: 600; font-size: 0.95rem; }
+.gd .btnref { display: inline-block; font-size: 0.9rem; font-weight: 500; line-height: 1.35; background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px; padding: 0 0.4rem; color: var(--text); }
+.gd .note { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 0.75rem 1rem; margin: 0.7rem 0; }
+.gd .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 0.8rem; }
+.gd .card2 { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1rem; }
+.gd .card2 h3 { margin-top: 0; }
+.gd ul { padding-left: 1.2rem; } .gd li { margin: 0.35rem 0; }
+.gd a { color: var(--accent-text); }
+.gd .top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.25rem 1rem; margin: -0.6rem 0 1rem; font-size: 0.9375rem; }
+.gd .top a, .gd .top span { display: inline-flex; align-items: center; min-height: 44px; }
+.gd kbd { font-family: var(--font-mono); font-size: 0.85rem; background: var(--surface2); border: 1px solid var(--border2); border-radius: 5px; padding: 0 0.35rem; color: var(--text); }
 `;
 
 export default function GuidePage() {
   return (
     <div className="gd">
       <style>{CSS}</style>
-      <div className="top">
-        <Link to="/welcome">← QuestLab</Link>
-        <span>Guide · <Link to="/terms">Terms</Link></span>
-      </div>
+      <nav className="top" aria-label="Site">
+        <Link to="/welcome">&larr; QuestLab</Link>
+        <span>
+          Guide&nbsp;·&nbsp;<Link to="/terms">Terms</Link>
+        </span>
+      </nav>
       <h1>Your first session in 15 minutes</h1>
       <p className="lede">
-        QuestLab runs the table: living character sheets on every player&rsquo;s phone, a shared
-        board on a TV, projector, or screen-share, and a DM cockpit that keeps HP, initiative and
-        conditions in sync. Here&rsquo;s the whole loop, button by button.
+        QuestLab is your DM screen and initiative tracker, with every player&rsquo;s sheet on their
+        own phone, all kept in step for D&amp;D 5e (2024 rules). You run the night from one screen;
+        your players hold their own sheets. Here&rsquo;s the whole loop, button by button.
       </p>
 
       <h2>What you need</h2>
       <ul>
-        <li>A laptop for you (the HUD). Any browser.</li>
-        <li>Your players&rsquo; phones — no app install, no accounts. They open a link or scan a QR.</li>
-        <li>Optional: a TV or projector for the shared board (or a screen-share, or nothing — the board also lives on phones).</li>
+        <li>A laptop or tablet for you. That&rsquo;s the HUD, your DM screen. Any browser.</li>
+        <li>
+          Your players&rsquo; phones. No app to install and no accounts: they open a link or scan a
+          QR code.
+        </li>
+        <li>
+          Optional: a TV in the room. It can show the join QR, whose turn it is and the last roll.
+          Real dice and pencils work too; QuestLab is happy either way.
+        </li>
       </ul>
-
-      <h2 id="watch">Watch it done</h2>
-      <p>Two short recordings of the real app, narrated and captioned, with a music bed that was synthesized rather than sampled.</p>
-      <div className="watch">
-        <figure>
-          <video controls playsInline preload="none" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/4a9cca77-4e09-4b72-b89a-6872c0cfad32-S8uwH2Fz58NVmKITk2rEOrJdb156UK.webp">
-            <source src="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/9f95b463-1ecc-4ae5-8524-2a4009d2ec5c-cmFuWog2RaFHfvDPREPFbVo4DcQ8rm.mp4" type="video/mp4" />
-          </video>
-          <figcaption><b>Set up in five minutes</b> (2:48) — sign in, create a campaign, an arc and a session, upload a map, put the QR on the TV, and a player builds a character on their phone.</figcaption>
-        </figure>
-        <figure>
-          <video controls playsInline preload="none" poster="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/c2e69ec2-3b6d-4adb-8621-b000521fe3c5-Y5l32FHFaHSmRDu1rvhNGmOuxzMy58.webp">
-            <source src="https://lemsan3qq1nll8xj.public.blob.vercel-storage.com/maps/56033677-3a7b-4e96-b880-8961c47909da-xeWFrIogpJBy3jQoFPzaH7p83H8W8v.mp4" type="video/mp4" />
-          </video>
-          <figcaption><b>Game night</b> (2:09) — the HUD, staging a map, adding foes and rolling initiative, dragging tokens, damage and conditions landing on a phone, a die landing on the TV.</figcaption>
-        </figure>
-      </div>
 
       <h2>The loop</h2>
-      <div className="step"><span className="k">1</span><b>Sign in.</b> With your email on a personal setup, or Continue with Discord (or Patreon) on the public one — whichever the sign-in page shows. Your campaigns are tied to that identity; nobody else can see them.</div>
-      <div className="step"><span className="k">2</span><b>Create a campaign.</b> Name, setting, tone. New here? Press <span className="btnref">🎲 Run the sample night</span> on the dashboard to get a ready-made adventure, four pregens, a map and an encounter you can run tonight.</div>
-      <div className="step"><span className="k">3</span><b>Add your players.</b> Campaign → Characters → <span className="btnref">+ Character</span>. You only need a name and class; players fill the rest in from their phones. Then show the join code: open the session&rsquo;s table and tap the <span className="btnref">📱</span> chip (or <span className="btnref">📱 QR → projector</span> from the HUD). Each player scans, taps their name, and their live sheet is on their phone — it remembers them next time.</div>
-      <div className="note"><b>Optional join code.</b> On Characters, set a short code and the join page asks for it before it lists the party &mdash; say it out loud at the table, and a leaked link alone won&rsquo;t get in. <b>Remote players:</b> the <span className="btnref">🗺 Table</span> link on their sheet opens the live map with the initiative order, the party&rsquo;s HP and the roll log, and they can drag their own token (nobody else&rsquo;s).</div>
-      <div className="note"><b>Practice Arena.</b> New player, or new class? The <span className="btnref">⚔️ Arena</span> link on the sheet runs a one-on-one sparring match against a catalog foe using their real weapons, spells, slots and features, with the dice shown and a coach&rsquo;s tip when it matters. Nothing in it touches the character, and it&rsquo;s free.</div>
-      <div className="step"><span className="k">4</span><b>Add a map.</b> Campaign → Battle Maps → <span className="btnref">+ Import maps</span>. JPG, PNG, WebP — or an MP4/WebM loop for an animated map. Big files are fine (up to 80 MB). Set the grid size once and the board draws it for you. See <a href="#maps">maps and licensing</a> below.</div>
-      <div className="step"><span className="k">5</span><b>Build an encounter.</b> Sessions → your arc → <span className="btnref">💀 Encounters</span> → <span className="btnref">+ Encounter</span>, pick monsters from the SRD catalog; the difficulty meter updates as you add them.</div>
-      <div className="step"><span className="k">6</span><b>Run the night.</b> Sessions → <b>HUD</b>. Stage a map (Maps tab), then in the 🎮 Live tab <span className="btnref">+ Party</span> and <span className="btnref">+ Foes (combat)</span> to put tokens on it, start combat, and go. Damage you apply lands on players&rsquo; phones in about a second; conditions you set show on the board; players shake their phones to roll and everyone watches the die land on the shared board.</div>
-
-      <h2 id="setups">In person, online, or both</h2>
-      <div className="setups">
-        <div className="setup"><h3>🛋 In person</h3>Open <span className="btnref">Projector</span> from the HUD on a TV or projector. Players use their phones for sheets and dice. Real dice at the table work too — the app is happy either way.</div>
-        <div className="setup"><h3>🎧 Online</h3>Share the projector link in your video call (or screen-share it). Every player opens the same link on their own screen — it updates live. Phones still carry the sheets.</div>
-        <div className="setup"><h3>🔀 Hybrid</h3>TV for the room, link for the remote players. Same board, same second-by-second sync. The 3D table view is a great remote-player window.</div>
+      <div className="step">
+        <span className="k">1</span>
+        <div>
+          <b>Sign in.</b> With your email on a personal setup, or Continue with Discord (or Patreon)
+          on the public one, whichever the sign-in page shows. Your campaigns are tied to that
+          account; nobody else can see them.
+        </div>
+      </div>
+      <div className="step">
+        <span className="k">2</span>
+        <div>
+          <b>Create a campaign.</b> Name, setting, tone. New here? Press{" "}
+          <span className="btnref">Run the sample night</span> on the dashboard for a ready-made
+          adventure with four pregenerated characters and an encounter you can run tonight.
+        </div>
+      </div>
+      <div className="step">
+        <span className="k">3</span>
+        <div>
+          <b>Add your players.</b> Campaign &rarr; Characters &rarr;{" "}
+          <span className="btnref">Add character</span>. You only need a name and a class; players
+          fill in the rest from their phones. Or leave{" "}
+          <span className="btnref">Players can create their own characters</span> on and let them
+          build their own. Then hand out the join link: copy it from the party panel in the HUD, or
+          press <span className="btnref">Join QR &rarr; TV</span> and they scan the big screen. Each
+          player opens it, taps their name, and their live sheet is on their phone. It remembers
+          them next time.
+        </div>
+      </div>
+      <div className="note">
+        <b>Optional join code.</b> On Characters, set a short code (or press{" "}
+        <span className="btnref">Generate</span>) and the join page asks for it before it lists the
+        party. Say it out loud at the table, and a leaked link alone won&rsquo;t get anyone in.
+      </div>
+      <div className="step">
+        <span className="k">4</span>
+        <div>
+          <b>Prep the session.</b> Campaign &rarr; Sessions keeps your arcs and sessions in order;{" "}
+          <span className="btnref">Prep</span> opens tonight&rsquo;s brief, the runbook and the
+          read-aloud text. For a fight, open Encounters &rarr;{" "}
+          <span className="btnref">New encounter</span> and pick monsters from the SRD catalog; the
+          difficulty meter updates as you add them.
+        </div>
+      </div>
+      <div className="step">
+        <span className="k">5</span>
+        <div>
+          <b>Run the night.</b> Sessions &rarr; <span className="btnref">Run</span> opens the HUD:
+          every character&rsquo;s hit points, armor class, conditions and spell slots on one
+          screen. When a fight starts, press <span className="btnref">Add</span> in the combat bar to
+          load your encounter, then <span className="btnref">Roll init</span>; heroes and monsters
+          sort into one initiative list, and <span className="btnref">End turn</span> moves it
+          along. Damage and conditions you apply land on your players&rsquo; phones in about a
+          second.
+        </div>
       </div>
 
-      <h2 id="cockpit">Two screens, one cockpit</h2>
-      <p>The setup most DMs land on: the players&rsquo; screen (a TV, a projector, or a shared link) shows the <b>3D table view</b>; your own screen shows the <b>HUD</b> — party HP on the left; the combat bar and initiative across the top; the live board; your notes and the beats underneath. Give it three-quarters of a monitor and you never have to leave it during play.</p>
+      <h2 id="phones">On every phone</h2>
+      <p>
+        Each player holds their own sheet: hit points, spells, attacks and dice, with as much help
+        as they want.
+      </p>
       <ul>
-        <li><b>Notes anywhere.</b> Press <b>N</b> on any DM page for the notes dock: tonight&rsquo;s notes (autosaved), the runbook script, and every NPC with their secrets. Drag it where you like, resize it from the corner, dim it to see the board through it.</li>
-        <li><b>Half a monitor?</b> If Discord takes the other half, hit <span className="btnref">↗ Pop out</span> on the dock: your notes open in a small window you can park over the Discord chat column.</li>
-        <li><b>Move tokens from the HUD.</b> The 🎮 Live tab is the same board the players see — drag, ping, drop markers, stand a faction down. Save the 3D Board page for set dressing before the night.</li>
+        <li>
+          <b>Help that grows with them.</b> On first open they pick{" "}
+          <span className="btnref">Teach me</span>, <span className="btnref">Remind me</span> or{" "}
+          <span className="btnref">Just the numbers</span>: plain words and turn ideas for new
+          players, tight numbers for veterans. They can change it any time.
+        </li>
+        <li>
+          <b>Tap to roll.</b> Attacks, saves and checks roll from the sheet. Rolling real dice? They
+          type the number instead.
+        </li>
+        <li>
+          <b>Levelling up by the book.</b> When you grant a level, a guide on their phone walks them
+          through hit points, features and spells.
+        </li>
+        <li>
+          <b>Practice Arena.</b> New player, or new class? On the Character tab,{" "}
+          <span className="btnref">Practice in the Arena</span> runs a one-on-one sparring match
+          against a catalog foe with their real weapons, spells, slots and features, with the dice
+          shown and a coach&rsquo;s tip when it matters. Nothing in it changes the character.
+        </li>
       </ul>
 
-      <h2 id="maps">Maps and licensing</h2>
-      <p>Upload maps you have the right to use at your own table. That covers:</p>
+      <h2 id="table">At the table</h2>
+      <div className="cards">
+        <div className="card2">
+          <h3>Your screen</h3>
+          Keep the HUD open on your laptop. Give it most of the screen and you never need to leave
+          it during play.
+        </div>
+        <div className="card2">
+          <h3>A TV, if you have one</h3>
+          In the HUD, open <span className="btnref">Player display</span> &rarr;{" "}
+          <span className="btnref">Projector / TV</span> on the TV. It shows the join QR, whose turn
+          it is and the last roll.
+        </div>
+        <div className="card2">
+          <h3>Players at home</h3>
+          The join link works anywhere. Remote players keep their sheet open on their phone or
+          laptop while you talk on your usual call.
+        </div>
+      </div>
       <ul>
-        <li><b>Maps you made</b> — drawn, photographed, or generated with your own tools.</li>
-        <li><b>Map packs you bought or back</b> (Czepeku, Dynamic Dungeons, Forgotten Adventures, DMG maps and the like) — their personal-use licenses let you use them at your table. Never share their files with other people through QuestLab or anywhere else.</li>
-        <li><b>Free maps</b> from generators such as Infinity or Watabou, under their terms.</li>
+        <li>
+          <b>Notes anywhere.</b> Press <kbd>N</kbd> on any DM page for the notes dock:
+          tonight&rsquo;s notes (saved as you type), the runbook and every NPC with their secrets.
+          Drag it where you like, resize it from the corner, or dim it to see the HUD through it.
+        </li>
+        <li>
+          <b>Half a monitor?</b> If your call takes the other half, press{" "}
+          <span className="btnref">Pop out</span> on the dock: your notes open in a small window
+          you can park beside it.
+        </li>
       </ul>
-      <div className="note"><b>QuestLab ships no third-party map packs.</b> Your uploads are private to your account and only appear on your own tables. Don&rsquo;t upload art you don&rsquo;t have rights to.</div>
-      <p>Tips: keep maps under ~4000&nbsp;px on the long edge for fast loading; set the grid size to match your map&rsquo;s squares (most 4K packs are 140–160&nbsp;px); animated loops of 5–20&nbsp;MB stream smoothly.</p>
+
+      <h2 id="uploads">Your uploads</h2>
+      <p>
+        Upload only art you have the right to use at your own table: your own drawings, portraits
+        you commissioned, packs you bought or back (under their personal-use licences). Never share
+        other creators&rsquo; files through QuestLab or anywhere else. Your uploads are private to
+        your account and only appear in your own campaigns.
+      </p>
 
       <h2>No generative AI</h2>
-      <p>QuestLab has no generative AI in it: no AI art, no AI-written NPCs, briefs or runbooks, no models behind any button. Maps are drawn by code in an ink style, the rules are the System Reference Document, and the art is yours &mdash; your uploads, your map packs, your players&rsquo; drawings. Everything is free. If it runs your table, back the project on Patreon; that keeps the servers on and gets you a seat in the Discord and your name in the credits.</p>
+      <p>
+        QuestLab has no generative AI in it: no AI art, no AI-written NPCs, briefs or runbooks, no
+        models behind any button. The rules are the System Reference Document, and the art is yours
+        &mdash; your uploads and your players&rsquo; drawings. Everything is free. If it runs your
+        table, back the project on Patreon; that keeps the servers on and gets you a seat in the
+        Discord and your name in the credits.
+      </p>
 
       <h2>Common questions</h2>
-      <h3>Do my players need accounts?</h3><p>No. A player&rsquo;s link is their key; keep it in the group. They can reopen their sheet any time from the same phone.</p>
-      <h3>Is my campaign private?</h3><p>Yes. Only your signed-in account can see or change it. Player links show that player&rsquo;s sheet and the shared table — never your notes.</p>
-      <h3>What rules does it use?</h3><p>D&amp;D 5e (2024 rules), with SRD 5.2.1 content under CC-BY 4.0. Characters built on the 2014 rules still work; the rules engine and the level-up guide follow 2024.</p>
-      <h3>Something broke mid-session</h3><p>Reload the page — everything is saved server-side. If the board looks stale, reload the projector tab.</p>
+      <h3>Do my players need accounts?</h3>
+      <p>
+        No. A player&rsquo;s link is their key; keep it in the group. They can reopen their sheet
+        any time from the same phone.
+      </p>
+      <h3>Is my campaign private?</h3>
+      <p>
+        Yes. Only your signed-in account can see or change it. Player links show that
+        player&rsquo;s sheet and what you share with the table, never your notes.
+      </p>
+      <h3>What rules does it use?</h3>
+      <p>
+        D&amp;D 5e (2024 rules), with SRD 5.2.1 content under CC-BY 4.0. Characters built on the
+        2014 rules still work; the rules engine and the level-up guide follow 2024.
+      </p>
+      <h3>Something broke mid-session</h3>
+      <p>
+        Reload the page; everything is saved on the server. If the TV looks stale, reload its tab.
+      </p>
     </div>
   );
 }

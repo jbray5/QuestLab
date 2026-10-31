@@ -50,7 +50,9 @@ export default function PortraitGenerator({
   const portraitSize = variant === "sheet" ? 56 : 96;
 
   return (
+    // `.ql-s6`: thumb-sized controls on a phone (index.css, Plan 123 S6).
     <div
+      className="ql-s6"
       style={{
         display: "flex",
         gap: "0.75rem",

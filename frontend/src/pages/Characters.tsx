@@ -15,6 +15,7 @@ import SpellPanel from "../components/SpellPanel";
 import { portraitSrc } from "../lib/portrait";
 import RowMenu from "../components/RowMenu";
 import Monogram from "../components/character-sheet/Monogram";
+import { useIsCompact } from "../hooks/useIsCompact";
 
 function mod(score: number) {
   const m = Math.floor((score - 10) / 2);
@@ -104,6 +105,9 @@ export default function Characters() {
   const [form, setForm] = useState(BLANK_FORM);
   const [formError, setFormError] = useState("");
   const [sheetPcId, setSheetPcId] = useState<string | null>(null);
+  // Phones (Plan 123): the add/edit form stacks, and `.ql-s6` makes the small
+  // inline buttons and fields thumb-sized (index.css, S6 block).
+  const phone = useIsCompact(640);
 
   const { data: characters = [], isLoading } = useQuery({
     queryKey: ["characters", campaignId],
@@ -210,10 +214,10 @@ export default function Characters() {
       }));
 
   return (
-    <div className="fade-in">
+    <div className="fade-in ql-s6">
       <div
         className="flex items-center"
-        style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}
+        style={{ marginBottom: "1.5rem", justifyContent: "space-between", gap: phone ? "0.75rem" : undefined }}
       >
         <div>
           <h1 style={{ marginBottom: "0.2rem" }}>Characters</h1>
@@ -233,6 +237,7 @@ export default function Characters() {
         <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
           {/* Plan 74 — players build their own characters from the join link. */}
           <label
+            className="ql-s6-tap"
             style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8125rem", color: "var(--text2)", cursor: "pointer", margin: 0 }}
             title="When on, anyone with your join link / QR can create a character in this campaign"
           >
@@ -320,15 +325,26 @@ export default function Characters() {
         <div className="card" style={{ marginBottom: "1.5rem", maxWidth: 600 }}>
           <h3>{editing ? "Edit character" : "New character"}</h3>
 
-          <div style={{ display: "flex", gap: "1.25rem", alignItems: "flex-start", marginBottom: "0.75rem" }}>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: phone ? "column" : undefined,
+              gap: "1.25rem",
+              alignItems: phone ? "stretch" : "flex-start",
+              marginBottom: "0.75rem",
+            }}
+          >
             <ImageUpload
               currentUrl={form.portrait_url || null}
               onUrlChange={(url) => setForm((prev) => ({ ...prev, portrait_url: url }))}
               label="Portrait"
               size={100}
             />
-            <div style={{ flex: 1 }}>
-              <div className="grid-2">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                className="grid-2"
+                style={phone ? { gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0 0.75rem", alignItems: "end" } : undefined}
+              >
                 <div className="form-group">
                   <label>Character name *</label>
                   <input value={form.character_name} onChange={f("character_name")} />
@@ -416,7 +432,7 @@ export default function Characters() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(6, 1fr)",
+              gridTemplateColumns: phone ? "repeat(3, minmax(0, 1fr))" : "repeat(6, 1fr)",
               gap: "0.5rem",
               margin: "0.5rem 0 1rem",
             }}
@@ -541,7 +557,14 @@ export default function Characters() {
                 10/31 — no 3D figures here (Justin): a WebGL preview per character
                 ran phones out of memory and crashed the page. */}
             <details style={{ marginTop: "0.75rem" }}>
-              <summary style={{ cursor: "pointer", fontSize: "0.8125rem", color: "var(--muted)" }}>
+              <summary
+                style={{
+                  cursor: "pointer",
+                  fontSize: "0.8125rem",
+                  color: "var(--muted)",
+                  padding: phone ? "0.75rem 0" : undefined,
+                }}
+              >
                 Portrait
               </summary>
               <div style={{ marginTop: "0.6rem", display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
@@ -589,7 +612,7 @@ export default function Characters() {
                 <a
                   className="btn btn-ghost"
                   style={{ fontSize: "0.8125rem", padding: "0.25rem 0.55rem", minHeight: 0, color: "var(--accent-text)", borderColor: "var(--accent-line)" }}
-                  href={`/play/${c.id}/level-up`}
+                  href={`/play/${c.play_token ?? c.id}/level-up`}
                   target="_blank"
                   rel="noreferrer"
                   title="The player's guide — open it here to walk them through it"

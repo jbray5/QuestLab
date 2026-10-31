@@ -169,7 +169,7 @@ export default function InventoryPanel({
           {row.attuned ? "Attuned" : "Attune"}
         </button>
         <button
-          className="btn btn-ghost"
+          className="btn btn-ghost ql-s6-sq"
           style={REMOVE_BTN}
           onClick={() => {
             if (window.confirm(`Remove ${itemName} from ${characterName}?`)) {
@@ -186,7 +186,7 @@ export default function InventoryPanel({
   }
 
   return (
-    <div style={PANEL_STYLE}>
+    <div className="ql-s6" style={PANEL_STYLE}>
       <div style={PANEL_HEAD_STYLE} onClick={() => setOpen((p) => !p)}>
         <h4 style={PANEL_TITLE_STYLE}>
           <Backpack size={16} style={{ color: "var(--muted)" }} />

@@ -3,6 +3,7 @@ import { Dices, X } from "lucide-react";
 
 import Confetti from "../Confetti";
 import { useGatedSfx } from "../../hooks/useDicePrefs";
+import { useIsCompact } from "../../hooks/useIsCompact";
 import { playCritFanfare, playFumbleTrombone } from "../../lib/dice-sound";
 
 export interface RollContext {
@@ -47,6 +48,8 @@ function fmt(n: number): string {
  *   7. Optional damage formula for attacks (real damage dice rolled by hand)
  *
  * Closes on ESC, click-outside, or the close button.
+ * Phones (Plan 123): the panel spans the screen width under the top edge and
+ * every toggle and button is thumb-sized.
  */
 export default function RollHelper({ context, onClose }: Props) {
   // Guard OUTSIDE the hook-bearing component so hook order is always stable.
@@ -63,6 +66,10 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
   const [d20a, setD20a] = useState<number | "">("");
   const [d20b, setD20b] = useState<number | "">("");
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const phone = useIsCompact(640);
+  /** A thumb-sized control on a phone; unchanged on desktop. */
+  const tap = (style: React.CSSProperties): React.CSSProperties =>
+    phone ? { ...style, minHeight: 44, minWidth: 44, justifyContent: "center" } : style;
 
   // Reset on context change + focus the input
   useEffect(() => {
@@ -149,15 +156,16 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
         onClick={(e) => e.stopPropagation()}
         style={{
           position: "fixed",
-          top: "1rem",
-          right: "1rem",
+          top: phone ? "calc(0.5rem + env(safe-area-inset-top, 0px))" : "1rem",
+          right: phone ? "0.5rem" : "1rem",
+          left: phone ? "0.5rem" : undefined,
           background: "var(--surface)",
           border: `1px solid ${accent}`,
           borderRadius: 10,
           padding: "0.85rem 1.1rem",
           zIndex: 9999,
-          minWidth: 300,
-          maxWidth: "min(380px, calc(100vw - 2rem))",
+          minWidth: phone ? 0 : 300,
+          maxWidth: phone ? "none" : "min(380px, calc(100vw - 2rem))",
           boxShadow: "0 10px 28px rgba(0,0,0,0.55)",
           fontFamily: "inherit",
           animation: isFumble ? "ql-shake 500ms ease-in-out 1 both" : undefined,
@@ -173,7 +181,7 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
           <button
             onClick={onClose}
             className="btn btn-ghost"
-            style={{ border: "none", padding: "0.2rem", minHeight: 0, color: "var(--muted)" }}
+            style={tap({ border: "none", padding: "0.2rem", minHeight: 0, color: "var(--muted)" })}
             title="Close (Esc)"
             aria-label="Close roll helper"
           >
@@ -247,6 +255,7 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
                 style={{
                   fontSize: "0.8125rem",
                   padding: "0.3rem 0.25rem",
+                  minHeight: phone ? 44 : undefined,
                   background: isActive ? "var(--accent-active)" : "transparent",
                   color: isActive ? "var(--accent-active-text)" : "var(--text2)",
                   border: `1px solid ${isActive ? "var(--accent-line)" : "var(--border2)"}`,
@@ -283,13 +292,13 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
             onChange={(e) => setD20a(clamp(e.target.value))}
             placeholder="?"
             aria-label="d20 result"
-            className="num"
-            style={dieInputStyle(accent)}
+            className="num ql-s6-keep"
+            style={phone ? { ...dieInputStyle(accent), minHeight: 44 } : dieInputStyle(accent)}
           />
           <button
             onClick={rollDigitalA}
             className="btn btn-ghost"
-            style={{ padding: "0.3rem 0.45rem", minHeight: 0 }}
+            style={tap({ padding: "0.3rem 0.45rem", minHeight: 0 })}
             title="Roll a digital d20 instead"
             aria-label="Roll a digital d20"
           >
@@ -308,13 +317,13 @@ function RollHelperInner({ context, onClose }: { context: RollContext; onClose: 
                 onChange={(e) => setD20b(clamp(e.target.value))}
                 placeholder="?"
                 aria-label="Second d20 result"
-                className="num"
-                style={dieInputStyle(accent)}
+                className="num ql-s6-keep"
+                style={phone ? { ...dieInputStyle(accent), minHeight: 44 } : dieInputStyle(accent)}
               />
               <button
                 onClick={rollDigitalB}
                 className="btn btn-ghost"
-                style={{ padding: "0.3rem 0.45rem", minHeight: 0 }}
+                style={tap({ padding: "0.3rem 0.45rem", minHeight: 0 })}
                 title="Roll a digital d20 instead"
                 aria-label="Roll a second digital d20"
               >

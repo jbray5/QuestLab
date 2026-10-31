@@ -14,6 +14,7 @@
 
 import { Gem } from "lucide-react";
 
+import { useIsCompact } from "../../hooks/useIsCompact";
 import { obsidianHref, OBSIDIAN_FOLDER } from "../../lib/obsidian";
 
 interface Props {
@@ -24,8 +25,11 @@ interface Props {
 }
 
 export default function ObsidianLink({ dmNote, compact = false }: Props) {
+  // Plan 123 — thumb-sized on a phone.
+  const phone = useIsCompact(640);
   const path = (dmNote ?? "").trim();
   if (!path) return null;
+  const box = phone ? 44 : compact ? 22 : 26;
   return (
     <a
       href={obsidianHref(path)}
@@ -36,8 +40,8 @@ export default function ObsidianLink({ dmNote, compact = false }: Props) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        width: compact ? 22 : 26,
-        height: compact ? 22 : 26,
+        width: box,
+        height: box,
         flexShrink: 0,
         borderRadius: 6,
         border: "1px solid var(--border2)",

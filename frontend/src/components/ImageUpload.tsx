@@ -60,7 +60,8 @@ export default function ImageUpload({
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+    // `.ql-s6`: on a phone the URL field and Set button are thumb-sized (Plan 123 S6).
+    <div className="ql-s6" style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
       {/* Preview */}
       <div
         onClick={() => inputRef.current?.click()}

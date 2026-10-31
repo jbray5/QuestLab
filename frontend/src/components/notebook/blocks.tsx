@@ -1,4 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
+import {
+  BookOpen,
+  Image as ImageIcon,
+  KeyRound,
+  MessageCircle,
+  Minus,
+  PenLine,
+  Pilcrow,
+  StickyNote,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
 import type { Block, BlockType } from "../../api/notebooks";
 import { uploadImage } from "../../api/notebooks";
@@ -11,22 +23,22 @@ import SketchBlock, { type SketchContent } from "./SketchBlock";
  * tokens; the page wires token insertion to margin-pin creation.
  */
 
-export const BLOCK_MENU: { type: BlockType; icon: string; label: string; hint: string }[] = [
-  { type: "text", icon: "¶", label: "Text", hint: "markdown paragraph" },
-  { type: "verbatim", icon: "📖", label: "Verbatim", hint: "read-aloud script" },
-  { type: "prompt", icon: "💬", label: "Prompt", hint: "a question aimed at a player" },
-  { type: "key", icon: "🗝", label: "Key", hint: "DM key — muted, scannable" },
-  { type: "card", icon: "🗂", label: "Card", hint: "title + up to 5 beats" },
-  { type: "sketch", icon: "🖊", label: "Sketch", hint: "freehand canvas" },
-  { type: "image", icon: "🖼", label: "Image", hint: "picker or paste" },
-  { type: "divider", icon: "―", label: "Divider", hint: "scene break" },
+export const BLOCK_MENU: { type: BlockType; icon: LucideIcon; label: string; hint: string }[] = [
+  { type: "text", icon: Pilcrow, label: "Text", hint: "markdown paragraph" },
+  { type: "verbatim", icon: BookOpen, label: "Verbatim", hint: "read-aloud script" },
+  { type: "prompt", icon: MessageCircle, label: "Prompt", hint: "a question aimed at a player" },
+  { type: "key", icon: KeyRound, label: "Key", hint: "DM key — muted, scannable" },
+  { type: "card", icon: StickyNote, label: "Card", hint: "title + up to 5 beats" },
+  { type: "sketch", icon: PenLine, label: "Sketch", hint: "freehand canvas" },
+  { type: "image", icon: ImageIcon, label: "Image", hint: "picker or paste" },
+  { type: "divider", icon: Minus, label: "Divider", hint: "scene break" },
 ];
 
 const PLACEHOLDER: Partial<Record<BlockType, string>> = {
   text: "Write, or “/” for a block, “@” for a face…",
-  verbatim: "📖 Read aloud…",
-  prompt: "💬 Ask a player… (start with their name)",
-  key: "🗝 DM key — never read aloud…",
+  verbatim: "Read aloud…",
+  prompt: "Ask a player… (start with their name)",
+  key: "DM key — never read aloud…",
 };
 
 /** Autosized textarea that grows with content. */
@@ -70,7 +82,7 @@ export function AutoTextarea({
   );
 }
 
-/** The 🗂 index card editor: title + up to 5 one-line beats. */
+/** The index card editor: title + up to 5 one-line beats. */
 export function CardEditor({
   content,
   onChange,
@@ -86,7 +98,7 @@ export function CardEditor({
       <input
         className="nb-card-title"
         value={title}
-        placeholder="🗂 Card title…"
+        placeholder="Card title…"
         onChange={(e) => onChange({ ...content, title: e.target.value })}
       />
       {shown.map((b, i) => (
@@ -94,7 +106,7 @@ export function CardEditor({
           key={i}
           className="nb-card-beat"
           value={b}
-          placeholder={`beat ${i + 1}`}
+          placeholder={`Beat ${i + 1}`}
           onChange={(e) => {
             const next = [...shown];
             next[i] = e.target.value;
@@ -131,8 +143,13 @@ export function ImageBlockEditor({
           placeholder="caption (optional)"
           onChange={(e) => onChange({ ...content, caption: e.target.value })}
         />
-        <button className="nb-tool nb-image-clear" title="Remove image" onClick={() => onChange({})}>
-          ✕
+        <button
+          className="nb-tool nb-image-clear"
+          title="Remove image"
+          aria-label="Remove image"
+          onClick={() => onChange({})}
+        >
+          <X size={16} />
         </button>
       </figure>
     );
@@ -180,16 +197,16 @@ export function ImageBlockEditor({
       ) : (
         <>
           <button className="nb-ghost" onClick={() => setPicking(true)}>
-            🖼 Pick from the app
+            <ImageIcon size={14} /> Pick from the app
           </button>
-          <span className="nb-dim"> — or click here and paste an image</span>
+          <span className="nb-dim"> — or tap here and paste an image</span>
         </>
       )}
     </div>
   );
 }
 
-/** Sketch + the "🗺 sketch over a map" picker (maps/PC/NPC/item art). */
+/** Sketch + the "sketch over a map" picker (maps/PC/NPC/item art). */
 function SketchWithPicker({
   campaignId,
   content,

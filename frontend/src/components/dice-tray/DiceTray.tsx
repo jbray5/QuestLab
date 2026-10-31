@@ -3,6 +3,8 @@ import { Dices, Volume2, VolumeX } from "lucide-react";
 
 import { playDiceClatter } from "../../lib/dice-sound";
 import { useDicePrefs } from "../../hooks/useDicePrefs";
+import { useIsCompact } from "../../hooks/useIsCompact";
+import PhoneSheet from "../PhoneSheet";
 
 interface RollResult {
   id: number;
@@ -31,10 +33,13 @@ export default function DiceTray() {
   const [history, setHistory] = useState<RollResult[]>([]);
   const [prefs, setPrefs] = useDicePrefs();
   const trayRef = useRef<HTMLDivElement | null>(null);
+  // Plan 123 — on a phone the tray opens as a bottom sheet (its backdrop and
+  // Escape close it), with wide fields and thumb-sized dice.
+  const phone = useIsCompact(640);
 
   // Click outside to close.
   useEffect(() => {
-    if (!open) return;
+    if (!open || phone) return;
     function onClick(e: MouseEvent) {
       if (trayRef.current && !trayRef.current.contains(e.target as Node)) {
         setOpen(false);
@@ -53,7 +58,7 @@ export default function DiceTray() {
       window.removeEventListener("mousedown", onClick);
       window.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, phone]);
 
   function roll(sides: number) {
     const n = Math.max(1, Math.min(20, Math.floor(count) || 1));
@@ -94,7 +99,64 @@ export default function DiceTray() {
         fontFamily: "inherit",
       }}
     >
-      {open && (
+      {open && phone && (
+        <PhoneSheet title="Dice tray" onClose={() => setOpen(false)}>
+          <p style={{ margin: "-0.25rem 0 0.75rem", fontSize: "0.8125rem", color: "var(--muted)" }}>
+            Private — only you see these rolls
+          </p>
+          {history.length > 0 && <HistoryStrip history={history} />}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem", marginBottom: "0.75rem" }}>
+            <label style={{ ...labelStyle, display: "flex", flexDirection: "column", gap: 4 }}>
+              How many
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={count}
+                onChange={(e) => setCount(Number(e.target.value))}
+                onFocus={(e) => e.currentTarget.select()}
+                style={{ ...numberInputStyle, width: "100%", minHeight: 44, fontSize: 16 }}
+              />
+            </label>
+            <label style={{ ...labelStyle, display: "flex", flexDirection: "column", gap: 4 }}>
+              Bonus
+              <input
+                type="number"
+                value={modifier}
+                onChange={(e) => setModifier(Number(e.target.value))}
+                onFocus={(e) => e.currentTarget.select()}
+                style={{ ...numberInputStyle, width: "100%", minHeight: 44, fontSize: 16 }}
+              />
+            </label>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "0.5rem" }}>
+            {DICE.map((sides) => (
+              <button key={sides} className="btn btn-secondary" onClick={() => roll(sides)} style={{ ...dieButtonStyle, minHeight: 52, fontSize: "1.05rem" }}>
+                d{sides}
+              </button>
+            ))}
+            <button
+              className="btn btn-ghost"
+              onClick={() => setHistory([])}
+              disabled={history.length === 0}
+              style={{ ...dieButtonStyle, minHeight: 52, fontFamily: "var(--font-ui)", fontSize: "0.875rem", color: "var(--muted)" }}
+              title="Clear history"
+            >
+              Clear
+            </button>
+          </div>
+          <button
+            onClick={() => setPrefs({ soundEnabled: !prefs.soundEnabled })}
+            aria-pressed={prefs.soundEnabled}
+            className="btn btn-ghost"
+            style={{ minHeight: 44, marginTop: "0.75rem", fontSize: "0.875rem", gap: "0.4rem" }}
+          >
+            {prefs.soundEnabled ? <Volume2 size={16} aria-hidden /> : <VolumeX size={16} aria-hidden />}
+            {prefs.soundEnabled ? "Sound on" : "Sound off"}
+          </button>
+        </PhoneSheet>
+      )}
+      {open && !phone && (
         <div
           className="ql-modal-in"
           style={{
@@ -139,38 +201,7 @@ export default function DiceTray() {
           </div>
 
           {/* History strip */}
-          {history.length > 0 && (
-            <div style={historyStripStyle}>
-              {history.map((r) => (
-                <div key={r.id} style={historyRowStyle}>
-                  <span className="num" style={{ color: "var(--text2)" }}>{r.label}</span>
-                  <span className="num" style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
-                    [{r.rolls.join(",")}]
-                  </span>
-                  {(r.isCrit || r.isFumble) && (
-                    <span style={{ fontSize: "0.75rem", color: r.isCrit ? "var(--teal-text)" : "var(--danger-text)" }}>
-                      {r.isCrit ? "natural 20" : "natural 1"}
-                    </span>
-                  )}
-                  <span
-                    className="num"
-                    style={{
-                      fontWeight: 600,
-                      fontSize: "0.95rem",
-                      color: r.isCrit
-                        ? "var(--teal-text)"
-                        : r.isFumble
-                          ? "var(--danger-text)"
-                          : "var(--text)",
-                      marginLeft: "auto",
-                    }}
-                  >
-                    {r.total}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          {history.length > 0 && <HistoryStrip history={history} />}
 
           {/* Count + modifier */}
           <div
@@ -257,6 +288,42 @@ export default function DiceTray() {
       >
         <Dices size={22} aria-hidden />
       </button>
+    </div>
+  );
+}
+
+/** The last few rolls, newest first. */
+function HistoryStrip({ history }: { history: RollResult[] }) {
+  return (
+    <div style={historyStripStyle}>
+      {history.map((r) => (
+        <div key={r.id} style={historyRowStyle}>
+          <span className="num" style={{ color: "var(--text2)" }}>{r.label}</span>
+          <span className="num" style={{ color: "var(--muted)", fontSize: "0.75rem" }}>
+            [{r.rolls.join(",")}]
+          </span>
+          {(r.isCrit || r.isFumble) && (
+            <span style={{ fontSize: "0.75rem", color: r.isCrit ? "var(--teal-text)" : "var(--danger-text)" }}>
+              {r.isCrit ? "natural 20" : "natural 1"}
+            </span>
+          )}
+          <span
+            className="num"
+            style={{
+              fontWeight: 600,
+              fontSize: "0.95rem",
+              color: r.isCrit
+                ? "var(--teal-text)"
+                : r.isFumble
+                  ? "var(--danger-text)"
+                  : "var(--text)",
+              marginLeft: "auto",
+            }}
+          >
+            {r.total}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

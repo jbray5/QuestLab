@@ -208,7 +208,7 @@ function Settings() {
       </div>
       {canWake && (
         <label style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, margin: 0, fontSize: 15, color: "var(--text)" }}>
-          <input type="checkbox" checked={prefs.awake} onChange={(e) => setPrefs({ awake: e.target.checked })} style={{ width: 20, height: 20 }} />
+          <input type="checkbox" checked={prefs.awake} onChange={(e) => setPrefs({ awake: e.target.checked })} style={{ width: 20, height: 20, flexShrink: 0 }} />
           Keep the screen on during the session
         </label>
       )}

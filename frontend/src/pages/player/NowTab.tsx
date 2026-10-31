@@ -240,7 +240,7 @@ function Waiting() {
 }
 
 function Exploring() {
-  const { pc, liveSessionId, help } = usePlayer();
+  const { pc, pcId, liveSessionId, help } = usePlayer();
   const roll = useRoll();
   return (
     <>
@@ -256,7 +256,7 @@ function Exploring() {
         <Dices size={18} /> Roll initiative
       </button>
       {liveSessionId && (
-        <Link to={`/table/${liveSessionId}?pc=${pc.id}`} style={{ fontSize: 14, alignSelf: "flex-start", padding: "8px 0" }}>
+        <Link to={`/table/${liveSessionId}?pc=${pcId}`} style={{ fontSize: 14, alignSelf: "flex-start", padding: "8px 0" }}>
           Open the table map
         </Link>
       )}
@@ -293,7 +293,8 @@ function QuickChecks({ pcName }: { pcName: string }) {
 
 function Conditions() {
   const { combat, help, pc } = usePlayer();
-  const list = [...(combat?.in_combat ? combat.conditions : []), ...(pc.exhaustion ? ["exhaustion"] : [])];
+  // UX-001 — lasting conditions show between fights too (the server sends them).
+  const list = [...(combat?.conditions ?? []), ...(pc.exhaustion ? ["exhaustion"] : [])];
   if (list.length === 0) return null;
   return (
     <Panel style={{ padding: "10px 12px", gap: 6 }}>

@@ -82,8 +82,9 @@ export default function ModelUpload({ currentUrl, onUrlChange, heightFt, label =
   // Review 10/30 — file formats, rigs and bone counts are for whoever builds
   // figures, not for every DM looking at a character card: folded away.
   return (
-    <details style={{ fontSize: "0.8125rem" }} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
-      <summary style={{ cursor: "pointer", color: "var(--muted)", listStyle: "revert" }}>
+    // `.ql-s6`: on a phone the URL field and buttons are thumb-sized (Plan 123 S6).
+    <details className="ql-s6" style={{ fontSize: "0.8125rem" }} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
+      <summary className="ql-s6-hit" style={{ cursor: "pointer", color: "var(--muted)", listStyle: "revert" }}>
         {label}:{" "}
         {currentUrl ? (
           <span style={{ color: "var(--teal-text)", display: "inline-flex", alignItems: "center", gap: 3 }}>

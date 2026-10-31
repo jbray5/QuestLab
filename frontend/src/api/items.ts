@@ -12,6 +12,8 @@ export interface MagicItem {
   is_magic: boolean;
   image_url: string | null;
   properties: Record<string, unknown> | null;
+  /** SEC-003 — the DM who made this homebrew item; null for the shared catalog. */
+  created_by_email?: string | null;
   // Weapon fields (Plan 00018, null for non-weapons)
   weapon_category: string | null;
   damage_die: string | null;

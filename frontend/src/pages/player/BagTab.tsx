@@ -45,8 +45,8 @@ export default function BagTab() {
         {!isLoading && pack.length === 0 && <span style={{ fontSize: 14, color: "var(--muted)" }}>Your pack is empty. Loot and market buys land here.</span>}
         {pack.map((g, i) => <Item key={g.character_item_id} g={g} last={i === pack.length - 1} />)}
       </Panel>
-      <CardLink to={`/market/${pc.campaign_id}?pc=${pc.id}`} icon={<Store size={20} />} title="Visit the market" sub="Buy with your coin; sell what you don't need." lit />
-      <CardLink to={`/play/${pc.id}/character`} icon={<Shirt size={20} />} title="Your look and gear" sub="Equip and swap what you carry." />
+      <CardLink to={`/market/${pc.campaign_id}?pc=${pcId}`} icon={<Store size={20} />} title="Visit the market" sub="Buy with your coin; sell what you don't need." lit />
+      <CardLink to={`/play/${pcId}/character`} icon={<Shirt size={20} />} title="Your look and gear" sub="Equip and swap what you carry." />
     </>
   );
 }

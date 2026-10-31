@@ -103,7 +103,8 @@ export default function Dashboard() {
   const fresh = !isLoading && !isError && campaigns.length === 0;
 
   return (
-    <div className="fade-in">
+    // `.ql-s6`: thumb-sized controls on a phone (index.css, Plan 123 S6).
+    <div className="fade-in ql-s6">
       <div
         className="flex items-center"
         style={{ justifyContent: "space-between", gap: "1rem", marginBottom: "1.5rem" }}
@@ -114,7 +115,7 @@ export default function Dashboard() {
             Open a campaign to plan or run its next session.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="ql-actions">
           <button
             className={fresh ? "btn btn-primary" : "btn btn-secondary"}
             title="A ready-made adventure, four pregens, a staged map and an encounter — run it tonight"

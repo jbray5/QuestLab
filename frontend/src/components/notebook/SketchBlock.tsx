@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Eraser, GripHorizontal, Map as MapIcon, Redo2, Trash2, Undo2 } from "lucide-react";
 
 /**
  * SketchBlock — the napkin (Plan 57).
@@ -168,6 +169,8 @@ export default function SketchBlock({
               className={`nb-ink${ink === c && !erasing ? " on" : ""}`}
               style={{ background: c }}
               title="Ink"
+              aria-label={`Ink ${c}`}
+              aria-pressed={ink === c && !erasing}
               onClick={() => {
                 setInk(c);
                 setErasing(false);
@@ -180,6 +183,8 @@ export default function SketchBlock({
               key={w}
               className={`nb-weight${weight === w && !erasing ? " on" : ""}`}
               title={`Pen ${w}px`}
+              aria-label={`Pen ${w}px`}
+              aria-pressed={weight === w && !erasing}
               onClick={() => {
                 setWeight(w);
                 setErasing(false);
@@ -192,24 +197,27 @@ export default function SketchBlock({
           <button
             className={`nb-tool${erasing ? " on" : ""}`}
             title="Eraser (removes strokes)"
+            aria-label="Eraser"
+            aria-pressed={erasing}
             onClick={() => setErasing((v) => !v)}
           >
-            ⌫
+            <Eraser size={16} />
           </button>
-          <button className="nb-tool" title="Undo" onClick={undo}>
-            ↶
+          <button className="nb-tool" title="Undo" aria-label="Undo stroke" onClick={undo}>
+            <Undo2 size={16} />
           </button>
-          <button className="nb-tool" title="Redo" onClick={redo}>
-            ↷
+          <button className="nb-tool" title="Redo" aria-label="Redo stroke" onClick={redo}>
+            <Redo2 size={16} />
           </button>
           <button
             className="nb-tool"
             title="Clear sketch"
+            aria-label="Clear sketch"
             onClick={() => {
               if (paths.length && confirm("Clear the sketch?")) commit([]);
             }}
           >
-            ✕
+            <Trash2 size={16} />
           </button>
           {onPickBackground && (
             <>
@@ -217,6 +225,7 @@ export default function SketchBlock({
               <button
                 className={`nb-tool${bg ? " on" : ""}`}
                 title={bg ? "Remove the map underneath" : "Sketch on top of a map"}
+                aria-label={bg ? "Remove the map underneath" : "Sketch on top of a map"}
                 onClick={async () => {
                   if (bg) {
                     setBg(null);
@@ -230,7 +239,7 @@ export default function SketchBlock({
                   }
                 }}
               >
-                🗺
+                <MapIcon size={16} />
               </button>
             </>
           )}
@@ -269,6 +278,7 @@ export default function SketchBlock({
         <div
           className="nb-sketch-resize"
           title="Drag to resize"
+          aria-hidden
           onPointerDown={(e) => {
             e.preventDefault();
             const startY = e.clientY;
@@ -287,7 +297,7 @@ export default function SketchBlock({
             window.addEventListener("pointerup", onUp);
           }}
         >
-          ⋮⋮
+          <GripHorizontal size={14} />
         </div>
       )}
     </div>

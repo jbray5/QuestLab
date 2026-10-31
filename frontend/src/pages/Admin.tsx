@@ -1,10 +1,23 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Check, Download, LayoutDashboard, Skull } from "lucide-react";
 import { adminApi } from "../api/admin";
 import { useAuthStore } from "../stores/useAuthStore";
 import { plural } from "../lib/plural";
+import { AI_ON } from "../lib/flags";
+import { useIsCompact } from "../hooks/useIsCompact";
+
+const TABS = [
+  { id: "overview", label: "Overview", icon: <LayoutDashboard size={16} aria-hidden /> },
+  { id: "monsters", label: "Monsters", icon: <Skull size={16} aria-hidden /> },
+  { id: "export", label: "Export", icon: <Download size={16} aria-hidden /> },
+] as const;
+
+const TH: React.CSSProperties = { padding: "0.5rem 0.6rem", fontWeight: 500 };
+const TD: React.CSSProperties = { padding: "0.45rem 0.6rem", textAlign: "center" };
 
 export default function Admin() {
+  const phone = useIsCompact(640);
   const { dmEmail } = useAuthStore();
   const [tab, setTab] = useState<"overview" | "monsters" | "export">("overview");
   const [reseedConfirm, setReseedConfirm] = useState(false);
@@ -27,30 +40,41 @@ export default function Admin() {
 
   const exportCampaigns = useMutation({ mutationFn: adminApi.exportCampaigns });
 
-  const TABS = [
-    { id: "overview", label: "📊 Overview" },
-    { id: "monsters", label: "💀 Monsters" },
-    { id: "export", label: "📤 Export" },
-  ] as const;
-
   return (
     <div className="fade-in">
-      <h1>Admin Panel</h1>
-      <p className="text-muted" style={{ marginBottom: "1.5rem" }}>
-        Signed in as <span className="text-mono">{dmEmail || "—"}</span>
+      <h1>Admin panel</h1>
+      <p className="text-muted" style={{ marginBottom: "1.5rem", overflowWrap: "anywhere" }}>
+        Signed in as <span className="num">{dmEmail || "—"}</span>
       </p>
 
       {/* Tab bar */}
-      <div className="flex gap-2" style={{ marginBottom: "1.5rem" }}>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            className={`btn ${tab === t.id ? "btn-primary" : "btn-ghost"}`}
-            onClick={() => setTab(t.id)}
-          >
-            {t.label}
-          </button>
-        ))}
+      <div
+        className="flex gap-2"
+        role="tablist"
+        aria-label="Admin sections"
+        style={{ marginBottom: "1.5rem", flexWrap: phone ? "nowrap" : undefined }}
+      >
+        {TABS.map((t) => {
+          const on = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={on}
+              className="btn btn-ghost"
+              onClick={() => setTab(t.id)}
+              style={{
+                // A phone fits the three tabs on one row, equal widths.
+                ...(phone ? { flex: "1 1 0", minWidth: 0, paddingInline: "0.5rem" } : null),
+                ...(on
+                  ? { background: "var(--accent-active)", color: "var(--accent-active-text)", borderColor: "var(--accent-line)" }
+                  : null),
+              }}
+            >
+              {t.icon} {t.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Overview */}
@@ -58,21 +82,21 @@ export default function Admin() {
         <div>
           <div className="grid-3">
             <div className="card">
-              <h4>Monster Catalog</h4>
-              <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
+              <h4>Monster catalog</h4>
+              <p style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
                 SRD stat blocks available for encounter building.
               </p>
             </div>
             <div className="card">
-              <h4>Campaign Export</h4>
-              <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
+              <h4>Campaign export</h4>
+              <p style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
                 Export all campaigns as JSON for backup.
               </p>
             </div>
             <div className="card">
               <h4>System</h4>
-              <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-                FastAPI backend · DuckDB · Claude AI
+              <p style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
+                FastAPI backend · DuckDB{AI_ON ? " · Claude AI" : ""}
               </p>
             </div>
           </div>
@@ -82,13 +106,13 @@ export default function Admin() {
       {/* Monsters */}
       {tab === "monsters" && (
         <div>
-          <div className="flex gap-2" style={{ marginBottom: "1rem" }}>
+          <div className="flex gap-2" style={{ marginBottom: "1rem", alignItems: "center" }}>
             <button
               className="btn btn-secondary"
               onClick={() => seed.mutate()}
               disabled={seed.isPending}
             >
-              {seed.isPending ? "Seeding…" : "Seed Monsters"}
+              {seed.isPending ? "Seeding…" : "Seed monsters"}
             </button>
 
             {!reseedConfirm ? (
@@ -96,19 +120,19 @@ export default function Admin() {
                 className="btn btn-danger"
                 onClick={() => setReseedConfirm(true)}
               >
-                Force Reseed
+                Force reseed
               </button>
             ) : (
               <>
-                <span className="text-sm" style={{ color: "var(--yellow)", alignSelf: "center" }}>
-                  This deletes all monsters and re-seeds!
+                <span className="text-sm" style={{ color: "var(--amber-text)", alignSelf: "center", flexBasis: phone ? "100%" : undefined }}>
+                  This deletes all monsters and seeds them again.
                 </span>
                 <button
                   className="btn btn-danger"
                   onClick={() => reseed.mutate()}
                   disabled={reseed.isPending}
                 >
-                  {reseed.isPending ? "Reseeding…" : "Confirm Reseed"}
+                  {reseed.isPending ? "Reseeding…" : "Confirm reseed"}
                 </button>
                 <button className="btn btn-ghost" onClick={() => setReseedConfirm(false)}>
                   Cancel
@@ -118,47 +142,70 @@ export default function Admin() {
           </div>
 
           {seed.isSuccess && (
-            <p style={{ color: "var(--green2)", marginBottom: "0.5rem" }}>
-              ✓ Inserted {(seed.data as { inserted: number }).inserted} monsters.
+            <p style={{ color: "var(--teal-text)", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+              <Check size={16} aria-hidden /> Inserted <span className="num">{(seed.data as { inserted: number }).inserted}</span> monsters.
             </p>
           )}
           {reseed.isSuccess && (
-            <p style={{ color: "var(--green2)", marginBottom: "0.5rem" }}>
-              ✓ Deleted {(reseed.data as { deleted: number; inserted: number }).deleted}, inserted {(reseed.data as { deleted: number; inserted: number }).inserted} monsters.
+            <p style={{ color: "var(--teal-text)", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
+              <Check size={16} aria-hidden /> Deleted{" "}
+              <span className="num">{(reseed.data as { deleted: number; inserted: number }).deleted}</span>, inserted{" "}
+              <span className="num">{(reseed.data as { deleted: number; inserted: number }).inserted}</span> monsters.
             </p>
           )}
 
           {monstersLoading && <p className="text-muted">Loading monsters…</p>}
 
           {monsters.length > 0 && (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--muted)" }}>
-                    <th style={{ textAlign: "left", padding: "0.4rem 0.6rem" }}>Name</th>
-                    <th style={{ padding: "0.4rem 0.6rem" }}>CR</th>
-                    <th style={{ padding: "0.4rem 0.6rem" }}>Type</th>
-                    <th style={{ padding: "0.4rem 0.6rem" }}>HP</th>
-                    <th style={{ padding: "0.4rem 0.6rem" }}>AC</th>
-                    <th style={{ padding: "0.4rem 0.6rem" }}>XP</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div>
+              {phone ? (
+                // Phone: one stacked row per monster instead of a six-column table.
+                <div className="ql-table">
                   {monsters.map((m) => (
-                    <tr
-                      key={m.id}
-                      style={{ borderBottom: "1px solid var(--border)" }}
-                    >
-                      <td style={{ padding: "0.4rem 0.6rem", color: "var(--gold)" }}>{m.name}</td>
-                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.challenge_rating}</td>
-                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center", color: "var(--muted)" }}>{m.creature_type}</td>
-                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.hp_average}</td>
-                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.ac}</td>
-                      <td style={{ padding: "0.4rem 0.6rem", textAlign: "center" }} className="text-mono">{m.xp}</td>
-                    </tr>
+                    <div key={m.id} className="ql-table-row" style={{ padding: "0.55rem 0.8rem" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "0.5rem" }}>
+                        <span className="story" style={{ fontWeight: 700, minWidth: 0 }}>{m.name}</span>
+                        <span className="pill" style={{ flexShrink: 0 }}>
+                          CR <span className="num">{m.challenge_rating}</span>
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.2rem 0.9rem", fontSize: "0.8125rem", color: "var(--muted)", marginTop: "0.15rem" }}>
+                        <span>{m.creature_type}</span>
+                        <span>HP <span className="num" style={{ color: "var(--text2)" }}>{m.hp_average}</span></span>
+                        <span>AC <span className="num" style={{ color: "var(--text2)" }}>{m.ac}</span></span>
+                        <span>XP <span className="num" style={{ color: "var(--text2)" }}>{m.xp}</span></span>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+                    <thead>
+                      <tr style={{ borderBottom: "1px solid var(--border)", color: "var(--muted)" }}>
+                        <th style={{ ...TH, textAlign: "left" }}>Name</th>
+                        <th style={TH} title="Challenge rating">CR</th>
+                        <th style={TH}>Type</th>
+                        <th style={TH} title="Hit points">HP</th>
+                        <th style={TH} title="Armor class">AC</th>
+                        <th style={TH} title="Experience points">XP</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monsters.map((m) => (
+                        <tr key={m.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                          <td className="story" style={{ ...TD, textAlign: "left", color: "var(--text)", fontWeight: 700 }}>{m.name}</td>
+                          <td style={TD} className="num">{m.challenge_rating}</td>
+                          <td style={{ ...TD, color: "var(--muted)" }}>{m.creature_type}</td>
+                          <td style={TD} className="num">{m.hp_average}</td>
+                          <td style={TD} className="num">{m.ac}</td>
+                          <td style={TD} className="num">{m.xp}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               <p className="text-sm text-muted" style={{ marginTop: "0.5rem" }}>
                 {plural(monsters.length, "monster")} loaded.
               </p>
@@ -171,19 +218,26 @@ export default function Admin() {
       {tab === "export" && (
         <div>
           <div className="card" style={{ maxWidth: 400 }}>
-            <h3>Export Campaigns</h3>
-            <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginBottom: "1rem" }}>
+            <h3>Export campaigns</h3>
+            <p style={{ color: "var(--muted)", fontSize: "0.9375rem", marginBottom: "1rem" }}>
               Downloads all your campaigns as a JSON file.
             </p>
             <button
               className="btn btn-secondary"
               onClick={() => exportCampaigns.mutate()}
               disabled={exportCampaigns.isPending}
+              style={phone ? { whiteSpace: "normal", textAlign: "left" } : undefined}
             >
-              {exportCampaigns.isPending ? "Exporting…" : "📥 Download campaigns_export.json"}
+              {exportCampaigns.isPending ? (
+                "Exporting…"
+              ) : (
+                <>
+                  <Download size={16} aria-hidden /> Download campaigns_export.json
+                </>
+              )}
             </button>
             {exportCampaigns.isError && (
-              <p style={{ color: "var(--red)", marginTop: "0.5rem", fontSize: "0.85rem" }}>
+              <p style={{ color: "var(--danger-text)", marginTop: "0.5rem", fontSize: "0.875rem" }}>
                 {(exportCampaigns.error as Error).message}
               </p>
             )}

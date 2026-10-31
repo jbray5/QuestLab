@@ -28,7 +28,8 @@ export default function PcPicker({
         return (
           <label
             key={c.id}
-            className="flex items-center gap-2"
+            // `.ql-s6-tap`: a 44 px row on a phone (Plan 123 S6).
+            className="flex items-center gap-2 ql-s6-tap"
             style={{
               minHeight: 40,
               padding: "0.4rem 0.65rem",

@@ -14,8 +14,9 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
-  ArrowLeft, BookOpen, Brain, ChevronDown, ChevronRight, CircleStop, Clapperboard, Coins, Copy, Dices, Gamepad2, Lightbulb,
+  ArrowLeft, BookOpen, Brain, ChevronDown, ChevronRight, CircleStop, Clapperboard, Coins, Copy, Dices, Drama, Gamepad2, Lightbulb,
   Map as MapIcon, Maximize2, Megaphone, Minimize2, Moon, MoreHorizontal, Plus, QrCode, ScreenShare, ScrollText, Shield,
   Skull, Sparkles, SquareArrowOutUpRight, Tent, Tv, Undo2, UserRound, Users, Warehouse, X,
 } from "lucide-react";
@@ -47,7 +48,8 @@ import DmScreen from "../components/dm-screen/DmScreen";
 import LootPanel from "../components/LootPanel";
 import { TableConsoleModal } from "../components/table/TableConsole";
 import LiveBoardPane from "../components/table/LiveBoardPane";
-import { useIsCompactHeight } from "../hooks/useIsCompact";
+import { useIsCompact, useIsCompactHeight } from "../hooks/useIsCompact";
+import PhoneSheet from "../components/PhoneSheet";
 import SessionNotesEditor from "../components/dm/SessionNotesEditor";
 import { tableApi } from "../api/table";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
@@ -199,6 +201,10 @@ interface HpEditorProps {
 function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(String(hp));
+  // UX-001 — the same control as the initiative strip: type an amount, then
+  // − applies that much damage and + that much healing (empty means 1).
+  const [amount, setAmount] = useState("");
+  const step = Math.max(1, Math.floor(Number(amount) || 1));
   const inputRef = useRef<HTMLInputElement>(null);
   // Plan 82 — rapid −/+ taps accumulate locally and save once the tapping
   // stops; the old code read the stale prop each click and lost taps.
@@ -233,7 +239,15 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
 
   const pct = maxHp > 0 ? Math.max(0, Math.min(100, (shown / maxHp) * 100)) : 0;
   const barColor = hpTone(pct / 100);
-  const stepBtn: React.CSSProperties = { ...BTN_XS, minWidth: 28, padding: "0 0.4rem", fontSize: "0.875rem" };
+  // Plan 123 — thumb-sized steps on a phone (the HUD's .btn rule lifts them to 44 px tall).
+  const phone = useIsCompact(640);
+  const stepBtn: React.CSSProperties = {
+    ...BTN_XS,
+    minWidth: phone ? 44 : 28,
+    padding: "0 0.4rem",
+    fontSize: phone ? "1rem" : "0.875rem",
+    justifyContent: "center",
+  };
 
   return (
     <div style={{ width: "100%" }}>
@@ -248,7 +262,7 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
             onBlur={commit}
             onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
             className="num"
-            style={{ width: 56, fontSize: "0.95rem", padding: "0.1rem 0.3rem" }}
+            style={{ width: phone ? 96 : 56, fontSize: "0.95rem", padding: "0.1rem 0.3rem" }}
           />
         ) : (
           <button
@@ -257,6 +271,7 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
             style={{
               background: "none", border: "none", cursor: "pointer",
               fontSize: "1rem", fontWeight: 600, color: "var(--text)", padding: 0,
+              ...(phone ? { minHeight: 44, minWidth: 44 } : {}),
             }}
             disabled={saving}
             title="Click to type their hit points"
@@ -265,20 +280,44 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
           </button>
         )}
         <span className="num" style={{ color: "var(--muted)", fontSize: "0.875rem" }}>/ {maxHp}</span>
-        <span style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+        <span style={{ marginLeft: "auto", display: "flex", gap: 4, alignItems: "center" }}>
           <button
             className="btn btn-ghost"
-            style={stepBtn}
-            onClick={() => bump(-1)}
+            style={{ ...stepBtn, color: "var(--danger-text)" }}
+            onClick={() => bump(-step)}
             disabled={shown <= 0}
-            title="−1 HP (taps add up, then save)"
+            title={`Apply ${step} damage (taps add up, then save)`}
+            aria-label={`Apply ${step} damage`}
           >−</button>
+          <input
+            type="number"
+            className="num"
+            min={1}
+            inputMode="numeric"
+            placeholder="1"
+            aria-label="Damage or healing amount"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            onFocus={(e) => e.currentTarget.select()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") bump(-step);
+            }}
+            title="How much damage or healing (Enter applies damage)"
+            style={{
+              width: phone ? 64 : 40,
+              fontSize: phone ? 16 : "0.8125rem",
+              padding: "0.15rem 0.2rem",
+              textAlign: "center",
+              ...(phone ? { minHeight: 44 } : {}),
+            }}
+          />
           <button
             className="btn btn-ghost"
-            style={stepBtn}
-            onClick={() => bump(1)}
+            style={{ ...stepBtn, color: "var(--teal-text)" }}
+            onClick={() => bump(step)}
             disabled={shown >= maxHp}
-            title="+1 HP (taps add up, then save)"
+            title={`Apply ${step} healing (taps add up, then save)`}
+            aria-label={`Apply ${step} healing`}
           >+</button>
           <button
             className="btn btn-ghost"
@@ -315,6 +354,7 @@ function ConditionTags({ active, onToggle, immunities, floating = false }: Condi
   const [open, setOpen] = useState(false);
   const [tooltip, setTooltip] = useState<Condition | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const phone = useIsCompact(640);
   const [anchor, setAnchor] = useState<{ left: number; top: number; bottom: number } | null>(null);
   function measure() {
     if (!floating || !rootRef.current) return;
@@ -343,7 +383,10 @@ function ConditionTags({ active, onToggle, immunities, floating = false }: Condi
             onClick={() => { setTooltip(null); onToggle(c); }}
             onMouseEnter={() => { measure(); setTooltip(c); }}
             onMouseLeave={() => setTooltip(null)}
-            style={{ border: "none", cursor: "pointer", fontSize: "0.75rem", padding: "0.05rem 0.5rem" }}
+            style={{
+              border: "none", cursor: "pointer", fontSize: "0.75rem", padding: "0.05rem 0.5rem",
+              ...(phone ? { minHeight: 44, fontSize: "0.875rem", padding: "0 0.75rem" } : {}),
+            }}
             title={CONDITION_RULES[c]}
           >
             {c} <X size={12} aria-hidden />
@@ -394,8 +437,9 @@ function ConditionTags({ active, onToggle, immunities, floating = false }: Condi
                   background: on ? "var(--amber-soft)" : "var(--surface2)",
                   color: on ? "var(--amber-text)" : immune ? "var(--muted)" : "var(--text)",
                   border: `1px solid ${on ? "var(--amber-soft)" : "var(--border2)"}`,
-                  borderRadius: 999, padding: "0.15rem 0.55rem",
-                  fontSize: "0.8125rem", cursor: "pointer", fontFamily: "inherit",
+                  borderRadius: 999, padding: phone ? "0 0.75rem" : "0.15rem 0.55rem",
+                  minHeight: phone ? 44 : undefined,
+                  fontSize: phone ? "0.875rem" : "0.8125rem", cursor: "pointer", fontFamily: "inherit",
                   opacity: immune && !on ? 0.6 : 1,
                   textDecoration: immune && !on ? "line-through" : "none",
                 }}
@@ -453,6 +497,7 @@ interface SpellSlotTrackerProps {
  */
 function FeaturePipsRow({ pcId }: { pcId: string }) {
   const qc = useQueryClient();
+  const phone = useIsCompact(640);
   const { data: rows = [] } = useQuery({
     queryKey: ["hud-features", pcId],
     queryFn: () => featuresApi.list(pcId),
@@ -494,23 +539,17 @@ function FeaturePipsRow({ pcId }: { pcId: string }) {
             >
               {r.feature_name}
             </span>
-            <span style={{ display: "flex", gap: "0.2rem", flex: "none" }}>
+            <span style={{ display: "flex", gap: phone ? 0 : "0.2rem", flex: phone ? "0 1 auto" : "none", flexWrap: phone ? "wrap" : undefined }}>
               {Array.from({ length: r.max_uses }).map((_, i) => {
                 const filled = i < remaining;
                 return (
-                  <button
+                  <Pip
                     key={i}
+                    phone={phone}
+                    filled={filled}
+                    hue={hue}
                     onClick={() => (filled ? spend.mutate(r.id) : restore.mutate(r.id))}
                     title={filled ? `${r.feature_name}: available — click to spend` : `${r.feature_name}: spent — click to restore`}
-                    style={{
-                      width: 11,
-                      height: 11,
-                      padding: 0,
-                      borderRadius: "50%",
-                      border: `1px solid ${filled ? hue : "var(--muted)"}`,
-                      background: filled ? hue : "transparent",
-                      cursor: "pointer",
-                    }}
                   />
                 );
               })}
@@ -522,8 +561,58 @@ function FeaturePipsRow({ pcId }: { pcId: string }) {
   );
 }
 
+/**
+ * One spendable pip (a spell slot or a feature use). On a phone the dot sits in
+ * a 44 px tap target (Plan 123); on a laptop it is the 11 px dot it always was.
+ */
+function Pip({
+  phone,
+  filled,
+  hue,
+  onClick,
+  title,
+}: {
+  phone: boolean;
+  filled: boolean;
+  hue: string;
+  onClick: () => void;
+  title: string;
+}) {
+  const dot: React.CSSProperties = {
+    width: phone ? 18 : 11,
+    height: phone ? 18 : 11,
+    borderRadius: "50%",
+    border: `1px solid ${filled ? hue : "var(--muted)"}`,
+    background: filled ? hue : "transparent",
+  };
+  if (!phone) {
+    return <button onClick={onClick} title={title} style={{ ...dot, cursor: "pointer", padding: 0 }} />;
+  }
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      style={{
+        width: 44,
+        height: 44,
+        padding: 0,
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <span aria-hidden style={dot} />
+    </button>
+  );
+}
+
 function SpellSlotTracker({ pcId }: SpellSlotTrackerProps) {
   const qc = useQueryClient();
+  const phone = useIsCompact(640);
   const { data: state } = useQuery({
     queryKey: ["spell-slots", pcId],
     queryFn: () => spellcastingApi.slotState(pcId),
@@ -556,7 +645,7 @@ function SpellSlotTracker({ pcId }: SpellSlotTrackerProps) {
           return (
             <div
               key={lvl}
-              style={{ display: "flex", alignItems: "center", gap: "0.2rem" }}
+              style={{ display: "flex", alignItems: "center", gap: phone ? 0 : "0.2rem", flexWrap: phone ? "wrap" : undefined }}
               title={`Level ${lvl} slots: ${s.remaining} of ${s.max} left`}
             >
               <span className="num" style={{ fontSize: "0.75rem", color: "var(--muted)", minWidth: 10 }}>
@@ -565,21 +654,15 @@ function SpellSlotTracker({ pcId }: SpellSlotTrackerProps) {
               {Array.from({ length: s.max }).map((_, idx) => {
                 const filled = idx < s.remaining;
                 return (
-                  <button
+                  <Pip
                     key={idx}
+                    phone={phone}
+                    filled={filled}
+                    hue="var(--text2)"
                     onClick={() =>
                       filled ? expend.mutate(lvl) : restore.mutate(lvl)
                     }
                     title={`L${lvl} slot — ${filled ? "available (click to spend)" : "spent (click to restore)"}`}
-                    style={{
-                      width: 11,
-                      height: 11,
-                      borderRadius: "50%",
-                      border: `1px solid ${filled ? "var(--text2)" : "var(--muted)"}`,
-                      background: filled ? "var(--text2)" : "transparent",
-                      cursor: "pointer",
-                      padding: 0,
-                    }}
                   />
                 );
               })}
@@ -703,28 +786,26 @@ export default function SessionHud() {
     }
   }
 
-  // ── Ephemeral party state ──────────────────────────────────────────────────
-  // Conditions are still local — Plan 21 backend doesn't persist them yet.
-  // Spell slots now live in the persistent store (see SpellSlotTracker).
-  const [conditions, setConditions] = useState<Record<string, Set<Condition>>>({});
+  // ── Party conditions (UX-001) ──────────────────────────────────────────────
+  // A PC's conditions live on the character, so they last between fights and
+  // show on the player's phone. The card updates at once (optimistic), the
+  // server keeps the running fight's row in step, and the HUD also writes the
+  // prep roster's row so the boards draw it (Plan 69).
+  function setPcConditions(pcId: string, next: string[]) {
+    const key = ["characters", adventure?.campaign_id];
+    qc.setQueryData<PlayerCharacter[]>(key, (prev) =>
+      prev ? prev.map((p) => (p.id === pcId ? { ...p, conditions: next } : p)) : prev,
+    );
+    void charactersApi.update(pcId, { conditions: next }).catch(() => qc.invalidateQueries({ queryKey: key }));
+  }
 
   function toggleCondition(pcId: string, c: Condition) {
-    setConditions((prev) => {
-      const s = new Set(prev[pcId] ?? []);
-      if (s.has(c)) s.delete(c);
-      else s.add(c);
-      return { ...prev, [pcId]: s };
-    });
-    // Plan 69 — write through to the persisted combatant row so the
-    // condition renders on the boards (Plan 65 FX). Local state stays the
-    // instant-UI source; out of combat there is no row and it stays local.
-    const row = persistedCombatants.find((pc) => pc.character_id === pcId);
-    if (row) {
-      const current = row.conditions ?? [];
-      const has = current.includes(c);
-      const next = has ? current.filter((x) => x !== c) : [...current, c];
-      void patchPersistedCombatant(row.id, { conditions: next });
-    }
+    const pc = party.find((p) => p.id === pcId);
+    const current = pc?.conditions ?? [];
+    const next = current.includes(c) ? current.filter((x) => x !== c) : [...current, c];
+    setPcConditions(pcId, next);
+    const row = persistedCombatants.find((r) => r.character_id === pcId);
+    if (row) void patchPersistedCombatant(row.id, { conditions: next });
   }
 
   // ── Scene navigator ────────────────────────────────────────────────────────
@@ -740,9 +821,13 @@ export default function SessionHud() {
   // Plan 82 — a laptop at 1366×768 or 1280×800 has no room for the strip,
   // a tall notes pane and the rules bar all at once; the board comes first.
   const shortScreen = useIsCompactHeight(900);
+  // Plan 123 — on a phone the cockpit stacks into one column: menus, the add form
+  // and the script become bottom sheets, and the initiative order starts open.
+  const phone = useIsCompact(640);
+  const [castOpen, setCastOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [tableRollOpen, setTableRollOpen] = useState(false);
-  const [stripOpen, setStripOpen] = useState(!shortScreen);
+  const [stripOpen, setStripOpen] = useState(!shortScreen || phone);
   const [notesH, setNotesH] = useState<number>(() => {
     try {
       const fallback = window.matchMedia("(max-height: 900px)").matches ? 140 : 200;
@@ -921,6 +1006,12 @@ export default function SessionHud() {
   }, [persistedCombatants, partyById]);
 
   const combatActive = combatants.length > 0;
+  // UX-001 — a seeded prep roster is not a fight: End turn, Undo and the round
+  // counter appear only once initiative is rolled ("running").
+  const combatState = useInitiativeStore((s) => s.combatState);
+  const fightOn = combatActive && combatState === "running";
+  const uses3d = useHudPrefs((s) => s.uses3d);
+  const setUses3d = useHudPrefs((s) => s.setUses3d);
   const round = storeRound;
 
   // Project a persisted SessionCombatant back to the loose Combatant shape
@@ -959,6 +1050,7 @@ export default function SessionHud() {
         initiative: 0,
         defeated: false,
         character_id: pc.id,
+        conditions: pc.conditions ?? [],
       }));
       // Plan 41 — seed as "idle": a prep roster must never set an active turn
       // or ping player phones. Combat only goes "running" on Roll Initiative.
@@ -1130,6 +1222,8 @@ export default function SessionHud() {
     const has = currentList.includes(cond);
     const next = has ? currentList.filter((c) => c !== cond) : [...currentList, cond];
     void patchPersistedCombatant(id, { conditions: next });
+    // UX-001 — a PC's conditions outlast the fight: write them to the character.
+    if (target.character_id) setPcConditions(target.character_id, next);
   }
 
   function removeCombatant(id: string) {
@@ -1263,28 +1357,51 @@ export default function SessionHud() {
 
   const sessionLabel = `Session ${toRoman(session.session_number)}${session.title ? `: ${session.title}` : ""}`;
   const castRoster = (adventure?.npc_roster ?? []).map((n) => String(n.name ?? "")).filter(Boolean);
-  const wideParty = tableMode && !mapFocus && party.length > 1;
+  // Two abreast is for a wide laptop; a phone keeps one column whatever table mode says.
+  const wideParty = tableMode && !mapFocus && party.length > 1 && !phone;
+  // Plan 123 — the HUD root's fade-in makes it a stacking context, so on a phone the
+  // sticky top bar painted over its full-screen modals. There they go to <body>.
+  const onTop = (node: React.ReactNode) => (phone ? createPortal(node, document.body) : node);
+  const backButton = (
+    <button
+      className="btn btn-ghost"
+      style={{ ...BTN_SM, border: "none", ...(phone ? { paddingLeft: "0.25rem" } : {}) }}
+      onClick={() => navigate(-1)}
+    >
+      <ArrowLeft size={15} aria-hidden /> Back
+    </button>
+  );
 
   return (
-    <div className="fade-in ql-hud-root" style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+    <div
+      className="fade-in ql-hud-root"
+      style={{ display: "flex", flexDirection: "column", gap: 0, paddingBottom: phone ? 72 : undefined }}
+    >
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
+      {/* Plan 123 — on a phone: the title on its own line, then one left-aligned row of
+          chips with Back first; table mode (a laptop sidebar toggle) stays on laptops. */}
       <div className="flex" style={{
-        alignItems: "center", justifyContent: "space-between",
-        padding: "0.45rem 0.9rem", borderBottom: "1px solid var(--border)",
+        alignItems: phone ? "stretch" : "center", justifyContent: "space-between",
+        flexDirection: phone ? "column" : undefined,
+        padding: phone ? "0.6rem 0.75rem" : "0.45rem 0.9rem", borderBottom: "1px solid var(--border)",
         background: "var(--surface)", flexShrink: 0,
-        flexWrap: "wrap", gap: "0.4rem 0.75rem",
+        flexWrap: "wrap", gap: phone ? "0.5rem" : "0.4rem 0.75rem",
       }}>
         <div className="flex" style={{ alignItems: "center", gap: "0.6rem", minWidth: 0, flexWrap: "nowrap" }}>
           <h1
             className="story"
             title={sessionLabel}
-            style={{ fontSize: "1.3rem", margin: 0, lineHeight: 1.25, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+            style={{
+              fontSize: "1.3rem", margin: 0, lineHeight: 1.25, whiteSpace: phone ? "normal" : "nowrap",
+              overflow: "hidden", textOverflow: "ellipsis",
+            }}
           >
             {sessionLabel}
           </h1>
         </div>
-        <div className="flex" style={{ alignItems: "center", gap: "0.35rem", flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div className="flex" style={{ alignItems: "center", gap: phone ? "0.4rem" : "0.35rem", flexWrap: "wrap", justifyContent: phone ? "flex-start" : "flex-end" }}>
+          {phone && backButton}
           {/* Review 10/30 — nine top-bar buttons became a few menus. */}
           <HudMenu
             label="Rests"
@@ -1372,6 +1489,7 @@ export default function SessionHud() {
               {
                 key: "immersive",
                 label: "3D set dressing (immersive)",
+                onSelect: () => setUses3d(true),
                 icon: <Warehouse size={16} />,
                 hint: "Built rooms, walking figures, fog and weather on the TV. Needs a strong computer.",
                 href: `/table/${sessionId}/engine`,
@@ -1380,8 +1498,10 @@ export default function SessionHud() {
                 key: "console",
                 label: "Map controls in a pop-up",
                 icon: <SquareArrowOutUpRight size={16} />,
-                hint: "The Live tab's fog, tokens and title cards in a window of their own.",
-                disabled: !adventure,
+                hint: phone
+                  ? "Driving the map needs a bigger screen: open the HUD on a laptop or tablet."
+                  : "The Live tab's fog, tokens and title cards in a window of their own.",
+                disabled: !adventure || phone,
                 onSelect: () => setTableConsoleOpen(true),
               },
             ]}
@@ -1396,22 +1516,29 @@ export default function SessionHud() {
           >
             <Coins size={15} aria-hidden /> Loot
           </button>
-          <button
-            className="btn btn-secondary"
-            style={{ ...BTN_SM, ...(tableMode ? TOGGLE_ON : {}) }}
-            onClick={() => setTableMode(!tableMode)}
-            title={tableMode ? "Show the app sidebar again" : "Hide the app sidebar while you run the table"}
-            aria-pressed={tableMode}
-          >
-            {tableMode ? <Minimize2 size={15} aria-hidden /> : <Maximize2 size={15} aria-hidden />} Table mode
-          </button>
-          <button
-            className="btn btn-ghost"
-            style={{ ...BTN_SM, border: "none" }}
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft size={15} aria-hidden /> Back
-          </button>
+          {phone ? (
+            // The side tab would cover the party cards on a phone; the cast opens from here.
+            <button
+              className="btn btn-secondary"
+              style={{ ...BTN_SM, ...(castOpen ? TOGGLE_ON : {}) }}
+              onClick={() => setCastOpen(true)}
+              title="Tonight's cast: the NPCs you'll voice"
+              aria-expanded={castOpen}
+            >
+              <Drama size={15} aria-hidden /> Cast
+            </button>
+          ) : (
+            <button
+              className="btn btn-secondary"
+              style={{ ...BTN_SM, ...(tableMode ? TOGGLE_ON : {}) }}
+              onClick={() => setTableMode(!tableMode)}
+              title={tableMode ? "Show the app sidebar again" : "Hide the app sidebar while you run the table"}
+              aria-pressed={tableMode}
+            >
+              {tableMode ? <Minimize2 size={15} aria-hidden /> : <Maximize2 size={15} aria-hidden />} Table mode
+            </button>
+          )}
+          {!phone && backButton}
         </div>
       </div>
 
@@ -1423,6 +1550,7 @@ export default function SessionHud() {
             position: "fixed",
             top: "4rem",
             right: "1rem",
+            left: phone ? "1rem" : undefined,
             background: "var(--surface)",
             border: "1px solid var(--border2)",
             color: "var(--text)",
@@ -1490,7 +1618,7 @@ export default function SessionHud() {
                   {projectorQrOn ? "QR on the TV" : "Join QR → TV"}
                 </button>
                 <button
-                  className="btn btn-ghost"
+                  className="btn btn-ghost ql-icon-btn"
                   onClick={() => {
                     void navigator.clipboard?.writeText(
                       `${window.location.origin}/join/${adventure.campaign_id}`,
@@ -1526,7 +1654,7 @@ export default function SessionHud() {
             const pp = passiveSkill(pc.score_wis, pb, skills["Perception"] ?? 0);
             const pi = passiveSkill(pc.score_wis, pb, skills["Insight"] ?? 0);
             const dc = spellSaveDc(pc);
-            const pcConditions = conditions[pc.id] ?? new Set<Condition>();
+            const pcConditions = new Set<Condition>((pc.conditions ?? []) as Condition[]);
             const isUnconcious = pc.hp_current <= 0;
             const isTurn = activePcId === pc.id;
 
@@ -1599,17 +1727,19 @@ export default function SessionHud() {
                           overflow: "hidden",
                           textOverflow: "ellipsis",
                           minWidth: 0,
+                          // Plan 123 — a 44 px tap target on a phone without moving the line.
+                          ...(phone ? { padding: "11px 0", margin: "-11px 0" } : {}),
                         }}
                       >
                         {pc.character_name}
                       </button>
-                      <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.4rem", flex: "none" }}>
+                      <span className="ql-hud-pc-tools" style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.4rem", flex: "none" }}>
                         {isTurn && (
                           <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--accent-text)", whiteSpace: "nowrap" }}>
                             Their turn
                           </span>
                         )}
-                        <PlayerLinkButton characterId={pc.id} compact />
+                        <PlayerLinkButton characterId={pc.id} playToken={pc.play_token} characterName={pc.character_name} compact />
                       </span>
                     </div>
                     <div style={{ fontSize: "0.8125rem", color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -1714,15 +1844,17 @@ export default function SessionHud() {
             >
               {stripOpen ? <ChevronDown size={16} aria-hidden /> : <ChevronRight size={16} aria-hidden />}
               <span style={{ fontWeight: 600, color: "var(--text)" }}>Combat</span>
-              {combatActive ? (
+              {fightOn ? (
                 <span>
                   · Round <span className="num">{round}</span> · {combatants.length} in order
                 </span>
+              ) : combatActive ? (
+                <span>· {plural(combatants.length, "combatant")} ready, not started</span>
               ) : (
                 <span>· not started</span>
               )}
             </button>
-            {combatActive && (
+            {fightOn && uses3d && !phone && (
               <label
                 className="flex"
                 style={{
@@ -1735,7 +1867,7 @@ export default function SessionHud() {
                 <select
                   value={hitFlavor}
                   onChange={(e) => setHitFlavor(e.target.value)}
-                  style={{ fontSize: "0.8125rem", padding: "0.15rem 0.35rem", width: "auto" }}
+                  style={{ fontSize: "0.8125rem", padding: "0.15rem 0.35rem", width: "auto", ...(phone ? { minWidth: 130, minHeight: 44 } : {}) }}
                 >
                   {FLAVORS.filter((f) => f.key !== "heal").map((f) => (
                     <option key={f.key} value={f.key}>
@@ -1750,8 +1882,9 @@ export default function SessionHud() {
                 display: "flex",
                 gap: "0.35rem",
                 flexWrap: "wrap",
-                justifyContent: "flex-end",
-                marginLeft: "auto",
+                justifyContent: phone ? "flex-start" : "flex-end",
+                marginLeft: phone ? 0 : "auto",
+                width: phone ? "100%" : undefined,
               }}
             >
               <button
@@ -1779,12 +1912,12 @@ export default function SessionHud() {
                 <Megaphone size={15} aria-hidden /> Table roll
               </button>
               <button
-                className={`btn ${storeActiveId ? "btn-ghost" : "btn-primary"}`}
+                className={`btn ${fightOn ? "btn-ghost" : "btn-primary"}`}
                 style={BTN_SM}
                 onClick={rollAllInitiative}
-                title={storeActiveId ? "Re-roll everyone's initiative" : "Roll initiative for everyone and start the fight"}
+                title={fightOn ? "Re-roll everyone's initiative" : "Roll initiative for everyone and start the fight"}
               >
-                <Dices size={15} aria-hidden /> Roll init
+                <Dices size={15} aria-hidden /> {fightOn ? "Re-roll init" : "Start the fight"}
               </button>
               {combatActive && (
                 // Rare, and it clears the tracker: behind a ⋯ menu (DESIGN.md §4).
@@ -1808,7 +1941,7 @@ export default function SessionHud() {
                   ]}
                 />
               )}
-              {combatActive && (
+              {fightOn && (
                 <button
                   className="btn btn-ghost"
                   style={BTN_SM}
@@ -1818,10 +1951,10 @@ export default function SessionHud() {
                   <Undo2 size={15} aria-hidden /> Undo turn
                 </button>
               )}
-              {combatActive && (
+              {fightOn && (
                 <button
                   className={`btn ${storeActiveId ? "btn-primary" : "btn-secondary"}`}
-                  style={{ ...BTN_SM, padding: "0.25rem 0.85rem", fontSize: "0.875rem" }}
+                  style={{ ...BTN_SM, padding: "0.25rem 0.85rem", fontSize: "0.875rem", ...(phone ? { flex: "1 1 auto" } : {}) }}
                   onClick={nextTurn}
                   title="Advance to the next combatant's turn (E)"
                 >
@@ -1831,18 +1964,12 @@ export default function SessionHud() {
             </div>
 
           {(addOpen || tableRollOpen) && (
-            <div
-              style={{
-                position: "absolute",
-                top: "calc(100% + 4px)",
-                right: 8,
-                zIndex: 45,
-                width: "min(440px, 94%)",
-                background: "var(--surface)",
-                border: "1px solid var(--border2)",
-                borderRadius: 10,
-                boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
-                overflow: "hidden",
+            <CockpitPopover
+              phone={phone}
+              title={addOpen ? "Add to the fight" : "Table roll"}
+              onClose={() => {
+                setAddOpen(false);
+                setTableRollOpen(false);
               }}
             >
               {tableRollOpen && sessionId && <TableRollStrip sessionId={sessionId} />}
@@ -1962,7 +2089,9 @@ export default function SessionHud() {
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto",
+                gridTemplateColumns: phone
+                  ? "repeat(3, minmax(0, 1fr))"
+                  : "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) auto",
                 gap: "0.35rem",
                 alignItems: "end",
               }}
@@ -2020,7 +2149,7 @@ export default function SessionHud() {
               </FormField>
               <button
                 className="btn btn-secondary"
-                style={{ ...BTN_SM, minHeight: 32, alignSelf: "end" }}
+                style={{ ...BTN_SM, minHeight: 32, alignSelf: "end", ...(phone ? { gridColumn: "1 / -1" } : {}) }}
                 onClick={addCombatant}
                 title="Add to initiative tracker"
               >
@@ -2031,19 +2160,7 @@ export default function SessionHud() {
 
                 </>
               )}
-              <div style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>
-                <button
-                  className="btn btn-ghost"
-                  style={{ ...BTN_XS, border: "none" }}
-                  onClick={() => {
-                    setAddOpen(false);
-                    setTableRollOpen(false);
-                  }}
-                >
-                  <X size={14} aria-hidden /> Close
-                </button>
-              </div>
-            </div>
+            </CockpitPopover>
           )}
           </div>
           {/* Combatant list */}
@@ -2054,10 +2171,12 @@ export default function SessionHud() {
             aria-label="Initiative order"
             style={{
               display: "flex",
+              // Plan 123 — a phone stacks the turn order instead of scrolling it sideways.
+              flexDirection: phone ? "column" : undefined,
               alignItems: "stretch",
               gap: 8,
-              overflowX: "auto",
-              overflowY: "hidden",
+              overflowX: phone ? "visible" : "auto",
+              overflowY: phone ? "visible" : "hidden",
               padding: "0.5rem 0.6rem",
               borderBottom: "1px solid var(--border)",
               background: "var(--surface)",
@@ -2072,6 +2191,30 @@ export default function SessionHud() {
               const barColor = hpTone(pct / 100);
               const foe = c.type === "monster";
               const side = c.type === "pc" ? "Party" : c.type === "npc" ? "NPC" : "Foe";
+              // Plan 38 P4-2 — click-to-edit initiative; PATCH on blur/Enter. In the chip on a
+              // laptop; a labelled field of its own on a phone (Plan 123).
+              const initInput = (style: React.CSSProperties) => (
+                <input
+                  type="number"
+                  className="num"
+                  aria-label={`${c.name} initiative`}
+                  defaultValue={c.initiative}
+                  key={`init-${c.id}-${c.initiative}`}
+                  onBlur={(e) => {
+                    const v = Number(e.target.value);
+                    if (!Number.isFinite(v) || v === c.initiative) return;
+                    // Plan 41 — persists immediately; server reseats
+                    // sort_index so End Turn follows the shown order.
+                    void setPersistedInitiative(c.id, v);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+                  }}
+                  onFocus={(e) => e.currentTarget.select()}
+                  style={style}
+                  title="Initiative — click to change it; Enter or click out to save"
+                />
+              );
 
               return (
                 <div
@@ -2080,7 +2223,7 @@ export default function SessionHud() {
                   aria-current={isActive ? "true" : undefined}
                   style={{
                     padding: "0.45rem 0.55rem 0.5rem",
-                    width: 272,
+                    width: phone ? "auto" : 272,
                     flexShrink: 0,
                     borderRadius: 10,
                     border: `1px solid ${isActive ? "var(--accent-edge)" : "var(--border)"}`,
@@ -2097,32 +2240,15 @@ export default function SessionHud() {
                         gap: "0.2rem",
                         minWidth: 0,
                         flex: "0 1 auto",
-                        padding: "0.05rem 0.65rem 0.05rem 0.1rem",
+                        padding: phone ? "0.3rem 0.75rem" : "0.05rem 0.65rem 0.05rem 0.1rem",
                         borderRadius: 999,
                         background: isActive ? "var(--accent)" : "transparent",
                         border: `1px solid ${isActive ? "var(--accent)" : foe ? "var(--danger-line)" : "var(--border2)"}`,
                         color: isActive ? "var(--accent-ink)" : foe ? "var(--danger-text)" : "var(--text)",
                       }}
                     >
-                      {/* Plan 38 P4-2 — click-to-edit initiative; PATCH on blur/Enter. */}
-                      <input
-                        type="number"
-                        className="num"
-                        aria-label={`${c.name} initiative`}
-                        defaultValue={c.initiative}
-                        key={`init-${c.id}-${c.initiative}`}
-                        onBlur={(e) => {
-                          const v = Number(e.target.value);
-                          if (!Number.isFinite(v) || v === c.initiative) return;
-                          // Plan 41 — persists immediately; server reseats
-                          // sort_index so End Turn follows the shown order.
-                          void setPersistedInitiative(c.id, v);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-                        }}
-                        onFocus={(e) => e.currentTarget.select()}
-                        style={{
+                      {!phone &&
+                        initInput({
                           width: 34,
                           fontSize: "0.875rem",
                           fontWeight: 600,
@@ -2132,9 +2258,7 @@ export default function SessionHud() {
                           border: "none",
                           borderRadius: 999,
                           color: "inherit",
-                        }}
-                        title="Initiative — click to change it; Enter or click out to save"
-                      />
+                        })}
                       <span
                         className="story"
                         title={c.name}
@@ -2150,7 +2274,7 @@ export default function SessionHud() {
                       {/* Stat block (monsters only) */}
                       {c.monsterId && (
                         <button
-                          className="btn btn-ghost"
+                          className="btn btn-ghost ql-icon-btn"
                           style={BTN_ICON}
                           onClick={() => setStatBlockMonsterId(c.monsterId)}
                           title="View stat block"
@@ -2161,7 +2285,7 @@ export default function SessionHud() {
                       )}
                       {/* Remove */}
                       <button
-                        className="btn btn-ghost"
+                        className="btn btn-ghost ql-icon-btn"
                         style={{ ...BTN_ICON, color: "var(--muted)" }}
                         onClick={() => removeCombatant(c.id)}
                         title="Remove from tracker"
@@ -2176,12 +2300,23 @@ export default function SessionHud() {
                     {side} · <span title="Armor class">AC</span> <span className="num" style={{ color: "var(--text2)" }}>{c.ac}</span>
                     {c.defeated && " · defeated"}
                   </div>
+                  {phone && (
+                    <label
+                      style={{
+                        display: "flex", alignItems: "center", gap: "0.5rem", margin: "0.4rem 0 0",
+                        fontSize: "0.8125rem", fontWeight: 400, color: "var(--muted)",
+                      }}
+                    >
+                      Initiative
+                      {initInput({ width: 96, minHeight: 44, fontSize: 16, fontWeight: 600, textAlign: "center" })}
+                    </label>
+                  )}
 
                   {/* HP row — typed amount drives the −/+ buttons (Plan 38) */}
-                  <div className="flex" style={{ alignItems: "center", gap: "0.25rem", marginTop: "0.35rem", flexWrap: "nowrap" }}>
+                  <div className="flex" style={{ alignItems: "center", gap: "0.25rem", marginTop: "0.35rem", flexWrap: phone ? "wrap" : "nowrap" }}>
                     <button
                       className="btn btn-ghost"
-                      style={{ ...BTN_XS, minWidth: 28, padding: "0 0.35rem", fontSize: "0.95rem", color: "var(--danger-text)" }}
+                      style={{ ...BTN_XS, minWidth: phone ? 44 : 28, padding: "0 0.35rem", fontSize: phone ? "1.1rem" : "0.95rem", color: "var(--danger-text)" }}
                       onClick={() => updateCombatantHp(c.id, c.hp - deltaFor(c.id))}
                       disabled={c.defeated}
                       title={`Apply ${deltaFor(c.id)} damage`}
@@ -2198,16 +2333,17 @@ export default function SessionHud() {
                         if (e.key === "Enter") updateCombatantHp(c.id, c.hp - deltaFor(c.id));
                       }}
                       style={{
-                        width: 42,
-                        fontSize: "0.8125rem",
+                        width: phone ? 96 : 42,
+                        fontSize: phone ? 16 : "0.8125rem",
                         padding: "0.15rem 0.2rem",
                         textAlign: "center",
+                        ...(phone ? { minHeight: 44 } : {}),
                       }}
                       title="How much damage or healing (Enter applies damage)"
                     />
                     <button
                       className="btn btn-ghost"
-                      style={{ ...BTN_XS, minWidth: 28, padding: "0 0.35rem", fontSize: "0.95rem", color: "var(--teal-text)" }}
+                      style={{ ...BTN_XS, minWidth: phone ? 44 : 28, padding: "0 0.35rem", fontSize: phone ? "1.1rem" : "0.95rem", color: "var(--teal-text)" }}
                       onClick={() => updateCombatantHp(c.id, c.hp + deltaFor(c.id))}
                       disabled={c.defeated}
                       title={`Apply ${deltaFor(c.id)} healing`}
@@ -2215,7 +2351,7 @@ export default function SessionHud() {
                     <span className="num" title="Hit points" style={{ fontSize: "0.875rem", fontWeight: 600, marginLeft: "0.3rem", whiteSpace: "nowrap" }}>
                       {c.hp} <span style={{ color: "var(--muted)", fontWeight: 400 }}>/ {c.maxHp}</span>
                     </span>
-                    <div style={{ flex: 1, minWidth: 24, height: 6, borderRadius: 3, background: "var(--border)", overflow: "hidden" }}>
+                    <div style={{ flex: phone ? "1 1 100%" : 1, minWidth: 24, height: 6, borderRadius: 3, background: "var(--border)", overflow: "hidden", marginTop: phone ? "0.3rem" : undefined }}>
                       <div style={{ height: "100%", width: `${pct}%`, background: barColor, transition: "width 0.2s" }} />
                     </div>
                   </div>
@@ -2228,7 +2364,7 @@ export default function SessionHud() {
                       immunities={
                         c.monsterId ? immunitiesByMonsterId[c.monsterId] : undefined
                       }
-                      floating
+                      floating={!phone}
                     />
                   </div>
                 </div>
@@ -2238,14 +2374,14 @@ export default function SessionHud() {
             {combatants.length === 0 && (
               <p style={{ padding: "0.15rem 0.3rem", margin: 0, fontSize: "0.8125rem", color: "var(--muted)", lineHeight: 1.5 }}>
                 The turn order shows here once a fight starts. Use <strong style={{ color: "var(--text2)" }}>Add</strong> to
-                bring in an encounter or a single foe, then <strong style={{ color: "var(--text2)" }}>Roll init</strong> to set the order.
+                bring in an encounter or a single foe, then <strong style={{ color: "var(--text2)" }}>Start the fight</strong> to roll initiative.
               </p>
             )}
           </div>
           )}
         {/* ── CENTER: map control first; the script slides over on demand ── */}
         <div style={{ display: "flex", flexDirection: "column", overflow: "hidden", position: "relative", flex: 1, minHeight: 0 }}>
-          <div style={PANEL_BAND}>
+          <div style={phone ? { ...PANEL_BAND, flexWrap: "wrap", justifyContent: "flex-start" } : PANEL_BAND}>
             <div className="flex" style={{ gap: "0.3rem", flexWrap: "nowrap" }}>
               {(
                 [
@@ -2267,6 +2403,7 @@ export default function SessionHud() {
               ))}
             </div>
             <div className="flex" style={{ gap: "0.3rem", flexWrap: "nowrap" }}>
+              {!phone && (
               <button
                 onClick={() => setMapFocus((v) => !v)}
                 className="btn btn-ghost"
@@ -2277,6 +2414,7 @@ export default function SessionHud() {
                 {mapFocus ? <Minimize2 size={15} aria-hidden /> : <Maximize2 size={15} aria-hidden />}
                 {mapFocus ? "Unfocus" : "Focus map"}
               </button>
+              )}
               <button
                 onClick={() => setScriptOpen((v) => !v)}
                 className="btn btn-ghost"
@@ -2293,33 +2431,7 @@ export default function SessionHud() {
           <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
             {/* Plan 60 — runbook drawer: slides over the center column. */}
             {scriptOpen && (
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                right: 0,
-                bottom: 0,
-                width: "min(520px, 92%)",
-                zIndex: 40,
-                background: "var(--surface)",
-                borderLeft: "1px solid var(--border2)",
-                boxShadow: "-12px 0 28px rgba(0,0,0,0.4)",
-                overflowY: "auto",
-                padding: "0.9rem 1rem 1rem",
-              }}
-            >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.7rem" }}>
-              <strong style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text2)", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
-                <Clapperboard size={15} aria-hidden /> Script
-              </strong>
-              <button
-                className="btn btn-ghost"
-                style={{ ...BTN_XS, border: "none" }}
-                onClick={() => setScriptOpen(false)}
-              >
-                <X size={14} aria-hidden /> Close
-              </button>
-            </div>
+            <ScriptShell phone={phone} onClose={() => setScriptOpen(false)}>
             {!runbook && (
               <div style={{ color: "var(--muted)", textAlign: "center", marginTop: "2rem", fontSize: "0.9rem", lineHeight: 1.5 }}>
                 <p style={{ color: "var(--text2)" }}>
@@ -2462,7 +2574,7 @@ export default function SessionHud() {
                 ))}
               </div>
             )}
-            </div>
+            </ScriptShell>
             )}
 
             {/* ── 🗺 Maps tab (Plan 53) — the battle-map library, one click to stage ── */}
@@ -2476,8 +2588,10 @@ export default function SessionHud() {
                       <button
                         onClick={() => {
                           setActiveMap.mutate(m.id);
-                          setMapFocus(true);
-                          setCenterTab("live");
+                          if (!phone) {
+                            setMapFocus(true);
+                            setCenterTab("live");
+                          }
                         }}
                         disabled={setActiveMap.isPending}
                         title={active ? "Live on the table" : "Put this map on the table"}
@@ -2512,7 +2626,7 @@ export default function SessionHud() {
                       </button>
                       {!active && (
                         <button
-                          className="btn btn-ghost"
+                          className="btn btn-ghost ql-icon-btn"
                           title="Take it off tonight's shelf (it stays in the library)"
                           aria-label={`Take ${m.name} off tonight's shelf`}
                           onClick={() => setShelf.mutate((hudTable?.map_shelf ?? []).filter((id) => id !== m.id))}
@@ -2576,16 +2690,37 @@ export default function SessionHud() {
                 )}
                 {hudMaps.length > 0 && (
                 <p style={{ fontSize: "0.8125rem", color: "var(--muted)", marginTop: "0.8rem", lineHeight: 1.5, maxWidth: 640 }}>
-                  Click a map to put it on the table (players&rsquo; views switch live), then move tokens and
-                  lift the fog from the Live tab. The <Link to={`/sessions/${sessionId}/board`}>3D board</Link> is for set dressing.
+                  {phone ? (
+                    // Plan 123 — tokens, fog and the 3D board are laptop tools.
+                    <>
+                      Tap a map to put it on the table; the players&rsquo; views switch live. Tokens and fog are
+                      driven from the HUD on a laptop or tablet.
+                    </>
+                  ) : (
+                    <>
+                      Click a map to put it on the table (players&rsquo; views switch live), then move tokens and
+                      lift the fog from the Live tab. The <Link to={`/sessions/${sessionId}/board`}>3D board</Link> is for set dressing.
+                    </>
+                  )}
                 </p>
                 )}
               </div>
             )}
 
             {/* ── 🎮 Live tab (Plan 75) — drive the projected table without leaving the HUD ── */}
-            {centerTab === "live" && sessionId && adventure && (
+            {centerTab === "live" && sessionId && adventure && !phone && (
               <LiveBoardPane sessionId={sessionId} campaignId={adventure.campaign_id} party={party} />
+            )}
+            {centerTab === "live" && phone && (
+              <div style={{ fontSize: "0.9rem", lineHeight: 1.5 }}>
+                <p style={{ margin: "0 0 0.25rem", color: "var(--text)", fontWeight: 500 }}>
+                  Driving the table map needs a bigger screen.
+                </p>
+                <p style={{ margin: 0, color: "var(--muted)" }}>
+                  Open the HUD on a laptop or tablet to move tokens and lift the fog. From here you can still put
+                  a map on the table from the Maps tab.
+                </p>
+              </div>
             )}
 
             {/* ── 👥 People tab (Plan 53) — full blocks one click away ── */}
@@ -2678,14 +2813,18 @@ export default function SessionHud() {
         </div>
 
           {/* ── Under the board: tonight's notes + the beats ── */}
+          {phone ? (
+            <div style={{ height: 1, background: "var(--border)", flexShrink: 0 }} />
+          ) : (
           <div
             onPointerDown={startNotesResize}
             title="Drag to resize the notes"
             style={{ height: 6, cursor: "row-resize", background: "var(--border)", flexShrink: 0 }}
           />
+          )}
           <div
             className="ql-hud-bottom"
-            style={{
+            style={phone ? { display: "flex", flexDirection: "column" } : {
               height: notesH,
               flexShrink: 0,
               display: "grid",
@@ -2694,10 +2833,10 @@ export default function SessionHud() {
               overflow: "hidden",
             }}
           >
-            <div style={{ minWidth: 0, minHeight: 0 }}>
+            <div style={phone ? { height: 240 } : { minWidth: 0, minHeight: 0 }}>
               {sessionId && <SessionNotesEditor sessionId={sessionId} fontSize="0.88rem" />}
             </div>
-            <div style={{ borderLeft: "1px solid var(--border)", overflowY: "auto", minHeight: 0 }}>
+            <div style={phone ? { borderTop: "1px solid var(--border)" } : { borderLeft: "1px solid var(--border)", overflowY: "auto", minHeight: 0 }}>
           {/* Plan 40 Change 3 — state-triggered beats. Banner-on-fire,
               attach-by-HP / attach-by-round forms, pending list. */}
           {sessionId && (
@@ -2718,12 +2857,13 @@ export default function SessionHud() {
       </div>
 
       {/* Monster stat block modal (Plan 00015 — wire stat blocks into HUD) */}
-      {statBlockMonster && (
-        <MonsterStatBlock
-          monster={statBlockMonster}
-          onClose={() => setStatBlockMonsterId(null)}
-        />
-      )}
+      {statBlockMonster &&
+        onTop(
+          <MonsterStatBlock
+            monster={statBlockMonster}
+            onClose={() => setStatBlockMonsterId(null)}
+          />,
+        )}
 
       {/* Character sheet modal (Plan 00022) */}
       {sheetPcId && (
@@ -2743,7 +2883,19 @@ export default function SessionHud() {
       )}
 
       {/* Loot modal (Plan 00016 — hand out items mid-session) */}
-      {lootOpen && sessionId && adventure && (
+      {lootOpen && sessionId && adventure && phone && (
+        <PhoneSheet title="Loot" onClose={() => setLootOpen(false)}>
+          <div className="ql-tap">
+            <LootPanel
+              sessionId={sessionId}
+              attendingPcIds={session?.attending_pc_ids ?? []}
+              campaignId={adventure.campaign_id}
+              defaultOpen
+            />
+          </div>
+        </PhoneSheet>
+      )}
+      {lootOpen && sessionId && adventure && !phone && (
         <div
           onClick={() => setLootOpen(false)}
           style={{
@@ -2790,18 +2942,110 @@ export default function SessionHud() {
       )}
 
       {/* Plan 27 — DM Screen modal */}
-      <DmScreen open={dmScreenOpen} onClose={() => setDmScreenOpen(false)} />
+      {onTop(<DmScreen open={dmScreenOpen} onClose={() => setDmScreenOpen(false)} />)}
 
       {/* Plan 38/39 — Tonight's Cast drawer. Slides in from the right
           with NPC portraits / accents / dialog hooks, highlighting the
           ones mentioned in the current scene. Toggle button is the 🎭
           chip at the right edge. */}
       <TonightsCastDrawer
+        open={castOpen}
+        onOpenChange={setCastOpen}
         npcs={campaignNpcs}
         currentScene={currentScene}
         rosterNames={castRoster}
         sessionNumber={session.session_number}
       />
+    </div>
+  );
+}
+
+/**
+ * The runbook script: a drawer over the center column on a laptop, a bottom
+ * sheet on a phone (Plan 123).
+ */
+function ScriptShell({ phone, onClose, children }: { phone: boolean; onClose: () => void; children: React.ReactNode }) {
+  if (phone) {
+    return (
+      <PhoneSheet title="Script" onClose={onClose}>
+        <div className="ql-tap">{children}</div>
+      </PhoneSheet>
+    );
+  }
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: "min(520px, 92%)",
+        zIndex: 40,
+        background: "var(--surface)",
+        borderLeft: "1px solid var(--border2)",
+        boxShadow: "-12px 0 28px rgba(0,0,0,0.4)",
+        overflowY: "auto",
+        padding: "0.9rem 1rem 1rem",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.7rem" }}>
+        <strong style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text2)", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
+          <Clapperboard size={15} aria-hidden /> Script
+        </strong>
+        <button className="btn btn-ghost" style={{ ...BTN_XS, border: "none" }} onClick={onClose}>
+          <X size={14} aria-hidden /> Close
+        </button>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The cockpit's Add / Table roll panel: a popover under the combat bar on a
+ * laptop, a bottom sheet on a phone (Plan 123).
+ */
+function CockpitPopover({
+  phone,
+  title,
+  onClose,
+  children,
+}: {
+  phone: boolean;
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  if (phone) {
+    return (
+      <PhoneSheet title={title} onClose={onClose}>
+        <div className="ql-tap" style={{ margin: "-1rem" }}>
+          {children}
+        </div>
+      </PhoneSheet>
+    );
+  }
+  return (
+    <div
+      style={{
+        position: "absolute",
+        top: "calc(100% + 4px)",
+        right: 8,
+        zIndex: 45,
+        width: "min(440px, 94%)",
+        background: "var(--surface)",
+        border: "1px solid var(--border2)",
+        borderRadius: 10,
+        boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+        overflow: "hidden",
+      }}
+    >
+      {children}
+      <div style={{ textAlign: "right", padding: "0.3rem 0.5rem" }}>
+        <button className="btn btn-ghost" style={{ ...BTN_XS, border: "none" }} onClick={onClose}>
+          <X size={14} aria-hidden /> Close
+        </button>
+      </div>
     </div>
   );
 }

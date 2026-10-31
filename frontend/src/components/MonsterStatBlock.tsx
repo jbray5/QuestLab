@@ -8,6 +8,9 @@ import ImageUpload from "./ImageUpload";
 import ModelUpload from "./ModelUpload";
 import { heightFtForSize } from "../engine/heights";
 import ObsidianLink, { ObsidianNoteInput } from "./dm/ObsidianLink";
+import PhoneSheet from "./PhoneSheet";
+import { useIsCompact } from "../hooks/useIsCompact";
+import { useCanEditCatalog } from "../hooks/useCanEditCatalog";
 
 interface Props {
   monster: Monster;
@@ -96,6 +99,10 @@ function ActionSection({ title, entries }: SectionProps) {
 }
 
 export default function MonsterStatBlock({ monster, onClose }: Props) {
+  // Plan 123: on a phone the stat block is a bottom sheet with the name in its header.
+  const phone = useIsCompact(640);
+  // SEC-003 — SRD monsters are admin-only to change; homebrew belongs to its DM.
+  const canEdit = useCanEditCatalog(monster.is_custom ? monster.created_by_email : null);
   const qc = useQueryClient();
   const updateImage = useMutation({
     mutationFn: (url: string) => monstersApi.updateImage(monster.id, url),
@@ -122,103 +129,93 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
     { label: "CHA", value: monster.score_cha },
   ];
 
-  return (
-    <div
-      onClick={onClose}
+  // The art, the AI buttons and the 3D figure. On a phone it moves to the end of the
+  // sheet so the numbers come first.
+  const art = !canEdit ? (
+    monster.image_url ? (
+      <img
+        src={monster.image_url}
+        alt={monster.name}
+        style={{ width: 90, height: 90, objectFit: "cover", borderRadius: 8, border: "1px solid var(--border)" }}
+      />
+    ) : null
+  ) : (
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: phone ? "flex-start" : "center" }}>
+      <ImageUpload
+        currentUrl={monster.image_url}
+        onUrlChange={(url) => updateImage.mutate(url)}
+        label="Monster Art"
+        size={90}
+      />
+      {AI_ON && <MonsterPortraitButton monsterId={monster.id} />}
+      {AI_ON && <MonsterFigureButton monsterId={monster.id} hasFigure={!!monster.figure_url} />}
+      {/* The 3D figure's preview is a WebGL scene (those crashed phones) and only
+          the laptop table uses it, so a phone just says where to set it. */}
+      {phone ? (
+        <small style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>3D figure: set it on a bigger screen.</small>
+      ) : (
+        <ModelUpload currentUrl={monster.model_url} onUrlChange={(url) => updateModel.mutate(url)} heightFt={heightFtForSize(monster.size)} />
+      )}
+    </div>
+  );
+
+  // Plan 93: DM-only, the vault path for this monster's page.
+  const obsidianNote = (
+    <label
       style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1000,
-        background: "rgba(5, 8, 7, 0.8)",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        overflowY: "auto",
-        padding: "2rem 1rem",
+        display: "block",
+        fontSize: "0.8125rem",
+        color: "var(--muted)",
+        marginBottom: "0.5rem",
       }}
     >
-      <div
-        className="stat-block fade-in"
-        role="dialog"
-        aria-label={`${monster.name} stat block`}
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: "relative",
-          maxWidth: "600px",
-          width: "100%",
-          padding: "1.4rem 1.5rem",
-          borderColor: "var(--border2)",
-        }}
-      >
-        {/* Close button */}
-        <button
-          className="btn btn-ghost"
-          onClick={onClose}
-          style={{
-            position: "absolute",
-            top: "0.75rem",
-            right: "0.75rem",
-            width: 36,
-            height: 36,
-            minHeight: 0,
-            padding: 0,
-            zIndex: 1,
-          }}
-          aria-label="Close"
-        >
-          <X size={18} />
-        </button>
+      Obsidian note
+      <span onBlur={() => saveNote.mutate(note)}>
+        <ObsidianNoteInput value={note} onChange={setNote} />
+      </span>
+    </label>
+  );
 
-        {/* Header */}
-        <div style={{ paddingRight: "2.5rem", display: "flex", gap: "1rem", alignItems: "flex-start", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "center" }}>
-            <ImageUpload
-              currentUrl={monster.image_url}
-              onUrlChange={(url) => updateImage.mutate(url)}
-              label="Monster Art"
-              size={90}
-            />
-            {AI_ON && <MonsterPortraitButton monsterId={monster.id} />}
-            {AI_ON && <MonsterFigureButton monsterId={monster.id} hasFigure={!!monster.figure_url} />}
-            <ModelUpload currentUrl={monster.model_url} onUrlChange={(url) => updateModel.mutate(url)} heightFt={heightFtForSize(monster.size)} />
+  const typeLine = (
+    <p style={{ fontStyle: "italic", color: "var(--muted)", fontSize: "0.9375rem", margin: phone ? 0 : undefined }}>
+      {monster.size} {monster.creature_type}
+      {monster.alignment ? `, ${monster.alignment}` : ""}
+    </p>
+  );
+
+  const body = (
+    <>
+        {/* Header (on a phone the sheet's own header already names the monster) */}
+        {phone ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
+            {typeLine}
+            <ObsidianLink dmNote={monster.dm_note} />
           </div>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <h2
-                className="monster-name"
-                style={{
-                  fontSize: "1.75rem",
-                  lineHeight: 1.15,
-                  flex: 1,
-                }}
-              >
-                {monster.name}
-              </h2>
-              <ObsidianLink dmNote={monster.dm_note} />
+        ) : (
+          <div style={{ paddingRight: "2.5rem", display: "flex", gap: "1rem", alignItems: "flex-start", flexWrap: "wrap" }}>
+            {art}
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <h2
+                  className="monster-name"
+                  style={{
+                    fontSize: "1.75rem",
+                    lineHeight: 1.15,
+                    flex: 1,
+                  }}
+                >
+                  {monster.name}
+                </h2>
+                <ObsidianLink dmNote={monster.dm_note} />
+              </div>
+              {typeLine}
             </div>
-            <p style={{ fontStyle: "italic", color: "var(--muted)", fontSize: "0.9375rem" }}>
-              {monster.size} {monster.creature_type}
-              {monster.alignment ? `, ${monster.alignment}` : ""}
-            </p>
           </div>
-        </div>
+        )}
 
         <Divider />
 
-        {/* Plan 93 — DM-only: the vault path for this monster's page. */}
-        <label
-          style={{
-            display: "block",
-            fontSize: "0.8125rem",
-            color: "var(--muted)",
-            marginBottom: "0.5rem",
-          }}
-        >
-          Obsidian note
-          <span onBlur={() => saveNote.mutate(note)}>
-            <ObsidianNoteInput value={note} onChange={setNote} />
-          </span>
-        </label>
+        {!phone && canEdit && obsidianNote}
 
         {/* AC / HP / Speed */}
         <div style={{ marginBottom: "0.5rem", fontSize: "0.9375rem" }}>
@@ -321,12 +318,83 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
         <ActionSection title="Legendary Actions" entries={monster.legendary_actions} />
         <ActionSection title="Lair Actions" entries={monster.lair_actions} />
 
+        {phone && (
+          <>
+            <Divider />
+            {art}
+            {canEdit && <div style={{ marginTop: "0.75rem" }}>{obsidianNote}</div>}
+          </>
+        )}
+
         {/* Source badge */}
         <div style={{ marginTop: "1rem", textAlign: "right" }}>
           <span className="pill" title="Where this stat block comes from">
             {monster.source}
           </span>
         </div>
+    </>
+  );
+
+  if (phone) {
+    return (
+      <PhoneSheet title={monster.name} label={`${monster.name} stat block`} onClose={onClose}>
+        <div
+          className="stat-block"
+          style={{ maxWidth: "none", border: "none", background: "transparent", padding: 0 }}
+        >
+          {body}
+        </div>
+      </PhoneSheet>
+    );
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        background: "rgba(5, 8, 7, 0.8)",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        overflowY: "auto",
+        padding: "2rem 1rem",
+      }}
+    >
+      <div
+        className="stat-block fade-in"
+        role="dialog"
+        aria-label={`${monster.name} stat block`}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "relative",
+          maxWidth: "600px",
+          width: "100%",
+          padding: "1.4rem 1.5rem",
+          borderColor: "var(--border2)",
+        }}
+      >
+        {/* Close button */}
+        <button
+          className="btn btn-ghost"
+          onClick={onClose}
+          style={{
+            position: "absolute",
+            top: "0.75rem",
+            right: "0.75rem",
+            width: 36,
+            height: 36,
+            minHeight: 0,
+            padding: 0,
+            zIndex: 1,
+          }}
+          aria-label="Close"
+        >
+          <X size={18} />
+        </button>
+        {body}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { Bell, ClipboardList, LifeBuoy, RefreshCw, Scale, Signpost, Sparkles, St
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { sessionsApi } from "../../api/sessions";
+import { useIsCompact } from "../../hooks/useIsCompact";
 import type { BriefBeat, SessionBrief } from "../../api/types";
 
 /**
@@ -74,6 +75,8 @@ function BriefModal({ sessionId, onClose }: { sessionId: string; onClose: () => 
   const qc = useQueryClient();
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
+  // Plan 123 — a phone gets the whole screen and a thumb-sized close.
+  const phone = useIsCompact(640);
 
   const { data: brief, isLoading } = useQuery({
     queryKey: ["session-brief", sessionId],
@@ -99,7 +102,7 @@ function BriefModal({ sessionId, onClose }: { sessionId: string; onClose: () => 
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",
-        padding: "3vh 1rem",
+        padding: phone ? 0 : "3vh 1rem",
         overflowY: "auto",
       }}
     >
@@ -111,9 +114,10 @@ function BriefModal({ sessionId, onClose }: { sessionId: string; onClose: () => 
         style={{
           background: "var(--surface)",
           border: "1px solid var(--border2)",
-          borderRadius: 12,
-          width: "min(780px, 96vw)",
-          maxWidth: "96vw",
+          borderRadius: phone ? 0 : 12,
+          width: phone ? "100%" : "min(780px, 96vw)",
+          maxWidth: phone ? "100%" : "96vw",
+          minHeight: phone ? "100dvh" : undefined,
           boxShadow: "0 12px 48px rgba(0,0,0,0.5)",
         }}
       >
@@ -140,7 +144,7 @@ function BriefModal({ sessionId, onClose }: { sessionId: string; onClose: () => 
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <button
               className="btn btn-ghost"
-              style={{ minHeight: 30, fontSize: "0.8125rem", padding: "0.2rem 0.6rem", gap: "0.35rem" }}
+              style={{ minHeight: phone ? 44 : 30, fontSize: "0.8125rem", padding: "0.2rem 0.6rem", gap: "0.35rem" }}
               aria-expanded={showNotes}
               onClick={() => setShowNotes((s) => !s)}
             >
@@ -149,7 +153,7 @@ function BriefModal({ sessionId, onClose }: { sessionId: string; onClose: () => 
             </button>
             <button
               className="btn btn-ghost"
-              style={{ minHeight: 30, width: 32, padding: 0, border: "none" }}
+              style={{ minHeight: phone ? 44 : 30, width: phone ? 44 : 32, padding: 0, border: "none" }}
               onClick={onClose}
               aria-label="Close"
               title="Close"

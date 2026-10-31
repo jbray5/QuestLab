@@ -40,6 +40,8 @@ function fmt(n: number): string {
 export default function AbilityBlock({ abilities, onRoll, readOnly = false }: Props) {
   return (
     <div
+      // Phones (Plan 123): three to a row instead of four and two.
+      className="ql-s6-abilities"
       style={{
         display: "grid",
         gridTemplateColumns: "repeat(auto-fit, minmax(64px, 1fr))",

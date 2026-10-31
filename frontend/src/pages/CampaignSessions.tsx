@@ -248,8 +248,9 @@ export default function CampaignSessions() {
     characters.find((c) => c.id === id)?.character_name ?? id.slice(0, 8);
 
   return (
-    <div className="fade-in">
-      <nav className="text-sm" style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
+    // `.ql-s6`: thumb-sized controls on a phone (index.css, Plan 123 S6).
+    <div className="fade-in ql-s6">
+      <nav className="text-sm ql-s6-crumbs" style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
         <Link to="/">Dashboard</Link>
         {activeCampaign && (
           <>
@@ -271,7 +272,7 @@ export default function CampaignSessions() {
             Grouped by arc — a stretch of the story with its own encounters and maps.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="ql-actions">
           <button className="btn btn-secondary" onClick={() => setArcFormOpen((v) => !v)}>
             {arcFormOpen ? (
               "Cancel"
@@ -378,6 +379,7 @@ export default function CampaignSessions() {
                 <h2 className="story" style={{ fontSize: "1.35rem", margin: 0, lineHeight: 1.25 }}>
                   <button
                     type="button"
+                    className="ql-s6-tap"
                     style={bareBtn}
                     onClick={() => toggleArc(arc.id)}
                     aria-expanded={!isCollapsed}
@@ -497,7 +499,7 @@ export default function CampaignSessions() {
                     <button className="btn btn-ghost" style={compactBtn} onClick={() => setEditArc(null)}>
                       Cancel
                     </button>
-                    <Link className="text-sm" style={{ marginLeft: "auto" }} to={`/campaigns/${campaignId}/adventures`}>
+                    <Link className="text-sm ql-s6-hit" style={{ marginLeft: "auto" }} to={`/campaigns/${campaignId}/adventures`}>
                       Tier, acts, NPC roster, location notes →
                     </Link>
                   </div>
@@ -516,7 +518,11 @@ export default function CampaignSessions() {
                   <h3 style={{ margin: "0 0 0.75rem", fontSize: "1rem" }}>
                     New session in <span className="story">{arc.title}</span>
                   </h3>
-                  <div className="grid-2">
+                  <div
+                    className="grid-2"
+                    // Phones (Plan 123): the short number and the date share a row.
+                    style={phone ? { gridTemplateColumns: "minmax(0, 0.8fr) minmax(0, 1.2fr)", gap: "0 0.75rem" } : undefined}
+                  >
                     <div className="form-group">
                       <label>Session number</label>
                       <input type="number" min={1} value={sNumber} onChange={(e) => setSNumber(Number(e.target.value))} />
@@ -754,6 +760,7 @@ export default function CampaignSessions() {
                     No sessions in this arc yet —{" "}
                     <button
                       type="button"
+                      className="ql-s6-hit"
                       style={{ ...bareBtn, display: "inline", color: "var(--accent-text)" }}
                       onClick={() => openSessionForm(arc)}
                     >

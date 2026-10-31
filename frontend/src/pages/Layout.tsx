@@ -408,7 +408,7 @@ export default function Layout() {
           {navContent}
         </aside>
 
-        <main style={{ flex: 1, padding: "0.9rem", overflowY: "auto", minWidth: 0 }}>
+        <main style={{ flex: 1, padding: "1rem", overflowY: "auto", minWidth: 0 }}>
           <Outlet />
         </main>
 

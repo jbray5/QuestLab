@@ -2,12 +2,14 @@ import { useMemo, useState } from "react";
 import { Drama, X } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 
+import { useIsCompact } from "../../hooks/useIsCompact";
 import { useHudPrefs } from "../../stores/useHudPrefs";
 
 import type { Npc } from "../../api/npcs";
 import type { RunbookScene } from "../../api/types";
 import NpcModal from "../npc/NpcModal";
 import NpcTableFace from "../npc/NpcTableFace";
+import PhoneSheet from "../PhoneSheet";
 
 interface Props {
   /** Campaign NPCs to render as cards. */
@@ -18,6 +20,9 @@ interface Props {
   rosterNames?: string[];
   /** This session's number; an NPC tagged "s9" / "session 9" belongs to session 9. */
   sessionNumber?: number;
+  /** Controlled open state (the HUD opens it from a header chip on a phone). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 const SESSION_TAG = /^s(?:ession)?[\s#-]*(\d+)$/i;
@@ -32,9 +37,22 @@ const SESSION_TAG = /^s(?:ession)?[\s#-]*(\d+)$/i;
  *
  * The old chip layout (portrait + accent parsing + raw dialog_hooks
  * rendering) is gone — that content lives in the Prep face now.
+ *
+ * Plan 123 — on a phone the cast is a bottom sheet with no side tab (the tab
+ * covered the party cards); the page that renders it opens it via `open`.
  */
-export default function TonightsCastDrawer({ npcs, currentScene, rosterNames = [], sessionNumber }: Props) {
-  const [open, setOpen] = useState(false);
+export default function TonightsCastDrawer({
+  npcs,
+  currentScene,
+  rosterNames = [],
+  sessionNumber,
+  open: openProp,
+  onOpenChange,
+}: Props) {
+  const [openLocal, setOpenLocal] = useState(false);
+  const open = openProp ?? openLocal;
+  const setOpen = (next: boolean) => (onOpenChange ? onOpenChange(next) : setOpenLocal(next));
+  const phone = useIsCompact(640);
   const [editing, setEditing] = useState<Npc | null>(null);
   const qc = useQueryClient();
 
@@ -83,10 +101,106 @@ export default function TonightsCastDrawer({ npcs, currentScene, rosterNames = [
     });
   }, [shown, sceneText]);
 
+  const showAllToggle = (filtering || showAll) && tonight.length > 0 && tonight.length < npcs.length && (
+    <button
+      type="button"
+      className="btn btn-ghost"
+      style={
+        phone
+          ? { minHeight: 44, fontSize: "0.875rem", margin: "0 0 0.75rem", padding: "0.15rem 0.75rem" }
+          : { minHeight: 28, fontSize: "0.8125rem", margin: "0.5rem 0.75rem 0", padding: "0.15rem 0.6rem", alignSelf: "flex-start" }
+      }
+      onClick={() => setShowAll(!showAll)}
+      title="Tonight = on this arc's NPC roster, mentioned in the scene, or tagged with this session"
+    >
+      {showAll ? `Show tonight's ${tonight.length} only` : `Show all ${npcs.length} NPCs`}
+    </button>
+  );
+
+  const cards = (
+    <>
+      {sortedNpcs.length === 0 && (
+        <div style={{ padding: "0.75rem 0.5rem", fontSize: "0.875rem", lineHeight: 1.5 }}>
+          <p style={{ margin: "0 0 0.4rem", color: "var(--text2)" }}>
+            Tonight&rsquo;s cast lists the NPCs you&rsquo;ll voice, with their manner and hooks at a glance.
+          </p>
+          <p style={{ margin: 0, color: "var(--muted)" }}>
+            This campaign has no NPCs yet. Add them from the campaign&rsquo;s NPCs page.
+          </p>
+        </div>
+      )}
+      {sortedNpcs.map((npc) => {
+        const inScene =
+          sceneText.length > 0 &&
+          sceneText.includes(npc.name.toLowerCase());
+        return (
+          <div key={npc.id} style={{ position: "relative" }}>
+            {inScene && (
+              <span className="pill pill-next" style={inSceneBadgeStyle} title="Mentioned in the current scene">
+                In this scene
+              </span>
+            )}
+            <NpcTableFace
+              npc={npc}
+              onOpenPrep={() => {
+                // The sheet sits above modals on a phone: step out of it first.
+                if (phone) setOpen(false);
+                setEditing(npc);
+              }}
+              compact
+            />
+          </div>
+        );
+      })}
+    </>
+  );
+
+  const editor = editing && (
+    <NpcModal
+      campaignId={editing.campaign_id}
+      initial={editing}
+      onClose={() => setEditing(null)}
+      onSaved={() => {
+        qc.invalidateQueries({ queryKey: ["npcs", editing.campaign_id] });
+        setEditing(null);
+      }}
+      onDeleted={() => {
+        qc.invalidateQueries({ queryKey: ["npcs", editing.campaign_id] });
+        setEditing(null);
+      }}
+    />
+  );
+
+  if (phone) {
+    return (
+      <>
+        {open && (
+          <PhoneSheet title="Tonight's cast" onClose={() => setOpen(false)}>
+            <p style={{ margin: "0 0 0.75rem", fontSize: "0.8125rem", color: "var(--muted)" }}>
+              {currentScene?.title ? (
+                <>
+                  Scene:{" "}
+                  <span className="story" style={{ color: "var(--text2)", fontSize: "0.9375rem" }}>
+                    {currentScene.title}
+                  </span>
+                </>
+              ) : (
+                "Who you'll voice tonight. Tap a card for more."
+              )}
+            </p>
+            {showAllToggle}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>{cards}</div>
+          </PhoneSheet>
+        )}
+        {editor}
+      </>
+    );
+  }
+
   return (
     <>
       <button
-        onClick={() => setOpen((p) => !p)}
+        onClick={() => setOpen(!open)}
         title={open ? "Hide cast" : "Show tonight's cast"}
         aria-expanded={open}
         style={toggleStyle(open)}
@@ -119,65 +233,11 @@ export default function TonightsCastDrawer({ npcs, currentScene, rosterNames = [
             )}
           </span>
         </header>
-        {(filtering || showAll) && tonight.length > 0 && tonight.length < npcs.length && (
-          <button
-            type="button"
-            className="btn btn-ghost"
-            style={{ minHeight: 28, fontSize: "0.8125rem", margin: "0.5rem 0.75rem 0", padding: "0.15rem 0.6rem", alignSelf: "flex-start" }}
-            onClick={() => setShowAll(!showAll)}
-            title="Tonight = on this arc's NPC roster, mentioned in the scene, or tagged with this session"
-          >
-            {showAll ? `Show tonight's ${tonight.length} only` : `Show all ${npcs.length} NPCs`}
-          </button>
-        )}
-        <div style={listStyle}>
-          {sortedNpcs.length === 0 && (
-            <div style={{ padding: "0.75rem 0.5rem", fontSize: "0.875rem", lineHeight: 1.5 }}>
-              <p style={{ margin: "0 0 0.4rem", color: "var(--text2)" }}>
-                Tonight&rsquo;s cast lists the NPCs you&rsquo;ll voice, with their manner and hooks at a glance.
-              </p>
-              <p style={{ margin: 0, color: "var(--muted)" }}>
-                This campaign has no NPCs yet. Add them from the campaign&rsquo;s NPCs page.
-              </p>
-            </div>
-          )}
-          {sortedNpcs.map((npc) => {
-            const inScene =
-              sceneText.length > 0 &&
-              sceneText.includes(npc.name.toLowerCase());
-            return (
-              <div key={npc.id} style={{ position: "relative" }}>
-                {inScene && (
-                  <span className="pill pill-next" style={inSceneBadgeStyle} title="Mentioned in the current scene">
-                    In this scene
-                  </span>
-                )}
-                <NpcTableFace
-                  npc={npc}
-                  onOpenPrep={() => setEditing(npc)}
-                  compact
-                />
-              </div>
-            );
-          })}
-        </div>
+        {showAllToggle}
+        <div style={listStyle}>{cards}</div>
       </aside>
 
-      {editing && (
-        <NpcModal
-          campaignId={editing.campaign_id}
-          initial={editing}
-          onClose={() => setEditing(null)}
-          onSaved={() => {
-            qc.invalidateQueries({ queryKey: ["npcs", editing.campaign_id] });
-            setEditing(null);
-          }}
-          onDeleted={() => {
-            qc.invalidateQueries({ queryKey: ["npcs", editing.campaign_id] });
-            setEditing(null);
-          }}
-        />
-      )}
+      {editor}
     </>
   );
 }

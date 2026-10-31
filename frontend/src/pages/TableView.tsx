@@ -12,6 +12,7 @@ import TurnSplash, { type SplashSubject } from "../components/table/TurnSplash";
 import MapReveal from "../components/table/MapReveal";
 import DiceCinematic, { type TableRoll } from "../components/table/DiceCinematic";
 import { useMapReveal } from "../hooks/useMapReveal";
+import { usePlayIdentity } from "../hooks/usePlayIdentity";
 
 /**
  * TableView — the full-screen battle-map surface the remote table projects
@@ -28,6 +29,8 @@ export default function TableView() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [params] = useSearchParams();
   const pcId = params.get("pc");
+  // SEC-002 — `?pc=` is the player's link key; their token is matched by id.
+  const myPcId = usePlayIdentity(pcId)?.pc_id ?? null;
   const panelWanted = !!pcId || params.get("panel") === "1";
   const [panelOpen, setPanelOpen] = useState(panelWanted);
   const [rollLog, setRollLog] = useState<TableRoll[]>([]);
@@ -141,7 +144,7 @@ export default function TableView() {
   const title = data?.title ?? "";
 
   // Plan 83 — the player's own token: drag locally, commit on release.
-  const myToken = pcId ? (data?.tokens.find((t) => t.ref_id === pcId) ?? null) : null;
+  const myToken = myPcId ? (data?.tokens.find((t) => t.ref_id === myPcId) ?? null) : null;
   function moveMine(id: string, x: number, y: number) {
     if (!myToken || id !== myToken.id) return;
     qc.setQueryData<TableProjection>(["table-projection", sessionId], (prev) =>
@@ -230,7 +233,7 @@ export default function TableView() {
         <RemotePanel
           projection={data}
           rolls={rollLog}
-          pcId={pcId}
+          pcId={myPcId}
           open={panelOpen}
           onToggle={() => setPanelOpen((v) => !v)}
           canDrag={!!myToken}

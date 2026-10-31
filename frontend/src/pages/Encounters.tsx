@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, ChevronRight, Minus, Plus, Swords, X } from "lucide-react";
 import { AI_ON } from "../lib/flags";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { encountersApi } from "../api/encounters";
 import type { ThemedMonsterSuggestion } from "../api/encounters";
@@ -14,6 +14,7 @@ import DifficultyMeter from "../components/encounter-builder/DifficultyMeter";
 import SuggestionsPanel from "../components/encounter-builder/SuggestionsPanel";
 import { plural } from "../lib/plural";
 import RowMenu from "../components/RowMenu";
+import { useIsCompact } from "../hooks/useIsCompact";
 import {
   DIFFICULTY_HELP,
   DIFFICULTY_HOW,
@@ -54,6 +55,9 @@ function rosterPayload(entries: RosterEntry[]) {
 
 function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEditorProps) {
   const qc = useQueryClient();
+  // Phones (Plan 123): the roster is stacked rows with thumb-sized steppers
+  // instead of a six-column table that scrolled sideways.
+  const phone = useIsCompact(640);
 
   // Local copy of the roster — edited freely, saved on button press
   const initialRoster: RosterEntry[] = (encounter.monster_roster ?? []).map((e) => ({
@@ -273,6 +277,7 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
                   style={{
                     display: "flex", width: "100%", gap: "0.75rem",
                     alignItems: "center", justifyContent: "space-between",
+                    minHeight: phone ? 48 : undefined,
                     padding: "0.5rem 0.75rem", background: "none",
                     border: "none", cursor: "pointer", textAlign: "left",
                     borderBottom: "1px solid var(--border)",
@@ -299,6 +304,63 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
         </p>
       ) : (
         <div style={{ marginBottom: "0.75rem" }}>
+          {phone ? (
+            <div className="ql-table">
+              {roster.map((r) => (
+                <div key={r.monster_id} className="ql-table-row" style={{ padding: "0.55rem 0.5rem 0.55rem 0.75rem" }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <span
+                      className="story"
+                      style={{ fontWeight: 700, fontSize: "1.05rem", color: "var(--text)", flex: "1 1 auto", minWidth: 0 }}
+                    >
+                      {r.name}
+                    </span>
+                    <span className="num" style={{ fontSize: "0.8125rem", color: "var(--muted)" }}>
+                      CR {r.cr} · {r.xp.toLocaleString()} XP each
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "0.3rem" }}>
+                    <button
+                      className="btn btn-secondary ql-s6-sq"
+                      style={{ padding: 0 }}
+                      onClick={() => setCount(r.monster_id, r.count - 1)}
+                      aria-label={`One fewer ${r.name}`}
+                      title="One fewer"
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <span className="num" style={{ minWidth: 28, textAlign: "center", fontWeight: 600, fontSize: "1.05rem" }}>
+                      {r.count}
+                    </span>
+                    <button
+                      className="btn btn-secondary ql-s6-sq"
+                      style={{ padding: 0 }}
+                      onClick={() => setCount(r.monster_id, r.count + 1)}
+                      aria-label={`One more ${r.name}`}
+                      title="One more"
+                    >
+                      <Plus size={16} />
+                    </button>
+                    <span style={{ marginLeft: "auto", fontSize: "0.875rem", color: "var(--muted)" }}>
+                      <strong className="num" style={{ color: "var(--text)", fontWeight: 600 }}>
+                        {(r.xp * r.count).toLocaleString()}
+                      </strong>{" "}
+                      XP
+                    </span>
+                    <button
+                      className="btn btn-ghost ql-s6-sq"
+                      style={{ padding: 0, border: "none", color: "var(--muted)" }}
+                      onClick={() => removeMonster(r.monster_id)}
+                      title="Remove"
+                      aria-label={`Remove ${r.name}`}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="ql-table" style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem", minWidth: 460 }}>
             <thead>
@@ -367,6 +429,7 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
             </tbody>
           </table>
           </div>
+          )}
 
           {/* XP summary */}
           <div className="flex gap-2" style={{
@@ -452,7 +515,6 @@ function RosterEditor({ encounter, adventureId, pcLevels, onSaved }: RosterEdito
 
 export default function Encounters() {
   const { adventureId } = useParams<{ adventureId: string }>();
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const { activeCampaign, activeAdventure } = useCampaignStore();
 
@@ -504,25 +566,23 @@ export default function Encounters() {
   });
 
   return (
-    <div className="fade-in">
-      {/* Breadcrumb */}
-      <nav className="text-sm" style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
-        <span style={{ cursor: "pointer", color: "var(--accent-text)" }} onClick={() => navigate("/")}>Dashboard</span>
+    // `.ql-s6`: thumb-sized controls on a phone (index.css, Plan 123 S6).
+    <div className="fade-in ql-s6">
+      {/* Breadcrumb — real links (keyboard, new tab); 44 px tall on a phone. */}
+      <nav className="text-sm ql-s6-crumbs" style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
+        <Link to="/">Dashboard</Link>
         {activeCampaign && (
           <>
             {" / "}
-            <span style={{ cursor: "pointer", color: "var(--accent-text)" }} onClick={() => navigate(`/campaigns/${activeCampaign.id}/sessions`)}>
-              {activeCampaign.name}
-            </span>
+            <Link to={`/campaigns/${activeCampaign.id}/sessions`}>{activeCampaign.name}</Link>
           </>
         )}
         {(activeAdventure || adventure) && (
           <>
             {" / "}
-            <span style={{ cursor: "pointer", color: "var(--accent-text)" }}
-              onClick={() => navigate(`/adventures/${(activeAdventure ?? adventure)!.id}/sessions`)}>
+            <Link to={`/adventures/${(activeAdventure ?? adventure)!.id}/sessions`}>
               {activeAdventure?.title ?? adventure?.title}
-            </span>
+            </Link>
           </>
         )}
         {" / "}

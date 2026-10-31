@@ -266,7 +266,7 @@ export default function CharacterCreator() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api.post<{ pc_id: string; warnings: string[] }>(`/play/join/${campaignId}/characters${joinCodeQuery(campaignId)}`, {
+      const res = await api.post<{ pc_id: string; play_key?: string; warnings: string[] }>(`/play/join/${campaignId}/characters${joinCodeQuery(campaignId)}`, {
         character_name: characterName.trim(),
         player_name: playerName.trim(),
         species: speciesName,
@@ -284,12 +284,14 @@ export default function CharacterCreator() {
         kit: kit || null,
         appearance: appearance.trim() || null,
       });
+      // SEC-002 — the new sheet opens by its link key, never its id.
+      const key = res.play_key || res.pc_id;
       try {
-        localStorage.setItem(`qj-pick-${campaignId}`, res.pc_id);
+        localStorage.setItem(`qj-pick-${campaignId}`, key);
       } catch {
         /* fine */
       }
-      navigate(`/play/${res.pc_id}`, { replace: true });
+      navigate(`/play/${key}`, { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {

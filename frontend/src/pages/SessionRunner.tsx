@@ -9,6 +9,7 @@ import { adventuresApi } from "../api/adventures";
 import { sessionsApi } from "../api/sessions";
 import LootPanel from "../components/LootPanel";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
+import { useIsCompact } from "../hooks/useIsCompact";
 import type { Combatant, SessionRunbook } from "../api/types";
 import { statusLabel } from "../lib/labels";
 
@@ -92,6 +93,9 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
   const [newDex, setNewDex] = useState("");
   const [newHp, setNewHp] = useState("");
   const [newType, setNewType] = useState<"pc" | "monster" | "npc">("monster");
+  // Plan 123 — on a phone the add form is a two-column grid and each row is a
+  // small card: the name first, then its initiative and hit points as fields.
+  const phone = useIsCompact(640);
 
   // Hydrate from backend on mount / session change — survives browser refresh.
   useEffect(() => {
@@ -148,7 +152,7 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
         </div>
         <button
           className="btn btn-ghost"
-          style={{ minHeight: 30, fontSize: "0.8125rem", padding: "0.2rem 0.6rem", border: "none" }}
+          style={{ minHeight: phone ? 44 : 30, fontSize: "0.8125rem", padding: "0.2rem 0.6rem", border: "none" }}
           onClick={() => void reset()}
           title="Clear the order and start over"
         >
@@ -165,8 +169,15 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
         </p>
       )}
 
-      <div className="flex gap-2" style={{ marginBottom: "1rem", flexWrap: "wrap", alignItems: "flex-end" }}>
-        <label style={{ ...fieldLabel, flex: "2 1 140px" }}>
+      <div
+        className={phone ? undefined : "flex gap-2"}
+        style={
+          phone
+            ? { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem", marginBottom: "1rem", alignItems: "end" }
+            : { marginBottom: "1rem", flexWrap: "wrap", alignItems: "flex-end" }
+        }
+      >
+        <label style={{ ...fieldLabel, flex: "2 1 140px", ...(phone ? { gridColumn: "1 / -1" } : {}) }}>
           Name
           <input
             placeholder="e.g. Goblin boss"
@@ -191,7 +202,13 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
             <option value="npc">NPC</option>
           </select>
         </label>
-        <button className="btn btn-secondary" onClick={addCombatant} disabled={roll.isPending} title="Add them and roll initiative for everyone">
+        <button
+          className="btn btn-secondary"
+          onClick={addCombatant}
+          disabled={roll.isPending}
+          title="Add them and roll initiative for everyone"
+          style={phone ? { minHeight: 44 } : undefined}
+        >
           <Dices size={16} aria-hidden /> Add &amp; roll
         </button>
       </div>
@@ -209,18 +226,117 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
 
       {combatants.length > 0 && (
         <div className="ql-table">
-          <div className="ql-table-head" style={{ ...rowGrid, padding: "0.4rem 0.75rem" }}>
-            <span title="Initiative — highest goes first">Initiative</span>
-            <span>Name</span>
-            <span>Side</span>
-            <span>Hit points</span>
-            <span />
-          </div>
+          {!phone && (
+            <div className="ql-table-head" style={{ ...rowGrid, padding: "0.4rem 0.75rem" }}>
+              <span title="Initiative — highest goes first">Initiative</span>
+              <span>Name</span>
+              <span>Side</span>
+              <span>Hit points</span>
+              <span />
+            </div>
+          )}
           {/* Highest initiative first, the order the HUD shows and the turns follow. */}
           <div role="list" aria-label="Initiative order">
             {[...combatants].sort((a, b) => b.initiative_roll - a.initiative_roll).map((c) => {
               const isActive = c.id === activeCombatantId;
               const side = SIDE[c.type] ?? SIDE.npc;
+              const initField = (
+                <input
+                  type="number"
+                  aria-label={`${c.name} initiative`}
+                  title={c.initiative_roll ? "Initiative" : "Not rolled yet — type their roll"}
+                  placeholder="—"
+                  value={c.initiative_roll || ""}
+                  onChange={(e) => void setInitiative(c.id, Number(e.target.value) || 0)}
+                  className="num"
+                  style={{ ...cellInput, fontWeight: 600, ...(phone ? { minHeight: 44, fontSize: 16 } : {}) }}
+                />
+              );
+              const hpField = (
+                <input
+                  type="number"
+                  aria-label={`${c.name} hit points`}
+                  title="Hit points"
+                  value={c.hp_current}
+                  onChange={(e) =>
+                    void patchCombatant(c.id, { hp_current: Math.max(0, Number(e.target.value)) })
+                  }
+                  className="num"
+                  style={phone ? { ...cellInput, minHeight: 44, fontSize: 16 } : cellInput}
+                />
+              );
+              const nameBlock = (
+                <span style={{ minWidth: 0, flex: phone ? 1 : undefined }}>
+                  <span
+                    className="story"
+                    style={{
+                      display: "block",
+                      fontWeight: 700,
+                      fontSize: "1rem",
+                      lineHeight: 1.25,
+                      textDecoration: c.defeated ? "line-through" : "none",
+                      overflowWrap: "anywhere",
+                    }}
+                  >
+                    {c.name}
+                  </span>
+                  {isActive && (
+                    <span style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--accent-text)" }}>
+                      Their turn
+                    </span>
+                  )}
+                </span>
+              );
+              const sidePill = (
+                <span className={side.cls} style={{ fontSize: "0.75rem", padding: "0 0.5rem", justifySelf: "start" }} title={side.title}>
+                  {side.label}
+                </span>
+              );
+              const defeatButton = (
+                <button
+                  className="btn btn-ghost"
+                  title={c.defeated ? "Bring them back" : "Mark defeated"}
+                  aria-label={c.defeated ? `Revive ${c.name}` : `Mark ${c.name} defeated`}
+                  style={{
+                    minHeight: phone ? 44 : 28,
+                    width: phone ? 44 : 30,
+                    padding: 0,
+                    border: "none",
+                    color: "var(--muted)",
+                    flex: "none",
+                  }}
+                  onClick={() => void toggleDefeated(c.id)}
+                >
+                  {c.defeated ? <Undo2 size={phone ? 18 : 15} aria-hidden /> : <X size={phone ? 18 : 15} aria-hidden />}
+                </button>
+              );
+              if (phone) {
+                return (
+                  <div
+                    key={c.id}
+                    role="listitem"
+                    aria-current={isActive ? "true" : undefined}
+                    className={`ql-table-row${isActive ? " lit" : ""}`}
+                    style={{ padding: "0.5rem 0.75rem 0.65rem", opacity: c.defeated ? 0.45 : 1 }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      {nameBlock}
+                      {sidePill}
+                      {defeatButton}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem", marginTop: "0.35rem" }}>
+                      <label style={fieldLabel}>
+                        Initiative
+                        {initField}
+                      </label>
+                      <label style={fieldLabel}>
+                        Hit points
+                        {hpField}
+                      </label>
+                    </div>
+                  </div>
+                );
+              }
               return (
                 <div
                   key={c.id}
@@ -233,59 +349,11 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
                     opacity: c.defeated ? 0.45 : 1,
                   }}
                 >
-                  <input
-                    type="number"
-                    aria-label={`${c.name} initiative`}
-                    title={c.initiative_roll ? "Initiative" : "Not rolled yet — type their roll"}
-                    placeholder="—"
-                    value={c.initiative_roll || ""}
-                    onChange={(e) => void setInitiative(c.id, Number(e.target.value) || 0)}
-                    className="num"
-                    style={{ ...cellInput, fontWeight: 600 }}
-                  />
-                  <span style={{ minWidth: 0 }}>
-                    <span
-                      className="story"
-                      style={{
-                        display: "block",
-                        fontWeight: 700,
-                        fontSize: "1rem",
-                        lineHeight: 1.25,
-                        textDecoration: c.defeated ? "line-through" : "none",
-                        overflowWrap: "anywhere",
-                      }}
-                    >
-                      {c.name}
-                    </span>
-                    {isActive && (
-                      <span style={{ display: "block", fontSize: "0.75rem", fontWeight: 600, color: "var(--accent-text)" }}>
-                        Their turn
-                      </span>
-                    )}
-                  </span>
-                  <span className={side.cls} style={{ fontSize: "0.75rem", padding: "0 0.5rem", justifySelf: "start" }} title={side.title}>
-                    {side.label}
-                  </span>
-                  <input
-                    type="number"
-                    aria-label={`${c.name} hit points`}
-                    title="Hit points"
-                    value={c.hp_current}
-                    onChange={(e) =>
-                      void patchCombatant(c.id, { hp_current: Math.max(0, Number(e.target.value)) })
-                    }
-                    className="num"
-                    style={cellInput}
-                  />
-                  <button
-                    className="btn btn-ghost"
-                    title={c.defeated ? "Bring them back" : "Mark defeated"}
-                    aria-label={c.defeated ? `Revive ${c.name}` : `Mark ${c.name} defeated`}
-                    style={{ minHeight: 28, width: 30, padding: 0, border: "none", color: "var(--muted)" }}
-                    onClick={() => void toggleDefeated(c.id)}
-                  >
-                    {c.defeated ? <Undo2 size={15} aria-hidden /> : <X size={15} aria-hidden />}
-                  </button>
+                  {initField}
+                  {nameBlock}
+                  {sidePill}
+                  {hpField}
+                  {defeatButton}
                 </div>
               );
             })}
@@ -299,10 +367,11 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
             className="btn btn-ghost"
             onClick={() => void prevTurn()}
             title="Undo an accidental Next turn — step back one combatant"
+            style={phone ? { minHeight: 44 } : undefined}
           >
             ← Back
           </button>
-          <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => void nextTurn()}>
+          <button className="btn btn-secondary" style={{ flex: 1, ...(phone ? { minHeight: 44 } : {}) }} onClick={() => void nextTurn()}>
             Next turn →
           </button>
         </div>
@@ -317,6 +386,7 @@ const sectionLabel: React.CSSProperties = { fontSize: "0.8125rem", fontWeight: 6
 
 function RunbookView({ runbook }: { runbook: SessionRunbook }) {
   const [activeScene, setActiveScene] = useState(0);
+  const phone = useIsCompact(640);
   const scenes = runbook.scenes ?? [];
   const scene = scenes[activeScene];
 
@@ -338,7 +408,7 @@ function RunbookView({ runbook }: { runbook: SessionRunbook }) {
               className="btn btn-ghost"
               aria-pressed={i === activeScene}
               style={{
-                minHeight: 32,
+                minHeight: phone ? 44 : 32,
                 fontSize: "0.875rem",
                 padding: "0.25rem 0.7rem",
                 ...(i === activeScene
@@ -485,6 +555,8 @@ export default function SessionRunner() {
   const qc = useQueryClient();
   const [dmNotes, setDmNotes] = useState("");
   const [extraNotes, setExtraNotes] = useState("");
+  // Plan 123 — a phone stacks the runbook, the notes, then initiative and loot.
+  const phone = useIsCompact(640);
 
   const {
     data: session,
@@ -591,7 +663,8 @@ export default function SessionRunner() {
   }
 
   return (
-    <div className="fade-in">
+    // On a phone the last card clears the dice button at the bottom-right.
+    <div className="fade-in" style={phone ? { paddingBottom: 64 } : undefined}>
       {/* Generating overlay */}
       {generateRunbook.isPending && (
         <div
@@ -638,7 +711,7 @@ export default function SessionRunner() {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) minmax(340px, 420px)",
+          gridTemplateColumns: phone ? "minmax(0, 1fr)" : "minmax(0, 1fr) minmax(340px, 420px)",
           gap: "1.5rem",
           alignItems: "start",
         }}
@@ -778,6 +851,7 @@ export default function SessionRunner() {
                 onClick={() => saveNotes.mutate(dmNotes)}
                 disabled={saveNotes.isPending || !notesDirty}
                 title="Notes also save automatically a moment after you stop typing"
+                style={phone ? { minHeight: 44 } : undefined}
               >
                 {saveNotes.isPending ? "Saving…" : notesDirty ? "Save now" : "Saved"}
               </button>

@@ -81,7 +81,8 @@ export default function LootPanel({
   const visible = items.slice(0, 25);
 
   return (
-    <div className="card" style={{ marginTop: "1rem" }}>
+    // `.ql-s6`: thumb-sized buttons and fields on a phone (index.css, Plan 123 S6).
+    <div className="card ql-s6" style={{ marginTop: "1rem" }}>
       <div
         className="flex items-center"
         style={{ justifyContent: "space-between", cursor: "pointer", gap: "0.5rem" }}

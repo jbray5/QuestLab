@@ -191,7 +191,7 @@ function Sheet({ pcId, help, spec, onClose, onNext }: { pcId: string; help: Help
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {spec.damage.sneakDice ? (
               <label style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, fontSize: 15, margin: 0, color: "var(--text)" }}>
-                <input type="checkbox" checked={sneak} onChange={(e) => setSneak(e.target.checked)} style={{ width: 20, height: 20 }} />
+                <input type="checkbox" checked={sneak} onChange={(e) => setSneak(e.target.checked)} style={{ width: 20, height: 20, flexShrink: 0 }} />
                 Add Sneak Attack <span className="num" style={{ color: "var(--text2)" }}>+{spec.damage.sneakDice}d6</span>
               </label>
             ) : null}

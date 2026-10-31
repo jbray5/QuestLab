@@ -60,6 +60,8 @@ export default function SkillsList({
         Skills
       </h4>
       <div
+        // Phones (Plan 123): each skill is a thumb-sized row.
+        className="ql-s6-rows"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))",

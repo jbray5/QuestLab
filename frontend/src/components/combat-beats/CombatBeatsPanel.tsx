@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Plus, RotateCcw, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { useIsCompact } from "../../hooks/useIsCompact";
+
 import {
   type CombatBeat,
   type CombatBeatCreate,
@@ -40,6 +42,10 @@ interface Props {
 
 export default function CombatBeatsPanel({ sessionId, combatants, round }: Props) {
   const qc = useQueryClient();
+  // Plan 123 — on a phone the forms wrap, the threshold fields are wide and
+  // every button is 44 px (the HUD's phone rule lifts the .btn ones).
+  const phone = useIsCompact(640);
+  const numField: React.CSSProperties = phone ? { ...fieldStyle, width: 96, minHeight: 44 } : { ...fieldStyle, width: 56 };
 
   const { data: beats = [] } = useQuery({
     queryKey: ["combat-beats", sessionId],
@@ -273,12 +279,12 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
       {/* HP beat form */}
       {showHpForm && (
         <div style={formStyle}>
-          <div style={{ display: "flex", gap: "0.3rem", marginBottom: "0.3rem" }}>
+          <div style={{ display: "flex", gap: "0.3rem", marginBottom: "0.3rem", flexWrap: phone ? "wrap" : undefined }}>
             <select
               value={hpCombatant}
               onChange={(e) => setHpCombatant(e.target.value)}
               aria-label="Combatant"
-              style={{ ...fieldStyle, flex: 2 }}
+              style={{ ...fieldStyle, flex: phone ? "1 1 100%" : 2 }}
             >
               <option value="">Who…</option>
               {combatants.map((c) => (
@@ -299,7 +305,7 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
                 setHpValue(e.target.value === "" ? "" : Number(e.target.value))
               }
               aria-label="HP threshold"
-              style={{ ...fieldStyle, width: 56 }}
+              style={numField}
               placeholder="HP"
             />
             <span style={{ fontSize: "0.8125rem", color: "var(--muted)", alignSelf: "center" }}>
@@ -311,7 +317,7 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
             onChange={(e) => setHpText(e.target.value)}
             placeholder="e.g. When she's bloodied she whispers: 'help me — it's so loud — make it stop'"
             aria-label="What to say or do"
-            rows={2}
+            rows={phone ? 4 : 2}
             style={{ ...fieldStyle, width: "100%", marginBottom: "0.35rem" }}
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.3rem" }}>
@@ -348,7 +354,7 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
                 setRoundValue(e.target.value === "" ? "" : Number(e.target.value))
               }
               aria-label="Round"
-              style={{ ...fieldStyle, width: 56 }}
+              style={numField}
               placeholder="N"
             />
           </div>
@@ -357,7 +363,7 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
             onChange={(e) => setRoundText(e.target.value)}
             placeholder="e.g. Wenneth is visibly weakening — her HP drops by 2 at the start of each of her turns."
             aria-label="What to say or do"
-            rows={2}
+            rows={phone ? 4 : 2}
             style={{ ...fieldStyle, width: "100%", marginBottom: "0.35rem" }}
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.3rem" }}>
@@ -390,7 +396,7 @@ export default function CombatBeatsPanel({ sessionId, combatants, round }: Props
               </span>
               <button
                 onClick={() => deleteMutation.mutate(b.id)}
-                style={deleteBtnStyle}
+                style={phone ? { ...deleteBtnStyle, minWidth: 44, minHeight: 44, justifyContent: "center" } : deleteBtnStyle}
                 title="Delete this beat"
                 aria-label="Delete this beat"
               >

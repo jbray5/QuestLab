@@ -92,6 +92,7 @@ export default function ExhaustionTracker({ pc, readOnly = false }: Props) {
           return (
             <button
               key={i}
+              className="ql-s6-pip"
               disabled={readOnly || set.isPending}
               onClick={() => {
                 // Click the highest filled to drop it, otherwise raise to i

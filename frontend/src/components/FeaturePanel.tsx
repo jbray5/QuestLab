@@ -185,6 +185,7 @@ export default function FeaturePanel({
                   }
                   title={isFilled ? "Click to spend" : "Click to restore"}
                   aria-label={isFilled ? `Spend a use of ${row.feature_name}` : `Restore a use of ${row.feature_name}`}
+                  className="ql-s6-pip"
                   style={pipStyle(isFilled, 13)}
                 />
               );
@@ -207,7 +208,7 @@ export default function FeaturePanel({
         </span>
 
         <button
-          className="btn btn-ghost"
+          className="btn btn-ghost ql-s6-sq"
           style={REMOVE_BTN}
           onClick={() => {
             if (window.confirm(`Forget ${row.feature_name} for ${characterName}?`)) {
@@ -224,7 +225,7 @@ export default function FeaturePanel({
   }
 
   return (
-    <div style={PANEL_STYLE}>
+    <div className="ql-s6" style={PANEL_STYLE}>
       <div style={PANEL_HEAD_STYLE} onClick={() => setOpen((p) => !p)}>
         <h4 style={PANEL_TITLE_STYLE}>
           <Zap size={16} style={{ color: "var(--muted)" }} />

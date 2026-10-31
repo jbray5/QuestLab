@@ -122,3 +122,36 @@ to the tools' chrome. Respect `prefers-reduced-motion`.
 - **Player phone and the table TV**: lean Lantern — bigger story names, a warm glow on "your turn".
 - **Public pages** (`/try`, `/welcome`): the drawn night scene hero (parallax, fireflies) and
   the DM-screen/tracker story. Never pitch the private 3D table or VTT gameplay.
+
+## 8. Phones (Plan 123)
+
+Every page works one-handed at 390 px, and nothing changes on a laptop. Phone behaviour switches
+at **640 px**, through `useIsCompact(640)` or `@media (max-width: 640px)`. The older breakpoints
+stay where they are: 900 for the nav drawer and 820 for the HUD's stacked panes. Check a page with
+the sweep (`scratchpad/mobile_sweep.py OUTDIR [route] [width]`). It measures with the
+`overflow-x: hidden` safety net switched off, so anything too wide shows up.
+
+**Building blocks in `index.css`:**
+
+| Class / component | Desktop | Phone |
+|---|---|---|
+| `.ql-page` (`--page-max`) | centred column, 1.5rem padding | no extra padding; `<main>` gives the 16 px gutter |
+| `.ql-filters` (+ `.ql-filter-wide`) | search widest, then the selects | search on its own row, two selects per row |
+| `.ql-split` | list beside its detail | one column; the detail opens in a `PhoneSheet` |
+| `.ql-actions` | header actions, right-aligned | left-aligned, wrapping |
+| `.ql-scroll-x` | a row meant to scroll sideways (chips, tabs) | same |
+| `.ql-table-wrap` | table scrolls inside its box | same, though stacked cards are better for anything read at the table |
+| `.ql-hide-phone` / `.ql-only-phone` | — | hide / show |
+| `PhoneSheet` | — | bottom sheet with a title and close button, portalled to `<body>`, z 9000 |
+| `HudMenu` | dropdown | bottom sheet |
+
+**Rules:**
+- Tap targets are at least 44 px tall. Text fields are 16 px, so iOS doesn't zoom on focus.
+- No textarea narrower than its column, and give it about 5 rows.
+- Lists put the name on line 1 and the meta on line 2. Make the whole row the button rather than
+  squeezing one in.
+- List → detail opens a sheet, so the list keeps its scroll position.
+- Fixed things (the dice button, side tabs, toasts) never cover content or each other.
+- Keep every function reachable. A feature may stay desktop-only only when it really needs the
+  room, such as map painting or the 3D board, and then say so on screen ("needs a bigger screen").
+- No WebGL on list or character pages (iOS Safari crashed with four previews; see TD notes).
