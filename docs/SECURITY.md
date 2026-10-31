@@ -34,7 +34,7 @@ Players never sign in: their surfaces are **capability URLs** — the UUID in th
 |---|---|---|---|
 | DM app `/api/campaigns/**`, sessions, NPCs, encounters, maps, shops, notebooks, exports | DM session (oauth) | only that DM's campaigns — every service checks `campaign.dm_email` through the child's own parent | same |
 | `/api/admin/**` | DM session + `BOOTSTRAP_ADMIN_EMAILS` | admin tools; export is the admin's own campaigns | monster reseed |
-| `/play/{pc_id}/**` | the PC's UUID | that PC's sheet, spells, gear, features; the party roster (names + PC ids); **revealed** NPCs only (name, role, race, appearance, location, status, portrait — never secret/motivation/hooks/notes) | that PC's HP, slots, death saves, coin/inspiration (allowlisted fields), gear, buy/sell/give, level-up **only after the DM grants it**, arena/duels (seat-checked) |
+| `/play/{pc_id}/**` | the PC's UUID | that PC's sheet (**never the DM's `notes` field**, Plan 122), spells, gear, features, its turn kit; the party roster (names + PC ids); the running fight's order (names, initiative, side); **revealed** NPCs only (name, role, race, appearance, location, status, portrait — never secret/motivation/hooks/notes) | that PC's HP, temp HP, slots, death saves, coin/inspiration/concentration/exhaustion (allowlisted fields), rolls to the table (labeled, advantage, typed-in real dice), casting its own prepared spells (spends its own slot), preparing spells within its class cap, its private `player_notes`, gear, buy/sell/give, level-up **only after the DM grants it**, arena/duels (seat-checked) |
 | `/join/{campaign_id}` | campaign UUID (+ join code if set) | the roster | create a PC while sign-up is on |
 | `/table/{session_id}` (TV/projector) | session UUID | the projected board, tokens, initiative names, PC HP | its own PC token moves (via `/play`) |
 | `/market/{campaign_id}`, `/shop/{shop_id}`, `/puzzle/{id}` | UUID | visible shops / answer-free puzzle | purchases (via `/play`) |
@@ -47,7 +47,7 @@ Never on a player surface: hidden NPCs, NPC secrets/KNOWS/WANT/VOICE, beat cards
 2. **High — shared catalogs.** Any signed-in DM can edit or delete catalog monsters, items and spells for everyone (no owner column on items/spells).
 3. **High — uploads.** File extension comes from the client name; an `.html`/`.svg` upload is served from the API origin.
 4. **Medium** — fog of war is client-side (fogged monsters are in the projection); `/stream/campaign/{id}` ignores the join code; session `attending_pc_ids` / combatant `character_id` aren't checked against the campaign; crier webhook URL isn't restricted to Discord; inventory PATCH notes-only path skips the row check.
-5. **Low** — `GET /play/{pc}` includes the PC `notes` field (the DM's notes box on the character form); feature spend doesn't check the feature belongs to the PC; arena duel/boss accept PCs from another campaign; `buy` ignores a hidden shop.
+5. **Low** — ~~`GET /play/{pc}` includes the PC `notes` field~~ (fixed in Plan 122: every `/play` sheet response excludes it); feature spend doesn't check the feature belongs to the PC; arena duel/boss accept PCs from another campaign; `buy` ignores a hidden shop.
 
 ## Authorization
 - Authorization checks live in `services/` — never in the UI alone.

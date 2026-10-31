@@ -12,6 +12,33 @@ classes below it). Pages should use the tokens (`var(--…)`) and classes, never
 
 ---
 
+## 0. Principles: a companion that grows with you
+
+Justin, 10/30: the player phone should be "the ideal companion app for new-ish players as they
+grow into experienced ones" — and "keep those principles as you review the entire app." Every
+screen, DM or player, is checked against these before it is called done:
+
+1. **Grows with the person.** New users get plain words, explanations and suggestions; experienced
+   users get density and speed. Where it matters, a **help level** (Teach me · Remind me · Just the
+   numbers) decides how much is explained, and the app offers to step it down as they use it.
+2. **Plain words first.** Spell it out ("Armor Class", "Passive Perception"); short forms only in
+   dense, labeled tables, with the full name a tap or hover away. Sentence case, never ALL CAPS.
+3. **The moment decides the screen.** Lead with what matters *now* (your turn, the next session,
+   the fight in progress); everything else is one tap away, not scrolled past.
+4. **Every number is a verb.** If you can roll it, tap it to roll; if you can spend it, tap it to
+   spend; if it's computed, tap it to see why.
+5. **Nothing important is buried.** The common action is the most visible one; rare actions live
+   in a ⋯ menu; teaching aids sit next to the thing they explain, never in a collapsed appendix.
+6. **Tell people what happened.** Loot, turns, damage, invites and rolls arrive with a notice that
+   says who did what — never a silent refetch.
+7. **Real dice and the shared room come first.** Typing a real die is always an option; rolls and
+   big moments can show on the TV.
+8. **Thumb-sized and forgiving.** Touch targets ≥ 44 px; undo where a tap spends something.
+9. **No dead ends.** Every screen has a way back; every empty state says what it's for and the one
+   next step.
+
+---
+
 ## 1. The one rule: tool or story?
 
 Before styling any text, ask whether it is **part of the tool** or **part of the fiction**.

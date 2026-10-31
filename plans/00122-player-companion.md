@@ -23,30 +23,32 @@ Principles: `docs/DESIGN.md` §0. Look: Lamplit (Plan 121).
 ---
 
 ## Progress
-- [ ] B1 Rolls: advantage/disadvantage (2d20 keep one), real-die entry (no server RNG), kind; table + party feed say who rolled
-- [ ] B2 Turn kit `GET /play/{pc}/turn-kit`: movement, actions (weapons, unarmed, attack cantrips), bonus actions, reactions, coach tips — built from `services/arena_service.py` helpers
-- [ ] B3 Cast `POST /play/{pc}/spells/{character_spell_id}/cast` (slot ≥ spell level; cantrip/ritual no slot; concentration set; table log)
-- [ ] B4 Prepare `POST /play/{pc}/spells/{character_spell_id}/prepare` (prepared casters; cap from `srd.spells_prepared`)
-- [ ] B5 Private notes: `player_notes` column + migration 0055; `PUT /play/{pc}/notes`; the DM's own `notes` no longer leak through `/play/{pc}`
-- [ ] B6 Temp HP joins the player-patchable set (0–999)
-- [ ] B7 Notices: give/loot/use events carry a sentence ("Bram gave you a Potion of Healing"); turn changes reach every party phone with who's up
-- [ ] B8 Tests `tests/test_api/test_plan122_player_companion.py`
-- [ ] F1 Shell: `frontend/src/pages/player/*` — tab bar, help-level store (per PC, localStorage), notices, screen wake-lock toggle, first-open screen (+ "Not you?")
-- [ ] F2 Now tab: your turn / waiting / exploring / dying takeover; level-up banner
-- [ ] F3 Roll sheet used everywhere (checks, saves, attacks, damage, initiative, hit dice, death saves)
-- [ ] F4 Character tab (three help levels), HP/temp HP/inspiration, conditions in words, exhaustion, hit dice, features
-- [ ] F5 Spells tab: slots, cast with slot picker, rituals, prepare mode
-- [ ] F6 Bag tab: coin in words, equipped/pack, drink/give, market card, attunement count
-- [ ] F7 Journal tab: next/last session, private notes, people met (with appearance), the "fewer hints?" nudge, how-to-play (old walkthrough + rules)
-- [ ] F8 Satellites in Lamplit + no dead ends: JoinView (switch character), CharacterCreator, CharacterView, LevelUpGuide, Market/Storefront (back to sheet), player Arena
-- [ ] F9 Docs (ARCHITECTURE codemap, SECURITY player-link table, TESTING), gates, screenshots, ask Justin to push
+- [x] B1 Rolls: advantage/disadvantage (2d20 keep one), real-die entry (no server RNG), kind; table + party feed say who rolled
+- [x] B2 Turn kit `GET /play/{pc}/turn-kit`: movement, actions (weapons, unarmed, attack cantrips), bonus actions, reactions, coach tips — built from `services/arena_service.py` helpers
+- [x] B3 Cast `POST /play/{pc}/spells/{character_spell_id}/cast` (slot ≥ spell level; cantrip/ritual no slot; concentration set; table log)
+- [x] B4 Prepare `POST /play/{pc}/spells/{character_spell_id}/prepare` (prepared casters; cap from `srd.spells_prepared`)
+- [x] B5 Private notes: `player_notes` column + migration 0055; `PUT /play/{pc}/notes`; the DM's own `notes` no longer leak through `/play/{pc}`
+- [x] B6 Temp HP joins the player-patchable set (0–999)
+- [x] B7 Notices: give/loot/use events carry a sentence ("Bram gave you a Potion of Healing"); turn changes reach every party phone with who's up
+- [x] B8 Tests `tests/test_api/test_plan122_player_companion.py`
+- [x] F1 Shell: `frontend/src/pages/player/*` — tab bar, help-level store (per PC, localStorage), notices, screen wake-lock toggle, first-open screen (+ "Not you?")
+- [x] F2 Now tab: your turn / waiting / exploring / dying takeover; level-up banner
+- [x] F3 Roll sheet used everywhere (checks, saves, attacks, damage, initiative, hit dice, death saves)
+- [x] F4 Character tab (three help levels), HP/temp HP/inspiration, conditions in words, exhaustion, hit dice, features
+- [x] F5 Spells tab: slots, cast with slot picker, rituals, prepare mode
+- [x] F6 Bag tab: coin in words, equipped/pack, drink/give, market card, attunement count
+- [x] F7 Journal tab: next/last session, private notes, people met (with appearance), the "fewer hints?" nudge, how-to-play (old walkthrough + rules)
+- [x] F8 Satellites in Lamplit + no dead ends: JoinView (switch character), CharacterCreator, CharacterView, LevelUpGuide, Market/Storefront (back to sheet), player Arena
+- [x] F9 Docs (ARCHITECTURE codemap, SECURITY player-link table, TESTING, data dictionary), gates, screenshots
+- [ ] F10 Justin approves the push; a Discord note invites the players to try it
 
 ---
 
 ## Surprises and Discoveries
 - 10/30: PlayerView uses none of `components/character-sheet/*` (DM-only); the DM already has a roll helper, attack previews, cast/prepare and rests.
 - 10/30: `GET /play/{pc}` returns the full DM projection, including the DM's `notes` about the PC — readable by anyone with the link. Fixed in B5.
-- 10/30: other players' phones never learn whose turn it is (turn events go only to the PC whose turn starts/ends).
+- 10/30: other players' phones never learn whose turn it is (turn events go only to the PC whose turn starts/ends). Fixed: every party phone hears the turn, and turn-state carries the order.
+- 10/30: Journal shows tonight's session title but no recap: players have no recap endpoint yet (left out rather than faked).
 
 ---
 

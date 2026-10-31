@@ -40,7 +40,12 @@ Any import violation is a bug. Add import boundary tests in Stage 3.
 | SEC-003 | Catalog monsters/items/spells editable and deletable by any DM (no owner on items/spells; `PATCH /items` writes from the router) | High | 2026-10-30 | |
 | SEC-004 | Uploads take the extension from the client filename → `.html`/`.svg` served from the API origin (stored XSS); no `nosniff` | High | 2026-10-30 | |
 | SEC-005 | Fog of war client-side; `/stream/campaign` ignores join code; session/combat PC ids unchecked vs campaign; crier webhook URL unrestricted (SSRF); inventory notes-only PATCH skips row check | Medium | 2026-10-30 | |
-| SEC-006 | `/play/{pc}` returns the DM notes field; feature spend skips PC check; arena accepts other-campaign PCs; `buy` ignores hidden shops | Low | 2026-10-30 | |
+| SEC-006 | ~~`/play/{pc}` returns the DM notes field~~ (fixed, Plan 122); feature spend skips PC check; arena accepts other-campaign PCs; `buy` ignores hidden shops | Low | 2026-10-30 | |
+| TD-121a | Lamplit page passes not yet done: Shops, Admin, Notebook, Puzzles, Town Crier, Map Builder, compendium pages, TableView/BoardView/LiveBoardPane (TV), GuidePage (still names old labels and the TV board), Arena DM side. Legacy tokens keep them readable meanwhile | Medium | 2026-10-30 | Plan 121 step 7 |
+| TD-121b | `components/dice-tray/PlayerDice.tsx` and `components/character-sheet/RollToast.tsx` are no longer imported (the phone has its own roll sheet). Remove with Justin's OK | Low | 2026-10-30 | |
+| UX-001 | HUD: two HP controls per PC (±1 batch on the card vs typed amount on the strip); no clear "start the fight" moment (party seeds as an idle roster showing End turn); card conditions outside combat are local-only; "Next hit" is jargon for the private 3D table | Medium | 2026-10-30 | Plan 121 step 10 |
+| UX-002 | Sessions: no rename from lists (quick sessions all "Quick session, Oct 30"); status only moves forward; "Up next" compares against UTC today; ISO dates shown raw; arcs managed in two places | Medium | 2026-10-30 | Plan 121 step 10 |
+| UX-003 | Characters: cards embed full inventory/spells/features (very long); DM sheet header fixed and eats half a phone; join settings crowd the header. NPCs: one very long editor form; "Reveal true form" click also opens the editor (event bubbles). Encounters: difficulty shown from two sources; breadcrumb not keyboard-reachable. Battle maps: "drop here" area misses the drop handler | Medium | 2026-10-30 | Plan 121 step 10 |
 
 ## Definition of Done (per task)
 - [ ] `pytest -q` — zero failures

@@ -148,6 +148,7 @@ questlab/
 ---
 
 ## Documentation
+- [Design System (Lamplit)](docs/DESIGN.md)
 - [Stack Decisions](docs/STACK.md)
 - [Security Model](docs/SECURITY.md)
 - [Testing Strategy](docs/TESTING.md)

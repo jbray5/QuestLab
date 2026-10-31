@@ -52,6 +52,9 @@ tests/
 - `test_services/test_plan116_boss_live.py` — only the boss is referee-played; out-of-turn acts refused; the boss picks its victim (`_RNG.choice`); a seat can be handed to the referee (own, or whoever is up — never one merely waiting; never the last person) and taken back; heals and Lay on Hands land on a friend, a downed friend included. Boss blocks use a `1d1` attack so a scripted fight never ends by itself.
 - `test_api/test_plan104_duels.py::test_a_boss_battle_on_everyones_phone` — the same over HTTP: 403 for a waiting seat, 404 for an unknown boss
 
+### Plan 122 — the companion phone's player-link verbs
+- `test_api/test_plan122_player_companion.py` — advantage keeps the higher d20; typed-in real dice are logged as given (wrong face or count → 422); the turn kit groups a wizard's Fire Bolt as an action with its to-hit and lists Opportunity Attack as a reaction; a rogue gets Cunning Action and the Sneak Attack tip; casting spends the slot chosen (cantrips free, rituals free, unprepared refused, below the spell's level refused, out of slots → 409); another PC's spell row → 404; preparing respects class (sorcerers can't) and cantrips; player notes round-trip and the DM's `notes` never appear in `/play` responses; temp HP is player-writable within 0–999 while level stays DM-only; off your turn the phone gets the running order (who's up, foes marked, your own row flagged).
+
 ## Running Tests
 ```bash
 pytest -q                        # all tests

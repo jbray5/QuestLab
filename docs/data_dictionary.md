@@ -123,6 +123,7 @@ Full 2024 5e character sheet, belonging to a Campaign.
 | spells_known | JSON | Yes | | `[{name, level, school, prepared}]` |
 | spell_slots | JSON | Yes | | `{level: {total, used}}` |
 | pending_level | INTEGER | Yes | 1–20 | Plan 115 — level the DM granted; the player's level-up guide raises `level` toward it, cleared on arrival (migration 0054) |
+| player_notes | TEXT | Yes | ≤ 4,000 chars (request body) | Plan 122 — the player's own notes, written from the phone (`PUT /play/{pc}/notes`); the DM's screens never show them; distinct from the DM's `notes`, which the player link never returns (migration 0055) |
 | created_at | TIMESTAMP | No | | |
 | updated_at | TIMESTAMP | No | | |
 
