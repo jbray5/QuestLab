@@ -16,6 +16,7 @@ load_dotenv()
 # ── Import all domain models so their tables appear in metadata ────────────────
 # Every SQLModel table= True class must be imported here for autogenerate to work.
 import domain.adventure  # noqa: E402, F401
+import domain.beta  # noqa: E402, F401
 import domain.campaign  # noqa: E402, F401
 import domain.character  # noqa: E402, F401
 import domain.crier  # noqa: E402, F401

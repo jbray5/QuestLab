@@ -40,6 +40,32 @@ class UserRepo:
         return session.exec(select(User).where(col == provider_id)).first()
 
     @staticmethod
+    def list_all(session: Session) -> list[User]:
+        """Every account, newest first (the beta overview, Plan 125).
+
+        Args:
+            session: Active database session.
+
+        Returns:
+            Users ordered by creation time, newest first.
+        """
+        return list(session.exec(select(User).order_by(User.created_at.desc())).all())
+
+    @staticmethod
+    def list_by_invite(session: Session, code: str) -> list[User]:
+        """Accounts started with an invite code (Plan 125).
+
+        Args:
+            session: Active database session.
+            code: The invite code.
+
+        Returns:
+            Those users, oldest first.
+        """
+        stmt = select(User).where(User.invite_code == code).order_by(User.created_at.asc())
+        return list(session.exec(stmt).all())
+
+    @staticmethod
     def save(session: Session, user: User) -> User:
         """Persist a new or mutated user and bump ``last_seen_at``.
 

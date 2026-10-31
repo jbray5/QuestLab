@@ -4,6 +4,8 @@
 # relationships regardless of which module is imported first.
 from domain.adventure import Adventure as Adventure  # noqa: F401
 from domain.battle_map import BattleMap as BattleMap  # noqa: F401
+from domain.beta import BetaInvite as BetaInvite  # noqa: F401
+from domain.beta import Feedback as Feedback  # noqa: F401
 from domain.campaign import Campaign as Campaign  # noqa: F401
 from domain.character import CharacterFeature as CharacterFeature  # noqa: F401
 from domain.character import CharacterItem as CharacterItem  # noqa: F401

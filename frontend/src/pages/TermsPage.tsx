@@ -23,8 +23,9 @@ export default function TermsPage() {
       <h2>Map and image rights</h2>
       <p>You may only upload maps and images you own or are licensed to use at your own table (your own work, personal-use map packs you bought or back, free maps under their terms). Do not upload or redistribute other creators&rsquo; files. Uploads are private to your account. QuestLab ships no third-party map packs.</p>
 
-      <h2>No generative AI</h2>
-      <p>QuestLab contains no generative AI. Nothing you write or upload is sent to a model, used to train one, or generated for you by one.</p>
+      <h2 id="no-ai">No generative AI, and how QuestLab is built</h2>
+      <p>QuestLab contains no generative AI. Nothing you write or upload is sent to a model, used to train one, or generated for you by one: no AI art, no AI-written story, NPCs or runbooks.</p>
+      <p>To be upfront about the workshop: QuestLab is made by a software developer who uses AI coding assistants to help write and test the code, as most software is made today. That help stays in the workshop. A person reviews and tests every change, and nothing in the app you use runs a model.</p>
 
       <h2>Rules content</h2>
       <p>Game rules content is from the System Reference Document 5.2.1, used under the Creative Commons Attribution 4.0 license. QuestLab is not affiliated with Wizards of the Coast.</p>

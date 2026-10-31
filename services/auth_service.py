@@ -16,6 +16,7 @@ from db.repos.user_repo import UserRepo
 from domain.user import User, UserRead
 from integrations import oauth, session_token
 from integrations.identity import get_current_user_email as _get_email
+from services import beta_service
 
 _STATE_TTL = 10 * 60
 
@@ -155,11 +156,13 @@ def auth_mode() -> str:
     return "oauth" if mode == "oauth" else "header"
 
 
-def start(provider: str) -> str:
+def start(provider: str, invite: Optional[str] = None) -> str:
     """Begin a sign-in.
 
     Args:
         provider: ``discord`` or ``patreon``.
+        invite: A friends-beta invite code (Plan 125); it rides in the signed
+            state so a first sign-in can start an account with it.
 
     Returns:
         The provider authorization URL.
@@ -167,11 +170,14 @@ def start(provider: str) -> str:
     Raises:
         ValueError: If the provider isn't configured.
     """
+    extra = {"provider": provider}
+    if invite:
+        extra["invite"] = invite.strip()[:40]
     state = session_token.issue(
         "anon",
         kind="state",
         ttl_seconds=_STATE_TTL,
-        extra={"provider": provider},
+        extra=extra,
     )
     return oauth.authorize_url(provider, state)
 
@@ -212,7 +218,12 @@ def complete(db: DBSession, provider: str, code: str, state: str) -> tuple[str, 
             )
         user = UserRepo.get_by_email(db, profile.email)
     if user is None:
-        user = User(email=str(profile.email).strip().lower())
+        email = str(profile.email).strip().lower()
+        user = User(email=email)
+        # Plan 125 — a brand-new DM needs a friends-beta invite (an email that
+        # already owns campaigns is an existing DM, not a new one).
+        if not CampaignRepo.list_by_dm(db, email):
+            user.invite_code = beta_service.gate_new_account(db, email, claims.get("invite"))
 
     if profile.provider == "discord":
         user.discord_id = profile.provider_id
@@ -256,6 +267,7 @@ def signup(
     email: str,
     password: str,
     claim_code: Optional[str] = None,
+    invite_code: Optional[str] = None,
 ) -> tuple[str, User]:
     """Create an email + password account and sign it in (Plan 73b).
 
@@ -266,13 +278,16 @@ def signup(
         password: Plaintext password (hashed with scrypt before storage).
         claim_code: The server's ACCOUNT_CLAIM_CODE — needed only when the email
             already owns campaigns or a passwordless account (Plan 120).
+        invite_code: A friends-beta invite — needed for a brand-new account
+            while ``BETA_INVITES=required`` (Plan 125).
 
     Returns:
         ``(session_token, user)``.
 
     Raises:
         ValueError: If the email is taken (with a password), already owns data
-            and the claim code is missing or wrong, or the password is weak.
+            and the claim code is missing or wrong, a needed invite is missing
+            or spent, or the password is weak.
     """
     from integrations import passwords
 
@@ -285,10 +300,14 @@ def signup(
     if user is not None or CampaignRepo.list_by_dm(db, email):
         # Plan 120 — first come must not be first served for someone else's campaigns.
         _require_claim_code(claim_code)
+    new_account = user is None and not CampaignRepo.list_by_dm(db, email)
     if user is None:
         user = User(email=email)
     user.display_name = name.strip()[:120] or user.display_name
     user.password_hash = passwords.hash_password(password)
+    if new_account:
+        # Plan 125 — checked last, so a bad email or password never spends a use.
+        user.invite_code = beta_service.gate_new_account(db, email, invite_code)
     user = UserRepo.save(db, user)
     return session_token.issue(user.email), user
 

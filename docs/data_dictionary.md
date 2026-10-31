@@ -329,6 +329,38 @@ in `services/duel_service.py`, never in the UI alone.
 
 ---
 
+### beta_invites
+Friends-beta invite codes (Plan 125, migration 0059). Admin-made; a new DM account needs one while `BETA_INVITES=required`.
+
+| Column | Type | Nullable | Constraints | Notes |
+|---|---|---|---|---|
+| id | UUID | No | PK | |
+| code | VARCHAR(40) | No | UNIQUE | `QL-` + 6 characters without look-alikes; matched case-insensitively |
+| label | VARCHAR(120) | No | | Who it is for; greets them on the sign-up page |
+| max_uses | INTEGER | No | 1–100, DEFAULT 3 | Accounts it may start |
+| uses | INTEGER | No | DEFAULT 0 | Spent only when an account really starts |
+| revoked | BOOLEAN | No | DEFAULT false | Stops new accounts; existing ones stay |
+| created_by_email | VARCHAR(320) | No | | The admin who made it |
+| created_at | TIMESTAMPTZ | No | | |
+
+### feedback
+Notes DMs send from the app's "Send feedback" sheet (Plan 125, migration 0059).
+
+| Column | Type | Nullable | Constraints | Notes |
+|---|---|---|---|---|
+| id | UUID | No | PK | |
+| email | VARCHAR(320) | No | INDEX | The sending DM (PII) |
+| kind | VARCHAR(20) | No | | `loved` · `confusing` · `broken` · `idea` |
+| text | TEXT | No | ≤ 4,000 chars | |
+| page | VARCHAR(300) | No | | The app path it was sent from |
+| viewport | VARCHAR(40) | No | | Screen size, e.g. `390×844` |
+| seen | BOOLEAN | No | DEFAULT false | Admin inbox state |
+| created_at | TIMESTAMPTZ | No | | |
+
+`users.invite_code` (VARCHAR(40), nullable, indexed, migration 0059) records which invite started an account.
+
+---
+
 ## PII Fields
 
 | Table | Column | Classification |

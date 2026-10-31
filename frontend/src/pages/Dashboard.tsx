@@ -6,6 +6,8 @@ import { Dices, ScrollText } from "lucide-react";
 import { campaignsApi } from "../api/campaigns";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import { useTourStore } from "../stores/useTourStore";
+import { useAuthStore } from "../stores/useAuthStore";
+import BetaWelcome from "../components/BetaWelcome";
 import type { Campaign } from "../api/types";
 import { word } from "../lib/plural";
 
@@ -78,6 +80,8 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { setActiveCampaign } = useCampaignStore();
   const { completed: tourCompleted, isOpen: tourOpen, start: startTour } = useTourStore();
+  // Plan 125 — the friends-beta checklist is per account.
+  const dmEmail = useAuthStore((s) => s.dmEmail);
 
   const { data: campaigns = [], isLoading, isError } = useQuery({
     queryKey: ["campaigns"],
@@ -154,6 +158,8 @@ export default function Dashboard() {
           matches your deployed host.
         </div>
       )}
+
+      {!isLoading && !isError && <BetaWelcome email={dmEmail} campaigns={campaigns} />}
 
       {isLoading && <p className="text-muted">Loading campaigns...</p>}
 

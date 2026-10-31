@@ -6,15 +6,17 @@ Signed-in: ``/auth/me``.
 
 import os
 import uuid
+from typing import Optional
 from urllib.parse import urlencode
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import RedirectResponse
 
 from api.deps import DB, CurrentUser
+from domain.beta import InviteCheck
 from domain.user import AuthProviders, LoginRequest, SessionResponse, SignupRequest, UserRead
 from integrations import oauth
-from services import auth_service
+from services import auth_service, beta_service
 
 router = APIRouter(tags=["auth"])
 
@@ -44,21 +46,39 @@ def providers() -> AuthProviders:
         password_signup=bool(os.environ.get("APP_SECRET", "").strip()),
         mode=auth_service.auth_mode(),
         patreon_url=os.environ.get("PATREON_URL", "").strip() or None,
+        invites_required=beta_service.invites_required(),
     )
 
 
+@router.get("/auth/invites/{code}", response_model=InviteCheck)
+def check_invite(code: str, db: DB) -> InviteCheck:
+    """Is this friends-beta invite usable, and who is it for? (Public, Plan 125.)
+
+    Args:
+        code: The invite code from the link.
+        db: Database session.
+
+    Returns:
+        ``{valid, label}``.
+    """
+    return beta_service.check_invite(db, code[:40])
+
+
 @router.get("/auth/{provider}/start")
-def start(provider: str) -> RedirectResponse:
+def start(
+    provider: str, invite: Optional[str] = Query(default=None, max_length=40)
+) -> RedirectResponse:
     """Redirect the browser to the provider's consent screen.
 
     Args:
         provider: ``discord`` or ``patreon``.
+        invite: A friends-beta invite code for a first sign-in (Plan 125).
 
     Returns:
         A 302 to the provider.
     """
     try:
-        return RedirectResponse(auth_service.start(provider), status_code=302)
+        return RedirectResponse(auth_service.start(provider, invite), status_code=302)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
@@ -106,7 +126,9 @@ def signup(body: SignupRequest, db: DB) -> SessionResponse:
         The session token and profile.
     """
     try:
-        token, user = auth_service.signup(db, body.name, body.email, body.password, body.claim_code)
+        token, user = auth_service.signup(
+            db, body.name, body.email, body.password, body.claim_code, body.invite_code
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except RuntimeError as exc:

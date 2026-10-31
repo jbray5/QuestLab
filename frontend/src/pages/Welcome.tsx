@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { LayoutDashboard, ListOrdered, Smartphone, Swords } from "lucide-react";
 
+import { betaApi } from "../api/beta";
 import { api, apiBase } from "../api/client";
 import BrandMark from "../components/BrandMark";
 import D20Mark from "../components/D20Mark";
@@ -29,6 +30,21 @@ interface Providers {
   providers: string[];
   mode: string;
   password_signup?: boolean;
+  /** Plan 125 — new accounts need a friends-beta invite. */
+  invites_required?: boolean;
+}
+
+/** Plan 125 — the invite from `?invite=` survives a refresh and the OAuth round trip. */
+function readInvite(fromUrl: string | null): string {
+  try {
+    if (fromUrl) {
+      sessionStorage.setItem("ql-invite", fromUrl);
+      return fromUrl;
+    }
+    return sessionStorage.getItem("ql-invite") ?? "";
+  } catch {
+    return fromUrl ?? "";
+  }
 }
 
 
@@ -63,6 +79,7 @@ const CSS = `
 .ql-w-or { text-align: center; color: var(--muted); font-size: 0.8125rem; margin: 0.85rem 0; }
 .ql-w-provider { width: 100%; margin-bottom: 0.55rem; min-height: 46px; }
 .ql-w-err { color: var(--danger-text); font-size: 0.9375rem; margin: 0.3rem 0 0; }
+.ql-w-invite { background: var(--accent-soft); border: 1px solid var(--accent-line); color: var(--text); border-radius: 10px; padding: 0.7rem 0.85rem; font-size: 0.9375rem; line-height: 1.5; margin: 0 0 1rem; }
 .ql-w-note { color: var(--muted); font-size: 0.875rem; margin: 0.9rem 0 0; line-height: 1.5; }
 .ql-w-card details { margin-top: 0.9rem; color: var(--text2); font-size: 0.9375rem; }
 .ql-w-card summary { cursor: pointer; min-height: 32px; }
@@ -103,12 +120,29 @@ export default function Welcome() {
   const [tab, setTab] = useState<"signup" | "signin">("signup");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  // Plan 125 — the friends beta: an invite link fills the code in and greets them.
+  const [invite, setInvite] = useState(() => readInvite(params.get("invite")));
+  const [inviteFor, setInviteFor] = useState<{ code: string; valid: boolean; label: string | null } | null>(null);
   useEffect(() => {
     api
       .get<Providers>("/auth/providers")
       .then(setProviders)
       .catch(() => setProviders({ providers: [], mode: "header" }));
   }, []);
+  useEffect(() => {
+    const code = invite.trim();
+    if (code.length < 4) return;
+    let live = true;
+    betaApi
+      .checkInvite(code)
+      .then((r) => live && setInviteFor({ code, valid: r.valid, label: r.label }))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [invite]);
+  const inviteCheck = inviteFor && inviteFor.code === invite.trim() ? inviteFor : null;
+  const inviteQuery = invite.trim() ? `?invite=${encodeURIComponent(invite.trim())}` : "";
 
   // Plan 73 — OAuth callback lands here with #token=… (never sent to servers).
   useEffect(() => {
@@ -158,7 +192,13 @@ export default function Welcome() {
       const res = await api.post<{ token: string; user: Profile }>(
         tab === "signup" ? "/auth/signup" : "/auth/login",
         tab === "signup"
-          ? { name, email, password, ...(claim ? { claim_code: claim } : {}) }
+          ? {
+              name,
+              email,
+              password,
+              ...(claim ? { claim_code: claim } : {}),
+              ...(invite.trim() ? { invite_code: invite.trim() } : {}),
+            }
           : { email, password },
       );
       setToken(res.token);
@@ -236,6 +276,17 @@ export default function Welcome() {
           {error && <p className="ql-w-err">{error}</p>}
           {providers === null ? null : hasAccounts ? (
             <>
+              {inviteCheck?.valid ? (
+                <p className="ql-w-invite" role="status">
+                  You're invited to the QuestLab beta{inviteCheck.label ? <>, <b>{inviteCheck.label}</b></> : ""}. Create your
+                  account below and the invite comes with you.
+                </p>
+              ) : providers.invites_required ? (
+                <p className="ql-w-invite">
+                  QuestLab is in a friends-only beta. New accounts need an invite link or code from the
+                  DM who told you about it. Already have an account? Sign in.
+                </p>
+              ) : null}
               <p className="ql-w-sub">
                 Your campaigns live under your account and nobody else sees them. Players never need
                 one; they get a link or a QR.
@@ -243,12 +294,12 @@ export default function Welcome() {
               {providers.providers.length > 0 && (
                 <div>
                   {providers.providers.includes("discord") && (
-                    <a className="btn btn-primary ql-w-provider" href={`${apiBase()}/auth/discord/start`}>
+                    <a className="btn btn-primary ql-w-provider" href={`${apiBase()}/auth/discord/start${inviteQuery}`}>
                       Continue with Discord
                     </a>
                   )}
                   {providers.providers.includes("patreon") && (
-                    <a className="btn btn-secondary ql-w-provider" href={`${apiBase()}/auth/patreon/start`}>
+                    <a className="btn btn-secondary ql-w-provider" href={`${apiBase()}/auth/patreon/start${inviteQuery}`}>
                       Continue with Patreon
                     </a>
                   )}
@@ -284,6 +335,32 @@ export default function Welcome() {
                       autoComplete={tab === "signup" ? "new-password" : "current-password"}
                       placeholder={tab === "signup" ? "At least 8 characters" : "Your password"}
                     />
+                    {tab === "signup" && providers.invites_required && (
+                      <>
+                        <label htmlFor="acct-invite">Invite code</label>
+                        <input
+                          id="acct-invite"
+                          name="invite_code"
+                          type="text"
+                          autoComplete="off"
+                          autoCapitalize="characters"
+                          placeholder="QL-XXXXXX"
+                          value={invite}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            try {
+                              sessionStorage.setItem("ql-invite", v);
+                            } catch {
+                              /* storage blocked: the field still works */
+                            }
+                            setInvite(v);
+                          }}
+                        />
+                        {inviteCheck && !inviteCheck.valid && (
+                          <p className="ql-w-err">That invite doesn't work: check it, or ask for a fresh one.</p>
+                        )}
+                      </>
+                    )}
                     {tab === "signup" && (
                       <details open={!!formError && /claim code/i.test(formError)}>
                         <summary>Already running campaigns here under this email?</summary>

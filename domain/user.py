@@ -33,6 +33,8 @@ class User(SQLModel, table=True):
     patron_checked_at: Optional[datetime] = Field(default=None)
     # Email + password accounts (Plan 73b) — scrypt hash, null for OAuth-only users.
     password_hash: Optional[str] = Field(default=None, max_length=300)
+    # Plan 125 — the friends-beta invite code this account was started with.
+    invite_code: Optional[str] = Field(default=None, max_length=40, index=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     last_seen_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -73,6 +75,9 @@ class SignupRequest(BaseModel):
     # Plan 120 — only for an email that already owns campaigns: the server's
     # one-time ACCOUNT_CLAIM_CODE proves the person claiming them is the owner.
     claim_code: Optional[str] = PField(default=None, max_length=200)
+    # Plan 125 — a friends-beta invite; needed to start a NEW account while
+    # BETA_INVITES=required.
+    invite_code: Optional[str] = PField(default=None, max_length=40)
 
 
 class LoginRequest(BaseModel):
@@ -96,4 +101,6 @@ class AuthProviders(BaseModel):
     # Email + password accounts need APP_SECRET to mint sessions.
     password_signup: bool = False
     mode: str  # "oauth" | "header"
+    # Plan 125 — new accounts need a friends-beta invite code.
+    invites_required: bool = False
     patreon_url: Optional[str] = None

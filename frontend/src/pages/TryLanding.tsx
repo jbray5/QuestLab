@@ -254,6 +254,10 @@ export default function TryLanding() {
           </div>
           <h2 id="tl-promise" className="story" style={{ margin: 0, fontStyle: "italic", fontWeight: 500, fontSize: "clamp(30px, 3.6vw, 42px)", lineHeight: 1.15 }}>No AI art. No AI-written story.</h2>
           <p className="tl-p" style={{ maxWidth: 560 }}>QuestLab keeps the numbers. Every word spoken at your table is yours.</p>
+          <p className="tl-p" style={{ maxWidth: 560, fontSize: 15, color: "var(--muted)" }}>
+            Honest note: it&rsquo;s built by a developer who uses AI coding tools to write the software, as most
+            developers do now. Nothing in the app itself generates anything. <a href="/terms#no-ai">How we put it</a>
+          </p>
         </section>
 
         <section id="join" aria-labelledby="tl-join" className="tl-rise" style={{ border: "1px solid var(--accent-line)", borderRadius: 18, background: "var(--accent-soft)", padding: "clamp(28px, 5vw, 56px)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(380px, 100%), 1fr))", gap: "28px 48px", alignItems: "center" }}>

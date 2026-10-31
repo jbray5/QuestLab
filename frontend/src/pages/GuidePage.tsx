@@ -83,8 +83,9 @@ export default function GuidePage() {
         <span className="k">3</span>
         <div>
           <b>Add your players.</b> Campaign &rarr; Characters &rarr;{" "}
-          <span className="btnref">Add character</span>. You only need a name and a class; players
-          fill in the rest from their phones. Or leave{" "}
+          <span className="btnref">Add character</span>. It walks you through species, class,
+          background, scores, feats and spells with the rules checked (a character from paper goes in
+          with <span className="btnref">Enter an existing sheet</span> in the &#8943; menu). Or leave{" "}
           <span className="btnref">Players can create their own characters</span> on and let them
           build their own. Then hand out the join link: copy it from the party panel in the HUD, or
           press <span className="btnref">Join QR &rarr; TV</span> and they scan the big screen. Each
@@ -195,6 +196,12 @@ export default function GuidePage() {
         &mdash; your uploads and your players&rsquo; drawings. Everything is free. If it runs your
         table, back the project on Patreon; that keeps the servers on and gets you a seat in the
         Discord and your name in the credits.
+      </p>
+      <p>
+        One honest note about how it&rsquo;s made: QuestLab is built by Justin, a software developer
+        who, like most developers now, uses AI coding tools to help write and test the code. That
+        stays in the workshop. Nothing in the app generates content, and nothing you or your players
+        write is ever sent to an AI.
       </p>
 
       <h2>Common questions</h2>

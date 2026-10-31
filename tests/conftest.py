@@ -14,6 +14,8 @@ from sqlmodel.pool import StaticPool
 from db.base import _json_serializer
 
 os.environ.setdefault("RATE_LIMIT", "off")  # Plan 77 — the throttle is exercised by its own tests
+# Plan 125 — sign-up suites create accounts freely; the invite gate has its own tests.
+os.environ.setdefault("BETA_INVITES", "off")
 
 
 @pytest.fixture(scope="session")

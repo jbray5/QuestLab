@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   BookOpen, CalendarDays, ChevronDown, ChevronRight, Compass, FlaskConical, Gem, LayoutDashboard, LogOut,
   Map as MapIcon, Megaphone, Menu, NotebookPen, PencilRuler, Puzzle, ScrollText, Shield, Skull, Sparkles, Store,
-  Sword, Swords, UserRound, Users,
+  MessageSquarePlus, Sword, Swords, UserRound, Users,
 } from "lucide-react";
 import { Link, Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
@@ -15,6 +15,7 @@ import { useIsCompact } from "../hooks/useIsCompact";
 import DiceTray from "../components/dice-tray/DiceTray";
 import TourGuide from "../components/tour/TourGuide";
 import BrandMark from "../components/BrandMark";
+import FeedbackSheet from "../components/FeedbackSheet";
 
 // Plan 54 — public demo deployments show a persistent banner so nobody
 // mistakes the shared sandbox for a private campaign.
@@ -134,6 +135,8 @@ export default function Layout() {
   const compact = useIsCompact(900);
   const tableMode = useHudPrefs((s) => s.tableMode);
   const [navOpen, setNavOpen] = useState(false);
+  // Plan 125 — the friends beta: two-tap feedback from any DM page.
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   // Plan 35 — auth guard. Any DM page without a signed-in identity
   // bounces to /welcome with the originally-requested URL preserved.
@@ -203,6 +206,9 @@ export default function Layout() {
         <Link to="/" onClick={closeNav} style={{ display: "flex", alignItems: "center", gap: "0.6rem", color: "var(--text)", textDecoration: "none" }}>
           <BrandMark size={22} />
           <span className="story" style={{ fontWeight: 700, fontSize: "1.3rem", lineHeight: 1 }}>QuestLab</span>
+          <span className="pill" title="You're in the friends beta. Feedback welcome." style={{ fontSize: "0.6875rem", padding: "0 0.45rem", marginLeft: "0.1rem" }}>
+            Beta
+          </span>
         </Link>
         <p style={{ fontSize: "0.75rem", color: "var(--muted)", margin: "0.4rem 0 0" }}>
           For D&amp;D 5e (2024 rules)
@@ -360,6 +366,17 @@ export default function Layout() {
           >
             <LogOut size={14} /> Sign out
           </button>
+          <button
+            onClick={() => {
+              setFeedbackOpen(true);
+              closeNav();
+            }}
+            className="btn btn-secondary"
+            title="Tell Justin what worked, what confused you, or what broke"
+            style={{ fontSize: "0.8125rem", padding: "0.35rem 0.5rem", gridColumn: "1 / -1" }}
+          >
+            <MessageSquarePlus size={14} /> Send feedback
+          </button>
         </div>
       </div>
     </>
@@ -414,6 +431,7 @@ export default function Layout() {
 
         <DiceTray />
         <TourGuide />
+        {feedbackOpen && <FeedbackSheet onClose={() => setFeedbackOpen(false)} />}
       </div>
     );
   }
@@ -439,6 +457,7 @@ export default function Layout() {
 
       <DiceTray />
       <TourGuide />
+      {feedbackOpen && <FeedbackSheet onClose={() => setFeedbackOpen(false)} />}
     </div>
   );
 }

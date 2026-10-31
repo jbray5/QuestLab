@@ -23,6 +23,7 @@ from api.routers import (
     adventures,
     auth,
     battle_maps,
+    beta,
     campaigns,
     characters,
     combat_beats,
@@ -199,6 +200,7 @@ app.include_router(puzzles.router, prefix=_PREFIX)
 app.include_router(crier.router, prefix=_PREFIX)
 app.include_router(notebooks.router, prefix=_PREFIX)
 app.include_router(onboarding.router, prefix=_PREFIX)
+app.include_router(beta.router, prefix=_PREFIX)
 
 
 @app.get("/api/health")

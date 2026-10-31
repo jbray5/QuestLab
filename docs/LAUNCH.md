@@ -85,6 +85,19 @@ never table features.
 No new env needed. `/welcome` shows the provider buttons automatically once the
 API reports them at `/api/auth/providers`. Remove `VITE_DM_EMAIL` if set.
 
+## Friends beta (Plan 125) — before any public post
+Sign-up is **invite-only** by default (`BETA_INVITES=required`). For each friend:
+1. **Admin → Beta → Invite a friend.** Put their name in "Who it's for" (it greets them on the
+   sign-up page). Three uses lets them bring a co-DM.
+2. **Make invite and copy link** copies `…/welcome?invite=QL-XXXXXX`. Send it to them.
+3. Their players never need an account or a code: they join from the DM's join link or QR.
+4. **Read what comes back** in Admin → Beta → Feedback. For a ping per note, set
+   `FEEDBACK_WEBHOOK_URL` on Render to a webhook in a private Discord channel
+   (Server Settings → Integrations → Webhooks).
+5. **See who is playing** in the DMs table: campaigns, sessions and last seen.
+
+To open sign-up to everyone later, set `BETA_INVITES=off`; no deploy is needed beyond the env change.
+
 ## 4. Before the Reddit post
 - [ ] Custom domain on Vercel + Render (the `*.vercel.app` URL screams "side project").
 - [ ] Render: paid instance (no cold starts), Postgres backups on, disk for `uploads/` off (Blob is the store).
@@ -101,7 +114,9 @@ API reports them at `/api/auth/providers`. Remove `VITE_DM_EMAIL` if set.
 
 Body beats: what it is (the loop in 4 sentences) · a 30-second clip of the HUD and a
 player's phone in the same fight · players never pay, DMs free in the beta, no AI anywhere
-(no art, no text) · link + the Guide
+(no art, no text) · **say it upfront: built by a developer who uses AI coding tools; nothing in
+the app generates content or sends your words to a model** (same wording as Terms §"No generative
+AI, and how QuestLab is built") · link + the Guide
 · what feedback you want (retention: "would you run your next session on it?").
 Subreddit rules: r/DnD and r/DMAcademy require self-promo be under 10% of your
 activity and value-first; r/VTT and r/dndnext are friendlier to tools. Post the

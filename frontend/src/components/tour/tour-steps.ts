@@ -25,62 +25,62 @@ export const TOUR_STEPS: TourStep[] = [
   {
     title: "Welcome to QuestLab",
     body:
-      "Ninety seconds. QuestLab is a table tool: living sheets on your players' " +
-      "phones, a shared board on the TV, and a HUD for you. There is no AI in it.",
+      "Ninety seconds. QuestLab is your DM screen and turn tracker, and each player's " +
+      "sheet lives on their own phone. There is no generative AI in it.",
   },
   {
     title: "Run the sample night first",
     body:
-      "One click builds a campaign with four pregens, a staged map, an ambush " +
-      "and a runbook with read-aloud text. It opens straight into the HUD, so " +
-      "you can see a session before you write one.",
+      "One tap builds a campaign with four ready characters, an ambush and a runbook " +
+      "with read-aloud text. It opens straight into the HUD, so you can see a session " +
+      "before you write one.",
     targetSelector: "[data-tour-id='sample-campaign']",
     placement: "top",
   },
   {
-    title: "Campaign → arc → session",
+    title: "Campaign, arc, session",
     body:
       "That's the whole model. Pick a campaign and its pages appear here: " +
-      "Sessions (grouped by arc), Characters, Battle Maps, NPCs.",
+      "Sessions (grouped by arc), Characters, Encounters, NPCs.",
     targetSelector: "[data-tour-id='sidebar']",
     placement: "right",
   },
   {
     title: "Your own campaigns",
     body:
-      "Setting and tone are the only fields that matter. Delete is safe: it " +
-      "takes every session, map and NPC with it, and nothing else.",
+      "A name, a setting and a tone are all it needs. Deleting a campaign takes its " +
+      "sessions, maps and NPCs with it, and nothing else.",
     targetSelector: "[data-tour-id='nav-campaigns']",
     placement: "right",
   },
   {
     title: "Players bring their own sheets",
     body:
-      "Add a character per player, or turn on player sign-up and share the join " +
-      "link: they build a 2024 character on their phone in five minutes, and " +
-      "that phone becomes a live sheet with dice that land on the TV.",
+      "Create a character with the guided builder, or share the join link and let each " +
+      "player build theirs on their phone. Every sheet becomes a live companion: rolls, " +
+      "spells, hit points and whose turn it is.",
     targetSelector: "[data-tour-id='nav-characters']",
     placement: "right",
   },
   {
-    title: "Dice are one tap away",
+    title: "Dice when you want them",
     body:
-      "The 🎲 at the bottom-right of every DM page rolls anything. Most tables " +
-      "still roll real dice, and that's fine: the HUD never needs a digital roll.",
+      "The dice button at the bottom right of every DM page rolls anything. Most " +
+      "tables still roll real dice, and that's fine: nothing here needs a digital roll.",
     targetSelector: "[data-tour-id='dice-tray']",
     placement: "top",
   },
   {
     title: "Game night lives in the HUD",
     body:
-      "Every session has a HUD: initiative, the party, the live board, your notes " +
-      "(press N), and 🎬 Script for read-aloud text. 🗺 Table opens the TV link; " +
-      "the QR on it gets phones in.",
+      "Every session has a HUD: the party, the turn order, your notes (press N) and " +
+      "Script for read-aloud text. Start the fight rolls initiative, and each player's " +
+      "phone shows when it's their turn.",
   },
   {
-    title: "Two screens, one loop",
+    title: "Tell us how it goes",
     body:
-      "TV or projector for the players, your laptop for the HUD. The guide (📖 in " +
-      "the sidebar) walks through the setup in fifteen minutes. 🧭 replays this tour.",
+      "QuestLab is in a friends beta. Send feedback is at the bottom of the menu on " +
+      "every page, and the Guide walks through a whole night in fifteen minutes.",
   },
 ];

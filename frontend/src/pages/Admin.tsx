@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Check, Download, LayoutDashboard, Skull } from "lucide-react";
+import { Check, Download, LayoutDashboard, Skull, UserPlus } from "lucide-react";
 import { adminApi } from "../api/admin";
+import BetaPanel from "../components/admin/BetaPanel";
 import { useAuthStore } from "../stores/useAuthStore";
 import { plural } from "../lib/plural";
 import { useIsCompact } from "../hooks/useIsCompact";
 
 const TABS = [
+  // Plan 125 — the friends beta: invites, who joined, feedback.
+  { id: "beta", label: "Beta", icon: <UserPlus size={16} aria-hidden /> },
   { id: "overview", label: "Overview", icon: <LayoutDashboard size={16} aria-hidden /> },
   { id: "monsters", label: "Monsters", icon: <Skull size={16} aria-hidden /> },
   { id: "export", label: "Export", icon: <Download size={16} aria-hidden /> },
@@ -18,7 +21,7 @@ const TD: React.CSSProperties = { padding: "0.45rem 0.6rem", textAlign: "center"
 export default function Admin() {
   const phone = useIsCompact(640);
   const { dmEmail } = useAuthStore();
-  const [tab, setTab] = useState<"overview" | "monsters" | "export">("overview");
+  const [tab, setTab] = useState<"beta" | "overview" | "monsters" | "export">("beta");
   const [reseedConfirm, setReseedConfirm] = useState(false);
 
   const { data: monsters = [], isLoading: monstersLoading, refetch: refetchMonsters } = useQuery({
@@ -63,7 +66,7 @@ export default function Admin() {
               className="btn btn-ghost"
               onClick={() => setTab(t.id)}
               style={{
-                // A phone fits the three tabs on one row, equal widths.
+                // A phone fits the four tabs on one row, equal widths.
                 ...(phone ? { flex: "1 1 0", minWidth: 0, paddingInline: "0.5rem" } : null),
                 ...(on
                   ? { background: "var(--accent-active)", color: "var(--accent-active-text)", borderColor: "var(--accent-line)" }
@@ -75,6 +78,8 @@ export default function Admin() {
           );
         })}
       </div>
+
+      {tab === "beta" && <BetaPanel />}
 
       {/* Overview */}
       {tab === "overview" && (

@@ -56,6 +56,10 @@ tests/
 - `test_integrations/test_levelup_rules.py` — class tables, feat catalog shape, scaling notes
 - `test_api/test_levelup_api.py` — no grant → 404/422 on the player routes; grant is DM-only
 
+### Plan 126 — the guided character wizard for DMs, with improvements
+- `test_services/test_plan126_builder_asi.py` — a level-4 build needs exactly one improvement; a Fighter at 6 has two (4 and 6), a Rogue at 10 three; wrong levels and early picks are refused; a +2 past 20 is refused (+1/+1 still fits); a feat whose prerequisite isn't met is refused (War Caster without spellcasting, Heavy Armor Master without heavy armor, GWM with STR 10), checked against the build so far (STR 12 → +1 at 4 → GWM at 6); a feat can't be taken twice; CON from an improvement raises HP at every level (40 → 44 at level 4); DEX feeds AC and skills; Resilient/Skilled/Fey Touched land on saves, skills and spells; a feat spell can't double a class pick; a book feat is recorded by name; Paladin spell levels on time; every SRD subclass's features sit on its class's subclass levels; options carry the improvement data
+- `test_api/test_plan126_dm_wizard.py` — the DM routes need no join code and ignore the sign-up switch (the player routes stay shut); owner only (403 for another DM, 401 without identity, 404 for an unknown campaign, nothing created on refusal); a DM build lands with "Not assigned yet" and a player link; a level-6 Fighter with one pick is a 422, with two it lands with both on the sheet
+
 ### Plan 116 — boss battles on everyone's own phone
 - `test_services/test_plan116_boss_live.py` — only the boss is referee-played; out-of-turn acts refused; the boss picks its victim (`_RNG.choice`); a seat can be handed to the referee (own, or whoever is up — never one merely waiting; never the last person) and taken back; heals and Lay on Hands land on a friend, a downed friend included. Boss blocks use a `1d1` attack so a scripted fight never ends by itself.
 - `test_api/test_plan104_duels.py::test_a_boss_battle_on_everyones_phone` — the same over HTTP: 403 for a waiting seat, 404 for an unknown boss
