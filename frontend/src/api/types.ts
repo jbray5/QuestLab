@@ -67,6 +67,8 @@ export interface PlayerCharacter {
   background: string | null;
   backstory: string | null;
   notes: string | null;
+  /** Plan 122 — the player's own notes (the DM's `notes` never reach the phone). */
+  player_notes?: string | null;
   portrait_url: string | null;
   figure_url: string | null;
   /** Plan 111 — a rigged .glb the immersive table walks. */

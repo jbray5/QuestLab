@@ -15,6 +15,7 @@ import type {
 } from "./types";
 
 export interface PlayerStatePatch {
+  temp_hp?: number;
   heroic_inspiration?: boolean;
   concentration_on?: string | null;
   exhaustion?: number;
@@ -25,11 +26,91 @@ export interface PlayerStatePatch {
   pp?: number;
 }
 
+/** One row of the running fight's order, as a player's phone sees it (Plan 122). */
+export interface OrderRow {
+  name: string;
+  initiative: number;
+  side: "party" | "foe" | "other";
+  you: boolean;
+  current: boolean;
+  defeated: boolean;
+}
+
 export interface TurnState {
   active: boolean;
   session_id?: string;
   round?: number;
   active_combatant_name?: string;
+  order?: OrderRow[];
+}
+
+/** One thing a character can do on a turn (Plan 122). */
+export interface TurnOption {
+  key: string;
+  name: string;
+  kind: string;
+  to_hit: number | null;
+  save: string | null;
+  damage: string;
+  damage_type: string;
+  spell_level: number;
+  uses_left: number | null;
+  note: string;
+}
+
+/** What a character can do on a turn, grouped by what it costs (Plan 122). */
+export interface TurnKit {
+  speed: number;
+  action: TurnOption[];
+  bonus: TurnOption[];
+  reaction: TurnOption[];
+  free: TurnOption[];
+  basic_actions: string[];
+  tips: string[];
+}
+
+/** A spell on the player's list, with its catalog details (Plan 39). */
+export interface PlaySpell {
+  id: string;
+  spell_id: string;
+  prepared: boolean;
+  name: string;
+  level: number;
+  school: string;
+  casting_time: string;
+  range: string;
+  components_v: boolean;
+  components_s: boolean;
+  components_m: string | null;
+  duration: string;
+  is_ritual: boolean;
+  is_concentration: boolean;
+  description: string;
+  higher_levels: string | null;
+  damage_dice: string | null;
+  damage_type: string | null;
+  save_ability: string | null;
+  attack_type: string | null;
+}
+
+export interface RollRequest {
+  die: string;
+  count?: number;
+  modifier?: number;
+  label?: string;
+  mode?: "normal" | "advantage" | "disadvantage";
+  real?: number[];
+}
+
+export interface RollResult {
+  die: string;
+  rolls: number[];
+  kept: number[];
+  mode: "normal" | "advantage" | "disadvantage";
+  real: boolean;
+  modifier: number;
+  total: number;
+  session_id: string;
 }
 
 export interface CombatState {
@@ -96,6 +177,23 @@ export const playApi = {
   // Plan 83 — where the table is tonight, for the phone's Table link.
   liveSession: (pcId: string) =>
     api.get<{ session_id: string | null; title: string | null }>(`/play/${pcId}/live-session`),
+  // Plan 122 — labeled rolls with advantage, or a real die typed in.
+  roll: (pcId: string, req: RollRequest) => api.post<RollResult>(`/play/${pcId}/roll`, req, { quiet: true }),
+  turnKit: (pcId: string) => api.get<TurnKit>(`/play/${pcId}/turn-kit`),
+  castSpell: (pcId: string, characterSpellId: string, body: { slot_level?: number; ritual?: boolean }) =>
+    api.post<{ spell: string; slot_level: number | null; concentration: boolean }>(
+      `/play/${pcId}/spells/${characterSpellId}/cast`,
+      body,
+      { quiet: true },
+    ),
+  prepareSpell: (pcId: string, characterSpellId: string, prepared: boolean) =>
+    api.post<{ id: string; prepared: boolean; count: number; cap: number }>(
+      `/play/${pcId}/spells/${characterSpellId}/prepare`,
+      { prepared },
+      { quiet: true },
+    ),
+  saveNotes: (pcId: string, text: string) =>
+    api.put<{ player_notes: string }>(`/play/${pcId}/notes`, { text }),
   throwDice: (pcId: string, die: string, modifier = 0, label?: string) =>
     api.post<{ die: string; rolls: number[]; modifier: number; total: number; session_id: string }>(
       `/play/${pcId}/roll`,
@@ -126,7 +224,7 @@ export const playApi = {
       target_pc_id: targetPcId ?? null,
     }),
   // Plan 115 — the level-up guide (404 until the DM grants a level).
-  levelUpPlan: (pcId: string) => api.get<LevelUpPlan>(`/play/${pcId}/level-up`),
+  levelUpPlan: (pcId: string) => api.get<LevelUpPlan>(`/play/${pcId}/level-up`, { quiet: true }),
   applyLevelUp: (pcId: string, choices: LevelUpChoices) =>
     api.post<LevelUpResult>(`/play/${pcId}/level-up`, choices),
   give: (pcId: string, toPcId: string, amountGp: number) =>
