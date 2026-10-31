@@ -10,8 +10,6 @@ import type { PlayerCharacter } from "../api/types";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import FeaturePanel from "../components/FeaturePanel";
 import ImageUpload from "../components/ImageUpload";
-import ModelUpload from "../components/ModelUpload";
-import { heightFtForRace } from "../engine/heights";
 import InventoryPanel from "../components/InventoryPanel";
 import SpellPanel from "../components/SpellPanel";
 import { portraitSrc } from "../lib/portrait";
@@ -139,13 +137,6 @@ export default function Characters() {
   const updateImage = useMutation({
     mutationFn: ({ id, url }: { id: string; url: string }) =>
       charactersApi.updateImage(id, url),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
-  });
-
-  // Plan 111 — the rigged figure the immersive table walks for this PC.
-  const updateModel = useMutation({
-    mutationFn: ({ id, url }: { id: string; url: string | null }) =>
-      charactersApi.update(id, { model_url: url }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["characters", campaignId] }),
   });
 
@@ -546,10 +537,12 @@ export default function Characters() {
               ))}
             </div>
 
-            {/* Usability pass — art is set once, so it folds away under the stats. */}
+            {/* Usability pass — art is set once, so it folds away under the stats.
+                10/31 — no 3D figures here (Justin): a WebGL preview per character
+                ran phones out of memory and crashed the page. */}
             <details style={{ marginTop: "0.75rem" }}>
               <summary style={{ cursor: "pointer", fontSize: "0.8125rem", color: "var(--muted)" }}>
-                Portrait and 3D figure
+                Portrait
               </summary>
               <div style={{ marginTop: "0.6rem", display: "flex", gap: "1rem", flexWrap: "wrap", alignItems: "flex-start" }}>
                 <ImageUpload
@@ -557,11 +550,6 @@ export default function Characters() {
                   onUrlChange={(url) => updateImage.mutate({ id: c.id, url })}
                   label="Portrait"
                   size={48}
-                />
-                <ModelUpload
-                  currentUrl={c.model_url}
-                  onUrlChange={(url) => updateModel.mutate({ id: c.id, url })}
-                  heightFt={heightFtForRace(c.race)}
                 />
               </div>
             </details>

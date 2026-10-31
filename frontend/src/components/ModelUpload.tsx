@@ -51,6 +51,9 @@ export default function ModelUpload({ currentUrl, onUrlChange, heightFt, label =
   const [urlInput, setUrlInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  // The 3D preview (a WebGL scene loading the whole .glb) only exists while the box is open:
+  // a closed <details> still mounts its children, and several of these crashed phones.
+  const [open, setOpen] = useState(false);
 
   async function handleFile(file: File) {
     setError("");
@@ -79,7 +82,7 @@ export default function ModelUpload({ currentUrl, onUrlChange, heightFt, label =
   // Review 10/30 — file formats, rigs and bone counts are for whoever builds
   // figures, not for every DM looking at a character card: folded away.
   return (
-    <details style={{ fontSize: "0.8125rem" }}>
+    <details style={{ fontSize: "0.8125rem" }} onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
       <summary style={{ cursor: "pointer", color: "var(--muted)", listStyle: "revert" }}>
         {label}:{" "}
         {currentUrl ? (
@@ -145,7 +148,7 @@ export default function ModelUpload({ currentUrl, onUrlChange, heightFt, label =
         )}
       </div>
       {error && <p style={{ color: "var(--danger-text)", fontSize: "0.8125rem", margin: 0, maxWidth: 240 }}>{error}</p>}
-      {currentUrl && (
+      {currentUrl && open && (
         <PreviewBoundary resetKey={currentUrl}>
           <Suspense fallback={<small style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>Loading the figure…</small>}>
             <FigurePreview url={currentUrl} heightFt={heightFt} />
