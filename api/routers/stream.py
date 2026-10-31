@@ -31,6 +31,7 @@ import uuid
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
+from api.deps import PlayPcId
 from integrations.event_bus import event_bus
 
 router = APIRouter(tags=["stream"])
@@ -80,7 +81,7 @@ async def _stream(topics: list[str]):
 
 
 @router.get("/stream/pc/{pc_id}")
-async def stream_pc(pc_id: uuid.UUID):
+async def stream_pc(pc_id: PlayPcId):
     """SSE stream for events scoped to a single PC.
 
     Args:

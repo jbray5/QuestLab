@@ -30,7 +30,7 @@ def create_monster(body: MonsterStatBlockCreate, db: DB, user: CurrentUser) -> M
 @router.get("/monsters", response_model=list[MonsterStatBlockRead])
 def list_monsters(
     db: DB,
-    _user: CurrentUser,
+    user: CurrentUser,
     search: Optional[str] = Query(None, description="Search by name (case-insensitive)"),
     cr: Optional[str] = Query(None, description="Filter by exact challenge rating"),
     creature_type: Optional[str] = Query(None, description="Filter by creature type"),
@@ -39,7 +39,7 @@ def list_monsters(
 
     Args:
         db: Database session.
-        _user: Authenticated DM email (required but not used for filtering).
+        user: Authenticated DM (sees the SRD plus their own homebrew, SEC-003).
         search: Optional name substring search (case-insensitive).
         cr: Optional exact CR filter (e.g. '1/4', '5', '20').
         creature_type: Optional creature type filter.
@@ -47,7 +47,7 @@ def list_monsters(
     Returns:
         Filtered list of monster stat blocks ordered by name.
     """
-    monsters = encounter_service.list_monsters(db)
+    monsters = encounter_service.list_monsters(db, viewer=user)
     if search:
         q = search.lower()
         monsters = [m for m in monsters if q in m.name.lower()]
@@ -89,26 +89,29 @@ def update_monster(
     monster_id: uuid.UUID,
     body: MonsterStatBlockUpdate,
     db: DB,
-    _user: CurrentUser,
+    user: CurrentUser,
 ) -> MonsterStatBlockRead:
-    """Partially update a monster stat block (e.g. set image_url).
+    """Partially update a monster stat block (e.g. set image_url) the DM may edit.
 
     Args:
         monster_id: UUID of the monster to update.
         body: Partial update payload.
         db: Database session.
-        _user: Authenticated DM email.
+        user: Authenticated DM (must own the homebrew row, or be an admin).
 
     Returns:
         Updated MonsterStatBlockRead.
 
     Raises:
         HTTPException 404: If monster not found.
+        HTTPException 403: If it is an SRD row or another DM's (SEC-003).
     """
     try:
-        return encounter_service.update_monster(db, monster_id, body)
+        return encounter_service.update_monster(db, monster_id, body, user)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
 @router.post("/monsters/{monster_id}/figure", response_model=MonsterStatBlockRead)

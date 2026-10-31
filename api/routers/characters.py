@@ -133,6 +133,26 @@ def update_character(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
+@router.post("/characters/{character_id}/play-link/reset")
+def reset_play_link(character_id: uuid.UUID, db: DB, user: CurrentUser) -> dict:
+    """Give a character a new player link; the old one stops working (SEC-002).
+
+    Args:
+        character_id: UUID of the character.
+        db: Database session.
+        user: Authenticated DM email (must own the campaign).
+
+    Returns:
+        ``{"play_key": <new secret>}`` — the new link is ``/play/{play_key}``.
+    """
+    try:
+        return {"play_key": character_service.reset_play_link(db, character_id, user)}
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
 @router.post("/characters/{character_id}/level-up", response_model=PlayerCharacter)
 def grant_level_up(
     character_id: uuid.UUID, body: LevelUpGrant, db: DB, user: CurrentUser

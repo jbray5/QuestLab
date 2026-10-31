@@ -42,17 +42,19 @@ class ItemRepo:
         return list(session.exec(stmt).all())
 
     @staticmethod
-    def create(session: Session, data: ItemCreate) -> Item:
+    def create(session: Session, data: ItemCreate, owner_email: Optional[str] = None) -> Item:
         """Persist a new item.
 
         Args:
             session: Active database session.
             data: Validated item creation payload.
+            owner_email: The authoring DM for homebrew; None for the shared catalog.
 
         Returns:
             The newly created Item.
         """
         item = Item.model_validate(data)
+        item.created_by_email = owner_email
         session.add(item)
         session.commit()
         session.refresh(item)

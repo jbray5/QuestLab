@@ -55,6 +55,9 @@ class Spell(SQLModel, table=True):
     # JSON list of class names that can learn this spell.
     classes: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
     source: str = Field(default="SRD 5.5e (2024)", max_length=60)
+    # SEC-003: the DM who authored a homebrew spell; NULL = the shared SRD
+    # catalog (admin-only to change). Stamped server-side.
+    created_by_email: Optional[str] = Field(default=None, max_length=200, index=True)
 
 
 class SpellCreate(BaseModel):
@@ -104,6 +107,8 @@ class SpellRead(BaseModel):
     attack_type: Optional[str] = None
     classes: list[str] = PydanticField(default_factory=list)
     source: str
+    # SEC-003: None for the shared catalog; the author's email for homebrew.
+    created_by_email: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

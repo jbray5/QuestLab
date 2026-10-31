@@ -49,6 +49,9 @@ class Item(SQLModel, table=True):
     weapon_range: Optional[str] = Field(default=None, max_length=40)
     # 2024 Weapon Mastery property (e.g. "Vex", "Nick", "Cleave")
     mastery: Optional[str] = Field(default=None, max_length=20)
+    # SEC-003: the DM who authored a homebrew row; NULL = the shared SRD catalog
+    # (admin-only to change). Stamped server-side, never taken from a request.
+    created_by_email: Optional[str] = Field(default=None, max_length=200, index=True)
 
 
 class ItemCreate(BaseModel):
@@ -94,6 +97,8 @@ class ItemRead(BaseModel):
     versatile_damage: Optional[str] = None
     weapon_range: Optional[str] = None
     mastery: Optional[str] = None
+    # SEC-003: None for the shared catalog; the author's email for homebrew.
+    created_by_email: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

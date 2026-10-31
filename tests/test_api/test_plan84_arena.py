@@ -2,6 +2,7 @@
 
 import uuid
 
+import pytest
 from sqlmodel import Session
 
 import services.campaign_service as camp_svc
@@ -9,6 +10,9 @@ import services.character_service as char_svc
 from db.repos.monster_repo import MonsterRepo
 from domain.enums import CharacterClass, CreatureSize, CreatureType
 from domain.monster import MonsterStatBlockCreate
+
+# These suites address players by UUID (pre-token links); see conftest.uuid_play_links.
+pytestmark = pytest.mark.usefixtures("uuid_play_links")
 
 
 def _seed(engine) -> tuple[str, str]:
@@ -91,7 +95,8 @@ def test_arena_flow_over_the_api(client, api_engine):
         f"/api/play/{uuid.uuid4()}/arena/act",
         json={"state": state, "action": {"kind": "end_turn"}},
     )
-    assert other.status_code == 403
+    # SEC-002: an unknown link is refused before the fight is even read.
+    assert other.status_code == 404
 
     # Nothing touched the real sheet.
     sheet = client.get(f"/api/play/{pc}")

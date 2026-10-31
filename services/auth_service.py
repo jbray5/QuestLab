@@ -76,6 +76,59 @@ def require_admin(email: str) -> None:
         raise PermissionError(f"Admin access required. '{email}' is not an admin.")
 
 
+# ── SEC-003: the shared catalog (monsters, items, spells) ──
+
+
+def can_edit_catalog(owner_email: Optional[str], email: str) -> bool:
+    """True when ``email`` may change a catalog row owned by ``owner_email``.
+
+    Admins may change anything. A DM may change only the homebrew rows they
+    created; the shared SRD rows (no owner) are admin-only, so one DM's edit
+    can never rewrite another table's monster, item or spell.
+
+    Args:
+        owner_email: The row's author, or None for the shared catalog.
+        email: The requesting DM.
+
+    Returns:
+        Whether the edit is allowed.
+    """
+    if is_admin(email):
+        return True
+    return bool(owner_email) and owner_email.strip().lower() == email.strip().lower()
+
+
+def require_catalog_editor(owner_email: Optional[str], email: str) -> None:
+    """Raise PermissionError unless ``email`` may change this catalog row.
+
+    Args:
+        owner_email: The row's author, or None for the shared catalog.
+        email: The requesting DM.
+
+    Raises:
+        PermissionError: If the DM neither owns the row nor is an admin.
+    """
+    if not can_edit_catalog(owner_email, email):
+        if owner_email:
+            raise PermissionError("Only the DM who made this homebrew entry can change it.")
+        raise PermissionError("The shared rules catalog can only be changed by an admin.")
+
+
+def catalog_visible(owner_email: Optional[str], email: Optional[str]) -> bool:
+    """True when a catalog row shows in ``email``'s lists: shared rows and their own homebrew.
+
+    Args:
+        owner_email: The row's author, or None for the shared catalog.
+        email: The viewing DM, or None for an unscoped (internal) list.
+
+    Returns:
+        Whether the row is listed.
+    """
+    if not owner_email or email is None:
+        return True
+    return owner_email.strip().lower() == email.strip().lower()
+
+
 # ── Plan 73: OAuth sign-in ──
 
 

@@ -8,6 +8,7 @@ Inject these via FastAPI's Depends() mechanism:
 """
 
 import os
+import uuid
 from typing import Annotated, Generator
 
 from fastapi import Depends, HTTPException, Request, status
@@ -94,6 +95,42 @@ def current_user(request: Request) -> str:
 
 
 CurrentUser = Annotated[str, Depends(current_user)]
+
+
+def play_pc_id(pc_id: str, db: DB) -> uuid.UUID:
+    """Resolve the ``{pc_id}`` segment of a player link to the PC's UUID (SEC-002).
+
+    The segment is the PC's ``play_token`` (or, during the grace period, the
+    UUID of a PC made before tokens). Every ``/play/{pc_id}/…``,
+    ``/stream/pc/{pc_id}`` and duel route depends on this, so the services
+    below keep taking a UUID.
+
+    Args:
+        pc_id: The link secret from the path.
+        db: Database session.
+
+    Returns:
+        The PC's UUID.
+
+    Raises:
+        HTTPException 404: No character has that link.
+        HTTPException 410: An old link that was replaced; the detail names the
+            campaign so the page can offer the join page.
+    """
+    from services.player_service import PlayLinkReplaced, resolve_play_key
+
+    try:
+        return resolve_play_key(db, pc_id)
+    except PlayLinkReplaced as exc:
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail={"code": "link_replaced", "campaign_id": str(exc.campaign_id)},
+        )
+    except LookupError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found.")
+
+
+PlayPcId = Annotated[uuid.UUID, Depends(play_pc_id)]
 
 
 def _ai_dep(kind: str):

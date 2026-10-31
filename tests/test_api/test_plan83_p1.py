@@ -8,6 +8,7 @@ is a complete bundle the owner alone can pull.
 
 import uuid
 
+import pytest
 from sqlmodel import Session
 
 import services.adventure_service as adv_svc
@@ -15,6 +16,9 @@ import services.campaign_service as camp_svc
 import services.character_service as char_svc
 import services.session_service as sess_svc
 from domain.enums import CharacterClass
+
+# These suites address players by UUID (pre-token links); see conftest.uuid_play_links.
+pytestmark = pytest.mark.usefixtures("uuid_play_links")
 
 _AUTH_HEADER = "X-MS-CLIENT-PRINCIPAL-NAME"
 

@@ -154,6 +154,31 @@ def _assert_adventure_owner(db: DBSession, adventure_id: uuid.UUID, dm_email: st
         raise PermissionError("You do not have permission to access this adventure's sessions.")
 
 
+def _require_campaign_pcs(db: DBSession, adventure_id: uuid.UUID, pc_ids) -> None:
+    """Every PC id a DM puts on a session belongs to that session's campaign (SEC-005).
+
+    Otherwise a DM could seat another table's character in their tracker or
+    attendance and push turn and dice events to that player's phone.
+
+    Args:
+        db: Active database session.
+        adventure_id: The session's adventure.
+        pc_ids: Character ids from the request (None entries are skipped).
+
+    Raises:
+        ValueError: If any id is unknown or from another campaign.
+    """
+    wanted = {uuid.UUID(str(p)) for p in (pc_ids or []) if p is not None}
+    if not wanted:
+        return
+    adventure = AdventureRepo.get_by_id(db, adventure_id)
+    if adventure is None:
+        raise ValueError(f"Adventure {adventure_id} not found.")
+    ours = {pc.id for pc in CharacterRepo.list_by_campaign(db, adventure.campaign_id)}
+    if not wanted <= ours:
+        raise ValueError("A character in this request isn't in this campaign.")
+
+
 def _assert_session_owner(db: DBSession, game_session: GameSession, dm_email: str) -> None:
     """Verify the DM owns the session's adventure's campaign.
 
@@ -247,6 +272,7 @@ def create_session(
         raise ValueError("Session number must be >= 1.")
 
     _assert_adventure_owner(db, adventure_id, dm_email)
+    _require_campaign_pcs(db, adventure_id, attending_pc_ids)
 
     existing = SessionRepo.list_by_adventure(db, adventure_id)
     if len(existing) >= MAX_SESSIONS_PER_ADVENTURE:
@@ -288,6 +314,8 @@ def update_session(
     if game_session is None:
         raise ValueError(f"Session {session_id} not found.")
     _assert_session_owner(db, game_session, dm_email)
+    if update.attending_pc_ids is not None:
+        _require_campaign_pcs(db, game_session.adventure_id, update.attending_pc_ids)
     return SessionRepo.update(db, game_session, update)
 
 
@@ -758,6 +786,9 @@ def save_combat_state(
         PermissionError: If the DM does not own the campaign.
     """
     game_session = get_session(db, session_id, dm_email)
+    _require_campaign_pcs(
+        db, game_session.adventure_id, [c.character_id for c in payload.combatants]
+    )
     previous_active_id = game_session.combat_active_combatant_id
     state = _normalize_combat_state(payload.combat_state)
     created = SessionCombatantRepo.replace_all(db, session_id, payload.combatants)
@@ -840,6 +871,7 @@ def add_combatant(
         PermissionError: If the DM does not own the campaign.
     """
     game_session = get_session(db, session_id, dm_email)
+    _require_campaign_pcs(db, game_session.adventure_id, [payload.character_id])
     SessionCombatantRepo.add_one(db, session_id, payload)
     SessionCombatantRepo.recompute_sort_indexes(db, session_id)
     # Round and active pointer are deliberately left untouched.

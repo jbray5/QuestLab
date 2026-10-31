@@ -36,6 +36,7 @@ from integrations import blob_storage
 from integrations.openai_client import generate_image
 from services import ai_service, campaign_service
 from services.art_direction import HOUSE_STYLE
+from services.auth_service import catalog_visible
 
 logger = logging.getLogger(__name__)
 
@@ -183,17 +184,21 @@ def _storefront_items(db: DBSession, shop_id: uuid.UUID) -> list[StorefrontItem]
     return cards
 
 
-def _find_or_create_item(db: DBSession, data: ShopItemAdd) -> Item:
+def _find_or_create_item(db: DBSession, data: ShopItemAdd, dm_email: str) -> Item:
     """Reuse a catalog item by exact name (case-insensitive) or create one.
 
-    Reuse keeps AI-generated art shared: a Potion of Healing stocked in two
-    shops points at one catalog row and one image.
+    Reuse keeps a Potion of Healing stocked in two shops on one catalog row.
+    Only shared rows and this DM's own homebrew are reused, and a new item is
+    stamped as this DM's homebrew (SEC-003), so no DM picks up or rewrites
+    another table's plot item.
     """
     name = (data.name or "").strip()
     if not name:
         raise ValueError("Item name is required when item_id is not given.")
     for item in ItemRepo.list_all(db):
-        if item.name.strip().lower() == name.lower():
+        if item.name.strip().lower() == name.lower() and catalog_visible(
+            item.created_by_email, dm_email
+        ):
             return item
     rarity = data.rarity or ItemRarity.COMMON
     return ItemRepo.create(
@@ -206,6 +211,7 @@ def _find_or_create_item(db: DBSession, data: ShopItemAdd) -> Item:
             value_gp=int(data.price_gp),
             is_magic=rarity != ItemRarity.COMMON,
         ),
+        owner_email=dm_email,
     )
 
 
@@ -230,7 +236,7 @@ def add_item(db: DBSession, shop_id: uuid.UUID, dm_email: str, data: ShopItemAdd
         if item is None:
             raise ValueError(f"Item {data.item_id} not found.")
     else:
-        item = _find_or_create_item(db, data)
+        item = _find_or_create_item(db, data, dm_email)
     order = ShopItemRepo.count_for_shop(db, shop.id)
     row = ShopItem(
         shop_id=shop.id,
@@ -362,6 +368,7 @@ def stock_shop(
                 description=entry.description or None,
                 price_gp=entry.price_gp,
             ),
+            dm_email,
         )
         ShopItemRepo.create(
             db,

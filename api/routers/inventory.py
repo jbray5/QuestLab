@@ -129,23 +129,11 @@ def update_inventory_item(
         elif body.attuned is not None:
             row = inventory_service.set_attuned(db, character_item_id, body.attuned, user)
         if body.notes is not None:
-            from db.repos.character_item_repo import CharacterItemRepo
-
-            current = row if row is not None else CharacterItemRepo.get_by_id(db, character_item_id)
-            if current is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="Inventory row not found"
-                )
-            row = CharacterItemRepo.update(db, current, CharacterItemUpdate(notes=body.notes))
+            # SEC-005: notes go through the service so the row's owner is checked.
+            row = inventory_service.set_notes(db, character_item_id, body.notes, user)
         if row is None:
             # No fields supplied — just fetch and return current state for predictability.
-            from db.repos.character_item_repo import CharacterItemRepo
-
-            row = CharacterItemRepo.get_by_id(db, character_item_id)
-            if row is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="Inventory row not found"
-                )
+            row = inventory_service.get_row(db, character_item_id, user)
     except AttunementLimitError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except ValueError as exc:

@@ -37,6 +37,7 @@ class TestItRoundTrips:
         assert cleared.dm_note is None
 
     def test_monster(self, duckdb_session: Session):
+        dm = _dm()
         monster = enc_svc.create_custom_monster(
             duckdb_session,
             MonsterStatBlockCreate(
@@ -56,11 +57,11 @@ class TestItRoundTrips:
                 xp=700,
                 proficiency_bonus=2,
             ),
-            _dm(),
+            dm,
         )
         assert monster.dm_note is None
         updated = enc_svc.update_monster(
-            duckdb_session, monster.id, MonsterStatBlockUpdate(dm_note="Bestiary/Green Hag")
+            duckdb_session, monster.id, MonsterStatBlockUpdate(dm_note="Bestiary/Green Hag"), dm
         )
         assert updated.dm_note == "Bestiary/Green Hag"
 

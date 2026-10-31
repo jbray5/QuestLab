@@ -20,6 +20,7 @@ from domain.character import (
     PlayerCharacterCreate,
     PlayerCharacterRead,
     PlayerCharacterUpdate,
+    new_play_token,
     proficiency_bonus,
 )
 from domain.enums import CharacterClass
@@ -479,6 +480,37 @@ def create_character(
     return PlayerCharacterRead.model_validate(character)
 
 
+def reset_play_link(session: Session, character_id: uuid.UUID, dm_email: str) -> str:
+    """Give a PC a new player link; the old one stops working at once (SEC-002).
+
+    Also ends the pre-token UUID grace period for this PC. Use it when a
+    player leaves or a link was shared too widely.
+
+    Args:
+        session: Active database session.
+        character_id: UUID of the character.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        The new link secret.
+
+    Raises:
+        ValueError: If the character does not exist.
+        PermissionError: If the DM does not own the campaign.
+    """
+    character = CharacterRepo.get_by_id(session, character_id)
+    if character is None:
+        raise ValueError(f"Character {character_id} not found.")
+    campaign = CampaignRepo.get_by_id(session, character.campaign_id)
+    _assert_campaign_owner(campaign, dm_email)
+    character.play_token = new_play_token()
+    character.legacy_uuid_until = None
+    session.add(character)
+    session.commit()
+    session.refresh(character)
+    return character.play_token
+
+
 def update_character(
     session: Session,
     character_id: uuid.UUID,
@@ -519,12 +551,15 @@ def update_character(
     if new_hp is not None and new_hp > 0 and prev_hp <= 0:
         patch.setdefault("death_save_successes", 0)
         patch.setdefault("death_save_failures", 0)
+    if "conditions" in patch:
+        patch["conditions"] = _clean_conditions(patch["conditions"])
     recompute_update = PlayerCharacterUpdate.model_validate(patch)
     updated = CharacterRepo.update(session, character, recompute_update)
     # Plan 37 — sync the combat tracker so the HUD doesn't keep showing the
     # PC greyed-out + with stale HP after a DM-side hp_current change.
-    if "hp_current" in patch:
-        _sync_combatant_for_pc(session, updated)
+    # UX-001 — the tracker row mirrors the PC's lasting conditions too.
+    if "hp_current" in patch or "conditions" in patch:
+        _sync_combatant_for_pc(session, updated, with_conditions="conditions" in patch)
     # Plan 83 — a level, class or subclass change grants the features the PC
     # now qualifies for (idempotent), so a PATCHed level isn't a hollow number.
     if "level" in patch or "character_class" in patch or "subclass" in patch:
@@ -563,8 +598,26 @@ def sync_combatant_for_pc(session: Session, character: PlayerCharacter) -> None:
     _sync_combatant_for_pc(session, character)
 
 
-def _sync_combatant_for_pc(session: Session, character: PlayerCharacter) -> None:
-    """Mirror the PC's HP / defeated flag onto its active-combat combatant row.
+def _clean_conditions(raw) -> list[str]:
+    """Trimmed condition names, de-duplicated ignoring case, in the order given (UX-001).
+
+    The case is kept as sent ("Poisoned"): the tracker rows and the HUD match
+    on the exact name.
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in raw or []:
+        name = str(item).strip()[:30]
+        if name and name.lower() not in seen:
+            seen.add(name.lower())
+            out.append(name)
+    return out
+
+
+def _sync_combatant_for_pc(
+    session: Session, character: PlayerCharacter, with_conditions: bool = False
+) -> None:
+    """Mirror the PC's HP / defeated flag (and, when asked, conditions) onto its combat row.
 
     Plan 00037 — the combat tracker (HUD) reads ``hp_current`` and
     ``defeated`` from the SessionCombatant row, not from the PC. Without
@@ -577,6 +630,7 @@ def _sync_combatant_for_pc(session: Session, character: PlayerCharacter) -> None
     Args:
         session: Active database session.
         character: The just-updated PlayerCharacter (must have current hp).
+        with_conditions: Also copy the PC's lasting conditions (UX-001).
     """
     from db.repos.session_repo import SessionCombatantRepo
     from integrations.event_bus import publish_pc_combat_updated, publish_table_updated
@@ -592,6 +646,9 @@ def _sync_combatant_for_pc(session: Session, character: PlayerCharacter) -> None
     should_be_defeated = character.hp_current <= 0
     if combatant.defeated != should_be_defeated:
         combatant.defeated = should_be_defeated
+        changed = True
+    if with_conditions and list(combatant.conditions or []) != list(character.conditions or []):
+        combatant.conditions = list(character.conditions or [])
         changed = True
     if changed:
         session.add(combatant)

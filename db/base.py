@@ -211,6 +211,24 @@ def patch_duckdb_schema() -> None:
         # 0054 / 0055 — pending level (Plan 115); the player's own notes (Plan 122)
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS pending_level INTEGER",
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS player_notes VARCHAR",
+        # 0056 — catalog ownership (SEC-003)
+        "ALTER TABLE items ADD COLUMN IF NOT EXISTS created_by_email VARCHAR",
+        "ALTER TABLE spells ADD COLUMN IF NOT EXISTS created_by_email VARCHAR",
+        # 0057 — player-link tokens (SEC-002): existing PCs get a token and the
+        # UUID grace period; the order matters (grace only where no token yet).
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS play_token VARCHAR",
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS legacy_uuid_until TIMESTAMPTZ",
+        (
+            "UPDATE player_characters SET legacy_uuid_until = TIMESTAMPTZ '2026-12-01 00:00:00+00'"
+            " WHERE play_token IS NULL"
+        ),
+        (
+            "UPDATE player_characters SET play_token ="
+            " 'k' || substr(md5(CAST(random() AS VARCHAR) || CAST(id AS VARCHAR)), 1, 21)"
+            " WHERE play_token IS NULL"
+        ),
+        # 0058 — PC conditions that last between fights (UX-001)
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS conditions JSON",
         # 0035 — 2024 PHB recovery numbers (Paladin CD 2 uses; the
         # regain-one-on-short-rest pattern for CD + Second Wind).
         # seed_catalog() only fires on an empty table, so already-seeded

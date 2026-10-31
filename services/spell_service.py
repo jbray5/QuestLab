@@ -11,6 +11,7 @@ from sqlmodel import Session
 
 from db.repos.spell_repo import SpellRepo
 from domain.spell import Spell, SpellCreate, SpellRead, SpellUpdate
+from services.auth_service import catalog_visible, require_catalog_editor
 
 
 def list_spells(
@@ -21,6 +22,7 @@ def list_spells(
     class_name: Optional[str] = None,
     is_ritual: Optional[bool] = None,
     is_concentration: Optional[bool] = None,
+    viewer: Optional[str] = None,
 ) -> list[SpellRead]:
     """List spells with optional filters.
 
@@ -32,6 +34,7 @@ def list_spells(
         class_name: Optional class scope (Wizard, Cleric, ...).
         is_ritual: Optional ritual filter.
         is_concentration: Optional concentration filter.
+        viewer: The listing DM: shared spells plus their own homebrew (SEC-003).
 
     Returns:
         Filtered list of SpellRead objects.
@@ -45,7 +48,9 @@ def list_spells(
         is_ritual=is_ritual,
         is_concentration=is_concentration,
     )
-    return [SpellRead.model_validate(s) for s in rows]
+    return [
+        SpellRead.model_validate(s) for s in rows if catalog_visible(s.created_by_email, viewer)
+    ]
 
 
 def get_spell(db: Session, spell_id) -> Spell:
@@ -84,51 +89,58 @@ def list_for_class(db: Session, class_name: str, max_level: int = 9) -> list[Spe
     return [SpellRead.model_validate(s) for s in rows if s.level <= max_level]
 
 
-def create_spell(db: Session, payload: SpellCreate) -> Spell:
-    """Persist a new spell (used by both the seeder and admin write endpoint).
+def create_spell(db: Session, payload: SpellCreate, dm_email: Optional[str] = None) -> Spell:
+    """Persist a new spell (the seeder, or a DM's homebrew).
 
     Args:
         db: Active database session.
         payload: Validated SpellCreate.
+        dm_email: The authoring DM (stamped, SEC-003), or None for the shared catalog.
 
     Returns:
         The newly persisted Spell.
     """
-    return SpellRepo.create(db, payload)
+    return SpellRepo.create(db, payload, owner_email=dm_email)
 
 
-def update_spell(db: Session, spell_id, payload: SpellUpdate) -> Spell:
-    """Partial update for a spell.
+def update_spell(db: Session, spell_id, payload: SpellUpdate, dm_email: str) -> Spell:
+    """Partial update for a spell the DM may edit (SEC-003).
 
     Args:
         db: Active database session.
         spell_id: UUID of the spell.
         payload: Validated SpellUpdate.
+        dm_email: The requesting DM.
 
     Returns:
         The updated Spell.
 
     Raises:
         ValueError: If the spell does not exist.
+        PermissionError: If it is shared (non-admin) or another DM's homebrew.
     """
     spell = get_spell(db, spell_id)
+    require_catalog_editor(spell.created_by_email, dm_email)
     return SpellRepo.update(db, spell, payload)
 
 
-def delete_spell(db: Session, spell_id) -> bool:
-    """Delete a spell by ID.
+def delete_spell(db: Session, spell_id, dm_email: str) -> bool:
+    """Delete a spell the DM may edit (SEC-003).
 
     Args:
         db: Active database session.
         spell_id: UUID of the spell.
+        dm_email: The requesting DM.
 
     Returns:
         True if deleted.
 
     Raises:
         ValueError: If the spell does not exist.
+        PermissionError: If it is shared (non-admin) or another DM's homebrew.
     """
     spell = get_spell(db, spell_id)
+    require_catalog_editor(spell.created_by_email, dm_email)
     return SpellRepo.delete(db, spell)
 
 

@@ -8,7 +8,6 @@ from pydantic import BaseModel
 
 from api.deps import DB, AiUser, CurrentUser
 from db.repos.character_repo import CharacterRepo
-from db.repos.item_repo import ItemRepo
 from domain.item import ItemCreate, ItemRead, ItemUpdate, WeaponAttackPreview
 from services import ai_service, attack_service, item_service
 
@@ -30,7 +29,7 @@ class LoreResponse(BaseModel):
 @router.get("/items", response_model=list[ItemRead])
 def list_items(
     db: DB,
-    _user: CurrentUser,
+    user: CurrentUser,
     q: Optional[str] = Query(None, description="Name search (case-insensitive)"),
     rarity: Optional[str] = Query(None, description="Filter by rarity (e.g. Rare, VeryRare)"),
     item_type: Optional[str] = Query(None, description="Filter by item type (e.g. Weapon, Potion)"),
@@ -39,7 +38,7 @@ def list_items(
 
     Args:
         db: Database session.
-        _user: Authenticated DM.
+        user: Authenticated DM (sees shared items plus their own homebrew).
         q: Optional name substring search.
         rarity: Optional exact rarity filter.
         item_type: Optional item type filter.
@@ -47,13 +46,13 @@ def list_items(
     Returns:
         Filtered list of magic items ordered by name.
     """
-    return item_service.list_items(db, q=q, rarity=rarity, item_type=item_type)
+    return item_service.list_items(db, q=q, rarity=rarity, item_type=item_type, viewer=user)
 
 
 @router.get("/weapons", response_model=list[ItemRead])
 def list_weapons(
     db: DB,
-    _user: CurrentUser,
+    user: CurrentUser,
     q: Optional[str] = Query(None, description="Name search (case-insensitive)"),
     category: Optional[str] = Query(
         None, description="Weapon category (Simple Melee, Martial Ranged, ...)"
@@ -70,7 +69,7 @@ def list_weapons(
 
     Args:
         db: Database session.
-        _user: Authenticated DM.
+        user: Authenticated DM (sees shared weapons plus their own homebrew).
         q: Optional name substring search.
         category: Optional weapon category.
         mastery: Optional 2024 mastery property.
@@ -87,6 +86,7 @@ def list_weapons(
         mastery=mastery,
         property_name=property_name,
         is_magic=is_magic,
+        viewer=user,
     )
 
 
@@ -135,22 +135,22 @@ def attack_preview(
 
 
 @router.post("/items", response_model=ItemRead, status_code=status.HTTP_201_CREATED)
-def create_item(body: ItemCreate, db: DB, _user: CurrentUser) -> ItemRead:
-    """Persist a homebrew or campaign-specific item to the shared catalog.
+def create_item(body: ItemCreate, db: DB, user: CurrentUser) -> ItemRead:
+    """Persist a homebrew or campaign-specific item as the DM's own.
 
-    Any authenticated DM may author. Mirrors the POST /spells pattern for
-    homebrew spells. Used today by campaign-side scripts to seed plot
-    items (the False Moonglass shard etc.) that the loot picker needs.
+    Any authenticated DM may author; the item is stamped with their email
+    (SEC-003). Used by campaign-side scripts to seed plot items (the False
+    Moonglass shard etc.) that the loot picker needs.
 
     Args:
         body: Validated ItemCreate payload.
         db: Database session.
-        _user: Authenticated DM.
+        user: Authenticated DM (recorded as the author).
 
     Returns:
         Newly persisted item.
     """
-    item = item_service.create_item(db, body)
+    item = item_service.create_item(db, body, dm_email=user)
     return ItemRead.model_validate(item)
 
 
@@ -185,27 +185,29 @@ def update_item(
     item_id: uuid.UUID,
     body: ItemUpdate,
     db: DB,
-    _user: CurrentUser,
+    user: CurrentUser,
 ) -> ItemRead:
-    """Partially update an item (e.g. set image_url).
+    """Partially update an item (e.g. set image_url) the DM may edit.
 
     Args:
         item_id: UUID of the item to update.
         body: Partial update payload.
         db: Database session.
-        _user: Authenticated DM.
+        user: Authenticated DM (must own the homebrew row, or be an admin).
 
     Returns:
         Updated ItemRead.
 
     Raises:
         HTTPException 404: If item not found.
+        HTTPException 403: If the item is shared or another DM's (SEC-003).
     """
     try:
-        item = item_service.get_item(db, item_id)
+        updated = item_service.update_item(db, item_id, body, user)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-    updated = ItemRepo.update(db, item, body)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     return ItemRead.model_validate(updated)
 
 

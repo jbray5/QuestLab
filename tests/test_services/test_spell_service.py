@@ -110,15 +110,21 @@ class TestUpdateSpell:
 
     def test_partial_update(self, duckdb_session: Session):
         """Partial update changes only provided fields."""
-        spell = SpellRepo.create(duckdb_session, _make("Cure Wounds", school="Abjuration"))
-        updated = spell_svc.update_spell(duckdb_session, spell.id, SpellUpdate(school="Evocation"))
+        spell = SpellRepo.create(
+            duckdb_session, _make("Cure Wounds", school="Abjuration"), owner_email="dm@x.test"
+        )
+        updated = spell_svc.update_spell(
+            duckdb_session, spell.id, SpellUpdate(school="Evocation"), "dm@x.test"
+        )
         assert updated.school == "Evocation"
         assert updated.name == "Cure Wounds"
 
     def test_unknown_raises(self, duckdb_session: Session):
         """Updating an unknown spell raises ValueError."""
         with pytest.raises(ValueError):
-            spell_svc.update_spell(duckdb_session, uuid.uuid4(), SpellUpdate(name="Whatever"))
+            spell_svc.update_spell(
+                duckdb_session, uuid.uuid4(), SpellUpdate(name="Whatever"), "dm@x.test"
+            )
 
 
 class TestDeleteSpell:
@@ -126,14 +132,14 @@ class TestDeleteSpell:
 
     def test_delete(self, duckdb_session: Session):
         """Delete removes the row."""
-        spell = SpellRepo.create(duckdb_session, _make("Burning Hands"))
-        spell_svc.delete_spell(duckdb_session, spell.id)
+        spell = SpellRepo.create(duckdb_session, _make("Burning Hands"), owner_email="dm@x.test")
+        spell_svc.delete_spell(duckdb_session, spell.id, "dm@x.test")
         assert SpellRepo.get_by_id(duckdb_session, spell.id) is None
 
     def test_unknown_raises(self, duckdb_session: Session):
         """Deleting an unknown spell raises ValueError."""
         with pytest.raises(ValueError):
-            spell_svc.delete_spell(duckdb_session, uuid.uuid4())
+            spell_svc.delete_spell(duckdb_session, uuid.uuid4(), "dm@x.test")
 
 
 class TestSeedSpells:

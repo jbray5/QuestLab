@@ -9,6 +9,7 @@ import logging
 import os
 import uuid
 from typing import Optional
+from urllib.parse import urlsplit
 
 from sqlmodel import Session as DBSession
 
@@ -121,6 +122,42 @@ def list_channels(db: DBSession, campaign_id: uuid.UUID, dm_email: str) -> list[
     return [_to_channel_read(r) for r in CrierChannelRepo.list_for_campaign(db, campaign_id)]
 
 
+_DISCORD_HOSTS = {"discord.com", "discordapp.com", "canary.discord.com", "ptb.discord.com"}
+
+
+def _checked_webhook_url(raw: str) -> str:
+    """Return the URL when it is a real Discord webhook, else raise (SEC-005).
+
+    The server posts to this URL, so it must be ``https://`` on a Discord host
+    with an ``/api/webhooks/`` path — a substring check let any address
+    through (``https://anywhere/?discord.com/api/webhooks/``), turning the
+    crier into a request forwarder.
+
+    Args:
+        raw: The URL the DM pasted.
+
+    Returns:
+        The trimmed URL.
+
+    Raises:
+        ValueError: If it is not a Discord webhook URL.
+    """
+    url = raw.strip()
+    parts = urlsplit(url)
+    if (
+        parts.scheme != "https"
+        or (parts.hostname or "").lower() not in _DISCORD_HOSTS
+        or parts.port not in (None, 443)
+        or parts.username
+        or not parts.path.startswith("/api/webhooks/")
+    ):
+        raise ValueError(
+            "That does not look like a Discord webhook URL. Copy it from "
+            "the channel's Settings → Integrations → Webhooks."
+        )
+    return url
+
+
 def create_channel(
     db: DBSession, campaign_id: uuid.UUID, dm_email: str, payload: CrierChannelCreate
 ) -> CrierChannelRead:
@@ -139,12 +176,7 @@ def create_channel(
         ValueError: If the URL is not a Discord webhook URL.
     """
     _get_owned_campaign(db, campaign_id, dm_email)
-    url = payload.webhook_url.strip()
-    if "discord.com/api/webhooks/" not in url and "discordapp.com/api/webhooks/" not in url:
-        raise ValueError(
-            "That does not look like a Discord webhook URL. Copy it from "
-            "the channel's Settings → Integrations → Webhooks."
-        )
+    url = _checked_webhook_url(payload.webhook_url)
     row = CrierChannel(
         campaign_id=campaign_id,
         label=payload.label.strip(),
@@ -172,7 +204,8 @@ def update_channel(
         The refreshed channel, webhook URL stripped.
 
     Raises:
-        ValueError: If the channel does not exist.
+        ValueError: If the channel does not exist or the new URL is not a
+            Discord webhook.
     """
     row = CrierChannelRepo.get_by_id(db, channel_id)
     if row is None:
@@ -184,7 +217,7 @@ def update_channel(
     if payload.sort_order is not None:
         row.sort_order = payload.sort_order
     if payload.webhook_url is not None and payload.webhook_url.strip():
-        row.webhook_url = payload.webhook_url.strip()
+        row.webhook_url = _checked_webhook_url(payload.webhook_url)
     return _to_channel_read(CrierChannelRepo.save(db, row))
 
 

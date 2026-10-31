@@ -18,7 +18,8 @@ def _fresh(monkeypatch):
 def test_buckets():
     assert rl.bucket_for("/api/auth/login", "POST") == ("auth", 3)
     assert rl.bucket_for("/api/play/join/abc/characters", "POST") == ("auth", 3)
-    assert rl.bucket_for("/api/play/join/abc/options", "GET") is None
+    # SEC-002: roster reads hand out player links, so they are throttled too.
+    assert rl.bucket_for("/api/play/join/abc/options", "GET")[0] == "join"
     assert rl.bucket_for("/api/campaigns", "POST") == ("writes", 5)
     assert rl.bucket_for("/api/campaigns", "GET") is None
     assert rl.bucket_for("/api/sessions/x/table/stream", "GET") is None

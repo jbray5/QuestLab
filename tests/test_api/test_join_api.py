@@ -7,11 +7,15 @@ never sheet stats, and 404 for unknown campaigns.
 
 import uuid
 
+import pytest
 from sqlmodel import Session
 
 import services.campaign_service as camp_svc
 import services.character_service as char_svc
 from domain.enums import CharacterClass
+
+# These suites address players by UUID (pre-token links); see conftest.uuid_play_links.
+pytestmark = pytest.mark.usefixtures("uuid_play_links")
 
 
 def _seed(engine, dm: str) -> str:
@@ -49,8 +53,9 @@ def test_join_roster_is_public_and_sorted(client, api_engine):
     assert resp.status_code == 200
     rows = resp.json()
     assert [r["character_name"] for r in rows] == ["Creed", "Willa"]
+    # SEC-002: each row carries the character's link secret, never its UUID.
     assert set(rows[0].keys()) == {
-        "id",
+        "key",
         "character_name",
         "player_name",
         "portrait_url",
@@ -130,6 +135,6 @@ def test_campaign_name_is_player_safe(client, api_engine):
     """Plan 68 — GET /play/{pc}/campaign returns just the name, no auth."""
     cid = _seed(api_engine, "dm_card@example.com")
     roster = client.get(f"/api/play/join/{cid}").json()
-    resp = client.get(f"/api/play/{roster[0]['id']}/campaign")
+    resp = client.get(f"/api/play/{roster[0]['key']}/campaign")
     assert resp.status_code == 200
     assert resp.json() == {"name": "C"}

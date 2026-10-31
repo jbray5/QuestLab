@@ -1,5 +1,6 @@
 """PlayerCharacter domain model — full 2024 D&D 5e character sheet."""
 
+import secrets
 import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal, Optional
@@ -10,6 +11,11 @@ from sqlalchemy.types import JSON, DateTime
 from sqlmodel import Field, SQLModel
 
 from domain.enums import AbilityScore, CharacterClass
+
+
+def new_play_token() -> str:
+    """A fresh player-link secret (SEC-002): 22 URL-safe characters, 128 bits."""
+    return secrets.token_urlsafe(16)
 
 
 def proficiency_bonus(level: int) -> int:
@@ -108,6 +114,25 @@ class PlayerCharacter(SQLModel, table=True):
     pp: int = Field(default=0, ge=0)
     # Plan 115 — the DM granted a level-up up to this level; the player's guide applies it.
     pending_level: Optional[int] = Field(default=None, ge=1, le=20)
+    # UX-001 — conditions the DM set on this character (e.g. "Poisoned"), kept
+    # between fights and shown on the player's phone. During a fight the
+    # tracker row mirrors them.
+    conditions: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    # SEC-002 — the player link's secret: /play/{play_token}. Unguessable,
+    # never in another player's payload, and replaced when the DM resets the
+    # link. Every new PC gets one at creation.
+    play_token: Optional[str] = Field(
+        default_factory=new_play_token,
+        max_length=64,
+        index=True,
+        sa_column_kwargs={"unique": True},
+    )
+    # SEC-002 — PCs that existed before play tokens still open by their UUID
+    # until this moment (a grace period for links already handed out); a link
+    # reset clears it at once. NULL = the UUID is not a link.
+    legacy_uuid_until: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -200,6 +225,9 @@ class PlayerCharacterRead(BaseModel):
     gp: int = 0
     pp: int = 0
     pending_level: Optional[int] = None
+    conditions: Optional[list[str]] = None
+    # SEC-002 — the DM builds the player's link from this (DM-only projection).
+    play_token: Optional[str] = None
     backstory: Optional[str] = None
     notes: Optional[str] = None
     player_notes: Optional[str] = None
@@ -252,6 +280,8 @@ class PlayerCharacterUpdate(BaseModel):
     spell_slots: Optional[dict[str, Any]] = None
     # Combat state (Plan 00023) — DM can set any of these via PATCH
     temp_hp: Optional[int] = Field(default=None, ge=0, le=999)
+    # UX-001 — the DM's condition list for this character (replaces the whole list).
+    conditions: Optional[list[str]] = Field(default=None, max_length=20)
     heroic_inspiration: Optional[bool] = None
     concentration_on: Optional[str] = Field(default=None, max_length=120)
     death_save_successes: Optional[int] = Field(default=None, ge=0, le=3)

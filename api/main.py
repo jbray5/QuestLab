@@ -50,6 +50,7 @@ from api.routers import (
     waitlist,
 )
 from integrations import rate_limit
+from services.upload_service import is_servable
 
 load_dotenv()
 
@@ -145,6 +146,25 @@ async def _throttle(request: Request, call_next):
             headers={"Retry-After": str(wait)},
         )
     return await call_next(request)
+
+
+# ── Security headers (SEC-004) — no MIME sniffing anywhere; uploads are inert ──
+_UPLOAD_CSP = "default-src 'none'; img-src 'self'; media-src 'self'; sandbox"
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    """Refuse non-media files under /uploads and add no-sniff (and a sandbox CSP for uploads)."""
+    path = request.url.path
+    is_upload = path.startswith("/uploads/")
+    if is_upload and not is_servable(path):
+        return JSONResponse(status_code=404, content={"detail": "Not Found"})
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if is_upload:
+        response.headers["Content-Security-Policy"] = _UPLOAD_CSP
+    return response
 
 
 # ── Routers ────────────────────────────────────────────────────────────────────

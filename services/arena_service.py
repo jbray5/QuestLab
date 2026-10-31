@@ -2714,6 +2714,20 @@ def _slot_for_pc(db: Session, pc_id: uuid.UUID, team: int, auto: bool) -> ArenaS
     return ArenaSlot(kind="pc", label=built.name, team=team, auto=auto, pc=built, pc_id=pc_id)
 
 
+def _require_one_campaign(db: Session, pc_ids: list[uuid.UUID]) -> None:
+    """Every character in a hot-seat fight comes from the same campaign (SEC-006).
+
+    Without this a player link could pull any known character's real sheet
+    (HP, AC, attacks, spells) into its own fight.
+
+    Raises:
+        ValueError: If a character is unknown or from another campaign.
+    """
+    campaigns = {_pc_or_raise(db, pc_id).campaign_id for pc_id in pc_ids}
+    if len(campaigns) > 1:
+        raise ValueError("Everyone in the fight has to be from the same campaign.")
+
+
 def start_duel(db: Session, pc_ids: list[uuid.UUID]) -> ArenaState:
     """A hot-seat duel: every character for themselves, one device passed round.
 
@@ -2729,6 +2743,7 @@ def start_duel(db: Session, pc_ids: list[uuid.UUID]) -> ArenaState:
     """
     if len(pc_ids) < 2:
         raise ValueError("A duel needs at least two characters.")
+    _require_one_campaign(db, pc_ids)
     roster = [_slot_for_pc(db, pc_id, team=team, auto=False) for team, pc_id in enumerate(pc_ids)]
     state = ArenaState(
         pc_id=pc_ids[0],
@@ -2773,6 +2788,7 @@ def start_boss(
     """
     if not pc_ids:
         raise ValueError("A boss battle needs a party.")
+    _require_one_campaign(db, pc_ids)
     roster = [
         _slot_for_pc(db, pc_id, team=0, auto=controlled is not None and pc_id != controlled)
         for pc_id in pc_ids

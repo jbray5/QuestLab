@@ -87,6 +87,46 @@ def _assert_row_owner(db: Session, character_item_id: uuid.UUID, dm_email: str) 
     return row
 
 
+def get_row(db: Session, character_item_id: uuid.UUID, dm_email: str) -> CharacterItem:
+    """One inventory row the DM owns (SEC-005: no peeking at another table's bags).
+
+    Args:
+        db: Active database session.
+        character_item_id: UUID of the inventory row.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        The row.
+
+    Raises:
+        ValueError: If the row does not exist.
+        PermissionError: If the DM does not own the PC's campaign.
+    """
+    return _assert_row_owner(db, character_item_id, dm_email)
+
+
+def set_notes(
+    db: Session, character_item_id: uuid.UUID, notes: Optional[str], dm_email: str
+) -> CharacterItem:
+    """Set an inventory row's notes, checking the DM owns it (SEC-005).
+
+    Args:
+        db: Active database session.
+        character_item_id: UUID of the inventory row.
+        notes: The new notes (None clears).
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        The updated row.
+
+    Raises:
+        ValueError: If the row does not exist.
+        PermissionError: If the DM does not own the PC's campaign.
+    """
+    row = _assert_row_owner(db, character_item_id, dm_email)
+    return CharacterItemRepo.update(db, row, CharacterItemUpdate(notes=notes))
+
+
 def list_for_character(db: Session, character_id: uuid.UUID, dm_email: str) -> list[CharacterItem]:
     """Return all inventory rows for a PC.
 

@@ -21,6 +21,7 @@ from domain.encounter import Encounter, EncounterCreate, EncounterUpdate
 from domain.enums import EncounterDifficulty
 from domain.monster import MonsterStatBlock, MonsterStatBlockCreate, MonsterStatBlockUpdate
 from integrations.dnd_rules.encounter_math import calculate_difficulty, cr_to_xp
+from services.auth_service import catalog_visible, require_catalog_editor
 
 MAX_ENCOUNTERS_PER_ADVENTURE = 20
 
@@ -654,6 +655,7 @@ def list_monsters(
     session: Session,
     search: Optional[str] = None,
     is_custom: Optional[bool] = None,
+    viewer: Optional[str] = None,
 ) -> list:
     """List all available monsters, optionally filtered.
 
@@ -661,11 +663,17 @@ def list_monsters(
         session: Active database session.
         search: Optional name substring filter (case-insensitive).
         is_custom: If True, return only custom monsters.
+        viewer: The listing DM: the SRD plus their own homebrew (SEC-003).
+            None lists everything (internal callers).
 
     Returns:
         List of MonsterStatBlock ORM objects.
     """
-    monsters = MonsterRepo.list_all(session, is_custom=is_custom)
+    monsters = [
+        m
+        for m in MonsterRepo.list_all(session, is_custom=is_custom)
+        if catalog_visible(monster_owner(m), viewer)
+    ]
     if search:
         q = search.strip().lower()
         monsters = [m for m in monsters if q in m.name.lower()]
@@ -737,27 +745,43 @@ def get_monster(session: Session, monster_id: uuid.UUID) -> MonsterStatBlock:
     return monster
 
 
+def monster_owner(monster: MonsterStatBlock) -> Optional[str]:
+    """The DM who owns a monster row: its author for homebrew, None for the SRD (SEC-003).
+
+    Args:
+        monster: The stat block.
+
+    Returns:
+        The owner's email, or None for a shared row.
+    """
+    return monster.created_by_email if monster.is_custom else None
+
+
 def update_monster(
     session: Session,
     monster_id: uuid.UUID,
     update: MonsterStatBlockUpdate,
+    dm_email: str,
 ) -> MonsterStatBlock:
-    """Partially update a monster stat block.
+    """Partially update a monster stat block the DM may edit (SEC-003).
 
     Args:
         session: Active database session.
         monster_id: UUID of the monster.
         update: Partial update payload.
+        dm_email: The requesting DM.
 
     Returns:
         Updated MonsterStatBlock ORM object.
 
     Raises:
         ValueError: If monster not found.
+        PermissionError: If it is an SRD row (non-admin) or another DM's homebrew.
     """
     monster = MonsterRepo.get_by_id(session, monster_id)
     if monster is None:
         raise ValueError(f"Monster {monster_id} not found.")
+    require_catalog_editor(monster_owner(monster), dm_email)
     patch = update.model_dump(exclude_unset=True)
     for field, value in patch.items():
         setattr(monster, field, value)

@@ -124,6 +124,9 @@ Full 2024 5e character sheet, belonging to a Campaign.
 | spell_slots | JSON | Yes | | `{level: {total, used}}` |
 | pending_level | INTEGER | Yes | 1–20 | Plan 115 — level the DM granted; the player's level-up guide raises `level` toward it, cleared on arrival (migration 0054) |
 | player_notes | TEXT | Yes | ≤ 4,000 chars (request body) | Plan 122 — the player's own notes, written from the phone (`PUT /play/{pc}/notes`); the DM's screens never show them; distinct from the DM's `notes`, which the player link never returns (migration 0055) |
+| conditions | JSON | Yes | ≤ 20 names | UX-001 — conditions the DM set ("Poisoned"), kept between fights; trimmed and de-duplicated ignoring case; the running fight's tracker row mirrors them; the phone lists them (migration 0058) |
+| play_token | VARCHAR(64) | Yes | UNIQUE | SEC-002 — the player link's secret (`/play/{play_token}`), 22 URL-safe characters, set at creation; replaced by the DM's "Reset link"; never in a player payload; only the owning DM's reads carry it (migration 0057) |
+| legacy_uuid_until | TIMESTAMPTZ | Yes | | SEC-002 — PCs made before tokens still open by `/play/{id}` until this moment (2026-12-01 UTC for every existing row); NULL for new PCs and after a reset (migration 0057) |
 | created_at | TIMESTAMP | No | | |
 | updated_at | TIMESTAMP | No | | |
 
@@ -199,6 +202,7 @@ Magic and mundane items referenced in loot tables and character equipment.
 | value_gp | INTEGER | No | DEFAULT 0, ≥ 0 | Value in gold pieces |
 | is_magic | BOOLEAN | No | DEFAULT false | |
 | properties | JSON | Yes | | Arbitrary properties (damage dice, charges, etc.) |
+| created_by_email | VARCHAR(200) | Yes | INDEX | SEC-003 — the DM who authored a homebrew item (listed only for them; only they or an admin may change it). NULL = the shared catalog, admin-only to change (migration 0056). `spells.created_by_email` works the same way; `monster_stat_blocks` already had it (with `is_custom`) |
 
 ---
 
@@ -344,6 +348,9 @@ Do not log, export without authorisation, or include in error messages.
 | campaigns | ix_campaigns_dm_email | dm_email |
 | adventures | ix_adventures_campaign_id | campaign_id |
 | player_characters | ix_player_characters_campaign_id | campaign_id |
+| player_characters | ix_player_characters_play_token (unique) | play_token |
+| items | ix_items_created_by_email | created_by_email |
+| spells | ix_spells_created_by_email | created_by_email |
 | loot_tables | ix_loot_tables_adventure_id | adventure_id |
 | encounters | ix_encounters_adventure_id | adventure_id |
 | maps | ix_maps_adventure_id | adventure_id |

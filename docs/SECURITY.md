@@ -28,26 +28,26 @@ QuestLab runs in one of two identity modes, chosen by `AUTH_MODE` (Plan 73):
 
 ## Who can read and write what (audit 2026-10-30)
 
-Players never sign in: their surfaces are **capability URLs** — the UUID in the link is the secret.
+Players never sign in: their surfaces are **capability URLs** — the secret in the link is the credential. A player's own link carries an unguessable per-PC `play_token` (SEC-002), not the character's UUID; every other UUID that shows up in a player payload is an identity, not a key.
 
 | Surface | Credential | Can read | Can write |
 |---|---|---|---|
 | DM app `/api/campaigns/**`, sessions, NPCs, encounters, maps, shops, notebooks, exports | DM session (oauth) | only that DM's campaigns — every service checks `campaign.dm_email` through the child's own parent | same |
 | `/api/admin/**` | DM session + `BOOTSTRAP_ADMIN_EMAILS` | admin tools; export is the admin's own campaigns | monster reseed |
-| `/play/{pc_id}/**` | the PC's UUID | that PC's sheet (**never the DM's `notes` field**, Plan 122), spells, gear, features, its turn kit; the party roster (names + PC ids); the running fight's order (names, initiative, side); **revealed** NPCs only (name, role, race, appearance, location, status, portrait — never secret/motivation/hooks/notes) | that PC's HP, temp HP, slots, death saves, coin/inspiration/concentration/exhaustion (allowlisted fields), rolls to the table (labeled, advantage, typed-in real dice), casting its own prepared spells (spends its own slot), preparing spells within its class cap, its private `player_notes`, gear, buy/sell/give, level-up **only after the DM grants it**, arena/duels (seat-checked) |
-| `/join/{campaign_id}` | campaign UUID (+ join code if set) | the roster | create a PC while sign-up is on |
+| `/play/{key}/**` (and `/stream/pc/{key}`, duels) | the PC's `play_token` — resolved once by `api.deps.play_pc_id`; a PC made before tokens also opens by UUID until 2026-12-01; the DM's **Reset link** replaces the token and ends the UUID grace at once; an old link answers 410 with the campaign id so the phone can offer the join page | that PC's sheet (**never the DM's `notes` field**, Plan 122), spells, gear, features, its turn kit; the party roster (names + PC ids — ids are identities, not keys); the running fight's order (names, initiative, side); **revealed** NPCs only (name, role, race, appearance, location, status, portrait — never secret/motivation/hooks/notes) | that PC's HP, temp HP, slots, death saves, coin/inspiration/concentration/exhaustion (allowlisted fields), rolls to the table (labeled, advantage, typed-in real dice), casting its own prepared spells (spends its own slot), preparing spells within its class cap, its private `player_notes`, gear, buy/sell/give, level-up **only after the DM grants it**, arena/duels (seat-checked) |
+| `/join/{campaign_id}` | campaign UUID (+ join code if set; compared in constant time; roster reads throttled 60/min/IP) | the roster, **including each character's link key** — the join link is the party's door, so a DM who resets a departed player's link should also change the join code | create a PC while sign-up is on |
 | `/table/{session_id}` (TV/projector) | session UUID | the projected board, tokens, initiative names, PC HP | its own PC token moves (via `/play`) |
 | `/market/{campaign_id}`, `/shop/{shop_id}`, `/puzzle/{id}` | UUID | visible shops / answer-free puzzle | purchases (via `/play`) |
 | `/stream/**` (SSE) | UUID of the topic | event ids/types only — no DM content | — |
 
 Never on a player surface: hidden NPCs, NPC secrets/KNOWS/WANT/VOICE, beat cards, session or campaign notes, `world_notes`.
 
-### Open findings (tracked in `docs/QUALITY.md`)
-1. **High — one link controls the party.** The projector link, the party list and the join roster expose every PC's UUID, and a PC UUID can write that sheet. Fix needs a separate per-PC `play_token` (schema change, ask first).
-2. **High — shared catalogs.** Any signed-in DM can edit or delete catalog monsters, items and spells for everyone (no owner column on items/spells).
-3. **High — uploads.** File extension comes from the client name; an `.html`/`.svg` upload is served from the API origin.
-4. **Medium** — fog of war is client-side (fogged monsters are in the projection); `/stream/campaign/{id}` ignores the join code; session `attending_pc_ids` / combatant `character_id` aren't checked against the campaign; crier webhook URL isn't restricted to Discord; inventory PATCH notes-only path skips the row check.
-5. **Low** — ~~`GET /play/{pc}` includes the PC `notes` field~~ (fixed in Plan 122: every `/play` sheet response excludes it); feature spend doesn't check the feature belongs to the PC; arena duel/boss accept PCs from another campaign; `buy` ignores a hidden shop.
+### Findings (tracked in `docs/QUALITY.md`)
+1. ~~**High — one link controls the party.**~~ Fixed 2026-10-31 (SEC-002): per-PC `play_token` links, a DM "Reset link", UUID links only through the grace period, tokens never in player payloads (migration 0057; `tests/test_api/test_sec002_play_links.py`).
+2. ~~**High — shared catalogs.**~~ Fixed 2026-10-31 (SEC-003): items and spells record their author (`created_by_email`, migration 0056); shared rows are admin-only to change, homebrew only by its author or an admin; lists show the shared catalog plus the viewer's own homebrew (`tests/test_api/test_sec003_catalog.py`).
+3. ~~**High — uploads.**~~ Fixed 2026-10-31 (SEC-004): the type comes from the bytes (`services/upload_service.py`), the stored extension from the detected type; `/uploads/` serves only media extensions with `nosniff` and a sandbox CSP; every response is `nosniff` (`tests/test_api/test_sec004_uploads.py`).
+4. **Medium** — still open: fog of war is client-side (fogged monsters are in the projection — the private TV board only); `/stream/campaign/{id}` is unauthenticated (it carries event types and PC ids, which are no longer keys). Fixed 2026-10-31: session attendance and tracker character ids must belong to the campaign; the crier posts only to `https://` Discord webhook hosts (create and update); inventory notes and row reads check the owner (`tests/test_services/test_sec005_hardening.py`).
+5. ~~**Low**~~ — fixed: `GET /play` never returns the DM's `notes` (Plan 122); a feature spend needs the feature row to be the PC's; hot-seat duels and boss fights take characters from one campaign. By design: a hidden shop sells through its direct link (sharing the link is how the DM reveals it).
 
 ## Authorization
 - Authorization checks live in `services/` — never in the UI alone.

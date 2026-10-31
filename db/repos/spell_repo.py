@@ -90,17 +90,19 @@ class SpellRepo:
         return rows
 
     @staticmethod
-    def create(session: Session, data: SpellCreate) -> Spell:
+    def create(session: Session, data: SpellCreate, owner_email: Optional[str] = None) -> Spell:
         """Persist a new spell.
 
         Args:
             session: Active database session.
             data: Validated spell creation payload.
+            owner_email: The authoring DM for homebrew; None for the shared catalog.
 
         Returns:
             The newly created Spell.
         """
         spell = Spell.model_validate(data)
+        spell.created_by_email = owner_email
         session.add(spell)
         session.commit()
         session.refresh(spell)

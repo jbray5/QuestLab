@@ -44,6 +44,11 @@ def bucket_for(path: str, method: str) -> Optional[tuple[str, int]]:
         return ("auth", _limit("RATE_LIMIT_AUTH_PER_MIN", 20))
     if m in _WRITE_METHODS:
         return ("writes", _limit("RATE_LIMIT_WRITES_PER_MIN", 120))
+    if path.startswith(_JOIN_PREFIX):
+        # SEC-002: the join roster hands out player links — reads of it are
+        # throttled too, so a join code can't be guessed at speed. A whole
+        # table on one Wi-Fi address stays far under this.
+        return ("join", _limit("RATE_LIMIT_JOIN_READS_PER_MIN", 60))
     return None
 
 

@@ -66,3 +66,16 @@ def dev_env(monkeypatch):
     monkeypatch.setenv("AUTH_EMAIL_HEADER", "X-MS-CLIENT-PRINCIPAL-NAME")
     monkeypatch.setenv("DB_BACKEND", "duckdb")
     monkeypatch.setenv("DUCKDB_PATH", ":memory:")
+
+
+@pytest.fixture()
+def uuid_play_links(monkeypatch):
+    """Let ``/play/{pc_uuid}`` open like a pre-token link (the SEC-002 grace period).
+
+    Feature suites written before play tokens address players by UUID for
+    brevity; the link rules themselves are covered by
+    ``tests/test_api/test_sec002_play_links.py``.
+    """
+    from services import player_service
+
+    monkeypatch.setattr(player_service, "_legacy_uuid_open", lambda pc: True)

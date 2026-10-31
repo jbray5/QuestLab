@@ -50,9 +50,11 @@ class BuilderOptions(BaseModel):
 
 
 class BuildResult(BaseModel):
-    """What the player gets back: their new sheet's id and a summary."""
+    """What the player gets back: their new sheet's id, its link secret and a summary."""
 
     pc_id: str
+    # SEC-002 — the secret for /play/{play_key}; the phone opens and remembers this.
+    play_key: str = ""
     character_name: str
     hp_max: int
     ac: int

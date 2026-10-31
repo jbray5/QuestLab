@@ -33,6 +33,20 @@ class CharacterRepo:
         return session.get(PlayerCharacter, character_id)
 
     @staticmethod
+    def get_by_play_token(session: Session, token: str) -> Optional[PlayerCharacter]:
+        """Fetch the player character whose player-link token is ``token`` (SEC-002).
+
+        Args:
+            session: Active database session.
+            token: The secret from a ``/play/{token}`` link.
+
+        Returns:
+            PlayerCharacter if one holds that token, else None.
+        """
+        stmt = select(PlayerCharacter).where(PlayerCharacter.play_token == token)
+        return session.exec(stmt).first()
+
+    @staticmethod
     def list_by_campaign(session: Session, campaign_id: uuid.UUID) -> list[PlayerCharacter]:
         """List all player characters in a campaign.
 

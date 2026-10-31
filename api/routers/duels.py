@@ -11,7 +11,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 
-from api.deps import DB
+from api.deps import DB, PlayPcId
 from domain.duel import DuelActBody, DuelRead, DuelSeatBody, DuelStartBody, DuelSummary
 from services import duel_service
 
@@ -38,7 +38,7 @@ def _http(exc: Exception) -> HTTPException:
 
 
 @router.post("/play/{pc_id}/duels", response_model=DuelRead)
-def start_duel(pc_id: uuid.UUID, body: DuelStartBody, db: DB) -> DuelRead:
+def start_duel(pc_id: PlayPcId, body: DuelStartBody, db: DB) -> DuelRead:
     """Call other characters out to a duel, everyone on their own phone.
 
     Args:
@@ -56,7 +56,7 @@ def start_duel(pc_id: uuid.UUID, body: DuelStartBody, db: DB) -> DuelRead:
 
 
 @router.get("/play/{pc_id}/duels", response_model=list[DuelSummary])
-def list_duels(pc_id: uuid.UUID, db: DB) -> list[DuelSummary]:
+def list_duels(pc_id: PlayPcId, db: DB) -> list[DuelSummary]:
     """The live duels this character has been called into.
 
     Args:
@@ -73,7 +73,7 @@ def list_duels(pc_id: uuid.UUID, db: DB) -> list[DuelSummary]:
 
 
 @router.get("/play/{pc_id}/duels/{duel_id}", response_model=DuelRead)
-def read_duel(pc_id: uuid.UUID, duel_id: uuid.UUID, db: DB) -> DuelRead:
+def read_duel(pc_id: PlayPcId, duel_id: uuid.UUID, db: DB) -> DuelRead:
     """The fight as it stands, for one of the phones watching it.
 
     Args:
@@ -91,7 +91,7 @@ def read_duel(pc_id: uuid.UUID, duel_id: uuid.UUID, db: DB) -> DuelRead:
 
 
 @router.post("/play/{pc_id}/duels/{duel_id}/act", response_model=DuelRead)
-def act_in_duel(pc_id: uuid.UUID, duel_id: uuid.UUID, body: DuelActBody, db: DB) -> DuelRead:
+def act_in_duel(pc_id: PlayPcId, duel_id: uuid.UUID, body: DuelActBody, db: DB) -> DuelRead:
     """Take one action, if it is this character's turn.
 
     Args:
@@ -110,7 +110,7 @@ def act_in_duel(pc_id: uuid.UUID, duel_id: uuid.UUID, body: DuelActBody, db: DB)
 
 
 @router.post("/play/{pc_id}/duels/{duel_id}/referee", response_model=DuelRead)
-def hand_to_referee(pc_id: uuid.UUID, duel_id: uuid.UUID, body: DuelSeatBody, db: DB) -> DuelRead:
+def hand_to_referee(pc_id: PlayPcId, duel_id: uuid.UUID, body: DuelSeatBody, db: DB) -> DuelRead:
     """Let the referee play a seat whose person stepped away (Plan 116).
 
     Args:
@@ -129,7 +129,7 @@ def hand_to_referee(pc_id: uuid.UUID, duel_id: uuid.UUID, body: DuelSeatBody, db
 
 
 @router.post("/play/{pc_id}/duels/{duel_id}/return", response_model=DuelRead)
-def take_seat_back(pc_id: uuid.UUID, duel_id: uuid.UUID, db: DB) -> DuelRead:
+def take_seat_back(pc_id: PlayPcId, duel_id: uuid.UUID, db: DB) -> DuelRead:
     """Play your own seat again after the referee covered it (Plan 116).
 
     Args:
@@ -147,7 +147,7 @@ def take_seat_back(pc_id: uuid.UUID, duel_id: uuid.UUID, db: DB) -> DuelRead:
 
 
 @router.post("/play/{pc_id}/duels/{duel_id}/end", response_model=DuelRead)
-def end_duel(pc_id: uuid.UUID, duel_id: uuid.UUID, db: DB) -> DuelRead:
+def end_duel(pc_id: PlayPcId, duel_id: uuid.UUID, db: DB) -> DuelRead:
     """Call the duel off. Anyone in it can, at any time.
 
     Args:

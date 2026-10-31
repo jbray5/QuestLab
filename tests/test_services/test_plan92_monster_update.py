@@ -53,6 +53,7 @@ def test_languages_senses_and_damage_lists_are_patchable(duckdb_session: Session
             damage_resistances=[],
             alignment="neutral evil",
         ),
+        "dm@example.com",
     )
     assert updated.languages == "Common, Elvish, Sylvan"
     assert updated.senses == {"darkvision": 60, "passive_perception": 14}
@@ -62,5 +63,7 @@ def test_languages_senses_and_damage_lists_are_patchable(duckdb_session: Session
 def test_an_omitted_field_is_left_alone(duckdb_session: Session):
     """A partial update still only touches what it names."""
     monster = _hag(duckdb_session)
-    updated = enc_svc.update_monster(duckdb_session, monster.id, MonsterStatBlockUpdate(ac=18))
+    updated = enc_svc.update_monster(
+        duckdb_session, monster.id, MonsterStatBlockUpdate(ac=18), "dm@example.com"
+    )
     assert updated.ac == 18 and updated.languages == "Common, Draconic, Sylvan"

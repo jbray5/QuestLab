@@ -5,8 +5,10 @@ table self-service their own character without DM-level credentials. The
 character's UUID is the implicit secret — the DM shares each URL out of
 band to the right player.
 
-Auth model: NO ``CurrentUser`` dependency. Every endpoint takes the
-``pc_id`` in the path and only ever touches that one PC. ``player_service``
+Auth model: NO ``CurrentUser`` dependency. Every endpoint takes the link
+secret in the ``{pc_id}`` path segment — the PC's ``play_token`` (SEC-002;
+old UUID links work through a grace period) — resolved once by
+``api.deps.play_pc_id``, and only ever touches that one PC. ``player_service``
 enforces "you can only touch this PC" and rejects writes outside the
 allowed table-state scope.
 """
@@ -16,7 +18,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import ValidationError
 
-from api.deps import DB, gate_ai_for_pc
+from api.deps import DB, PlayPcId, gate_ai_for_pc
 from domain.arena import (
     ArenaActBody,
     ArenaBossBody,
@@ -50,12 +52,34 @@ from services import arena_service, character_builder_service, levelup_service, 
 
 router = APIRouter(tags=["play"])
 
+# Never in a player payload: the DM's notes about the PC (Plan 122), the link
+# secret and its grace stamp (SEC-002; the phone already holds its own link).
+_PLAYER_HIDDEN = {"notes", "play_token", "legacy_uuid_until"}
+
 
 # ── Reads ──────────────────────────────────────────────────────────────────────
 
 
-@router.get("/play/{pc_id}", response_model=PlayerCharacter, response_model_exclude={"notes"})
-def get_pc(pc_id: uuid.UUID, db: DB):
+@router.get("/play/{pc_id}/link")
+def get_play_link(pc_id: PlayPcId, db: DB) -> dict:
+    """The current link secret for this sheet (SEC-002).
+
+    A phone that opened an old UUID link during the grace period calls this
+    and swaps its address for the token link, so it keeps working after the
+    grace period ends.
+
+    Args:
+        pc_id: The PC, resolved from the link.
+        db: Database session.
+
+    Returns:
+        ``{"play_key", "pc_id", "campaign_id"}``.
+    """
+    return player_service.play_link(db, pc_id)
+
+
+@router.get("/play/{pc_id}", response_model=PlayerCharacter, response_model_exclude=_PLAYER_HIDDEN)
+def get_pc(pc_id: PlayPcId, db: DB):
     """Return the PC sheet (read-only) for the player view.
 
     Args:
@@ -72,7 +96,7 @@ def get_pc(pc_id: uuid.UUID, db: DB):
 
 
 @router.get("/play/{pc_id}/spellcasting-stats")
-def spellcasting_stats(pc_id: uuid.UUID, db: DB) -> dict:
+def spellcasting_stats(pc_id: PlayPcId, db: DB) -> dict:
     """Computed spell save DC and attack bonus."""
     try:
         return player_service.spellcasting_stats(db, pc_id)
@@ -81,7 +105,7 @@ def spellcasting_stats(pc_id: uuid.UUID, db: DB) -> dict:
 
 
 @router.get("/play/{pc_id}/skill-bonuses")
-def skill_bonuses(pc_id: uuid.UUID, db: DB) -> dict[str, int]:
+def skill_bonuses(pc_id: PlayPcId, db: DB) -> dict[str, int]:
     """Computed skill bonuses keyed by skill name."""
     try:
         return player_service.skill_bonuses(db, pc_id)
@@ -90,7 +114,7 @@ def skill_bonuses(pc_id: uuid.UUID, db: DB) -> dict[str, int]:
 
 
 @router.get("/play/{pc_id}/saving-throws")
-def saving_throws(pc_id: uuid.UUID, db: DB) -> dict[str, int]:
+def saving_throws(pc_id: PlayPcId, db: DB) -> dict[str, int]:
     """Computed saving-throw bonuses by ability."""
     try:
         return player_service.saving_throws(db, pc_id)
@@ -99,7 +123,7 @@ def saving_throws(pc_id: uuid.UUID, db: DB) -> dict[str, int]:
 
 
 @router.get("/play/{pc_id}/spell-slots")
-def spell_slots(pc_id: uuid.UUID, db: DB):
+def spell_slots(pc_id: PlayPcId, db: DB):
     """Per-level spell slot state."""
     try:
         return player_service.slot_state(db, pc_id)
@@ -108,7 +132,7 @@ def spell_slots(pc_id: uuid.UUID, db: DB):
 
 
 @router.get("/play/{pc_id}/spells")
-def spells(pc_id: uuid.UUID, db: DB):
+def spells(pc_id: PlayPcId, db: DB):
     """Known and prepared spells (with full spell details)."""
     try:
         return player_service.list_spells(db, pc_id)
@@ -117,7 +141,7 @@ def spells(pc_id: uuid.UUID, db: DB):
 
 
 @router.get("/play/{pc_id}/features")
-def features(pc_id: uuid.UUID, db: DB):
+def features(pc_id: PlayPcId, db: DB):
     """Class features (with max + spent usage)."""
     try:
         return player_service.list_features(db, pc_id)
@@ -126,7 +150,7 @@ def features(pc_id: uuid.UUID, db: DB):
 
 
 @router.get("/play/{pc_id}/inventory")
-def inventory(pc_id: uuid.UUID, db: DB):
+def inventory(pc_id: PlayPcId, db: DB):
     """Inventory (read-only in player scope)."""
     try:
         return player_service.list_inventory(db, pc_id)
@@ -135,7 +159,7 @@ def inventory(pc_id: uuid.UUID, db: DB):
 
 
 @router.get("/play/{pc_id}/npcs")
-def list_visible_npcs(pc_id: uuid.UUID, db: DB) -> list[dict]:
+def list_visible_npcs(pc_id: PlayPcId, db: DB) -> list[dict]:
     """Return campaign NPCs the player should see (Plan 38 P3-3).
 
     Public projection: name, role, race, appearance, location, status,
@@ -150,7 +174,7 @@ def list_visible_npcs(pc_id: uuid.UUID, db: DB) -> list[dict]:
 
 
 @router.get("/play/{pc_id}/combat-state")
-def combat_state(pc_id: uuid.UUID, db: DB) -> dict:
+def combat_state(pc_id: PlayPcId, db: DB) -> dict:
     """Conditions + defeated flag for this PC during active combat (Plan 00037).
 
     Returns ``{in_combat: bool, conditions: list[str], defeated: bool}``.
@@ -164,7 +188,7 @@ def combat_state(pc_id: uuid.UUID, db: DB) -> dict:
 
 
 @router.get("/play/{pc_id}/turn-state")
-def turn_state(pc_id: uuid.UUID, db: DB) -> dict:
+def turn_state(pc_id: PlayPcId, db: DB) -> dict:
     """Is it this PC's turn in any active session combat? (Plan 00028).
 
     Returns ``{active: true, session_id, round, active_combatant_name}`` when
@@ -182,9 +206,9 @@ def turn_state(pc_id: uuid.UUID, db: DB) -> dict:
 
 
 @router.post(
-    "/play/{pc_id}/damage", response_model=PlayerCharacter, response_model_exclude={"notes"}
+    "/play/{pc_id}/damage", response_model=PlayerCharacter, response_model_exclude=_PLAYER_HIDDEN
 )
-def apply_damage(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
+def apply_damage(pc_id: PlayPcId, body: dict, db: DB) -> PlayerCharacter:
     """Player applies damage to themselves. Body: ``{"amount": <int>}``."""
     try:
         return player_service.apply_damage(db, pc_id, int(body.get("amount", 0)))
@@ -192,8 +216,10 @@ def apply_damage(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
-@router.post("/play/{pc_id}/heal", response_model=PlayerCharacter, response_model_exclude={"notes"})
-def apply_healing(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
+@router.post(
+    "/play/{pc_id}/heal", response_model=PlayerCharacter, response_model_exclude=_PLAYER_HIDDEN
+)
+def apply_healing(pc_id: PlayPcId, body: dict, db: DB) -> PlayerCharacter:
     """Player heals themselves. Body: ``{"amount": <int>}``."""
     try:
         return player_service.apply_healing(db, pc_id, int(body.get("amount", 0)))
@@ -202,9 +228,11 @@ def apply_healing(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
 
 
 @router.post(
-    "/play/{pc_id}/death-save", response_model=PlayerCharacter, response_model_exclude={"notes"}
+    "/play/{pc_id}/death-save",
+    response_model=PlayerCharacter,
+    response_model_exclude=_PLAYER_HIDDEN,
 )
-def resolve_death_save(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
+def resolve_death_save(pc_id: PlayPcId, body: dict, db: DB) -> PlayerCharacter:
     """Player resolves a death save. Body: ``{"d20": <1..20>}``."""
     try:
         return player_service.resolve_death_save(db, pc_id, int(body.get("d20", 0)))
@@ -214,9 +242,11 @@ def resolve_death_save(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
 
 
 @router.post(
-    "/play/{pc_id}/spend-hit-dice", response_model=PlayerCharacter, response_model_exclude={"notes"}
+    "/play/{pc_id}/spend-hit-dice",
+    response_model=PlayerCharacter,
+    response_model_exclude=_PLAYER_HIDDEN,
 )
-def spend_hit_dice(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
+def spend_hit_dice(pc_id: PlayPcId, body: dict, db: DB) -> PlayerCharacter:
     """Player spends N hit dice. Body: ``{"count": <int>}``."""
     try:
         return player_service.spend_hit_dice(db, pc_id, int(body.get("count", 0)))
@@ -225,7 +255,7 @@ def spend_hit_dice(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
 
 
 @router.post("/play/{pc_id}/spell-slots/{level}/expend")
-def expend_spell_slot(pc_id: uuid.UUID, level: int, db: DB):
+def expend_spell_slot(pc_id: PlayPcId, level: int, db: DB):
     """Player expends one slot of the given level."""
     try:
         return player_service.expend_spell_slot(db, pc_id, level)
@@ -234,7 +264,7 @@ def expend_spell_slot(pc_id: uuid.UUID, level: int, db: DB):
 
 
 @router.post("/play/{pc_id}/spell-slots/{level}/restore")
-def restore_spell_slot(pc_id: uuid.UUID, level: int, db: DB):
+def restore_spell_slot(pc_id: PlayPcId, level: int, db: DB):
     """Player restores one slot of the given level (recovery / misclick fix)."""
     try:
         return player_service.restore_spell_slot(db, pc_id, level)
@@ -243,16 +273,18 @@ def restore_spell_slot(pc_id: uuid.UUID, level: int, db: DB):
 
 
 @router.post("/play/{pc_id}/features/{character_feature_id}/spend")
-def spend_feature_use(pc_id: uuid.UUID, character_feature_id: uuid.UUID, db: DB):
+def spend_feature_use(pc_id: PlayPcId, character_feature_id: uuid.UUID, db: DB):
     """Player spends one use of a class feature they own."""
     try:
         return player_service.spend_feature(db, pc_id, character_feature_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
 
 
 @router.get("/play/{pc_id}/level-up", response_model=LevelUpPlan)
-def level_up_plan(pc_id: uuid.UUID, db: DB) -> LevelUpPlan:
+def level_up_plan(pc_id: PlayPcId, db: DB) -> LevelUpPlan:
     """The level-up guide for this PC's next level, once the DM has granted it (Plan 115).
 
     Args:
@@ -269,7 +301,7 @@ def level_up_plan(pc_id: uuid.UUID, db: DB) -> LevelUpPlan:
 
 
 @router.post("/play/{pc_id}/level-up", response_model=LevelUpResult)
-def level_up_apply(pc_id: uuid.UUID, body: LevelUpChoices, db: DB) -> LevelUpResult:
+def level_up_apply(pc_id: PlayPcId, body: LevelUpChoices, db: DB) -> LevelUpResult:
     """Spend one granted level with the player's choices (Plan 115).
 
     Args:
@@ -287,9 +319,9 @@ def level_up_apply(pc_id: uuid.UUID, body: LevelUpChoices, db: DB) -> LevelUpRes
 
 
 @router.patch(
-    "/play/{pc_id}/state", response_model=PlayerCharacter, response_model_exclude={"notes"}
+    "/play/{pc_id}/state", response_model=PlayerCharacter, response_model_exclude=_PLAYER_HIDDEN
 )
-def patch_state(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
+def patch_state(pc_id: PlayPcId, body: dict, db: DB) -> PlayerCharacter:
     """Bounded player-scope PATCH.
 
     Accepted fields: ``temp_hp`` (Plan 122), ``heroic_inspiration``, ``concentration_on``,
@@ -310,7 +342,7 @@ def patch_state(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
 
 
 @router.get("/play/{pc_id}/gear")
-def list_gear(pc_id: uuid.UUID, db: DB) -> list[dict]:
+def list_gear(pc_id: PlayPcId, db: DB) -> list[dict]:
     """Inventory joined with item details for the Forge equipment list.
 
     Args:
@@ -327,9 +359,11 @@ def list_gear(pc_id: uuid.UUID, db: DB) -> list[dict]:
 
 
 @router.patch(
-    "/play/{pc_id}/appearance", response_model=PlayerCharacter, response_model_exclude={"notes"}
+    "/play/{pc_id}/appearance",
+    response_model=PlayerCharacter,
+    response_model_exclude=_PLAYER_HIDDEN,
 )
-def set_appearance(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
+def set_appearance(pc_id: PlayPcId, body: dict, db: DB) -> PlayerCharacter:
     """Save the player's appearance notes.
 
     Args:
@@ -347,7 +381,7 @@ def set_appearance(pc_id: uuid.UUID, body: dict, db: DB) -> PlayerCharacter:
 
 
 @router.post("/play/{pc_id}/gear/{character_item_id}/equip")
-def set_equipped(pc_id: uuid.UUID, character_item_id: uuid.UUID, body: dict, db: DB):
+def set_equipped(pc_id: PlayPcId, character_item_id: uuid.UUID, body: dict, db: DB):
     """Equip or unequip one of this PC's own inventory rows.
 
     Args:
@@ -370,7 +404,7 @@ def set_equipped(pc_id: uuid.UUID, character_item_id: uuid.UUID, body: dict, db:
 
 
 @router.post("/play/{pc_id}/hero")
-def forge_hero(pc_id: uuid.UUID, db: DB) -> dict:
+def forge_hero(pc_id: PlayPcId, db: DB) -> dict:
     """Generate the base character model (appearance-only, 90s cooldown).
 
     Args:
@@ -451,7 +485,7 @@ def join_create_character(
 
 
 @router.get("/play/{pc_id}/campaign")
-def get_campaign_name(pc_id: uuid.UUID, db: DB) -> dict:
+def get_campaign_name(pc_id: PlayPcId, db: DB) -> dict:
     """Player-safe campaign name (share cards, Plan 68).
 
     Args:
@@ -468,7 +502,7 @@ def get_campaign_name(pc_id: uuid.UUID, db: DB) -> dict:
 
 
 @router.post("/play/{pc_id}/roll")
-def throw_dice(pc_id: uuid.UUID, body: PlayerRollBody, db: DB) -> dict:
+def throw_dice(pc_id: PlayPcId, body: PlayerRollBody, db: DB) -> dict:
     """Roll dice server-side and show them on the table (Plan 66).
 
     Args:
@@ -495,7 +529,7 @@ def throw_dice(pc_id: uuid.UUID, body: PlayerRollBody, db: DB) -> dict:
 
 
 @router.post("/play/{pc_id}/identity/lock")
-def set_hero_lock(pc_id: uuid.UUID, body: HeroLockBody, db: DB) -> dict:
+def set_hero_lock(pc_id: PlayPcId, body: HeroLockBody, db: DB) -> dict:
     """Pin or unpin the PC's golden base render (Plan 62 follow-up).
 
     Args:
@@ -513,7 +547,7 @@ def set_hero_lock(pc_id: uuid.UUID, body: HeroLockBody, db: DB) -> dict:
 
 
 @router.post("/play/{pc_id}/identity")
-def forge_identity(pc_id: uuid.UUID, db: DB) -> dict:
+def forge_identity(pc_id: PlayPcId, db: DB) -> dict:
     """Run the full identity chain: model → dressed → portrait + minifig.
 
     One look, every surface (Plan 62). 90s cooldown shared with the other
@@ -542,7 +576,7 @@ def forge_identity(pc_id: uuid.UUID, db: DB) -> dict:
 
 
 @router.post("/play/{pc_id}/loadout")
-def dress_model(pc_id: uuid.UUID, db: DB) -> dict:
+def dress_model(pc_id: PlayPcId, db: DB) -> dict:
     """Render the character wearing their equipped gear (90s cooldown).
 
     Args:
@@ -568,7 +602,7 @@ def dress_model(pc_id: uuid.UUID, db: DB) -> dict:
 
 
 @router.post("/play/{pc_id}/buy")
-def buy_item(pc_id: uuid.UUID, body: PurchaseRequest, db: DB) -> PurchaseReceipt:
+def buy_item(pc_id: PlayPcId, body: PurchaseRequest, db: DB) -> PurchaseReceipt:
     """Buy one stocked item with coin; deducts the purse, fills the pack.
 
     Args:
@@ -593,7 +627,7 @@ def buy_item(pc_id: uuid.UUID, body: PurchaseRequest, db: DB) -> PurchaseReceipt
 
 
 @router.post("/play/{pc_id}/sell")
-def sell_item(pc_id: uuid.UUID, body: SellRequest, db: DB) -> SellReceipt:
+def sell_item(pc_id: PlayPcId, body: SellRequest, db: DB) -> SellReceipt:
     """Sell one unit of an inventory row to a vendor; credits the purse.
 
     Args:
@@ -639,7 +673,7 @@ def join_roster(
 
 
 @router.get("/play/{pc_id}/arena/foes", response_model=list[ArenaFoeOption])
-def arena_foes(pc_id: uuid.UUID, db: DB) -> list[ArenaFoeOption]:
+def arena_foes(pc_id: PlayPcId, db: DB) -> list[ArenaFoeOption]:
     """Catalog foes for the Practice Arena, flagged when they fit the level (Plan 84).
 
     Args:
@@ -656,7 +690,7 @@ def arena_foes(pc_id: uuid.UUID, db: DB) -> list[ArenaFoeOption]:
 
 
 @router.get("/play/{pc_id}/arena/beasts", response_model=list[ArenaFoeOption])
-def arena_beasts(pc_id: uuid.UUID, db: DB) -> list[ArenaFoeOption]:
+def arena_beasts(pc_id: PlayPcId, db: DB) -> list[ArenaFoeOption]:
     """Wild Shape forms within the druid's CR cap (Plan 87).
 
     Args:
@@ -673,7 +707,7 @@ def arena_beasts(pc_id: uuid.UUID, db: DB) -> list[ArenaFoeOption]:
 
 
 @router.post("/play/{pc_id}/arena/start", response_model=ArenaState)
-def arena_start(pc_id: uuid.UUID, body: ArenaStartBody, db: DB) -> ArenaState:
+def arena_start(pc_id: PlayPcId, body: ArenaStartBody, db: DB) -> ArenaState:
     """Start a practice fight from the PC's real sheet (Plan 84). Nothing is written.
 
     Args:
@@ -696,7 +730,7 @@ def arena_start(pc_id: uuid.UUID, body: ArenaStartBody, db: DB) -> ArenaState:
 
 
 @router.post("/play/{pc_id}/arena/duel", response_model=ArenaState)
-def arena_duel(pc_id: uuid.UUID, body: ArenaDuelBody, db: DB) -> ArenaState:
+def arena_duel(pc_id: PlayPcId, body: ArenaDuelBody, db: DB) -> ArenaState:
     """Start a hot-seat duel between the table's own characters (Plan 101).
 
     One device, passed round. Initiative is rolled fresh. Nothing is written to
@@ -726,7 +760,7 @@ def arena_duel(pc_id: uuid.UUID, body: ArenaDuelBody, db: DB) -> ArenaState:
 
 
 @router.post("/play/{pc_id}/arena/boss", response_model=ArenaState)
-def arena_boss(pc_id: uuid.UUID, body: ArenaBossBody, db: DB) -> ArenaState:
+def arena_boss(pc_id: PlayPcId, body: ArenaBossBody, db: DB) -> ArenaState:
     """The party against one monster, your friends played by the referee (Plan 101).
 
     Args:
@@ -753,7 +787,7 @@ def arena_boss(pc_id: uuid.UUID, body: ArenaBossBody, db: DB) -> ArenaState:
 
 
 @router.get("/play/{pc_id}/arena/party")
-def arena_party(pc_id: uuid.UUID, db: DB) -> list[dict]:
+def arena_party(pc_id: PlayPcId, db: DB) -> list[dict]:
     """The characters in this campaign, for the duelling hall's picker (Plan 101).
 
     Args:
@@ -770,7 +804,7 @@ def arena_party(pc_id: uuid.UUID, db: DB) -> list[dict]:
 
 
 @router.post("/play/{pc_id}/arena/act", response_model=ArenaState)
-def arena_act(pc_id: uuid.UUID, body: ArenaActBody, db: DB) -> ArenaState:
+def arena_act(pc_id: PlayPcId, body: ArenaActBody, db: DB) -> ArenaState:
     """Take one action in a practice fight (Plan 84).
 
     Args:
@@ -795,7 +829,7 @@ def arena_act(pc_id: uuid.UUID, body: ArenaActBody, db: DB) -> ArenaState:
 
 
 @router.get("/play/{pc_id}/live-session")
-def live_session(pc_id: uuid.UUID, db: DB) -> dict:
+def live_session(pc_id: PlayPcId, db: DB) -> dict:
     """The session the phone's table link should open (Plan 83).
 
     Args:
@@ -812,7 +846,7 @@ def live_session(pc_id: uuid.UUID, db: DB) -> dict:
 
 
 @router.post("/play/{pc_id}/table/move")
-def move_own_token(pc_id: uuid.UUID, body: PlayerTokenMove, db: DB) -> dict:
+def move_own_token(pc_id: PlayPcId, body: PlayerTokenMove, db: DB) -> dict:
     """A player drags their own token on the remote table (Plan 83).
 
     Args:
@@ -832,7 +866,7 @@ def move_own_token(pc_id: uuid.UUID, body: PlayerTokenMove, db: DB) -> dict:
 
 
 @router.get("/play/{pc_id}/party")
-def list_party(pc_id: uuid.UUID, db: DB) -> list[dict]:
+def list_party(pc_id: PlayPcId, db: DB) -> list[dict]:
     """Names + ids of campaign-mates (for the pool-coin dropdown).
 
     Args:
@@ -849,7 +883,7 @@ def list_party(pc_id: uuid.UUID, db: DB) -> list[dict]:
 
 
 @router.post("/play/{pc_id}/give")
-def give_coin(pc_id: uuid.UUID, body: GiveRequest, db: DB) -> TransferReceipt:
+def give_coin(pc_id: PlayPcId, body: GiveRequest, db: DB) -> TransferReceipt:
     """Pass coin to a party member (pooling for group purchases).
 
     Args:
@@ -872,7 +906,7 @@ def give_coin(pc_id: uuid.UUID, body: GiveRequest, db: DB) -> TransferReceipt:
 
 
 @router.post("/play/{pc_id}/use-item")
-def use_item(pc_id: uuid.UUID, body: dict, db: DB) -> dict:
+def use_item(pc_id: PlayPcId, body: dict, db: DB) -> dict:
     """Use a consumable from the pack on yourself or a party member.
 
     Body: ``{"character_item_id": "<uuid>", "target_pc_id": "<uuid>"?}``.
@@ -915,7 +949,7 @@ def _companion_error(exc: Exception) -> HTTPException:
 
 
 @router.get("/play/{pc_id}/turn-kit", response_model=TurnKit)
-def turn_kit(pc_id: uuid.UUID, db: DB) -> TurnKit:
+def turn_kit(pc_id: PlayPcId, db: DB) -> TurnKit:
     """What this character can do on a turn: actions, bonus actions, reactions, tips.
 
     Args:
@@ -933,7 +967,7 @@ def turn_kit(pc_id: uuid.UUID, db: DB) -> TurnKit:
 
 @router.post("/play/{pc_id}/spells/{character_spell_id}/cast")
 def cast_spell(
-    pc_id: uuid.UUID, character_spell_id: uuid.UUID, body: PlayerCastBody, db: DB
+    pc_id: PlayPcId, character_spell_id: uuid.UUID, body: PlayerCastBody, db: DB
 ) -> dict:
     """Cast a spell from the phone: the slot is spent and concentration starts.
 
@@ -956,7 +990,7 @@ def cast_spell(
 
 @router.post("/play/{pc_id}/spells/{character_spell_id}/prepare")
 def prepare_spell(
-    pc_id: uuid.UUID, character_spell_id: uuid.UUID, body: PlayerPrepareBody, db: DB
+    pc_id: PlayPcId, character_spell_id: uuid.UUID, body: PlayerPrepareBody, db: DB
 ) -> dict:
     """Prepare or unprepare a spell (classes that change spells after a Long Rest).
 
@@ -976,7 +1010,7 @@ def prepare_spell(
 
 
 @router.put("/play/{pc_id}/notes")
-def put_notes(pc_id: uuid.UUID, body: PlayerNotesBody, db: DB) -> dict:
+def put_notes(pc_id: PlayPcId, body: PlayerNotesBody, db: DB) -> dict:
     """Save the player's private notes.
 
     Args:

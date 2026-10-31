@@ -6,6 +6,7 @@ preparing within the cap, private notes, temp HP, and the DM's notes staying pri
 
 import uuid
 
+import pytest
 from sqlmodel import Session
 
 import services.campaign_service as camp_svc
@@ -19,6 +20,9 @@ from domain.enums import AdventureTier, CharacterClass
 from domain.session import SessionCreate
 from domain.spell import SpellCreate
 from services import spellcasting_service
+
+# These suites address players by UUID (pre-token links); see conftest.uuid_play_links.
+pytestmark = pytest.mark.usefixtures("uuid_play_links")
 
 DM = "companion@example.com"
 

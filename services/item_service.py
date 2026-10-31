@@ -7,8 +7,9 @@ from sqlmodel import Session
 
 from db.repos.item_repo import ItemRepo
 from domain.enums import ItemRarity
-from domain.item import Item, ItemCreate, ItemRead
+from domain.item import Item, ItemCreate, ItemRead, ItemUpdate
 from integrations.dnd_rules.magic_items import PHB_MAGIC_ITEMS
+from services.auth_service import catalog_visible, require_catalog_editor
 
 
 def is_weapon(item: Item) -> bool:
@@ -28,6 +29,7 @@ def list_items(
     q: Optional[str] = None,
     rarity: Optional[str] = None,
     item_type: Optional[str] = None,
+    viewer: Optional[str] = None,
 ) -> list[ItemRead]:
     """Return all magic items with optional search / filter.
 
@@ -36,11 +38,16 @@ def list_items(
         q: Optional name substring search (case-insensitive).
         rarity: Optional exact rarity filter (e.g. 'Rare', 'VeryRare').
         item_type: Optional item_type filter (e.g. 'Weapon', 'Potion').
+        viewer: The listing DM: shared items plus their own homebrew (SEC-003).
 
     Returns:
         Filtered list of ItemRead objects ordered by name.
     """
-    items = ItemRepo.list_all(db, is_magic=True)
+    items = [
+        i
+        for i in ItemRepo.list_all(db, is_magic=True)
+        if catalog_visible(i.created_by_email, viewer)
+    ]
     if q:
         lower = q.lower()
         items = [i for i in items if lower in i.name.lower()]
@@ -59,6 +66,7 @@ def list_weapons(
     mastery: Optional[str] = None,
     property_name: Optional[str] = None,
     is_magic: Optional[bool] = None,
+    viewer: Optional[str] = None,
 ) -> list[ItemRead]:
     """Return all weapon items with optional filters.
 
@@ -71,12 +79,13 @@ def list_weapons(
         mastery: Optional exact match on mastery property (e.g. 'Vex').
         property_name: Optional property the weapon must have (e.g. 'Finesse').
         is_magic: Optional magic filter. None = both mundane and magic.
+        viewer: The listing DM: shared weapons plus their own homebrew (SEC-003).
 
     Returns:
         Filtered list of ItemRead objects ordered by name.
     """
     items = ItemRepo.list_all(db, is_magic=is_magic)
-    items = [i for i in items if is_weapon(i)]
+    items = [i for i in items if is_weapon(i) and catalog_visible(i.created_by_email, viewer)]
     if q:
         lower = q.lower()
         items = [i for i in items if lower in i.name.lower()]
@@ -136,21 +145,44 @@ def seed_armor(db: Session, payloads: list[ItemCreate]) -> int:
     return inserted
 
 
-def create_item(db: Session, payload: ItemCreate) -> Item:
-    """Persist a new item to the shared catalog.
+def create_item(db: Session, payload: ItemCreate, dm_email: Optional[str] = None) -> Item:
+    """Persist a new item.
 
     Used for ad-hoc homebrew or campaign-specific plot items (False
-    Moonglass etc.). Any authenticated DM may write; items are shared
-    across DMs in the current single-tenant model.
+    Moonglass etc.). A DM's item is stamped with their email (SEC-003): it
+    lists only for them and only they (or an admin) can change it. Seeders
+    and internal callers pass no email, which makes a shared catalog row.
 
     Args:
         db: Active database session.
         payload: Validated ItemCreate.
+        dm_email: The authoring DM, or None for the shared catalog.
 
     Returns:
         Persisted Item.
     """
-    return ItemRepo.create(db, payload)
+    return ItemRepo.create(db, payload, owner_email=dm_email)
+
+
+def update_item(db: Session, item_id: uuid.UUID, payload: ItemUpdate, dm_email: str) -> Item:
+    """Partially update an item the DM may edit (SEC-003).
+
+    Args:
+        db: Active database session.
+        item_id: UUID of the item.
+        payload: Partial update.
+        dm_email: The requesting DM.
+
+    Returns:
+        The updated Item.
+
+    Raises:
+        ValueError: If the item does not exist.
+        PermissionError: If it is shared (non-admin) or another DM's homebrew.
+    """
+    item = get_item(db, item_id)
+    require_catalog_editor(item.created_by_email, dm_email)
+    return ItemRepo.update(db, item, payload)
 
 
 def get_item(db: Session, item_id: uuid.UUID) -> Item:

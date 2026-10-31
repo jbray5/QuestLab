@@ -4,11 +4,15 @@ The player routes are capability URLs (no auth header), so they must refuse to l
 until the campaign's DM grants it, and the grant route must be DM-only.
 """
 
+import pytest
 from sqlmodel import Session
 
 import services.campaign_service as camp_svc
 import services.character_service as char_svc
 from domain.enums import CharacterClass
+
+# These suites address players by UUID (pre-token links); see conftest.uuid_play_links.
+pytestmark = pytest.mark.usefixtures("uuid_play_links")
 
 DM = "dm@example.com"
 HDR = {"X-MS-CLIENT-PRINCIPAL-NAME": DM}

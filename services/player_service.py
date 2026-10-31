@@ -36,8 +36,10 @@ Forbidden in player scope (DM only):
 
 from __future__ import annotations
 
+import hmac
 import re
 import uuid
+from datetime import UTC, datetime
 from typing import Any, Optional
 
 from sqlmodel import Session
@@ -46,6 +48,95 @@ from db.repos.campaign_repo import CampaignRepo
 from db.repos.character_repo import CharacterRepo
 from domain.character import PlayerCharacter
 from services import character_service, feature_service, spellcasting_service
+
+
+class PlayLinkReplaced(Exception):
+    """A player link that no longer opens the sheet (SEC-002).
+
+    Either a pre-token UUID link past its grace period or one the DM reset.
+    Carries the campaign so the page can point the player at the join page
+    instead of a dead end.
+    """
+
+    def __init__(self, campaign_id: uuid.UUID) -> None:
+        """Remember the campaign the old link belonged to."""
+        super().__init__("This player link was replaced.")
+        self.campaign_id = campaign_id
+
+
+def _legacy_uuid_open(pc: PlayerCharacter) -> bool:
+    """True while a pre-token PC still opens by its UUID (the SEC-002 grace period).
+
+    A PC with no token at all (made by old code during a deploy, after the
+    migration's backfill) also opens by UUID until the DM resets its link.
+    """
+    if not pc.play_token:
+        return True
+    until = pc.legacy_uuid_until
+    if until is None:
+        return False
+    if until.tzinfo is None:  # DuckDB can hand back a naive value
+        until = until.replace(tzinfo=UTC)
+    return datetime.now(UTC) < until
+
+
+def resolve_play_key(db: Session, key: str) -> uuid.UUID:
+    """Turn the secret in a ``/play/{key}`` link into the PC's id (SEC-002).
+
+    The key is the PC's ``play_token``. A bare UUID is accepted only for PCs
+    made before tokens, until their grace period ends or the DM resets the
+    link. Tokens are looked up first, so a token that happens to look like a
+    UUID still works.
+
+    Args:
+        db: Active database session.
+        key: The path segment from the player's link.
+
+    Returns:
+        The PC's UUID, for the service calls that follow.
+
+    Raises:
+        LookupError: If no character matches.
+        PlayLinkReplaced: If the key is an old UUID link that no longer opens.
+    """
+    key = (key or "").strip()
+    if not key or len(key) > 64:
+        raise LookupError("Character not found.")
+    pc = CharacterRepo.get_by_play_token(db, key)
+    if pc is not None:
+        return pc.id
+    try:
+        pc_id = uuid.UUID(key)
+    except ValueError:
+        raise LookupError("Character not found.") from None
+    pc = CharacterRepo.get_by_id(db, pc_id)
+    if pc is None:
+        raise LookupError("Character not found.")
+    if _legacy_uuid_open(pc):
+        return pc.id
+    raise PlayLinkReplaced(pc.campaign_id)
+
+
+def play_link(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
+    """The current link secret for a PC the caller already reached (SEC-002 upgrade).
+
+    A phone that opened an old UUID link during the grace period swaps its
+    address for the token link with this, so it keeps working afterwards.
+
+    Args:
+        db: Active database session.
+        pc_id: The PC, already resolved from a valid key.
+
+    Returns:
+        ``{"play_key": token, "pc_id": ..., "campaign_id": ...}`` — the id is
+        the character's identity (for "is this my token / my seat"), not a key.
+    """
+    pc = _get_pc_or_raise(db, pc_id)
+    return {
+        "play_key": pc.play_token or str(pc.id),
+        "pc_id": str(pc.id),
+        "campaign_id": str(pc.campaign_id),
+    }
 
 
 def _get_pc_or_raise(db: Session, pc_id: uuid.UUID) -> PlayerCharacter:
@@ -247,7 +338,8 @@ def combat_state(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     If any session is currently in active combat and this PC has a
     ``SessionCombatant`` row in it, returns
     ``{in_combat: True, conditions, defeated}``. Otherwise returns
-    ``{in_combat: False, conditions: [], defeated: False}``.
+    ``{in_combat: False, conditions: <the PC's lasting conditions>, defeated:
+    False}`` (UX-001: a poison that outlasts the fight still shows).
 
     temp_hp is NOT included here — it lives on the PlayerCharacter row and
     is already exposed via the main GET /play/{pc_id} payload.
@@ -259,12 +351,12 @@ def combat_state(db: Session, pc_id: uuid.UUID) -> dict[str, Any]:
     Returns:
         Combat-state dict suitable for JSON serialization.
     """
-    _get_pc_or_raise(db, pc_id)
+    pc = _get_pc_or_raise(db, pc_id)
     from db.repos.session_repo import SessionCombatantRepo
 
     found = SessionCombatantRepo.find_combatant_in_active_combat(db, pc_id)
     if found is None:
-        return {"in_combat": False, "conditions": [], "defeated": False}
+        return {"in_combat": False, "conditions": list(pc.conditions or []), "defeated": False}
     _, combatant = found
     return {
         "in_combat": True,
@@ -389,7 +481,16 @@ def restore_spell_slot(db: Session, pc_id: uuid.UUID, level: int):
 
 
 def spend_feature(db: Session, pc_id: uuid.UUID, character_feature_id: uuid.UUID):
-    """Player spends one use of a class feature they own."""
+    """Player spends one use of a class feature they own.
+
+    The feature row must belong to this PC (SEC-006): a player link can't spend
+    another character's Second Wind or Channel Divinity.
+    """
+    from db.repos.class_feature_repo import CharacterFeatureRepo
+
+    row = CharacterFeatureRepo.get_by_id(db, character_feature_id)
+    if row is None or row.character_id != pc_id:
+        raise ValueError("That feature isn't on this character.")
     dm = _dm_email_for(db, pc_id)
     return feature_service.spend_use(db, character_feature_id, dm)
 
@@ -1037,16 +1138,19 @@ def sell_item(db: Session, pc_id: uuid.UUID, character_item_id: uuid.UUID):
 def join_roster(db: Session, campaign_id: uuid.UUID) -> list[dict[str, Any]]:
     """Player-safe party roster for the QR join page (Plan 63).
 
-    Capability trust model: the campaign UUID is the secret, shown only in
-    the room. Names + portraits only — no stats.
+    Capability trust model: the campaign UUID (plus the join code, when the
+    DM set one) is the party's door, shown only in the room. Each row carries
+    that character's link secret (``key``, SEC-002) so a player can open their
+    sheet; a DM who resets a departed player's link should also change the
+    join code. Names + portraits only — no stats, no UUIDs.
 
     Args:
         db: Active database session.
         campaign_id: UUID of the campaign.
 
     Returns:
-        [{"id", "character_name", "player_name", "portrait_url"}] sorted
-        by character name.
+        [{"key", "character_name", "player_name", "portrait_url",
+        "character_class"}] sorted by character name.
     """
     campaign = CampaignRepo.get_by_id(db, campaign_id)
     if campaign is None:
@@ -1055,7 +1159,7 @@ def join_roster(db: Session, campaign_id: uuid.UUID) -> list[dict[str, Any]]:
     return sorted(
         (
             {
-                "id": str(pc.id),
+                "key": pc.play_token or str(pc.id),
                 "character_name": pc.character_name,
                 "player_name": pc.player_name,
                 "portrait_url": pc.portrait_url,
@@ -1300,7 +1404,8 @@ def check_join_code(db: Session, campaign_id: uuid.UUID, code: str | None) -> No
     if campaign is None:
         raise ValueError(f"Campaign {campaign_id} not found.")
     wanted = (getattr(campaign, "join_code", None) or "").strip().lower()
-    if wanted and (code or "").strip().lower() != wanted:
+    given = (code or "").strip().lower()
+    if wanted and not hmac.compare_digest(given.encode(), wanted.encode()):
         raise PermissionError("join_code_required")
 
 

@@ -5,6 +5,7 @@ queue of faces so a single fight can be scripted roll by roll.
 """
 
 import uuid
+import weakref
 
 import pytest
 from sqlmodel import Session
@@ -66,6 +67,7 @@ def _owners_table(monkeypatch):
 def _tidy(duckdb_session: Session):
     """Delete each test's campaign afterwards so spell fixtures elsewhere stay FK-free."""
     yield
+    _RING.pop(duckdb_session, None)
     while _MADE:
         cid, dm = _MADE.pop()
         try:
@@ -93,10 +95,19 @@ def _tidy(duckdb_session: Session):
             duckdb_session.rollback()
 
 
+# One campaign per test session: a hot-seat fight only takes characters from
+# one campaign (SEC-006), and every PC a test makes belongs to the same table.
+_RING: "weakref.WeakKeyDictionary" = weakref.WeakKeyDictionary()
+
+
 def _pc(db, cls: CharacterClass, level: int = 3, subclass=None, feats=None, **scores):
-    dm = f"arena87_{uuid.uuid4().hex[:6]}@example.com"
-    campaign = camp_svc.create_campaign(db, name="Ring", setting="R", tone="T", dm_email=dm)
-    _MADE.append((campaign.id, dm))
+    if db in _RING:
+        campaign, dm = _RING[db]
+    else:
+        dm = f"arena87_{uuid.uuid4().hex[:6]}@example.com"
+        campaign = camp_svc.create_campaign(db, name="Ring", setting="R", tone="T", dm_email=dm)
+        _MADE.append((campaign.id, dm))
+        _RING[db] = (campaign, dm)
     base = dict(score_str=16, score_dex=20, score_con=14, score_int=10, score_wis=16, score_cha=16)
     base.update(scores)
     pc = char_svc.create_character(

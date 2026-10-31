@@ -316,6 +316,7 @@ def create(db: DBSession, campaign_id: uuid.UUID, build: CharacterBuild) -> Buil
 
     return BuildResult(
         pc_id=str(pc.id),
+        play_key=pc.play_token or str(pc.id),
         character_name=pc.character_name,
         hp_max=hp,
         ac=ac,
