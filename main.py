@@ -142,8 +142,7 @@ def _render_home() -> None:
     st.divider()
 
     st.markdown("### Getting Started")
-    st.markdown(
-        """
+    st.markdown("""
         1. **Create a Campaign** — Set your world, tone, and setting.
         2. **Add Adventures** — Structure story arcs within your campaign.
         3. **Add Player Characters** — Input full 5e 2024 character sheets.
@@ -151,8 +150,7 @@ def _render_home() -> None:
         5. **Build Maps** — Connect rooms and areas, link encounters and loot.
         6. **Write a Session Runbook** — Plan your scenes, dialog and encounters.
         7. **Run Your Session** — Track initiative, HP, and progress live.
-        """
-    )
+        """)
 
 
 # ── App bootstrap ──────────────────────────────────────────────────────────────
