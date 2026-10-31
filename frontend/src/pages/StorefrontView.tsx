@@ -1,21 +1,23 @@
 import { useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, ChevronLeft, Coins, Handshake, Search } from "lucide-react";
 
 import { playApi, type GearRow } from "../api/play";
 import { formatPrice, shopsApi, type StorefrontItem } from "../api/shops";
-import { RARITY_COLORS, STORE_CSS, typeEmoji } from "../components/store/storeTheme";
+import { STORE_CSS, rarityClass, rarityLabel, typeIcon } from "../components/store/storeTheme";
 
 /**
  * StorefrontView — the player-facing shop (Plan 47), /shop/:shopId.
  *
  * A capability URL like the Table View: no login, no DM data. Banner hero,
- * the keeper's patter, and a browsable card grid of priced wares.
+ * the keeper's patter, and a browsable list of priced wares.
  *
  * Plan 50: opened with ?pc=<pcId> (from the player's own sheet), the shop
- * becomes transactional — a purse chip and Buy buttons that spend the PC's
- * coin and drop the item into their pack. The bare link stays browse-only,
- * so it is always safe to screen-share.
+ * becomes transactional — a purse and Buy buttons that spend the PC's coin
+ * and drop the item into their pack. The bare link stays browse-only, so it
+ * is always safe to screen-share. Plan 122: links back to the market and to
+ * the player's bag, so the shop is never a dead end.
  */
 
 /** Player purse rendered the way a keeper counts it. */
@@ -29,6 +31,12 @@ function purseLabel(p: { pp: number; gp: number; ep: number; sp: number; cp: num
   return bits.join(" ");
 }
 
+/** "1,200 gp 5 sp" with the numbers set in mono and the coin names in the UI font. */
+function CoinText({ text }: { text: string }) {
+  const parts = text.split(/(\d[\d,.]*)/).filter(Boolean);
+  return <>{parts.map((p, i) => (/^\d/.test(p) ? <span key={i} className="num">{p}</span> : p))}</>;
+}
+
 /** Sell-from-your-pack + pool-coin strip, shown only in ?pc mode (Plan 51). */
 function TradeBar({ pcId, onDone }: { pcId: string; onDone: (msg: string) => void }) {
   const [mode, setMode] = useState<"none" | "sell" | "pool">("none");
@@ -36,7 +44,7 @@ function TradeBar({ pcId, onDone }: { pcId: string; onDone: (msg: string) => voi
   const [toId, setToId] = useState("");
   const [amount, setAmount] = useState("");
 
-  const { data: gear = [] } = useQuery({
+  const { data: gear = [], isLoading: gearLoading } = useQuery({
     queryKey: ["trade-gear", pcId],
     queryFn: () => playApi.gear(pcId),
     enabled: mode === "sell",
@@ -69,42 +77,52 @@ function TradeBar({ pcId, onDone }: { pcId: string; onDone: (msg: string) => voi
 
   return (
     <div className="trade-bar">
-      <div className="store-chips" style={{ margin: 0 }}>
+      <div className="store-chips">
         <button
+          type="button"
+          aria-pressed={mode === "sell"}
           className={mode === "sell" ? "store-chip on" : "store-chip"}
           onClick={() => setMode((m) => (m === "sell" ? "none" : "sell"))}
         >
-          💰 Sell from your pack
+          <Coins size={16} /> Sell from your pack
         </button>
         <button
+          type="button"
+          aria-pressed={mode === "pool"}
           className={mode === "pool" ? "store-chip on" : "store-chip"}
           onClick={() => setMode((m) => (m === "pool" ? "none" : "pool"))}
         >
-          🤝 Pool coin
+          <Handshake size={16} /> Give coin to a friend
         </button>
       </div>
       {mode === "sell" && (
-        <div className="trade-panel">
-          {sellable.length === 0 ? (
-            <span className="store-note">
-              Nothing the keeper will buy — equipped gear must be unequipped first, and some
-              things (quest items) are not for sale.
+        <div className="store-panel" style={{ gap: 6 }}>
+          <span className="store-label">The keeper pays half of what a thing is worth.</span>
+          {gearLoading ? (
+            <span className="store-note">Opening your pack…</span>
+          ) : sellable.length === 0 ? (
+            <span className="store-note" style={{ color: "var(--text2)" }}>
+              Nothing the keeper will buy. Take gear off first (in Your look and gear) to sell it;
+              quest items can&rsquo;t be sold.
             </span>
           ) : (
             sellable.map((g) => (
               <button
+                type="button"
                 key={g.character_item_id}
                 className="trade-sell-row"
                 disabled={sellMut.isPending}
                 onClick={() => sellMut.mutate(g)}
-                title={`The keeper pays ${formatPrice(g.sell_gp as number)} (half value)`}
               >
-                <span>
+                <span style={{ minWidth: 0 }}>
                   {g.name}
-                  {g.quantity > 1 ? ` ×${g.quantity}` : ""}
+                  {g.quantity > 1 ? <span className="num"> ×{g.quantity}</span> : ""}
                 </span>
-                <span className="store-price" style={{ fontSize: "0.85rem" }}>
-                  sell {formatPrice(g.sell_gp as number)}
+                <span style={{ display: "flex", alignItems: "baseline", gap: 6, flex: "none" }}>
+                  <span className="store-label">Sell for</span>
+                  <span className="store-price" style={{ fontSize: "0.95rem" }}>
+                    <CoinText text={formatPrice(g.sell_gp as number)} />
+                  </span>
                 </span>
               </button>
             ))
@@ -112,13 +130,18 @@ function TradeBar({ pcId, onDone }: { pcId: string; onDone: (msg: string) => voi
         </div>
       )}
       {mode === "pool" && (
-        <div className="trade-panel">
-          <span className="store-note" style={{ fontStyle: "normal" }}>
-            Pitch in for a group buy — send coin to whoever's buying.
+        <div className="store-panel">
+          <span className="store-note" style={{ color: "var(--text2)" }}>
+            Pitching in for a group buy? Send gold to whoever is buying.
           </span>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-            <select className="trade-input" value={toId} onChange={(e) => setToId(e.target.value)}>
-              <option value="">to whom…</option>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <select
+              aria-label="Give to"
+              value={toId}
+              onChange={(e) => setToId(e.target.value)}
+              style={{ flex: "1 1 160px", minHeight: 44, width: "auto" }}
+            >
+              <option value="">Give to…</option>
               {party.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.character_name}
@@ -126,20 +149,22 @@ function TradeBar({ pcId, onDone }: { pcId: string; onDone: (msg: string) => voi
               ))}
             </select>
             <input
-              className="trade-input"
-              style={{ width: 90 }}
-              placeholder="gp"
+              aria-label="Gold to give"
+              className="num"
+              style={{ width: 96, minHeight: 44, textAlign: "center" }}
+              placeholder="gold"
               inputMode="decimal"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
             />
             <button
-              className="store-buy"
-              style={{ width: "auto", marginTop: 0, padding: "7px 18px" }}
+              type="button"
+              className="btn btn-secondary"
+              style={{ minHeight: 44 }}
               disabled={giveMut.isPending || !toId || !(Number(amount) > 0)}
               onClick={() => giveMut.mutate()}
             >
-              {giveMut.isPending ? "sending…" : "send"}
+              {giveMut.isPending ? "Sending…" : "Give"}
             </button>
           </div>
         </div>
@@ -162,13 +187,12 @@ function ItemCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const rarityColor = RARITY_COLORS[item.rarity] ?? RARITY_COLORS.Common;
 
   const buyMut = useMutation({
     mutationFn: () => playApi.buy(pcId as string, item.shop_item_id),
     onSuccess: (receipt) => {
       setError(null);
-      onBought(`${receipt.item_name} — added to your pack`);
+      onBought(`${receipt.item_name} is in your pack.`);
     },
     onError: (err: Error) => setError(err.message),
   });
@@ -180,54 +204,52 @@ function ItemCard({
 
   return (
     <div className="store-card">
-      <div className="store-card-img">
-        {item.image_url ? (
-          <img src={item.image_url} alt={item.name} loading="lazy" />
-        ) : (
-          <span className="ph">{typeEmoji(item.item_type)}</span>
-        )}
+      <div className="store-thumb">
+        {item.image_url ? <img src={item.image_url} alt="" loading="lazy" /> : typeIcon(item.item_type, 24)}
       </div>
       <div className="store-card-body">
         <h3>{item.name}</h3>
-        <div className="store-meta" style={{ color: rarityColor }}>
-          {item.item_type}
-          {item.rarity !== "Common" ? ` · ${item.rarity.replace("VeryRare", "Very Rare")}` : ""}
-          {item.attunement_required ? " · attune" : ""}
+        <div className="store-meta">
+          <span>{item.item_type}</span>
+          {item.rarity !== "Common" && <span className={rarityClass(item.rarity)}>{rarityLabel(item.rarity)}</span>}
+          {item.attunement_required && <span title="You must bond with it over a short rest to use its magic; you can be attuned to three items at once.">Needs attunement</span>}
         </div>
-        {item.pitch && <div className="store-pitch">“{item.pitch}”</div>}
+        {item.pitch && <div className="store-pitch">&ldquo;{item.pitch}&rdquo;</div>}
         {item.description && (
-          <div
+          <button
+            type="button"
             className={expanded ? "store-desc" : "store-desc clamp"}
             onClick={() => setExpanded((v) => !v)}
-            title={expanded ? undefined : "Tap for more"}
+            aria-expanded={expanded}
           >
             {item.description}
-          </div>
-        )}
-        <div className="store-foot">
-          <span
-            className="store-price"
-            style={item.cost_text ? { fontStyle: "italic", fontSize: "0.85rem" } : undefined}
-          >
-            {item.cost_text ? item.cost_text : formatPrice(item.price_gp)}
-          </span>
-          {typeof item.stock === "number" && (
-            <span className="store-stock">
-              {item.stock === 0 ? "sold out" : `only ${item.stock} left`}
-            </span>
-          )}
-        </div>
-        {buyable && (
-          <button
-            className="store-buy"
-            disabled={buyMut.isPending || !canAfford}
-            onClick={() => buyMut.mutate()}
-          >
-            {buyMut.isPending ? "counting coin…" : canAfford ? "🪙 Buy" : "not enough coin"}
           </button>
         )}
+        <div className="store-foot">
+          <span style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <span className={item.cost_text ? "store-price barter" : "store-price"}>
+              {item.cost_text ? item.cost_text : <CoinText text={formatPrice(item.price_gp)} />}
+            </span>
+            {typeof item.stock === "number" && (
+              <span className={item.stock === 0 ? "store-stock out" : "store-stock"}>
+                {item.stock === 0 ? "Sold out" : `Only ${item.stock} left`}
+              </span>
+            )}
+          </span>
+          {buyable && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ minHeight: 44 }}
+              disabled={buyMut.isPending || !canAfford}
+              onClick={() => buyMut.mutate()}
+            >
+              {buyMut.isPending ? "Buying…" : canAfford ? "Buy" : "Not enough coin"}
+            </button>
+          )}
+        </div>
         {pcId && item.cost_text && (
-          <div className="store-note">The keeper takes no coin — bargain at the table.</div>
+          <div className="store-note">The keeper doesn&rsquo;t take coin for this. Bargain at the table.</div>
         )}
         {error && <div className="store-note err">{error}</div>}
       </div>
@@ -241,7 +263,7 @@ export default function StorefrontView() {
   const pcId = params.get("pc");
   const qc = useQueryClient();
 
-  const { data: shop } = useQuery({
+  const { data: shop, isError } = useQuery({
     queryKey: ["storefront", shopId],
     queryFn: () => shopsApi.storefront(shopId as string),
     enabled: !!shopId,
@@ -285,15 +307,21 @@ export default function StorefrontView() {
     );
   });
 
+  const sheetLink = pcId ? (
+    <Link className="store-back" to={`/play/${pcId}?tab=bag`}>
+      <ChevronLeft size={18} /> Back to your sheet
+    </Link>
+  ) : null;
+
   if (!shop) {
     return (
       <div className="store-root">
         <style>{STORE_CSS}</style>
-        <div
-          className="store-inner"
-          style={{ paddingTop: "30vh", textAlign: "center", color: "#6b6b7a" }}
-        >
-          Opening the shutters…
+        <div className="store-inner" style={{ maxWidth: 720 }}>
+          {sheetLink && <nav className="store-nav" aria-label="Back">{sheetLink}</nav>}
+          <p className="store-note" style={{ paddingTop: "30vh", textAlign: "center", fontSize: "1rem" }}>
+            {isError ? "We couldn’t open this shop. It may have closed; ask your DM." : "Opening the shop…"}
+          </p>
         </div>
       </div>
     );
@@ -304,48 +332,72 @@ export default function StorefrontView() {
   return (
     <div className="store-root">
       <style>{STORE_CSS}</style>
-      {shop.banner_url && (
-        <div className="store-hero">
-          <img src={shop.banner_url} alt={shop.name} />
-        </div>
-      )}
       <div className="store-inner">
-        <h1 className="store-title">{shop.name}</h1>
-        <div className="store-sub">
-          {shop.keeper ? `Proprietor: ${shop.keeper}` : ""}
-          {shop.keeper && shop.location ? " · " : ""}
-          {shop.location ?? ""}
-        </div>
+        <nav className="store-nav" aria-label="Back">
+          <Link className="store-back" to={marketPath}>
+            <ChevronLeft size={18} /> Market
+          </Link>
+          {sheetLink}
+        </nav>
+        {shop.banner_url && (
+          <div className="store-hero">
+            <img src={shop.banner_url} alt="" />
+          </div>
+        )}
+        <h1 className="store-title" style={{ marginTop: 10 }}>{shop.name}</h1>
+        {(shop.keeper || shop.location) && (
+          <div className="store-sub">
+            {shop.keeper ? <>Kept by <span className="story" style={{ fontWeight: 700 }}>{shop.keeper}</span></> : null}
+            {shop.keeper && shop.location ? " · " : ""}
+            {shop.location ?? ""}
+          </div>
+        )}
         {shop.blurb && <p className="store-blurb">{shop.blurb}</p>}
         {pc && (
-          <div className="store-purse">
-            🪙 {pc.character_name}&rsquo;s purse: <strong>{purseLabel(pc)}</strong>
+          <div className="store-panel store-purse">
+            <div className="store-purse-row">
+              <Coins size={18} color="var(--accent-text)" />
+              <span className="store-label">Your coin</span>
+              <span className="store-purse-coins"><CoinText text={purseLabel(pc)} /></span>
+            </div>
           </div>
         )}
         {pcId && <TradeBar pcId={pcId} onDone={onBought} />}
-        <div style={{ margin: "0.9rem 0 0.4rem" }}>
+        {!pcId && (
+          <p className="store-note" style={{ marginTop: 12 }}>
+            Browsing only. Open the market from your phone&rsquo;s Bag tab to buy and sell.
+          </p>
+        )}
+        <div className="store-search-wrap">
+          <Search size={16} />
           <input
+            type="search"
             className="store-search"
-            placeholder="Search the shelves…"
+            aria-label="Search this shop"
+            placeholder="Search this shop"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
         {categories.length > 1 && (
-          <div className="store-chips">
+          <div className="store-chips" style={{ marginBottom: 12 }}>
             <button
+              type="button"
+              aria-pressed={category === null}
               className={category === null ? "store-chip on" : "store-chip"}
               onClick={() => setCategory(null)}
             >
-              All
+              Everything
             </button>
             {categories.map((c) => (
               <button
+                type="button"
                 key={c}
+                aria-pressed={category === c}
                 className={category === c ? "store-chip on" : "store-chip"}
                 onClick={() => setCategory((cur) => (cur === c ? null : c))}
               >
-                {typeEmoji(c)} {c}
+                {typeIcon(c, 16)} {c}
               </button>
             ))}
           </div>
@@ -362,17 +414,41 @@ export default function StorefrontView() {
           ))}
         </div>
         {visible.length === 0 && (
-          <p style={{ color: "#6b6b7a", marginTop: "2rem" }}>
-            Nothing on the shelves matches — try another word.
-          </p>
+          <div className="store-panel" style={{ marginTop: 8 }}>
+            {shop.items.length === 0 ? (
+              <span style={{ color: "var(--text2)" }}>
+                The shelves are bare for now. Your DM stocks this shop from their screen.
+              </span>
+            ) : (
+              <>
+                <span style={{ color: "var(--text2)" }}>Nothing here matches that.</span>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ alignSelf: "flex-start", minHeight: 44 }}
+                  onClick={() => {
+                    setSearch("");
+                    setCategory(null);
+                  }}
+                >
+                  Show everything
+                </button>
+              </>
+            )}
+          </div>
         )}
-        <p style={{ marginTop: "2.2rem" }}>
+        <nav className="store-nav" aria-label="Leave the shop" style={{ marginTop: 24 }}>
           <Link className="store-back" to={marketPath}>
-            ← back to the town market
+            <ChevronLeft size={18} /> Back to the market
           </Link>
-        </p>
+          {sheetLink}
+        </nav>
       </div>
-      {toast && <div className="store-toast">✓ {toast}</div>}
+      {toast && (
+        <div className="store-toast" role="status">
+          <Check size={18} color="var(--teal)" /> {toast}
+        </div>
+      )}
     </div>
   );
 }

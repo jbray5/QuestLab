@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api/client";
 
@@ -47,48 +47,67 @@ interface Options {
 }
 
 const CSS = `
-.cc { min-height: 100dvh; padding: 1.2rem 1rem 6rem; color: #e6ddc8; font-family: var(--font-ui);
-  background: radial-gradient(ellipse at 50% -10%, #241a38 0%, #0d0a16 55%, #06050a 100%); }
+.cc { min-height: 100dvh; padding: 16px 16px calc(132px + env(safe-area-inset-bottom, 0px)); color: var(--text);
+  font-family: var(--font-ui); background: var(--bg); }
 .cc-inner { max-width: 640px; margin: 0 auto; }
-.cc h1 { font-family: var(--font-story); font-size: clamp(1.3rem, 5vw, 1.8rem); letter-spacing: 0.06em; color: #f0e6c8; margin: 0.2rem 0 0.1rem; }
-.cc .sub { color: #b3a789; font-style: italic; margin: 0 0 1rem; font-size: 0.95rem; }
-.cc .steps { display: flex; gap: 5px; margin-bottom: 1rem; }
-.cc .steps i { flex: 1; height: 4px; border-radius: 2px; background: rgba(240,230,200,0.15); }
-.cc .steps i.on { background: #d6af36; }
-.cc h2 { font-family: var(--font-story); font-size: 1.1rem; color: #d6af36; letter-spacing: 0.05em; margin: 0.4rem 0 0.6rem; }
-.cc label { display: block; font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9078; margin: 0.7rem 0 0.25rem; }
-.cc input[type=text], .cc textarea, .cc select { width: 100%; font-size: 16px; padding: 0.6rem 0.7rem; border-radius: 9px; border: 1px solid rgba(240,230,200,0.2); background: #14101d; color: #e6ddc8; }
-.cc .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 9px; }
-.cc .card { text-align: left; border: 1px solid rgba(240,230,200,0.18); border-radius: 12px; background: rgba(20,16,30,0.75); color: #e6ddc8; padding: 0.7rem 0.75rem; cursor: pointer; }
-.cc .card.on { border-color: #d6af36; box-shadow: inset 0 0 22px rgba(214,175,54,0.14); }
-.cc .card b { display: block; font-family: var(--font-story); font-size: 0.95rem; color: #f0e6c8; margin-bottom: 0.2rem; }
-.cc .card small { color: #9a9078; font-size: 0.78rem; line-height: 1.3; display: block; }
-.cc .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.cc .chip { border: 1px solid rgba(240,230,200,0.22); border-radius: 999px; padding: 0.3rem 0.7rem; background: transparent; color: #e6ddc8; font-size: 0.85rem; cursor: pointer; }
-.cc .chip.on { border-color: #d6af36; background: rgba(214,175,54,0.16); color: #ffd76a; }
-.cc .chip:disabled { opacity: 0.35; cursor: not-allowed; }
-.cc .scores { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.cc .score { border: 1px solid rgba(240,230,200,0.18); border-radius: 12px; padding: 0.5rem; text-align: center; background: rgba(20,16,30,0.75); }
-.cc .score b { display: block; font-family: var(--font-story); font-size: 0.7rem; letter-spacing: 0.1em; color: #9a9078; }
-.cc .score .v { font-size: 1.6rem; color: #f0e6c8; font-family: var(--font-story); }
-.cc .score .m { font-size: 0.8rem; color: #d6af36; }
-.cc .score select { margin-top: 4px; font-size: 16px; }
+.cc .eyebrow-muted { font-size: 0.875rem; color: var(--muted); margin: 4px 0 0; }
+.cc h1 { font-family: var(--font-story); font-weight: 700; font-size: clamp(1.4rem, 6vw, 1.8rem); color: var(--text); margin: 0 0 2px; }
+.cc .sub { color: var(--text2); margin: 0 0 12px; font-size: 0.9375rem; }
+.cc .steps { display: flex; gap: 4px; margin-bottom: 18px; }
+.cc .steps i { flex: 1; height: 4px; border-radius: 2px; background: var(--border2); }
+.cc .steps i.on { background: var(--accent); }
+.cc h2 { font-size: 1.25rem; margin: 0 0 10px; }
+.cc label, .cc .lbl { display: block; font-size: 0.875rem; font-weight: 500; color: var(--text2); margin: 16px 0 6px; }
+.cc input[type=text], .cc textarea, .cc select { min-height: 44px; }
+.cc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.cc-card { text-align: left; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text);
+  padding: 10px 12px; cursor: pointer; font: inherit; min-height: 56px; display: flex; flex-direction: column; gap: 3px; }
+.cc-card:hover { border-color: var(--border2); }
+.cc-card.on { border-color: var(--accent-edge); background: var(--accent-soft); }
+.cc-card b { font-weight: 600; font-size: 1rem; color: var(--text); }
+.cc-card small { color: var(--text2); font-size: 0.8125rem; line-height: 1.35; display: block; }
+.cc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cc-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; border: 1px solid var(--border2); border-radius: 999px;
+  padding: 4px 14px; background: transparent; color: var(--text); font: inherit; font-size: 0.9375rem; cursor: pointer; }
+.cc-chip:hover:not(:disabled) { background: var(--surface3); }
+.cc-chip.on { border-color: var(--accent-edge); background: var(--accent-active); color: var(--accent-active-text); }
+.cc-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+.cc-chip small { color: var(--muted); font-size: 0.75rem; }
+.cc-chip.on small { color: inherit; opacity: 0.8; }
+@media (pointer: coarse) { .cc-chip { min-height: 44px; } }
+.cc .scores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cc .score { border: 1px solid var(--border); border-radius: 12px; padding: 10px 6px; text-align: center; background: var(--surface);
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cc .score b { font-size: 0.8125rem; font-weight: 500; color: var(--text2); }
+.cc .score .v { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 1.6rem; font-weight: 600; color: var(--text); line-height: 1.2; }
+.cc .score .m { font-family: var(--font-mono); font-size: 0.875rem; color: var(--text2); }
+.cc .score .m small { font-family: var(--font-ui); color: var(--muted); font-size: 0.75rem; display: block; }
+.cc .score select { margin-top: 4px; min-height: 44px; text-align: center; font-family: var(--font-mono); padding: 0 4px; }
 .cc .score .pm { display: flex; justify-content: center; gap: 6px; margin-top: 4px; }
-.cc .score .pm button { width: 34px; height: 30px; border-radius: 7px; border: 1px solid rgba(240,230,200,0.25); background: transparent; color: #e6ddc8; font-size: 1rem; }
-.cc .traits { font-size: 0.85rem; color: #b3a789; padding-left: 1.1rem; margin: 0.4rem 0 0; }
-.cc .traits li { margin: 0.25rem 0; }
-.cc .note { color: #9a9078; font-size: 0.82rem; margin: 0.4rem 0; }
-.cc .err { color: #ef5350; margin: 0.5rem 0; }
-.cc .nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; padding: 0.8rem 1rem calc(0.8rem + env(safe-area-inset-bottom)); background: rgba(6,5,10,0.92); border-top: 1px solid rgba(240,230,200,0.12); backdrop-filter: blur(6px); }
-.cc .btn { flex: 1; padding: 0.8rem; border-radius: 10px; font-family: var(--font-story); font-size: 0.95rem; letter-spacing: 0.06em; cursor: pointer; border: 1px solid rgba(240,230,200,0.25); background: transparent; color: #e6ddc8; }
-.cc .btn.primary { background: #8b2f2a; border-color: #b03a34; color: #fff; }
-.cc .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.cc .summary { border: 1px solid rgba(214,175,54,0.5); border-radius: 12px; padding: 0.8rem 1rem; background: rgba(20,16,30,0.75); }
-.cc .summary div { display: flex; justify-content: space-between; padding: 0.2rem 0; border-bottom: 1px solid rgba(240,230,200,0.08); font-size: 0.95rem; }
-.cc .summary div span:last-child { color: #f0e6c8; text-align: right; }
+.cc .score .pm button { width: 44px; height: 44px; border-radius: 8px; border: 1px solid var(--border2); background: transparent;
+  color: var(--text); font-size: 1.2rem; cursor: pointer; }
+.cc .traits { font-size: 0.9rem; color: var(--text2); padding-left: 1.1rem; margin: 12px 0 0; }
+.cc .traits li { margin: 0.3rem 0; }
+.cc .note { color: var(--muted); font-size: 0.875rem; margin: 8px 0; }
+.cc .err { color: var(--danger-text); margin: 8px 0; }
+.cc-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: #131816; border-top: 1px solid var(--border);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); }
+.cc-nav-inner { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+.cc-nav-hint { font-size: 0.875rem; color: var(--text2); }
+.cc-nav-row { display: flex; gap: 8px; }
+.cc-nav-row .btn { flex: 1; min-height: 48px; }
+.cc .summary { border: 1px solid var(--border); border-radius: 12px; padding: 2px 14px; background: var(--surface); }
+.cc .summary div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 0.9375rem; }
+.cc .summary div:last-child { border-bottom: none; }
+.cc .summary div span:first-child { color: var(--muted); flex: none; }
+.cc .summary div span:last-child { color: var(--text); text-align: right; }
 `;
 
-const STEPS = ["Name", "Species", "Class", "Background", "Abilities", "Skills & gear", "Spells", "Review"];
+const STEPS = ["Name", "Species", "Class", "Background", "Ability scores", "Skills and gear", "Spells", "Review"];
+
+/** "STR", "DEX" → "Strength or Dexterity" (plain words, Plan 122). */
+const abilityWords = (list: string[], joiner = " or ") =>
+  list.map((a) => ABILITY_NAMES[a as Ability] ?? a).join(joiner);
 
 /** Plan 82 — the standard array laid out for a class: primary abilities first, then CON, then the rest. */
 function arrayForClass(primary: string[]): Record<string, number> {
@@ -280,20 +299,33 @@ export default function CharacterCreator() {
 
   if (loadError) {
     return (
-      <div className="cc"><style>{CSS}</style><div className="cc-inner"><h1>Can&rsquo;t open the creator</h1><p className="err">{loadError}</p></div></div>
+      <div className="cc">
+        <style>{CSS}</style>
+        <div className="cc-inner">
+          <h2 style={{ marginTop: 24 }}>We couldn&rsquo;t open the character builder</h2>
+          <p className="err">{loadError}</p>
+          <p className="note">Check your connection, or ask your DM for a fresh join link.</p>
+          <Link to={`/join/${campaignId}`} style={{ display: "inline-flex", alignItems: "center", minHeight: 44 }}>
+            Back to the party
+          </Link>
+        </div>
+      </div>
     );
   }
   if (!opts) {
-    return <div className="cc"><style>{CSS}</style><div className="cc-inner"><p className="sub">Opening the compendium…</p></div></div>;
+    return <div className="cc"><style>{CSS}</style><div className="cc-inner"><p className="sub" style={{ marginTop: 24 }}>Opening the character builder…</p></div></div>;
   }
 
   return (
     <div className="cc">
       <style>{CSS}</style>
       <div className="cc-inner">
+        <p className="eyebrow-muted">New character for</p>
         <h1>{opts.campaign_name}</h1>
-        <p className="sub">Create your character — {STEPS[step]} ({step + 1} of {STEPS.length})</p>
-        <div className="steps">{STEPS.map((_, i) => <i key={i} className={i <= step ? "on" : ""} />)}</div>
+        <p className="sub">
+          {STEPS[step]} · step <span className="num">{step + 1}</span> of <span className="num">{STEPS.length}</span>
+        </p>
+        <div className="steps" aria-hidden>{STEPS.map((_, i) => <i key={i} className={i <= step ? "on" : ""} />)}</div>
 
         {step === 0 && (
           <>
@@ -313,13 +345,13 @@ export default function CharacterCreator() {
         {step === 1 && (
           <>
             <h2>Species</h2>
-            <div className="cards">
+            <div className="cc-cards">
               {opts.species.map((s) => (
-                <button key={s.name} className={`card ${species === s.name ? "on" : ""}`} onClick={() => setSpecies(s.name)}>
-                  <b>{s.name}</b><small>{s.size} · {s.speed} ft.</small>
+                <button key={s.name} className={`cc-card ${species === s.name ? "on" : ""}`} onClick={() => setSpecies(s.name)}>
+                  <b>{s.name}</b><small>{s.size} · speed <span className="num">{s.speed}</span> ft</small>
                 </button>
               ))}
-              <button className={`card ${species === "__other" ? "on" : ""}`} onClick={() => setSpecies("__other")}>
+              <button className={`cc-card ${species === "__other" ? "on" : ""}`} onClick={() => setSpecies("__other")}>
                 <b>From my book…</b><small>Any species your DM allows. You track its traits.</small>
               </button>
             </div>
@@ -336,42 +368,44 @@ export default function CharacterCreator() {
         {step === 2 && (
           <>
             <h2>Class</h2>
-            <div className="cards">
+            <div className="cc-cards">
               {Object.entries(opts.classes).map(([name, c]) => (
-                <button key={name} className={`card ${klass === name ? "on" : ""}`} onClick={() => { setKlass(name); setSubclass(""); setSkills([]); setKit(c.kits[0]?.name ?? ""); setCantrips([]); setSpells([]); if (method === "standard") setScores(arrayForClass(c.primary ?? [])); }}>
-                  <b>{name}</b><small>d{c.hit_die} · {c.primary.join("/")} · saves {c.saves.join(", ")}{c.spellcasting ? " · caster" : ""}</small>
+                <button key={name} className={`cc-card ${klass === name ? "on" : ""}`} onClick={() => { setKlass(name); setSubclass(""); setSkills([]); setKit(c.kits[0]?.name ?? ""); setCantrips([]); setSpells([]); if (method === "standard") setScores(arrayForClass(c.primary ?? [])); }}>
+                  <b>{name}</b>
+                  <small>Best with {abilityWords(c.primary)}</small>
+                  <small style={{ color: "var(--muted)" }}>Hit die d{c.hit_die}{c.spellcasting ? " · casts spells" : ""}</small>
                 </button>
               ))}
             </div>
             {cls && level >= cls.subclass_level && (
               <>
-                <label>Subclass (level {cls.subclass_level}+)</label>
-                <div className="chips">
+                <span className="lbl">Subclass (from level {cls.subclass_level})</span>
+                <div className="cc-chips">
                   {cls.srd_subclasses.map((s) => (
-                    <button key={s} className={`chip ${subclass === s ? "on" : ""}`} onClick={() => setSubclass(s)}>{s}</button>
+                    <button key={s} className={`cc-chip ${subclass === s ? "on" : ""}`} onClick={() => setSubclass(s)}>{s}</button>
                   ))}
-                  <button className={`chip ${subclass === "__other" ? "on" : ""}`} onClick={() => setSubclass("__other")}>From my book…</button>
+                  <button className={`cc-chip ${subclass === "__other" ? "on" : ""}`} onClick={() => setSubclass("__other")}>From my book…</button>
                 </div>
                 {subclass === "__other" && (
                   <input type="text" value={customSub} onChange={(e) => setCustomSub(e.target.value)} placeholder="e.g. Oath of the Ancients" style={{ marginTop: 8 }} />
                 )}
-                <p className="note">Only the SRD subclass ships with rules text; a subclass from your book is recorded by name and you play it from the book.</p>
+                <p className="note">The free rules (SRD) include one subclass per class with its rules text; a subclass from your book is recorded by name and you play it from the book.</p>
               </>
             )}
-            {cls && level < cls.subclass_level && <p className="note">Subclass comes at level {cls.subclass_level}.</p>}
+            {cls && level < cls.subclass_level && <p className="note">You pick a subclass (your specialty) at level {cls.subclass_level}.</p>}
           </>
         )}
 
         {step === 3 && (
           <>
             <h2>Background</h2>
-            <div className="cards">
+            <div className="cc-cards">
               {opts.backgrounds.map((b) => (
-                <button key={b.name} className={`card ${background === b.name ? "on" : ""}`} onClick={() => { setBackground(b.name); setBonusPlus2(""); setBonusPlus1(""); window.setTimeout(() => document.getElementById("cc-bonus")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); }}>
-                  <b>{b.name}</b><small>{b.blurb}</small><small style={{ marginTop: 4 }}>{b.abilities.join(" / ")} · {b.feat} · {b.skills.join(", ")}</small>
+                <button key={b.name} className={`cc-card ${background === b.name ? "on" : ""}`} onClick={() => { setBackground(b.name); setBonusPlus2(""); setBonusPlus1(""); window.setTimeout(() => document.getElementById("cc-bonus")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); }}>
+                  <b>{b.name}</b><small>{b.blurb}</small><small style={{ marginTop: 4, color: "var(--muted)" }}>{abilityWords(b.abilities, ", ")} · {b.feat} · {b.skills.join(", ")}</small>
                 </button>
               ))}
-              <button className={`card ${background === "__other" ? "on" : ""}`} onClick={() => setBackground("__other")}>
+              <button className={`cc-card ${background === "__other" ? "on" : ""}`} onClick={() => setBackground("__other")}>
                 <b>From my book…</b><small>Recorded by name; no automatic bonuses.</small>
               </button>
             </div>
@@ -380,19 +414,19 @@ export default function CharacterCreator() {
             )}
             {bg && (
               <>
-                <label id="cc-bonus">Ability bonus from {bg.name} — pick where the +2 and +1 go</label>
-                <div className="chips" style={{ marginBottom: 8 }}>
-                  <button className={`chip ${bonusMode === "21" ? "on" : ""}`} onClick={() => setBonusMode("21")}>+2 and +1</button>
-                  <button className={`chip ${bonusMode === "111" ? "on" : ""}`} onClick={() => setBonusMode("111")}>+1 to all three</button>
+                <span className="lbl" id="cc-bonus">Ability bonus from {bg.name}: pick where the +2 and +1 go</span>
+                <div className="cc-chips" style={{ marginBottom: 8 }}>
+                  <button className={`cc-chip ${bonusMode === "21" ? "on" : ""}`} onClick={() => setBonusMode("21")}>+2 and +1</button>
+                  <button className={`cc-chip ${bonusMode === "111" ? "on" : ""}`} onClick={() => setBonusMode("111")}>+1 to all three</button>
                 </div>
                 {bonusMode === "21" && (
-                  <div className="chips">
+                  <div className="cc-chips">
                     {bg.abilities.map((a) => (
-                      <button key={a} className={`chip ${bonusPlus2 === a ? "on" : ""}`} onClick={() => { setBonusPlus2(a); if (bonusPlus1 === a) setBonusPlus1(""); }}>+2 {a}</button>
+                      <button key={a} className={`cc-chip ${bonusPlus2 === a ? "on" : ""}`} onClick={() => { setBonusPlus2(a); if (bonusPlus1 === a) setBonusPlus1(""); }}>+2 {ABILITY_NAMES[a]}</button>
                     ))}
                     <span style={{ width: "100%" }} />
                     {bg.abilities.map((a) => (
-                      <button key={a} className={`chip ${bonusPlus1 === a ? "on" : ""}`} disabled={bonusPlus2 === a} onClick={() => setBonusPlus1(a)}>+1 {a}</button>
+                      <button key={a} className={`cc-chip ${bonusPlus1 === a ? "on" : ""}`} disabled={bonusPlus2 === a} onClick={() => setBonusPlus1(a)}>+1 {ABILITY_NAMES[a]}</button>
                     ))}
                   </div>
                 )}
@@ -404,34 +438,35 @@ export default function CharacterCreator() {
         {step === 4 && (
           <>
             <h2>Ability scores</h2>
-            <div className="chips" style={{ marginBottom: 10 }}>
-              <button className={`chip ${method === "standard" ? "on" : ""}`} onClick={() => { setMethod("standard"); setScores(arrayForClass(cls?.primary ?? [])); }}>Standard array</button>
-              <button className={`chip ${method === "pointbuy" ? "on" : ""}`} onClick={() => { setMethod("pointbuy"); setScores({ STR: 8, DEX: 8, CON: 8, INT: 8, WIS: 8, CHA: 8 }); }}>Point buy</button>
-              <button className={`chip ${method === "manual" ? "on" : ""}`} onClick={() => setMethod("manual")}>Rolled / manual</button>
+            <div className="cc-chips" style={{ marginBottom: 10 }}>
+              <button className={`cc-chip ${method === "standard" ? "on" : ""}`} onClick={() => { setMethod("standard"); setScores(arrayForClass(cls?.primary ?? [])); }}>Standard array</button>
+              <button className={`cc-chip ${method === "pointbuy" ? "on" : ""}`} onClick={() => { setMethod("pointbuy"); setScores({ STR: 8, DEX: 8, CON: 8, INT: 8, WIS: 8, CHA: 8 }); }}>Point buy</button>
+              <button className={`cc-chip ${method === "manual" ? "on" : ""}`} onClick={() => setMethod("manual")}>I rolled them</button>
             </div>
-            {method === "pointbuy" && <p className="note">{pointsSpent} of {opts.point_buy_budget} points spent.</p>}
-            {method === "standard" && <p className="note">Assign 15, 14, 13, 12, 10, 8 — each once. {cls ? `${klass} likes ${cls.primary.join(" or ")}.` : ""}</p>}
+            {method === "pointbuy" && <p className="note"><span className="num">{pointsSpent}</span> of <span className="num">{opts.point_buy_budget}</span> points spent.</p>}
+            {method === "standard" && <p className="note">Give each ability one of 15, 14, 13, 12, 10 and 8. {cls ? `A ${klass} wants high ${abilityWords(cls.primary)}.` : ""}</p>}
+            {method === "manual" && <p className="note">Rolled your scores? Set each one with − and +.</p>}
             <div className="scores">
               {ABILITIES.map((a) => (
                 <div key={a} className="score">
                   <b>{ABILITY_NAMES[a]}</b>
                   <div className="v">{finalScores[a]}</div>
-                  <div className="m">{fmt(mod(finalScores[a]))}{bonus[a] ? ` (+${bonus[a]} bg)` : ""}</div>
+                  <div className="m">{fmt(mod(finalScores[a]))}{bonus[a] ? <small>+{bonus[a]} from background</small> : null}</div>
                   {method === "standard" ? (
-                    <select value={scores[a]} onChange={(e) => setScores({ ...scores, [a]: Number(e.target.value) })}>
+                    <select aria-label={`${ABILITY_NAMES[a]} score`} value={scores[a]} onChange={(e) => setScores({ ...scores, [a]: Number(e.target.value) })}>
                       {opts.standard_array.map((v) => <option key={v} value={v}>{v}</option>)}
                     </select>
                   ) : (
                     <div className="pm">
-                      <button onClick={() => setScores({ ...scores, [a]: Math.max(method === "pointbuy" ? 8 : 3, scores[a] - 1) })}>−</button>
-                      <button onClick={() => setScores({ ...scores, [a]: Math.min(method === "pointbuy" ? 15 : 20, scores[a] + 1) })}>+</button>
+                      <button type="button" aria-label={`Lower ${ABILITY_NAMES[a]}`} onClick={() => setScores({ ...scores, [a]: Math.max(method === "pointbuy" ? 8 : 3, scores[a] - 1) })}>−</button>
+                      <button type="button" aria-label={`Raise ${ABILITY_NAMES[a]}`} onClick={() => setScores({ ...scores, [a]: Math.min(method === "pointbuy" ? 15 : 20, scores[a] + 1) })}>+</button>
                     </div>
                   )}
                 </div>
               ))}
             </div>
             {method === "standard" && JSON.stringify(arrayUsed) !== JSON.stringify([...opts.standard_array].sort((x, y) => y - x)) && (
-              <p className="err">Each array value must be used exactly once.</p>
+              <p className="err">Use each of 15, 14, 13, 12, 10 and 8 exactly once.</p>
             )}
           </>
         )}
@@ -440,13 +475,13 @@ export default function CharacterCreator() {
           <>
             <h2>Skills</h2>
             <p className="note">
-              Pick {skillPicksAllowed} from the {klass} list — {classSkillPicks.length} of {skillPicksAllowed} picked
+              Skills are what you&rsquo;re trained at. Pick {skillPicksAllowed} from the {klass} list: {classSkillPicks.length} of {skillPicksAllowed} picked
               {bg ? `. ${bg.name} already gives ${bg.skills.join(" and ")} (greyed).` : "."}
               {(speciesRow?.bonus_skill_choices ?? 0) > 0 && (
                 <> {species} adds one more{speciesRow?.bonus_skill_from ? ` from ${speciesRow.bonus_skill_from.join(", ")}` : ", any skill"}.</>
               )}
             </p>
-            <div className="chips">
+            <div className="cc-chips">
               {Object.keys(opts.skills).map((s) => {
                 const fromBg = (bg?.skills ?? []).includes(s);
                 // Plan 83 — the species bonus is one pick, off-list only if the
@@ -461,29 +496,29 @@ export default function CharacterCreator() {
                 const on = skills.includes(s) || fromBg;
                 const full = classSkillPicks.length >= skillPicksAllowed && !skills.includes(s);
                 return (
-                  <button key={s} className={`chip ${on ? "on" : ""}`} disabled={fromBg || !allowed || full}
+                  <button key={s} className={`cc-chip ${on ? "on" : ""}`} disabled={fromBg || !allowed || full}
                     onClick={() => setSkills(on ? skills.filter((x) => x !== s) : [...skills, s])}>
-                    {s} <small style={{ opacity: 0.6 }}>{fromBg ? "from background" : opts.skills[s]}</small>
+                    {s} <small>{fromBg ? "from background" : ABILITY_NAMES[opts.skills[s]] ?? opts.skills[s]}</small>
                   </button>
                 );
               })}
             </div>
             {speciesRow?.bonus_origin_feat && (
               <>
-                <label>Versatile — pick your Origin feat (required)</label>
-                <div className="chips">
+                <span className="lbl">Versatile: pick an Origin feat (required)</span>
+                <div className="cc-chips">
                   {opts.origin_feats.map((f) => (
-                    <button key={f.name} className={`chip ${originFeat === f.name ? "on" : ""}`} title={f.blurb} onClick={() => setOriginFeat(f.name)}>{f.name}</button>
+                    <button key={f.name} className={`cc-chip ${originFeat === f.name ? "on" : ""}`} title={f.blurb} onClick={() => setOriginFeat(f.name)}>{f.name}</button>
                   ))}
                 </div>
               </>
             )}
             {cls.kits.length > 0 && (
               <>
-                <label>Starting gear</label>
-                <div className="cards">
+                <span className="lbl">Starting gear</span>
+                <div className="cc-cards">
                   {cls.kits.map((k) => (
-                    <button key={k.name} className={`card ${kit === k.name ? "on" : ""}`} onClick={() => setKit(k.name)}>
+                    <button key={k.name} className={`cc-card ${kit === k.name ? "on" : ""}`} onClick={() => setKit(k.name)}>
                       <b>{k.name}</b><small>{[...k.items, k.armor, k.shield ? "Shield" : null].filter(Boolean).join(", ")}</small>
                     </button>
                   ))}
@@ -497,25 +532,25 @@ export default function CharacterCreator() {
           <>
             <h2>Spells</h2>
             {!cls?.spellcasting ? (
-              <p className="note">{klass} doesn&rsquo;t cast spells{cls ? "" : ""} — nothing to pick here.</p>
+              <p className="note">A {klass} doesn&rsquo;t cast spells, so there&rsquo;s nothing to pick here. Tap Next.</p>
             ) : (
               <>
                 {cantripCap > 0 && (
                   <>
-                    <label>Cantrips — {cantrips.length} of {cantripCap}</label>
-                    <div className="chips">
+                    <span className="lbl">Cantrips (spells you can cast any time): <span className="num">{cantrips.length}</span> of <span className="num">{cantripCap}</span></span>
+                    <div className="cc-chips">
                       {classSpells.filter((s) => s.level === 0).map((s) => (
-                        <button key={s.name} className={`chip ${cantrips.includes(s.name) ? "on" : ""}`} disabled={!cantrips.includes(s.name) && cantrips.length >= cantripCap}
+                        <button key={s.name} className={`cc-chip ${cantrips.includes(s.name) ? "on" : ""}`} disabled={!cantrips.includes(s.name) && cantrips.length >= cantripCap}
                           onClick={() => setCantrips(cantrips.includes(s.name) ? cantrips.filter((x) => x !== s.name) : [...cantrips, s.name])}>{s.name}</button>
                       ))}
                     </div>
                   </>
                 )}
-                <label>Prepared spells — {spells.length} of {spellCap}</label>
-                <div className="chips">
+                <span className="lbl">Prepared spells (these use spell slots): <span className="num">{spells.length}</span> of <span className="num">{spellCap}</span></span>
+                <div className="cc-chips">
                   {classSpells.filter((s) => s.level >= 1).map((s) => (
-                    <button key={s.name} className={`chip ${spells.includes(s.name) ? "on" : ""}`} disabled={!spells.includes(s.name) && spells.length >= spellCap}
-                      onClick={() => setSpells(spells.includes(s.name) ? spells.filter((x) => x !== s.name) : [...spells, s.name])}>{s.name} <small style={{ opacity: 0.6 }}>L{s.level}</small></button>
+                    <button key={s.name} className={`cc-chip ${spells.includes(s.name) ? "on" : ""}`} disabled={!spells.includes(s.name) && spells.length >= spellCap}
+                      onClick={() => setSpells(spells.includes(s.name) ? spells.filter((x) => x !== s.name) : [...spells, s.name])}>{s.name} <small>level {s.level}</small></button>
                   ))}
                 </div>
                 <p className="note">You can change prepared spells any time from your sheet.</p>
@@ -528,34 +563,38 @@ export default function CharacterCreator() {
           <>
             <h2>Review</h2>
             <div className="summary">
-              <div><span>Name</span><span>{characterName}</span></div>
+              <div><span>Name</span><span className="story" style={{ fontWeight: 700 }}>{characterName}</span></div>
               <div><span>Species</span><span>{speciesName}</span></div>
-              <div><span>Class</span><span>{klass}{subclassName && level >= (cls?.subclass_level ?? 3) ? ` · ${subclassName}` : ""} · L{level}</span></div>
+              <div><span>Class</span><span>{klass} {level}{subclassName && level >= (cls?.subclass_level ?? 3) ? ` · ${subclassName}` : ""}</span></div>
               <div><span>Background</span><span>{bgName}</span></div>
-              <div><span>Scores</span><span>{ABILITIES.map((a) => `${a} ${finalScores[a]}`).join(" · ")}</span></div>
-              <div><span>Skills</span><span>{[...new Set([...(bg?.skills ?? []), ...skills])].join(", ") || "—"}</span></div>
-              {preview && <div><span>HP / AC</span><span>{preview.hp} / {preview.ac}</span></div>}
-              {cls?.spellcasting && <div><span>Spells</span><span>{[...cantrips, ...spells].join(", ") || "—"}</span></div>}
+              <div><span>Ability scores</span><span>{ABILITIES.map((a) => `${ABILITY_NAMES[a]} ${finalScores[a]}`).join(" · ")}</span></div>
+              <div><span>Skills</span><span>{[...new Set([...(bg?.skills ?? []), ...skills])].join(", ") || "None yet"}</span></div>
+              {preview && <div><span>Hit points</span><span className="num">{preview.hp}</span></div>}
+              {preview && <div><span>Armor Class</span><span className="num">{preview.ac}</span></div>}
+              {cls?.spellcasting && <div><span>Spells</span><span>{[...cantrips, ...spells].join(", ") || "None yet"}</span></div>}
             </div>
-            <label htmlFor="look">How you look (optional — the forge paints from this)</label>
+            <p className="note">Everything here can be changed later from your sheet or by your DM.</p>
+            <label htmlFor="look">How you look (optional)</label>
             <textarea id="look" rows={3} value={appearance} onChange={(e) => setAppearance(e.target.value)} placeholder="e.g. Scarred, grey braids, a dented breastplate and a green cloak" />
             {error && <p className="err">{error}</p>}
           </>
         )}
       </div>
 
-      <div className="nav">
-        <button className="btn" onClick={() => (step === 0 ? navigate(`/join/${campaignId}`) : setStep(step - 1))} disabled={busy}>
-          {step === 0 ? "Back" : "Previous"}
-        </button>
-        {step < STEPS.length - 1 ? (
-          <>
-            {nextHint() && <span className="note" style={{ flex: 1, alignSelf: "center", margin: 0, fontSize: "0.82rem" }}>{nextHint()}</span>}
-            <button className="btn primary" onClick={() => setStep(step + 1)} disabled={!canNext()}>Next</button>
-          </>
-        ) : (
-          <button className="btn primary" onClick={() => void submit()} disabled={busy}>{busy ? "Creating…" : "Create & open my sheet"}</button>
-        )}
+      <div className="cc-nav">
+        <div className="cc-nav-inner">
+          {step < STEPS.length - 1 && nextHint() && <span className="cc-nav-hint" role="status">{nextHint()}</span>}
+          <div className="cc-nav-row">
+            <button type="button" className="btn btn-secondary" onClick={() => (step === 0 ? navigate(`/join/${campaignId}`) : setStep(step - 1))} disabled={busy}>
+              {step === 0 ? "Back to the party" : "Back"}
+            </button>
+            {step < STEPS.length - 1 ? (
+              <button type="button" className="btn btn-primary" onClick={() => { setStep(step + 1); window.scrollTo({ top: 0 }); }} disabled={!canNext()}>Next</button>
+            ) : (
+              <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy}>{busy ? "Creating…" : "Create and open my sheet"}</button>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
