@@ -544,14 +544,20 @@ function MapEditor({
             style={{ width: "100%", marginTop: 4, fontSize: "1.05rem", fontWeight: 700 }}
           />
         </label>
-        {/* Plan 93 — DM-only: this location's page in the vault. Saved with the map. */}
-        <label style={ASIDE_LABEL}>
-          <span style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-            Obsidian note
-            <ObsidianLink dmNote={dmNote} compact />
-          </span>
-          <ObsidianNoteInput value={dmNote} onChange={setDmNote} />
-        </label>
+        {/* Plan 93 — DM-only: this location's page in the vault. Saved with the map.
+            Plan 128 — a small "Link an Obsidian note" button until a DM uses it (Marco). */}
+        <div style={ASIDE_LABEL}>
+          {dmNote && (
+            <label
+              htmlFor="map-obsidian-note"
+              style={{ display: "flex", alignItems: "center", gap: "0.4rem", margin: "0 0 4px", font: "inherit", color: "inherit" }}
+            >
+              Obsidian note
+              <ObsidianLink dmNote={dmNote} compact />
+            </label>
+          )}
+          <ObsidianNoteInput id="map-obsidian-note" value={dmNote} onChange={setDmNote} />
+        </div>
         <label style={ASIDE_LABEL} title="How many pixels wide one 5-foot square is in this image">
           Grid square size in pixels — leave blank for no grid
           <input

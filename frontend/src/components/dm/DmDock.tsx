@@ -5,6 +5,7 @@ import { useLocation } from "react-router-dom";
 import { useIsCompact } from "../../hooks/useIsCompact";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { readDockSession, rememberDockSession, sessionIdFromPath } from "./dmSession";
+import { isTypingTarget } from "./hotkeys";
 
 // Plan 124 — the notes editor loads only when the dock opens (not on player pages).
 const DmDockBody = lazy(() => import("./DmDockBody"));
@@ -112,10 +113,9 @@ export default function DmDock() {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "n" && e.key !== "N") return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const el = e.target as HTMLElement | null;
-      const tag = el?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.defaultPrevented) return;
+      // Plan 128 — never while typing (a read-aloud full of "n"s opened the dock).
+      if (isTypingTarget(e)) return;
       e.preventDefault();
       toggle();
     };

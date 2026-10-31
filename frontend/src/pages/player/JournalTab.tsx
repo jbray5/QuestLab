@@ -1,18 +1,21 @@
 /**
- * Journal (Plan 122): your private notes, the people you've met, how to play,
- * and the settings — including the nudge to step the help down as you grow.
+ * Journal (Plan 122): notes on your character, the people you've met, how to
+ * play, and the settings — including the nudge to step the help down as you
+ * grow. Plan 128: the notes say plainly who can read them (anyone with the
+ * link), and players can send feedback too.
  */
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Lock, Sprout } from "lucide-react";
+import { ChevronDown, ChevronRight, MessageSquare, Sprout } from "lucide-react";
 
 import { playApi } from "../../api/play";
 import { portraitSrc } from "../../lib/portrait";
 import { zoomable } from "../../lib/lightbox";
 import { usePlayerPrefs } from "../../stores/usePlayerPrefs";
 import { usePlayer } from "./playerContext";
-import { HelpSwitch, Label, Monogram, Panel } from "./ui";
+import { Heading, HelpSwitch, Label, Monogram, Panel } from "./ui";
+import PlayerFeedback from "./PlayerFeedback";
 
 export default function JournalTab() {
   return (
@@ -23,6 +26,24 @@ export default function JournalTab() {
       <People />
       <HowToPlay />
       <Settings />
+      <Feedback />
+    </>
+  );
+}
+
+function Feedback() {
+  const { help } = usePlayer();
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="btn btn-ghost" onClick={() => setOpen(true)} style={{ minHeight: 48, justifyContent: "flex-start", gap: 10, whiteSpace: "normal", textAlign: "left" }}>
+        <MessageSquare size={18} aria-hidden style={{ color: "var(--accent-text)", flexShrink: 0 }} />
+        <span style={{ display: "flex", flexDirection: "column" }}>
+          <span style={{ fontWeight: 600, color: "var(--text)" }}>Send feedback</span>
+          {help !== "numbers" && <span style={{ fontSize: 13, color: "var(--text2)", fontWeight: 400 }}>Something confusing, broken or great? It goes to the person who makes QuestLab.</span>}
+        </span>
+      </button>
+      {open && <PlayerFeedback onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -85,18 +106,21 @@ function Notes() {
   }, []);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <label htmlFor="ql-notes" style={{ fontSize: 13, color: "var(--muted)", margin: 0 }}>My notes</label>
-        <span style={{ fontSize: 12, color: state === "error" ? "var(--danger-text)" : "var(--muted)", display: "flex", alignItems: "center", gap: 4 }}>
-          {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : state === "error" ? "Not saved. Try again." : (
-            <>
-              <Lock size={12} /> Your DM's screens don't show these
-            </>
-          )}
+      {/* Honest about who can read them (Adaeze, run 3): they live on the character, not the phone. */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+        <h2 style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>
+          <label htmlFor="ql-notes" style={{ margin: 0, font: "inherit", color: "inherit" }}>Notes on this character</label>
+        </h2>
+        <span aria-live="polite" style={{ fontSize: 12, color: state === "error" ? "var(--danger-text)" : "var(--muted)" }}>
+          {state === "saving" ? "Saving…" : state === "saved" ? "Saved" : state === "error" ? "Not saved. Try again." : ""}
         </span>
       </div>
+      <span id="ql-notes-who" style={{ fontSize: 13, color: "var(--text2)" }}>
+        Anyone with your link can read them.
+      </span>
       <textarea
         id="ql-notes"
+        aria-describedby="ql-notes-who"
         rows={5}
         value={text}
         maxLength={4000}
@@ -123,7 +147,7 @@ function People() {
   const { data: npcs = [], isLoading } = useQuery({ queryKey: ["play-npcs", pcId], queryFn: () => playApi.npcs(pcId) });
   return (
     <Panel style={{ gap: 4 }}>
-      <Label>People you've met</Label>
+      <Heading>People you've met</Heading>
       {isLoading ? (
         <span style={{ fontSize: 14, color: "var(--muted)" }}>Remembering faces…</span>
       ) : npcs.length === 0 ? (
@@ -157,9 +181,11 @@ function HowToPlay() {
   const [rules, setRules] = useState(false);
   return (
     <Panel style={{ gap: 8 }}>
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 40, background: "transparent", border: "none", padding: 0, color: "var(--text)", font: "600 16px var(--font-ui)", cursor: "pointer" }}>
-        How a turn works {open ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-      </button>
+      <h2 style={{ margin: 0 }}>
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 44, background: "transparent", border: "none", padding: 0, color: "var(--text)", font: "600 16px var(--font-ui)", cursor: "pointer" }}>
+          How a turn works {open ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+        </button>
+      </h2>
       {open && (
         <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8, fontSize: 14, lineHeight: 1.5, color: "var(--text2)" }}>
           <li><b style={{ color: "var(--text)" }}>Look around.</b> Where are the enemies, your friends, the exits? Who's hurt? There's no rush.</li>
@@ -170,9 +196,11 @@ function HowToPlay() {
           <li><b style={{ color: "var(--text)" }}>Say you're done.</b> The DM moves on to the next turn.</li>
         </ol>
       )}
-      <button type="button" onClick={() => setRules((o) => !o)} aria-expanded={rules} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 40, background: "transparent", border: "none", padding: 0, color: "var(--text)", font: "600 16px var(--font-ui)", cursor: "pointer" }}>
-        Rules people ask about {rules ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-      </button>
+      <h2 style={{ margin: 0 }}>
+        <button type="button" onClick={() => setRules((o) => !o)} aria-expanded={rules} style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 44, background: "transparent", border: "none", padding: 0, color: "var(--text)", font: "600 16px var(--font-ui)", cursor: "pointer" }}>
+          Rules people ask about {rules ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+        </button>
+      </h2>
       {rules && (
         <dl style={{ margin: 0, display: "flex", flexDirection: "column", gap: 8, fontSize: 14, lineHeight: 1.5 }}>
           {[
@@ -201,7 +229,7 @@ function Settings() {
   const canWake = typeof navigator !== "undefined" && "wakeLock" in navigator;
   return (
     <Panel style={{ gap: 10 }}>
-      <span style={{ fontWeight: 600 }}>This phone</span>
+      <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>This phone</h2>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Label>Help</Label>
         <HelpSwitch value={help} onChange={setHelp} />
@@ -212,8 +240,8 @@ function Settings() {
           Keep the screen on during the session
         </label>
       )}
-      <Link to={`/join/${pc.campaign_id}?switch=1`} style={{ fontSize: 14, minHeight: 32, display: "flex", alignItems: "center" }}>
-        Not {pc.character_name.split(" ")[0]}? Pick your character
+      <Link to={`/join/${pc.campaign_id}?switch=1`} style={{ fontSize: 14, display: "block", padding: "12px 0", lineHeight: 1.4 }}>
+        Not <span className="story">{pc.character_name}</span>? Pick your character
       </Link>
     </Panel>
   );

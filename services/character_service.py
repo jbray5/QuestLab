@@ -477,6 +477,13 @@ def create_character(
         portrait_url=portrait_url,
     )
     character = CharacterRepo.create(session, data)
+    # Plan 128 — a sheet typed in by hand joins the next unplayed session, as a
+    # wizard-built one does (Lena). Its features come from the sheet's "Add the
+    # level N features" button. Local import: the builder imports this module.
+    from services.character_builder_service import attend_newest_session
+
+    attend_newest_session(session, campaign_id, character.id)
+    session.refresh(character)
     return PlayerCharacterRead.model_validate(character)
 
 

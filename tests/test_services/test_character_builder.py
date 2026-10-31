@@ -10,6 +10,7 @@ from db.repos.campaign_repo import CampaignRepo
 from db.repos.spell_repo import SpellRepo
 from domain.character_builder import CharacterBuild
 from domain.spell import SpellCreate
+from integrations.dnd_rules import srd_character_options_2024 as srd
 from services import character_builder_service as builder
 from services import character_service, spellcasting_service
 
@@ -38,6 +39,9 @@ def _build(**over) -> CharacterBuild:
         kit="Chain mail, longsword & shield",
     )
     base.update(over)
+    # Plan 128 — a subclass is required once the level reaches it: give one by default.
+    if base.get("level", 1) >= 3 and "subclass" not in over:
+        base["subclass"] = srd.CLASSES[base["character_class"]]["srd_subclasses"][0]
     return CharacterBuild(**base)
 
 

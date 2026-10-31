@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BookOpen, CalendarDays, ChevronDown, ChevronRight, Compass, FlaskConical, Gem, LayoutDashboard, LogOut,
   Map as MapIcon, Megaphone, Menu, NotebookPen, PencilRuler, Puzzle, ScrollText, Shield, Skull, Sparkles, Store,
@@ -12,6 +12,7 @@ import { adventuresApi } from "../api/adventures";
 import { useHudPrefs } from "../stores/useHudPrefs";
 import { useTourStore } from "../stores/useTourStore";
 import { useIsCompact } from "../hooks/useIsCompact";
+import { isDialogOpen } from "../hooks/useDialogFocus";
 import DiceTray from "../components/dice-tray/DiceTray";
 import TourGuide from "../components/tour/TourGuide";
 import BrandMark from "../components/BrandMark";
@@ -125,6 +126,26 @@ function NavGroup({
   );
 }
 
+/**
+ * "Skip to content" (Plan 128): the first thing Tab reaches on every DM page,
+ * hidden until it has focus. Jumps past the menu to the page itself.
+ */
+function SkipLink() {
+  return (
+    <a
+      href="#ql-main"
+      className="ql-skip-link"
+      onClick={(e) => {
+        // Focus <main> without touching the URL (the router owns it).
+        e.preventDefault();
+        document.getElementById("ql-main")?.focus();
+      }}
+    >
+      Skip to content
+    </a>
+  );
+}
+
 export default function Layout() {
   const { dmEmail, signOut, profile } = useAuthStore();
   const isAdmin = !!profile?.is_admin;
@@ -137,6 +158,20 @@ export default function Layout() {
   const [navOpen, setNavOpen] = useState(false);
   // Plan 125 — the friends beta: two-tap feedback from any DM page.
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const hamburgerRef = useRef<HTMLButtonElement>(null);
+
+  // Plan 128 — Escape closes the phone menu and hands focus back to its button
+  // (unless a dialog is open on top; that dialog's Escape comes first).
+  useEffect(() => {
+    if (!navOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape" || isDialogOpen()) return;
+      setNavOpen(false);
+      hamburgerRef.current?.focus();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [navOpen]);
 
   // Plan 35 — auth guard. Any DM page without a signed-in identity
   // bounces to /welcome with the originally-requested URL preserved.
@@ -190,6 +225,12 @@ export default function Layout() {
   if (!dmEmail) return null;
 
   const closeNav = () => setNavOpen(false);
+  const closeFeedback = () => {
+    setFeedbackOpen(false);
+    // The Send feedback button lives in the closed phone menu: return focus to
+    // the menu button instead of dropping it on the page.
+    if (compact) hamburgerRef.current?.focus();
+  };
 
   const navVisual: React.CSSProperties = {
     background: "var(--surface)",
@@ -385,12 +426,16 @@ export default function Layout() {
   if (compact) {
     return (
       <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        <SkipLink />
         {DEMO_BANNER}
         <div className="ql-topbar">
           <button
+            ref={hamburgerRef}
             className="ql-hamburger"
             onClick={() => setNavOpen(true)}
             aria-label="Open navigation menu"
+            aria-expanded={navOpen}
+            aria-controls="ql-nav-drawer"
           >
             <Menu size={20} />
           </button>
@@ -417,21 +462,32 @@ export default function Layout() {
         </div>
 
         {navOpen && <div className="ql-drawer-backdrop" onClick={closeNav} />}
-        <aside
+        {/* Plan 128 — closed, the drawer is off screen: `inert` takes its links
+            out of the Tab order and away from screen readers. Tabbing out of
+            the open drawer closes it. */}
+        <nav
+          id="ql-nav-drawer"
+          aria-label="Main menu"
           data-tour-id="sidebar"
           className={`ql-drawer${navOpen ? " open" : ""}`}
+          inert={!navOpen}
+          aria-hidden={navOpen ? undefined : true}
+          onBlur={(e) => {
+            const to = e.relatedTarget as Node | null;
+            if (navOpen && to && !e.currentTarget.contains(to) && to !== hamburgerRef.current) closeNav();
+          }}
           style={{ ...navVisual, borderRight: "1px solid var(--border)" }}
         >
           {navContent}
-        </aside>
+        </nav>
 
-        <main style={{ flex: 1, padding: "1rem", overflowY: "auto", minWidth: 0 }}>
+        <main id="ql-main" tabIndex={-1} style={{ flex: 1, padding: "1rem", overflowY: "auto", minWidth: 0 }}>
           <Outlet />
         </main>
 
         <DiceTray />
         <TourGuide />
-        {feedbackOpen && <FeedbackSheet onClose={() => setFeedbackOpen(false)} />}
+        {feedbackOpen && <FeedbackSheet onClose={closeFeedback} />}
       </div>
     );
   }
@@ -441,23 +497,29 @@ export default function Layout() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
+      <SkipLink />
       {DEMO_BANNER}
       {!hideNav && (
-        <aside
+        <nav
+          aria-label="Main menu"
           data-tour-id="sidebar"
           style={{ ...navVisual, width: 224, borderRight: "1px solid var(--border)", flexShrink: 0, background: "#131816" }}
         >
           {navContent}
-        </aside>
+        </nav>
       )}
 
-      <main style={{ flex: 1, padding: hideNav ? "0.5rem" : "2rem", overflowY: "auto", minWidth: 0 }}>
+      <main
+        id="ql-main"
+        tabIndex={-1}
+        style={{ flex: 1, padding: hideNav ? "0.5rem" : "2rem", overflowY: "auto", minWidth: 0 }}
+      >
         <Outlet />
       </main>
 
       <DiceTray />
       <TourGuide />
-      {feedbackOpen && <FeedbackSheet onClose={() => setFeedbackOpen(false)} />}
+      {feedbackOpen && <FeedbackSheet onClose={closeFeedback} />}
     </div>
   );
 }

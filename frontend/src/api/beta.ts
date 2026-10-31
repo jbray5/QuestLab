@@ -41,6 +41,13 @@ export interface BetaDm {
   sessions: number;
 }
 
+/** Someone who left an email on the landing page (Plan 54). */
+export interface WaitlistEntry {
+  email: string;
+  source: string | null;
+  created_at: string;
+}
+
 export interface BetaOverview {
   invites_required: boolean;
   dms: BetaDm[];
@@ -59,4 +66,5 @@ export const betaApi = {
   overview: () => api.get<BetaOverview>("/admin/beta"),
   feedback: () => api.get<FeedbackRow[]>("/admin/feedback"),
   markSeen: (id: string) => api.post<FeedbackRow>(`/admin/feedback/${id}/seen`),
+  waitlist: () => api.get<{ count: number; entries: WaitlistEntry[] }>("/admin/waitlist"),
 };

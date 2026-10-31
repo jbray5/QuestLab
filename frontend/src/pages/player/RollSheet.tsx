@@ -2,9 +2,10 @@
  * The roll sheet (Plan 122): tap any number and roll it — on the phone, where
  * the result also shows on the TV, or with a real die typed in. Explains the
  * bonus at the player's help level, offers advantage, and chains an attack to
- * its damage (crits double the dice; a rogue can add Sneak Attack).
+ * its damage (crits double the dice; a rogue can add Sneak Attack). A healing
+ * spell's roll (Plan 128) offers to put the total on your own hit points.
  */
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Dices, Info, X } from "lucide-react";
 
 import { playApi, type RollResult } from "../../api/play";
@@ -38,6 +39,12 @@ function Sheet({ pcId, help, spec, onClose, onNext }: { pcId: string; help: Help
   const [after, setAfter] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [sneak, setSneak] = useState(true);
+  const [healed, setHealed] = useState(false);
+  // The sheet takes focus when it opens, so a screen reader lands in it (Sam, run 3).
+  const titleRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
 
   const count = spec.count ?? 1;
   const sides = Number(spec.die.slice(1));
@@ -100,15 +107,29 @@ function Sheet({ pcId, help, spec, onClose, onNext }: { pcId: string; help: Help
     });
   }
 
+  async function healMe(amount: number) {
+    if (!spec.healSelf) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      setAfter(await spec.healSelf(amount));
+      setHealed(true);
+    } catch (e) {
+      setErr(friendlyApiError((e as Error).message, "That healing didn't go through. Tell the DM."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const showWhy = help !== "numbers" && spec.why;
   return (
-    <div role="dialog" aria-modal="true" aria-label={spec.title} style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+    <div role="dialog" aria-modal="true" aria-label={spec.title} onKeyDown={(e) => e.key === "Escape" && onClose()} style={{ position: "fixed", inset: 0, zIndex: 300, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
       <button type="button" aria-label="Close" onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(5, 8, 7, 0.6)", border: "none", cursor: "default" }} />
       <section className="ql-modal-in" style={{ position: "relative", maxWidth: 560, width: "100%", margin: "0 auto", borderRadius: "22px 22px 0 0", background: "var(--surface)", borderTop: "1px solid var(--border2)", padding: "10px 18px calc(20px + env(safe-area-inset-bottom, 0px))", display: "flex", flexDirection: "column", gap: 14, maxHeight: "88dvh", overflowY: "auto" }}>
         <div aria-hidden style={{ alignSelf: "center", width: 38, height: 4, borderRadius: 2, background: "var(--border2)" }} />
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontWeight: 600, fontSize: 19 }}>{spec.title}</span>
+            <span ref={titleRef} tabIndex={-1} style={{ fontWeight: 600, fontSize: 19, outline: "none" }}>{spec.title}</span>
             <span style={{ fontSize: 13, color: "var(--muted)" }}>
               <span className="num">{count}{spec.die}{spec.modifier ? ` ${fmt(spec.modifier)}` : ""}</span> · shows on the TV
             </span>
@@ -138,6 +159,9 @@ function Sheet({ pcId, help, spec, onClose, onNext }: { pcId: string; help: Help
             )}
             {(spec.kind === "check" || spec.kind === "save") && help === "teach" && (
               <span style={{ fontSize: 14, color: "var(--text2)" }}>Tell the DM your total; they'll say how it goes.</span>
+            )}
+            {spec.kind === "heal" && !healed && help !== "numbers" && (
+              <span style={{ fontSize: 14, color: "var(--text2)" }}>Healing a friend? Tell the DM who, and that they get {result.total} hit points back.</span>
             )}
             {after && <span style={{ fontSize: 15, fontWeight: 500 }}>{after}</span>}
           </div>
@@ -199,6 +223,11 @@ function Sheet({ pcId, help, spec, onClose, onNext }: { pcId: string; help: Help
               Roll damage <span className="num">{spec.damage.dice}{sneak && spec.damage.sneakDice ? ` + ${spec.damage.sneakDice}d6` : ""}</span>
             </button>
           </div>
+        )}
+        {result && spec.kind === "heal" && spec.healSelf && !healed && (
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void healMe(result.total)} style={{ minHeight: 54, fontSize: 16, borderRadius: 12 }}>
+            It's for me: heal <span className="num">{result.total}</span>
+          </button>
         )}
         {result && !(spec.kind === "attack" && spec.damage && !fumble) && (
           <button type="button" className="btn btn-secondary" onClick={onClose} style={{ minHeight: 48 }}>

@@ -10,6 +10,14 @@ campaign owner only, no join code, the player sign-up switch doesn't apply),
 and a build at level 4+ makes its Ability Score Improvement or feat picks,
 validated with the level-up guide's rules (``services.feat_rules``) and applied
 before hit points, Armor Class, saves and skills are worked out.
+
+Plan 128: every rule the wizard explains is checked here too. A subclass is required
+once the level reaches it; cantrips and prepared spells are picked up to the class's
+count; always-prepared spells (Divine Smite, Hunter's Mark, domain and oath spells...)
+are added free; the background's Magic Initiate (or a Human's) picks its spells; and
+the class's own choices (Fighting Style, Weapon Mastery, Expertise, Divine Order,
+Eldritch Invocations, Metamagic...) are made and recorded the way the level-up guide
+records picks. The spell list only shows the shared catalog and this DM's homebrew.
 """
 
 import uuid
@@ -22,7 +30,7 @@ from db.repos.item_repo import ItemRepo
 from db.repos.spell_repo import SpellRepo
 from domain.campaign import Campaign
 from domain.character import CharacterItemCreate, CharacterSpellCreate
-from domain.character_builder import BuilderOptions, BuildResult, CharacterBuild
+from domain.character_builder import BuilderOptions, BuildResult, CharacterBuild, OriginFeatPicks
 from domain.enums import CharacterClass
 from domain.spell import Spell
 from integrations.dnd_rules import levelup_2024 as rules
@@ -35,6 +43,9 @@ from services import (
     player_service,
     spellcasting_service,
 )
+from services.auth_service import catalog_visible
+
+_MI = "Magic Initiate"
 
 
 def options(db: DBSession, campaign_id: uuid.UUID) -> BuilderOptions:
@@ -72,11 +83,44 @@ def options_for_dm(db: DBSession, campaign_id: uuid.UUID, dm_email: str) -> Buil
     return _options(db, _campaign_owned(db, campaign_id, dm_email))
 
 
-def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
-    spells = [
-        {"name": s.name, "level": s.level, "classes": list(s.classes or []), "school": s.school}
-        for s in SpellRepo.list_all(db)
+def _catalog(db: DBSession, campaign: Campaign) -> list[Spell]:
+    """The spells this campaign's builds may use: the shared catalog and its DM's homebrew."""
+    return [
+        s for s in SpellRepo.list_all(db) if catalog_visible(s.created_by_email, campaign.dm_email)
     ]
+
+
+def _spell_row(s: Spell) -> dict[str, Any]:
+    """One spell for the picker: enough to choose by, and the full text a tap away.
+
+    The picker shows the text's opening lines as the summary (worked out in the browser, so the
+    payload doesn't carry them twice).
+    """
+    parts = [c for c, on in (("V", s.components_v), ("S", s.components_s)) if on]
+    if s.components_m:
+        parts.append(f"M ({s.components_m})")
+    text = s.description or ""
+    if s.higher_levels:
+        text += f"\n\nWith a higher-level slot: {s.higher_levels}"
+    return {
+        "name": s.name,
+        "level": s.level,
+        "classes": list(s.classes or []),
+        "school": s.school,
+        "casting_time": s.casting_time,
+        "range": s.range,
+        "duration": s.duration,
+        "components": ", ".join(parts),
+        "concentration": bool(s.is_concentration),
+        "ritual": bool(s.is_ritual),
+        "damage": bool(s.damage_dice),
+        "attack": bool(s.attack_type),
+        "text": text,
+    }
+
+
+def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
+    spells = [_spell_row(s) for s in _catalog(db, campaign)]
     weapon_names = {i for c in srd.CLASSES.values() for k in c["kits"] for i in k["items"]}
     weapons = [
         {
@@ -89,6 +133,12 @@ def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
         for i in ItemRepo.list_all(db)
         if i.name in weapon_names
     ]
+
+    def lists(table: dict[str, dict[str, list[tuple[int, int]]]]) -> dict[str, Any]:
+        return {
+            k: {key: [list(r) for r in rows] for key, rows in v.items()} for k, v in table.items()
+        }
+
     return BuilderOptions(
         campaign_name=campaign.name,
         species=srd.SPECIES,
@@ -120,6 +170,18 @@ def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
             ]
             for c in srd.CLASSES
         },
+        choice_kinds=rules.CHOICE_KINDS,
+        class_choices=lists(rules.CLASS_CHOICES),
+        subclass_choices=lists(rules.SUBCLASS_CHOICES),
+        fighting_style_extras=rules.FIGHTING_STYLE_EXTRAS,
+        mastery_weapons=feat_rules.mastery_weapons(),
+        weapon_mastery_filter=rules.WEAPON_MASTERY_FILTER,
+        always_prepared_class=rules.ALWAYS_PREPARED_CLASS,
+        always_prepared_subclass=rules.ALWAYS_PREPARED_SUBCLASS,
+        always_prepared_source=rules.ALWAYS_PREPARED_SOURCE,
+        land_spells=rules.LAND_SPELLS,
+        extra_spell_lists=rules.EXTRA_SPELL_LISTS,
+        class_scales=rules.class_scales(),
     )
 
 
@@ -211,6 +273,10 @@ def _join(items: list[Any]) -> str:
     return words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
 
 
+def _plural(n: int, word: str) -> str:
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
 def _apply_improvements(
     build: CharacterBuild,
     class_name: str,
@@ -221,12 +287,18 @@ def _apply_improvements(
     subclass: Optional[str],
     catalog: dict[str, Spell],
     warnings: list[str],
+    taken: Optional[set[str]] = None,
+    always: Optional[set[str]] = None,
 ) -> tuple[list[str], list[str]]:
     """Validate and apply one Ability Score Improvement (or feat) per improvement level.
 
     Each pick is checked against the build as it stands at that level: the scores after the
     background bonus and the earlier picks, the feats taken so far, armor training and
     spellcasting. ``scores``, ``feats``, ``saves`` and ``skills`` change in place.
+
+    Args:
+        taken: Casefolded spells already picked elsewhere (class picks, Magic Initiate).
+        always: Casefolded always-prepared spells (a feat can't spend a pick on one).
 
     Returns:
         (summary lines such as "Level 4: Ability Score Improvement (+2 STR)", feat spells to
@@ -277,11 +349,16 @@ def _apply_improvements(
     # A feat's spell pick can't double up a class pick (a fixed spell you already know just
     # stays known, as the book says for Telekinetic's Mage Hand).
     class_picks = {n.strip().casefold() for n in build.cantrips + build.spells if n.strip()}
+    class_picks |= taken or set()
     seen: set[str] = set()
     for name in picked_spells:
         key = name.casefold()
         if key in class_picks or key in seen:
             raise ValueError(f"{name} is picked twice: choose a different spell for the feat.")
+        if key in (always or set()):
+            raise ValueError(
+                f"{name} is always prepared for you: choose a different spell for the feat."
+            )
         seen.add(key)
     return summary_out, feat_spells
 
@@ -325,9 +402,181 @@ def _armor_class(
     return ac
 
 
+def _origin_picks(
+    feat: str,
+    fixed_list: Optional[str],
+    picks: Optional[OriginFeatPicks],
+    full: bool,
+    skills: dict[str, int],
+    catalog: dict[str, Spell],
+    warnings: list[str],
+) -> tuple[str, list[str]]:
+    """Check an Origin feat's own picks (Plan 128) and fold its skills into ``skills``.
+
+    Magic Initiate: a spell list (fixed by the background, or chosen for a Human's feat), two
+    cantrips and one level 1 spell from it. Skilled: three skills you aren't trained in. Other
+    Origin feats have nothing to pick.
+
+    Args:
+        feat: The feat's name ("Magic Initiate", "Skilled", "Alert"...).
+        fixed_list: The spell list a background names ("Magic Initiate (Cleric)" → "Cleric").
+        picks: What the wizard sent for this feat.
+        full: The wizard's build (Plan 128): missing picks are refused, not just flagged.
+        skills: Skill proficiencies so far.
+        catalog: The campaign's spell catalog by casefolded name.
+        warnings: Lines the player should read.
+
+    Returns:
+        (the feat as it goes on the sheet, e.g. "Magic Initiate (Cleric)", spells to learn).
+
+    Raises:
+        ValueError: On a wrong list, spell or skill, or (``full``) a missing pick.
+    """
+    row = rules.FEATS_BY_NAME.get(feat.casefold())
+    if row is None:
+        return feat, []
+    picks = picks or OriginFeatPicks()
+    if row["name"] == _MI:
+        choice = fixed_list or picks.choice
+        if fixed_list and picks.choice and picks.choice != fixed_list:
+            raise ValueError(f"This Magic Initiate uses the {fixed_list} list.")
+        options = row["choice"]["options"]
+        if not choice:
+            if full:
+                raise ValueError(
+                    "Magic Initiate: pick its spell list (" + " or ".join(options) + ")."
+                )
+            warnings.append("Magic Initiate: pick its spell list and spells on the sheet.")
+            return _MI, []
+        if choice not in options:
+            raise ValueError("Magic Initiate's list is " + " or ".join(options) + ".")
+        label = f"{_MI} ({choice})"
+        try:
+            chosen, _left = feat_rules.assign_spell_picks(
+                list(picks.spells), row["spell_picks"], choice, catalog
+            )
+        except ValueError as exc:
+            raise ValueError(f"{label}: {exc}") from exc
+        needed = sum(
+            min(
+                int(spec["count"]),
+                sum(
+                    1
+                    for s in catalog.values()
+                    if s.level == spec["level"] and choice in (s.classes or [])
+                ),
+            )
+            for spec in row["spell_picks"]
+        )
+        if len(chosen) < needed:
+            msg = f"{label}: pick two cantrips and one level 1 spell from the {choice} list."
+            if full:
+                raise ValueError(msg)
+            warnings.append(msg.replace("pick", "still to pick", 1) + " Add them on the sheet.")
+        return label, chosen
+    sp = row["skill_pick"]
+    if sp:
+        names = list(dict.fromkeys(n.strip() for n in picks.skills if n.strip()))
+        if len(names) > sp["count"]:
+            raise ValueError(f"{row['name']} gives {sp['count']} skills.")
+        for s in names:
+            if s not in srd.SKILLS:
+                raise ValueError(f"{row['name']}: {s} isn't a skill.")
+            if skills.get(s, 0) >= 1:
+                raise ValueError(f"{row['name']}: you're already trained in {s}.")
+            skills[s] = 1
+        if len(names) < sp["count"]:
+            left = sp["count"] - len(names)
+            if full:
+                raise ValueError(f"{row['name']}: pick {_plural(left, 'more skill')}.")
+            warnings.append(f"{row['name']}: {_plural(left, 'skill')} still to pick on the sheet.")
+        return row["name"], []
+    if picks.choice or picks.spells or picks.skills:
+        raise ValueError(f"{row['name']} has nothing to pick.")
+    return row["name"], []
+
+
+def _class_spells(
+    names: list[str],
+    *,
+    cap: int,
+    cantrip: bool,
+    lists: set[str],
+    max_level: int,
+    always: set[str],
+    catalog: dict[str, Spell],
+    full: bool,
+    who: str,
+    warnings: list[str],
+) -> list[Spell]:
+    """Check class cantrip or spell picks against the class's lists, level and count.
+
+    The count must reach ``cap`` (or every spell the catalog has, if fewer). In a ``full``
+    build every rule is refused in plain words; an older caller gets warnings and the picks
+    that fit (the pre-Plan-128 behaviour).
+    """
+    label = "cantrip" if cantrip else "spell"
+
+    def refuse(msg: str) -> None:
+        if full:
+            raise ValueError(msg)
+        warnings.append(msg)
+
+    out: list[Spell] = []
+    seen: set[str] = set()
+    for raw in names:
+        name = (raw or "").strip()
+        if not name:
+            continue
+        spell = catalog.get(name.casefold())
+        if spell is None:
+            refuse(f"{name} isn't in the spell list.")
+            continue
+        key = spell.name.casefold()
+        if key in seen:
+            refuse(f"{spell.name} is picked twice.")
+            continue
+        seen.add(key)
+        if cantrip and spell.level != 0:
+            refuse(f"{spell.name} isn't a cantrip.")
+            continue
+        if not cantrip and not 1 <= spell.level <= max_level:
+            refuse(
+                f"{spell.name} isn't a spell you can prepare yet."
+                if spell.level > max_level
+                else f"{spell.name} is a cantrip: pick it with the cantrips."
+            )
+            continue
+        if not lists & set(spell.classes or []):
+            refuse(f"{spell.name} isn't a {' or '.join(sorted(lists))} spell.")
+            continue
+        if key in always:
+            refuse(f"{spell.name} is always prepared for you: pick a different {label}.")
+            continue
+        out.append(spell)
+    if len(out) > cap:
+        if full:
+            raise ValueError(f"{who} has {_plural(cap, label)}: pick {cap}.")
+        warnings.append("Some spell picks were over the class limit and were dropped.")
+        out = out[:cap]
+    available = sum(
+        1
+        for s in catalog.values()
+        if (s.level == 0 if cantrip else 1 <= s.level <= max_level)
+        and lists & set(s.classes or [])
+        and s.name.casefold() not in always
+    )
+    need = min(cap, available)
+    if full and len(out) < need:
+        left = need - len(out)
+        raise ValueError(f"Spells: pick {_plural(left, 'more ' + label)}. {who} has {cap}.")
+    return out
+
+
 def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildResult:
     """Validate a build, derive the sheet and create the PC (shared by both paths)."""
     warnings: list[str] = []
+    full = build.class_choices is not None  # the Plan 128 wizard: every choice is checked
 
     class_name = build.character_class.strip().title()
     if class_name not in srd.CLASSES:
@@ -345,13 +594,19 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
         warnings.append(f"Species {build.species!r} isn't in the SRD — traits are yours to track.")
     race = species_row["name"] if species_row else build.species.strip()
 
-    # Subclass gate: only at the class's subclass level.
+    # Subclass: required once the level reaches it (Plan 128), an SRD one or a book's by name.
     subclass = (build.subclass or "").strip() or None
-    if subclass and level < cls["subclass_level"]:
-        warnings.append(f"Subclass recorded; it comes online at level {cls['subclass_level']}.")
+    sub_level = cls["subclass_level"]
+    if subclass is None and level >= sub_level:
+        raise ValueError(
+            f"A {class_name} picks a subclass at level {sub_level}: choose one for this level "
+            f"{level} character, or type the one from your book."
+        )
+    if subclass and level < sub_level:
+        warnings.append(f"Subclass recorded; it comes online at level {sub_level}.")
     if subclass and subclass not in cls["srd_subclasses"]:
         warnings.append(f"Subclass {subclass!r} isn't in the SRD — features are yours to track.")
-    active_subclass = subclass if subclass and level >= cls["subclass_level"] else None
+    active_subclass = subclass if subclass and level >= sub_level else None
 
     # Background: SRD or free text.
     bg = next(
@@ -361,6 +616,16 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
         warnings.append(
             f"Background {build.background!r} isn't in the SRD — no automatic skills or feat."
         )
+    if full and bg:
+        if not build.background_bonus:
+            raise ValueError(
+                f"Choose where {bg['name']}'s ability bonus goes: +2 and +1, or three +1s."
+            )
+        outside = [a for a, v in build.background_bonus.items() if v and a not in bg["abilities"]]
+        if outside:
+            raise ValueError(
+                f"{bg['name']} can only raise " + _join(bg["abilities"]) + f", not {outside[0]}."
+            )
 
     # Skills: class picks must come from the class list, in the allowed number.
     # A species bonus (Human's Skillful, Elf's Keen Senses) adds exactly one more
@@ -379,6 +644,9 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
             f"{class_name} picks {cls['skills']['choose']} skills from its list"
             + (f", plus {extra_allowed} more from your species." if extra_allowed else ".")
         )
+    if full and len(class_only) < cls["skills"]["choose"] + extra_allowed:
+        left = cls["skills"]["choose"] + extra_allowed - len(class_only)
+        raise ValueError(f"Pick {_plural(left, 'more skill')}.")
     if extra_from:
         bad = [s for s in off_list if s not in extra_from]
         over = len(class_only) > cls["skills"]["choose"]
@@ -391,7 +659,10 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
         skill_profs[s] = 1
     saves = list(cls["saves"])
 
-    # Feats so far: the background's origin feat, and a Human's Versatile pick.
+    catalog = {s.name.casefold(): s for s in _catalog(db, campaign)}
+
+    # Feats so far: the background's origin feat, and a Human's Versatile pick, each with its
+    # own picks (Plan 128: Magic Initiate's spells, Skilled's skills).
     origin_feat = (build.origin_feat or "").strip() or None
     if origin_feat:
         if origin_feat not in {f["name"] for f in srd.ORIGIN_FEATS}:
@@ -399,16 +670,77 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
         if species_row is not None and not species_row.get("bonus_origin_feat"):
             warnings.append(f"Only a Human picks an extra Origin feat; {origin_feat} was left off.")
             origin_feat = None
-    feat_names = [bg["feat"].split(" (")[0]] if bg else []
+    elif full and species_row and species_row.get("bonus_origin_feat"):
+        raise ValueError(f"A {species_row['name']} picks an Origin feat (Versatile).")
+    feat_names: list[str] = []
+    origin_spells: list[str] = []
+    bg_list: Optional[str] = None
+    if bg:
+        bg_feat = bg["feat"].split(" (")[0]
+        bg_list = bg["feat"][len(bg_feat) + 2 : -1] if "(" in bg["feat"] else None
+        label, spells = _origin_picks(
+            bg_feat, bg_list, build.background_feat_picks, full, skill_profs, catalog, warnings
+        )
+        feat_names.append(label)
+        origin_spells += spells
     if origin_feat:
         row = rules.FEATS_BY_NAME.get(origin_feat.casefold())
-        if origin_feat in feat_names and not (row and row["repeatable"]):
+        if origin_feat.casefold() in feat_rules.feat_names(feat_names) and not (
+            row and row["repeatable"]
+        ):
             raise ValueError(f"Your background already gives {origin_feat}: pick another feat.")
-        feat_names.append(origin_feat)
+        if (
+            origin_feat == _MI
+            and bg_list
+            and (build.origin_feat_picks or OriginFeatPicks()).choice == bg_list
+        ):
+            raise ValueError(
+                f"Your background's Magic Initiate already uses the {bg_list} list: pick another."
+            )
+        label, spells = _origin_picks(
+            origin_feat, None, build.origin_feat_picks, full, skill_profs, catalog, warnings
+        )
+        feat_names.append(label)
+        origin_spells += spells
+    _no_twice(origin_spells)
+
+    # Plan 128 — the class's own choices, recorded the way the level-up guide records picks.
+    choice_lines: list[str] = []
+    effects: dict[str, Any] = {"cantrips": 0, "cantrip_lists": [], "land": None}
+    counts = rules.class_choice_counts(class_name, level, active_subclass)
+    if full:
+        picks_by_key: dict[str, tuple[list[str], list[str]]] = {}
+        for p in build.class_choices or []:
+            if p.key not in rules.CHOICE_KINDS:
+                raise ValueError(f"Unknown class choice {p.key!r}.")
+            if p.key in picks_by_key:
+                raise ValueError(f"{rules.CHOICE_KINDS[p.key]['label']} is sent twice.")
+            picks_by_key[p.key] = (list(p.picks), list(p.book))
+        cantrip_rows = [catalog[n.casefold()] for n in build.cantrips if n.casefold() in catalog]
+        effects = feat_rules.apply_class_choices(
+            class_name,
+            level,
+            active_subclass,
+            picks_by_key,
+            feat_names,
+            skill_profs,
+            cantrip_rows,
+            choice_lines,
+            warnings,
+        )
+    elif counts:
+        labels = [rules.CHOICE_KINDS[k]["label"] for k in counts]
+        warnings.append("Still to choose on the sheet: " + ", ".join(labels) + ".")
+
+    # Always-prepared spells (Plan 128): free, and off the prepared count.
+    always = rules.always_prepared(class_name, level, active_subclass, effects["land"])
+    always_keys = {name.casefold() for name, _src in always}
+    for name in origin_spells:
+        if name.casefold() in always_keys:
+            raise ValueError(f"{name} is always prepared for you: pick a different spell.")
 
     # Plan 126 — Ability Score Improvements and feats, before any number is derived: a CON
     # increase raises HP at every level, a DEX increase raises AC, saves and skills.
-    catalog = {s.name.casefold(): s for s in SpellRepo.list_all(db)}
     asi_summary, feat_spells = _apply_improvements(
         build,
         class_name,
@@ -419,7 +751,45 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
         active_subclass,
         catalog,
         warnings,
+        taken={n.casefold() for n in origin_spells},
+        always=always_keys,
     )
+
+    # Spells: only what the class lists allow, up to (and, for the wizard, exactly) the counts.
+    sc = cls["spellcasting"]
+    picked: list[Spell] = []
+    who = f"A level {level} {class_name}"
+    if sc or effects["cantrips"]:
+        cantrip_cap = srd.cantrips_known(class_name, level) + int(effects["cantrips"])
+        picked += _class_spells(
+            build.cantrips,
+            cap=cantrip_cap,
+            cantrip=True,
+            lists={class_name, *effects["cantrip_lists"]},
+            max_level=0,
+            always=always_keys,
+            catalog=catalog,
+            full=full,
+            who=who,
+            warnings=warnings,
+        )
+        picked += _class_spells(
+            build.spells,
+            cap=srd.spells_prepared(class_name, level),
+            cantrip=False,
+            lists={class_name, *rules.extra_spell_lists(class_name, level)},
+            max_level=srd.max_spell_level(class_name, level),
+            always=always_keys,
+            catalog=catalog,
+            full=full,
+            who=who,
+            warnings=warnings,
+        )
+    elif build.cantrips or build.spells:
+        if full:
+            raise ValueError(f"A {class_name} doesn't cast spells: leave the spell picks empty.")
+        warnings.append(f"{class_name} doesn't cast spells at level {level}; spell picks ignored.")
+    _no_twice([s.name for s in picked] + origin_spells)
 
     # Hit points (2024): the full die at level 1 and the fixed value after, each level adding
     # the CON modifier (at least 1 a level), plus Tough / Dwarven Toughness / Draconic Resilience.
@@ -464,7 +834,15 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
         skill_proficiencies=skill_profs,
         feats=feat_names or None,
         backstory=build.backstory or None,
-        notes=_notes(species_row, bg, origin_feat, kit, asi_summary),
+        notes=_notes(
+            species_row,
+            bg,
+            origin_feat,
+            kit,
+            asi_summary,
+            choices=choice_lines,
+            always=[name for name, _src in always],
+        ),
     )
     pc_id = uuid.UUID(str(pc.id))
     dm = campaign.dm_email
@@ -475,42 +853,27 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
         except Exception:  # noqa: BLE001 — appearance is cosmetic; never fail a build on it
             warnings.append("Appearance note wasn't saved; add it from your sheet.")
 
-    # Spells: only what the class list allows, within the SRD caps.
-    sc = cls["spellcasting"]
-    if sc:
-        cap_cantrips = srd.cantrips_known(class_name, level)
-        cap_spells = srd.spells_prepared(class_name, level)
-        max_lvl = srd.max_spell_level(class_name, level)
-        picked_c = [n for n in build.cantrips if n][:cap_cantrips]
-        picked_s = [n for n in build.spells if n][:cap_spells]
-        if len(build.cantrips) > cap_cantrips or len(build.spells) > cap_spells:
-            warnings.append("Some spell picks were over the class limit and were dropped.")
-        for name in picked_c + picked_s:
-            spell = SpellRepo.get_by_name(db, name)
-            if spell is None:
-                warnings.append(f"Spell {name!r} isn't in the catalog.")
-                continue
-            if class_name not in (spell.classes or []):
-                warnings.append(f"{name} isn't a {class_name} spell — skipped.")
-                continue
-            if spell.level > max_lvl:
-                warnings.append(f"{name} is above your spell level — skipped.")
-                continue
-            spellcasting_service.learn_spell(
-                db, pc_id, CharacterSpellCreate(spell_id=spell.id, known=True, prepared=True), dm
-            )
-    elif build.cantrips or build.spells:
-        warnings.append(f"{class_name} doesn't cast spells at level {level}; spell picks ignored.")
+    # Learn everything once: always-prepared, class picks, feat spells, Magic Initiate's.
+    learned: set[str] = set()
 
-    # Feat spells (Fey Touched, Magic Initiate, Telekinetic...): always known, off the caps.
-    for name in feat_spells:
+    def learn(name: str) -> None:
         spell = catalog.get(name.casefold())
         if spell is None:
             warnings.append(f"{name} isn't in the spell catalog yet: ask your DM to add it.")
-            continue
+            return
+        if spell.name.casefold() in learned:
+            return
+        learned.add(spell.name.casefold())
         spellcasting_service.learn_spell(
             db, pc_id, CharacterSpellCreate(spell_id=spell.id, known=True, prepared=True), dm
         )
+
+    for name, _src in always:
+        learn(name)
+    for spell in picked:
+        learn(spell.name)
+    for name in feat_spells + origin_spells:
+        learn(name)
 
     granted = feature_service.sync_for_level(db, pc_id, dm)
 
@@ -540,7 +903,7 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
                 + ", ".join(missing)
             )
 
-    _attend_newest_session(db, campaign.id, pc.id)
+    attend_newest_session(db, campaign.id, pc.id)
 
     return BuildResult(
         pc_id=str(pc.id),
@@ -553,7 +916,16 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
     )
 
 
-def _attend_newest_session(db: DBSession, campaign_id: uuid.UUID, pc_id: uuid.UUID) -> None:
+def _no_twice(names: list[str]) -> None:
+    """The same spell can't be picked twice across the class's picks and Magic Initiate's."""
+    seen: set[str] = set()
+    for name in names:
+        if name.casefold() in seen:
+            raise ValueError(f"{name} is picked twice: choose a different spell.")
+        seen.add(name.casefold())
+
+
+def attend_newest_session(db: DBSession, campaign_id: uuid.UUID, pc_id: uuid.UUID) -> None:
     """Put a freshly built PC on the newest session that hasn't been played yet (Plan 85).
 
     A player who builds from the join link on Thursday should be in Thursday's
@@ -584,6 +956,8 @@ def _notes(
     feat: str | None,
     kit,
     improvements: Optional[list[str]] = None,
+    choices: Optional[list[str]] = None,
+    always: Optional[list[str]] = None,
 ) -> str:
     lines = ["Built with the QuestLab character creator (SRD 5.2.1)."]
     if species_row:
@@ -594,6 +968,10 @@ def _notes(
         lines.append(f"Origin feat (Versatile): {feat}.")
     if kit:
         lines.append(f"Starting kit: {kit['name']}.")
+    if choices:
+        lines.append("Class choices: " + "; ".join(choices) + ".")
+    if always:
+        lines.append("Always prepared: " + ", ".join(always) + ".")
     if improvements:
         lines.append("Ability Score Improvements and feats: " + "; ".join(improvements) + ".")
     return "\n".join(lines)

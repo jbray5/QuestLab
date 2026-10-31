@@ -1,12 +1,18 @@
-"""Class-feature service — catalog browsing + per-PC usage tracking (Plan 00021).
+"""Class-feature service — catalog browsing + per-PC usage tracking (Plans 00021, 128).
 
-Resolves the ``UsesFormula`` enum against a PC to produce the actual ``max_uses``
-integer. All authz goes through campaign ownership.
+Resolves the ``UsesFormula`` enum (or a level-scaled override from the rules
+module) against a PC to produce the actual ``max_uses`` integer. Seeds every
+catalog row a database is missing, grants new rows to the characters that
+qualify, and lists every class and subclass feature a character has at its
+level. All DM authz goes through campaign ownership; the player route is a
+capability link the router resolves.
 """
 
 from __future__ import annotations
 
+import logging
 import uuid
+from typing import Any, Iterable, Optional
 
 from sqlmodel import Session
 
@@ -23,9 +29,19 @@ from domain.character import (
     PlayerCharacter,
 )
 from domain.enums import CharacterClass, UsesFormula
-from integrations.dnd_rules.class_features_2024 import NON_SRD_SUBCLASSES
+from integrations.dnd_rules.class_features_2024 import (
+    CLASS_FEATURES_2024,
+    NON_SRD_SUBCLASSES,
+    canonical_subclass,
+    features_for_level,
+    scaled_uses,
+)
 from integrations.event_bus import publish_pc_updated
 from services import auth_service, character_service
+
+logger = logging.getLogger(__name__)
+
+_ABILITIES = ("str", "dex", "con", "int", "wis", "cha")
 
 
 def _ability_mod(score: int) -> int:
@@ -80,6 +96,28 @@ def resolve_max_uses(formula: UsesFormula, pc: PlayerCharacter) -> int:
     return 0
 
 
+def max_uses_for(feature: ClassFeature, pc: PlayerCharacter) -> int:
+    """Max uses of a catalog feature for this PC, level-scaled where 2024 says so.
+
+    Action Surge, Indomitable, Wild Shape and the Paladin's Channel Divinity gain
+    uses at set levels; Lay on Hands is a pool of 5 hit points per level. Those
+    come from the rules module; everything else from the row's ``UsesFormula``.
+
+    Args:
+        feature: The catalog row.
+        pc: The PC whose level and scores provide the inputs.
+
+    Returns:
+        The max uses (or pool size), 0 for passive features.
+    """
+    if feature.uses_formula == UsesFormula.NONE:
+        return 0
+    scaled = scaled_uses(feature.character_class, feature.name, pc.level)
+    if scaled is not None:
+        return scaled
+    return resolve_max_uses(feature.uses_formula, pc)
+
+
 def _assert_pc_owner(db: Session, character_id: uuid.UUID, dm_email: str) -> PlayerCharacter:
     """Verify the DM owns the PC's campaign, return the PC.
 
@@ -132,9 +170,8 @@ def _hydrate(
         if feature is not None and feature_cache is not None:
             feature_cache[row.feature_id] = feature
     name = feature.name if feature else ""
-    formula = feature.uses_formula if feature else UsesFormula.NONE
     recovery = feature.recovery if feature else None
-    max_uses = resolve_max_uses(formula, pc) if feature else 0
+    max_uses = max_uses_for(feature, pc) if feature else 0
     return CharacterFeatureRead(
         id=row.id,
         character_id=row.character_id,
@@ -180,34 +217,83 @@ def list_catalog(
     ]
 
 
+def _catalog_key(name: str, character_class: Any, subclass: Optional[str]) -> tuple[str, str, str]:
+    """The identity a catalog row is matched on: name + class + subclass."""
+    cls = str(getattr(character_class, "value", character_class) or "").strip().lower()
+    return (name.strip().lower(), cls, (subclass or "").strip().lower())
+
+
+def _seed_missing(db: Session, payloads: Iterable[Any]) -> list[ClassFeature]:
+    """Insert the payloads the catalog lacks and return the new rows (see ``seed_catalog``)."""
+    existing = {
+        _catalog_key(r.name, r.character_class, r.subclass): r
+        for r in ClassFeatureRepo.list_all(db)
+    }
+    inserted: list[ClassFeature] = []
+    changed = 0
+    for payload in payloads:
+        key = _catalog_key(payload.name, payload.character_class, payload.subclass)
+        row = existing.get(key)
+        if row is None:
+            row = ClassFeatureRepo.create(db, payload)
+            existing[key] = row
+            inserted.append(row)
+            continue
+        if row.uses_formula != payload.uses_formula or row.recovery != payload.recovery:
+            row.uses_formula = payload.uses_formula
+            row.recovery = payload.recovery
+            db.add(row)
+            changed += 1
+    if changed:
+        db.commit()
+    return inserted
+
+
 def seed_catalog(db: Session, payloads: list) -> int:
-    """Seed the class_features catalog if empty. Idempotent.
+    """Insert every catalog row the table is missing. Idempotent.
+
+    Rows are matched on name + class + subclass, so a database that already
+    holds some rows (an older seed, or the rows data migrations planted) gets
+    the rest, and nothing is ever duplicated. Existing rows keep their id (PCs'
+    counters point at it); only their max-uses formula and recovery are kept
+    in step with the rules module (Plan 83).
 
     Args:
         db: Active database session.
         payloads: List of ClassFeatureCreate payloads.
 
     Returns:
-        Number of features inserted (0 if catalog already populated).
+        Number of features inserted.
     """
-    if ClassFeatureRepo.count(db) > 0:
-        # Plan 83 — the catalog exists; keep max-uses formulas current with the
-        # rules module (Channel Divinity moved off proficiency bonus).
-        changed = 0
-        for payload in payloads:
-            row = ClassFeatureRepo.find_by_name_class(db, payload.name, payload.character_class)
-            if row is not None and row.uses_formula != payload.uses_formula:
-                row.uses_formula = payload.uses_formula
-                db.add(row)
-                changed += 1
-        if changed:
-            db.commit()
-        return 0
-    inserted = 0
-    for payload in payloads:
-        ClassFeatureRepo.create(db, payload)
-        inserted += 1
-    return inserted
+    return len(_seed_missing(db, payloads))
+
+
+def seed_and_backfill(db: Session, payloads: list) -> dict[str, int]:
+    """Startup: seed the missing catalog rows, then grant the new ones to every PC who qualifies.
+
+    Only rows inserted by this call are granted, so a feature a DM removed
+    from a sheet on purpose doesn't come back on the next restart.
+
+    Args:
+        db: Active database session.
+        payloads: List of ClassFeatureCreate payloads.
+
+    Returns:
+        ``{"inserted": n, "granted": m}``.
+    """
+    new_rows = _seed_missing(db, payloads)
+    granted = 0
+    if new_rows:
+        for campaign in CampaignRepo.list_all(db):
+            personal = auth_service.personal_content_allowed(campaign.dm_email or "")
+            for pc in CharacterRepo.list_by_campaign(db, campaign.id):
+                granted += len(_grant(db, pc, new_rows, personal))
+        logger.info(
+            "Class-feature catalog: %d rows added, %d granted to characters.",
+            len(new_rows),
+            granted,
+        )
+    return {"inserted": len(new_rows), "granted": granted}
 
 
 # ── Per-PC features ────────────────────────────────────────────────────────
@@ -291,20 +377,25 @@ def set_uses_spent(
         raise ValueError(f"Character-feature {character_feature_id} not found.")
     pc = _assert_pc_owner(db, row.character_id, dm_email)
     feature = ClassFeatureRepo.get_by_id(db, row.feature_id)
-    max_uses = resolve_max_uses(feature.uses_formula, pc) if feature else 0
+    max_uses = max_uses_for(feature, pc) if feature else 0
     clamped = max(0, min(uses_spent, max_uses)) if max_uses > 0 else 0
     updated = CharacterFeatureRepo.update(db, row, CharacterFeatureUpdate(uses_spent=clamped))
     publish_pc_updated(pc.id, pc.campaign_id, kind="pc.features.updated")
     return _hydrate(db, updated, pc)
 
 
-def spend_use(db: Session, character_feature_id: uuid.UUID, dm_email: str) -> CharacterFeatureRead:
-    """Spend one use of a feature (uses_spent += 1, clamped to max).
+def spend_use(
+    db: Session, character_feature_id: uuid.UUID, dm_email: str, amount: int = 1
+) -> CharacterFeatureRead:
+    """Spend uses of a feature (uses_spent += amount, clamped to max).
+
+    ``amount`` is for pools: Lay on Hands spends any number of its points at once.
 
     Args:
         db: Active database session.
         character_feature_id: UUID of the PC-feature row.
         dm_email: Email of the requesting DM.
+        amount: How many uses (or pool points) to spend; at least 1.
 
     Returns:
         Hydrated CharacterFeatureRead.
@@ -312,17 +403,17 @@ def spend_use(db: Session, character_feature_id: uuid.UUID, dm_email: str) -> Ch
     row = CharacterFeatureRepo.get_by_id(db, character_feature_id)
     if row is None:
         raise ValueError(f"Character-feature {character_feature_id} not found.")
-    return set_uses_spent(db, row.id, row.uses_spent + 1, dm_email)
+    return set_uses_spent(db, row.id, row.uses_spent + max(1, int(amount)), dm_email)
 
 
 def restore_use(
-    db: Session, character_feature_id: uuid.UUID, dm_email: str
+    db: Session, character_feature_id: uuid.UUID, dm_email: str, amount: int = 1
 ) -> CharacterFeatureRead:
-    """Undo one spent use (uses_spent -= 1, floor 0)."""
+    """Undo spent uses (uses_spent -= amount, floor 0); ``amount`` is for pools."""
     row = CharacterFeatureRepo.get_by_id(db, character_feature_id)
     if row is None:
         raise ValueError(f"Character-feature {character_feature_id} not found.")
-    return set_uses_spent(db, row.id, max(0, row.uses_spent - 1), dm_email)
+    return set_uses_spent(db, row.id, max(0, row.uses_spent - max(1, int(amount))), dm_email)
 
 
 def forget_feature(db: Session, character_feature_id: uuid.UUID, dm_email: str) -> bool:
@@ -334,14 +425,59 @@ def forget_feature(db: Session, character_feature_id: uuid.UUID, dm_email: str) 
     return CharacterFeatureRepo.delete(db, row)
 
 
-def sync_for_level(db: Session, character_id: uuid.UUID, dm_email: str) -> list[str]:
-    """Grant every catalog feature the PC qualifies for (level-up helper).
+def _subclass_matches(feature_subclass: str, pc: PlayerCharacter) -> bool:
+    """Whether a subclass catalog row belongs to this PC's subclass.
 
-    Idempotent: features already learned are skipped. A feature qualifies
-    when its class matches, its ``level_acquired`` is within the PC's
-    level, and it is either class-generic or matches the PC's subclass
-    (case-insensitive substring either way, so "Life Domain" matches
-    "Life").
+    Case-insensitive substring either way ("Life Domain" matches "Life"), or the
+    same SRD subclass however it was written ("Path of the Berserker" is the
+    Berserker, "School of Evocation" the Evoker).
+    """
+    subclass = (pc.subclass or "").strip().lower()
+    if not subclass:
+        return False
+    fsub = feature_subclass.strip().lower()
+    if fsub in subclass or subclass in fsub:
+        return True
+    canon = canonical_subclass(pc.character_class, pc.subclass)
+    return canon is not None and canon.lower() == fsub
+
+
+def _qualifies(feature: ClassFeature, pc: PlayerCharacter, personal: bool) -> bool:
+    """Class, level and subclass all fit (and non-SRD text only at the owner's table)."""
+    if feature.character_class != pc.character_class or feature.level_acquired > pc.level:
+        return False
+    if feature.subclass:
+        if not _subclass_matches(feature.subclass, pc):
+            return False
+        # Plan 77 — PHB-only subclass text never leaves the owner's table.
+        if feature.subclass in NON_SRD_SUBCLASSES and not personal:
+            return False
+    return True
+
+
+def _grant(
+    db: Session, pc: PlayerCharacter, catalog: Iterable[ClassFeature], personal: bool
+) -> list[str]:
+    """Create a PC-feature row for each catalog row the PC qualifies for and lacks."""
+    have = {row.feature_id for row in CharacterFeatureRepo.list_for_character(db, pc.id)}
+    granted: list[str] = []
+    for feature in catalog:
+        if feature.id in have or not _qualifies(feature, pc, personal):
+            continue
+        CharacterFeatureRepo.create(db, pc.id, CharacterFeatureCreate(feature_id=feature.id))
+        have.add(feature.id)
+        granted.append(feature.name)
+    return granted
+
+
+def sync_for_level(db: Session, character_id: uuid.UUID, dm_email: str) -> list[str]:
+    """Grant every catalog feature the PC qualifies for (creation and level-up helper).
+
+    Idempotent: features already learned are skipped. The catalog is first
+    topped up from the rules module, so a database whose startup seed missed
+    rows still grants the whole set. A feature qualifies when its class
+    matches, its ``level_acquired`` is within the PC's level, and it is either
+    class-generic or belongs to the PC's subclass (see ``_subclass_matches``).
 
     Args:
         db: Active database session.
@@ -352,24 +488,65 @@ def sync_for_level(db: Session, character_id: uuid.UUID, dm_email: str) -> list[
         Names of the newly granted features (empty if up to date).
     """
     pc = _assert_pc_owner(db, character_id, dm_email)
-    granted: list[str] = []
-    have = {row.feature_id for row in CharacterFeatureRepo.list_for_character(db, character_id)}
-    subclass = (pc.subclass or "").strip().lower()
-    for feature in ClassFeatureRepo.list_all(
-        db, character_class=pc.character_class, max_level=pc.level
-    ):
-        if feature.id in have:
-            continue
-        if feature.subclass:
-            fsub = feature.subclass.strip().lower()
-            if not subclass or (fsub not in subclass and subclass not in fsub):
-                continue
-            # Plan 77 — PHB-only subclass text never leaves the owner's table.
-            if (
-                feature.subclass in NON_SRD_SUBCLASSES
-                and not auth_service.personal_content_allowed(dm_email)
-            ):
-                continue
-        CharacterFeatureRepo.create(db, character_id, CharacterFeatureCreate(feature_id=feature.id))
-        granted.append(feature.name)
-    return granted
+    _seed_missing(db, CLASS_FEATURES_2024)
+    catalog = ClassFeatureRepo.list_all(db, character_class=pc.character_class, max_level=pc.level)
+    return _grant(db, pc, catalog, auth_service.personal_content_allowed(dm_email))
+
+
+# ── Every feature at the PC's level (Plan 128) ─────────────────────────────
+
+
+def _mods(pc: PlayerCharacter) -> dict[str, int]:
+    """Ability modifiers, for notes that quote them (Aura of Protection, Bardic Inspiration)."""
+    return {ab: _ability_mod(getattr(pc, f"score_{ab}")) for ab in _ABILITIES}
+
+
+def class_features_of(pc: PlayerCharacter) -> list[dict[str, Any]]:
+    """Every class and subclass feature this PC has at its level, with plain-words notes.
+
+    Args:
+        pc: The player character.
+
+    Returns:
+        ``[{"name", "level", "source": "class"|"subclass", "note"}]`` in level order.
+    """
+    return features_for_level(pc.character_class, pc.subclass, pc.level, _mods(pc))
+
+
+def list_class_features(
+    db: Session, character_id: uuid.UUID, dm_email: str
+) -> list[dict[str, Any]]:
+    """The DM's view: every class and subclass feature the PC has at its level.
+
+    Args:
+        db: Active database session.
+        character_id: UUID of the PC.
+        dm_email: Email of the requesting DM.
+
+    Returns:
+        See ``class_features_of``.
+
+    Raises:
+        ValueError: If the PC or campaign is missing.
+        PermissionError: If the DM does not own the campaign.
+    """
+    return class_features_of(_assert_pc_owner(db, character_id, dm_email))
+
+
+def list_class_features_for_player(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
+    """The player's view through their sheet link (the router resolved the capability).
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC the link opens.
+
+    Returns:
+        See ``class_features_of``.
+
+    Raises:
+        LookupError: If the PC does not exist.
+    """
+    pc = CharacterRepo.get_by_id(db, pc_id)
+    if pc is None:
+        raise LookupError("Character not found.")
+    return class_features_of(pc)

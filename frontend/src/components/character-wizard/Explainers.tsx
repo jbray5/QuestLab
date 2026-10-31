@@ -1,5 +1,5 @@
 import type { BuilderOptions } from "../../api/characterBuilder";
-import { ABILITY_NAMES, abilityWords, andList, cantripCap, featureNote, fmt, maxSpellLevel, ordinal, spellCap } from "./rules";
+import { ABILITY_NAMES, abilityWords, andList, cantripCap, featureNote, fmt, maxSpellLevel, ordinal, choiceCounts, spellCap, stepAt } from "./rules";
 
 /**
  * "What does this give me?" panels for the wizard (Plan 126, DESIGN.md §0): plain words next
@@ -40,6 +40,14 @@ export function ClassExplainer({ opts, klass, level, subclass }: { opts: Opts; k
   const armor = cls.armor.filter((a) => a !== "shields");
   const sc = cls.spellcasting;
   const nextLevel = Object.keys(table).map(Number).filter((l) => l > level).sort((a, b) => a - b)[0];
+  // Plan 128 — the numbers the class tracks, worked out for this level ("Channel Divinity uses 2").
+  const scales = (opts.class_scales?.[klass] ?? [])
+    .map(({ label, table }) => [label, stepAt(level, table)] as const)
+    .filter(([, v]) => v !== undefined);
+  const choices = Object.entries(choiceCounts(opts, klass, level, subclass)).map(([key, n]) => {
+    const label = opts.choice_kinds?.[key]?.label ?? key;
+    return n > 1 ? `${label} (${n})` : label;
+  });
   const nextNames = nextLevel
     ? (table[String(nextLevel)] ?? []).flatMap((n) => (n === SUB_MARK ? subTable?.[String(nextLevel)] ?? ["a subclass feature"] : [n]))
     : [];
@@ -54,8 +62,14 @@ export function ClassExplainer({ opts, klass, level, subclass }: { opts: Opts; k
       {sc && (
         <div className="row"><span>Spells</span><span>
           Cast with {ABILITY_NAMES[sc.ability]}: {cantripCap(opts, klass, level) ? <><span className="num">{cantripCap(opts, klass, level)}</span> cantrips, </> : null}
-          <span className="num">{spellCap(opts, klass, level)}</span> prepared, up to {ordinal(Math.max(1, maxSpellLevel(opts, klass, level)))} level
+          <span className="num">{spellCap(opts, klass, level)}</span> prepared, up to {ordinal(Math.max(1, maxSpellLevel(opts, klass, level)))} level. You pick them on the Spells step
         </span></div>
+      )}
+      {scales.length > 0 && (
+        <div className="row"><span>At level {level}</span><span>{scales.map(([l, v]) => `${l}: ${v}`).join(" · ")}</span></div>
+      )}
+      {choices.length > 0 && (
+        <div className="row"><span>Class choices</span><span>{andList(choices)}: you choose {choices.length > 1 ? "them" : "it"} after skills</span></div>
       )}
       {asis.length > 0 && (
         <div className="row"><span>Improvements</span><span>{asis.length === 1 ? "One" : asis.length} Ability Score Improvement{asis.length > 1 ? "s" : ""} (level{asis.length > 1 ? "s" : ""} {andList(asis)}): you choose {asis.length > 1 ? "them" : "it"} after skills</span></div>

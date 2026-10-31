@@ -2,9 +2,14 @@
 
 Plan 126: the DM builds with the same wizard, and a build at level 4 or higher carries one
 Ability Score Improvement (or feat) pick per improvement level it has passed.
+
+Plan 128: the build also carries the class's own choices (Fighting Style, Weapon Mastery,
+Expertise, Divine Order, Eldritch Invocations...) and the Origin feats' picks (Magic Initiate's
+spells, Skilled's skills); the options carry what the wizard needs to ask for them, and each
+spell's casting time, range, duration and its full text.
 """
 
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -18,6 +23,29 @@ class BuildAsiChoice(FeatChoice):
     """
 
     level: int = Field(ge=1, le=20)
+
+
+_Name = Annotated[str, Field(min_length=1, max_length=80)]
+
+
+class ClassChoicePick(BaseModel):
+    """One class choice (Plan 128): Fighting Style, Weapon Mastery, Expertise, Divine Order...
+
+    ``key`` is a choice from ``levelup_2024.CHOICE_KINDS``; ``picks`` are names from its list;
+    ``book`` are names typed from the player's book, where the choice allows it.
+    """
+
+    key: str = Field(min_length=1, max_length=40)
+    picks: list[_Name] = Field(default_factory=list, max_length=12)
+    book: list[_Name] = Field(default_factory=list, max_length=12)
+
+
+class OriginFeatPicks(BaseModel):
+    """An Origin feat's own picks (Plan 128): Magic Initiate's list and spells, Skilled's skills."""
+
+    choice: Optional[str] = Field(default=None, max_length=40)  # Magic Initiate's spell list
+    spells: list[_Name] = Field(default_factory=list, max_length=6)
+    skills: list[_Name] = Field(default_factory=list, max_length=6)
 
 
 class CharacterBuild(BaseModel):
@@ -44,6 +72,14 @@ class CharacterBuild(BaseModel):
     # Plan 126 — one pick per Ability Score Improvement level up to ``level`` (4, 8, ...; the
     # Fighter and Rogue have more; 19 is the Epic Boon). Empty below level 4.
     asi: list[BuildAsiChoice] = Field(default_factory=list, max_length=10)
+    # Plan 128 — the class's own choices and the Origin feats' picks. The wizard always sends a
+    # list here (empty when the class has nothing to choose), and then every choice is checked:
+    # the class choices, Magic Initiate's spells and Skilled's skills, and the spell counts.
+    # None means a caller from before Plan 128 (the sample night's pregens): those aren't asked
+    # for, and the result's warnings say what's still open.
+    class_choices: Optional[list[ClassChoicePick]] = Field(default=None, max_length=20)
+    background_feat_picks: Optional[OriginFeatPicks] = None  # the background's Origin feat
+    origin_feat_picks: Optional[OriginFeatPicks] = None  # a Human's Versatile feat
     appearance: Optional[str] = Field(default=None, max_length=600)
     backstory: Optional[str] = Field(default=None, max_length=4000)
 
@@ -61,7 +97,8 @@ class BuilderOptions(BaseModel):
     point_buy_cost: dict[int, int]
     point_buy_budget: int
     armor: dict[str, Any]
-    # Spell catalog trimmed for the picker: name, level, classes, school.
+    # The spell catalog for the picker: name, level, classes, school, and (Plan 128) casting
+    # time, range, duration, components, concentration, ritual and the full text.
     spells: list[dict[str, Any]]
     # Catalog weapons the kits reference, by name.
     weapons: list[dict[str, Any]]
@@ -79,6 +116,20 @@ class BuilderOptions(BaseModel):
     unarmored_ac_subclass: dict[str, str] = Field(default_factory=dict)
     # Spell slots per class, one entry per level 1-20 (Warlock: {"pact": n, "level": L}).
     spell_slots: dict[str, list[dict[str, int]]] = Field(default_factory=dict)
+    # Plan 128 — the class choices (what, when, how many, from what), the always-prepared spell
+    # tables, the weapons Weapon Mastery can name, and the numbers each class tracks by level.
+    choice_kinds: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    class_choices: dict[str, dict[str, list[list[int]]]] = Field(default_factory=dict)
+    subclass_choices: dict[str, dict[str, list[list[int]]]] = Field(default_factory=dict)
+    fighting_style_extras: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    mastery_weapons: list[dict[str, Any]] = Field(default_factory=list)
+    weapon_mastery_filter: dict[str, str] = Field(default_factory=dict)
+    always_prepared_class: dict[str, dict[int, list[str]]] = Field(default_factory=dict)
+    always_prepared_subclass: dict[str, dict[int, list[str]]] = Field(default_factory=dict)
+    always_prepared_source: dict[str, str] = Field(default_factory=dict)
+    land_spells: dict[str, dict[int, list[str]]] = Field(default_factory=dict)
+    extra_spell_lists: dict[str, dict[int, list[str]]] = Field(default_factory=dict)
+    class_scales: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
 
 
 class BuildResult(BaseModel):

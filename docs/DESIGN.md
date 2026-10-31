@@ -147,7 +147,7 @@ the sweep (`scratchpad/mobile_sweep.py OUTDIR [route] [width]`). It measures wit
 | `.ql-scroll-x` | a row meant to scroll sideways (chips, tabs) | same |
 | `.ql-table-wrap` | table scrolls inside its box | same, though stacked cards are better for anything read at the table |
 | `.ql-hide-phone` / `.ql-only-phone` | — | hide / show |
-| `PhoneSheet` | — | bottom sheet with a title and close button, portalled to `<body>`, z 9000 |
+| `PhoneSheet` | — | bottom sheet with a title and close button, portalled to `<body>`, z 9000; lifts above the iPhone keyboard (`visualViewport`, Plan 128) |
 | `HudMenu` | dropdown | bottom sheet |
 
 **Rules:**
@@ -160,3 +160,25 @@ the sweep (`scratchpad/mobile_sweep.py OUTDIR [route] [width]`). It measures wit
 - Keep every function reachable. A feature may stay desktop-only only when it really needs the
   room, such as map painting or the 3D board, and then say so on screen ("needs a bigger screen").
 - No WebGL on list or character pages (iOS Safari crashed with four previews; see TD notes).
+- The viewport meta has `interactive-widget=resizes-content`, so Android shrinks the page for the
+  keyboard. iOS doesn't, so a text box low on a phone page calls `keepAboveKeyboard` from its
+  `onFocus` (`components/runbook/keepAboveKeyboard.ts`); `PhoneSheet` does this for itself.
+
+## 9. Keyboard, focus and screen readers (Plan 128)
+
+- **Use `useDialogFocus` for any modal** (`frontend/src/hooks/useDialogFocus.ts`): a dialog,
+  sheet, drawer or popover that sits over the page. Give the box `role="dialog"`, an accessible
+  name and `tabIndex={-1}`, then call `useDialogFocus(ref, { onEscape: close })`. Focus moves in
+  (`[data-autofocus]`, else the `[data-dialog-title]` heading), Tab stays inside, Escape closes, and
+  focus goes back to the opener. `PhoneSheet` already uses it, so content inside one needs nothing
+  more. Don't write a dialog's focus handling by hand.
+- Every DM page starts with a "Skip to content" link to `<main id="ql-main">` (`pages/Layout.tsx`).
+  The closed nav drawer is `inert`, so its links leave the Tab order.
+- Text fields get the same 2 px orange `:focus-visible` ring as buttons. Never set
+  `outline: none` on something a person can tab to; `.ql-quiet-focus` is only for things that take
+  focus so a reader lands in the right place (a dialog's title, `<main>`).
+- Single-letter shortcuts on DM pages (N for notes, E to end a turn) check `isTypingTarget(e)`
+  (`components/dm/hotkeys.ts`) first, so typing in a field never fires one.
+- Things that change on their own (whose turn it is, a roll, "Thank you") are announced through a
+  `role="status"` / `aria-live="polite"` region. Use `.ql-sr-only` when it should be heard and not
+  seen.

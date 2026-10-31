@@ -15,7 +15,8 @@ allowed table-state scope.
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
+from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from api.deps import DB, PlayPcId
@@ -28,6 +29,7 @@ from domain.arena import (
     ArenaState,
     TurnKit,
 )
+from domain.beta import FeedbackCreate
 from domain.character import (
     NoSpellSlotError,
     PlayerCastBody,
@@ -47,7 +49,14 @@ from domain.shop import (
     TransferReceipt,
 )
 from domain.table_state import PlayerTokenMove
-from services import arena_service, character_builder_service, levelup_service, player_service
+from services import (
+    arena_service,
+    beta_service,
+    character_builder_service,
+    feature_service,
+    levelup_service,
+    player_service,
+)
 
 router = APIRouter(tags=["play"])
 
@@ -272,10 +281,15 @@ def restore_spell_slot(pc_id: PlayPcId, level: int, db: DB):
 
 
 @router.post("/play/{pc_id}/features/{character_feature_id}/spend")
-def spend_feature_use(pc_id: PlayPcId, character_feature_id: uuid.UUID, db: DB):
-    """Player spends one use of a class feature they own."""
+def spend_feature_use(
+    pc_id: PlayPcId,
+    character_feature_id: uuid.UUID,
+    db: DB,
+    amount: int = Query(1, ge=1, le=100),
+):
+    """Player spends uses of a class feature they own (``amount`` for pools like Lay on Hands)."""
     try:
-        return player_service.spend_feature(db, pc_id, character_feature_id)
+        return player_service.spend_feature(db, pc_id, character_feature_id, amount)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     except ValueError as exc:
@@ -324,15 +338,19 @@ def patch_state(pc_id: PlayPcId, body: dict, db: DB) -> PlayerCharacter:
     """Bounded player-scope PATCH.
 
     Accepted fields: ``temp_hp`` (Plan 122), ``heroic_inspiration``, ``concentration_on``,
-    ``exhaustion``, ``cp``, ``sp``, ``ep``, ``gp``, ``pp``. Anything else
-    raises 403 — those are DM-only.
+    ``exhaustion``, ``cp``, ``sp``, ``ep``, ``gp``, ``pp``, and ``player_name``
+    (1-100 characters, Plan 128). Anything else raises 403 — those are DM-only.
+    A value out of bounds is a 422 with field-level errors the phone can word.
     """
     try:
         return player_service.patch_state(db, pc_id, body)
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     except ValidationError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=jsonable_encoder(exc.errors(include_url=False, include_input=False)),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
@@ -864,6 +882,26 @@ def turn_kit(pc_id: PlayPcId, db: DB) -> TurnKit:
         raise _companion_error(exc)
 
 
+@router.get("/play/{pc_id}/class-features")
+def class_features(pc_id: PlayPcId, db: DB) -> list[dict]:
+    """Every class and subclass feature this character has at its level (Plan 128).
+
+    Passive ones too (Extra Attack, Weapon Mastery, auras), each with a
+    plain-words note; the tracked uses stay on ``/features``.
+
+    Args:
+        pc_id: UUID of the player character (capability URL).
+        db: Database session.
+
+    Returns:
+        ``[{"name", "level", "source": "class"|"subclass", "note"}]`` in level order.
+    """
+    try:
+        return feature_service.list_class_features_for_player(db, pc_id)
+    except LookupError as exc:
+        raise _companion_error(exc)
+
+
 @router.post("/play/{pc_id}/spells/{character_spell_id}/cast")
 def cast_spell(
     pc_id: PlayPcId, character_spell_id: uuid.UUID, body: PlayerCastBody, db: DB
@@ -877,7 +915,8 @@ def cast_spell(
         db: Database session.
 
     Returns:
-        ``{"spell", "slot_level", "concentration"}``.
+        ``{"spell", "slot_level", "concentration", "heal_dice"}`` (``heal_dice`` is set
+        for healing spells, e.g. ``"2d8+3"``).
     """
     try:
         return player_service.cast_spell(
@@ -910,7 +949,7 @@ def prepare_spell(
 
 @router.put("/play/{pc_id}/notes")
 def put_notes(pc_id: PlayPcId, body: PlayerNotesBody, db: DB) -> dict:
-    """Save the player's private notes.
+    """Save the player's notes on this character (anyone with the link can read them).
 
     Args:
         pc_id: UUID of the player character (capability URL).
@@ -924,3 +963,29 @@ def put_notes(pc_id: PlayPcId, body: PlayerNotesBody, db: DB) -> dict:
         return player_service.set_player_notes(db, pc_id, body.text)
     except (LookupError, ValueError) as exc:
         raise _companion_error(exc)
+
+
+@router.post("/play/{pc_id}/feedback", status_code=status.HTTP_201_CREATED)
+def send_feedback(
+    pc_id: PlayPcId, body: FeedbackCreate, db: DB, background: BackgroundTasks
+) -> dict:
+    """A player sends feedback from their phone (Plan 128); no account needed.
+
+    The note joins the beta's feedback inbox under the character, and the
+    feedback channel is pinged after the response is sent.
+
+    Args:
+        pc_id: UUID of the player character (capability URL).
+        body: Kind, text, page and viewport.
+        db: Database session.
+        background: Runs the feedback ping after responding.
+
+    Returns:
+        ``{"id": <note id>}``.
+    """
+    try:
+        note, sender = player_service.send_feedback(db, pc_id, body)
+    except LookupError as exc:
+        raise _companion_error(exc)
+    background.add_task(beta_service.notify, note, sender)
+    return {"id": str(note.id)}

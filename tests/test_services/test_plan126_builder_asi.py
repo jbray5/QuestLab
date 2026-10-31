@@ -265,7 +265,7 @@ class TestFeatsLandOnTheSheet:
                 _build(
                     character_class="Wizard",
                     species="Human",
-                    background="Sage",
+                    background="Criminal",  # Sage would already give Magic Initiate (Wizard)
                     kit="Quarterstaff & dagger",
                     scores={"INT": 15, "DEX": 14, "CON": 13, "WIS": 12, "STR": 10, "CHA": 8},
                     background_bonus={"INT": 2, "CON": 1},

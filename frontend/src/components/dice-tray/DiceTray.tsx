@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Dices, Volume2, VolumeX } from "lucide-react";
+import { useLocation } from "react-router-dom";
 
 import { playDiceClatter } from "../../lib/dice-sound";
 import { useDicePrefs } from "../../hooks/useDicePrefs";
 import { useIsCompact } from "../../hooks/useIsCompact";
 import PhoneSheet from "../PhoneSheet";
+import { DICE_BUTTON_HIDDEN_ON_PHONE, OPEN_DICE_EVENT } from "./diceEvents";
 
 interface RollResult {
   id: number;
@@ -36,6 +38,18 @@ export default function DiceTray() {
   // Plan 123 — on a phone the tray opens as a bottom sheet (its backdrop and
   // Escape close it), with wide fields and thumb-sized dice.
   const phone = useIsCompact(640);
+  // Plan 128 — on a phone the floating button covered the HUD tracker's remove
+  // buttons and prep's Initiative "Reset" (Lena). There it hides; the HUD's tool
+  // row opens the tray with an event instead.
+  const { pathname } = useLocation();
+  const docked = phone && DICE_BUTTON_HIDDEN_ON_PHONE.test(pathname);
+  const nextId = useRef(1);
+
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener(OPEN_DICE_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_DICE_EVENT, onOpen);
+  }, []);
 
   // Click outside to close.
   useEffect(() => {
@@ -69,7 +83,7 @@ export default function DiceTray() {
 
     const label = `${n}d${sides}${m === 0 ? "" : m > 0 ? `+${m}` : m}`;
     const result: RollResult = {
-      id: Date.now() + Math.random(),
+      id: nextId.current++,
       label,
       rolls,
       modifier: m,
@@ -265,6 +279,7 @@ export default function DiceTray() {
         </div>
       )}
 
+      {!docked && (
       <button
         data-tour-id="dice-tray"
         onClick={() => setOpen(!open)}
@@ -288,6 +303,7 @@ export default function DiceTray() {
       >
         <Dices size={22} aria-hidden />
       </button>
+      )}
     </div>
   );
 }

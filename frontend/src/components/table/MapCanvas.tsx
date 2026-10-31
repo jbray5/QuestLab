@@ -1,6 +1,7 @@
 import { useRef } from "react";
 
 import type { BrushReveal, TableToken } from "../../api/types";
+import { CLASS_GLYPHS } from "../../lib/classGlyphs";
 import { CONCENTRATION_COLOR, conditionLook } from "../../lib/conditions";
 
 /**
@@ -12,7 +13,16 @@ import { CONCENTRATION_COLOR, conditionLook } from "../../lib/conditions";
  * DM's TableConsole preview (editable). Layers, bottom → top:
  *   map image → grid → darkness dim + vignette → feathered fog → tokens
  *   (with turn-glow halo + labels) → ping ripple.
+ *
+ * Plan 128 — a PC token with no picture wears its class crest (the
+ * game-icons.net glyphs ClassCrest uses), not a letter, so Bram and Brother
+ * Aldous no longer read as two identical gold Bs. With `tvLabels` the name
+ * plates are sized for the room (about 22 px at 720p, whatever the map's
+ * size) and step down a row when they would overlap a neighbour's.
  */
+
+/** A token as the canvas draws it; the projection adds the PC's class (Plan 128). */
+export type CanvasToken = TableToken & { class_name?: string | null };
 
 export interface MapCanvasMap {
   image_url: string;
@@ -45,7 +55,7 @@ interface Props {
   fogOn: boolean;
   revealedRegions: number[][][];
   brushReveals: BrushReveal[];
-  tokens: TableToken[];
+  tokens: CanvasToken[];
   darkness: number;
   activeTokenRef?: string | null;
   defeatedRefs?: string[];
@@ -60,6 +70,17 @@ interface Props {
   onTokenRemove?: (id: string) => void;
   /** Combat cinema (Plan 61): transient floating numbers by token ref. */
   fx?: { id: string; refId: string; kind: "damage" | "heal" | "ko"; amount: number | null }[];
+  /** Plan 128 — name plates sized to read across a room (the TV and projector). */
+  tvLabels?: boolean;
+}
+
+/** A name plate's box in map pixels, after it has stepped clear of its neighbours. */
+interface PlateBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  fs: number;
 }
 
 const RING_COLORS: Record<string, string> = {
@@ -96,6 +117,7 @@ export default function MapCanvas({
   onTokenDragEnd,
   onTokenRemove,
   fx = [],
+  tvLabels = false,
 }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const dragId = useRef<string | null>(null);
@@ -126,6 +148,45 @@ export default function MapCanvas({
   const tokenUnit = grid > 0 ? grid : Math.round(Math.min(W, H) / 20);
   const pingMax = tokenUnit * 2.6;
   const defeatedSet = new Set(defeatedRefs);
+  const hiddenByFog = (t: CanvasToken) =>
+    fogOn && !editable && t.kind !== "pc" && !isRevealed(t.x, t.y, revealedRegions, brushReveals);
+
+  // Plan 128 — name plates. On the TV the font follows the map's on-screen
+  // scale: 3.2% of the map's limiting side reads as ~22 px on a 720p screen.
+  // Plates that would collide step down a row instead of overprinting.
+  const tvFont = 0.032 * Math.max(H, W * 0.5625);
+  const plates = new Map<string, PlateBox>();
+  {
+    const placed: PlateBox[] = [];
+    const order = tokens
+      .filter((t) => t.label && !hiddenByFog(t))
+      .sort((a, b) => a.y - b.y || a.x - b.x);
+    for (const t of order) {
+      const r = (tokenUnit * (t.size || 1)) / 2;
+      const fs = tvLabels ? Math.max(r * 0.42, tvFont) : r * 0.38;
+      const h = tvLabels ? fs * 1.38 : r * 0.5;
+      const w = tvLabels ? t.label.length * fs * 0.5 + fs * 0.9 : t.label.length * r * 0.32 + r * 0.6;
+      const top = t.y + r + (tvLabels ? Math.max(3, r * 0.1) : r * 0.12);
+      let box: PlateBox = { x: t.x - w / 2, y: top, w, h, fs };
+      if (tvLabels) {
+        for (let row = 0; row < 4; row++) {
+          const cand = { x: t.x - w / 2, y: top + row * (h + fs * 0.18), w, h, fs };
+          const pad = fs * 0.2;
+          const hits = placed.some(
+            (q) =>
+              cand.x < q.x + q.w + pad &&
+              q.x < cand.x + cand.w + pad &&
+              cand.y < q.y + q.h &&
+              q.y < cand.y + cand.h,
+          );
+          box = cand;
+          if (!hits) break;
+        }
+      }
+      placed.push(box);
+      plates.set(t.id, box);
+    }
+  }
 
   function handleCanvasDown(e: React.PointerEvent) {
     if (!editable || !onCanvasPointerDown || !svgRef.current) return;
@@ -277,7 +338,7 @@ export default function MapCanvas({
       {/* Tokens — Plan 85: on player-facing canvases, foes and markers under
           unrevealed fog stay hidden; the party is always shown. */}
       {tokens.map((t) => {
-        if (fogOn && !editable && t.kind !== "pc" && !isRevealed(t.x, t.y, revealedRegions, brushReveals)) {
+        if (hiddenByFog(t)) {
           return null;
         }
         const r = (tokenUnit * (t.size || 1)) / 2;
@@ -292,6 +353,9 @@ export default function MapCanvas({
         const isPoisoned = conds.includes("poisoned");
         const isRestrained = conds.includes("restrained") || conds.includes("grappled");
         const pips = conds.filter((c) => c !== "prone").slice(0, 4);
+        const crestKey = (t.class_name ?? "").trim().toLowerCase();
+        const crest = !t.image_url && t.kind === "pc" ? CLASS_GLYPHS[crestKey] : undefined;
+        const plate = plates.get(t.id);
         return (
           <g
             key={t.id}
@@ -359,9 +423,21 @@ export default function MapCanvas({
               fill="#14141a"
               stroke={selected ? "#ffffff" : ring}
               strokeWidth={Math.max(2, r * (isActive ? 0.16 : 0.1))}
-              style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.6))" }}
+              style={{
+                filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.6))",
+                ...(crest ? { fill: `color-mix(in srgb, var(--class-${crestKey}) 40%, #161B19)` } : null),
+              }}
             />
-            {t.image_url ? (
+            {crest ? (
+              <path
+                d={crest.d}
+                transform={`translate(${t.x - r * 0.62} ${t.y - r * 0.62}) scale(${(r * 1.24) / 512})`}
+                fill="#ECE7DA"
+                fillOpacity={isDefeated ? 0.5 : 0.95}
+              >
+                <title>{t.class_name}</title>
+              </path>
+            ) : t.image_url ? (
               <>
                 <clipPath id={`ql-clip-${t.id}`}>
                   <circle cx={t.x} cy={t.y} r={r - Math.max(2, r * 0.1)} />
@@ -396,21 +472,24 @@ export default function MapCanvas({
                 <line x1={t.x + r * 0.55} y1={t.y - r * 0.55} x2={t.x - r * 0.55} y2={t.y + r * 0.55} />
               </g>
             )}
-            {t.label && (
+            {t.label && plate && (
               <>
                 <rect
-                  x={t.x - (t.label.length * r * 0.16 + r * 0.3)}
-                  y={t.y + r + r * 0.12}
-                  width={t.label.length * r * 0.32 + r * 0.6}
-                  height={r * 0.5}
-                  rx={r * 0.25}
-                  fill="rgba(6,6,12,0.72)"
+                  x={plate.x}
+                  y={plate.y}
+                  width={plate.w}
+                  height={plate.h}
+                  rx={plate.h / 2}
+                  fill={tvLabels ? "rgba(17,21,19,0.86)" : "rgba(6,6,12,0.72)"}
+                  stroke={tvLabels && isActive ? "#E3863A" : undefined}
+                  strokeWidth={tvLabels && isActive ? Math.max(1.5, plate.fs * 0.08) : undefined}
                 />
                 <text
                   x={t.x}
-                  y={t.y + r + r * 0.48}
+                  y={plate.y + plate.h * 0.5 + plate.fs * 0.34}
                   textAnchor="middle"
-                  fontSize={r * 0.38}
+                  fontSize={plate.fs}
+                  fontWeight={tvLabels ? 700 : undefined}
                   fill="#ece7da"
                   fontFamily="Alegreya, Georgia, serif"
                   letterSpacing="0.02em"
@@ -423,11 +502,13 @@ export default function MapCanvas({
               <g>
                 {pips.map((c, i) => {
                   const look = conditionLook(c);
-                  const pw = r * 0.66;
-                  const ph = r * 0.32;
+                  // Plan 128 — on the TV the condition marks are sized for the room too.
+                  const ph = tvLabels ? Math.max(r * 0.32, tvFont * 0.95) : r * 0.32;
+                  const pw = ph * 2.06;
                   const total = pips.length * pw + (pips.length - 1) * r * 0.08;
                   const px = t.x - total / 2 + i * (pw + r * 0.08);
-                  const py = t.y + r + r * 0.7;
+                  // Plan 128 — on the TV the plate sits under the feet, so marks go overhead.
+                  const py = tvLabels ? t.y - r - ph - Math.max(3, r * 0.12) : t.y + r + r * 0.7;
                   return (
                     <g key={c}>
                       <rect
@@ -490,18 +571,21 @@ export default function MapCanvas({
       {tokens.map((t) => {
         const fx = t.effects ?? [];
         if (fx.length === 0) return null;
-        if (fogOn && !editable && t.kind !== "pc" && !isRevealed(t.x, t.y, revealedRegions, brushReveals)) {
+        if (hiddenByFog(t)) {
           return null;
         }
         const r = (tokenUnit * (t.size || 1)) / 2;
-        const fs = Math.max(9, tokenUnit * 0.2);
+        const plate = plates.get(t.id);
+        const fs = tvLabels ? Math.max(9, tvFont * 0.85) : Math.max(9, tokenUnit * 0.2);
+        // On the TV the states stack under the (bigger) name plate.
+        const fxTop = tvLabels && plate ? plate.y + plate.h : t.y + r;
         return (
           <g key={`fx-${t.id}`} style={{ pointerEvents: "none" }}>
             {fx.map((label, i) => (
               <text
                 key={label}
                 x={t.x}
-                y={t.y + r + fs * (1.15 + i * 1.15)}
+                y={fxTop + fs * (1.15 + i * 1.15)}
                 textAnchor="middle"
                 fontFamily="system-ui, sans-serif"
                 fontWeight={700}

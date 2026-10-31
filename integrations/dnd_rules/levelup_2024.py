@@ -1100,3 +1100,555 @@ def scaling_notes(class_name: str, old_level: int, new_level: int, *, is_caster:
     if class_name == "Wizard" and new_level > 1:
         notes.append("Add two Wizard spells to your spellbook (pick them below).")
     return notes
+
+
+# ── Plan 128: always-prepared spells ─────────────────────────────────────────
+# 2024 rules: these are always prepared, cost no pick and don't count against the prepared
+# number. Keyed by class level. Names from the SRD 5.2.1 class and subclass chapters.
+
+ALWAYS_PREPARED_CLASS: dict[str, dict[int, list[str]]] = {
+    "Druid": {1: ["Speak with Animals"]},  # Druidic
+    "Paladin": {2: ["Divine Smite"], 5: ["Find Steed"]},  # Paladin's Smite, Faithful Steed
+    "Ranger": {1: ["Hunter's Mark"]},  # Favored Enemy
+}
+
+ALWAYS_PREPARED_SUBCLASS: dict[str, dict[int, list[str]]] = {
+    "Life Domain": {
+        3: ["Aid", "Bless", "Cure Wounds", "Lesser Restoration"],
+        5: ["Mass Healing Word", "Revivify"],
+        7: ["Aura of Life", "Death Ward"],
+        9: ["Greater Restoration", "Mass Cure Wounds"],
+    },
+    "Oath of Devotion": {
+        3: ["Protection from Evil and Good", "Shield of Faith"],
+        5: ["Aid", "Zone of Truth"],
+        9: ["Beacon of Hope", "Dispel Magic"],
+        13: ["Freedom of Movement", "Guardian of Faith"],
+        17: ["Commune", "Flame Strike"],
+    },
+    "Draconic Sorcery": {
+        3: ["Alter Self", "Chromatic Orb", "Command", "Dragon's Breath"],
+        5: ["Fear", "Fly"],
+        7: ["Arcane Eye", "Charm Monster"],
+        9: ["Legend Lore", "Summon Dragon"],
+    },
+    "Fiend Patron": {
+        3: ["Burning Hands", "Command", "Scorching Ray", "Suggestion"],
+        5: ["Fireball", "Stinking Cloud"],
+        7: ["Fire Shield", "Wall of Fire"],
+        9: ["Geas", "Insect Plague"],
+    },
+}
+
+# Circle of the Land: the land picked at Druid 3 (changeable after a Long Rest) sets the list.
+LAND_SPELLS: dict[str, dict[int, list[str]]] = {
+    "Arid": {
+        3: ["Blur", "Burning Hands", "Fire Bolt"],
+        5: ["Fireball"],
+        7: ["Blight"],
+        9: ["Wall of Stone"],
+    },
+    "Polar": {
+        3: ["Fog Cloud", "Hold Person", "Ray of Frost"],
+        5: ["Sleet Storm"],
+        7: ["Ice Storm"],
+        9: ["Cone of Cold"],
+    },
+    "Temperate": {
+        3: ["Misty Step", "Shocking Grasp", "Sleep"],
+        5: ["Lightning Bolt"],
+        7: ["Freedom of Movement"],
+        9: ["Tree Stride"],
+    },
+    "Tropical": {
+        3: ["Acid Splash", "Ray of Sickness", "Web"],
+        5: ["Stinking Cloud"],
+        7: ["Polymorph"],
+        9: ["Insect Plague"],
+    },
+}
+
+# Which class feature gives each class's always-prepared spells ("Class:level" or "Class").
+ALWAYS_PREPARED_SOURCE: dict[str, str] = {
+    "Druid": "Druidic",
+    "Paladin:2": "Paladin's Smite",
+    "Paladin:5": "Faithful Steed",
+    "Ranger": "Favored Enemy",
+}
+
+# Extra spell lists a class may prepare from, by class level (Bard 10: Magical Secrets).
+EXTRA_SPELL_LISTS: dict[str, dict[int, list[str]]] = {"Bard": {10: ["Cleric", "Druid", "Wizard"]}}
+
+
+def always_prepared(
+    class_name: str, level: int, subclass: str | None = None, land: str | None = None
+) -> list[tuple[str, str]]:
+    """Spells always prepared at ``level``, as ``(spell, where it comes from)`` pairs.
+
+    Args:
+        class_name: The class.
+        level: The class level.
+        subclass: The subclass, once it has arrived (the SRD ones carry spell lists).
+        land: Circle of the Land's chosen land, if any.
+
+    Returns:
+        Pairs in level order, no repeats (Aid from a domain and an oath counts once).
+    """
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+
+    def add(names: list[str], source: str) -> None:
+        for name in names:
+            if name.casefold() not in seen:
+                seen.add(name.casefold())
+                out.append((name, source))
+
+    for at, names in sorted(ALWAYS_PREPARED_CLASS.get(class_name, {}).items()):
+        if level >= at:
+            source = ALWAYS_PREPARED_SOURCE.get(f"{class_name}:{at}")
+            add(names, source or ALWAYS_PREPARED_SOURCE.get(class_name, class_name))
+    for at, names in sorted(ALWAYS_PREPARED_SUBCLASS.get(subclass or "", {}).items()):
+        if level >= at:
+            add(names, str(subclass))
+    if subclass == "Circle of the Land" and land in LAND_SPELLS:
+        for at, names in sorted(LAND_SPELLS[land].items()):
+            if level >= at:
+                add(names, f"Circle of the Land ({land})")
+    return out
+
+
+def extra_spell_lists(class_name: str, level: int) -> list[str]:
+    """Other class lists this class may prepare from at ``level`` (Bard 10+: Magical Secrets)."""
+    out: list[str] = []
+    for at, lists in sorted(EXTRA_SPELL_LISTS.get(class_name, {}).items()):
+        if level >= at:
+            out += [x for x in lists if x not in out]
+    return out
+
+
+# ── Plan 128: the class choices the creator asks for ─────────────────────────
+# What a class (or SRD subclass) has you choose as it levels. ``CLASS_CHOICES`` gives a
+# (from_level, how_many) table per choice, read with ``_step``; a subclass's table adds to its
+# class's for the same key (the Champion's Additional Fighting Style).
+#
+# Recorded on the sheet the way the level-up guide records picks: a Fighting Style feat by name in
+# ``feats``; Expertise as a 2 and a new skill as a 1 in ``skill_proficiencies``; anything else as
+# a "Label: Choice" entry in ``feats`` (the Arena already reads "Metamagic: Twinned Spell").
+
+
+def _opt(name: str, blurb: str, **effects: Any) -> dict[str, Any]:
+    """One option of a class choice: a name, a one-line blurb in our words, and its effects."""
+    return {"name": name, "blurb": blurb, **effects}
+
+
+SCHOLAR_SKILLS = ["Arcana", "History", "Investigation", "Medicine", "Nature", "Religion"]
+
+# Eldritch Invocations in SRD 5.2.1 with their prerequisites: a Warlock level, another
+# invocation, or a damaging Warlock cantrip. The summaries are ours; play them from the book.
+INVOCATIONS: list[dict[str, Any]] = [
+    _opt(
+        "Agonizing Blast",
+        "Add your Charisma modifier to a damaging Warlock cantrip's damage.",
+        level=2,
+        cantrip="damage",
+    ),
+    _opt("Armor of Shadows", "Cast Mage Armor on yourself at will, with no slot."),
+    _opt("Ascendant Step", "Cast Levitate on yourself at will, with no slot.", level=5),
+    _opt("Devil's Sight", "See normally in darkness, magical or not, out to 120 ft.", level=2),
+    _opt(
+        "Devouring Blade",
+        "Thirsting Blade gives one more extra attack.",
+        level=12,
+        requires="Thirsting Blade",
+    ),
+    _opt("Eldritch Mind", "Advantage on Constitution saves to keep Concentration."),
+    _opt(
+        "Eldritch Smite",
+        "Spend a Pact slot when your pact weapon hits: extra force damage, and it falls prone.",
+        level=5,
+        requires="Pact of the Blade",
+    ),
+    _opt(
+        "Eldritch Spear",
+        "Your damaging Warlock cantrip reaches much farther.",
+        level=2,
+        cantrip="damage",
+    ),
+    _opt(
+        "Fiendish Vigor",
+        "Cast False Life on yourself with no slot, taking its highest roll.",
+        level=2,
+    ),
+    _opt(
+        "Gaze of Two Minds",
+        "Touch a willing creature to see and hear through its senses.",
+        level=5,
+    ),
+    _opt(
+        "Gift of the Depths",
+        "Breathe underwater, swim at your speed, and cast Water Breathing once a day.",
+        level=5,
+    ),
+    _opt(
+        "Gift of the Protectors",
+        "A name written in your Book of Shadows drops to 1 HP instead of 0, once.",
+        level=9,
+        requires="Pact of the Tome",
+    ),
+    _opt(
+        "Investment of the Chain Master",
+        "Your familiar flies or swims, attacks with your spell DC, and is tougher.",
+        level=5,
+        requires="Pact of the Chain",
+    ),
+    _opt(
+        "Lessons of the First Ones",
+        "Gain an Origin feat of your choice (note it on your sheet).",
+        level=2,
+        repeatable=True,
+    ),
+    _opt(
+        "Lifedrinker",
+        "Pact weapon hits deal extra damage, and you can spend a Hit Die to heal.",
+        level=9,
+        requires="Pact of the Blade",
+    ),
+    _opt("Mask of Many Faces", "Cast Disguise Self at will, with no slot.", level=2),
+    _opt("Master of Myriad Forms", "Cast Alter Self at will, with no slot.", level=5),
+    _opt("Misty Visions", "Cast Silent Image at will, with no slot.", level=2),
+    _opt(
+        "One with Shadows",
+        "In dim light or darkness, turn invisible until you move or act.",
+        level=5,
+    ),
+    _opt("Otherworldly Leap", "Cast Jump on yourself at will, with no slot.", level=2),
+    _opt(
+        "Pact of the Blade",
+        "Conjure a pact weapon and attack with it using Charisma.",
+    ),
+    _opt("Pact of the Chain", "Learn Find Familiar; your familiar can take special forms."),
+    _opt(
+        "Pact of the Tome",
+        "A Book of Shadows with three cantrips and two rituals of your choice.",
+    ),
+    _opt(
+        "Repelling Blast",
+        "Your damaging Warlock cantrip that hits with an attack pushes the target 10 ft.",
+        level=2,
+        cantrip="attack",
+    ),
+    _opt(
+        "Thirsting Blade",
+        "Attack twice with your pact weapon when you take the Attack action.",
+        level=5,
+        requires="Pact of the Blade",
+    ),
+    _opt("Visions of Distant Realms", "Cast Arcane Eye at will, with no slot.", level=9),
+    _opt("Whispers of the Grave", "Cast Speak with Dead at will, with no slot.", level=7),
+    _opt(
+        "Witch Sight",
+        "See the true form of shapechangers and anything hidden by magic within 30 ft.",
+        level=15,
+    ),
+]
+
+METAMAGIC: list[dict[str, Any]] = [
+    _opt(
+        "Careful Spell",
+        "Chosen creatures pass your spell's save automatically and take no half damage.",
+    ),
+    _opt("Distant Spell", "Double a spell's range, or make a Touch spell reach 30 ft."),
+    _opt("Empowered Spell", "Reroll some of a spell's damage dice."),
+    _opt(
+        "Extended Spell",
+        "Double a spell's duration, with advantage to keep Concentration.",
+    ),
+    _opt("Heightened Spell", "One target has disadvantage on its save against your spell."),
+    _opt("Quickened Spell", "Cast a one-action spell as a bonus action."),
+    _opt("Seeking Spell", "Reroll a spell attack that misses."),
+    _opt("Subtle Spell", "Cast with no words or gestures, so nobody sees you do it."),
+    _opt("Transmuted Spell", "Change a spell's damage type to another element."),
+    _opt("Twinned Spell", "A single-target spell takes one more target."),
+]
+
+# A Paladin or Ranger may take two cantrips instead of a Fighting Style feat (2024).
+FIGHTING_STYLE_EXTRAS: dict[str, list[dict[str, Any]]] = {
+    "Paladin": [
+        _opt(
+            "Blessed Warrior",
+            "Two Cleric cantrips instead of a feat. They count as Paladin spells, cast with "
+            "Charisma.",
+            cantrips={"count": 2, "list": "Cleric"},
+        )
+    ],
+    "Ranger": [
+        _opt(
+            "Druidic Warrior",
+            "Two Druid cantrips instead of a feat. They count as Ranger spells, cast with Wisdom.",
+            cantrips={"count": 2, "list": "Druid"},
+        )
+    ],
+}
+
+# Every kind of choice: its label, how it is picked ("feat", "option", "weapon", "expertise" or
+# "skill"), a plain-words note, whether a book entry is allowed, and the "Label" it is recorded
+# under in ``feats`` ("Divine Order: Protector").
+CHOICE_KINDS: dict[str, dict[str, Any]] = {
+    "fighting_style": {
+        "label": "Fighting Style",
+        "kind": "feat",
+        "note": "A Fighting Style feat: a way of fighting you have trained in.",
+        "book": True,
+        "record": "Fighting Style",
+    },
+    "weapon_mastery": {
+        "label": "Weapon Mastery",
+        "kind": "weapon",
+        "note": "Kinds of weapon whose mastery property you can use, such as a Longsword's Sap. "
+        "You can swap one after a Long Rest.",
+        "record": "Weapon Mastery",
+    },
+    "expertise": {
+        "label": "Expertise",
+        "kind": "expertise",
+        "note": "Skills you're already trained in: your proficiency bonus counts twice for them.",
+    },
+    "scholar": {
+        "label": "Scholar",
+        "kind": "expertise",
+        "note": "Expertise in one knowledge skill you're trained in.",
+        "pool": SCHOLAR_SKILLS,
+    },
+    "primal_knowledge": {
+        "label": "Primal Knowledge",
+        "kind": "skill",
+        "note": "One more skill from the Barbarian list.",
+        "pool": "class",
+    },
+    "bonus_proficiencies": {
+        "label": "Bonus Proficiencies",
+        "kind": "skill",
+        "note": "Three more skills of your choice.",
+    },
+    "divine_order": {
+        "label": "Divine Order",
+        "kind": "option",
+        "note": "Your role in your faith.",
+        "record": "Divine Order",
+        "options": [
+            _opt(
+                "Protector",
+                "Trained for battle: heavy armor and martial weapons.",
+                armor=["heavy"],
+            ),
+            _opt(
+                "Thaumaturge",
+                "One more Cleric cantrip, and your Wisdom helps your Arcana and Religion checks.",
+                cantrips={"count": 1, "list": "Cleric"},
+            ),
+        ],
+    },
+    "primal_order": {
+        "label": "Primal Order",
+        "kind": "option",
+        "note": "Your role in your circle.",
+        "record": "Primal Order",
+        "options": [
+            _opt(
+                "Magician",
+                "One more Druid cantrip, and your Wisdom helps your Arcana and Nature checks.",
+                cantrips={"count": 1, "list": "Druid"},
+            ),
+            _opt(
+                "Warden",
+                "Trained for battle: medium armor and martial weapons.",
+                armor=["medium"],
+            ),
+        ],
+    },
+    "blessed_strikes": {
+        "label": "Blessed Strikes",
+        "kind": "option",
+        "note": "Divine power in your weapon or in your cantrips.",
+        "record": "Blessed Strikes",
+        "options": [
+            _opt(
+                "Divine Strike",
+                "Once a turn, a weapon hit deals 1d8 extra necrotic or radiant damage.",
+            ),
+            _opt("Potent Spellcasting", "Add your Wisdom modifier to Cleric cantrip damage."),
+        ],
+    },
+    "elemental_fury": {
+        "label": "Elemental Fury",
+        "kind": "option",
+        "note": "Nature's power in your weapon or in your cantrips.",
+        "record": "Elemental Fury",
+        "options": [
+            _opt("Potent Spellcasting", "Add your Wisdom modifier to Druid cantrip damage."),
+            _opt(
+                "Primal Strike",
+                "Once a turn, a weapon or Wild Shape hit deals 1d8 extra cold, fire, lightning "
+                "or thunder damage.",
+            ),
+        ],
+    },
+    "invocations": {
+        "label": "Eldritch Invocations",
+        "kind": "option",
+        "note": "Gifts from your patron. Some need a higher Warlock level or another invocation.",
+        "record": "Eldritch Invocation",
+        "options": INVOCATIONS,
+        "book": True,
+    },
+    "metamagic": {
+        "label": "Metamagic",
+        "kind": "option",
+        "note": "Ways to bend your spells with Sorcery Points.",
+        "record": "Metamagic",
+        "options": METAMAGIC,
+        "book": True,
+    },
+    "land": {
+        "label": "Land",
+        "kind": "option",
+        "note": "The land your circle draws on. It sets your Circle Spells, which are always "
+        "prepared. You can change it after a Long Rest.",
+        "record": "Circle of the Land",
+        "options": [
+            _opt(
+                "Arid",
+                "Blur, Burning Hands and Fire Bolt; later Fireball, Blight and Wall of Stone.",
+            ),
+            _opt(
+                "Polar",
+                "Fog Cloud, Hold Person and Ray of Frost; later Sleet Storm, Ice Storm and Cone "
+                "of Cold.",
+            ),
+            _opt(
+                "Temperate",
+                "Misty Step, Shocking Grasp and Sleep; later Lightning Bolt, Freedom of Movement "
+                "and Tree Stride.",
+            ),
+            _opt(
+                "Tropical",
+                "Acid Splash, Ray of Sickness and Web; later Stinking Cloud, Polymorph and Insect "
+                "Plague.",
+            ),
+        ],
+    },
+    "hunters_prey": {
+        "label": "Hunter's Prey",
+        "kind": "option",
+        "note": "How you bring a quarry down.",
+        "record": "Hunter's Prey",
+        "options": [
+            _opt(
+                "Colossus Slayer",
+                "Once a turn, 1d8 extra damage to a creature that's already hurt.",
+            ),
+            _opt(
+                "Horde Breaker",
+                "Once a turn, one more attack against a different creature next to your target.",
+            ),
+        ],
+    },
+    "defensive_tactics": {
+        "label": "Defensive Tactics",
+        "kind": "option",
+        "note": "How you keep yourself alive.",
+        "record": "Defensive Tactics",
+        "options": [
+            _opt("Escape the Horde", "Opportunity attacks against you have disadvantage."),
+            _opt(
+                "Multiattack Defense",
+                "A creature that hits you has disadvantage on its other attacks this turn.",
+            ),
+        ],
+    },
+}
+
+CLASS_CHOICES: dict[str, dict[str, list[tuple[int, int]]]] = {
+    "Barbarian": {"weapon_mastery": [(1, 2), (4, 3), (10, 4)], "primal_knowledge": [(3, 1)]},
+    "Bard": {"expertise": [(2, 2), (9, 4)]},
+    "Cleric": {"divine_order": [(1, 1)], "blessed_strikes": [(7, 1)]},
+    "Druid": {"primal_order": [(1, 1)], "elemental_fury": [(7, 1)]},
+    "Fighter": {"fighting_style": [(1, 1)], "weapon_mastery": [(1, 3), (4, 4), (10, 5), (16, 6)]},
+    "Monk": {},
+    "Paladin": {"weapon_mastery": [(1, 2)], "fighting_style": [(2, 1)]},
+    # Deft Explorer (2) gives one Expertise; the level-9 Expertise feature gives two more.
+    "Ranger": {
+        "weapon_mastery": [(1, 2)],
+        "fighting_style": [(2, 1)],
+        "expertise": [(2, 1), (9, 3)],
+    },
+    "Rogue": {"expertise": [(1, 2), (6, 4)], "weapon_mastery": [(1, 2)]},
+    "Sorcerer": {"metamagic": [(2, 2), (10, 4), (17, 6)]},
+    "Warlock": {
+        "invocations": [(1, 1), (2, 3), (5, 5), (7, 6), (9, 7), (12, 8), (15, 9), (18, 10)]
+    },
+    "Wizard": {"scholar": [(2, 1)]},
+}
+
+SUBCLASS_CHOICES: dict[str, dict[str, list[tuple[int, int]]]] = {
+    "College of Lore": {"bonus_proficiencies": [(3, 3)]},
+    "Champion": {"fighting_style": [(7, 1)]},  # Additional Fighting Style
+    "Circle of the Land": {"land": [(3, 1)]},
+    "Hunter": {"hunters_prey": [(3, 1)], "defensive_tactics": [(7, 1)]},
+}
+
+# Weapon kinds a class may master: every Simple and Martial weapon, except as filtered here.
+WEAPON_MASTERY_FILTER: dict[str, str] = {"Barbarian": "melee", "Rogue": "finesse_or_light"}
+
+
+def class_choice_counts(class_name: str, level: int, subclass: str | None = None) -> dict[str, int]:
+    """How many picks each class choice has at ``level`` (a subclass's table adds to its class's).
+
+    Args:
+        class_name: The class.
+        level: The class level.
+        subclass: The subclass, once it has arrived.
+
+    Returns:
+        ``{choice key: count}`` for every choice with at least one pick, in table order.
+    """
+    out: dict[str, int] = {}
+    for table in (CLASS_CHOICES.get(class_name, {}), SUBCLASS_CHOICES.get(subclass or "", {})):
+        for key, steps in table.items():
+            n = _step(level, steps) or 0
+            if n:
+                out[key] = out.get(key, 0) + int(n)
+    return out
+
+
+def mastery_weapon_ok(class_name: str, category: str, properties: list[str]) -> bool:
+    """Whether ``class_name`` may master a weapon of this category with these properties."""
+    rule = WEAPON_MASTERY_FILTER.get(class_name)
+    cat = (category or "").casefold()
+    if rule == "melee":
+        return cat.endswith("melee")
+    if rule == "finesse_or_light":
+        props = {p.casefold() for p in properties or []}
+        return cat.startswith("simple") or bool(props & {"finesse", "light"})
+    return True
+
+
+def choice_options(class_name: str, key: str) -> list[dict[str, Any]]:
+    """The listed options for a choice (Fighting Style: the catalog's feats plus class extras)."""
+    spec = CHOICE_KINDS.get(key, {})
+    if spec.get("kind") == "feat":
+        feats = [
+            _opt(f["name"], f["blurb"], srd=f["srd"])
+            for f in FEATS
+            if f["category"] == "fighting_style"
+        ]
+        return feats + list(FIGHTING_STYLE_EXTRAS.get(class_name, []))
+    return list(spec.get("options") or [])
+
+
+def class_scales() -> dict[str, list[dict[str, Any]]]:
+    """The per-level numbers each class tracks (Rages, Lay on Hands pool...), for explanations."""
+    return {
+        cls: [{"label": label, "table": [list(row) for row in table]} for label, table in rows]
+        for cls, rows in _SCALES.items()
+    }

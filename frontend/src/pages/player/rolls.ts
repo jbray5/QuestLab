@@ -2,10 +2,10 @@
  * Roll specs for the companion phone (Plan 122): every number becomes a roll,
  * with a plain sentence about where its bonus comes from.
  */
-import type { TurnOption } from "../../api/play";
+import type { PlaySpell, TurnOption } from "../../api/play";
 import type { PlayerCharacter } from "../../api/types";
 import type { RollSpec } from "./rollContext";
-import { ABILITIES, SKILLS, fmt, mod, profBonus, type AbilityKey } from "./rules";
+import { ABILITIES, SKILLS, fmt, healingOf, mod, ordinal, profBonus, type AbilityKey } from "./rules";
 
 const score = (pc: PlayerCharacter, k: AbilityKey) => pc[`score_${k}` as const] as number;
 const abilityName = (k: AbilityKey) => ABILITIES.find((a) => a.key === k)?.name ?? k;
@@ -85,4 +85,41 @@ export function damageSpec(o: TurnOption): RollSpec | null {
     modifier: m[3] ? Number(m[3].replace(/\s/g, "")) : 0,
     why: o.save ? `Targets make a ${o.save} save; on a success they usually take half.` : undefined,
   };
+}
+
+/**
+ * A healing spell's roll (Plan 128): Cure Wounds is 2d8 plus your spellcasting
+ * modifier, with more dice from a higher slot. Null for spells that don't heal
+ * (or that deal damage too: those keep their attack or save roll).
+ *
+ * @param ability - The spellcasting ability ("WIS"), from the spellcasting stats.
+ * @param slotLevel - The slot it was cast with, or null for its own level.
+ */
+export function healSpec(pc: PlayerCharacter, spell: PlaySpell, ability: string | null | undefined, slotLevel: number | null): RollSpec | null {
+  if (spell.damage_dice) return null;
+  const h = healingOf(spell.description, spell.higher_levels);
+  if (!h) return null;
+  const k = (ability ?? "").toLowerCase().slice(0, 3) as AbilityKey;
+  const known = ABILITIES.some((a) => a.key === k);
+  const m = h.addMod && known ? mod(score(pc, k)) : 0;
+  const above = slotLevel && slotLevel > spell.level ? slotLevel - spell.level : 0;
+  const extra = h.perSlot && h.perSlot.sides === h.sides ? h.perSlot.count * above : 0;
+  const count = Math.min(10, h.count + extra);
+  const parts = [`${h.count}d${h.sides}`];
+  if (extra) parts.push(`${extra}d${h.sides} more from the ${ordinal(slotLevel ?? 0)}-level slot`);
+  if (h.addMod && known) parts.push(`your ${abilityName(k)} ${fmt(m)}`);
+  if (h.plus) parts.push(String(h.plus));
+  return {
+    title: `${spell.name} healing`,
+    kind: "heal",
+    die: `d${h.sides}` as RollSpec["die"],
+    count,
+    modifier: h.plus + m,
+    why: `${spell.name} heals ${parts.join(" plus ")}.`,
+  };
+}
+
+/** "heals 2d8+3": a healing spell's dice in a line, for its row on the phone. */
+export function healLabel(spec: RollSpec): string {
+  return `heals ${spec.count ?? 1}${spec.die}${spec.modifier ? fmt(spec.modifier) : ""}`;
 }

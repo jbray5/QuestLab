@@ -1,6 +1,8 @@
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 
 import Flourish from "../Flourish";
+import { useDialogFocus } from "../../hooks/useDialogFocus";
 import { useTourStore } from "../../stores/useTourStore";
 import { TOUR_STEPS, type TourStep } from "./tour-steps";
 
@@ -15,17 +17,35 @@ import { TOUR_STEPS, type TourStep } from "./tour-steps";
  * The spotlight is implemented as a single SVG ``<rect>`` covering the
  * viewport with a ``mask`` that cuts a hole at the target's bounding
  * box — cheaper and crisper than two-element CSS approaches.
+ *
+ * Keyboard (Plan 128): the card is a modal dialog. Focus moves to the step's
+ * title when it opens and on every step (so a screen reader reads the new
+ * step), Tab stays inside the card, Enter or the right arrow goes on, the left
+ * arrow goes back, Escape skips, and focus returns to where it was afterwards.
  */
 export default function TourGuide() {
-  const { isOpen, stepIndex, next, prev, close } = useTourStore();
+  const isOpen = useTourStore((s) => s.isOpen);
+  if (!isOpen) return null;
+  return <TourCard />;
+}
+
+/** The open tour. Mounted only while open, so focus is taken and returned once. */
+function TourCard() {
+  const { stepIndex, next, prev, close } = useTourStore();
   const step: TourStep | undefined = TOUR_STEPS[stepIndex];
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useDialogFocus(cardRef, { onEscape: close });
+
+  const isFirst = stepIndex === 0;
+  const isLast = stepIndex === TOUR_STEPS.length - 1;
 
   // Recompute the spotlight rect whenever the step changes or the
   // window resizes. Re-runs on next paint so the target has had a
   // chance to mount.
   useLayoutEffect(() => {
-    if (!isOpen || !step) return;
+    if (!step) return;
     function compute() {
       if (!step?.targetSelector) {
         setRect(null);
@@ -57,25 +77,35 @@ export default function TourGuide() {
       window.removeEventListener("resize", compute);
       window.clearInterval(iv);
     };
-  }, [isOpen, step, stepIndex]);
+  }, [step, stepIndex]);
 
-  // Keyboard nav.
+  // Every step puts focus on its title: nothing drops to <body> when a button
+  // hides (Back on the first step), and a screen reader reads the new step.
   useEffect(() => {
-    if (!isOpen) return;
+    titleRef.current?.focus({ preventScroll: true });
+  }, [stepIndex]);
+
+  // Arrow keys anywhere; Enter only when focus isn't on a button (a button's
+  // own Enter is its click, so Enter on Back no longer also means Next).
+  useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") close();
-      else if (e.key === "ArrowRight" || e.key === "Enter") handleNext();
-      else if (e.key === "ArrowLeft") prev();
+      const t = e.target as HTMLElement | null;
+      if (t?.closest("input, textarea, select, [contenteditable='true']")) return;
+      const onControl = !!t?.closest("button, a[href]");
+      if (e.key === "ArrowRight" || (e.key === "Enter" && !onControl)) {
+        e.preventDefault();
+        if (isLast) close();
+        else next();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        prev();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, stepIndex]);
+  }, [isLast, close, next, prev]);
 
-  if (!isOpen || !step) return null;
-
-  const isFirst = stepIndex === 0;
-  const isLast = stepIndex === TOUR_STEPS.length - 1;
+  if (!step) return null;
 
   function handleNext() {
     if (isLast) close();
@@ -92,18 +122,15 @@ export default function TourGuide() {
     : rect
       ? placeCard(rect, step.placement ?? "right")
       : { inset: 0, margin: "auto", height: "fit-content" };
+  const tap = phone ? 44 : 36;
 
   return (
-    <div
-      aria-modal
-      role="dialog"
-      aria-label={`Tour step ${stepIndex + 1} of ${TOUR_STEPS.length}: ${step.title}`}
-      style={overlayWrapStyle}
-    >
+    <div style={overlayWrapStyle}>
       {/* SVG scrim with optional spotlight cutout */}
       <svg
         width="100%"
         height="100%"
+        aria-hidden
         style={{ position: "fixed", inset: 0, pointerEvents: "auto" }}
         onClick={close}
       >
@@ -144,40 +171,79 @@ export default function TourGuide() {
 
       {/* The card */}
       <div
-        className="ql-modal-in"
+        ref={cardRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Tour"
+        tabIndex={-1}
+        className="ql-modal-in ql-quiet-focus"
         onClick={(e) => e.stopPropagation()}
         style={{ ...cardStyle, ...cardPos }}
       >
         <header style={cardHeaderStyle}>
-          <span style={stepBadgeStyle}>
-            Step {stepIndex + 1} / {TOUR_STEPS.length}
+          <span id="ql-tour-step" style={stepBadgeStyle}>
+            Step <span className="num">{stepIndex + 1}</span> of <span className="num">{TOUR_STEPS.length}</span>
           </span>
-          <button onClick={close} style={closeBtnStyle} title="Skip tour (Esc)">
-            ✕
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Skip the tour"
+            title="Skip the tour (Esc)"
+            style={{ ...closeBtnStyle, width: tap, height: tap }}
+          >
+            <X size={18} aria-hidden />
           </button>
         </header>
-        <h3 style={cardTitleStyle}>{step.title}</h3>
+        <h3
+          ref={titleRef}
+          id="ql-tour-title"
+          tabIndex={-1}
+          data-dialog-title
+          aria-labelledby="ql-tour-step ql-tour-title"
+          aria-describedby="ql-tour-body"
+          className="ql-quiet-focus"
+          style={cardTitleStyle}
+        >
+          {step.title}
+        </h3>
         <Flourish width={140} />
-        <p style={cardBodyStyle}>{step.body}</p>
+        <p id="ql-tour-body" style={cardBodyStyle}>
+          {step.body}
+        </p>
 
         <footer style={cardFooterStyle}>
           <button
+            type="button"
             onClick={prev}
             disabled={isFirst}
             className="btn btn-ghost"
             style={{ fontSize: "0.78rem", padding: "0.35rem 0.7rem", visibility: isFirst ? "hidden" : "visible" }}
           >
-            ← Back
+            <ArrowLeft size={14} aria-hidden /> Back
           </button>
-          <button onClick={close} className="btn btn-ghost" style={{ fontSize: "0.78rem", padding: "0.35rem 0.7rem" }}>
+          <button
+            type="button"
+            onClick={close}
+            className="btn btn-ghost"
+            style={{ fontSize: "0.78rem", padding: "0.35rem 0.7rem" }}
+          >
             Skip
           </button>
           <button
+            type="button"
             onClick={handleNext}
             className="btn btn-primary"
             style={{ fontSize: "0.85rem", padding: "0.4rem 0.95rem" }}
           >
-            {isLast ? "Finish ✓" : "Next →"}
+            {isLast ? (
+              <>
+                Finish <Check size={15} aria-hidden />
+              </>
+            ) : (
+              <>
+                Next <ArrowRight size={15} aria-hidden />
+              </>
+            )}
           </button>
         </footer>
       </div>
@@ -251,23 +317,19 @@ const cardHeaderStyle: React.CSSProperties = {
 };
 
 const stepBadgeStyle: React.CSSProperties = {
-  fontSize: "0.62rem",
+  fontSize: "0.8125rem",
   color: "var(--muted)",
-  letterSpacing: "0.12em",
-  textTransform: "uppercase",
-  fontFamily: "var(--font-mono)",
 };
 
 const closeBtnStyle: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
   background: "transparent",
-  border: "1px solid var(--border)",
-  borderRadius: 4,
-  color: "var(--muted)",
-  width: 36,
-  height: 36,
+  border: "1px solid var(--border2)",
+  borderRadius: 8,
+  color: "var(--text2)",
   cursor: "pointer",
-  fontSize: "0.85rem",
-  lineHeight: 1,
   padding: 0,
 };
 

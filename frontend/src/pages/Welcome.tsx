@@ -98,6 +98,11 @@ const CSS = `
 .ql-w-foot a { color: inherit; }
 @media (max-width: 900px) {
   .ql-w-hero { grid-template-columns: 1fr; gap: 2rem; }
+  /* Plan 128: someone who opened an invite link sees the card (and their
+     greeting) first, not a screen and a half of pitch. Tab order is unchanged:
+     the pitch has no controls. */
+  .ql-w-hero.invited { margin-top: 0.5rem; }
+  .ql-w-hero.invited .ql-w-card { order: -1; }
   .ql-w-pillars { grid-template-columns: 1fr 1fr; }
   .ql-w-steps ol { grid-template-columns: 1fr; }
 }
@@ -241,7 +246,7 @@ export default function Welcome() {
         </nav>
       </header>
 
-      <section className="ql-w-hero">
+      <section className={`ql-w-hero${invite.trim() ? " invited" : ""}`}>
         <div className="ql-w-pitch">
           <div className="ql-w-die">
             <D20Mark size={112} />
@@ -272,16 +277,21 @@ export default function Welcome() {
         </div>
 
         <section id="account" className="ql-w-card" aria-label="Sign in or create an account">
+          {/* Plan 125/128 — the invite greeting comes first: it's what tells a
+              friend this link is for them. Always mounted so it's announced. */}
+          <div role="status">
+            {hasAccounts && inviteCheck?.valid && (
+              <p className="ql-w-invite">
+                You're invited to the QuestLab beta{inviteCheck.label ? <>, <b>{inviteCheck.label}</b></> : ""}. Create your
+                account below and the invite comes with you.
+              </p>
+            )}
+          </div>
           <h2>Sign in or create an account</h2>
           {error && <p className="ql-w-err">{error}</p>}
           {providers === null ? null : hasAccounts ? (
             <>
-              {inviteCheck?.valid ? (
-                <p className="ql-w-invite" role="status">
-                  You're invited to the QuestLab beta{inviteCheck.label ? <>, <b>{inviteCheck.label}</b></> : ""}. Create your
-                  account below and the invite comes with you.
-                </p>
-              ) : providers.invites_required ? (
+              {!inviteCheck?.valid && providers.invites_required ? (
                 <p className="ql-w-invite">
                   QuestLab is in a friends-only beta. New accounts need an invite link or code from the
                   DM who told you about it. Already have an account? Sign in.
@@ -357,7 +367,7 @@ export default function Welcome() {
                           }}
                         />
                         {inviteCheck && !inviteCheck.valid && (
-                          <p className="ql-w-err">That invite doesn't work: check it, or ask for a fresh one.</p>
+                          <p className="ql-w-err" role="alert">That invite doesn't work: check it, or ask for a fresh one.</p>
                         )}
                       </>
                     )}
@@ -374,7 +384,7 @@ export default function Welcome() {
                         />
                       </details>
                     )}
-                    {formError && <p className="ql-w-err">{formError}</p>}
+                    {formError && <p className="ql-w-err" role="alert">{formError}</p>}
                     <button className="btn btn-primary ql-w-cta" type="submit" disabled={busy}>
                       {busy ? "One moment…" : tab === "signup" ? "Create my account" : "Sign in"}
                     </button>

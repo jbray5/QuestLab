@@ -1,6 +1,10 @@
 import { Link } from "react-router-dom";
 
-/** TermsPage (Plan 73; Lamplit tokens in Plan 123) — plain-language terms, content rights, privacy. */
+/**
+ * TermsPage (Plan 73; Lamplit tokens in Plan 123) — plain-language terms, content rights, privacy.
+ * Plan 128: honest about what a player link carries, what is kept and for how
+ * long, players under 16, and how to get in touch (Send feedback in the app).
+ */
 const CSS = `
 .tm { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.3rem 5rem; color: var(--text2); font-family: var(--font-ui); line-height: 1.6; }
 .tm h1 { font-family: var(--font-story); font-weight: 700; color: var(--text); font-size: clamp(1.9rem, 6vw, 2.4rem); line-height: 1.15; margin: 0 0 0.6rem; }
@@ -32,10 +36,20 @@ export default function TermsPage() {
       <p>The class icons a character wears until it has a picture are by Lorc and Delapouite from <a href="https://game-icons.net" target="_blank" rel="noreferrer">game-icons.net</a>, used under the <a href="https://creativecommons.org/licenses/by/3.0/" target="_blank" rel="noreferrer">Creative Commons Attribution 3.0</a> license. They are drawn by people, not generated.</p>
 
       <h2>Accounts and privacy</h2>
-      <p>Signing in with Discord or Patreon shares your account id, display name, avatar and email with QuestLab; the email identifies your campaigns; a Patreon membership supports the project and unlocks nothing you need to play. Player links carry no personal data. We keep no payment details. Delete your campaigns any time from the app.</p>
+      <p>Only DMs have accounts. An email-and-password account keeps your name, your email and a scrambled (hashed) form of your password, never the password itself. Signing in with Discord or Patreon shares your account id, display name, avatar and email with QuestLab. Either way, the email identifies your campaigns. A Patreon membership supports the project and unlocks nothing you need to play. We keep no payment details.</p>
+
+      <h2 id="players">Players and player links</h2>
+      <p>A player link opens one character&rsquo;s sheet, and it carries what is written on that character: the character, the player&rsquo;s name as they typed it, and any notes on the character. Anyone holding the link, or the table&rsquo;s join code, can see those, so share a link only with its player. The DM can replace a link at any time, and the old one stops working.</p>
+      <p>Players under 16: players never make accounts, and QuestLab never asks them for an age or an email. The name a player types is only for the table, so a club leader can use first names or initials, and keep the notes box free of anything private.</p>
+
+      <h2>What is kept, and for how long</h2>
+      <p>Campaigns and everything in them (characters, player names, notes, sessions and maps) are kept until the DM deletes the campaign, and deleting it removes them. Uploaded picture files can stay in storage for a while after that, with nothing pointing to them, until they are cleared out. Feedback notes sent from the app are kept so they can be read.</p>
+
+      <h2>Questions and contact</h2>
+      <p>Questions about your data, or something you want removed? Use <b>Send feedback</b> in the app: it is in the menu on any DM screen, and in the Journal on a player&rsquo;s phone. A person reads every note.</p>
 
       <h2>Cookies and storage</h2>
-      <p>QuestLab sets no cookies and runs no analytics, advertising or tracking scripts, so there is nothing to accept or reject. Your browser keeps a few things on your device so the app works the way you left it: your sign-in, the campaign you had open, the help level you picked on your phone, whether you&rsquo;ve seen the tour, and which character you last opened from a join link. Only your sign-in is ever sent back, to prove who you are. Fonts and icons come from QuestLab itself, never a third-party font or tracking service. Clearing this site&rsquo;s data in your browser removes all of it.</p>
+      <p>QuestLab sets no cookies and runs no analytics, advertising or tracking scripts, so there is nothing to accept or reject. Your browser keeps a few things on your device so the app works the way you left it: your sign-in, the campaign you had open, the help level you picked on your phone, whether you&rsquo;ve seen the tour and other one-time hints, which character you last opened from a join link, which party each player link belongs to (so a replaced link can point you back to your party), and, if you link Obsidian notes, your vault&rsquo;s name. Only your sign-in is ever sent back, to prove who you are. Fonts and icons come from QuestLab itself, never a third-party font or tracking service. Clearing this site&rsquo;s data in your browser removes all of it.</p>
 
       <h2>Reasonable use</h2>
       <p>Don&rsquo;t abuse the service, share other people&rsquo;s private data, or upload unlawful content. We may suspend accounts that do.</p>

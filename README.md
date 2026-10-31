@@ -47,7 +47,7 @@ npm run dev
 ```
 
 - **Backend API + docs:** `http://localhost:8000/docs`
-- **React frontend:** `http://localhost:5173` (proxies `/api` → backend)
+- **React frontend:** `http://localhost:5173` (proxies `/api` and `/uploads` → backend)
 
 ### Production build (FastAPI serves React)
 
@@ -88,6 +88,9 @@ QuestLab runs in **personal mode** by default (trusted-header identity). To let 
 | `BOOTSTRAP_ADMIN_EMAILS` | No | — | Seed admins on first run |
 | `LOG_LEVEL` | No | `INFO` | Logging verbosity |
 | `ENV` | No | `production` | `development` enables dev fallbacks |
+| `BLOB_READ_WRITE_TOKEN` | In production | — | Vercel Blob store for uploads (portraits and notebook pastes under `portraits/`, maps, `.glb` figures). Blank in dev: files go to `uploads/` |
+
+`.env.example` lists the rest (accounts, beta invites, rate limits); see [docs/deployment.md](docs/deployment.md).
 
 **Never commit `.env`.** Commit `.env.example` only.
 
@@ -151,6 +154,9 @@ questlab/
 - [Security Model](docs/SECURITY.md)
 - [Testing Strategy](docs/TESTING.md)
 - [Quality Gates](docs/QUALITY.md)
+- [Codemap (ARCHITECTURE.md)](ARCHITECTURE.md)
+- [Data Dictionary](docs/data_dictionary.md)
+- [Deployment](docs/deployment.md)
 
 ---
 

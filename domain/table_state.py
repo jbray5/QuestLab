@@ -89,6 +89,11 @@ class Token(BaseModel):
     # survive the whole session. Stored, never recomputed. Player-safe by
     # construction: the DM writes every word the table reads.
     effects: Optional[list[str]] = PydField(default=None, max_length=6)
+    # Plan 128 — a PC token's class, resolved at projection-build time from
+    # the character row (never stored), so the TV can draw its class crest
+    # when the character has no picture. Player-safe: the class is on the
+    # party roster anyway.
+    class_name: Optional[str] = PydField(default=None, max_length=30)
 
 
 class TableStateUpdate(BaseModel):
@@ -143,6 +148,10 @@ class InitiativeEntry(BaseModel):
     hp_current: Optional[int] = None
     hp_max: Optional[int] = None
     conditions: list[str] = PydField(default_factory=list)
+    # Plan 128 — the TV's turn order draws a PC's picture, or its class crest
+    # when it has none. Foes carry neither.
+    class_name: Optional[str] = None
+    image_url: Optional[str] = None
 
 
 class PlayerTokenMove(BaseModel):

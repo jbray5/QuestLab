@@ -90,3 +90,47 @@ export const hpColor = (cur: number, max: number) =>
 export const btnRow: CSSProperties = { display: "flex", gap: 8, flexWrap: "wrap" };
 export const big: CSSProperties = { minHeight: 44 };
 export const num: CSSProperties = { fontFamily: "var(--font-mono)", fontVariantNumeric: "tabular-nums" };
+
+/** Read by screen readers, invisible on screen (the live turn announcer, headings a sighted player doesn't need). */
+export const srOnly: CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+  border: 0,
+};
+
+/**
+ * The player's own name, or null when nobody has named themselves yet: blank,
+ * or the DM wizard's "Not assigned yet" placeholder (Plan 128).
+ */
+export function realPlayerName(name: string | null | undefined): string | null {
+  const n = (name ?? "").trim();
+  return n && n.toLowerCase() !== "not assigned yet" ? n : null;
+}
+
+/**
+ * A healing spell's dice, read from its text (Plan 128): "regains a number of
+ * Hit Points equal to 2d8 plus your spellcasting ability modifier", "regain
+ * 2d8 Hit Points", "regains 4d8 + 15 Hit Points", and "The healing increases
+ * by 2d8 for each spell slot level above 1". Null for anything that doesn't heal.
+ */
+export function healingOf(
+  description: string | null | undefined,
+  higherLevels: string | null | undefined,
+): { count: number; sides: number; plus: number; addMod: boolean; perSlot: { count: number; sides: number } | null } | null {
+  const m = /regains?\s+(?:a number of\s+)?(?:hit points equal to\s+)?(\d+)d(\d+)(?:\s*(?:\+\s*(\d+)|(plus your spellcasting ability modifier)))?/i.exec(description ?? "");
+  if (!m) return null;
+  const up = /healing increases by (\d+)d(\d+) for each (?:spell )?slot level above/i.exec(higherLevels ?? "");
+  return {
+    count: Number(m[1]),
+    sides: Number(m[2]),
+    plus: m[3] ? Number(m[3]) : 0,
+    addMod: !!m[4],
+    perSlot: up ? { count: Number(up[1]), sides: Number(up[2]) } : null,
+  };
+}

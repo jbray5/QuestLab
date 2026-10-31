@@ -10,7 +10,7 @@ import { ChevronRight, Shirt, Store } from "lucide-react";
 import { playApi, type GearRow } from "../../api/play";
 import { friendlyApiError } from "../../api/errors";
 import { usePlayer } from "./playerContext";
-import { Label, Panel } from "./ui";
+import { Heading, Label, Panel } from "./ui";
 
 const COINS: Array<["pp" | "gp" | "ep" | "sp" | "cp", string]> = [
   ["pp", "platinum"],
@@ -31,7 +31,7 @@ export default function BagTab() {
       <Coin />
       <Panel style={{ gap: 4 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <Label>Equipped</Label>
+          <Heading>Equipped</Heading>
           {attuned > 0 && <Label>Attuned <span className="num">{attuned} of 3</span></Label>}
         </div>
         {isLoading ? <span style={{ fontSize: 14, color: "var(--muted)" }}>Opening your bag…</span> : equipped.length === 0 ? (
@@ -41,7 +41,7 @@ export default function BagTab() {
         )}
       </Panel>
       <Panel style={{ gap: 4 }}>
-        <Label>In your pack</Label>
+        <Heading>In your pack</Heading>
         {!isLoading && pack.length === 0 && <span style={{ fontSize: 14, color: "var(--muted)" }}>Your pack is empty. Loot and market buys land here.</span>}
         {pack.map((g, i) => <Item key={g.character_item_id} g={g} last={i === pack.length - 1} />)}
       </Panel>
@@ -88,7 +88,7 @@ function Coin() {
     try {
       await playApi.give(pcId, to, Number(amount));
       const mate = party.find((p) => p.id === to);
-      notify(`You gave ${mate?.character_name.split(" ")[0] ?? "them"} ${amount} gp.`);
+      notify(`You gave ${mate?.character_name ?? "them"} ${amount} gp.`);
       setGiving(false);
       setAmount("");
       refresh();
@@ -99,7 +99,7 @@ function Coin() {
   return (
     <Panel style={{ gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span style={{ fontWeight: 600 }}>Coin</span>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Coin</h2>
         <div style={{ display: "flex", gap: 4 }}>
           {party.length > 0 && !editing && (
             <button type="button" className="btn btn-ghost" onClick={() => setGiving((g) => !g)} style={{ minHeight: 36, fontSize: 14 }}>Give</button>
@@ -198,8 +198,8 @@ function Item({ g, last }: { g: GearRow; last: boolean }) {
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void use()} style={{ minHeight: 40 }}>On me</button>
           {party.map((p) => (
-            <button key={p.id} type="button" className="btn btn-secondary" disabled={busy} onClick={() => void use(p.id)} style={{ minHeight: 40 }}>
-              On {p.character_name.split(" ")[0]}
+            <button key={p.id} type="button" className="btn btn-secondary" disabled={busy} onClick={() => void use(p.id)} style={{ minHeight: 44, whiteSpace: "normal", textAlign: "left" }}>
+              On {p.character_name}
             </button>
           ))}
         </div>

@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { ChevronLeft, ChevronRight, RotateCcw, Skull } from "lucide-react";
 
 import { sessionsApi } from "../../api/sessions";
 import type { SessionCombatant, SessionCombatStateRead } from "../../api/types";
@@ -42,15 +43,15 @@ export default function BoardTracker({ sessionId, combat }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", minHeight: 0 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)", fontSize: "0.85rem" }}>
-          Combat {running ? `· Round ${combat?.round ?? 1}` : combat?.combat_state === "ended" ? "· ended" : "· idle"}
+        <strong style={{ color: "var(--text)", fontSize: "0.85rem" }}>
+          Combat {running ? `· Round ${combat?.round ?? 1}` : combat?.combat_state === "ended" ? "· ended" : "· not started"}
         </strong>
         <span style={{ display: "flex", gap: "0.3rem" }}>
           <button className="btn" style={{ fontSize: "0.72rem", padding: "0.2rem 0.55rem" }} onClick={prevTurn} disabled={!running} title="Step back one combatant">
-            ◀ Back
+            <ChevronLeft size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Back
           </button>
           <button className="btn" style={{ fontSize: "0.72rem", padding: "0.2rem 0.55rem" }} onClick={nextTurn} disabled={!running}>
-            Next turn ▶
+            Next turn <ChevronRight size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
           </button>
         </span>
       </div>
@@ -69,8 +70,8 @@ export default function BoardTracker({ sessionId, combat }: Props) {
             <div
               key={c.id}
               style={{
-                border: `1px solid ${active ? "var(--gold)" : "var(--border)"}`,
-                background: active ? "rgba(214,175,54,0.08)" : "rgba(255,255,255,0.02)",
+                border: `1px solid ${active ? "var(--accent-edge)" : "var(--border)"}`,
+                background: active ? "var(--accent-soft)" : "var(--surface)",
                 borderRadius: 8,
                 padding: "0.35rem 0.5rem",
                 display: "flex",
@@ -80,7 +81,7 @@ export default function BoardTracker({ sessionId, combat }: Props) {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                {active && <span style={{ color: "var(--gold)" }}>▶</span>}
+                {active && <ChevronRight size={14} aria-label="Their turn" style={{ color: "var(--accent-text)", flexShrink: 0 }} />}
                 <span
                   style={{
                     flex: 1,
@@ -102,9 +103,10 @@ export default function BoardTracker({ sessionId, combat }: Props) {
                   className="btn btn-ghost"
                   style={{ fontSize: "0.7rem", padding: "0 0.3rem" }}
                   title={c.defeated ? "Restore" : "Mark defeated"}
+                  aria-label={c.defeated ? `Restore ${c.name}` : `Mark ${c.name} defeated`}
                   onClick={() => void toggleDefeated(c)}
                 >
-                  {c.defeated ? "↻" : "☠"}
+                  {c.defeated ? <RotateCcw size={14} aria-hidden="true" /> : <Skull size={14} aria-hidden="true" />}
                 </button>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -116,7 +118,7 @@ export default function BoardTracker({ sessionId, combat }: Props) {
                     style={{
                       width: `${pct * 100}%`,
                       height: "100%",
-                      background: pct > 0.5 ? "#5cb85c" : pct > 0.25 ? "#e0a83c" : "#d9534f",
+                      background: pct > 0.5 ? "var(--teal)" : pct > 0.25 ? "var(--amber)" : "var(--danger)",
                       transition: "width 0.3s ease",
                     }}
                   />

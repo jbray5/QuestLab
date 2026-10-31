@@ -270,6 +270,27 @@ def patch_duckdb_schema() -> None:
     with engine.begin() as conn:
         for stmt in patches:
             conn.execute(text(stmt))
+    relax_duckdb_indexes(engine)
+
+
+# DuckDB turns an UPDATE of an indexed column into delete + insert, which its
+# foreign keys refuse while other rows point at the row (DuckDB's documented FK
+# limitation). The player-link token is indexed, so "Reset link" failed locally
+# for any PC with features or spells (Plan 128). The token is 16 random bytes (128 bits)
+# looked up by the service, so DuckDB (local dev and tests) goes without the
+# index; Postgres keeps its unique index from migration 0057.
+_DUCKDB_INDEX_DROPS = ("DROP INDEX IF EXISTS ix_player_characters_play_token",)
+
+
+def relax_duckdb_indexes(engine) -> None:
+    """Drop the DuckDB indexes that block updates on referenced rows (see above).
+
+    Args:
+        engine: A DuckDB engine (local dev file or the in-memory test database).
+    """
+    with engine.begin() as conn:
+        for stmt in _DUCKDB_INDEX_DROPS:
+            conn.execute(text(stmt))
 
 
 def get_session() -> Generator[Session, None, None]:

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Dices, ExternalLink, Plus, ScrollText, Users, X } from "lucide-react";
+import { ArrowUp, Check, Copy, Dices, ExternalLink, Plus, QrCode, ScrollText, Users, X } from "lucide-react";
 import { zoomable } from "../lib/lightbox";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -75,6 +75,202 @@ const STATS = [
 ] as const;
 const STAT_LABELS = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 const ABILITY_NAMES = ["Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma"];
+
+/** The join link as players open it. */
+function joinUrlFor(campaignId: string): string {
+  return `${window.location.origin}/join/${campaignId}`;
+}
+
+/**
+ * How players join (Plan 128): the campaign's join link with Copy and a QR,
+ * the optional join code, and whether players may build their own characters.
+ * The page used to say "Share your join link" without showing one.
+ */
+function JoinCard({
+  campaignId,
+  joinCode,
+  signupOn,
+  signupPending,
+  onSignup,
+  codePending,
+  onCodeDraft,
+  onCodeCommit,
+}: {
+  campaignId: string;
+  joinCode: string;
+  signupOn: boolean;
+  signupPending: boolean;
+  onSignup: (on: boolean) => void;
+  codePending: boolean;
+  onCodeDraft: (code: string) => void;
+  onCodeCommit: (code: string) => void;
+}) {
+  const phone = useIsCompact(640);
+  const url = joinUrlFor(campaignId);
+  const [copied, setCopied] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrError, setQrError] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1600);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  async function toggleQr() {
+    const next = !qrOpen;
+    setQrOpen(next);
+    if (!next || qr) return;
+    try {
+      // Loaded on first use: most visits never open the QR.
+      const QRCode = (await import("qrcode")).default;
+      setQr(await QRCode.toDataURL(url, { width: 440, margin: 2, color: { dark: "#11151a", light: "#f3ead6" } }));
+      setQrError(false);
+    } catch {
+      setQrError(true);
+    }
+  }
+
+  function generateCode() {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const bytes = crypto.getRandomValues(new Uint8Array(6));
+    const code = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+    onCodeDraft(code);
+    onCodeCommit(code);
+  }
+
+  return (
+    <section className="card" aria-labelledby="join-card-title" style={{ marginBottom: "1.5rem" }}>
+      <h2 id="join-card-title" style={{ fontSize: "1.1rem", margin: "0 0 0.3rem" }}>
+        How players join
+      </h2>
+      <p className="text-sm text-muted" style={{ margin: "0 0 0.75rem", lineHeight: 1.5 }}>
+        Send this link (or let them scan the QR) and players pick their character on their phone
+        {signupOn ? ", or build one" : ""}.
+        {joinCode ? (
+          <>
+            {" "}They type the join code <strong className="num" style={{ color: "var(--text)" }}>{joinCode}</strong> first.
+          </>
+        ) : (
+          " Add a join code so only your table can see the party."
+        )}
+      </p>
+
+      <div style={{ display: "flex", gap: "0.5rem", flexWrap: phone ? "wrap" : "nowrap", alignItems: "center" }}>
+        <input
+          type="text"
+          readOnly
+          value={url}
+          aria-label="Join link"
+          onFocus={(e) => e.currentTarget.select()}
+          className="num"
+          style={{ flex: "1 1 260px", minWidth: 0, fontSize: phone ? 16 : "0.875rem", padding: "0.4rem 0.6rem" }}
+        />
+        <button type="button" className="btn btn-primary" onClick={() => void copy()} style={{ flex: phone ? "1 1 0" : "none" }}>
+          {copied ? <><Check size={15} aria-hidden /> Copied</> : <><Copy size={15} aria-hidden /> Copy link</>}
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => void toggleQr()}
+          aria-expanded={qrOpen}
+          style={{ flex: phone ? "1 1 0" : "none" }}
+        >
+          <QrCode size={15} aria-hidden /> {qrOpen ? "Hide QR" : "Show QR"}
+        </button>
+      </div>
+
+      {qrOpen && (
+        <div style={{ marginTop: "0.85rem", display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
+          {qr ? (
+            <img
+              src={qr}
+              alt={`QR code for the join link ${url}`}
+              width={200}
+              height={200}
+              style={{ width: 200, height: 200, borderRadius: 10, border: "1px solid var(--border2)" }}
+            />
+          ) : (
+            <span className="text-sm text-muted">
+              {qrError ? "Couldn't draw the QR. The link above works the same." : "Drawing the QR…"}
+            </span>
+          )}
+          <p className="text-sm text-muted" style={{ margin: 0, maxWidth: 320, lineHeight: 1.5 }}>
+            Players point their phone camera at it. At the table, the HUD can also put this QR on the TV.
+          </p>
+        </div>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          gap: "0.75rem 1.5rem",
+          flexWrap: "wrap",
+          alignItems: "center",
+          marginTop: "0.9rem",
+          paddingTop: "0.75rem",
+          borderTop: "1px solid var(--border)",
+        }}
+      >
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <label
+            htmlFor="join-code"
+            style={{ margin: 0, fontSize: "0.875rem", color: "var(--text2)" }}
+            title="Players open your join link (or scan the QR), type this code, then pick or build their character. Without a code, anyone with the link can see the party."
+          >
+            Join code
+          </label>
+          <input
+            id="join-code"
+            value={joinCode}
+            onChange={(e) => onCodeDraft(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12))}
+            onBlur={(e) => onCodeCommit(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            placeholder="no code"
+            maxLength={12}
+            className="num"
+            style={{ width: 130, padding: "0.3rem 0.5rem", fontSize: phone ? 16 : "0.875rem" }}
+          />
+          {/* Review 10/30 — sign-up on with no code showed "Join code: none" and no way forward. */}
+          {!joinCode && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ fontSize: "0.8125rem", padding: "0.3rem 0.6rem", minHeight: 0 }}
+              disabled={codePending}
+              onClick={generateCode}
+              title="Make a short code the join page asks for"
+            >
+              <Dices size={14} aria-hidden /> Generate
+            </button>
+          )}
+        </div>
+        {/* Plan 74 — players build their own characters from the join link. */}
+        <label
+          className="ql-s6-tap"
+          style={{ display: "flex", gap: 8, alignItems: "center", fontSize: "0.875rem", color: "var(--text2)", cursor: "pointer", margin: 0 }}
+          title="When on, anyone with your join link and code can create a character in this campaign"
+        >
+          <input
+            type="checkbox"
+            checked={signupOn}
+            onChange={(e) => onSignup(e.target.checked)}
+            disabled={signupPending}
+            style={{ width: 20, height: 20, flex: "none" }}
+          />
+          Players can build their own characters
+        </label>
+      </div>
+    </section>
+  );
+}
 
 export default function Characters() {
   const { campaignId } = useParams<{ campaignId: string }>();
@@ -235,82 +431,14 @@ export default function Characters() {
     <div className="fade-in ql-s6">
       <div
         className="flex items-center"
-        style={{ marginBottom: "1.5rem", justifyContent: "space-between", gap: phone ? "0.75rem" : undefined }}
+        style={{ marginBottom: "1rem", justifyContent: "space-between", gap: phone ? "0.75rem" : undefined, flexWrap: "wrap" }}
       >
-        <div>
-          <h1 style={{ marginBottom: "0.2rem" }}>Characters</h1>
-          {(campaign?.allow_player_signup ?? true) && (
-            <p className="text-sm text-muted" style={{ margin: 0 }}>
-              Players join from your join link or the QR on the TV
-              {joinCode ? (
-                <>
-                  , type <strong className="num" style={{ color: "var(--text)" }}>{joinCode}</strong>, and build or pick their character.
-                </>
-              ) : (
-                " and build their character. Add a join code so only your table can see the party."
-              )}
-            </p>
-          )}
-        </div>
+        <h1 style={{ margin: 0 }}>Characters</h1>
         <div style={{ display: "flex", gap: "0.6rem", alignItems: "center", flexWrap: "wrap" }}>
-          {/* Plan 74 — players build their own characters from the join link. */}
-          <label
-            className="ql-s6-tap"
-            style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8125rem", color: "var(--text2)", cursor: "pointer", margin: 0 }}
-            title="When on, anyone with your join link / QR can create a character in this campaign"
-          >
-            <input
-              type="checkbox"
-              checked={campaign?.allow_player_signup ?? true}
-              onChange={(e) => signupMut.mutate(e.target.checked)}
-              disabled={signupMut.isPending}
-            />
-            Players can create their own characters
-          </label>
-          <label
-            style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "0.8125rem", color: "var(--text2)", margin: 0 }}
-            title="Players open your join link (or scan the QR on the TV), type this code, then pick or build their character. Without a code, anyone with the link can see the party."
-          >
-            Join code
-            <input
-              value={joinCode}
-              onChange={(e) => setJoinCodeDraft(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12))}
-              onBlur={() => {
-                if ((campaign?.join_code ?? "") !== joinCode) codeMut.mutate(joinCode);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-              }}
-              placeholder="no code"
-              maxLength={12}
-              className="num"
-              style={{ width: 120, padding: "0.3rem 0.5rem", fontSize: "0.875rem" }}
-            />
-            {/* Review 10/30 — sign-up on with no code showed "Join code: none"
-                and no way forward. One tap makes one; the hint says how it's used. */}
-            {!joinCode && (
-              <button
-                type="button"
-                className="btn btn-ghost"
-                style={{ fontSize: "0.8125rem", padding: "0.3rem 0.6rem", minHeight: 0 }}
-                disabled={codeMut.isPending}
-                onClick={() => {
-                  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-                  const bytes = crypto.getRandomValues(new Uint8Array(6));
-                  const code = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
-                  setJoinCodeDraft(code);
-                  codeMut.mutate(code);
-                }}
-                title="Make a short code the join page asks for"
-              >
-                <Dices size={14} /> Generate
-              </button>
-            )}
-          </label>
           {/* Plan 126 — Add character opens the guided, rules-checked wizard (the one players
               use); copying a finished sheet in by hand lives in the ⋯ menu. */}
           <Link className="btn btn-primary" to={`/campaigns/${campaignId}/characters/new`}>
-            <Plus size={16} /> Add character
+            <Plus size={16} aria-hidden /> Add character
           </Link>
           {/* Usability pass — a party level-up happens every few sessions, so it
               lives in the page's ⋯ menu (it still confirms with the names). */}
@@ -333,6 +461,22 @@ export default function Characters() {
           />
         </div>
       </div>
+
+      {/* Plan 128 — the join link the page tells you to share, right here (Adaeze, Marco). */}
+      {campaignId && (
+        <JoinCard
+          campaignId={campaignId}
+          joinCode={joinCode}
+          signupOn={campaign?.allow_player_signup ?? true}
+          signupPending={signupMut.isPending}
+          onSignup={(on) => signupMut.mutate(on)}
+          codePending={codeMut.isPending}
+          onCodeDraft={(code) => setJoinCodeDraft(code)}
+          onCodeCommit={(code) => {
+            if ((campaign?.join_code ?? "") !== code) codeMut.mutate(code);
+          }}
+        />
+      )}
 
       {showForm && (
         <div className="card" style={{ marginBottom: "1.5rem", maxWidth: 600 }}>
@@ -365,20 +509,21 @@ export default function Characters() {
                 style={phone ? { gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0 0.75rem", alignItems: "end" } : undefined}
               >
                 <div className="form-group">
-                  <label>Character name *</label>
-                  <input value={form.character_name} onChange={f("character_name")} />
+                  <label htmlFor="pc-name">Character name *</label>
+                  <input id="pc-name" value={form.character_name} onChange={f("character_name")} />
                 </div>
                 <div className="form-group">
-                  <label>Player name</label>
-                  <input value={form.player_name} onChange={f("player_name")} />
+                  <label htmlFor="pc-player">Player name</label>
+                  <input id="pc-player" value={form.player_name} onChange={f("player_name")} />
                 </div>
                 <div className="form-group">
-                  <label>Race</label>
-                  <input value={form.race} onChange={f("race")} />
+                  <label htmlFor="pc-species">Species</label>
+                  <input id="pc-species" value={form.race} onChange={f("race")} placeholder="e.g. Dwarf" />
                 </div>
                 <div className="form-group">
-                  <label>Class</label>
+                  <label htmlFor="pc-class">Class</label>
                   <select
+                    id="pc-class"
                     value={form.character_class}
                     onChange={(e) => setForm((p) => ({ ...p, character_class: e.target.value }))}
                   >
@@ -390,16 +535,18 @@ export default function Characters() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Subclass (chosen at level 3)</label>
+                  <label htmlFor="pc-subclass">Subclass (chosen at level 3)</label>
                   <input
+                    id="pc-subclass"
                     value={form.subclass}
                     onChange={f("subclass")}
                     placeholder="e.g. Champion, Circle of the Moon"
                   />
                 </div>
                 <div className="form-group">
-                  <label>Level</label>
+                  <label htmlFor="pc-level">Level</label>
                   <input
+                    id="pc-level"
                     type="number"
                     min={1}
                     max={20}
@@ -409,8 +556,9 @@ export default function Characters() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Speed (ft)</label>
+                  <label htmlFor="pc-speed">Speed (ft)</label>
                   <input
+                    id="pc-speed"
                     type="number"
                     value={form.speed}
                     onChange={f("speed")}
@@ -418,8 +566,9 @@ export default function Characters() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>AC</label>
+                  <label htmlFor="pc-ac">Armor class</label>
                   <input
+                    id="pc-ac"
                     type="number"
                     value={form.ac}
                     onChange={f("ac")}
@@ -427,8 +576,9 @@ export default function Characters() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>HP</label>
+                  <label htmlFor="pc-hp">Hit points</label>
                   <input
+                    id="pc-hp"
                     type="number"
                     value={form.hp_current}
                     onChange={f("hp_current")}
@@ -436,8 +586,9 @@ export default function Characters() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Max HP</label>
+                  <label htmlFor="pc-maxhp">Max hit points</label>
                   <input
+                    id="pc-maxhp"
                     type="number"
                     value={form.hp_max}
                     onChange={f("hp_max")}
@@ -458,8 +609,10 @@ export default function Characters() {
           >
             {STATS.map((s, i) => (
               <div key={s} className="form-group" style={{ marginBottom: 0 }}>
-                <label>{STAT_LABELS[i]}</label>
+                <label htmlFor={`pc-${s}`} title={ABILITY_NAMES[i]}>{STAT_LABELS[i]}</label>
                 <input
+                  id={`pc-${s}`}
+                  aria-label={ABILITY_NAMES[i]}
                   type="number"
                   min={1}
                   max={30}
@@ -473,8 +626,8 @@ export default function Characters() {
           </div>
 
           <div className="form-group">
-            <label>Notes</label>
-            <textarea value={form.notes} onChange={f("notes")} rows={2} style={{ resize: "vertical" }} />
+            <label htmlFor="pc-notes">Notes</label>
+            <textarea id="pc-notes" value={form.notes} onChange={f("notes")} rows={2} style={{ resize: "vertical" }} />
           </div>
 
           {formError && (
@@ -736,8 +889,8 @@ export default function Characters() {
               <Users size={28} />
             </div>
             <p style={{ maxWidth: 460, margin: "0 auto" }}>
-              Your party lives here: each player&rsquo;s sheet, spells and gear. Share your join link so
-              players build their own, or use Add character to build one step by step.
+              Your party lives here: each player&rsquo;s sheet, spells and gear. Send players the join link
+              above so they build their own, or use Add character to build one step by step.
             </p>
           </div>
         )}

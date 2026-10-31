@@ -8,7 +8,7 @@ export type Die = "d4" | "d6" | "d8" | "d10" | "d12" | "d20" | "d100";
 export interface RollSpec {
   /** What it is, in words: "Shortbow attack", "Stealth check". */
   title: string;
-  kind: "attack" | "check" | "save" | "damage" | "initiative" | "hitdie" | "death" | "free";
+  kind: "attack" | "check" | "save" | "damage" | "heal" | "initiative" | "hitdie" | "death" | "free";
   die: Die;
   count?: number;
   modifier: number;
@@ -20,6 +20,8 @@ export interface RollSpec {
   crit?: boolean;
   /** Called with the result (e.g. resolve a death save, heal from a hit die). */
   onResult?: (r: RollResult) => Promise<string | void> | string | void;
+  /** For a healing roll (Plan 128): put the total on your own hit points; returns what to say. */
+  healSelf?: (amount: number) => Promise<string>;
 }
 
 interface Ctx {

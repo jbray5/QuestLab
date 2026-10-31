@@ -32,7 +32,11 @@ def is_caster(class_name: str, subclass: Optional[str]) -> bool:
 
 
 def armor_training(class_name: str, feats: list[str]) -> set[str]:
-    """Armor categories the class trains, widened by the armor-training feats on the sheet."""
+    """Armor categories the class trains, widened by the armor-training feats on the sheet.
+
+    Plan 128: a Cleric's Divine Order (Protector) or a Druid's Primal Order (Warden), recorded
+    as "Divine Order: Protector" in ``feats``, widens it too.
+    """
     out = set(srd.CLASSES.get(class_name, {}).get("armor", []))
     names = feat_names(feats)
     if "lightly armored" in names:
@@ -41,6 +45,11 @@ def armor_training(class_name: str, feats: list[str]) -> set[str]:
         out |= {"medium", "shields"}
     if "heavily armored" in names:
         out.add("heavy")
+    for key in ("divine_order", "primal_order"):
+        spec = rules.CHOICE_KINDS[key]
+        for opt in spec["options"]:
+            if entry(key, opt["name"]).casefold() in names:
+                out |= set(opt.get("armor") or [])
     return out
 
 
@@ -312,3 +321,230 @@ def apply_feat(
     gained = ", ".join(f"+{v} {a}" for a, v in inc.items())
     summary.append(f"{label}" + (f" ({gained})" if gained else ""))
     return inc, spells, row
+
+
+# ── Class choices (Plan 128) ──────────────────────────────────────────────────
+# The creator asks for the class's own choices (Fighting Style, Weapon Mastery, Expertise,
+# Divine/Primal Order, Eldritch Invocations, Metamagic and the SRD subclasses' ones). The rules
+# live here, next to the feat rules, so the level-up guide can ask for the same choices later.
+
+_KIND_ORDER = {"skill": 0, "expertise": 1, "feat": 2, "option": 3, "weapon": 4}
+
+
+def entry(key: str, name: str) -> str:
+    """How a class choice is written in ``feats``: "Divine Order: Protector"."""
+    spec = rules.CHOICE_KINDS[key]
+    return f"{spec.get('record') or spec['label']}: {name}"
+
+
+def mastery_weapons() -> list[dict[str, Any]]:
+    """Every SRD weapon with a mastery property: name, category, properties, mastery."""
+    from integrations.dnd_rules.srd_weapons_2024 import SRD_WEAPONS_2024
+
+    return [
+        {
+            "name": w.name,
+            "category": w.weapon_category or "",
+            "properties": list(w.weapon_properties or []),
+            "mastery": w.mastery,
+        }
+        for w in SRD_WEAPONS_2024
+        if w.mastery
+    ]
+
+
+def _plural(n: int, word: str) -> str:
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
+def apply_class_choices(
+    class_name: str,
+    level: int,
+    subclass: Optional[str],
+    picks: dict[str, tuple[list[str], list[str]]],
+    feats: list[str],
+    skills: dict[str, int],
+    cantrips: list[Spell],
+    summary: list[str],
+    warnings: list[str],
+) -> dict[str, Any]:
+    """Validate the class's choices at ``level`` and record them on the sheet lists.
+
+    Each choice must have exactly its count of picks (``rules.class_choice_counts``), from its
+    list (or named "from my book" where the book is allowed), with its prerequisites met.
+    Skills land in ``skills`` (1 trained, 2 expertise); a Fighting Style feat in ``feats`` by
+    name; anything else in ``feats`` as "Label: Choice". ``feats``, ``skills``, ``summary`` and
+    ``warnings`` change in place.
+
+    Args:
+        class_name: The class.
+        level: The starting level.
+        subclass: The subclass, once it has arrived.
+        picks: ``{choice key: (listed names, names from the player's book)}``.
+        feats: Feat names on the sheet so far.
+        skills: Skill proficiencies so far.
+        cantrips: The class cantrips picked (an invocation may need a damaging one).
+        summary: Lines describing what was chosen.
+        warnings: Lines the player should read.
+
+    Returns:
+        Effects for the rest of the build: ``{"cantrips": extra cantrip count,
+        "cantrip_lists": [class lists they come from], "land": the Circle's land or None}``.
+
+    Raises:
+        ValueError: On a missing, extra, unknown or locked pick, in plain words.
+    """
+    counts = rules.class_choice_counts(class_name, level, subclass)
+    for key in picks:
+        if key not in counts:
+            label = rules.CHOICE_KINDS.get(key, {}).get("label", key)
+            raise ValueError(f"A level {level} {class_name} has no {label} to choose.")
+    effects: dict[str, Any] = {"cantrips": 0, "cantrip_lists": [], "land": None}
+    order = sorted(counts, key=lambda k: _KIND_ORDER.get(rules.CHOICE_KINDS[k]["kind"], 9))
+    for key in order:
+        spec = rules.CHOICE_KINDS[key]
+        label, kind, count = spec["label"], spec["kind"], counts[key]
+        listed_raw, book_raw = picks.get(key, ([], []))
+        listed = [n.strip() for n in listed_raw if n and n.strip()]
+        book = [n.strip() for n in book_raw if n and n.strip()]
+        if book and not spec.get("book"):
+            raise ValueError(f"{label} is chosen from its list.")
+        total = len(listed) + len(book)
+        if total < count:
+            raise ValueError(f"{label}: {_missing(kind, count - total, count)}")
+        if total > count:
+            raise ValueError(f"{label}: a level {level} {class_name} chooses {count}.")
+        if kind in ("skill", "expertise"):
+            _apply_skills(spec, class_name, listed, skills)
+            summary.append(f"{label}: " + ", ".join(listed))
+        elif kind == "weapon":
+            names = _weapons(class_name, listed)
+            feats += [entry(key, n) for n in names]
+            summary.append(f"{label}: " + ", ".join(names))
+        else:
+            _apply_options(key, spec, class_name, level, listed, book, feats, cantrips, effects)
+            for name in book:
+                warnings.append(f"{label}: {name} is recorded by name. Play it from your book.")
+            summary.append(f"{label}: " + ", ".join(listed + book))
+    return effects
+
+
+def _apply_options(
+    key: str,
+    spec: dict[str, Any],
+    class_name: str,
+    level: int,
+    listed: list[str],
+    book: list[str],
+    feats: list[str],
+    cantrips: list[Spell],
+    effects: dict[str, Any],
+) -> None:
+    """Check listed options (and their prerequisites) and record them with the book entries."""
+    label, kind = spec["label"], spec["kind"]
+    options = {o["name"].casefold(): o for o in rules.choice_options(class_name, key)}
+    rows = []
+    for name in listed:
+        row = options.get(name.casefold())
+        if row is None:
+            hint = " Pick From my book for others." if spec.get("book") else ""
+            raise ValueError(f"{label}: {name} isn't one of the choices.{hint}")
+        rows.append(row)
+    _no_repeats(label, [r["name"] for r in rows if not r.get("repeatable")])
+    chosen = {r["name"] for r in rows}
+    for row in rows:
+        _check_prereq(label, row, level, chosen, cantrips)
+        if kind == "feat" and row["name"].casefold() in feat_names(feats):
+            raise ValueError(f"{label}: you already have {row['name']}.")
+        extra = row.get("cantrips")
+        if extra:
+            effects["cantrips"] += int(extra["count"])
+            if extra["list"] not in effects["cantrip_lists"]:
+                effects["cantrip_lists"].append(extra["list"])
+        if key == "land":
+            effects["land"] = row["name"]
+        if kind == "feat" and not extra:
+            feats.append(row["name"])  # a Fighting Style feat, as the guide records feats
+        else:
+            feats.append(entry(key, row["name"]))
+    for name in book:
+        feats.append(name if kind == "feat" else entry(key, name))
+
+
+def _weapons(class_name: str, listed: list[str]) -> list[str]:
+    """Catalog names of the weapon kinds picked for Weapon Mastery, checked for the class."""
+    weapons = {w["name"].casefold(): w for w in mastery_weapons()}
+    names = []
+    for name in listed:
+        w = weapons.get(name.casefold())
+        if w is None:
+            raise ValueError(f"Weapon Mastery: {name} isn't a weapon with a mastery property.")
+        if not rules.mastery_weapon_ok(class_name, w["category"], w["properties"]):
+            raise ValueError(f"Weapon Mastery: a {class_name} can't master the {w['name']}.")
+        names.append(w["name"])
+    _no_repeats("Weapon Mastery", names)
+    return names
+
+
+def _missing(kind: str, n: int, count: int) -> str:
+    if count == 1 and n == 1:
+        return "choose one."
+    if kind == "weapon":
+        return f"choose {_plural(n, 'more kind')} of weapon."
+    if kind == "expertise":
+        return f"choose {_plural(n, 'more skill')} you're trained in."
+    if kind == "skill":
+        return f"choose {_plural(n, 'more skill')}."
+    return f"choose {n} more."
+
+
+def _no_repeats(label: str, names: list[str]) -> None:
+    seen: set[str] = set()
+    for name in names:
+        if name.casefold() in seen:
+            raise ValueError(f"{label}: {name} is picked twice.")
+        seen.add(name.casefold())
+
+
+def _apply_skills(
+    spec: dict[str, Any], class_name: str, names: list[str], skills: dict[str, int]
+) -> None:
+    label, kind = spec["label"], spec["kind"]
+    pool = spec.get("pool")
+    if pool == "class":
+        pool = srd.CLASSES[class_name]["skills"]["from"]
+    _no_repeats(label, names)
+    for name in names:
+        if name not in srd.SKILLS:
+            raise ValueError(f"{label}: {name} isn't a skill.")
+        if pool and name not in pool:
+            raise ValueError(f"{label}: pick from " + ", ".join(pool) + ".")
+        have = int(skills.get(name, 0) or 0)
+        if kind == "expertise":
+            if have < 1:
+                raise ValueError(f"{label}: you need to be trained in {name} first.")
+            if have >= 2:
+                raise ValueError(f"{label}: you already have expertise in {name}.")
+            skills[name] = 2
+        else:
+            if have >= 1:
+                raise ValueError(f"{label}: you're already trained in {name}.")
+            skills[name] = 1
+
+
+def _check_prereq(
+    label: str, row: dict[str, Any], level: int, chosen: set[str], cantrips: list[Spell]
+) -> None:
+    need = row.get("level")
+    if need and level < need:
+        raise ValueError(f"{label}: {row['name']} needs Warlock level {need}.")
+    req = row.get("requires")
+    if req and req not in chosen:
+        raise ValueError(f"{label}: {row['name']} needs {req}.")
+    want = row.get("cantrip")
+    if want == "damage" and not any(s.damage_dice for s in cantrips):
+        raise ValueError(f"{label}: {row['name']} needs a Warlock cantrip that deals damage.")
+    if want == "attack" and not any(s.damage_dice and s.attack_type for s in cantrips):
+        raise ValueError(
+            f"{label}: {row['name']} needs a Warlock cantrip that deals damage with an attack."
+        )

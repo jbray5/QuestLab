@@ -19,7 +19,7 @@ from sqlmodel.pool import StaticPool
 
 from api.deps import get_db
 from api.main import app  # importing app runs load_dotenv()
-from db.base import _json_serializer
+from db.base import _json_serializer, relax_duckdb_indexes
 
 # api.main.load_dotenv() may repopulate CURRENT_USER_EMAIL / AUTH_EMAIL_HEADER
 # from the developer's .env. Pin them to known test values AFTER that import so
@@ -38,6 +38,7 @@ def api_engine():
         json_serializer=_json_serializer,
     )
     SQLModel.metadata.create_all(engine)
+    relax_duckdb_indexes(engine)  # as local DuckDB files do (db/base.py)
     return engine
 
 

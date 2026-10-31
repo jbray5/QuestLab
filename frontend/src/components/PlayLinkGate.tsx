@@ -47,7 +47,9 @@ function rememberNewKey(oldKey: string, newKey: string) {
  * period is moved to the token address (same page, same query) and its
  * remembered join pick is updated, so it keeps working afterwards. An old
  * link that no longer opens shows a way back in through the party's join
- * page instead of a dead end. Token links pass straight through.
+ * page instead of a dead end. Token links pass straight through; a token the
+ * DM reset is caught by the player's phone itself (PlayerApp, Plan 128), which
+ * shows the same `LinkReplaced` screen.
  */
 export default function PlayLinkGate({ children }: { children: ReactNode }) {
   const { pcId = "" } = useParams<{ pcId: string }>();
@@ -76,7 +78,13 @@ export default function PlayLinkGate({ children }: { children: ReactNode }) {
   return null; // probing, or about to move to the new address
 }
 
-function LinkReplaced({ campaignId }: { campaignId: string }) {
+/**
+ * "This link was replaced" (SEC-002; Plan 128 for reset token links too): the
+ * way back is the party's page. It opens with `?switch=1` so a remembered
+ * pick still holding the old key is forgotten instead of bouncing straight
+ * back here.
+ */
+export function LinkReplaced({ campaignId }: { campaignId: string }) {
   return (
     <div
       style={{
@@ -99,7 +107,7 @@ function LinkReplaced({ campaignId }: { campaignId: string }) {
           for the new link.
         </p>
         <Link
-          to={`/join/${campaignId}`}
+          to={`/join/${campaignId}?switch=1`}
           className="btn btn-primary"
           style={{ minHeight: 48, justifyContent: "center", textDecoration: "none", width: "100%" }}
         >

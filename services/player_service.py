@@ -24,8 +24,9 @@ Player write scope:
 - Spell slot expend (per level)
 - Class feature use spend
 - Inspiration toggle, concentration drop, exhaustion adjust, currency
-  set (via PATCH /state)
+  set, the player's own name (via PATCH /state; the name in Plan 128)
 - Equip / unequip own gear, appearance notes (Plan 48)
+- Notes on the character, and feedback to the QuestLab team (Plan 128)
 
 Forbidden in player scope (DM only):
 - Create / delete / edit identity of any PC
@@ -40,8 +41,9 @@ import hmac
 import re
 import uuid
 from datetime import UTC, datetime
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
+from pydantic import BaseModel, StringConstraints
 from sqlmodel import Session
 
 from db.repos.campaign_repo import CampaignRepo
@@ -480,11 +482,12 @@ def restore_spell_slot(db: Session, pc_id: uuid.UUID, level: int):
     return spellcasting_service.restore_slot(db, pc_id, level, dm)
 
 
-def spend_feature(db: Session, pc_id: uuid.UUID, character_feature_id: uuid.UUID):
-    """Player spends one use of a class feature they own.
+def spend_feature(db: Session, pc_id: uuid.UUID, character_feature_id: uuid.UUID, amount: int = 1):
+    """Player spends uses of a class feature they own.
 
     The feature row must belong to this PC (SEC-006): a player link can't spend
-    another character's Second Wind or Channel Divinity.
+    another character's Second Wind or Channel Divinity. ``amount`` is for pools
+    (Lay on Hands spends any number of its points at once, Plan 128).
     """
     from db.repos.class_feature_repo import CharacterFeatureRepo
 
@@ -492,7 +495,7 @@ def spend_feature(db: Session, pc_id: uuid.UUID, character_feature_id: uuid.UUID
     if row is None or row.character_id != pc_id:
         raise ValueError("That feature isn't on this character.")
     dm = _dm_email_for(db, pc_id)
-    return feature_service.spend_use(db, character_feature_id, dm)
+    return feature_service.spend_use(db, character_feature_id, dm, amount=amount)
 
 
 # ── Bounded player-state PATCH ────────────────────────────────────────────────
@@ -510,7 +513,17 @@ _PLAYER_PATCHABLE = {
     "ep",
     "gp",
     "pp",
+    # Plan 128 — "What should we call you?": the player names themselves.
+    "player_name",
 }
+
+
+class _PlayerNameField(BaseModel):
+    """The player's own name as the phone sends it: 1-100 characters once trimmed."""
+
+    player_name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+    ]
 
 
 def patch_state(db: Session, pc_id: uuid.UUID, fields: dict[str, Any]) -> PlayerCharacter:
@@ -531,11 +544,16 @@ def patch_state(db: Session, pc_id: uuid.UUID, fields: dict[str, Any]) -> Player
     Raises:
         PermissionError: If the dict contains a field not in the
             player-allowed set.
+        pydantic.ValidationError: If a value is out of bounds (a player name
+            must be 1-100 characters once trimmed).
         ValueError: If the PC is not found.
     """
     rejected = set(fields) - _PLAYER_PATCHABLE
     if rejected:
         raise PermissionError(f"Player scope cannot modify: {sorted(rejected)}. Ask the DM.")
+    if "player_name" in fields:
+        named = _PlayerNameField.model_validate({"player_name": fields["player_name"]})
+        fields = {**fields, "player_name": named.player_name}
     dm = _dm_email_for(db, pc_id)
     from domain.character import PlayerCharacterUpdate
 
@@ -1369,7 +1387,8 @@ def cast_spell(
         ritual: Cast as a ritual (no slot; the spell must be a ritual).
 
     Returns:
-        ``{"spell", "slot_level", "concentration"}``.
+        ``{"spell", "slot_level", "concentration", "heal_dice"}``. ``heal_dice`` is the
+        heal to roll for a healing spell at the slot spent (``"2d8+3"``), else None.
 
     Raises:
         LookupError: Unknown PC or a spell that isn't on this sheet.
@@ -1396,7 +1415,16 @@ def cast_spell(
         character_service.update_character(
             db, pc.id, dm, PlayerCharacterUpdate(concentration_on=spell.name[:120])
         )
-    return {"spell": spell.name, "slot_level": used, "concentration": spell.is_concentration}
+    from services import arena_service
+
+    # Plan 128 — a healing spell tells the phone what to roll ("4d8+3" for Cure Wounds at 2nd).
+    heal = arena_service.heal_dice(pc, spell.name, spell.level, used)
+    return {
+        "spell": spell.name,
+        "slot_level": used,
+        "concentration": spell.is_concentration,
+        "heal_dice": heal,
+    }
 
 
 def set_spell_prepared(
@@ -1446,7 +1474,10 @@ def set_spell_prepared(
 
 
 def set_player_notes(db: Session, pc_id: uuid.UUID, text: str) -> dict[str, Any]:
-    """Save the player's private notes (Plan 122). The DM's screens never show them.
+    """Save the player's notes on this character (Plan 122).
+
+    The DM's screens don't show them, but they live on the character, so anyone
+    holding the player link can read them; the phone says so (Plan 128).
 
     Args:
         db: Active database session.
@@ -1464,3 +1495,27 @@ def set_player_notes(db: Session, pc_id: uuid.UUID, text: str) -> dict[str, Any]
     db.add(pc)
     db.commit()
     return {"player_notes": pc.player_notes or ""}
+
+
+def send_feedback(db: Session, pc_id: uuid.UUID, payload: Any) -> tuple[Any, str]:
+    """Store a note a player sent from their phone (Plan 128).
+
+    Players have no account, so the note is filed under the character (see
+    ``beta_service.submit_player_feedback``).
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the PC (capability URL).
+        payload: A ``FeedbackCreate`` (kind, text, page, viewport).
+
+    Returns:
+        ``(note, sender)``: the stored ``Feedback`` and a name for the feedback ping.
+
+    Raises:
+        LookupError: If the PC does not exist.
+    """
+    from services import beta_service
+
+    pc = _pc_or_lookup(db, pc_id)
+    note = beta_service.submit_player_feedback(db, pc.id, pc.character_name, payload)
+    return note, f"{pc.character_name}'s player"

@@ -1,6 +1,36 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  Clapperboard,
+  CloudLightning,
+  Dog,
+  Dices,
+  DoorOpen,
+  ExternalLink,
+  Flame,
+  Hand,
+  Hexagon,
+  Grid3x3,
+  Heart,
+  Moon,
+  Music,
+  Crosshair,
+  Ruler,
+  Save,
+  Snowflake,
+  Sparkles,
+  Sun,
+  Swords,
+  Target,
+  Upload,
+  Volume2,
+  VolumeX,
+  Waves,
+  Landmark,
+  Lamp,
+} from "lucide-react";
 
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
@@ -536,10 +566,10 @@ export default function BoardView() {
         }}
       >
         <Link to={`/sessions/${sessionId}/hud`} style={{ color: "var(--muted)", fontSize: "0.8rem" }}>
-          ← HUD
+          <ArrowLeft size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> HUD
         </Link>
         <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)", fontSize: "0.95rem" }}>
-          🎲 3D Board{session ? ` — ${session.title}` : ""}
+          <Dices size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> 3D Board{session ? ` · ${session.title}` : ""}
         </strong>
         <select
           value={state?.active_map_id ?? ""}
@@ -549,7 +579,7 @@ export default function BoardView() {
           }}
           style={{ fontSize: "0.78rem" }}
         >
-          <option value="">— pick a map —</option>
+          <option value="">Pick a map</option>
           {maps.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
@@ -564,7 +594,17 @@ export default function BoardView() {
               style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
               onClick={() => setGridKind(k)}
             >
-              {k === "hex" ? "⬡ Hex" : k === "square" ? "▦ Square" : "Grid off"}
+              {k === "hex" ? (
+                <>
+                  <Hexagon size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Hex
+                </>
+              ) : k === "square" ? (
+                <>
+                  <Grid3x3 size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Square
+                </>
+              ) : (
+                "Grid off"
+              )}
             </button>
           ))}
         </div>
@@ -572,7 +612,7 @@ export default function BoardView() {
           style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", color: "var(--muted)" }}
           title="Day–night dial: 0% = fey midday, 100% = deep night (torch time)"
         >
-          {(state?.darkness ?? 0) > 0.5 ? "🌙" : "☀️"}
+          {(state?.darkness ?? 0) > 0.5 ? <Moon size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> : <Sun size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />}
           <input
             type="range"
             min={0}
@@ -587,7 +627,7 @@ export default function BoardView() {
         <select value={weather} onChange={(e) => setWeather(e.target.value as WeatherKind)} style={{ fontSize: "0.75rem" }} title="Weather">
           {WEATHER_KINDS.map((w) => (
             <option key={w.value} value={w.value}>
-              ☁ {w.label}
+              {w.label}
             </option>
           ))}
         </select>
@@ -597,7 +637,7 @@ export default function BoardView() {
           onClick={() => setCinema((v) => !v)}
           title="Depth-of-field + vignette + slow drift (leave off if the projector struggles)"
         >
-          🎞 Cinema
+          <Clapperboard size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Cinema
         </button>
         {seaHere && (
           <button
@@ -606,7 +646,7 @@ export default function BoardView() {
             onClick={toggleSea}
             title="The open ocean beyond the deck. Kill switch: click to swap animated ↔ static band if the projector chugs."
           >
-            🌊 Sea{seaMode === "static" ? " (static)" : ""}
+            <Waves size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Sea{seaMode === "static" ? " (static)" : ""}
           </button>
         )}
         <button
@@ -615,7 +655,7 @@ export default function BoardView() {
           onClick={() => setFollowTurn((v) => !v)}
           title="Camera glides to the active combatant on turn change"
         >
-          🎯 Follow
+          <Target size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Follow
         </button>
         <a
           href={`${window.location.origin}/table/${sessionId}/3d`}
@@ -625,15 +665,16 @@ export default function BoardView() {
           style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
           title="The players' live 3D view — share THIS link instead of screen-sharing"
         >
-          📺 3D Table ↗
+          3D Table <ExternalLink size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
         </a>
         <button
           className={soundOn ? "btn" : "btn btn-ghost"}
           style={{ fontSize: "0.72rem", padding: "0.15rem 0.5rem" }}
           onClick={() => setSoundOn((v) => !v)}
           title="Procedural ambience: wind, birdsong by day, crickets by night, rain, fire crackle near torches"
+          aria-label={soundOn ? "Turn the ambience off" : "Turn the ambience on"}
         >
-          {soundOn ? "🔊" : "🔇"}
+          {soundOn ? <Volume2 size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> : <VolumeX size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />}
         </button>
         {soundOn && (
           <input
@@ -664,7 +705,7 @@ export default function BoardView() {
           flexWrap: "wrap",
         }}
       >
-        <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>SCENES</span>
+        <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Scenes</span>
         {presets.map((p) => (
           <button
             key={p.name}
@@ -677,7 +718,7 @@ export default function BoardView() {
             }}
             title={`map + ${Math.round(p.darkness * 100)}% dark + ${p.weather ?? "clear"}${p.title ? ` + "${p.title}"` : ""} — right-click to delete`}
           >
-            {p.darkness > 0.5 ? "🌙" : "☀️"} {p.name}
+            {p.darkness > 0.5 ? <Moon size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> : <Sun size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />} {p.name}
           </button>
         ))}
         <button
@@ -686,14 +727,14 @@ export default function BoardView() {
           onClick={saveCurrentScene}
           title="Save the current map + darkness + weather + title as a one-click scene"
         >
-          💾 Save scene
+          <Save size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Save scene
         </button>
         <label
           className="btn btn-ghost"
           style={{ fontSize: "0.72rem", padding: "0.12rem 0.55rem", cursor: "pointer" }}
           title="Import scenes from a JSON file (e.g. campaigns/session-05-scenes.json) — same-name presets are replaced"
         >
-          ⬆ Import
+          <Upload size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Import
           <input
             type="file"
             accept="application/json,.json"
@@ -711,13 +752,15 @@ export default function BoardView() {
             the two hidden hotspots are deliberately absent (they are found by
             clicking the art, never by a link). */}
         <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 4px" }} />
-        <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>PANELS</span>
-        {[
-          ["🪨 Nave: Covenant", `${EXPLORABLE_NAVE}#covenant`, "The Nave — the tablet"],
-          ["🕯 Heart: Lantern", `${EXPLORABLE_HEART}#lantern`, "The Heart — the sealed lantern"],
-          ["🚪 The Door", `${EXPLORABLE_HELD_DOOR}#door`, "Held Door — the standing water"],
-          ["🚪 Four Stations", `${EXPLORABLE_HELD_DOOR}#stations`, "Held Door — the crowned posts"],
-        ].map(([label, href, tip]) => (
+        <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Panels</span>
+        {(
+          [
+            [Landmark, "Nave: Covenant", `${EXPLORABLE_NAVE}#covenant`, "The Nave, the tablet"],
+            [Lamp, "Heart: Lantern", `${EXPLORABLE_HEART}#lantern`, "The Heart, the sealed lantern"],
+            [DoorOpen, "The Door", `${EXPLORABLE_HELD_DOOR}#door`, "Held Door, the standing water"],
+            [DoorOpen, "Four Stations", `${EXPLORABLE_HELD_DOOR}#stations`, "Held Door, the crowned posts"],
+          ] as const
+        ).map(([Icon, label, href, tip]) => (
           <a
             key={href}
             className="btn btn-ghost"
@@ -725,21 +768,23 @@ export default function BoardView() {
             href={href}
             target="_blank"
             rel="noreferrer"
-            title={`${tip} — opens in a new tab`}
+            title={`${tip}: opens in a new tab`}
           >
-            {label}
+            <Icon size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> {label}
           </a>
         ))}
 
         <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 4px" }} />
-        <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>CAST</span>
-        {[
-          ["ping", "◎", "Look-here ping"],
-          ["fire", "🔥", "Fire burst"],
-          ["frost", "❄️", "Frost burst"],
-          ["heal", "✨", "Healing sparkle"],
-          ["arcane", "💜", "Arcane burst"],
-        ].map(([mode, icon, tip]) => (
+        <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Cast</span>
+        {(
+          [
+            ["ping", Crosshair, "Look-here ping"],
+            ["fire", Flame, "Fire burst"],
+            ["frost", Snowflake, "Frost burst"],
+            ["heal", Heart, "Healing sparkle"],
+            ["arcane", Sparkles, "Arcane burst"],
+          ] as const
+        ).map(([mode, Icon, tip]) => (
           <button
             key={mode}
             className={fxMode === mode ? "btn" : "btn btn-ghost"}
@@ -748,26 +793,30 @@ export default function BoardView() {
               setFxMode((cur) => (cur === mode ? null : mode));
               setMeasuring(false);
             }}
-            title={`${tip} — click the board to cast on every screen (Esc to stop)`}
+            title={`${tip}: click the board to cast on every screen (Esc to stop)`}
+            aria-label={tip}
           >
-            {icon}
+            <Icon size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
           </button>
         ))}
         <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 4px" }} />
-        <span style={{ fontSize: "0.68rem", color: "var(--muted)" }}>STING</span>
-        {[
-          ["howl", "🐺", "Wolf howl on every device with sound on"],
-          ["thunder", "⛈️", "Thunder roll"],
-          ["sting", "🎻", "Dramatic sting"],
-        ].map(([kind, icon, tip]) => (
+        <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>Sting</span>
+        {(
+          [
+            ["howl", Dog, "Wolf howl on every device with sound on"],
+            ["thunder", CloudLightning, "Thunder roll"],
+            ["sting", Music, "Dramatic sting"],
+          ] as const
+        ).map(([kind, Icon, tip]) => (
           <button
             key={kind}
             className="btn btn-ghost"
             style={{ fontSize: "0.72rem", padding: "0.12rem 0.45rem" }}
             onClick={() => fireStinger(kind)}
             title={tip}
+            aria-label={tip}
           >
-            {icon}
+            <Icon size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
           </button>
         ))}
         <button
@@ -778,9 +827,10 @@ export default function BoardView() {
             setMeasurePts([]);
             setFxMode(null);
           }}
-          title="Measure (M): click two points — distance in cells and feet"
+          title="Measure (M): click two points for the distance in cells and feet"
+          aria-label="Measure"
         >
-          📏
+          <Ruler size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
         </button>
       </div>
 
@@ -836,7 +886,7 @@ export default function BoardView() {
           {selectedToken && (
             <div style={{ position: "absolute", left: 12, bottom: 12, background: "rgba(6,6,12,0.8)", border: "1px solid var(--border)", borderRadius: 8, padding: "0.3rem 0.7rem", fontSize: "0.75rem", color: "var(--text)" }}>
               Selected: <strong>{selectedToken.label}</strong>
-              {attackArmed ? " — ⚔ ARMED: click a target" : " — click ground to move, A to attack, Del to remove"}
+              {attackArmed ? " · Attack ready: click a target" : " · click the ground to move, A to attack, Del to remove"}
             </div>
           )}
 
@@ -845,7 +895,7 @@ export default function BoardView() {
             <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(3,3,7,0.45)" }}>
               <div style={{ background: "var(--surface, #16161c)", border: "1px solid var(--border)", borderRadius: 12, padding: "1rem 1.2rem", display: "flex", flexDirection: "column", gap: "0.7rem", minWidth: 260 }}>
                 <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)", fontSize: "0.9rem" }}>
-                  ⚔ Damage to {targetToken.label}
+                  <Swords size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Damage to {targetToken.label}
                 </strong>
                 <input
                   autoFocus
@@ -862,7 +912,7 @@ export default function BoardView() {
                 />
                 <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                   <button className="btn" onClick={() => void applyDamage(false)}>
-                    Hit ⚔
+                    Hit
                   </button>
                   <button className="btn btn-ghost" onClick={() => void applyDamage(true)}>
                     Miss
@@ -931,7 +981,7 @@ export default function BoardView() {
                   void tableApi.standDown(sessionId, g).then(() => qc.invalidateQueries({ queryKey: ["board-table", sessionId] }));
                 }}
               >
-                ✋ Stand down: {g}
+                <Hand size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Stand down: {g}
               </button>
             ))}
           </div>

@@ -11,7 +11,7 @@ import pytest
 from sqlmodel import Session, SQLModel, create_engine
 from sqlmodel.pool import StaticPool
 
-from db.base import _json_serializer
+from db.base import _json_serializer, relax_duckdb_indexes
 
 os.environ.setdefault("RATE_LIMIT", "off")  # Plan 77 — the throttle is exercised by its own tests
 # Plan 125 — sign-up suites create accounts freely; the invite gate has its own tests.
@@ -35,6 +35,7 @@ def duckdb_engine():
         json_serializer=_json_serializer,
     )
     SQLModel.metadata.create_all(engine)
+    relax_duckdb_indexes(engine)  # as local DuckDB files do (db/base.py)
     return engine
 
 

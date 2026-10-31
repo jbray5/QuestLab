@@ -15,6 +15,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -84,7 +85,7 @@ async def lifespan(app: FastAPI):
     from integrations.dnd_rules.srd_spells_2024 import SRD_SPELLS_2024
     from integrations.dnd_rules.srd_weapons_2024 import SRD_WEAPONS_2024
     from integrations.dnd_rules.stat_blocks import seed_monsters
-    from services.feature_service import seed_catalog as seed_class_features
+    from services.feature_service import seed_and_backfill as seed_class_features
     from services.item_service import (
         backfill_weapon_stats,
         seed_armor,
@@ -115,6 +116,11 @@ app = FastAPI(
     version="1.11.0",
     lifespan=lifespan,
 )
+
+# ── Compression (Plan 128) — the builder's options payload is ~415 KB of JSON;
+# gzip takes it to ~97 KB. Starlette never compresses text/event-stream, so the
+# live table's SSE streams are untouched.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # ── CORS — allow Vite dev server (port 5173) and same-origin prod ──────────────
 app.add_middleware(

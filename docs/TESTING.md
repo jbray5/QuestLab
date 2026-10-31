@@ -8,6 +8,7 @@
 - Tests use **DuckDB in-memory** via the `duckdb_session` fixture in `conftest.py`.
 - Never require a live Postgres connection in CI.
 - `SQLModel.metadata.create_all(engine)` creates schema from models at test start.
+- Both conftests (`tests/conftest.py`, `tests/test_api/conftest.py`) then call `db.base.relax_duckdb_indexes(engine)`, as local DuckDB files do. It drops `ix_player_characters_play_token`, because DuckDB turns an update of an indexed column into delete + insert, and its foreign keys refuse that. Postgres keeps the unique index (Plan 128).
 
 ## Test Layout
 ```
@@ -66,6 +67,34 @@ tests/
 
 ### Plan 122 — the companion phone's player-link verbs
 - `test_api/test_plan122_player_companion.py` — advantage keeps the higher d20; typed-in real dice are logged as given (wrong face or count → 422); the turn kit groups a wizard's Fire Bolt as an action with its to-hit and lists Opportunity Attack as a reaction; a rogue gets Cunning Action and the Sneak Attack tip; casting spends the slot chosen (cantrips free, rituals free, unprepared refused, below the spell's level refused, out of slots → 409); another PC's spell row → 404; preparing respects class (sorcerers can't) and cantrips; player notes round-trip and the DM's `notes` never appear in `/play` responses; temp HP is player-writable within 0–999 while level stays DM-only; off your turn the phone gets the running order (who's up, foes marked, your own row flagged).
+
+### Plan 128 — persona run 3 fixes
+- `test_services/test_plan128_builder_rules.py`:
+  - the subclass is required at its level (a book subclass is recorded by name);
+  - a Bard must pick its cantrip and spell counts; off-list and too-high spells are refused;
+  - a build without `class_choices` (the sample night's pregens) keeps the lenient rules and is told what's still open;
+  - always-prepared spells come free (Paladin 5: Divine Smite, Find Steed and oath spells; Ranger 1: Hunter's Mark; the subclass and Land tables);
+  - Magic Initiate picks from the background's list, and a Human's Versatile feat has its own picks;
+  - a Fighter picks its style and masteries, and masteries follow the class; unknown and unasked choices are refused;
+  - `feat_rules.apply_class_choices` without a database: counts by level, Orders and extra cantrips, invocation prerequisites, Champion styles, Metamagic, Land, skill choices;
+  - options carry each spell's details and hide other DMs' homebrew.
+- `test_services/test_plan128_feature_catalog.py`:
+  - every SRD class's limited-use features arrive at the right level with the right uses; Rage and Wild Shape regain one use on a Short Rest;
+  - catalog identities are unique, and SRD rows match the class tables;
+  - seeding: migration 0036's two planted rows no longer block the rest; new rows reach existing characters once; an old row's formula and recovery are corrected in place, keeping its id;
+  - `sync_for_level` works from an empty catalog; a subclass matches however it was written;
+  - Lay on Hands is a 25-point pool at level 5, spent in any amount and clamped at empty;
+  - `features_for_level` lists the passives (Extra Attack, Weapon Mastery, Fighting Style), and every SRD feature has a note;
+  - turn kit: no Smite at Paladin 1 unless prepared, always at 2; Lay on Hands is a Bonus Action with its pool; Cure Wounds heals; uses left come from the sheet;
+  - `heal_dice` (Cure Wounds 2d8+3 at 1st, 4d8+3 at 2nd), and `cast_spell` returns it.
+- `test_services/test_feature_service.py`: a same-name row for another subclass is its own row; the real catalog seeds onto a partial table.
+- `test_services/test_table_service.py::test_tv_gets_class_and_picture_for_pcs_only`: PC tokens and order rows carry the class and picture; foes and markers carry neither; a class stored on a token is never trusted.
+- `test_api/test_plan128_class_features_api.py`: the DM gets every feature at the level (Aura of Protection with its bonus at 6); another DM gets 403, a missing PC 404, no identity 401; the phone gets the same list; tracked features reach the phone after sync.
+- `test_api/test_plan128_pools.py`: the phone spends 7 of 25 points in one call; asking for more than is left stops at empty; `amount` of 0, −3 or 101 is a 422; the DM spends 5 and gives 2 back.
+- `test_api/test_plan128_player_phone.py`: a player names themselves (trimmed; the DM sees it); blank, too-long and non-text names get a field-level 422, while 100 characters is fine; feedback lands under the character, prefixed with its name; an unknown link is a 404, and an empty or 4,001-character note is a 422, with nothing stored; a reset link can't send feedback.
+- `test_api/test_plan128_runbook_scenes.py`: scenes are added, renamed, reordered and deleted as one PATCH of the list; a scene keeps a fight from its own arc and drops any other; another DM can't patch the scenes.
+- `test_api/test_plan128_uploads.py`: with a blob token, a portrait is stored under `portraits/` and the blob URL is returned; without one, it goes to `uploads/`.
+- `test_api/test_sec002_play_links.py::test_reset_works_for_a_pc_with_features`: Reset link works for a PC with feature rows on DuckDB. It used to 500.
 
 ## Running Tests
 ```bash

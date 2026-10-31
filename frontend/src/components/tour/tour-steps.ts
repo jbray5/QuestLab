@@ -74,8 +74,8 @@ export const TOUR_STEPS: TourStep[] = [
     title: "Game night lives in the HUD",
     body:
       "Every session has a HUD: the party, the turn order, your notes (press N) and " +
-      "Script for read-aloud text. Start the fight rolls initiative, and each player's " +
-      "phone shows when it's their turn.",
+      "Script for read-aloud text. Start the fight rolls initiative, End turn (or the E " +
+      "key) moves it on, and each player's phone shows when it's their turn.",
   },
   {
     title: "Tell us how it goes",

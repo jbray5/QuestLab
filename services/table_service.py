@@ -5,8 +5,9 @@ Two audiences:
   session ownership.
 - The projector reads ``get_projection`` — NO auth (capability URL, session
   UUID is the secret, same model as /play). The projection is deliberately
-  thin: revealed fog + tokens + darkness + which token glows. It never carries
-  HP, initiative, DM notes, or the names of unrevealed regions.
+  thin: revealed fog + tokens + darkness + which token glows, plus the turn
+  order and the party's own HP while a fight runs (Plan 83). It never carries
+  foe HP, DM notes, or the names of unrevealed regions.
 """
 
 import re
@@ -403,6 +404,14 @@ def _resolve_figures(
                     token.image_url = monster.image_url
 
 
+def _class_name(pc: object | None) -> str | None:
+    """A character's class as plain text ("Fighter"), or None without one."""
+    cls = getattr(pc, "character_class", None) if pc is not None else None
+    if cls is None:
+        return None
+    return str(getattr(cls, "value", cls)) or None
+
+
 def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     """Build the player-safe projection for the projector (NO auth).
 
@@ -485,6 +494,19 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
     combatant_monster: dict[str, uuid.UUID | None] = {}
     combatants = SessionCombatantRepo.list_for_session(db, session_id)
     _relink_tokens(tokens, combatants)
+    pc_rows: dict[str, object] = {}
+
+    def _pc_row(ref_id: str | None):
+        """The character behind a PC ref, looked up once per projection."""
+        if not ref_id:
+            return None
+        if ref_id not in pc_rows:
+            try:
+                pc_rows[ref_id] = CharacterRepo.get_by_id(db, uuid.UUID(ref_id))
+            except ValueError:
+                pc_rows[ref_id] = None
+        return pc_rows[ref_id]
+
     for c in combatants:
         ref = str(c.character_id) if c.character_id else str(c.id)
         combatant_monster[str(c.id)] = c.monster_id
@@ -494,6 +516,8 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
             active_ref = ref
         if combat_running:
             is_pc = bool(c.character_id) or str(c.type).lower() == "pc"
+            # Plan 128 — the TV's turn order shows a PC's picture or class crest.
+            pc_row = _pc_row(str(c.character_id)) if c.character_id else None
             initiative.append(
                 InitiativeEntry(
                     ref=ref,
@@ -504,6 +528,8 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
                     hp_current=c.hp_current if is_pc else None,
                     hp_max=c.hp_max if is_pc else None,
                     conditions=list(c.conditions or []),
+                    class_name=_class_name(pc_row),
+                    image_url=getattr(pc_row, "portrait_url", None) if pc_row else None,
                 )
             )
         if c.conditions:
@@ -519,13 +545,13 @@ def get_projection(db: DBSession, session_id: uuid.UUID) -> TableProjection:
         ref = token.ref_id or token.id
         token.conditions = condition_by_ref.get(ref, [])
         token.concentrating = None
+        # Plan 128 — the class crest stands in for a missing picture; never stored.
+        token.class_name = None
         if token.kind == "pc" and token.ref_id:
-            try:
-                pc = CharacterRepo.get_by_id(db, uuid.UUID(token.ref_id))
-            except ValueError:
-                pc = None
+            pc = _pc_row(token.ref_id)
             if pc is not None:
                 token.concentrating = bool(pc.concentration_on)
+                token.class_name = _class_name(pc)
 
     _resolve_figures(db, tokens, combatant_monster)
 

@@ -343,22 +343,60 @@ class TestSeedCatalog:
         assert n == 2
 
     def test_idempotent(self, duckdb_session: Session):
-        """Second call is a no-op."""
-        _feature(duckdb_session)
-        n = feat_svc.seed_catalog(
-            duckdb_session,
-            [
-                ClassFeatureCreate(
-                    name="Z",
-                    character_class=CharacterClass.WIZARD,
-                    level_acquired=1,
-                    recovery=RecoveryType.LONG,
-                    uses_formula=UsesFormula.PROF_BONUS,
-                    description="z",
-                ),
-            ],
+        """A partly filled catalog gets the missing rows; a second call is a no-op (Plan 128)."""
+        existing = _feature(duckdb_session)
+        payloads = [
+            ClassFeatureCreate(
+                name="Action Surge",
+                character_class=CharacterClass.FIGHTER,
+                level_acquired=2,
+                recovery=RecoveryType.SHORT,
+                uses_formula=UsesFormula.FIXED_1,
+                description="A different description: the row is not rewritten.",
+            ),
+            ClassFeatureCreate(
+                name="Z",
+                character_class=CharacterClass.WIZARD,
+                level_acquired=1,
+                recovery=RecoveryType.LONG,
+                uses_formula=UsesFormula.PROF_BONUS,
+                description="z",
+            ),
+        ]
+        assert feat_svc.seed_catalog(duckdb_session, payloads) == 1
+        assert feat_svc.seed_catalog(duckdb_session, payloads) == 0
+        rows = ClassFeatureRepo.list_all(duckdb_session)
+        assert sorted(r.name for r in rows) == ["Action Surge", "Z"]
+        kept = next(r for r in rows if r.name == "Action Surge")
+        assert kept.id == existing.id and kept.description == "Action Surge description."
+
+    def test_same_name_other_subclass_is_its_own_row(self, duckdb_session: Session):
+        """Matching is on name + class + subclass, so a subclass twin still seeds."""
+        _feature(duckdb_session, name="Boon", level_acquired=3)
+        twin = ClassFeatureCreate(
+            name="Boon",
+            character_class=CharacterClass.FIGHTER,
+            subclass="Champion",
+            level_acquired=3,
+            recovery=RecoveryType.LONG,
+            uses_formula=UsesFormula.FIXED_1,
+            description="b",
         )
-        assert n == 0
+        assert feat_svc.seed_catalog(duckdb_session, [twin]) == 1
+        assert feat_svc.seed_catalog(duckdb_session, [twin]) == 0
+
+    def test_real_catalog_on_a_partial_table(self, duckdb_session: Session):
+        """The bug behind 'No features learned yet': two rows from a migration blocked the rest."""
+        from integrations.dnd_rules.class_features_2024 import CLASS_FEATURES_2024
+
+        planted = [p for p in CLASS_FEATURES_2024 if p.name == "Psionic Energy Dice"]
+        for p in planted:
+            ClassFeatureRepo.create(duckdb_session, p)
+        added = feat_svc.seed_catalog(duckdb_session, CLASS_FEATURES_2024)
+        assert added == len(CLASS_FEATURES_2024) - len(planted)
+        names = {r.name for r in ClassFeatureRepo.list_all(duckdb_session)}
+        assert {"Lay on Hands", "Channel Divinity (Paladin)", "Paladin's Smite"} <= names
+        assert len(ClassFeatureRepo.list_all(duckdb_session)) == len(CLASS_FEATURES_2024)
 
 
 class TestSyncForLevel:

@@ -20,13 +20,14 @@ export const featuresApi = {
   /** Grant every catalog feature the PC now qualifies for (level-up helper). */
   sync: (characterId: string) =>
     api.post<{ granted: string[] }>(`/characters/${characterId}/features/sync`),
-  spend: (characterId: string, characterFeatureId: string) =>
+  /** Spend uses; `amount` spends several pool points at once (Lay on Hands). */
+  spend: (characterId: string, characterFeatureId: string, amount = 1) =>
     api.post<CharacterFeature>(
-      `/characters/${characterId}/features/${characterFeatureId}/spend`,
+      `/characters/${characterId}/features/${characterFeatureId}/spend?amount=${amount}`,
     ),
-  restore: (characterId: string, characterFeatureId: string) =>
+  restore: (characterId: string, characterFeatureId: string, amount = 1) =>
     api.post<CharacterFeature>(
-      `/characters/${characterId}/features/${characterFeatureId}/restore`,
+      `/characters/${characterId}/features/${characterFeatureId}/restore?amount=${amount}`,
     ),
   forget: (characterId: string, characterFeatureId: string) =>
     api.delete(`/characters/${characterId}/features/${characterFeatureId}`),

@@ -277,10 +277,14 @@ input[type="checkbox"], input[type="radio"] {
   accent-color: var(--accent);
 }
 input[type="range"] { accent-color: var(--accent); padding: 0; }
+/* Text fields get the same 2 px lantern ring as buttons (Plan 128): a 1 px
+   border change alone vanished at 200 % and in Windows high contrast. */
 input:focus, textarea:focus, select:focus {
-  outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(227, 134, 58, 0.22);
+}
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 /* A placeholder must never pass for a value someone typed. */
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.75; font-style: italic; }
@@ -479,6 +483,43 @@ label {
   outline-offset: 2px;
 }
 .btn:focus-visible { outline-offset: 2px; }
+/* Things that take focus only so a keyboard or screen reader lands in the
+   right place (a dialog's title, <main> after "Skip to content"): no ring. */
+.ql-quiet-focus:focus, #ql-main:focus, .ql-sheet:focus, .ql-sheet-title:focus { outline: none; }
+
+/* Read by screen readers, not shown. */
+.ql-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* "Skip to content" (Layout, Plan 128): first on Tab, hidden until focused. */
+.ql-skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 10000;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(calc(-100% - 16px));
+}
+.ql-skip-link:focus, .ql-skip-link:focus-visible {
+  transform: none;
+  color: var(--accent-ink);
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
 
 /* ── Empty state ────────────────────────────────────────────────────────────── */
 .empty-state {
@@ -829,6 +870,15 @@ html, body { max-width: 100%; overflow-x: hidden; }
   padding: 0.6rem 0.75rem 0.6rem 1rem;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+}
+.ql-sheet-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text);
 }
 .ql-sheet-head::before {
   content: "";

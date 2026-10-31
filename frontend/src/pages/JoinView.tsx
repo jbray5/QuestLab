@@ -4,6 +4,7 @@ import { UserPlus } from "lucide-react";
 
 import { apiBase } from "../api/client";
 import { portraitSrc } from "../lib/portrait";
+import { realPlayerName } from "./player/rules";
 import { Monogram } from "./player/ui";
 
 /**
@@ -14,6 +15,9 @@ import { Monogram } from "./player/ui";
  * UUID is the capability, shown only in the room. Remembers the pick so
  * the next scan goes straight to their sheet. `?switch=1` (the phone's
  * "Not you? Pick your character") forgets that pick and shows the party.
+ * A link that carries the join code (`?code=OTTER`; a DM can add it by hand,
+ * the app's own join links leave it out) fills the code in and tries it, so
+ * nobody retypes it (Plan 128).
  */
 
 interface RosterRow {
@@ -74,11 +78,13 @@ export default function JoinView() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const switching = params.get("switch") === "1";
+  // Plan 128 — the join link's own code, ready in the box (and tried at once).
+  const linkCode = (params.get("code") ?? "").trim().toUpperCase().slice(0, 12);
   const [roster, setRoster] = useState<RosterRow[] | null>(null);
   const [error, setError] = useState(false);
   // Plan 83 — some tables ask for a short code before showing the party.
   const [needCode, setNeedCode] = useState(false);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(linkCode);
   const [codeWrong, setCodeWrong] = useState(false);
 
   useEffect(() => {
@@ -98,9 +104,9 @@ export default function JoinView() {
     } catch {
       /* storage blocked — always show the picker */
     }
-    load(readCode(campaignId));
+    load(linkCode || readCode(campaignId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaignId, navigate, switching]);
+  }, [campaignId, navigate, switching, linkCode]);
 
   function readCode(cid: string): string {
     try {
@@ -203,7 +209,7 @@ export default function JoinView() {
                 )}
                 <span className="qj-text">
                   <span className="qj-name">{row.character_name}</span>
-                  {row.player_name && <span className="qj-player">{row.player_name}</span>}
+                  {realPlayerName(row.player_name) && <span className="qj-player">{realPlayerName(row.player_name)}</span>}
                 </span>
               </button>
             ))}

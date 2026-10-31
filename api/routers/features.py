@@ -109,20 +109,22 @@ def spend_feature_use(
     character_feature_id: uuid.UUID,
     db: DB,
     user: CurrentUser,
+    amount: int = Query(1, ge=1, le=100),
 ) -> CharacterFeatureRead:
-    """Spend one use of a PC's class feature.
+    """Spend uses of a PC's class feature (``amount`` for pools like Lay on Hands).
 
     Args:
         character_id: URL grouping.
         character_feature_id: UUID of the PC-feature row.
         db: Database session.
         user: Authenticated DM.
+        amount: How many uses or points to spend (default 1).
 
     Returns:
         Hydrated CharacterFeatureRead with the new uses_spent value.
     """
     try:
-        return feature_service.spend_use(db, character_feature_id, user)
+        return feature_service.spend_use(db, character_feature_id, user, amount=amount)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
@@ -138,20 +140,22 @@ def restore_feature_use(
     character_feature_id: uuid.UUID,
     db: DB,
     user: CurrentUser,
+    amount: int = Query(1, ge=1, le=100),
 ) -> CharacterFeatureRead:
-    """Restore one use (undo button).
+    """Restore uses (undo button; ``amount`` gives pool points back).
 
     Args:
         character_id: URL grouping.
         character_feature_id: UUID of the row.
         db: Database session.
         user: Authenticated DM.
+        amount: How many uses or points to give back (default 1).
 
     Returns:
         Hydrated CharacterFeatureRead.
     """
     try:
-        return feature_service.restore_use(db, character_feature_id, user)
+        return feature_service.restore_use(db, character_feature_id, user, amount=amount)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:

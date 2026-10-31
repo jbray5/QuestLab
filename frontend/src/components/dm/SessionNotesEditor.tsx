@@ -94,7 +94,9 @@ export default function SessionNotesEditor({
           lineHeight: 1.55,
           padding: "0.6rem 0.8rem",
           fontFamily: "inherit",
-          outline: "none",
+          // Plan 128 — keep index.css's keyboard focus ring (no `outline: none`); drawn
+          // inside the box so the panel's edges don't clip it.
+          outlineOffset: -2,
           boxShadow: "none",
         }}
       />

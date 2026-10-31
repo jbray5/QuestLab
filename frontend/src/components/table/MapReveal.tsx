@@ -44,19 +44,18 @@ const CSS = `
   animation: qlRevealCard 1.1s cubic-bezier(0.16,1,0.3,1) 0.9s backwards;
 }
 .ql-mapreveal-sub {
-  color: #c9b989; text-transform: uppercase; letter-spacing: 0.55em;
-  font-size: clamp(0.65rem, 1.4vw, 0.95rem); font-family: var(--font-ui);
-  padding-left: 0.55em; /* optically recenters the tracked-out caps */
+  color: var(--accent-text); font-weight: 600;
+  font-size: clamp(1.125rem, 2.8vh, 1.7rem); font-family: var(--font-ui);
 }
 .ql-mapreveal-title {
-  color: #f2e3ae; font-family: var(--font-ui);
-  font-size: clamp(1.8rem, 5.5vw, 4.2rem); letter-spacing: 0.12em;
+  color: var(--text); font-family: var(--font-story); font-weight: 700;
+  font-size: clamp(1.8rem, 5.5vw, 4.2rem);
   text-align: center; text-shadow: 0 4px 30px rgba(0,0,0,0.95);
   padding: 0 6vw; text-wrap: balance;
 }
 .ql-mapreveal-rule {
   width: min(340px, 46vw); height: 2px; border-radius: 2px;
-  background: linear-gradient(90deg, transparent, #d8b95c 30%, #d8b95c 70%, transparent);
+  background: linear-gradient(90deg, transparent, var(--accent) 30%, var(--accent) 70%, transparent);
   animation: qlRevealRule 1s cubic-bezier(0.16,1,0.3,1) 1.15s backwards;
 }
 @keyframes qlRevealArt {

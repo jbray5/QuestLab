@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Check, Circle, X } from "lucide-react";
 
 import type { Campaign } from "../api/types";
@@ -61,6 +61,9 @@ function readTicks(email: string): { ticks: StepKey[]; hidden: boolean } {
 export default function BetaWelcome({ email, campaigns }: { email: string; campaigns: Campaign[] }) {
   const [state, setState] = useState(() => readTicks(email));
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // Where focus goes when the feedback sheet closes: its own Send feedback
+  // button is gone by then (the step has ticked itself).
+  const feedbackTickRef = useRef<HTMLButtonElement>(null);
   if (state.hidden || !email) return null;
 
   const auto: Partial<Record<StepKey, boolean>> = {
@@ -88,7 +91,7 @@ export default function BetaWelcome({ email, campaigns }: { email: string; campa
       <div className="flex" style={{ alignItems: "flex-start", gap: "0.75rem" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p className="eyebrow" style={{ margin: 0 }}>
-            Friends beta · {count} of {STEPS.length} done
+            Friends beta · <span className="num">{count}</span> of <span className="num">{STEPS.length}</span> done
           </p>
           <h2 className="story" style={{ margin: "0.2rem 0 0.35rem", fontSize: "1.35rem" }}>
             Welcome to QuestLab
@@ -103,9 +106,9 @@ export default function BetaWelcome({ email, campaigns }: { email: string; campa
           aria-label="Hide the beta checklist"
           title="Hide this checklist"
           onClick={() => save({ ...state, hidden: true })}
-          style={{ minWidth: 40, minHeight: 40, padding: 0, justifyContent: "center" }}
+          style={{ minWidth: 44, minHeight: 44, padding: 0, justifyContent: "center" }}
         >
-          <X size={18} />
+          <X size={18} aria-hidden />
         </button>
       </div>
       <ol style={{ listStyle: "none", padding: 0, margin: "0.85rem 0 0", display: "flex", flexDirection: "column", gap: "0.35rem" }}>
@@ -114,11 +117,15 @@ export default function BetaWelcome({ email, campaigns }: { email: string; campa
           const automatic = !!auto[s.key];
           return (
             <li key={s.key} style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start" }}>
+              {/* Each tick is a named checkbox ("Run the sample night, checked").
+                  Steps QuestLab can see tick themselves and say so. */}
               <button
+                ref={s.key === "feedback" ? feedbackTickRef : undefined}
                 type="button"
                 role="checkbox"
                 aria-checked={isDone}
-                aria-label={s.title}
+                aria-label={automatic ? `${s.title} (ticked for you)` : s.title}
+                title={automatic ? "Ticked for you when you did it" : isDone ? "Mark as not done" : "Mark as done"}
                 disabled={automatic}
                 onClick={() =>
                   save({
@@ -127,17 +134,17 @@ export default function BetaWelcome({ email, campaigns }: { email: string; campa
                   })
                 }
                 className="btn btn-ghost"
-                style={{ minWidth: 40, minHeight: 40, padding: 0, justifyContent: "center", flexShrink: 0, color: isDone ? "var(--teal-text)" : "var(--muted)" }}
+                style={{ minWidth: 44, minHeight: 44, padding: 0, justifyContent: "center", flexShrink: 0, color: isDone ? "var(--teal-text)" : "var(--muted)" }}
               >
-                {isDone ? <Check size={18} /> : <Circle size={18} />}
+                {isDone ? <Check size={18} aria-hidden /> : <Circle size={18} aria-hidden />}
               </button>
-              <div style={{ paddingTop: "0.45rem", minWidth: 0 }}>
+              <div style={{ paddingTop: "0.6rem", minWidth: 0 }}>
                 <div style={{ fontWeight: 600, color: isDone ? "var(--text2)" : "var(--text)", textDecoration: isDone ? "line-through" : "none" }}>
                   {s.title}
                 </div>
                 {!isDone && <div className="text-sm" style={{ color: "var(--text2)", lineHeight: 1.45 }}>{s.body}</div>}
                 {!isDone && s.key === "feedback" && (
-                  <button type="button" className="btn btn-secondary" style={{ marginTop: "0.4rem", minHeight: 40 }} onClick={() => setFeedbackOpen(true)}>
+                  <button type="button" className="btn btn-secondary" style={{ marginTop: "0.4rem", minHeight: 44 }} onClick={() => setFeedbackOpen(true)}>
                     Send feedback
                   </button>
                 )}
@@ -151,6 +158,7 @@ export default function BetaWelcome({ email, campaigns }: { email: string; campa
           onClose={() => {
             setFeedbackOpen(false);
             if (!state.ticks.includes("feedback")) save({ ...state, ticks: [...state.ticks, "feedback"] });
+            feedbackTickRef.current?.focus();
           }}
         />
       )}

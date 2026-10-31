@@ -5,11 +5,13 @@ import {
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adventuresApi } from "../api/adventures";
+import { encountersApi } from "../api/encounters";
 import { sessionsApi } from "../api/sessions";
 import LootPanel from "../components/LootPanel";
+import RunbookEditor from "../components/runbook/RunbookEditor";
 import { useInitiativeStore } from "../stores/useInitiativeStore";
 import { useIsCompact } from "../hooks/useIsCompact";
-import type { Combatant, SessionRunbook } from "../api/types";
+import type { Combatant, Encounter, SessionRunbook } from "../api/types";
 import { statusLabel } from "../lib/labels";
 
 // ── Initiative Tracker ────────────────────────────────────────────────────────
@@ -381,69 +383,13 @@ function InitiativeTracker({ sessionId }: { sessionId: string }) {
 
 // ── Runbook section ───────────────────────────────────────────────────────────
 
-const sectionLabel: React.CSSProperties = { fontSize: "0.8125rem", fontWeight: 600, color: "var(--muted)", marginBottom: "0.35rem" };
-
-function RunbookView({ runbook }: { runbook: SessionRunbook }) {
-  const [activeScene, setActiveScene] = useState(0);
-  const phone = useIsCompact(640);
-  const scenes = runbook.scenes ?? [];
-  const scene = scenes[activeScene];
-
+/**
+ * What older or sample runbooks carry beyond the scenes (NPC lines, fight flows,
+ * XP, loot), shown read-only under the editor. A hand-written runbook has none.
+ */
+function RunbookExtras({ runbook }: { runbook: SessionRunbook }) {
   return (
     <div>
-      {/* Opening scene */}
-      {runbook.opening_scene && (
-        <div className="read-aloud" style={{ marginBottom: "1.25rem" }}>
-          {runbook.opening_scene}
-        </div>
-      )}
-
-      {/* Scene tabs */}
-      {scenes.length > 0 && (
-        <div className="flex gap-2" style={{ marginBottom: "1rem", flexWrap: "wrap" }}>
-          {scenes.map((sc, i) => (
-            <button
-              key={i}
-              className="btn btn-ghost"
-              aria-pressed={i === activeScene}
-              style={{
-                minHeight: phone ? 44 : 32,
-                fontSize: "0.875rem",
-                padding: "0.25rem 0.7rem",
-                ...(i === activeScene
-                  ? { background: "var(--accent-active)", color: "var(--accent-active-text)", borderColor: "var(--accent-line)" }
-                  : {}),
-              }}
-              onClick={() => setActiveScene(i)}
-            >
-              <span className="num">{i + 1}</span> {sc.title}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Active scene */}
-      {scene && (
-        <div className="card" style={{ marginBottom: "1rem" }}>
-          <h3 className="story" style={{ marginBottom: "0.15rem", fontSize: "1.4rem" }}>{scene.title}</h3>
-          <p style={{ fontSize: "0.8125rem", marginBottom: "0.75rem", color: "var(--muted)" }}>
-            About <span className="num">{scene.estimated_minutes}</span> min
-          </p>
-          <div style={sectionLabel}>Read aloud</div>
-          <div className="read-aloud" style={{ marginBottom: "0.9rem", whiteSpace: "pre-wrap" }}>
-            {scene.read_aloud}
-          </div>
-          {scene.dm_notes && (
-            <>
-              <div style={sectionLabel}>Your notes</div>
-              <p style={{ whiteSpace: "pre-wrap", fontSize: "0.95rem", marginBottom: 0, color: "var(--text2)" }}>
-                {scene.dm_notes}
-              </p>
-            </>
-          )}
-        </div>
-      )}
-
       {/* NPC Dialog */}
       {(runbook.npc_dialog ?? []).length > 0 && (
         <div className="card" style={{ marginBottom: "1rem" }}>
@@ -535,13 +481,6 @@ function RunbookView({ runbook }: { runbook: SessionRunbook }) {
         </div>
       )}
 
-      {/* Closing hooks */}
-      {runbook.closing_hooks && (
-        <div className="card">
-          <h3>Closing hooks</h3>
-          <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{runbook.closing_hooks}</p>
-        </div>
-      )}
     </div>
   );
 }
@@ -579,6 +518,13 @@ export default function SessionRunner() {
   const { data: adventure } = useQuery({
     queryKey: ["adventure", session?.adventure_id],
     queryFn: () => adventuresApi.get(session!.adventure_id),
+    enabled: !!session?.adventure_id,
+  });
+
+  // Plan 128 — a scene can name its fight: the arc's encounters, as the HUD loads them.
+  const { data: encounters = [] } = useQuery<Encounter[]>({
+    queryKey: ["encounters", session?.adventure_id],
+    queryFn: () => encountersApi.list(session!.adventure_id),
     enabled: !!session?.adventure_id,
   });
 
@@ -646,8 +592,9 @@ export default function SessionRunner() {
   }
 
   return (
-    // On a phone the last card clears the dice button at the bottom-right.
-    <div className="fade-in" style={phone ? { paddingBottom: 64 } : undefined}>
+    // Plan 128 — the floating dice button hides on prep on a phone (it covered
+    // Initiative's Reset), so the page needs only a little room at the bottom.
+    <div className="fade-in" style={phone ? { paddingBottom: 24 } : undefined}>
       <div className="flex" style={{ justifyContent: "space-between", alignItems: "flex-start", gap: "1rem", marginBottom: "0.35rem" }}>
         <h1 className="story" style={{ minWidth: 0 }}>
           Session {toRoman(session.session_number)}
@@ -700,10 +647,10 @@ export default function SessionRunner() {
               )}
             </div>
           ) : (
-            /* Runbook exists */
+            /* Runbook exists: write it right here (Plan 128) */
             <div>
-              <h2 style={{ margin: "0 0 1rem" }}>Session runbook</h2>
-              <RunbookView runbook={runbook} />
+              <RunbookEditor key={runbook.id} sessionId={sessionId!} runbook={runbook} encounters={encounters} />
+              <RunbookExtras runbook={runbook} />
             </div>
           )}
 

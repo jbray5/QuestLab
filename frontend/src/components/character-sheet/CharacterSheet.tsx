@@ -593,6 +593,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
             characterClass={pc.character_class}
             characterLevel={pc.level}
             characterName={pc.character_name}
+            characterSubclass={pc.subclass}
             defaultOpen
             readOnly={readOnly}
           />

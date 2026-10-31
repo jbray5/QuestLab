@@ -1,4 +1,12 @@
-import type { Ability, BuilderFeat, BuilderOptions } from "../../api/characterBuilder";
+import type {
+  Ability,
+  BuilderFeat,
+  BuilderOptions,
+  BuilderSpell,
+  ChoiceKind,
+  ChoiceOption,
+  MasteryWeapon,
+} from "../../api/characterBuilder";
 
 /**
  * The wizard's rule math (Plan 74, Plan 126) — a mirror of the server's, so each step can
@@ -80,6 +88,12 @@ export function armorTraining(opts: BuilderOptions, klass: string, feats: string
   if (names.has("lightly armored")) { out.add("light"); out.add("shields"); }
   if (names.has("moderately armored")) { out.add("medium"); out.add("shields"); }
   if (names.has("heavily armored")) out.add("heavy");
+  // Plan 128 — Divine Order (Protector) and Primal Order (Warden) train armor too.
+  for (const key of ["divine_order", "primal_order"]) {
+    for (const o of opts.choice_kinds?.[key]?.options ?? []) {
+      if (o.armor && names.has(choiceEntry(opts, key, o.name).toLowerCase())) o.armor.forEach((a) => out.add(a));
+    }
+  }
   return out;
 }
 
@@ -356,4 +370,305 @@ export function derive(args: {
     slots,
     warnings: warning ? [warning] : [],
   };
+}
+
+// ── Plan 128: the class's own choices ────────────────────────────────────────
+// Mirrors levelup_2024.class_choice_counts and feat_rules.apply_class_choices.
+
+/** Value from a [from level, value] table: the last row at or below `level`. */
+export function stepAt<T>(level: number, table: [number, T][] | undefined): T | undefined {
+  let out: T | undefined;
+  for (const [at, v] of table ?? []) if (level >= at) out = v;
+  return out;
+}
+
+/** How many picks each class choice has at `level` (a subclass's table adds to its class's). */
+export function choiceCounts(opts: BuilderOptions, klass: string, level: number, subclass: string | null): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const table of [opts.class_choices?.[klass] ?? {}, subclass ? opts.subclass_choices?.[subclass] ?? {} : {}]) {
+    for (const [key, steps] of Object.entries(table)) {
+      const n = stepAt(level, steps) ?? 0;
+      if (n) out[key] = (out[key] ?? 0) + n;
+    }
+  }
+  return out;
+}
+
+/** How a class choice is written in `feats`: "Divine Order: Protector". */
+export function choiceEntry(opts: BuilderOptions, key: string, name: string): string {
+  const k = opts.choice_kinds?.[key];
+  return `${k?.record ?? k?.label ?? key}: ${name}`;
+}
+
+/** The listed options of a choice (Fighting Style: the catalog's style feats plus class extras). */
+export function choiceOptions(opts: BuilderOptions, klass: string, key: string): ChoiceOption[] {
+  const k = opts.choice_kinds?.[key];
+  if (!k) return [];
+  if (k.kind === "feat") {
+    return [
+      ...opts.feats.filter((f) => f.category === "fighting_style").map((f) => ({ name: f.name, blurb: f.blurb, srd: f.srd })),
+      ...(opts.fighting_style_extras?.[klass] ?? []),
+    ];
+  }
+  return k.options ?? [];
+}
+
+/** Weapons this class may name for Weapon Mastery. */
+export function masteryWeaponOk(opts: BuilderOptions, klass: string, w: MasteryWeapon): boolean {
+  const rule = opts.weapon_mastery_filter?.[klass];
+  const cat = w.category.toLowerCase();
+  if (rule === "melee") return cat.endsWith("melee");
+  if (rule === "finesse_or_light") return cat.startsWith("simple") || w.properties.some((p) => ["finesse", "light"].includes(p.toLowerCase()));
+  return true;
+}
+
+export interface ChoiceState { picks: string[]; book: string[] }
+export type ChoicePicks = Record<string, ChoiceState>;
+export const emptyChoice = (): ChoiceState => ({ picks: [], book: [] });
+
+export interface ChoiceSection {
+  key: string;
+  spec: ChoiceKind;
+  count: number;
+  state: ChoiceState;
+  /** The skills it could pick from, as the build stands (expertise: trained ones). */
+  skillPool: string[];
+  problem: string | null;
+}
+
+export interface ChoiceWalk {
+  sections: ChoiceSection[];
+  feats: string[];
+  skills: Record<string, number>;
+  extraCantrips: number;
+  cantripLists: string[];
+  land: string | null;
+  summary: string[];
+  /** Invocations that need a damaging (or attack) cantrip: checked on the Spells step. */
+  needsCantrip: { name: string; want: "damage" | "attack" }[];
+  problem: string | null;
+}
+
+const KIND_ORDER: Record<string, number> = { skill: 0, expertise: 1, feat: 2, option: 3, weapon: 4 };
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+function missingLine(kind: string, n: number, count: number): string {
+  if (count === 1 && n === 1) return "choose one.";
+  if (kind === "weapon") return `choose ${plural(n, "more kind")} of weapon.`;
+  if (kind === "expertise") return `choose ${plural(n, "more skill")} you're trained in.`;
+  if (kind === "skill") return `choose ${plural(n, "more skill")}.`;
+  return `choose ${n} more.`;
+}
+
+/**
+ * Walk the class choices the way the server does: new skills first, then Expertise, then the
+ * Fighting Style, the listed options and the weapon kinds. Returns what they add to the sheet,
+ * and the first thing still to do.
+ */
+export function walkClassChoices(
+  opts: BuilderOptions,
+  klass: string,
+  level: number,
+  subclass: string | null,
+  start: { feats: string[]; skills: Record<string, number> },
+  picks: ChoicePicks,
+): ChoiceWalk {
+  const counts = choiceCounts(opts, klass, level, subclass);
+  const feats = [...start.feats];
+  const skills = { ...start.skills };
+  const summary: string[] = [];
+  const needsCantrip: ChoiceWalk["needsCantrip"] = [];
+  let extraCantrips = 0;
+  const cantripLists: string[] = [];
+  let land: string | null = null;
+  let first: string | null = null;
+  const keys = Object.keys(counts).sort(
+    (a, b) => (KIND_ORDER[opts.choice_kinds[a]?.kind] ?? 9) - (KIND_ORDER[opts.choice_kinds[b]?.kind] ?? 9),
+  );
+  const sections: ChoiceSection[] = [];
+  for (const key of keys) {
+    const spec = opts.choice_kinds[key];
+    const count = counts[key];
+    const state = picks[key] ?? emptyChoice();
+    const listed = state.picks;
+    const book = spec.book ? state.book.map((b) => b.trim()).filter(Boolean) : [];
+    const classSkills = opts.classes[klass]?.skills.from ?? [];
+    const pool = spec.pool === "class" ? classSkills : spec.pool ?? Object.keys(opts.skills);
+    const skillPool = spec.kind === "expertise"
+      ? pool.filter((s) => (skills[s] ?? 0) === 1 || listed.includes(s))
+      : pool.filter((s) => !(skills[s] ?? 0) || listed.includes(s));
+    const section: ChoiceSection = { key, spec, count, state, skillPool, problem: null };
+    sections.push(section);
+    const fail = (msg: string) => { section.problem = msg; if (!first) first = `${spec.label}: ${msg}`; };
+    const total = listed.length + book.length;
+    if (total < count) fail(missingLine(spec.kind, count - total, count));
+    else if (total > count) fail(`a level ${level} ${klass} chooses ${count}. Take ${total - count} off.`);
+
+    if (spec.kind === "skill" || spec.kind === "expertise") {
+      for (const s of listed) {
+        const have = skills[s] ?? 0;
+        if (spec.kind === "expertise") {
+          if (have < 1) { fail(`you're not trained in ${s} now: pick another skill.`); continue; }
+          skills[s] = 2;
+        } else {
+          if (have >= 1) { fail(`you're already trained in ${s}: pick another skill.`); continue; }
+          skills[s] = 1;
+        }
+      }
+      if (listed.length) summary.push(`${spec.label}: ${listed.join(", ")}`);
+      continue;
+    }
+    if (spec.kind === "weapon") {
+      for (const n of listed) feats.push(choiceEntry(opts, key, n));
+      if (listed.length) summary.push(`${spec.label}: ${listed.join(", ")}`);
+      continue;
+    }
+    const options = choiceOptions(opts, klass, key);
+    for (const n of listed) {
+      const o = options.find((x) => x.name === n);
+      if (!o) continue;
+      if (o.level && level < o.level) fail(`${n} needs Warlock level ${o.level}.`);
+      if (o.requires && !listed.includes(o.requires)) fail(`${n} needs ${o.requires}.`);
+      if (o.cantrip) needsCantrip.push({ name: n, want: o.cantrip });
+      if (o.cantrips) {
+        extraCantrips += o.cantrips.count;
+        if (!cantripLists.includes(o.cantrips.list)) cantripLists.push(o.cantrips.list);
+      }
+      if (key === "land") land = n;
+      feats.push(spec.kind === "feat" && !o.cantrips ? n : choiceEntry(opts, key, n));
+    }
+    for (const b of book) feats.push(spec.kind === "feat" ? b : choiceEntry(opts, key, b));
+    if (listed.length || book.length) summary.push(`${spec.label}: ${[...listed, ...book].join(", ")}`);
+  }
+  return { sections, feats, skills, extraCantrips, cantripLists, land, summary, needsCantrip, problem: first };
+}
+
+// ── Plan 128: spells ─────────────────────────────────────────────────────────
+
+export interface AlwaysSpell { name: string; source: string }
+
+/** Spells always prepared at `level` (free, off the count): class, subclass and Circle land. */
+export function alwaysPrepared(opts: BuilderOptions, klass: string, level: number, subclass: string | null, land: string | null): AlwaysSpell[] {
+  const out: AlwaysSpell[] = [];
+  const seen = new Set<string>();
+  const add = (names: string[], source: string) => names.forEach((n) => { if (!seen.has(n.toLowerCase())) { seen.add(n.toLowerCase()); out.push({ name: n, source }); } });
+  const byLevel = (t: Record<string, string[]> | undefined) => Object.entries(t ?? {}).map(([l, n]) => [Number(l), n] as const).sort((a, b) => a[0] - b[0]);
+  for (const [at, names] of byLevel(opts.always_prepared_class?.[klass])) {
+    if (level >= at) add(names, opts.always_prepared_source?.[`${klass}:${at}`] ?? opts.always_prepared_source?.[klass] ?? klass);
+  }
+  if (subclass) for (const [at, names] of byLevel(opts.always_prepared_subclass?.[subclass])) if (level >= at) add(names, subclass);
+  if (subclass === "Circle of the Land" && land) for (const [at, names] of byLevel(opts.land_spells?.[land])) if (level >= at) add(names, `Circle of the Land (${land})`);
+  return out;
+}
+
+export function extraSpellLists(opts: BuilderOptions, klass: string, level: number): string[] {
+  const out: string[] = [];
+  for (const [at, lists] of Object.entries(opts.extra_spell_lists?.[klass] ?? {})) if (level >= Number(at)) lists.forEach((l) => { if (!out.includes(l)) out.push(l); });
+  return out;
+}
+
+export interface SpellPlan {
+  caster: boolean;
+  always: AlwaysSpell[];
+  alwaysSet: Set<string>;
+  cantripCap: number;
+  spellCap: number;
+  maxLevel: number;
+  cantripLists: string[];
+  spellLists: string[];
+  cantripPool: BuilderSpell[];
+  spellPool: BuilderSpell[];
+  /** What must be picked: the cap, or every spell the catalog has if fewer. */
+  needCantrips: number;
+  needSpells: number;
+}
+
+export function spellPlan(opts: BuilderOptions, klass: string, level: number, subclass: string | null, choices: ChoiceWalk | null): SpellPlan {
+  const always = alwaysPrepared(opts, klass, level, subclass, choices?.land ?? null);
+  const alwaysSet = new Set(always.map((a) => a.name.toLowerCase()));
+  const sc = opts.classes[klass]?.spellcasting;
+  const extra = choices?.extraCantrips ?? 0;
+  const caster = !!sc || extra > 0;
+  const cantripCapN = (sc ? cantripCap(opts, klass, level) : 0) + extra;
+  const spellCapN = sc ? spellCap(opts, klass, level) : 0;
+  const maxLevel = sc ? maxSpellLevel(opts, klass, level) : 0;
+  const cantripLists = [...new Set([klass, ...(choices?.cantripLists ?? [])])];
+  const spellLists = [klass, ...extraSpellLists(opts, klass, level)];
+  const onList = (s: BuilderSpell, lists: string[]) => s.classes.some((c) => lists.includes(c));
+  const cantripPool = cantripCapN ? opts.spells.filter((s) => s.level === 0 && onList(s, cantripLists) && !alwaysSet.has(s.name.toLowerCase())) : [];
+  const spellPool = spellCapN ? opts.spells.filter((s) => s.level >= 1 && s.level <= maxLevel && onList(s, spellLists) && !alwaysSet.has(s.name.toLowerCase())) : [];
+  return {
+    caster, always, alwaysSet, cantripCap: cantripCapN, spellCap: spellCapN, maxLevel, cantripLists, spellLists, cantripPool, spellPool,
+    needCantrips: Math.min(cantripCapN, cantripPool.length), needSpells: Math.min(spellCapN, spellPool.length),
+  };
+}
+
+// ── Plan 128: Origin feats with their own picks ──────────────────────────────
+
+export const MAGIC_INITIATE = "Magic Initiate";
+export interface OriginPickState { choice: string; spells: string[]; skills: string[] }
+export const emptyOrigin = (): OriginPickState => ({ choice: "", spells: [], skills: [] });
+
+/** "Magic Initiate (Cleric)" → { feat: "Magic Initiate", list: "Cleric" }. */
+export function splitFeat(entry: string): { feat: string; list: string | null } {
+  const feat = entry.split(" (")[0];
+  const m = /\(([^)]+)\)/.exec(entry);
+  return { feat, list: m ? m[1] : null };
+}
+
+export interface MiNeed {
+  source: "background" | "species";
+  /** Where it comes from, in words: "Acolyte" or "Versatile". */
+  from: string;
+  list: string;
+  /** The background names the list; a Human's Versatile feat picks it. */
+  fixed: boolean;
+  state: OriginPickState;
+  cantrips: BuilderSpell[];
+  firsts: BuilderSpell[];
+  needCantrips: number;
+  needFirsts: number;
+  problem: string | null;
+}
+
+/** Magic Initiate's picks: two cantrips and one level 1 spell from its list. */
+export function miNeed(opts: BuilderOptions, source: MiNeed["source"], from: string, fixedList: string | null, state: OriginPickState, otherList: string | null): MiNeed {
+  const list = fixedList ?? state.choice;
+  const cantrips = list ? opts.spells.filter((s) => s.level === 0 && s.classes.includes(list)) : [];
+  const firsts = list ? opts.spells.filter((s) => s.level === 1 && s.classes.includes(list)) : [];
+  const needCantrips = Math.min(2, cantrips.length);
+  const needFirsts = Math.min(1, firsts.length);
+  const pickedC = state.spells.filter((n) => cantrips.some((s) => s.name === n)).length;
+  const pickedF = state.spells.filter((n) => firsts.some((s) => s.name === n)).length;
+  let problem: string | null = null;
+  if (!list) problem = "Magic Initiate: pick its spell list.";
+  else if (!fixedList && otherList && list === otherList) problem = `Magic Initiate: your background already uses the ${list} list. Pick another.`;
+  else if (pickedC < needCantrips) problem = `Magic Initiate: pick ${plural(needCantrips - pickedC, "more cantrip")} from the ${list} list.`;
+  else if (pickedF < needFirsts) problem = `Magic Initiate: pick a level 1 spell from the ${list} list.`;
+  return { source, from, list: list ?? "", fixed: !!fixedList, state, cantrips, firsts, needCantrips, needFirsts, problem };
+}
+
+/** What each weapon mastery property does, in a line (our words). */
+export const MASTERY_NOTES: Record<string, string> = {
+  Cleave: "Once a turn, a melee hit lets you swing at a second creature next to the first.",
+  Graze: "A miss still deals damage equal to your ability modifier.",
+  Nick: "The extra attack from a light weapon is part of your Attack action, not your bonus action.",
+  Push: "A hit can push a Large or smaller creature 10 ft. away.",
+  Sap: "The creature you hit has disadvantage on its next attack.",
+  Slow: "A hit cuts the creature's speed by 10 ft. until your next turn.",
+  Topple: "A hit can knock the creature prone (it makes a Constitution save).",
+  Vex: "A hit gives you advantage on your next attack against that creature.",
+};
+
+/** A spell's opening lines for the picker: whole sentences up to ~160 characters, else cut at a word. */
+export function spellSummary(text: string | undefined, limit = 160): string {
+  const flat = (text ?? "").split("\n")[0].replace(/\s+/g, " ").trim();
+  let out = "";
+  for (const sentence of flat.match(/[^.!?]+[.!?]*\s*/g) ?? []) {
+    if (out.length + sentence.length > limit) break;
+    out += sentence;
+  }
+  out = out.trim();
+  if (out.length < 40) out = flat.length <= limit ? flat : `${flat.slice(0, limit - 1).replace(/\s+\S*$/, "")}…`;
+  return out;
 }

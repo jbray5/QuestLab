@@ -5,19 +5,27 @@
  * live queries. The help level (Teach me / Remind me / Just the numbers) is
  * per character on this device. Live events refetch and, when they carry one,
  * show a notice that says who did what. At 0 HP the dying screen takes over.
+ *
+ * Plan 128: a polite live region always says whose turn it is ("Your turn",
+ * "Wolf is up", "The fight is over"); the header shows the whole name; and a
+ * link the DM replaced shows "This link was replaced" with the way back to the
+ * party's page, because the phone remembers which party each link belongs to.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Backpack, NotebookPen, Sparkles, UserRound, X, Zap } from "lucide-react";
 
-import { playApi, type OrderRow, type PlaySpell, type TurnState } from "../../api/play";
+import { isLinkGone, playApi, type CombatState, type OrderRow, type PlaySpell, type TurnState } from "../../api/play";
+import { LinkReplaced } from "../../components/PlayLinkGate";
 import { useEventStream, type StreamEvent } from "../../hooks/useEventStream";
 import { usePlayerPrefs } from "../../stores/usePlayerPrefs";
 import { Ctx, usePlayer, type FeedRoll, type PlayerData, type Tab } from "./playerContext";
 import { portraitSrc } from "../../lib/portrait";
 import { RollProvider } from "./RollSheet";
 import { HpBar, Monogram } from "./ui";
+import { realPlayerName, srOnly } from "./rules";
+import { rememberCampaign, replacedLinkCampaign } from "./linkMemory";
 import NowTab from "./NowTab";
 import CharacterTab from "./CharacterTab";
 import SpellsTab from "./SpellsTab";
@@ -31,7 +39,12 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
   const [prefs, setPrefs] = usePlayerPrefs(pcId);
   const [params, setParams] = useSearchParams();
 
-  const { data: pc, isLoading, isError } = useQuery({ queryKey: ["play-pc", pcId], queryFn: () => playApi.get(pcId) });
+  const { data: pc, isLoading, error } = useQuery({
+    queryKey: ["play-pc", pcId],
+    queryFn: () => playApi.get(pcId),
+    // A link that no longer opens a sheet won't start working on a retry.
+    retry: (n, e) => !isLinkGone(e) && n < 1,
+  });
   const enabled = !!pc;
   const { data: stats } = useQuery({ queryKey: ["play-spell-stats", pcId], queryFn: () => playApi.spellcastingStats(pcId), enabled });
   const { data: slots } = useQuery({ queryKey: ["play-slots", pcId], queryFn: () => playApi.spellSlots(pcId), enabled });
@@ -57,7 +70,7 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
   }, []);
 
   const refresh = useCallback(() => {
-    for (const k of ["play-pc", "play-slots", "play-features", "play-spell-stats", "play-skills", "play-saves", "play-spells", "play-turn-kit"]) {
+    for (const k of ["play-pc", "play-slots", "play-features", "play-class-features", "play-spell-stats", "play-skills", "play-saves", "play-spells", "play-turn-kit"]) {
       void qc.invalidateQueries({ queryKey: [k, pcId] });
     }
   }, [qc, pcId]);
@@ -71,6 +84,7 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
         void qc.invalidateQueries({ queryKey: ["play-spells", pcId] });
       } else if (evt.type === "pc.features.updated") {
         void qc.invalidateQueries({ queryKey: ["play-features", pcId] });
+        void qc.invalidateQueries({ queryKey: ["play-class-features", pcId] });
       } else if (evt.type === "pc.inventory.updated") {
         void qc.invalidateQueries({ queryKey: ["play-inventory", pcId] });
         void qc.invalidateQueries({ queryKey: ["play-turn-kit", pcId] });
@@ -111,6 +125,21 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
   );
   useEventStream("pc", pcId, onEvent);
 
+  // Remember which party this link opens, so a reset link can point back to it.
+  const campaignId = pc?.campaign_id;
+  useEffect(() => {
+    if (campaignId) rememberCampaign(pcId, campaignId);
+  }, [pcId, campaignId]);
+
+  // A write found the link gone: re-read the sheet, which then shows "replaced".
+  useEffect(() => {
+    const onGone = (e: Event) => {
+      if ((e as CustomEvent<{ key?: string }>).detail?.key === pcId) void qc.invalidateQueries({ queryKey: ["play-pc", pcId] });
+    };
+    window.addEventListener("ql:play-link-gone", onGone);
+    return () => window.removeEventListener("ql:play-link-gone", onGone);
+  }, [qc, pcId]);
+
   // HP changes flash the screen: noticed during render, cleared by a timer.
   const [flash, setFlash] = useState<{ hp: number | null; kind: "" | "damage" | "heal" }>({ hp: null, kind: "" });
   if (pc && flash.hp !== pc.hp_current) {
@@ -140,8 +169,19 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
     };
   }, [prefs.awake]);
 
+  // The DM reset this link (or it never existed): the way back is the party's page.
+  const replacedFor = replacedLinkCampaign(error, pcId);
+  if (replacedFor) return <LinkReplaced campaignId={replacedFor} />;
   if (isLoading) return <Centered>Opening your character…</Centered>;
-  if (isError || !pc) return <Centered>We couldn't open this character. Ask your DM for a fresh link.</Centered>;
+  if (!pc) {
+    return (
+      <Centered>
+        {isLinkGone(error)
+          ? "This link doesn't open a character any more. Ask your DM for your new link."
+          : "We couldn't open this character. Check your connection, or ask your DM for a fresh link."}
+      </Centered>
+    );
+  }
 
   const isCaster = spells.length > 0 || Object.values(slots?.levels ?? {}).some((l) => l.max > 0);
   const raw = (params.get("tab") as Tab) || "now";
@@ -177,7 +217,8 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
     <Ctx.Provider value={data}>
       <RollProvider pcId={pcId} help={prefs.help}>
         <div style={{ minHeight: "100dvh", background: "var(--bg)", color: "var(--text)" }}>
-          {flash.kind && <div aria-hidden className={flash.kind === "damage" ? "ql-sheet-flash-damage" : "ql-sheet-flash-heal"} style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 400 }} />}
+          <TurnAnnouncer turn={turn} combat={combat} />
+          {flash.kind &&<div aria-hidden className={flash.kind === "damage" ? "ql-sheet-flash-damage" : "ql-sheet-flash-heal"} style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 400 }} />}
           <div style={{ maxWidth: 560, margin: "0 auto", minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
             {dying ? (
               <DyingScreen />
@@ -216,15 +257,20 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
 
 function TopBar() {
   const { pc, go } = usePlayer();
-  const sub = [`${pc.character_class} ${pc.level}`, pc.player_name].filter(Boolean).join(" · ");
+  const sub = [`${pc.character_class} ${pc.level}`, realPlayerName(pc.player_name)].filter(Boolean).join(" · ");
   return (
     <header style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px 10px" }}>
       <Monogram name={pc.character_name} cls={pc.character_class} url={pc.portrait_url ? portraitSrc(pc.portrait_url, pc.updated_at) : null} size={38} />
       <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
-        <span className="story" style={{ fontWeight: 700, fontSize: 19, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {pc.character_name.split(" ")[0]}
-        </span>
-        <span style={{ fontSize: 13, color: "var(--muted)" }}>{sub}</span>
+        {/* The whole name, "Ser Corwin Vale", never just "Ser": two lines at most (run 3). */}
+        <h1
+          className="story"
+          title={pc.character_name}
+          style={{ margin: 0, fontWeight: 700, fontSize: 19, lineHeight: 1.15, overflowWrap: "anywhere", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
+        >
+          {pc.character_name}
+        </h1>
+        <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sub}</span>
       </div>
       <button type="button" onClick={() => go("character")} aria-label={`Hit points ${pc.hp_current} of ${pc.hp_max}. Open your character.`} style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, background: "transparent", border: "none", padding: "4px 0 4px 8px", cursor: "pointer", color: "inherit" }}>
         <span style={{ fontSize: 12, color: "var(--muted)" }}>Hit points{pc.temp_hp > 0 ? ` +${pc.temp_hp} temp` : ""}</span>
@@ -238,9 +284,9 @@ function TopBar() {
 }
 
 function Notices({ notices, onDismiss }: { notices: Array<{ id: number; text: string }>; onDismiss: (id: number) => void }) {
-  if (notices.length === 0) return null;
+  // Always mounted, so a screen reader hears the first notice too (Sam, run 3).
   return (
-    <div role="status" aria-live="polite" style={{ padding: "0 16px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+    <div role="status" aria-live="polite" style={{ padding: notices.length ? "0 16px 10px" : 0, display: "flex", flexDirection: "column", gap: 6 }}>
       {notices.map((n) => (
         <div key={n.id} className="ql-modal-in" style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 6px 6px 12px", borderRadius: 12, background: "var(--teal-soft)", border: "1px solid #2B4A44", fontSize: 14 }}>
           <span style={{ flex: 1 }}>{n.text}</span>
@@ -253,13 +299,39 @@ function Notices({ notices, onDismiss }: { notices: Array<{ id: number; text: st
   );
 }
 
+/**
+ * Says the turn out loud for a screen reader (Sam, run 3): "Your turn, round 2.",
+ * "Wolf is up.", "The fight is over." One polite region, always mounted, that
+ * only changes when the turn does; nothing is said when the phone first opens
+ * between fights.
+ */
+function TurnAnnouncer({ turn, combat }: { turn: TurnState | undefined; combat: CombatState | undefined }) {
+  const [said, setSaid] = useState({ key: "", text: "" });
+  let key: string | null = null;
+  let text = "";
+  if (combat && !combat.in_combat) {
+    key = "calm";
+    text = said.key && said.key !== "calm" ? "The fight is over." : "";
+  } else if (combat?.in_combat && turn?.active) {
+    key = `you-${turn.round ?? ""}`;
+    text = turn.round != null ? `Your turn, round ${turn.round}.` : "Your turn.";
+  } else if (combat?.in_combat && turn?.active_combatant_name) {
+    key = `up-${turn.active_combatant_name}-${turn.round ?? ""}`;
+    text = `${turn.active_combatant_name} is up.`;
+  }
+  // Noticed during render (like the HP flash): no effect, no extra pass.
+  if (key !== null && key !== said.key) setSaid({ key, text });
+  return (
+    <div role="status" aria-live="polite" aria-atomic="true" style={srOnly}>
+      {said.text}
+    </div>
+  );
+}
+
 function Centered({ children }: { children: ReactNode }) {
   return (
     <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", color: "var(--text2)", background: "var(--bg)" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
-        <span>{children}</span>
-        <Link to="/" style={{ fontSize: 14 }}>QuestLab home</Link>
-      </div>
+      <p style={{ margin: 0, maxWidth: 380, lineHeight: 1.55 }}>{children}</p>
     </div>
   );
 }

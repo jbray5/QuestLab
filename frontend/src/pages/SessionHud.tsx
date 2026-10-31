@@ -18,7 +18,7 @@ import { createPortal } from "react-dom";
 import {
   ArrowLeft, BookOpen, Brain, ChevronDown, ChevronRight, CircleStop, Clapperboard, Coins, Copy, Dices, Drama, Gamepad2, Lightbulb,
   Map as MapIcon, Maximize2, Megaphone, Minimize2, Moon, MoreHorizontal, Plus, QrCode, ScreenShare, ScrollText, Shield,
-  Skull, Sparkles, SquareArrowOutUpRight, Tent, Tv, Undo2, UserRound, Users, Warehouse, X,
+  Skull, Sparkles, SquareArrowOutUpRight, Swords, Tent, Tv, Undo2, UserRound, Users, Warehouse, X,
 } from "lucide-react";
 import { zoomable } from "../lib/lightbox";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
@@ -36,6 +36,7 @@ import HudMenu from "../components/hud/HudMenu";
 import { useHudPrefs } from "../stores/useHudPrefs";
 import EditableRunbookText from "../components/runbook/EditableRunbookText";
 import TableRollStrip from "../components/dice-tray/TableRollStrip";
+import { OPEN_DICE_EVENT } from "../components/dice-tray/diceEvents";
 import { monstersApi } from "../api/monsters";
 import { restApi } from "../api/rest";
 import { featuresApi } from "../api/features";
@@ -48,6 +49,7 @@ import { TableConsoleModal } from "../components/table/TableConsole";
 import LiveBoardPane from "../components/table/LiveBoardPane";
 import { useIsCompact, useIsCompactHeight } from "../hooks/useIsCompact";
 import PhoneSheet from "../components/PhoneSheet";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 import SessionNotesEditor from "../components/dm/SessionNotesEditor";
 import { tableApi } from "../api/table";
 import { useEventStream, type StreamEvent } from "../hooks/useEventStream";
@@ -68,6 +70,7 @@ import type {
 import { plural } from "../lib/plural";
 import ClassCrest from "../components/ClassCrest";
 import { hasClassCrest } from "../lib/classGlyphs";
+import { isTypingTarget } from "../components/dm/hotkeys";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -100,6 +103,18 @@ const PANEL_BAND: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: "0.4rem",
+};
+/** Read by screen readers, invisible on screen (Plan 128: words for numbers and turns). */
+const SR_ONLY: React.CSSProperties = {
+  position: "absolute",
+  width: 1,
+  height: 1,
+  padding: 0,
+  margin: -1,
+  overflow: "hidden",
+  clip: "rect(0 0 0 0)",
+  whiteSpace: "nowrap",
+  border: 0,
 };
 /** A small sentence-case label over a group (never letter-spaced capitals). */
 const GROUP_LABEL: React.CSSProperties = { fontSize: "0.75rem", fontWeight: 600, color: "var(--muted)", marginBottom: "0.35rem" };
@@ -192,13 +207,15 @@ function passiveSkill(score: number, pb: number, rank: number): number {
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 interface HpEditorProps {
+  /** Whose hit points (names every control for a screen reader, Plan 128). */
+  name: string;
   hp: number;
   maxHp: number;
   onSave: (newHp: number) => void;
   saving: boolean;
 }
 
-function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
+function HpEditor({ name, hp, maxHp, onSave, saving }: HpEditorProps) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(String(hp));
   // UX-001 — the same control as the initiative strip: type an amount, then
@@ -227,10 +244,16 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
   }
   useEffect(() => () => window.clearTimeout(saveTimer.current), []);
 
+  const hpBtnRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (editing) inputRef.current?.select();
   }, [editing]);
 
+  // Plan 128 — focus returns to the hit-point button when the inline editor closes.
+  function closeEditor() {
+    setEditing(false);
+    window.requestAnimationFrame(() => hpBtnRef.current?.focus());
+  }
   function commit() {
     const n = Math.min(maxHp, Math.max(0, Number(val) || 0));
     onSave(n);
@@ -260,13 +283,19 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
             value={val}
             onChange={(e) => setVal(e.target.value)}
             onBlur={commit}
-            onKeyDown={(e) => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { commit(); closeEditor(); }
+              if (e.key === "Escape") closeEditor();
+            }}
+            aria-label={`${name}'s hit points, out of ${maxHp}`}
             className="num"
             style={{ width: phone ? 96 : 56, fontSize: "0.95rem", padding: "0.1rem 0.3rem" }}
           />
         ) : (
           <button
+            ref={hpBtnRef}
             onClick={() => { setVal(String(shown)); setEditing(true); }}
+            aria-label={`${name} has ${shown} of ${maxHp} hit points. Type a new number`}
             className="num"
             style={{
               background: "none", border: "none", cursor: "pointer",
@@ -287,7 +316,7 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
             onClick={() => bump(-step)}
             disabled={shown <= 0}
             title={`Apply ${step} damage (taps add up, then save)`}
-            aria-label={`Apply ${step} damage`}
+            aria-label={`Apply ${step} damage to ${name}`}
           >−</button>
           <input
             type="number"
@@ -295,7 +324,7 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
             min={1}
             inputMode="numeric"
             placeholder="1"
-            aria-label="Damage or healing amount"
+            aria-label={`Damage or healing amount for ${name}`}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             onFocus={(e) => e.currentTarget.select()}
@@ -317,7 +346,7 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
             onClick={() => bump(step)}
             disabled={shown >= maxHp}
             title={`Apply ${step} healing (taps add up, then save)`}
-            aria-label={`Apply ${step} healing`}
+            aria-label={`Apply ${step} healing to ${name}`}
           >+</button>
           <button
             className="btn btn-ghost"
@@ -325,6 +354,7 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
             onClick={() => onSave(maxHp)}
             disabled={saving || hp === maxHp}
             title="Full heal — back to max hit points"
+            aria-label={`Heal ${name} to full`}
           >Full</button>
         </span>
       </div>
@@ -339,6 +369,8 @@ function HpEditor({ hp, maxHp, onSave, saving }: HpEditorProps) {
 }
 
 interface ConditionTagsProps {
+  /** Whose conditions, for the controls' names. */
+  name: string;
   active: Set<Condition>;
   onToggle: (c: Condition) => void;
   /** Lowercase condition names the target is immune to (from monster stat block). */
@@ -350,10 +382,20 @@ interface ConditionTagsProps {
   floating?: boolean;
 }
 
-function ConditionTags({ active, onToggle, immunities, floating = false }: ConditionTagsProps) {
+function ConditionTags({ name, active, onToggle, immunities, floating = false }: ConditionTagsProps) {
   const [open, setOpen] = useState(false);
   const [tooltip, setTooltip] = useState<Condition | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  // Plan 128 — after a pick (or Escape) the chip that had focus is gone; focus
+  // goes back to "+ Condition" instead of dropping to the page (Sam).
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  function refocusAdd() {
+    window.requestAnimationFrame(() => addBtnRef.current?.focus());
+  }
+  function closePicker() {
+    setOpen(false);
+    refocusAdd();
+  }
   const phone = useIsCompact(640);
   const [anchor, setAnchor] = useState<{ left: number; top: number; bottom: number } | null>(null);
   function measure() {
@@ -380,9 +422,10 @@ function ConditionTags({ active, onToggle, immunities, floating = false }: Condi
           <button
             key={c}
             className="pill pill-amber"
-            onClick={() => { setTooltip(null); onToggle(c); }}
+            onClick={() => { setTooltip(null); onToggle(c); refocusAdd(); }}
             onMouseEnter={() => { measure(); setTooltip(c); }}
             onMouseLeave={() => setTooltip(null)}
+            aria-label={`Remove ${c} from ${name}`}
             style={{
               border: "none", cursor: "pointer", fontSize: "0.75rem", padding: "0.05rem 0.5rem",
               ...(phone ? { minHeight: 44, fontSize: "0.875rem", padding: "0 0.75rem" } : {}),
@@ -393,10 +436,12 @@ function ConditionTags({ active, onToggle, immunities, floating = false }: Condi
           </button>
         ))}
         <button
+          ref={addBtnRef}
           className="btn btn-ghost"
           style={{ ...BTN_XS, minHeight: 24, border: "1px dashed var(--border2)" }}
           onClick={() => { measure(); setOpen(!open); }}
           title="Add a condition (Prone, Poisoned, Frightened…)"
+          aria-label={`Add a condition to ${name}`}
           aria-expanded={open}
         >
           <Plus size={12} aria-hidden /> Condition
@@ -417,7 +462,16 @@ function ConditionTags({ active, onToggle, immunities, floating = false }: Condi
       )}
 
       {open && (
-        <div style={{
+        <div
+          role="group"
+          aria-label={`Conditions for ${name}`}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              e.stopPropagation();
+              closePicker();
+            }
+          }}
+          style={{
           ...pickerPos, zIndex: 40,
           background: "var(--surface)", border: "1px solid var(--border2)",
           borderRadius: 10, padding: "0.5rem", display: "flex",
@@ -430,7 +484,8 @@ function ConditionTags({ active, onToggle, immunities, floating = false }: Condi
             return (
               <button
                 key={c}
-                onClick={() => { onToggle(c); setOpen(false); }}
+                onClick={() => { onToggle(c); closePicker(); }}
+                aria-pressed={on}
                 title={immune ? `Target is immune to ${c}. Click to apply anyway.` : CONDITION_RULES[c]}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 4,
@@ -549,7 +604,11 @@ function FeaturePipsRow({ pcId }: { pcId: string }) {
                     filled={filled}
                     hue={hue}
                     onClick={() => (filled ? spend.mutate(r.id) : restore.mutate(r.id))}
-                    title={filled ? `${r.feature_name}: available — click to spend` : `${r.feature_name}: spent — click to restore`}
+                    title={
+                      filled
+                        ? `${r.feature_name}: available, ${phone ? "tap" : "click"} to spend`
+                        : `${r.feature_name}: spent, ${phone ? "tap" : "click"} to give it back`
+                    }
                   />
                 );
               })}
@@ -662,7 +721,7 @@ function SpellSlotTracker({ pcId }: SpellSlotTrackerProps) {
                     onClick={() =>
                       filled ? expend.mutate(lvl) : restore.mutate(lvl)
                     }
-                    title={`L${lvl} slot — ${filled ? "available (click to spend)" : "spent (click to restore)"}`}
+                    title={`Level ${lvl} slot: ${filled ? "available" : "spent"}, ${phone ? "tap" : "click"} to ${filled ? "spend it" : "give it back"}`}
                   />
                 );
               })}
@@ -672,6 +731,22 @@ function SpellSlotTracker({ pcId }: SpellSlotTrackerProps) {
       </div>
     </div>
   );
+}
+
+/** A PC as a fresh turn-order row (initiative not rolled yet). */
+function rosterEntryFor(pc: PlayerCharacter): Combatant {
+  return {
+    name: pc.character_name,
+    dex_score: pc.score_dex,
+    hp: pc.hp_current,
+    max_hp: pc.hp_max,
+    type: "pc",
+    initiative: 0,
+    defeated: false,
+    ac: pc.ac,
+    character_id: pc.id,
+    conditions: pc.conditions ?? [],
+  };
 }
 
 // ── Combat tracker types ───────────────────────────────────────────────────────
@@ -695,6 +770,7 @@ export default function SessionHud() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const toast = useToast();
 
   // ── Remote data ────────────────────────────────────────────────────────────
   const { data: session } = useQuery({
@@ -709,7 +785,7 @@ export default function SessionHud() {
     enabled: !!session?.adventure_id,
   });
 
-  const { data: allChars = [], isLoading: charsLoading } = useQuery({
+  const { data: allChars = [], isLoading: charsLoading, isSuccess: charsReady } = useQuery({
     queryKey: ["characters", adventure?.campaign_id],
     queryFn: () => charactersApi.list(adventure!.campaign_id),
     enabled: !!adventure?.campaign_id,
@@ -773,6 +849,10 @@ export default function SessionHud() {
   const party: PlayerCharacter[] = allChars.filter(
     (c) => partyIds.length === 0 || partyIds.includes(c.id),
   );
+  // Plan 128 — a character added after the session was made (Lena's "Old Pell",
+  // entered from an existing sheet) isn't on tonight's list. They show under the
+  // party, one tap from joining it and the turn order.
+  const benched: PlayerCharacter[] = partyIds.length > 0 ? allChars.filter((c) => !partyIds.includes(c.id)) : [];
 
   // ── HP persistence ─────────────────────────────────────────────────────────
   const [savingHp, setSavingHp] = useState<Record<string, boolean>>({});
@@ -857,6 +937,21 @@ export default function SessionHud() {
     window.addEventListener("pointerup", up);
   }
   const [scriptOpen, setScriptOpen] = useState(false);
+  // Plan 128 — closing a popover or the script puts focus back on the button that
+  // opened it, not on the page (Sam).
+  const addBtnRef = useRef<HTMLButtonElement>(null);
+  const rollBtnRef = useRef<HTMLButtonElement>(null);
+  const scriptBtnRef = useRef<HTMLButtonElement>(null);
+  function closeCockpit() {
+    const back = addOpen ? addBtnRef : rollBtnRef;
+    setAddOpen(false);
+    setTableRollOpen(false);
+    window.requestAnimationFrame(() => back.current?.focus());
+  }
+  function closeScript() {
+    setScriptOpen(false);
+    window.requestAnimationFrame(() => scriptBtnRef.current?.focus());
+  }
   // Party owns the real estate by default; the center only claims it while
   // the DM is actively working a map. Auto-enters on staging a map, manual
   // toggle either way.
@@ -909,6 +1004,8 @@ export default function SessionHud() {
   }, [adventureEncounters]);
   const scenes: RunbookScene[] = runbook?.scenes ?? [];
   const currentScene = scenes[sceneIdx] ?? null;
+  const sceneEncounterId = (currentScene as (RunbookScene & { encounter_id?: string | null }) | null)?.encounter_id;
+  const sceneEncounter = sceneEncounterId ? (adventureEncounters.find((e) => e.id === sceneEncounterId) ?? null) : null;
 
   // ── Combat tracker (Plan 00015 — persists across browser refresh) ─────────
   // The Zustand store is the source of truth for combatants, round, and the
@@ -1006,10 +1103,16 @@ export default function SessionHud() {
   }, [persistedCombatants, partyById]);
 
   const combatActive = combatants.length > 0;
+  // Plan 128 — the turn, said out loud: one polite live region always on the page
+  // reads "Round 2, Brother Aldous's turn" whenever the turn moves (Sam).
+  const activeCombatantName = storeActiveId
+    ? (persistedCombatants.find((c) => c.id === storeActiveId)?.name ?? null)
+    : null;
   // UX-001 — a seeded prep roster is not a fight: End turn, Undo and the round
   // counter appear only once initiative is rolled ("running").
   const combatState = useInitiativeStore((s) => s.combatState);
   const fightOn = combatActive && combatState === "running";
+  const turnAnnouncement = fightOn && activeCombatantName ? `Round ${storeRound}, ${activeCombatantName}'s turn` : "";
   const uses3d = useHudPrefs((s) => s.uses3d);
   const setUses3d = useHudPrefs((s) => s.setUses3d);
   const round = storeRound;
@@ -1058,6 +1161,67 @@ export default function SessionHud() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, party.length, persistedCombatants.length]);
+
+  // Plan 128 — a PC who joins the party once the roster exists (built from the join
+  // link, or added to tonight) is seeded into a roster that isn't fighting yet. PCs
+  // already in the party when the HUD opened are left alone, so one the DM took
+  // out of the roster stays out.
+  const seenPartyRef = useRef<Set<string> | null>(null);
+  const partyKey = party.map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!sessionId || !session || !charsReady) return;
+    if (seenPartyRef.current === null) {
+      seenPartyRef.current = new Set(party.map((p) => p.id));
+      return;
+    }
+    const seen = seenPartyRef.current;
+    const fresh = party.filter((p) => !seen.has(p.id));
+    for (const p of fresh) seen.add(p.id);
+    const store = useInitiativeStore.getState();
+    // An empty roster is seeded whole by the effect above; a running fight is left alone.
+    if (fresh.length === 0 || store.loading || store.combatants.length === 0 || store.combatState === "running") return;
+    void (async () => {
+      for (const pc of fresh) {
+        if (!useInitiativeStore.getState().combatants.some((c) => c.character_id === pc.id)) {
+          await addPersistedCombatant(rosterEntryFor(pc));
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, partyKey, charsReady, !!session]);
+
+  // "Add to tonight": the PC joins the session's attendance and the turn order
+  // (even mid-fight: the DM asked, and types their initiative).
+  const addToTonight = useMutation({
+    mutationFn: (ids: string[]) =>
+      sessionsApi.update(sessionId!, {
+        attending_pc_ids: [...partyIds, ...ids.filter((id) => !partyIds.includes(id))],
+      }),
+    onMutate: (ids: string[]) => {
+      for (const id of ids) seenPartyRef.current?.add(id);
+    },
+    onSuccess: async (updated, ids) => {
+      qc.setQueryData(["session", sessionId], updated);
+      const names: string[] = [];
+      for (const id of ids) {
+        const pc = allChars.find((p) => p.id === id);
+        if (!pc) continue;
+        names.push(pc.character_name);
+        const store = useInitiativeStore.getState();
+        if (store.combatants.length > 0 && !store.combatants.some((c) => c.character_id === id)) {
+          await addPersistedCombatant(rosterEntryFor(pc));
+        }
+      }
+      if (names.length) {
+        toast.push(
+          `${names.join(", ")} ${names.length === 1 ? "joins" : "join"} tonight's party${
+            useInitiativeStore.getState().combatState === "running" ? ". Type their initiative in the turn order." : "."
+          }`,
+          "success",
+        );
+      }
+    },
+  });
 
   function addCombatant() {
     if (!newCName.trim() || !sessionId) return;
@@ -1114,9 +1278,9 @@ export default function SessionHud() {
     }
   }
 
-  function loadEncounter() {
+  function loadEncounter(encounterId: string = loadEncounterId) {
     if (!sessionId) return;
-    const enc = adventureEncounters.find((e) => e.id === loadEncounterId);
+    const enc = adventureEncounters.find((e) => e.id === encounterId);
     if (!enc) return;
     const roster: RosterEntry[] = (enc.monster_roster ?? []) as unknown as RosterEntry[];
     const additions: Combatant[] = [];
@@ -1137,11 +1301,15 @@ export default function SessionHud() {
         });
       }
     }
-    if (additions.length === 0) return;
+    if (additions.length === 0) {
+      toast.push(`${enc.name} has no monsters in it yet.`, "info");
+      return;
+    }
     // Plan 41 — add each monster incrementally so loading an encounter
     // mid-fight preserves the round/turn and existing combatants' beats.
     void (async () => {
       for (const combatant of additions) await addPersistedCombatant(combatant);
+      toast.push(`${plural(additions.length, "monster")} from ${enc.name} joined the turn order.`, "success");
     })();
     setLoadEncounterId("");
   }
@@ -1164,10 +1332,9 @@ export default function SessionHud() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "e" && e.key !== "E") return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const el = e.target as HTMLElement | null;
-      const tag = el?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el?.isContentEditable) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || e.defaultPrevented) return;
+      // Plan 128 — never while typing, wherever the field is (inputs, textareas, editable text).
+      if (isTypingTarget(e)) return;
       if (!storeActiveId) return;
       e.preventDefault();
       if (e.shiftKey) void rewindTurn();
@@ -1178,7 +1345,6 @@ export default function SessionHud() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeActiveId]);
   // Plan 85 — players' phone rolls reach the DM as a toast (Theo ran blind).
-  const toast = useToast();
   useEffect(() => {
     if (!sessionId) return;
     const es = new EventSource(`${apiBase()}/stream/table/${sessionId}`);
@@ -1375,8 +1541,11 @@ export default function SessionHud() {
   return (
     <div
       className="fade-in ql-hud-root"
-      style={{ display: "flex", flexDirection: "column", gap: 0, paddingBottom: phone ? 72 : undefined }}
+      style={{ display: "flex", flexDirection: "column", gap: 0, paddingBottom: phone ? 24 : undefined }}
     >
+      <div role="status" aria-live="polite" aria-atomic="true" style={SR_ONLY}>
+        {turnAnnouncement}
+      </div>
 
       {/* ── Header ──────────────────────────────────────────────────────── */}
       {/* Plan 123 — on a phone: the title on its own line, then one left-aligned row of
@@ -1473,7 +1642,7 @@ export default function SessionHud() {
                 key: "tv",
                 label: "Projector / TV",
                 icon: <Tv size={16} />,
-                hint: "The battle map for the room: fog, tokens, dice. Open it on the TV; drive it from the Live tab.",
+                hint: "The turn order and rolls for the room, with the join QR before the fight, plus the battle map when you stage one. Open it on the TV.",
                 recommended: true,
                 href: `/table/${sessionId}`,
               },
@@ -1535,6 +1704,18 @@ export default function SessionHud() {
               aria-pressed={tableMode}
             >
               {tableMode ? <Minimize2 size={15} aria-hidden /> : <Maximize2 size={15} aria-hidden />} Table mode
+            </button>
+          )}
+          {phone && (
+            // Plan 128 — on a phone the private dice live in this row; the floating
+            // dice button covered the tracker's remove buttons (Lena).
+            <button
+              className="btn btn-secondary"
+              style={BTN_SM}
+              onClick={() => window.dispatchEvent(new CustomEvent(OPEN_DICE_EVENT))}
+              title="Your private dice tray: only you see these rolls"
+            >
+              <Dices size={15} aria-hidden /> Dice
             </button>
           )}
           {!phone && backButton}
@@ -1765,11 +1946,12 @@ export default function SessionHud() {
                     <span
                       key={abbr}
                       title={label}
-                      aria-label={`${label.split(" — ")[0]} ${value}`}
-                      style={{ display: "inline-flex", alignItems: "baseline", gap: "0.3rem", whiteSpace: "nowrap", cursor: "help" }}
+                      style={{ position: "relative", display: "inline-flex", alignItems: "baseline", gap: "0.3rem", whiteSpace: "nowrap", cursor: "help" }}
                     >
                       <span aria-hidden style={{ fontSize: "0.75rem", color: "var(--muted)" }}>{abbr}</span>
                       <span aria-hidden className="num" style={{ fontSize: "0.9rem", fontWeight: 500, color: "var(--text)" }}>{value}</span>
+                      {/* Plan 128 — real text for screen readers (an aria-label on a span is ignored). */}
+                      <span style={SR_ONLY}>{`${label.split(" — ")[0]} ${value}`}</span>
                     </span>
                   ))}
                 </div>
@@ -1780,6 +1962,7 @@ export default function SessionHud() {
                 {/* HP bar */}
                 <div style={{ marginTop: "0.45rem" }}>
                   <HpEditor
+                    name={pc.character_name}
                     hp={pc.hp_current}
                     maxHp={pc.hp_max}
                     onSave={(n) => saveHp(pc.id, n)}
@@ -1814,6 +1997,7 @@ export default function SessionHud() {
                 {/* Conditions */}
                 <div style={{ marginTop: "0.5rem" }}>
                   <ConditionTags
+                    name={pc.character_name}
                     active={pcConditions}
                     onToggle={(c) => toggleCondition(pc.id, c)}
                   />
@@ -1829,6 +2013,59 @@ export default function SessionHud() {
               </div>
             );
           })}
+
+          {/* Plan 128 — campaign PCs not on tonight's list, one tap from joining. */}
+          {benched.length > 0 && (
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                margin: "0.6rem 0.55rem 0",
+                padding: "0.55rem 0.7rem",
+                border: "1px dashed var(--border2)",
+                borderRadius: 10,
+              }}
+            >
+              <div style={{ fontSize: "0.8125rem", color: "var(--muted)", marginBottom: "0.4rem", lineHeight: 1.45 }}>
+                Also in this campaign, not on tonight&rsquo;s list
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                {benched.map((pc) => (
+                  <div key={pc.id} style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
+                    <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      <span className="story" style={{ fontWeight: 700, color: "var(--text)" }}>{pc.character_name}</span>{" "}
+                      <span style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
+                        {pc.character_class} <span className="num">{pc.level}</span>
+                      </span>
+                    </span>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ ...BTN_SM, flex: "none" }}
+                      onClick={() => addToTonight.mutate([pc.id])}
+                      disabled={addToTonight.isPending}
+                      aria-label={`Add ${pc.character_name} to tonight's party`}
+                    >
+                      <Plus size={14} aria-hidden /> Add to tonight
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {benched.length > 1 && (
+                <button
+                  className="btn btn-ghost"
+                  style={{ ...BTN_SM, marginTop: "0.45rem" }}
+                  onClick={() => addToTonight.mutate(benched.map((p) => p.id))}
+                  disabled={addToTonight.isPending}
+                >
+                  Add all <span className="num">{benched.length}</span>
+                </button>
+              )}
+              {addToTonight.isError && (
+                <p role="alert" style={{ margin: "0.4rem 0 0", fontSize: "0.8125rem", color: "var(--danger-text)" }}>
+                  {(addToTonight.error as Error).message}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── COCKPIT (Plan 76): combat bar + initiative strip over the board, notes + beats under it ── */}
@@ -1890,6 +2127,7 @@ export default function SessionHud() {
               }}
             >
               <button
+                ref={addBtnRef}
                 className="btn btn-ghost"
                 style={{ ...BTN_SM, ...(addOpen ? TOGGLE_ON : {}) }}
                 aria-expanded={addOpen}
@@ -1902,6 +2140,7 @@ export default function SessionHud() {
                 <Plus size={15} aria-hidden /> Add
               </button>
               <button
+                ref={rollBtnRef}
                 className="btn btn-ghost"
                 style={{ ...BTN_SM, ...(tableRollOpen ? TOGGLE_ON : {}) }}
                 aria-expanded={tableRollOpen}
@@ -1969,10 +2208,7 @@ export default function SessionHud() {
             <CockpitPopover
               phone={phone}
               title={addOpen ? "Add to the fight" : "Table roll"}
-              onClose={() => {
-                setAddOpen(false);
-                setTableRollOpen(false);
-              }}
+              onClose={closeCockpit}
             >
               {tableRollOpen && sessionId && <TableRollStrip sessionId={sessionId} />}
               {addOpen && (
@@ -2003,7 +2239,7 @@ export default function SessionHud() {
                 className="btn btn-secondary"
                 style={BTN_SM}
                 disabled={!loadEncounterId}
-                onClick={loadEncounter}
+                onClick={() => loadEncounter()}
               >
                 Load
               </button>
@@ -2024,7 +2260,7 @@ export default function SessionHud() {
             {/* Plan 38 P4-1/9 — Add-from-roster shortcut. Pre-fills the
                 manual form from a known PC or NPC; the DM can still
                 tweak HP / AC / init before clicking + Add. */}
-            {(party.length > 0 || campaignNpcs.length > 0) && (
+            {(allChars.length > 0 || campaignNpcs.length > 0) && (
               <select
                 value=""
                 onChange={(e) => {
@@ -2035,9 +2271,9 @@ export default function SessionHud() {
                 title="Pre-fill the form from a campaign PC or NPC"
               >
                 <option value="">Fill in from the party or an NPC…</option>
-                {party.length > 0 && (
+                {allChars.length > 0 && (
                   <optgroup label="Party">
-                    {party
+                    {allChars
                       .filter(
                         (p) => !persistedCombatants.some((c) => c.character_id === p.id),
                       )
@@ -2322,6 +2558,7 @@ export default function SessionHud() {
                       onClick={() => updateCombatantHp(c.id, c.hp - deltaFor(c.id))}
                       disabled={c.defeated}
                       title={`Apply ${deltaFor(c.id)} damage`}
+                      aria-label={`Apply ${deltaFor(c.id)} damage to ${c.name}`}
                     >−</button>
                     <input
                       type="number"
@@ -2349,9 +2586,11 @@ export default function SessionHud() {
                       onClick={() => updateCombatantHp(c.id, c.hp + deltaFor(c.id))}
                       disabled={c.defeated}
                       title={`Apply ${deltaFor(c.id)} healing`}
+                      aria-label={`Apply ${deltaFor(c.id)} healing to ${c.name}`}
                     >+</button>
                     <span className="num" title="Hit points" style={{ fontSize: "0.875rem", fontWeight: 600, marginLeft: "0.3rem", whiteSpace: "nowrap" }}>
-                      {c.hp} <span style={{ color: "var(--muted)", fontWeight: 400 }}>/ {c.maxHp}</span>
+                      <span aria-hidden>{c.hp} <span style={{ color: "var(--muted)", fontWeight: 400 }}>/ {c.maxHp}</span></span>
+                      <span style={SR_ONLY}>{`${c.name}: ${c.hp} of ${c.maxHp} hit points`}</span>
                     </span>
                     <div style={{ flex: phone ? "1 1 100%" : 1, minWidth: 24, height: 6, borderRadius: 3, background: "var(--border)", overflow: "hidden", marginTop: phone ? "0.3rem" : undefined }}>
                       <div style={{ height: "100%", width: `${pct}%`, background: barColor, transition: "width 0.2s" }} />
@@ -2361,6 +2600,7 @@ export default function SessionHud() {
                   {/* Conditions */}
                   <div style={{ marginTop: "0.35rem" }}>
                     <ConditionTags
+                      name={c.name}
                       active={c.conditions}
                       onToggle={(cond) => toggleCombatantCondition(c.id, cond)}
                       immunities={
@@ -2418,6 +2658,7 @@ export default function SessionHud() {
               </button>
               )}
               <button
+                ref={scriptBtnRef}
                 onClick={() => setScriptOpen((v) => !v)}
                 className="btn btn-ghost"
                 aria-pressed={scriptOpen}
@@ -2433,7 +2674,7 @@ export default function SessionHud() {
           <div style={{ flex: 1, overflowY: "auto", padding: "1rem" }}>
             {/* Plan 60 — runbook drawer: slides over the center column. */}
             {scriptOpen && (
-            <ScriptShell phone={phone} onClose={() => setScriptOpen(false)}>
+            <ScriptShell phone={phone} onClose={closeScript}>
             {!runbook && (
               <div style={{ color: "var(--muted)", textAlign: "center", marginTop: "2rem", fontSize: "0.9rem", lineHeight: 1.5 }}>
                 <p style={{ color: "var(--text2)" }}>
@@ -2528,6 +2769,25 @@ export default function SessionHud() {
                   )}
                 </div>
 
+                {/* Plan 128 — the fight prep linked to this scene, one tap into the turn order. */}
+                {sceneEncounter && (
+                  <div
+                    style={{
+                      display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap",
+                      padding: "0.55rem 0.75rem", marginBottom: "1rem",
+                      border: "1px solid var(--border)", borderRadius: 10, background: "var(--surface2)",
+                    }}
+                  >
+                    <Swords size={15} aria-hidden style={{ color: "var(--muted)" }} />
+                    <span style={{ flex: "1 1 160px", minWidth: 0, fontSize: "0.875rem", color: "var(--text2)" }}>
+                      The fight: <strong className="story" style={{ color: "var(--text)", fontSize: "1rem" }}>{sceneEncounter.name}</strong>
+                    </span>
+                    <button className="btn btn-secondary" style={BTN_SM} onClick={() => loadEncounter(sceneEncounter.id)}>
+                      <Plus size={14} aria-hidden /> Add its monsters to the turn order
+                    </button>
+                  </div>
+                )}
+
                 {/* Prev / Next */}
                 <div className="flex gap-2" style={{ marginTop: "1rem" }}>
                   <button
@@ -2547,6 +2807,10 @@ export default function SessionHud() {
                     Next scene →
                   </button>
                 </div>
+                <p style={{ fontSize: "0.8125rem", color: "var(--muted)", margin: "0.75rem 0 0" }}>
+                  To add, rename or reorder scenes, use{" "}
+                  <Link to={`/sessions/${sessionId}/prep`}>session prep</Link>.
+                </p>
               </div>
             )}
 
@@ -2978,9 +3242,25 @@ function ScriptShell({ phone, onClose, children }: { phone: boolean; onClose: ()
       </PhoneSheet>
     );
   }
+  return <ScriptDrawer onClose={onClose}>{children}</ScriptDrawer>;
+}
+
+/**
+ * The laptop script drawer. Plan 128 — it takes focus when it opens (Sam: its
+ * Close was Tab stop 88), keeps Tab inside, closes on Escape and gives focus
+ * back to the Script button (useDialogFocus).
+ */
+function ScriptDrawer({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(boxRef, { onEscape: onClose });
   return (
     <div
+      ref={boxRef}
+      role="dialog"
+      aria-label="Script"
+      tabIndex={-1}
       style={{
+        outline: "none",
         position: "absolute",
         top: 0,
         right: 0,
@@ -2998,7 +3278,7 @@ function ScriptShell({ phone, onClose, children }: { phone: boolean; onClose: ()
         <strong style={{ fontSize: "0.875rem", fontWeight: 600, color: "var(--text2)", display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
           <Clapperboard size={15} aria-hidden /> Script
         </strong>
-        <button className="btn btn-ghost" style={{ ...BTN_XS, border: "none" }} onClick={onClose}>
+        <button className="btn btn-ghost" style={{ ...BTN_XS, border: "none" }} onClick={onClose} aria-label="Close the script">
           <X size={14} aria-hidden /> Close
         </button>
       </div>
@@ -3032,8 +3312,24 @@ function CockpitPopover({
     );
   }
   return (
+    <CockpitPanel title={title} onClose={onClose}>
+      {children}
+    </CockpitPanel>
+  );
+}
+
+/** The laptop Add / Table roll popover; takes and returns focus like the drawer (Plan 128). */
+function CockpitPanel({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  const boxRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(boxRef, { onEscape: onClose });
+  return (
     <div
+      ref={boxRef}
+      role="dialog"
+      aria-label={title}
+      tabIndex={-1}
       style={{
+        outline: "none",
         position: "absolute",
         top: "calc(100% + 4px)",
         right: 8,

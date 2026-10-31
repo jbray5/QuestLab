@@ -1,32 +1,39 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { builderApi } from "../../api/characterBuilder";
-import type { Ability, BuilderOptions, BuildAsiPick, WizardMode } from "../../api/characterBuilder";
+import type { Ability, BuildAsiPick, ClassChoicePick, OriginFeatPicks, WizardMode } from "../../api/characterBuilder";
 import AsiStep from "./AsiStep";
+import ChoicesStep from "./ChoicesStep";
 import { ClassExplainer, BackgroundExplainer, SpeciesTraits, SubclassFeatures } from "./Explainers";
+import SkillsStep from "./SkillsStep";
+import SpellsStep from "./SpellsStep";
 import {
   ABILITIES,
   ABILITY_NAMES,
   BOOK,
+  MAGIC_INITIATE,
   abilityWords,
-  armorClass,
-  cantripCap as capCantrips,
   derive,
+  emptyOrigin,
   fmt,
-  maxSpellLevel as maxLevelFor,
+  miNeed,
   mod,
-  nextSpellLevelAt,
-  ordinal,
   profBonus,
-  spellCap as capSpells,
+  splitFeat,
+  spellPlan,
+  walkClassChoices,
   walkImprovements,
+  type ChoicePicks,
+  type ChoiceState,
+  type MiNeed,
+  type OriginPickState,
   type PickState,
 } from "./rules";
 
 /**
- * CharacterWizard (Plan 74, Plan 126) — the guided, rules-checked character builder.
+ * CharacterWizard (Plan 74, Plan 126, Plan 128) — the guided, rules-checked character builder.
  *
  * One component, two doors:
  * - `mode="player"` at /join/:campaignId/new — a player builds from the join link and ends on
@@ -34,8 +41,11 @@ import {
  * - `mode="dm"` at /campaigns/:campaignId/characters/new — the DM's "Add character" (inside the
  *   DM layout); it ends back on the Characters page with the new card lit.
  *
- * Phone-first, one choice per screen. Every step says what the choice gives at the chosen level
- * and why a pick is locked; Review shows the derived sheet. The server applies the same rules.
+ * Phone-first, one decision per screen (long steps fold into sections). Every step says what a
+ * choice gives at the chosen level and why a pick is locked, and Next stays off (with the reason)
+ * until the step is complete: the subclass at its level, the class's own choices, cantrips and
+ * prepared spells up to the count, Magic Initiate's spells. Review shows the derived sheet. The
+ * server checks the same rules on Create.
  */
 
 const NOT_ASSIGNED = "Not assigned yet";
@@ -65,7 +75,7 @@ const CSS = `
 .cc-card .cc-card-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .cc-card small { color: var(--text2); font-size: 0.8125rem; line-height: 1.35; display: block; }
 .cc-card small.plus { color: var(--accent-text); font-weight: 500; margin-top: 4px; }
-.cc-card small.why { color: var(--amber-text); }
+.cc-card small.why, .cc small.why { color: var(--amber-text); }
 .cc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .cc-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; border: 1px solid var(--border2); border-radius: 999px;
   padding: 4px 14px; background: transparent; color: var(--text); font: inherit; font-size: 0.9375rem; cursor: pointer; max-width: 100%; }
@@ -120,6 +130,32 @@ const CSS = `
 .cc-asi-sum { color: var(--text2); font-size: 0.875rem; min-width: 0; overflow-wrap: anywhere; }
 .cc-asi-body { padding: 0 14px 14px; }
 .cc-feat-name { font-weight: 600; font-size: 1.05rem; color: var(--text); }
+.cc-spells { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.cc-spell { border: 1px solid var(--border); border-radius: 10px; background: var(--surface2); }
+.cc-spell.on { border-color: var(--accent-edge); background: var(--accent-soft); }
+.cc-spell-line { display: grid; grid-template-columns: 44px 1fr 28px; align-items: center; gap: 4px; padding: 4px 8px 4px 4px; }
+.cc-spell-pick { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; background: transparent;
+  border: 0; color: var(--accent-active-text); cursor: pointer; border-radius: 8px; position: relative; }
+.cc-spell-pick::before { content: ""; position: absolute; width: 22px; height: 22px; border: 1.5px solid var(--border2); border-radius: 6px; }
+.cc-spell-pick[aria-pressed=true]::before, .cc-spell-pick.locked::before { background: var(--accent-active); border-color: var(--accent-edge); }
+.cc-spell-pick svg { position: relative; }
+.cc-spell-pick:disabled { opacity: 0.4; cursor: not-allowed; }
+.cc-spell-pick.locked { color: var(--accent-active-text); cursor: default; }
+.cc-spell-main { text-align: left; background: transparent; border: 0; color: var(--text); font: inherit; cursor: pointer; padding: 6px 0;
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 44px; justify-content: center; }
+.cc-spell-name { font-weight: 600; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cc-spell-name small { font-weight: 400; color: var(--muted); font-size: 0.75rem; }
+.cc-spell-meta { color: var(--text2); font-size: 0.8125rem; }
+.cc-spell-sum { color: var(--muted); font-size: 0.8125rem; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cc-spell-more { color: var(--muted); display: inline-flex; justify-content: center; }
+.cc-spell-detail { padding: 2px 14px 12px 52px; font-size: 0.9rem; color: var(--text2); }
+.cc-spell-detail.in-sheet { padding: 0; }
+.cc-spell-detail dl { margin: 0 0 8px; }
+.cc-spell-row { display: flex; gap: 12px; padding: 4px 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+.cc-spell-row dt { color: var(--muted); flex: none; width: 7.5rem; }
+.cc-spell-row dd { margin: 0; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+.cc-spell-note { color: var(--amber-text); font-size: 0.875rem; margin: 8px 0; }
+.cc-spell-text { margin: 8px 0; line-height: 1.5; white-space: pre-line; }
 .cc-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; background: #131816; border-top: 1px solid var(--border);
   padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px)); }
 .cc-nav-inner { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
@@ -130,11 +166,12 @@ const CSS = `
    buttons out from under the dice button (bottom-right) on narrower screens. */
 @media (min-width: 901px) { .cc-dm .cc-nav { left: 224px; } }
 @media (max-width: 1100px) { .cc-dm .cc-nav-inner { padding-right: 60px; } }
+@media (max-width: 640px) { .cc-spell-detail { padding-left: 14px; } .cc-spell-row dt { width: 6.5rem; } }
 `;
 
 const STEP_TITLES: Record<string, string> = {
   name: "Name", species: "Species", class: "Class", background: "Background", scores: "Ability scores",
-  skills: "Skills and gear", asi: "Improvements", spells: "Spells", review: "Review",
+  skills: "Skills and gear", choices: "Class choices", asi: "Improvements", spells: "Spells", review: "Review",
 };
 
 interface Draft {
@@ -161,6 +198,9 @@ interface Draft {
   cantrips: string[];
   spells: string[];
   appearance: string;
+  classPicks: ChoicePicks;
+  bgFeatPicks: OriginPickState;
+  originPicks: OriginPickState;
 }
 
 /** Plan 82 — the standard array laid out for a class: primary abilities first, then CON, then the rest. */
@@ -173,6 +213,8 @@ function arrayForClass(primary: string[]): Record<Ability, number> {
   return out;
 }
 
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
 export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const { campaignId = "" } = useParams<{ campaignId: string }>();
   const navigate = useNavigate();
@@ -180,8 +222,19 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const dm = mode === "dm";
   const exitPath = dm ? `/campaigns/${campaignId}/characters` : `/join/${campaignId}`;
   const exitLabel = dm ? "Back to characters" : "Back to the party";
-  const [opts, setOpts] = useState<BuilderOptions | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  // Plan 128 — the options come from the query cache: a remount (a phone switching apps, a hot
+  // reload, a layout change) shows the wizard straight away instead of blanking it while the
+  // options load again (persona run 3: the Spells step flashed "Opening the character builder").
+  const optsQuery = useQuery({
+    queryKey: ["character-builder-options", mode, campaignId],
+    queryFn: () => builderApi.options(mode, campaignId),
+    enabled: !!campaignId,
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
+    retry: 1,
+  });
+  const opts = optsQuery.data ?? null;
+  const loadError = optsQuery.error ? (optsQuery.error as Error).message : null;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -220,11 +273,15 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const [cantrips, setCantrips] = useState<string[]>(draft.cantrips ?? []);
   const [spells, setSpells] = useState<string[]>(draft.spells ?? []);
   const [appearance, setAppearance] = useState(draft.appearance ?? "");
+  const [classPicks, setClassPicks] = useState<ChoicePicks>(draft.classPicks ?? {});
+  const [bgFeatPicks, setBgFeatPicks] = useState<OriginPickState>(draft.bgFeatPicks ?? emptyOrigin());
+  const [originPicks, setOriginPicks] = useState<OriginPickState>(draft.originPicks ?? emptyOrigin());
 
   useEffect(() => {
     const next: Draft = {
       step, characterName, playerName, species, customSpecies, klass, subclass, customSub, level, background, customBg,
       method, scores, bonusMode, bonusPlus2, bonusPlus1, skills, originFeat, kit, asiPicks, cantrips, spells, appearance,
+      classPicks, bgFeatPicks, originPicks,
     };
     try {
       sessionStorage.setItem(draftKey, JSON.stringify(next));
@@ -232,7 +289,8 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
       /* private mode or full storage: the wizard still works, it just won't survive a reload */
     }
   }, [draftKey, step, characterName, playerName, species, customSpecies, klass, subclass, customSub, level, background, customBg,
-    method, scores, bonusMode, bonusPlus2, bonusPlus1, skills, originFeat, kit, asiPicks, cantrips, spells, appearance]);
+    method, scores, bonusMode, bonusPlus2, bonusPlus1, skills, originFeat, kit, asiPicks, cantrips, spells, appearance,
+    classPicks, bgFeatPicks, originPicks]);
 
   // Picking a draft back up says so, with a way to start clean.
   const [resumed, setResumed] = useState(() => Boolean(draft.characterName || draft.klass || draft.species));
@@ -250,14 +308,6 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
     }
   }
 
-  useEffect(() => {
-    if (!campaignId) return;
-    builderApi
-      .options(mode, campaignId)
-      .then(setOpts)
-      .catch((e: Error) => setLoadError(e.message));
-  }, [campaignId, mode]);
-
   const cls = opts && klass ? opts.classes[klass] : null;
   const speciesRow = opts?.species.find((s) => s.name === species);
   const bg = opts?.backgrounds.find((b) => b.name === background);
@@ -265,6 +315,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const subclassName = subclass === "__other" ? customSub : subclass;
   const bgName = background === "__other" ? customBg : background;
   const activeSub = cls && level >= cls.subclass_level && subclassName.trim() ? subclassName.trim() : null;
+  const versatile = !!speciesRow?.bonus_origin_feat;
 
   const bonus = useMemo(() => {
     if (!bg) return {} as Record<string, number>;
@@ -286,35 +337,36 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   );
   const arrayUsed = useMemo(() => [...ABILITIES.map((a) => scores[a])].sort((x, y) => y - x), [scores]);
 
-  // Spell caps mirror the server's SRD tables.
-  const cantripCap = opts && klass ? capCantrips(opts, klass, level) : 0;
-  const spellCap = opts && klass ? capSpells(opts, klass, level) : 0;
-  const maxSpellLevel = opts && klass ? maxLevelFor(opts, klass, level) : 0;
-  const classSpells = useMemo(
-    () => (opts && klass ? opts.spells.filter((s) => s.classes.includes(klass) && s.level <= Math.max(1, maxSpellLevel)) : []),
-    [opts, klass, maxSpellLevel],
-  );
-
   const skillPicksAllowed = (cls?.skills.choose ?? 0) + (speciesRow?.bonus_skill_choices ?? 0);
   const classSkillPicks = skills.filter((s) => !(bg?.skills ?? []).includes(s));
 
-  // Plan 126 — the Ability Score Improvement levels this build has passed, walked in order.
-  const asiDue = useMemo(() => (opts && klass ? (opts.asi_levels[klass] ?? []).filter((l) => l <= level) : []), [opts, klass, level]);
+  // The background's Origin feat and a Human's Versatile one, as they go on the sheet.
+  const bgFeat = bg ? splitFeat(bg.feat) : null;
   const startFeats = useMemo(() => {
-    const out = bg ? [bg.feat.split(" (")[0]] : [];
-    if (speciesRow?.bonus_origin_feat && originFeat) out.push(originFeat);
+    const out = bg ? [bg.feat.startsWith(MAGIC_INITIATE) ? bg.feat : bg.feat.split(" (")[0]] : [];
+    if (versatile && originFeat) out.push(originFeat === MAGIC_INITIATE && originPicks.choice ? `${MAGIC_INITIATE} (${originPicks.choice})` : originFeat);
     return out;
-  }, [bg, speciesRow, originFeat]);
+  }, [bg, versatile, originFeat, originPicks.choice]);
   const startSkills = useMemo(() => {
     const out: Record<string, number> = {};
     for (const s of [...skills, ...(bg?.skills ?? [])]) out[s] = 1;
+    if (versatile && originFeat === "Skilled") for (const s of originPicks.skills) out[s] = 1;
     return out;
-  }, [skills, bg]);
+  }, [skills, bg, versatile, originFeat, originPicks.skills]);
+
+  // Plan 128 — the class's own choices, walked like the server: they add feats and skills.
+  const choiceWalk = useMemo(
+    () => (opts && klass ? walkClassChoices(opts, klass, level, activeSub, { feats: startFeats, skills: startSkills }, classPicks) : null),
+    [opts, klass, level, activeSub, startFeats, startSkills, classPicks],
+  );
+
+  // Plan 126 — the Ability Score Improvement levels this build has passed, walked in order.
+  const asiDue = useMemo(() => (opts && klass ? (opts.asi_levels[klass] ?? []).filter((l) => l <= level) : []), [opts, klass, level]);
   const walk = useMemo(
-    () => (opts && klass
-      ? walkImprovements(opts, klass, asiDue, activeSub, { scores: finalScores, feats: startFeats, saves: cls?.saves ?? [], skills: startSkills }, asiPicks)
+    () => (opts && klass && choiceWalk
+      ? walkImprovements(opts, klass, asiDue, activeSub, { scores: finalScores, feats: choiceWalk.feats, saves: cls?.saves ?? [], skills: choiceWalk.skills }, asiPicks)
       : null),
-    [opts, klass, asiDue, activeSub, finalScores, startFeats, cls, startSkills, asiPicks],
+    [opts, klass, asiDue, activeSub, finalScores, choiceWalk, cls, asiPicks],
   );
   const kitRow = cls?.kits.find((x) => x.name === kit) ?? cls?.kits[0];
   const sheet = useMemo(() => {
@@ -324,21 +376,58 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
       feats: walk.feats, saves: walk.saves, skills: walk.skills, kit: kitRow, speed: speciesRow?.speed ?? 30,
     });
   }, [opts, cls, walk, klass, level, speciesName, activeSub, kitRow, speciesRow]);
-  const featPicked = useMemo(() => new Set(asiDue.flatMap((l) => asiPicks[l]?.spells ?? [])), [asiDue, asiPicks]);
-  const doubled = [...cantrips, ...spells].find((n) => featPicked.has(n));
+
+  // Spells: the plan (counts, pools, always prepared) and Magic Initiate's picks.
+  const plan = useMemo(() => (opts && klass ? spellPlan(opts, klass, level, activeSub, choiceWalk) : null), [opts, klass, level, activeSub, choiceWalk]);
+  const miNeeds = useMemo(() => {
+    if (!opts) return [] as MiNeed[];
+    const out: MiNeed[] = [];
+    if (bg && bgFeat?.feat === MAGIC_INITIATE) out.push(miNeed(opts, "background", bg.name, bgFeat.list, bgFeatPicks, null));
+    if (versatile && originFeat === MAGIC_INITIATE) out.push(miNeed(opts, "species", "Versatile", null, originPicks, bgFeat?.feat === MAGIC_INITIATE ? bgFeat.list : null));
+    return out;
+  }, [opts, bg, bgFeat?.feat, bgFeat?.list, bgFeatPicks, versatile, originFeat, originPicks]);
+  // Class picks that still fit (a later subclass may have made one always prepared).
+  const cleanCantrips = plan ? cantrips.filter((n) => plan.cantripPool.some((s) => s.name === n)) : cantrips;
+  const cleanSpells = plan ? spells.filter((n) => plan.spellPool.some((s) => s.name === n)) : spells;
+  const featPicked = useMemo(() => asiDue.flatMap((l) => asiPicks[l]?.spells ?? []), [asiDue, asiPicks]);
+  const elsewhere = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const n of featPicked) m.set(n, "a feat");
+    for (const need of miNeeds) for (const n of need.state.spells) m.set(n, `Magic Initiate (${need.from})`);
+    return m;
+  }, [featPicked, miNeeds]);
+  const doubled = useMemo(() => {
+    const seen = new Set<string>();
+    for (const n of [...cleanCantrips, ...cleanSpells, ...featPicked, ...miNeeds.flatMap((m) => m.state.spells)]) {
+      if (seen.has(n)) return n;
+      seen.add(n);
+    }
+    return null;
+  }, [cleanCantrips, cleanSpells, featPicked, miNeeds]);
+  const cantripNeed = useMemo(() => {
+    if (!choiceWalk || !opts) return null;
+    const picked = cleanCantrips.map((n) => opts.spells.find((s) => s.name === n)).filter(Boolean);
+    for (const need of choiceWalk.needsCantrip) {
+      const ok = need.want === "damage" ? picked.some((s) => s!.damage) : picked.some((s) => s!.damage && s!.attack);
+      if (!ok) return `${need.name} needs a Warlock cantrip that ${need.want === "damage" ? "deals damage" : "hits with an attack and deals damage"}, such as Eldritch Blast.`;
+    }
+    return null;
+  }, [choiceWalk, opts, cleanCantrips]);
 
   const steps = useMemo(() => {
     const s = ["name", "species", "class", "background", "scores", "skills"];
+    if (choiceWalk?.sections.length) s.push("choices");
     if (asiDue.length) s.push("asi");
     s.push("spells", "review");
     return s;
-  }, [asiDue.length]);
+  }, [choiceWalk?.sections.length, asiDue.length]);
   const at = Math.min(step, steps.length - 1);
   const key = steps[at];
+  const who = `a level ${level} ${klass}`;
 
   /** Plan 82 — why Next is disabled, in one line, so nobody sits tapping a dead button. */
-  function nextHint(): string | null {
-    switch (key) {
+  function hintFor(k: string): string | null {
+    switch (k) {
       case "name":
         if (!characterName.trim()) return dm ? "Give the character a name." : "Give your character a name.";
         if (!dm && !playerName.trim()) return "Add your own name too.";
@@ -346,6 +435,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
       case "species": return species === "" ? "Pick a species." : species === "__other" && !customSpecies.trim() ? "Type the species name." : null;
       case "class":
         if (klass === "") return "Pick a class.";
+        if (cls && level >= cls.subclass_level && !subclass) return `Pick a subclass: a level ${level} ${klass} has one (they start at level ${cls.subclass_level}).`;
         if (cls && level >= cls.subclass_level && subclass === "__other" && !customSub.trim()) return "Type the subclass name.";
         return null;
       case "background":
@@ -360,20 +450,43 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         return null;
       case "skills": {
         const left = skillPicksAllowed - classSkillPicks.length;
-        if (left > 0) return `Pick ${left} more skill${left === 1 ? "" : "s"}. Greyed ones already come from the background.`;
-        if (speciesRow?.bonus_origin_feat && originFeat === "") return "Humans pick an Origin feat: choose one below.";
+        if (left > 0) return `Pick ${plural(left, "more skill")}. Greyed ones already come from the background.`;
+        if (versatile && originFeat === "") return "Humans pick an Origin feat: choose one under Origin feat.";
+        if (versatile && originFeat === "Skilled" && originPicks.skills.length < 3) return `Skilled: pick ${plural(3 - originPicks.skills.length, "more skill")}.`;
         if (cls?.kits.length && kit === "") return "Pick the starting gear.";
         return null;
       }
+      case "choices": return choiceWalk?.problem ?? null;
       case "asi": return walk?.problem ?? null;
-      case "spells": return doubled ? `${doubled} is already a feat spell: pick a different one.` : null;
+      case "spells": {
+        if (!plan) return null;
+        if (plan.caster) {
+          if (cleanCantrips.length > plan.cantripCap) return `Take ${plural(cleanCantrips.length - plan.cantripCap, "cantrip")} off: ${who} has ${plan.cantripCap}.`;
+          if (cleanCantrips.length < plan.needCantrips) return `Pick ${plural(plan.needCantrips - cleanCantrips.length, "more cantrip")}: ${who} has ${plan.cantripCap}.`;
+          if (cleanSpells.length > plan.spellCap) return `Take ${plural(cleanSpells.length - plan.spellCap, "spell")} off: ${who} prepares ${plan.spellCap}.`;
+          if (cleanSpells.length < plan.needSpells) return `Pick ${plural(plan.needSpells - cleanSpells.length, "more spell")} to prepare: ${who} prepares ${plan.spellCap}.`;
+          if (cantripNeed) return cantripNeed;
+        }
+        for (const m of miNeeds) if (m.problem) return m.problem;
+        if (doubled) return `${doubled} is picked twice: choose a different spell.`;
+        return null;
+      }
       default: return null;
     }
   }
-  const hint = nextHint();
+  const hint = hintFor(key);
+  // The first unfinished step before Review (a later change can undo an earlier step).
+  const blocking = steps.slice(0, -1).map((k) => [k, hintFor(k)] as const).find(([, h]) => h) ?? null;
 
   function setAsiPick(lv: number, pick: PickState) {
     setAsiPicks((prev) => ({ ...prev, [lv]: pick }));
+  }
+  function setChoice(k: string, state: ChoiceState) {
+    setClassPicks((prev) => ({ ...prev, [k]: state }));
+  }
+  function setMi(source: MiNeed["source"], state: OriginPickState) {
+    if (source === "background") setBgFeatPicks(state);
+    else setOriginPicks(state);
   }
 
   function asiPayload(): BuildAsiPick[] {
@@ -383,6 +496,28 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
       if (p.name === BOOK) return { level: lv, name: p.bookName.trim(), from_book: true, asi: p.asi, spells: [], skills: [], expertise: [] };
       return { level: lv, name: p.name, asi: p.asi, choice: p.choice || null, spells: p.spells, skills: p.skills, expertise: p.expertise };
     });
+  }
+
+  function choicesPayload(): ClassChoicePick[] {
+    return (choiceWalk?.sections ?? []).map((s) => ({
+      key: s.key,
+      picks: s.state.picks,
+      book: s.spec.book ? s.state.book.map((b) => b.trim()).filter(Boolean) : [],
+    }));
+  }
+
+  function originPayloads(): { background_feat_picks: OriginFeatPicks | null; origin_feat_picks: OriginFeatPicks | null } {
+    const bgMi = bgFeat?.feat === MAGIC_INITIATE;
+    return {
+      background_feat_picks: bgMi ? { choice: null, spells: bgFeatPicks.spells, skills: [] } : null,
+      origin_feat_picks: !versatile
+        ? null
+        : originFeat === MAGIC_INITIATE
+          ? { choice: originPicks.choice || null, spells: originPicks.spells, skills: [] }
+          : originFeat === "Skilled"
+            ? { choice: null, spells: [], skills: originPicks.skills }
+            : null,
+    };
   }
 
   async function submit() {
@@ -402,11 +537,13 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         score_method: method,
         background_bonus: bonus,
         skills,
-        origin_feat: speciesRow?.bonus_origin_feat ? originFeat || null : null,
-        cantrips,
-        spells,
+        origin_feat: versatile ? originFeat || null : null,
+        cantrips: cleanCantrips,
+        spells: cleanSpells,
         kit: kit || null,
         asi: asiPayload(),
+        class_choices: choicesPayload(),
+        ...originPayloads(),
         appearance: appearance.trim() || null,
       });
       clearDraft();
@@ -437,7 +574,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
     </div>
   );
 
-  if (loadError) {
+  if (loadError && !opts) {
     return shell(
       <>
         <h2 style={{ marginTop: 24 }}>We couldn&rsquo;t open the character builder</h2>
@@ -452,9 +589,10 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const levelNote = (() => {
     const pb = profBonus(level);
     const firstAsi = klass ? (opts.asi_levels[klass] ?? [])[0] : 4;
-    return `Level ${level}: proficiency bonus ${fmt(pb)}${level >= (firstAsi ?? 4) ? ", and Ability Score Improvements to choose" : ""}.`;
+    return `At level ${level} you add ${fmt(pb)} to the rolls you're trained in${level >= (firstAsi ?? 4) ? ", and you choose Ability Score Improvements" : ""}.`;
   })();
-  const next = maxSpellLevel && klass ? nextSpellLevelAt(opts, klass, level) : null;
+  const alwaysNames = plan?.always.map((a) => a.name) ?? [];
+  const miSpells = miNeeds.flatMap((m) => m.state.spells);
 
   return (
     <div className={`cc${dm ? " cc-dm" : ""}`}>
@@ -520,7 +658,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
             <div className="cc-cards">
               {Object.entries(opts.classes).map(([name, c]) => (
                 <button type="button" key={name} aria-pressed={klass === name} className={`cc-card ${klass === name ? "on" : ""}`} onClick={() => {
-                  setKlass(name); setSubclass(""); setSkills([]); setKit(c.kits[0]?.name ?? ""); setCantrips([]); setSpells([]); setAsiPicks({});
+                  setKlass(name); setSubclass(""); setSkills([]); setKit(c.kits[0]?.name ?? ""); setCantrips([]); setSpells([]); setAsiPicks({}); setClassPicks({});
                   if (method === "standard") setScores(arrayForClass(c.primary ?? []));
                   window.setTimeout(() => document.getElementById("cc-class-more")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50);
                 }}>
@@ -549,7 +687,9 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
                     {subclass === "__other" && (
                       <input type="text" value={customSub} onChange={(e) => setCustomSub(e.target.value)} placeholder="e.g. Oath of the Ancients" style={{ marginTop: 8 }} aria-label="Subclass name" />
                     )}
-                    <p className="note">The free rules (SRD) include one subclass per class; a subclass from your book is recorded by name and you play it from the book. You can also leave it for now.</p>
+                    <p className="note">
+                      A level {level} {klass} has a subclass: pick one. The free rules (SRD) include one per class; a subclass from your book is recorded by name and you play it from the book.
+                    </p>
                     {subclass && subclass !== "__other" && <SubclassFeatures opts={opts} klass={klass} subclass={subclass} level={level} />}
                   </>
                 )}
@@ -565,7 +705,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
             <p className="note">Where you come from. It gives two skills, a tool, an Origin feat and bonuses to three ability scores.</p>
             <div className="cc-cards">
               {opts.backgrounds.map((b) => (
-                <button type="button" key={b.name} aria-pressed={background === b.name} className={`cc-card ${background === b.name ? "on" : ""}`} onClick={() => { setBackground(b.name); setBonusPlus2(""); setBonusPlus1(""); window.setTimeout(() => document.getElementById("cc-bonus")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); }}>
+                <button type="button" key={b.name} aria-pressed={background === b.name} className={`cc-card ${background === b.name ? "on" : ""}`} onClick={() => { setBackground(b.name); setBonusPlus2(""); setBonusPlus1(""); setBgFeatPicks(emptyOrigin()); window.setTimeout(() => document.getElementById("cc-bonus")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); }}>
                   <b>{b.name}</b><small>{b.blurb}</small>
                 </button>
               ))}
@@ -598,6 +738,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
                   </div>
                 )}
                 <p className="note">The background can only raise {abilityWords(bg.abilities, ", ")}. {cls ? `A ${klass} leans on ${abilityWords(cls.primary)}.` : ""}</p>
+                {bgFeat?.feat === MAGIC_INITIATE && <p className="note">You pick Magic Initiate&rsquo;s spells on the Spells step.</p>}
               </>
             )}
           </>
@@ -652,143 +793,24 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         )}
 
         {key === "skills" && cls && (
-          <>
-            <h2>Skills</h2>
-            <p className="note">
-              Skills are what you&rsquo;re trained at: you add your proficiency bonus ({fmt(profBonus(level))} at level {level}) to those checks.
-              Pick {skillPicksAllowed}: <span className="num">{classSkillPicks.length}</span> of <span className="num">{skillPicksAllowed}</span> picked.
-              {bg ? ` ${bg.name} already gives ${bg.skills.join(" and ")}.` : ""}
-            </p>
-            {(() => {
-              const bonusN = speciesRow?.bonus_skill_choices ?? 0;
-              const bonusFrom = speciesRow?.bonus_skill_from;
-              const offListPicked = classSkillPicks.filter((x) => !cls.skills.from.includes(x)).length;
-              const chip = (s: string) => {
-                const fromBg = (bg?.skills ?? []).includes(s);
-                const onList = cls.skills.from.includes(s);
-                const allowed = onList || skills.includes(s) || (bonusN > offListPicked && (!bonusFrom || bonusFrom.includes(s)));
-                const on = skills.includes(s) || fromBg;
-                const full = classSkillPicks.length >= skillPicksAllowed && !skills.includes(s);
-                return (
-                  <button type="button" key={s} aria-pressed={on} className={`cc-chip ${on ? "on" : ""}`} disabled={fromBg || !allowed || full}
-                    onClick={() => setSkills(on ? skills.filter((x) => x !== s) : [...skills, s])}>
-                    {s} <small>{fromBg ? "from background" : ABILITY_NAMES[opts.skills[s]] ?? opts.skills[s]}</small>
-                  </button>
-                );
-              };
-              const others = Object.keys(opts.skills).filter((s) => !cls.skills.from.includes(s));
-              return (
-                <>
-                  <span className="lbl">{klass} skills: pick {cls.skills.choose}</span>
-                  <div className="cc-chips">{cls.skills.from.map(chip)}</div>
-                  {others.length > 0 && (
-                    <>
-                      <span className="lbl">
-                        {bonusN > 0
-                          ? `${species} adds one more${bonusFrom ? `: ${bonusFrom.join(", ")}` : ", any skill"}`
-                          : `Not on the ${klass} list`}
-                      </span>
-                      <div className="cc-chips">{others.map(chip)}</div>
-                    </>
-                  )}
-                </>
-              );
-            })()}
-            {speciesRow?.bonus_origin_feat && (
-              <>
-                <span className="lbl">Versatile: pick an Origin feat (required)</span>
-                <div className="cc-cards">
-                  {opts.origin_feats.map((f) => {
-                    // A feat is taken once unless it says otherwise (Magic Initiate, Skilled).
-                    const fromBg = bg?.feat.split(" (")[0] === f.name && !opts.feats.find((x) => x.name === f.name)?.repeatable;
-                    return (
-                      <button type="button" key={f.name} aria-pressed={originFeat === f.name} className={`cc-card ${originFeat === f.name ? "on" : ""}`} disabled={fromBg} onClick={() => setOriginFeat(f.name)}>
-                        <b>{f.name}</b><small className={fromBg ? "why" : undefined}>{fromBg ? `${bg?.name} already gives it.` : f.blurb}</small>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-            {cls.kits.length > 0 && (
-              <>
-                <span className="lbl">Starting gear</span>
-                <div className="cc-cards">
-                  {cls.kits.map((k) => {
-                    const preview = armorClass(opts, klass, finalScores, k, startFeats, activeSub);
-                    return (
-                      <button type="button" key={k.name} aria-pressed={kit === k.name} className={`cc-card ${kit === k.name ? "on" : ""}`} onClick={() => setKit(k.name)}>
-                        <b>{k.name}</b>
-                        <small>{[...k.items, k.armor, k.shield ? "Shield" : null].filter(Boolean).join(", ")}</small>
-                        <small style={{ color: "var(--muted)" }}>Armor Class <span className="num">{preview.ac}</span> with this gear</small>
-                        {preview.warning && <small className="why">{preview.warning}</small>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </>
+          <SkillsStep opts={opts} cls={cls} klass={klass} level={level} species={species} speciesRow={speciesRow} bg={bg}
+            skills={skills} setSkills={setSkills} originFeat={originFeat} setOriginFeat={setOriginFeat}
+            originPicks={originPicks} setOriginPicks={setOriginPicks} kit={kit} setKit={setKit}
+            finalScores={finalScores} startFeats={startFeats} activeSub={activeSub} />
+        )}
+
+        {key === "choices" && cls && choiceWalk && (
+          <ChoicesStep opts={opts} klass={klass} level={level} sections={choiceWalk.sections} setChoice={setChoice} />
         )}
 
         {key === "asi" && cls && walk && (
           <AsiStep opts={opts} klass={klass} level={level} levels={asiDue} contexts={walk.contexts} picks={asiPicks} setPick={setAsiPick} />
         )}
 
-        {key === "spells" && (
-          <>
-            <h2>Spells</h2>
-            {!cls?.spellcasting ? (
-              <>
-                <p className="note">A {klass} doesn&rsquo;t cast spells, so there&rsquo;s nothing to pick here. Tap Next.</p>
-                {walk && walk.featSpells.length > 0 && <p className="note">Your feats give you: {walk.featSpells.join(", ")}.</p>}
-              </>
-            ) : (
-              <>
-                <p className="note">
-                  A level {level} {klass} knows <span className="num">{cantripCap}</span> cantrip{cantripCap === 1 ? "" : "s"} and prepares{" "}
-                  <span className="num">{spellCap}</span> spell{spellCap === 1 ? "" : "s"} of up to {ordinal(Math.max(1, maxSpellLevel))} level,
-                  cast with {ABILITY_NAMES[cls.spellcasting.ability]}.
-                  {next ? ` ${ordinal(next.spellLevel)}-level spells come at level ${next.at}.` : ""}
-                </p>
-                {cantripCap > 0 && (
-                  <>
-                    <span className="lbl">Cantrips (cast any time, no slot): <span className="num">{cantrips.length}</span> of <span className="num">{cantripCap}</span></span>
-                    <div className="cc-chips">
-                      {classSpells.filter((s) => s.level === 0).map((s) => (
-                        <button type="button" key={s.name} aria-pressed={cantrips.includes(s.name)} className={`cc-chip ${cantrips.includes(s.name) ? "on" : ""}`}
-                          disabled={!cantrips.includes(s.name) && (cantrips.length >= cantripCap || featPicked.has(s.name))}
-                          onClick={() => setCantrips(cantrips.includes(s.name) ? cantrips.filter((x) => x !== s.name) : [...cantrips, s.name])}>
-                          {s.name}{featPicked.has(s.name) ? <small>from a feat</small> : null}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-                <span className="lbl">Prepared spells (these use spell slots): <span className="num">{spells.length}</span> of <span className="num">{spellCap}</span></span>
-                {Array.from({ length: Math.max(1, maxSpellLevel) }, (_, k) => k + 1).map((lvl) => {
-                  const list = classSpells.filter((s) => s.level === lvl);
-                  if (!list.length) return null;
-                  return (
-                    <div key={lvl} style={{ marginBottom: 8 }}>
-                      <span className="note">{ordinal(lvl)} level</span>
-                      <div className="cc-chips">
-                        {list.map((s) => (
-                          <button type="button" key={s.name} aria-pressed={spells.includes(s.name)} className={`cc-chip ${spells.includes(s.name) ? "on" : ""}`}
-                            disabled={!spells.includes(s.name) && (spells.length >= spellCap || featPicked.has(s.name))}
-                            onClick={() => setSpells(spells.includes(s.name) ? spells.filter((x) => x !== s.name) : [...spells, s.name])}>
-                            {s.name}{featPicked.has(s.name) ? <small>from a feat</small> : null}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-                {walk && walk.featSpells.length > 0 && <p className="note">Your feats also give you: {walk.featSpells.join(", ")}. They don&rsquo;t count against these picks.</p>}
-                <p className="note">Prepared spells can be changed any time from the sheet.</p>
-              </>
-            )}
-          </>
+        {key === "spells" && plan && (
+          <SpellsStep opts={opts} klass={klass} level={level} plan={plan} cantrips={cleanCantrips} spells={cleanSpells}
+            setCantrips={setCantrips} setSpells={setSpells} elsewhere={elsewhere} featSpells={walk?.featSpells ?? []}
+            mi={miNeeds} setMi={setMi} cantripNeed={cantripNeed} />
         )}
 
         {key === "review" && sheet && walk && cls && (
@@ -836,14 +858,23 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
                 {sheet.skills.filter((s) => s.rank > 0).map((s) => `${s.name} ${fmt(s.bonus)}${s.rank > 1 ? " (expertise)" : ""}`).join(", ") || "None yet"}
               </span></div>
               {sheet.slots && <div className="row"><span>Spell slots</span><span>{sheet.slots}</span></div>}
-              <div className="row"><span>Feats</span><span>{walk.feats.length ? walk.feats.join(", ") : "None"}</span></div>
+              {choiceWalk && choiceWalk.summary.length > 0 && <div className="row"><span>Class choices</span><span>{choiceWalk.summary.join("; ")}</span></div>}
+              <div className="row"><span>Feats</span><span>{startFeats.concat(walk.feats.filter((f) => !choiceWalk?.feats.includes(f))).join(", ") || "None"}</span></div>
               {walk.summary.length > 0 && <div className="row"><span>Improvements</span><span>{walk.summary.join("; ")}</span></div>}
-              {cls.spellcasting && <div className="row"><span>Spells</span><span>{[...cantrips, ...spells].join(", ") || "None yet"}</span></div>}
+              {alwaysNames.length > 0 && <div className="row"><span>Always prepared</span><span>{alwaysNames.join(", ")}</span></div>}
+              {plan?.caster && <div className="row"><span>Spells</span><span>{[...cleanCantrips, ...cleanSpells].join(", ") || "None yet"}</span></div>}
+              {miSpells.length > 0 && <div className="row"><span>Magic Initiate</span><span>{miSpells.join(", ")}</span></div>}
               {walk.featSpells.length > 0 && <div className="row"><span>Feat spells</span><span>{walk.featSpells.join(", ")}</span></div>}
               <div className="row"><span>Gear</span><span>{kitRow ? kitRow.name : "None"}</span></div>
             </div>
             {sheet.warnings.map((w) => <p key={w} className="warn">{w}</p>)}
-            <p className="note">Everything here can be changed later from the sheet{dm ? "" : " or by your DM"}. Class choices such as Expertise, a Fighting Style or Eldritch Invocations go on the sheet{dm ? "" : " with your DM"}.</p>
+            {blocking && (
+              <p className="warn" role="alert">
+                {STEP_TITLES[blocking[0]]} isn&rsquo;t finished: {blocking[1]}{" "}
+                <button type="button" className="btn btn-ghost" style={{ minHeight: 44, padding: "0 0.5rem" }} onClick={() => setStep(steps.indexOf(blocking[0]))}>Go there</button>
+              </p>
+            )}
+            <p className="note">Everything here can be changed later from the sheet{dm ? "" : " or by your DM"}.</p>
             <label htmlFor="look">{dm ? "How they look (optional)" : "How you look (optional)"}</label>
             <textarea id="look" rows={4} value={appearance} onChange={(e) => setAppearance(e.target.value)} placeholder="e.g. Scarred, grey braids, a dented breastplate and a green cloak" />
             {error && <p className="err" role="alert">{error}</p>}
@@ -866,7 +897,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
             {at < steps.length - 1 ? (
               <button type="button" className="btn btn-primary" onClick={() => { setStep(at + 1); setResumed(false); window.scrollTo({ top: 0 }); }} disabled={!!hint}>Next</button>
             ) : (
-              <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy || !!walk?.problem}>
+              <button type="button" className="btn btn-primary" onClick={() => void submit()} disabled={busy || !!blocking}>
                 {busy ? "Creating…" : dm ? "Create character" : "Create and open my sheet"}
               </button>
             )}

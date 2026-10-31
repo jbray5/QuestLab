@@ -93,7 +93,7 @@ Full 2024 5e character sheet, belonging to a Campaign.
 |---|---|---|---|---|
 | id | UUID | No | PK | |
 | campaign_id | UUID | No | FK → campaigns.id, INDEX | |
-| player_name | VARCHAR(100) | No | | Real-world player name |
+| player_name | VARCHAR(100) | No | | Real-world player name. The player can set it from the phone (`PATCH /play/{key}/state`, 1–100 characters once trimmed, Plan 128) |
 | character_name | VARCHAR(100) | No | | In-game character name |
 | race | VARCHAR(100) | No | | |
 | character_class | VARCHAR(50) | No | | CharacterClass enum |
@@ -111,19 +111,19 @@ Full 2024 5e character sheet, belonging to a Campaign.
 | hp_current | INTEGER | No | ≥ 0 | Current HP (0 = unconscious) |
 | ac | INTEGER | No | 1–30 | Armour class |
 | speed | INTEGER | No | ≥ 0 | Walk speed in feet |
-| portrait_url | VARCHAR(500) | Yes | | External image URL |
+| portrait_url | VARCHAR(500) | Yes | | Image URL, typed in or uploaded. Since Plan 128 an upload in production is a Vercel Blob URL under `portraits/`; older uploads are `/uploads/…` paths, which `lib/portrait.ts` resolves against the API |
 | figure_url | VARCHAR(500) | Yes | | Full-body standee for the 3D board (Plan 45) |
 | model_url | VARCHAR(500) | Yes | | Rigged `.glb` the immersive table walks (Plan 111); height comes from `race` |
 | backstory | TEXT | Yes | | |
 | notes | TEXT | Yes | | DM/player session notes |
 | saving_throw_proficiencies | JSON | Yes | | `[AbilityScore, ...]` |
 | skill_proficiencies | JSON | Yes | | `{skill_name: "proficient"|"expertise"}` |
-| feats | JSON | Yes | | `["feat name", ...]` |
+| feats | JSON | Yes | | `["feat name", ...]`. Class choices from the wizard are stored here too, as "Label: Choice" ("Divine Order: Protector", "Weapon Mastery: Longsword"); a Fighting Style feat goes in by its name (Plan 128). No screen displays this list yet (TD-128d) |
 | equipment | JSON | Yes | | `[{name, quantity, notes}]` |
 | spells_known | JSON | Yes | | `[{name, level, school, prepared}]` |
 | spell_slots | JSON | Yes | | `{level: {total, used}}` |
 | pending_level | INTEGER | Yes | 1–20 | Plan 115 — level the DM granted; the player's level-up guide raises `level` toward it, cleared on arrival (migration 0054) |
-| player_notes | TEXT | Yes | ≤ 4,000 chars (request body) | Plan 122 — the player's own notes, written from the phone (`PUT /play/{pc}/notes`); the DM's screens never show them; distinct from the DM's `notes`, which the player link never returns (migration 0055) |
+| player_notes | TEXT | Yes | ≤ 4,000 chars (request body) | Plan 122 — the player's own notes, written from the phone (`PUT /play/{pc}/notes`); the DM's screens don't show them, but anyone holding the player link can read them, and the phone says so (Plan 128); distinct from the DM's `notes`, which the player link never returns (migration 0055) |
 | conditions | JSON | Yes | ≤ 20 names | UX-001 — conditions the DM set ("Poisoned"), kept between fights; trimmed and de-duplicated ignoring case; the running fight's tracker row mirrors them; the phone lists them (migration 0058) |
 | play_token | VARCHAR(64) | Yes | UNIQUE | SEC-002 — the player link's secret (`/play/{play_token}`), 22 URL-safe characters, set at creation; replaced by the DM's "Reset link"; never in a player payload; only the owning DM's reads carry it (migration 0057) |
 | legacy_uuid_until | TIMESTAMPTZ | Yes | | SEC-002 — PCs made before tokens still open by `/play/{id}` until this moment (2026-12-01 UTC for every existing row); NULL for new PCs and after a reset (migration 0057) |
@@ -131,6 +131,36 @@ Full 2024 5e character sheet, belonging to a Campaign.
 | updated_at | TIMESTAMP | No | | |
 
 **Computed field** (not stored): `proficiency_bonus = (level - 1) // 4 + 2`
+
+---
+
+### class_features
+The tracked class-feature catalog (Plan 21, migration 0012): features with limited uses that the table spends and a rest brings back. The rows come from `integrations/dnd_rules/class_features_2024.py`. At startup `feature_service.seed_and_backfill` inserts any row a database lacks, matched on name + class + subclass, and grants only those new rows to the PCs who qualify (Plan 128). Existing rows keep their id; only `uses_formula` and `recovery` are kept in step. Seeding never deletes, so rows dropped from the catalog (Song of Rest) stay (TD-128g).
+
+| Column | Type | Nullable | Constraints | Notes |
+|---|---|---|---|---|
+| id | UUID | No | PK | |
+| name | VARCHAR(80) | No | | |
+| character_class | VARCHAR(40) | No | INDEX | CharacterClass enum |
+| subclass | VARCHAR(80) | Yes | | NULL for class features |
+| level_acquired | INTEGER | No | 1–20 | |
+| recovery | VARCHAR(20) | No | | RecoveryType enum: short, long, short_one (regain one use on a Short Rest, all on a Long Rest: Rage, Wild Shape, Second Wind), none, per_turn |
+| uses_formula | VARCHAR(20) | No | | UsesFormula enum. Some features scale with level in the rules module instead (`scaled_uses`: Action Surge, Indomitable, Wild Shape, the Paladin's Channel Divinity); Lay on Hands is a pool of 5 × Paladin level |
+| description | TEXT | No | | Our own words, not book text |
+| source | VARCHAR(60) | No | DEFAULT 'SRD 5.5e / 2024 PHB' | |
+
+### character_features
+A PC's copy of a catalog feature, with its uses spent (migration 0012).
+
+| Column | Type | Nullable | Constraints | Notes |
+|---|---|---|---|---|
+| id | UUID | No | PK | |
+| character_id | UUID | No | FK → player_characters.id, INDEX | |
+| feature_id | UUID | No | FK → class_features.id, INDEX | |
+| uses_spent | INTEGER | No | ≥ 0, DEFAULT 0 | Clamped to the max. For a pool (Lay on Hands) it counts points; `spend`/`restore` take `?amount=` 1–100 (Plan 128) |
+| notes | VARCHAR(300) | Yes | | |
+
+`max_uses`, `feature_name` and `recovery` are worked out when the row is read (`CharacterFeatureRead`), never stored.
 
 ---
 
@@ -299,7 +329,7 @@ The DM's session runbook (scenes, read-aloud, notes). One-to-one with Session (u
 | opening_scene | TEXT | No | | Read-aloud opening text |
 | generated_at | TIMESTAMP | No | | UTC time the runbook was created |
 | closing_hooks | TEXT | Yes | | Adventure hooks for next session |
-| scenes | JSON | Yes | | `[{title, read_aloud, dm_notes, encounter_id}]` |
+| scenes | JSON | Yes | | `[{title, read_aloud, dm_notes, encounter_id}]`. `encounter_id` is optional: the fight the HUD can load. On save it is kept only when it names an encounter in the session's arc, otherwise set to null (`session_service._link_scene_encounters`, Plan 128; no schema change) |
 | npc_dialog | JSON | Yes | | `[{npc_name, quotes:[str], improv_hooks:[str]}]` |
 | encounter_flows | JSON | Yes | | `[{encounter_id, round_by_round_notes}]` |
 | xp_awards | JSON | Yes | | `{pc_id: xp_amount}` |
@@ -344,12 +374,12 @@ Friends-beta invite codes (Plan 125, migration 0059). Admin-made; a new DM accou
 | created_at | TIMESTAMPTZ | No | | |
 
 ### feedback
-Notes DMs send from the app's "Send feedback" sheet (Plan 125, migration 0059).
+Notes DMs send from the app's "Send feedback" sheet (Plan 125, migration 0059), and, since Plan 128, notes players send from their phone (`POST /api/play/{key}/feedback`).
 
 | Column | Type | Nullable | Constraints | Notes |
 |---|---|---|---|---|
 | id | UUID | No | PK | |
-| email | VARCHAR(320) | No | INDEX | The sending DM (PII) |
+| email | VARCHAR(320) | No | INDEX | The sending DM (PII), or `player:<pc id>` for a player's note (the character's identity, never its link key); a player's text starts "From <character>'s phone:" |
 | kind | VARCHAR(20) | No | | `loved` · `confusing` · `broken` · `idea` |
 | text | TEXT | No | ≤ 4,000 chars | |
 | page | VARCHAR(300) | No | | The app path it was sent from |
@@ -368,6 +398,7 @@ Notes DMs send from the app's "Send feedback" sheet (Plan 125, migration 0059).
 | campaigns | dm_email | PII — DM identity |
 | player_characters | player_name | PII — real person name |
 | monster_stat_blocks | created_by_email | PII — creator identity |
+| feedback | email | PII — DM identity (a player's note carries `player:<pc id>` instead) |
 
 Do not log, export without authorisation, or include in error messages.
 
@@ -380,7 +411,10 @@ Do not log, export without authorisation, or include in error messages.
 | campaigns | ix_campaigns_dm_email | dm_email |
 | adventures | ix_adventures_campaign_id | campaign_id |
 | player_characters | ix_player_characters_campaign_id | campaign_id |
-| player_characters | ix_player_characters_play_token (unique) | play_token |
+| player_characters | ix_player_characters_play_token (unique; Postgres only, since DuckDB drops it in `db.base.relax_duckdb_indexes`, Plan 128) | play_token |
+| class_features | ix_class_features_character_class | character_class |
+| character_features | ix_character_features_character_id | character_id |
+| character_features | ix_character_features_feature_id | feature_id |
 | items | ix_items_created_by_email | created_by_email |
 | spells | ix_spells_created_by_email | created_by_email |
 | loot_tables | ix_loot_tables_adventure_id | adventure_id |

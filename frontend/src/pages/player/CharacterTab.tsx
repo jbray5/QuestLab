@@ -2,11 +2,12 @@
  * Character (Plan 122): the sheet at three help levels. Teach me explains every
  * number; Remind me labels them; Just the numbers packs them tight. Every
  * check, save and ability is a roll; hit points, temp HP, inspiration, hit dice,
- * features and exhaustion are all one tap.
+ * features and exhaustion are all one tap. Plan 128: conditions in plain words
+ * right under hit points, and "What you can do", the class's features by level.
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronRight, Shirt, Swords } from "lucide-react";
 
 import { playApi } from "../../api/play";
@@ -14,18 +15,19 @@ import { portraitSrc } from "../../lib/portrait";
 import { usePlayer } from "./playerContext";
 import { useRoll } from "./rollContext";
 import { abilitySpec, initiativeSpec, saveSpec, skillSpec } from "./rolls";
-import { HelpSwitch, HpBar, Label, Monogram, Panel, Pips } from "./ui";
-import { ABILITIES, HIT_DIE_BY_CLASS, RECOVERY_TEXT, SKILLS, fmt, mod, profBonus } from "./rules";
+import { Heading, HelpSwitch, HpBar, Label, Monogram, Panel, Pips } from "./ui";
+import { ABILITIES, HIT_DIE_BY_CLASS, RECOVERY_TEXT, SKILLS, fmt, mod, profBonus, realPlayerName } from "./rules";
+import Conditions from "./Conditions";
 
 export default function CharacterTab() {
   const { pc, pcId, help, setHelp } = usePlayer();
-  const subline = [`${pc.character_class} ${pc.level}`, pc.subclass, pc.race, pc.player_name].filter(Boolean).join(" · ");
+  const subline = [`${pc.character_class} ${pc.level}`, pc.subclass, pc.race, realPlayerName(pc.player_name)].filter(Boolean).join(" · ");
   return (
     <>
       <header style={{ display: "flex", alignItems: "center", gap: 12, paddingTop: 16 }}>
         <Monogram name={pc.character_name} cls={pc.character_class} url={pc.portrait_url ? portraitSrc(pc.portrait_url, pc.updated_at) : null} size={48} />
         <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <span className="story" style={{ fontWeight: 700, fontSize: 22, lineHeight: 1.1 }}>{pc.character_name}</span>
+          <h1 className="story" style={{ margin: 0, fontWeight: 700, fontSize: 22, lineHeight: 1.1, overflowWrap: "anywhere" }}>{pc.character_name}</h1>
           <span style={{ fontSize: 13, color: "var(--muted)" }}>{subline}</span>
         </div>
       </header>
@@ -34,9 +36,11 @@ export default function CharacterTab() {
         <HelpSwitch value={help} onChange={setHelp} />
       </div>
       <HitPoints />
+      <Conditions />
       {help === "teach" && <TeachSheet />}
       {help === "remind" && <RemindSheet />}
       {help === "numbers" && <NumbersSheet />}
+      <ClassFeatures />
       <Features />
       <HitDice />
       <Exhaustion />
@@ -77,7 +81,7 @@ function HitPoints() {
   return (
     <Panel style={{ gap: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <Label>Hit points{pc.temp_hp > 0 ? ` · +${pc.temp_hp} temporary` : ""}</Label>
+        <Heading>Hit points{pc.temp_hp > 0 ? ` · +${pc.temp_hp} temporary` : ""}</Heading>
         <span className="num">
           <span style={{ fontSize: 34, fontWeight: 600 }}>{pc.hp_current}</span>
           <span style={{ color: "var(--muted)", fontSize: 16 }}> / {pc.hp_max}</span>
@@ -141,7 +145,7 @@ function TeachSheet() {
         <StatCard label="Passive Perception" value={String(passivePerception(pc, skills))} note="What you notice without trying." />
       </div>
       <Panel style={{ gap: 6 }}>
-        <Label>{allAbilities ? "Your six abilities · tap to roll" : "Your best ability"}</Label>
+        <Heading>{allAbilities ? "Your six abilities · tap to roll" : "Your best ability"}</Heading>
         {shown.map((a) => (
           <button key={a.key} type="button" onClick={() => roll(abilitySpec(pc, a.key))} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "6px 0", background: "transparent", border: "none", borderBottom: allAbilities ? "1px solid var(--border)" : "none", color: "inherit", textAlign: "left", cursor: "pointer", font: "inherit" }}>
             <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", width: "100%" }}>
@@ -156,7 +160,7 @@ function TeachSheet() {
         </button>
       </Panel>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <Label>You're good at · tap to roll</Label>
+        <Heading>You're good at · tap to roll</Heading>
         <SkillGrid names={good} />
         <button type="button" onClick={() => setAllSkills((v) => !v)} style={{ alignSelf: "flex-start", minHeight: 36, background: "transparent", border: "none", color: "var(--accent-text)", font: "500 14px var(--font-ui)", padding: 0, cursor: "pointer" }}>
           {allSkills ? "Hide the other skills" : `The other ${rest.length} skills`}
@@ -164,7 +168,7 @@ function TeachSheet() {
         {allSkills && <SkillGrid names={rest} teach />}
       </div>
       <Panel style={{ gap: 6 }}>
-        <Label>Saving throws · when something tries to hurt or trick you</Label>
+        <Heading>Saving throws · when something tries to hurt or trick you</Heading>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 }}>
           {ABILITIES.map((a) => (
             <button key={a.abbr} type="button" className="btn btn-secondary" onClick={() => roll(saveSpec(pc, a.abbr, saves[a.abbr] ?? 0))} style={{ minHeight: 44, justifyContent: "space-between", padding: "0 10px", fontSize: 14 }}>
@@ -225,7 +229,7 @@ function RemindSheet() {
           </button>
         ))}
       </div>
-      <Label>Saves</Label>
+      <Heading>Saves</Heading>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
         {ABILITIES.map((a) => (
           <button key={a.abbr} type="button" className="btn btn-ghost" title={`${a.name} save`} onClick={() => roll(saveSpec(pc, a.abbr, saves[a.abbr] ?? 0))} style={{ minHeight: 40, justifyContent: "space-between", padding: "0 10px", fontSize: 13 }}>
@@ -234,7 +238,7 @@ function RemindSheet() {
           </button>
         ))}
       </div>
-      <Label>Skills · ◆ expert, ● trained · tap to roll</Label>
+      <Heading>Skills · ◆ expert, ● trained · tap to roll</Heading>
       <SkillGrid names={Object.keys(skills).sort((a, b) => (skills[b] ?? 0) - (skills[a] ?? 0) || a.localeCompare(b))} />
     </>
   );
@@ -287,6 +291,42 @@ function NumbersSheet() {
   );
 }
 
+/**
+ * "What you can do" (Plan 128): every class feature the character has, by the
+ * level it arrives. The list comes from `/play/{key}/class-features` (group
+ * C2); until that answers, the section stays hidden.
+ */
+function ClassFeatures() {
+  const { pc, pcId, help } = usePlayer();
+  const { data, isError } = useQuery({
+    queryKey: ["play-class-features", pcId],
+    queryFn: () => playApi.classFeatures(pcId),
+    retry: false,
+    staleTime: 300_000,
+  });
+  if (isError || !data || data.length === 0) return null;
+  // "class" | "subclass": only a subclass feature says where it comes from.
+  const from = (source: string) => (source === "subclass" ? ` · ${pc.subclass || "your subclass"}` : "");
+  const rows = [...data].sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+  return (
+    <Panel style={{ gap: 2 }}>
+      <Heading style={{ paddingBottom: 4 }}>{help === "teach" ? `What you can do · what being a ${pc.character_class} gives you` : "What you can do"}</Heading>
+      {rows.map((f, i) => (
+        <div key={`${f.source}-${f.level}-${f.name}`} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "8px 0", borderBottom: i === rows.length - 1 ? "none" : "1px solid var(--border)" }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, flex: "1 1 auto", minWidth: 0 }}>{f.name}</h3>
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>
+              Level <span className="num">{f.level}</span>
+              {from(f.source)}
+            </span>
+          </div>
+          {help !== "numbers" && f.note && <span style={{ fontSize: 14, color: "var(--text2)" }}>{f.note}</span>}
+        </div>
+      ))}
+    </Panel>
+  );
+}
+
 function Features() {
   const { features, pcId, refresh, help, notify } = usePlayer();
   const spend = useMutation({ mutationFn: (id: string) => playApi.spendFeature(pcId, id), onSuccess: refresh });
@@ -294,9 +334,10 @@ function Features() {
   if (counted.length === 0) return null;
   return (
     <Panel style={{ gap: 10 }}>
-      <Label>Features with uses{help === "teach" ? " · tap a filled dot when you use one" : ""}</Label>
+      <Heading>Features with uses{help === "teach" ? " · tap a filled dot when you use one" : ""}</Heading>
       {counted.map((f) => {
         const left = Math.max(0, f.max_uses - f.uses_spent);
+        if (f.max_uses > POOL_FROM) return <PoolRow key={f.id} feature={f} left={left} />;
         return (
           <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div style={{ flex: "1 1 150px", display: "flex", flexDirection: "column" }}>
@@ -313,6 +354,60 @@ function Features() {
         );
       })}
     </Panel>
+  );
+}
+
+// Plan 128 — a feature with more uses than this is a pool of points (Lay on
+// Hands: 5 × level), spent a chosen number at a time, not a row of dots.
+const POOL_FROM = 10;
+
+function PoolRow({ feature, left }: { feature: { id: string; feature_name: string; max_uses: number; recovery: string }; left: number }) {
+  const { pcId, refresh, help, notify } = usePlayer();
+  const [amount, setAmount] = useState(() => Math.min(5, Math.max(1, left)));
+  const spend = useMutation({
+    mutationFn: (n: number) => playApi.spendFeature(pcId, feature.id, n),
+    onSuccess: (_row, n) => {
+      notify(`${feature.feature_name}: ${n} used. ${Math.max(0, left - n)} left.`);
+      refresh();
+    },
+  });
+  const n = Math.max(1, Math.min(left, Math.floor(amount) || 1));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ fontWeight: 600, flex: "1 1 150px" }}>{feature.feature_name}</span>
+        <span>
+          <span className="num" style={{ fontSize: 22, fontWeight: 700 }}>{left}</span>
+          <span className="num" style={{ color: "var(--muted)" }}> of {feature.max_uses} left</span>
+        </span>
+      </div>
+      {help !== "numbers" && (
+        <span style={{ fontSize: 13, color: "var(--muted)" }}>
+          {help === "teach" ? "A pool of points: spend as many as you need at once. " : ""}
+          {RECOVERY_TEXT[feature.recovery] ?? feature.recovery}
+        </span>
+      )}
+      {left > 0 && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, margin: 0 }}>
+            <span style={{ fontSize: 14 }}>Points</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={left}
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+              className="num"
+              style={{ width: 84, minHeight: 44, fontSize: 17 }}
+            />
+          </label>
+          <button type="button" className="btn btn-secondary" disabled={spend.isPending} onClick={() => spend.mutate(n)} style={{ minHeight: 44 }}>
+            Use {n}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -340,7 +435,7 @@ function HitDice() {
   return (
     <Panel style={{ flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
       <div style={{ flex: "1 1 160px", display: "flex", flexDirection: "column" }}>
-        <span style={{ fontWeight: 600 }}>Hit dice <span className="num" style={{ fontWeight: 500, color: "var(--text2)" }}>{left} of {pc.level} · d{size}</span></span>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Hit dice <span className="num" style={{ fontWeight: 500, color: "var(--text2)" }}>{left} of {pc.level} · d{size}</span></h2>
         {help === "teach" && <span style={{ fontSize: 13, color: "var(--muted)" }}>Spend them on a short rest to heal. Half come back after a long rest.</span>}
       </div>
       <button type="button" className="btn btn-secondary" disabled={left === 0} onClick={spend} style={{ minHeight: 44 }}>
@@ -364,7 +459,7 @@ function Exhaustion() {
   return (
     <Panel style={{ gap: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ fontWeight: 600 }}>Exhaustion <span className="num">{level}</span></span>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Exhaustion <span className="num">{level}</span></h2>
         {level > 0 && <span className="num" style={{ fontSize: 13, color: "var(--amber-text)" }}>−{level * 2} to every d20 roll</span>}
       </div>
       <div style={{ display: "flex", gap: 6 }}>

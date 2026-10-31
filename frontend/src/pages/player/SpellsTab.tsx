@@ -1,8 +1,9 @@
 /**
  * Spells (Plan 122): slots you can tap, and a Cast button that spends the right
  * one — asking which when you could upcast — then rolls the attack or damage.
- * Rituals cast free; concentration starts itself. Daily preparers can change
- * their prepared list here.
+ * A healing spell reads "heals 2d8+3" and, once cast, offers its heal roll
+ * (Plan 128). Rituals cast free; concentration starts itself. Daily preparers
+ * can change their prepared list here.
  */
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +13,8 @@ import { playApi, type PlaySpell, type TurnOption } from "../../api/play";
 import { friendlyApiError } from "../../api/errors";
 import { usePlayer } from "./playerContext";
 import { useRoll, type RollSpec } from "./rollContext";
-import { Label, Panel, Pips } from "./ui";
+import { healLabel, healSpec } from "./rolls";
+import { Heading, Panel, Pips } from "./ui";
 import { DAILY_PREPARERS, fmt, ordinal, parseDice } from "./rules";
 
 export default function SpellsTab() {
@@ -36,7 +38,7 @@ export default function SpellsTab() {
       )}
       {levels.map((lvl) => (
         <Panel key={lvl} style={{ gap: 0, padding: "10px 14px" }}>
-          <Label style={{ paddingBottom: 4 }}>{lvl === 0 ? (help === "teach" ? "Cantrips · never run out" : "Cantrips") : `${ordinal(lvl)} level`}</Label>
+          <Heading style={{ paddingBottom: 4 }}>{lvl === 0 ? (help === "teach" ? "Cantrips · never run out" : "Cantrips") : `${ordinal(lvl)}-level spells`}</Heading>
           {spells
             .filter((s) => s.level === lvl)
             .sort((a, b) => Number(b.prepared) - Number(a.prepared) || a.name.localeCompare(b.name))
@@ -65,8 +67,8 @@ function SlotsPanel() {
   return (
     <Panel style={{ gap: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ fontWeight: 600 }}>Spell slots</span>
-        {help !== "numbers" && <Label>Back after a long rest</Label>}
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Spell slots</h2>
+        {help !== "numbers" && <span style={{ fontSize: 13, color: "var(--muted)" }}>Back after a long rest</span>}
       </div>
       {levels.map(([lvl, l]) => (
         <div key={lvl} style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -87,7 +89,7 @@ function SlotsPanel() {
 }
 
 function SpellRow({ spell, last, preparing }: { spell: PlaySpell; last: boolean; preparing: boolean }) {
-  const { pcId, slots, kit, stats, help, refresh, notify } = usePlayer();
+  const { pc, pcId, slots, kit, stats, help, refresh, notify } = usePlayer();
   const roll = useRoll();
   const [open, setOpen] = useState(false);
   const [picking, setPicking] = useState(false);
@@ -100,7 +102,24 @@ function SpellRow({ spell, last, preparing }: { spell: PlaySpell; last: boolean;
     .filter((x) => x.level >= spell.level && x.left > 0)
     .sort((a, b) => a.level - b.level);
 
+  // Cure Wounds and friends heal: the roll is the healing, never damage (Plan 128).
+  const healAt = (slotLevel: number | null): RollSpec | null => {
+    const spec = healSpec(pc, spell, stats?.ability, slotLevel);
+    if (!spec) return null;
+    return {
+      ...spec,
+      healSelf: async (amount) => {
+        await playApi.applyHealing(pcId, amount);
+        refresh();
+        return `You heal ${amount}.`;
+      },
+    };
+  };
+  const heal = healAt(null);
+
   const followUp = (slotLevel: number | null): RollSpec | null => {
+    const healing = healAt(slotLevel);
+    if (healing) return healing;
     const dmg = kitOpt?.damage || spell.damage_dice || "";
     if (spell.attack_type || kitOpt?.to_hit != null) {
       return {
@@ -169,7 +188,11 @@ function SpellRow({ spell, last, preparing }: { spell: PlaySpell; last: boolean;
   const summary = [
     kitOpt?.to_hit != null ? `${fmt(kitOpt.to_hit)} to hit` : spell.attack_type ? `${fmt(stats?.attack_bonus ?? 0)} to hit` : null,
     spell.save_ability ? `${spell.save_ability} save` : null,
-    kitOpt?.damage || spell.damage_dice ? `${kitOpt?.damage || spell.damage_dice}${spell.damage_type ? ` ${spell.damage_type}` : ""}` : null,
+    heal
+      ? healLabel(heal)
+      : kitOpt?.damage || spell.damage_dice
+        ? `${kitOpt?.damage || spell.damage_dice}${spell.damage_type ? ` ${spell.damage_type}` : ""}`
+        : null,
     help !== "numbers" ? spell.range : null,
   ].filter(Boolean);
 

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bug, Check, Copy, Heart, HelpCircle, Lightbulb, UserPlus } from "lucide-react";
+import { Bug, Check, Copy, Heart, HelpCircle, Lightbulb, Mail, UserPlus } from "lucide-react";
 
-import { betaApi, type FeedbackRow, type InviteRow } from "../../api/beta";
+import { betaApi, type FeedbackRow, type InviteRow, type WaitlistEntry } from "../../api/beta";
 import { formatDay } from "../../lib/dates";
 
 const KIND: Record<string, { label: string; icon: React.ReactNode; pill: string }> = {
@@ -17,6 +17,17 @@ function inviteLink(code: string): string {
   return `${window.location.origin}/welcome?invite=${encodeURIComponent(code)}`;
 }
 
+/** A ready-to-send email with the invite link; Justin edits it in his own mail app. */
+function inviteMailto(email: string, code: string): string {
+  const subject = "Your QuestLab beta invite";
+  const body = [
+    "Hi! A place opened in the QuestLab beta. Make your account here:",
+    inviteLink(code),
+    'The sample night is the quickest way in. Tell me how it goes with "Send feedback" in the menu.',
+  ].join("\n\n");
+  return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 function when(iso: string): string {
   return formatDay(iso.slice(0, 10));
 }
@@ -26,7 +37,8 @@ function when(iso: string): string {
  *
  * Make an invite for each friend (who it's for, how many accounts it may
  * start), copy its link, revoke it; see who joined and how much they've
- * played; read the feedback they send and mark it seen.
+ * played; read the feedback they send and mark it seen. People who asked
+ * on the landing page wait in the waitlist with a one-tap invite email.
  */
 export default function BetaPanel() {
   const qc = useQueryClient();
@@ -37,6 +49,7 @@ export default function BetaPanel() {
   const overview = useQuery({ queryKey: ["admin-beta"], queryFn: betaApi.overview });
   const invites = useQuery({ queryKey: ["admin-invites"], queryFn: betaApi.invites });
   const feedback = useQuery({ queryKey: ["admin-feedback"], queryFn: betaApi.feedback });
+  const waitlist = useQuery({ queryKey: ["admin-waitlist"], queryFn: betaApi.waitlist });
 
   const create = useMutation({
     mutationFn: () => betaApi.createInvite(label.trim(), uses),
@@ -49,6 +62,15 @@ export default function BetaPanel() {
   const revoke = useMutation({
     mutationFn: (id: string) => betaApi.revokeInvite(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin-invites"] }),
+  });
+  // One single-use invite per waitlist email, labelled with the email so the
+  // list knows who's already been asked; then the mail app opens with the link.
+  const inviteWaiting = useMutation({
+    mutationFn: (email: string) => betaApi.createInvite(email, 1),
+    onSuccess: (inv) => {
+      void qc.invalidateQueries({ queryKey: ["admin-invites"] });
+      window.location.href = inviteMailto(inv.label, inv.code);
+    },
   });
   const seen = useMutation({
     mutationFn: (id: string) => betaApi.markSeen(id),
@@ -66,9 +88,15 @@ export default function BetaPanel() {
   }
 
   const unseen = (feedback.data ?? []).filter((f) => !f.seen).length;
+  const invitedBy = new Map((invites.data ?? []).filter((i) => !i.revoked).map((i) => [i.label.toLowerCase(), i]));
+  const waiting = waitlist.data?.entries ?? [];
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      {/* Plan 128: a screen reader hears that the link is on the clipboard. */}
+      <p className="ql-sr-only" role="status">
+        {copied ? "Invite link copied." : ""}
+      </p>
       <p className="text-muted" style={{ margin: 0 }}>
         {overview.data?.invites_required
           ? "Sign-up is invite-only: a new DM needs one of these codes. Players never do."
@@ -132,14 +160,14 @@ export default function BetaPanel() {
                     </div>
                     {!inv.revoked && (
                       <div className="flex" style={{ gap: "0.4rem" }}>
-                        <button type="button" className="btn btn-secondary" onClick={() => void copy(inv.code)} style={{ minHeight: 40 }}>
+                        <button type="button" className="btn btn-secondary" onClick={() => void copy(inv.code)} style={{ minHeight: 44 }}>
                           {copied === inv.code ? <Check size={15} aria-hidden /> : <Copy size={15} aria-hidden />}
                           {copied === inv.code ? "Copied" : "Copy link"}
                         </button>
                         <button
                           type="button"
                           className="btn btn-ghost"
-                          style={{ minHeight: 40, color: "var(--danger-text)" }}
+                          style={{ minHeight: 44, color: "var(--danger-text)" }}
                           onClick={() => {
                             if (window.confirm(`Revoke the invite for ${inv.label || inv.code}? Accounts it already started stay.`)) {
                               revoke.mutate(inv.id);
@@ -155,6 +183,51 @@ export default function BetaPanel() {
                     <div className="text-sm" style={{ marginTop: "0.4rem", color: "var(--text2)" }}>
                       Joined: {inv.joined.map((j) => j.display_name || j.email).join(", ")}
                     </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Waitlist (Plan 128) */}
+      <section aria-label="Waitlist">
+        <h2 style={{ fontSize: "1.1rem" }}>
+          Waitlist <span className="text-muted num" style={{ fontSize: "0.9rem", fontWeight: 400 }}>{waiting.length}</span>
+        </h2>
+        {waiting.length === 0 ? (
+          <p className="text-muted">Nobody yet. People who tap "Ask for an invite" on the landing page appear here.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            {waiting.map((w: WaitlistEntry) => {
+              const inv = invitedBy.get(w.email.toLowerCase());
+              const joined = (inv?.uses ?? 0) > 0;
+              return (
+                <div key={w.email} className="card flex items-center" style={{ padding: "0.6rem 1rem", gap: "0.5rem 1rem", flexWrap: "wrap" }}>
+                  <div style={{ flex: "1 1 220px", minWidth: 0 }}>
+                    <div style={{ overflowWrap: "anywhere" }}>{w.email}</div>
+                    <div className="text-sm text-muted">
+                      asked {when(w.created_at)}
+                      {joined ? " · joined" : inv ? " · invited" : ""}
+                    </div>
+                  </div>
+                  {inv ? (
+                    !joined && (
+                      <a className="btn btn-secondary" href={inviteMailto(w.email, inv.code)} style={{ minHeight: 44 }}>
+                        <Mail size={15} aria-hidden /> Email the invite again
+                      </a>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ minHeight: 44 }}
+                      disabled={inviteWaiting.isPending}
+                      onClick={() => inviteWaiting.mutate(w.email)}
+                    >
+                      <Mail size={15} aria-hidden /> Invite by email
+                    </button>
                   )}
                 </div>
               );
@@ -220,7 +293,7 @@ export default function BetaPanel() {
                       <button
                         type="button"
                         className="btn btn-ghost"
-                        style={{ marginLeft: "auto", minHeight: 36, fontSize: "0.8125rem" }}
+                        style={{ marginLeft: "auto", minHeight: 44, fontSize: "0.8125rem" }}
                         onClick={() => seen.mutate(f.id)}
                       >
                         <Check size={14} aria-hidden /> Mark seen

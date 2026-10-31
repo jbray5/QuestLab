@@ -50,6 +50,8 @@ def _build(**over) -> dict:
         "kit": "Chain mail, longsword & shield",
     }
     body.update(over)
+    if body["level"] >= 3 and "subclass" not in over:
+        body["subclass"] = "Champion"  # Plan 128 — required once the level reaches it
     return body
 
 

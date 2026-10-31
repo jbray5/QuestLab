@@ -6,9 +6,11 @@ import * as THREE from "three";
  *
  * An imperative three.js overlay (no r3f — this also mounts on the 2D
  * projector page). A true polyhedron with a number on every face enters
- * from the left, bounces and tumbles across the board, and settles with the
- * rolled face toward the viewer, number upright, by `durationMs`. The face
- * that lands is the server's result — the die can never contradict it.
+ * from the left, bounces and tumbles across the board, and lands with the
+ * rolled face up by `durationMs`. Then (Plan 128) it lifts and turns that
+ * face square to the camera, number upright, while the other numerals fade,
+ * so nobody reads a neighbouring face. The face that lands is the server's
+ * result — the die can never contradict it.
  * Crimson resin, gold numerals and edges, transparent canvas.
  *
  * Face numbering follows real dice: opposite faces of a d20 sum to 21, a
@@ -159,13 +161,16 @@ function numberFaces(faces: Face[], sides: number, d100 = false): void {
   }
 }
 
-/** Paint one atlas cell per face: crimson resin with a gold numeral. */
-function paintAtlas(faces: Face[], d100: boolean): THREE.CanvasTexture {
-  const canvas = document.createElement("canvas");
-  canvas.width = ATLAS_PX;
-  canvas.height = ATLAS_PX;
+/**
+ * Paint one atlas cell per face: crimson resin with a gold numeral. With
+ * `focus`, every other numeral fades back so only the rolled number reads
+ * (Plan 128: a viewer glancing at the landed die must never read a
+ * neighbouring face as the result).
+ */
+function drawAtlas(canvas: HTMLCanvasElement, faces: Face[], d100: boolean, focus?: Face): void {
   const ctx = canvas.getContext("2d")!;
   const cw = ATLAS_PX / ATLAS_COLS, ch = ATLAS_PX / ATLAS_ROWS;
+  ctx.globalAlpha = 1;
   ctx.fillStyle = "#6f1414";
   ctx.fillRect(0, 0, ATLAS_PX, ATLAS_PX);
   faces.forEach((f, i) => {
@@ -174,23 +179,35 @@ function paintAtlas(faces: Face[], d100: boolean): THREE.CanvasTexture {
     g.addColorStop(0, "#b3261f");
     g.addColorStop(0.55, "#8b1a1a");
     g.addColorStop(1, "#4d0d0f");
+    ctx.globalAlpha = 1;
     ctx.fillStyle = g;
     ctx.fillRect(cx, cy, cw, ch);
+    const lit = !focus || f === focus;
+    ctx.globalAlpha = lit ? 1 : 0.15;
     const label = d100 ? String(f.number).padStart(2, "0") : String(f.number);
-    const size = Math.round(ch * (label.length > 1 ? 0.3 : 0.36));
+    const size = Math.round(ch * (label.length > 1 ? 0.3 : 0.36) * (focus && lit ? 1.08 : 1));
     ctx.font = `700 ${size}px Georgia, "Times New Roman", serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineWidth = Math.max(2, size * 0.06);
     ctx.strokeStyle = "rgba(40, 8, 8, 0.9)";
     ctx.strokeText(label, cx + cw / 2, cy + ch / 2 + size * 0.04);
-    ctx.fillStyle = "#f0d27a";
+    ctx.fillStyle = focus && lit ? "#fff0b8" : "#f0d27a";
     ctx.fillText(label, cx + cw / 2, cy + ch / 2 + size * 0.04);
     if (f.number === 6 || f.number === 9) {
       // Underline so 6 and 9 can't be confused, as on a real die.
       ctx.fillRect(cx + cw / 2 - size * 0.22, cy + ch / 2 + size * 0.5, size * 0.44, Math.max(2, size * 0.06));
     }
   });
+  ctx.globalAlpha = 1;
+}
+
+/** The atlas texture, over a canvas the landing can repaint. */
+function paintAtlas(faces: Face[], d100: boolean): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = ATLAS_PX;
+  canvas.height = ATLAS_PX;
+  drawAtlas(canvas, faces, d100);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
@@ -227,6 +244,25 @@ function restOrientationFor(face: Face): THREE.Quaternion {
   const away = new THREE.Vector3(0, 0, -1);
   const angle = Math.atan2(top.clone().cross(away).dot(up), top.dot(away));
   return new THREE.Quaternion().setFromAxisAngle(up, angle).multiply(q);
+}
+
+/**
+ * Plan 128 — the orientation that turns `face` square to the camera with its
+ * numeral upright on screen. Resting flat under an angled camera, the face
+ * toward the viewer looked bigger than the top one, so a 3 read as "6" or
+ * "36"; after landing the die lifts and shows its result to the room.
+ */
+function presentOrientationFor(face: Face, toCamera: THREE.Vector3): THREE.Quaternion {
+  const n2 = toCamera.clone().normalize();
+  const v2 = new THREE.Vector3(0, 1, 0).projectOnPlane(n2).normalize();
+  const u2 = new THREE.Vector3().crossVectors(v2, n2).normalize();
+  const n1 = face.normal.clone().normalize();
+  const v1 = face.v.clone().projectOnPlane(n1).normalize();
+  const u1 = new THREE.Vector3().crossVectors(v1, n1).normalize();
+  // R maps the face's basis onto the camera-facing one: R = target · sourceᵀ.
+  const target = new THREE.Matrix4().makeBasis(u2, v2, n2);
+  const sourceT = new THREE.Matrix4().makeBasis(u1, v1, n1).transpose();
+  return new THREE.Quaternion().setFromRotationMatrix(target.multiply(sourceT));
 }
 
 export default function Dice3D({
@@ -313,6 +349,20 @@ export default function Dice3D({
     const rest = restOrientationFor(landing);
     // Distance from the die's center to the face opposite the landing face (what touches the table).
     const restHeight = Math.max(...faces.map((f) => f.centroid.length())) * 0.98;
+    const restY = -0.95 + restHeight;
+    // Plan 128 — after landing, the die lifts and turns its result square to
+    // the camera; it rises just enough that no corner dips through the table.
+    const toCamera = camera.position.clone().sub(new THREE.Vector3(0, restY, 0));
+    const presented = presentOrientationFor(landing, toCamera);
+    const posAttr = geo.getAttribute("position");
+    const corner = new THREE.Vector3();
+    let lowest = 0;
+    for (let i = 0; i < posAttr.count; i++) {
+      corner.fromBufferAttribute(posAttr, i).applyQuaternion(presented);
+      lowest = Math.min(lowest, corner.y);
+    }
+    const PRESENT_SCALE = 1.3;
+    const presentY = -0.95 - lowest * PRESENT_SCALE + 0.12;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     // Deterministic-feeling randomness per roll.
@@ -330,6 +380,29 @@ export default function Dice3D({
     const start = performance.now();
     let raf = 0;
     const scratchQ = new THREE.Quaternion();
+    // The beat between landing flat and turning to the room, then the turn.
+    const PRESENT_DELAY_MS = 140;
+    const PRESENT_MS = 460;
+    let focused = false;
+
+    /** After landing: lift, turn the result to the camera, fade the other numbers. */
+    const present = (now: number) => {
+      const p = reduced ? 1 : Math.min(1, Math.max(0, (now - start - durationMs - PRESENT_DELAY_MS) / PRESENT_MS));
+      if (!focused && (p > 0 || reduced)) {
+        drawAtlas(atlas.image as HTMLCanvasElement, faces, d100, landing);
+        atlas.needsUpdate = true;
+        focused = true;
+      }
+      const e = 1 - Math.pow(1 - p, 3);
+      dieGroup.quaternion.copy(rest).slerp(presented, e);
+      dieGroup.position.set(0, restY + (presentY - restY) * e, 0);
+      dieGroup.scale.setScalar(1 + (PRESENT_SCALE - 1) * e);
+      shadow.position.x = 0;
+      shadow.scale.setScalar(1.2 - 0.25 * e);
+      (shadow.material as THREE.MeshBasicMaterial).opacity = 0.38 - 0.14 * e;
+      renderer.render(scene, camera);
+      if (p < 1) raf = requestAnimationFrame(present);
+    };
 
     const frame = (now: number) => {
       const t = reduced ? 1 : Math.min(1, (now - start) / durationMs);
@@ -359,8 +432,8 @@ export default function Dice3D({
         raf = requestAnimationFrame(frame);
       } else {
         dieGroup.quaternion.copy(rest);
-        dieGroup.position.set(0, -0.95 + restHeight, 0);
-        renderer.render(scene, camera);
+        dieGroup.position.set(0, restY, 0);
+        present(now);
       }
     };
     raf = requestAnimationFrame(frame);

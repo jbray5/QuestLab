@@ -2,7 +2,8 @@
  * Now (Plan 122): the screen follows the game. Your turn → move, one action,
  * one bonus action, with your real attacks to roll and a coach tip. Someone
  * else's turn → who's up, when you go, your reaction. No fight → quick checks
- * and the table's latest rolls.
+ * and the table's latest rolls. Conditions sit near the top (Plan 128): right
+ * under "Your turn" in a fight, first thing otherwise.
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -14,7 +15,9 @@ import { usePlayer } from "./playerContext";
 import { useRoll } from "./rollContext";
 import { damageSpec, initiativeSpec, skillSpec, weaponAttackSpec } from "./rolls";
 import { Label, Panel, Tip } from "./ui";
-import { CONDITION_TEXT, fmt } from "./rules";
+import { fmt } from "./rules";
+import Conditions from "./Conditions";
+import NamePrompt from "./NamePrompt";
 
 const BASIC_TEXT: Record<string, string> = {
   Dash: "Move again: double your movement this turn.",
@@ -44,8 +47,15 @@ export default function NowTab() {
           <ChevronRight size={18} color="var(--accent-text)" style={{ marginLeft: "auto" }} />
         </Link>
       )}
-      {combat?.in_combat ? turn?.active ? <YourTurn /> : <Waiting /> : <Exploring />}
-      <Conditions />
+      <NamePrompt />
+      {combat?.in_combat && turn?.active ? (
+        <YourTurn />
+      ) : (
+        <>
+          <Conditions />
+          {combat?.in_combat ? <Waiting /> : <Exploring />}
+        </>
+      )}
       <Concentrating />
       <Feed />
     </>
@@ -63,7 +73,11 @@ function YourTurn() {
   });
   const takeFeature = (o: TurnOption) => {
     const f = features.find((x) => x.feature_name.toLowerCase() === o.name.toLowerCase());
-    if (f && f.max_uses > 0 && f.uses_spent < f.max_uses) {
+    // A pool (Lay on Hands) spends a chosen number of points: that's on the Character tab.
+    if (f && f.max_uses > 10) {
+      go("character");
+      notify(`${o.name}: choose how many points under "Features with uses".`);
+    } else if (f && f.max_uses > 0 && f.uses_spent < f.max_uses) {
       spend.mutate(f.id);
       notify(`${o.name} used.`);
     } else notify(`${o.name}: tell the DM you're using it.`);
@@ -100,10 +114,12 @@ function YourTurn() {
         );
       }
     }
+    // A healing spell heals: "heals 2d8+3", never "2d8+3 force" (Nina, run 3).
+    const amount = o.kind === "heal" ? (o.damage ? `heals ${o.damage}` : "heals") : o.damage ? `${o.damage}${o.damage_type ? ` ${o.damage_type}` : ""}` : null;
     const numbers = [
       o.to_hit != null ? `${fmt(o.to_hit)} to hit` : null,
       o.save,
-      o.damage ? `${o.damage}${o.damage_type ? ` ${o.damage_type}` : ""}` : null,
+      amount,
       o.uses_left != null && o.uses_left < 50 ? `${o.uses_left} left` : null,
     ].filter(Boolean);
     return (
@@ -127,11 +143,12 @@ function YourTurn() {
     <>
       <Panel tone="lit" style={{ gap: 4 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-          <span className="story" style={{ fontWeight: 700, fontSize: 26, color: "var(--accent-text)" }}>Your turn</span>
+          <h2 className="story" style={{ margin: 0, fontWeight: 700, fontSize: 26, color: "var(--accent-text)" }}>Your turn</h2>
           {turn?.round != null && <span style={{ fontSize: 13, color: "var(--text2)" }}>Round <span className="num">{turn.round}</span></span>}
         </div>
         {help !== "numbers" && <span style={{ fontSize: 14, color: "var(--text2)" }}>You can move, take one action and one bonus action, in any order.</span>}
       </Panel>
+      <Conditions />
 
       <Step n={1} title="Move" right={<span className="num" style={{ fontWeight: 600 }}>{kit?.speed ?? pc.speed} ft</span>}>
         {help === "teach" && <span style={{ fontSize: 14, color: "var(--muted)" }}>Split it however you like, before and after your action.</span>}
@@ -204,7 +221,7 @@ function Waiting() {
     <>
       <Panel style={{ gap: 8, padding: "12px 10px 8px" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", padding: "0 4px", gap: 8 }}>
-          <span style={{ fontWeight: 600, fontSize: 16 }}>{turn?.active_combatant_name ? `${turn.active_combatant_name} is up` : "The fight is on"}</span>
+          <h2 style={{ margin: 0, fontWeight: 600, fontSize: 16, minWidth: 0, overflowWrap: "anywhere" }}>{turn?.active_combatant_name ? `${turn.active_combatant_name} is up` : "The fight is on"}</h2>
           {turn?.round != null && <Label>Round <span className="num">{turn.round}</span></Label>}
         </div>
         {when && <span style={{ fontSize: 14, color: "var(--text2)", padding: "0 4px" }}>{when}</span>}
@@ -244,13 +261,14 @@ function Exploring() {
   const roll = useRoll();
   return (
     <>
-      {help === "teach" && (
-        <Panel tone="inset" style={{ padding: "10px 12px" }}>
+      <Panel tone="inset" style={{ padding: "10px 12px", gap: 2 }}>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>No fight right now</h2>
+        {help === "teach" && (
           <span style={{ fontSize: 14, color: "var(--text2)" }}>
-            No fight right now. When the DM asks for a check, tap it below and roll; it shows on the TV.
+            When the DM asks for a check, tap it below and roll; it shows on the TV.
           </span>
-        </Panel>
-      )}
+        )}
+      </Panel>
       <QuickChecks pcName={pc.character_name} />
       <button type="button" className="btn btn-secondary" onClick={() => roll(initiativeSpec(pc))} style={{ minHeight: 48 }}>
         <Dices size={18} /> Roll initiative
@@ -275,7 +293,7 @@ function QuickChecks({ pcName }: { pcName: string }) {
   const picks = ["Perception", "Insight", "Investigation", ...best.slice(0, 3)].filter((s) => s in skills);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }} aria-label={`Quick checks for ${pcName}`}>
-      <Label>{help === "teach" ? "Checks the DM asks for most · tap to roll" : "Quick checks"}</Label>
+      <h2 style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>{help === "teach" ? "Checks the DM asks for most · tap to roll" : "Quick checks"}</h2>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
         {picks.map((s) => (
           <button key={s} type="button" className="btn btn-secondary" onClick={() => roll(skillSpec(pc, s, skills[s]))} style={{ minHeight: 44, justifyContent: "space-between", padding: "0 12px", fontSize: 14 }}>
@@ -288,26 +306,6 @@ function QuickChecks({ pcName }: { pcName: string }) {
         ))}
       </div>
     </div>
-  );
-}
-
-function Conditions() {
-  const { combat, help, pc } = usePlayer();
-  // UX-001 — lasting conditions show between fights too (the server sends them).
-  const list = [...(combat?.conditions ?? []), ...(pc.exhaustion ? ["exhaustion"] : [])];
-  if (list.length === 0) return null;
-  return (
-    <Panel style={{ padding: "10px 12px", gap: 6 }}>
-      {list.map((c) => (
-        <div key={c} style={{ display: "flex", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
-          <span className="pill pill-amber" style={{ textTransform: "capitalize" }}>
-            {c}
-            {c === "exhaustion" ? ` ${pc.exhaustion}` : ""}
-          </span>
-          {help !== "numbers" && <span style={{ flex: "1 1 200px", fontSize: 13, color: "var(--text2)" }}>{CONDITION_TEXT[c.toLowerCase()] ?? "Ask the DM what this does."}</span>}
-        </div>
-      ))}
-    </Panel>
   );
 }
 
@@ -333,10 +331,10 @@ function Feed() {
   if (feed.length === 0) return null;
   return (
     <Panel style={{ gap: 2, padding: "10px 12px" }}>
-      <Label>At the table</Label>
+      <h2 style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "var(--muted)" }}>At the table</h2>
       {feed.map((r, i) => (
         <div key={r.id} style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "5px 0", borderBottom: i === feed.length - 1 ? "none" : "1px solid var(--border)" }}>
-          <span className="story" style={{ fontWeight: 700, minWidth: 48 }}>{r.roller === pc.character_name ? "You" : r.roller.split(" ")[0] || "DM"}</span>
+          <span className="story" style={{ fontWeight: 700, minWidth: 48, maxWidth: "45%", overflowWrap: "anywhere" }}>{r.roller === pc.character_name ? "You" : r.roller || "DM"}</span>
           <span style={{ flex: 1, fontSize: 14, color: "var(--text2)" }}>{r.label}</span>
           <span className="num" style={{ fontWeight: 600, color: r.crit ? "var(--accent-text)" : r.fumble ? "var(--danger-text)" : "var(--text)" }}>
             {r.total}
@@ -353,7 +351,7 @@ function Step({ n, title, right, children }: { n: number; title: string; right?:
     <Panel style={{ gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <span aria-hidden className="num" style={{ width: 24, height: 24, borderRadius: "50%", border: "1px solid var(--border2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 600, color: "var(--text2)" }}>{n}</span>
-        <span style={{ fontWeight: 600, fontSize: 16, flex: 1 }}>{title}</span>
+        <h3 style={{ margin: 0, fontWeight: 600, fontSize: 16, flex: 1 }}>{title}</h3>
         {right}
       </div>
       {children}

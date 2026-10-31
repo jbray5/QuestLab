@@ -1,11 +1,15 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
 import type { InitiativeEntry, TableProjection } from "../../api/types";
 import type { TableRoll } from "./DiceCinematic";
+import { rollLabel } from "./rollText";
 
 /**
  * RemotePanel (Plan 83) — the side panel that turns the projector page into a
  * remote-player window: initiative order with whose turn it is, the party's HP
  * (never a foe's), condition chips, and the last few rolls. Opened by
- * ``?pc=<id>`` from the phone's Table link, or ``?panel=1`` for anyone.
+ * ``?pc=<id>`` from the phone's Table link. (The room TV has its own turn
+ * order since Plan 128: TableTracker and TurnCorner.)
  */
 interface Props {
   projection: TableProjection;
@@ -23,12 +27,11 @@ const CSS = `
   font-family: var(--font-ui); display: flex; flex-direction: column;
   transform: translateX(0); transition: transform 0.22s ease; }
 .ql-remote.closed { transform: translateX(100%); }
-.ql-remote-tab { position: absolute; top: 12px; right: 12px; z-index: 31; border: 1px solid rgba(214,175,54,0.5);
-  background: rgba(8,7,14,0.85); color: #f0e6c8; border-radius: 999px; padding: 6px 12px; font-size: 0.8rem;
-  cursor: pointer; font-family: var(--font-story); letter-spacing: 0.06em; }
+.ql-remote-tab { position: absolute; top: 12px; right: 12px; z-index: 31; border: 1px solid var(--border2);
+  background: rgba(17,21,19,0.9); color: var(--text); border-radius: 999px; padding: 0 14px; min-height: 44px;
+  font-size: 0.95rem; cursor: pointer; font-family: var(--font-ui); display: inline-flex; align-items: center; gap: 4px; }
 .ql-remote.open ~ .ql-remote-tab { right: calc(min(300px, 86vw) + 12px); }
-.ql-remote h3 { margin: 0; font-family: var(--font-story); font-size: 0.72rem; letter-spacing: 0.12em;
-  text-transform: uppercase; color: #d6af36; }
+.ql-remote h3 { margin: 0; font-family: var(--font-ui); font-size: 0.95rem; font-weight: 600; color: var(--text2); }
 .ql-remote-head { padding: 14px 14px 8px; display: flex; justify-content: space-between; align-items: baseline; }
 .ql-remote-round { font-size: 0.8rem; color: #b3a789; }
 .ql-remote-list { overflow-y: auto; padding: 0 10px 10px; display: flex; flex-direction: column; gap: 6px; }
@@ -45,13 +48,13 @@ const CSS = `
 .ql-init-bar i.low { background: #e0a030; }
 .ql-init-bar i.crit { background: #ef5350; }
 .ql-init-conds { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; }
-.ql-init-conds span { font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; color: #c8a2ff;
-  border: 1px solid rgba(200,162,255,0.4); border-radius: 999px; padding: 1px 7px; }
+.ql-init-conds span { font-size: 0.8rem; color: var(--amber-text); background: var(--amber-soft);
+  border-radius: 999px; padding: 1px 8px; }
 .ql-remote-empty { padding: 10px 14px 14px; color: #8f8670; font-style: italic; font-size: 0.85rem; }
 .ql-roll { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; padding: 5px 10px; border-top: 1px solid rgba(240,230,200,0.08); }
 .ql-roll-who { font-size: 0.82rem; color: #f0e6c8; }
 .ql-roll-what { font-size: 0.7rem; color: #9a9078; }
-.ql-roll-total { grid-row: 1 / span 2; align-self: center; font-family: var(--font-story); font-size: 1.25rem; color: #d6af36; font-variant-numeric: tabular-nums; }
+.ql-roll-total { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-family: var(--font-story); font-size: 1.25rem; color: #d6af36; font-variant-numeric: tabular-nums; }
 .ql-roll-total.nat20 { color: #6fbf73; } .ql-roll-total.nat1 { color: #ef5350; }
 .ql-remote-foot { margin-top: auto; padding: 8px 14px 12px; font-size: 0.72rem; color: #8f8670; border-top: 1px solid rgba(240,230,200,0.08); }
 `;
@@ -69,7 +72,7 @@ export default function RemotePanel({ projection, rolls, pcId, open, onToggle, c
       <style>{CSS}</style>
       <aside className={`ql-remote ${open ? "open" : "closed"}`} aria-label="Table panel">
         <div className="ql-remote-head">
-          <h3>{projection.combat_running ? "Initiative" : "The table"}</h3>
+          <h3>{projection.combat_running ? "Turn order" : "The table"}</h3>
           {projection.combat_running && <span className="ql-remote-round">Round {projection.round}</span>}
         </div>
         {projection.combat_running && rows.length > 0 ? (
@@ -80,7 +83,9 @@ export default function RemotePanel({ projection, rolls, pcId, open, onToggle, c
                 className={`ql-init${e.active ? " active" : ""}${e.defeated ? " down" : ""}${pcId && e.ref === pcId ? " me" : ""}`}
               >
                 <span className="ql-init-name">
-                  {e.active ? "▶ " : ""}
+                  {e.active && (
+                    <ChevronRight size={15} aria-label="Their turn" style={{ verticalAlign: "-2px", color: "var(--accent-text)" }} />
+                  )}
                   {e.name}
                 </span>
                 {e.hp_current != null && e.hp_max != null ? (
@@ -100,7 +105,7 @@ export default function RemotePanel({ projection, rolls, pcId, open, onToggle, c
                 {e.conditions.length > 0 && (
                   <span className="ql-init-conds">
                     {e.conditions.map((c) => (
-                      <span key={c}>{c}</span>
+                      <span key={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</span>
                     ))}
                   </span>
                 )}
@@ -127,7 +132,7 @@ export default function RemotePanel({ projection, rolls, pcId, open, onToggle, c
                   <span className="ql-roll-who">{r.roller}</span>
                   <span className={`ql-roll-total${cls}`}>{r.total}</span>
                   <span className="ql-roll-what">
-                    {r.label ? `${r.label} · ` : ""}
+                    {rollLabel(r.label) ? `${rollLabel(r.label)} · ` : ""}
                     {r.rolls.length}
                     {r.die} [{r.rolls.join(", ")}]{r.modifier ? ` ${r.modifier > 0 ? "+" : "−"} ${Math.abs(r.modifier)}` : ""}
                   </span>
@@ -137,11 +142,21 @@ export default function RemotePanel({ projection, rolls, pcId, open, onToggle, c
           </div>
         )}
         <div className="ql-remote-foot">
-          {canDrag ? "Drag your own token to move. Only yours moves." : pcId ? "Your token isn't on the map yet — ask your DM to place the party." : "Open this from your sheet's 🗺 Table link to move your token."}
+          {canDrag
+            ? "Drag your own token to move. Only yours moves."
+            : "Your token isn't on the map yet. Ask your DM to place the party."}
         </div>
       </aside>
-      <button className="ql-remote-tab" onClick={onToggle} title={open ? "Hide the panel" : "Show initiative and rolls"}>
-        {open ? "Map ▸" : "◂ Order"}
+      <button className="ql-remote-tab" onClick={onToggle} title={open ? "Hide the panel" : "Show the turn order and rolls"}>
+        {open ? (
+          <>
+            Map <ChevronRight size={16} aria-hidden="true" />
+          </>
+        ) : (
+          <>
+            <ChevronLeft size={16} aria-hidden="true" /> Turn order
+          </>
+        )}
       </button>
     </>
   );

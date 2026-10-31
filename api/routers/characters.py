@@ -8,7 +8,12 @@ from api.deps import DB, CurrentUser
 from domain.character import PlayerCharacter, PlayerCharacterCreate, PlayerCharacterUpdate
 from domain.character_builder import BuilderOptions, BuildResult, CharacterBuild
 from domain.level_up import LevelUpGrant
-from services import character_builder_service, character_service, levelup_service
+from services import (
+    character_builder_service,
+    character_service,
+    feature_service,
+    levelup_service,
+)
 
 router = APIRouter(tags=["characters"])
 
@@ -303,6 +308,29 @@ def get_saving_throws(character_id: uuid.UUID, db: DB, user: CurrentUser) -> dic
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     return character_service.compute_saving_throws(pc)
+
+
+@router.get("/characters/{character_id}/class-features")
+def get_class_features(character_id: uuid.UUID, db: DB, user: CurrentUser) -> list[dict]:
+    """Every class and subclass feature a PC has at its level (Plan 128).
+
+    Passive ones too (Extra Attack, Weapon Mastery, auras), each with a
+    plain-words note; the tracked uses stay on ``/characters/{id}/features``.
+
+    Args:
+        character_id: UUID of the PC.
+        db: Database session.
+        user: Authenticated DM email.
+
+    Returns:
+        ``[{"name", "level", "source": "class"|"subclass", "note"}]`` in level order.
+    """
+    try:
+        return feature_service.list_class_features(db, character_id, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------

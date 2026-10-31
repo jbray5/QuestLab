@@ -1,4 +1,19 @@
 import { useState } from "react";
+import {
+  ArrowDown,
+  ChevronDown,
+  ChevronRight,
+  Clapperboard,
+  CloudFog,
+  Crosshair,
+  DoorOpen,
+  Eye,
+  EyeOff,
+  Hand,
+  Moon,
+  Plus,
+  X,
+} from "lucide-react";
 
 import type { PlayerCharacter } from "../../api/types";
 import { EXITS } from "../../engine/passages";
@@ -23,6 +38,9 @@ interface Props {
   party: PlayerCharacter[];
 }
 
+/** Inline icon props: small, decorative, sitting on the text baseline. */
+const ICO = { size: 14, "aria-hidden": true, style: { verticalAlign: "-2px" } } as const;
+
 const DOT: Record<string, string> = {
   pc: "#d6af36",
   monster: "#b0472f",
@@ -42,13 +60,18 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
       <div style={{ color: "var(--muted)", padding: "1.5rem", textAlign: "center" }}>
         <p style={{ margin: 0 }}>No map on the table yet.</p>
         <p style={{ fontSize: "0.8rem", marginTop: 6 }}>
-          Stage one from the 🗺 Maps tab and it shows up here, live.
+          Stage one from the Maps tab and it shows up here, live.
         </p>
       </div>
     );
   }
 
   const tokens = t.state?.tokens ?? [];
+  // Plan 128 — the preview wears the same class crests the TV does.
+  const classOf = new Map(party.map((pc) => [pc.id, pc.character_class as string]));
+  const canvasTokens = tokens.map((tok) =>
+    tok.kind === "pc" && tok.ref_id && classOf.has(tok.ref_id) ? { ...tok, class_name: classOf.get(tok.ref_id) } : tok,
+  );
   // Plan 112 — a hidden way out on this map: reveal it when they find it, then take them through.
   const exits = EXITS.filter((e) => e.from === t.activeMap?.id);
   const found = (key: string) => (t.state?.revealed_region_ids ?? []).includes("exit:" + key);
@@ -58,13 +81,13 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
       {/* Toolbar — everything the Table console offers, one row. */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
         <button className={t.mode === "ping" ? "btn" : "btn btn-ghost"} style={btn} onClick={() => t.setMode("ping")} title="Tap the map to ping the players' screens">
-          ◎ Ping
+          <Crosshair {...ICO} /> Ping
         </button>
         <button className={t.mode === "place" ? "btn" : "btn btn-ghost"} style={btn} onClick={() => t.setMode("place")} title="Tap the map to drop a marker">
-          ＋ Marker
+          <Plus {...ICO} /> Marker
         </button>
         <button className={t.mode === "reveal" ? "btn" : "btn btn-ghost"} style={btn} onClick={() => t.setMode("reveal")} title="Tap the map to reveal a circle of it — turns fog on">
-          👁 Reveal
+          <Eye {...ICO} /> Reveal
         </button>
         <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 2px" }} />
         <button className="btn btn-ghost" style={btn} onClick={t.addPartyTokens} title="One token per attending PC">
@@ -89,14 +112,14 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
             title={`Every hostile token tagged "${g}" stops fighting — rings go grey`}
             onClick={() => t.standDown(g)}
           >
-            ✋ Stand down: {g}
+            <Hand {...ICO} /> Stand down: {g}
           </button>
         ))}
         <label
           style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, fontSize: "0.66rem", color: "var(--muted)" }}
           title="Darkness — the lantern clock"
         >
-          🌙 {Math.round((t.state?.darkness ?? 0) * 100)}%
+          <Moon {...ICO} /> Darkness {Math.round((t.state?.darkness ?? 0) * 100)}%
           <input
             type="range"
             min={0}
@@ -129,7 +152,7 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
           fogOn={t.state?.fog_on ?? false}
           revealedRegions={t.revealedPolygons}
           brushReveals={t.state?.brush_reveals ?? []}
-          tokens={tokens}
+          tokens={canvasTokens}
           darkness={t.state?.darkness ?? 0}
           activeTokenRef={t.activeTokenRef}
           editable
@@ -157,25 +180,26 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
         {exits.map((e) => (
           <span key={e.key} style={{ display: "inline-flex", gap: 4 }}>
             <button className={found(e.key) ? "btn" : "btn btn-ghost"} style={btn} onClick={() => t.revealExit(e.key, !found(e.key))} title={found(e.key) ? "Hide it again" : "They found it — show it on the table"}>
-              {found(e.key) ? "🚪 Found: " : "🚪 Reveal "}{e.label}
+              <DoorOpen {...ICO} /> {found(e.key) ? "Found: " : "Reveal "}
+              {e.label}
             </button>
             {found(e.key) && (
               <button className="btn btn-ghost" style={{ ...btn, color: "var(--gold)" }} onClick={() => t.descend(e.to, e.landing[0], e.landing[1])} title="Switch the table to the far map and stand the party at the landing">
-                ⬇ Take the party to {e.arrive}
+                <ArrowDown {...ICO} /> Take the party to {e.arrive}
               </button>
             )}
           </span>
         ))}
         {(t.state?.brush_reveals?.length ?? 0) > 0 && (
           <button className="btn btn-ghost" style={btn} onClick={t.clearReveals} title="Hide everything again">
-            🌫 Hide all ({t.state?.brush_reveals?.length})
+            <CloudFog {...ICO} /> Hide all ({t.state?.brush_reveals?.length})
           </button>
         )}
         {t.state?.fog_on && !(t.state?.brush_reveals?.length || t.state?.revealed_region_ids?.length) && (
-          <span style={{ fontSize: "0.66rem", color: "var(--muted)" }}>Nothing revealed yet — pick 👁 Reveal and tap the map.</span>
+          <span style={{ fontSize: "0.66rem", color: "var(--muted)" }}>Nothing revealed yet. Pick Reveal and tap the map.</span>
         )}
         <label style={{ marginLeft: "auto", display: "flex", gap: 4, alignItems: "center", fontSize: "0.68rem", color: "var(--muted)" }} title="A title card lands over the players' screens">
-          🎬
+          <Clapperboard {...ICO} />
           <input
             value={titleDraft}
             onChange={(e) => setTitleDraft(e.target.value)}
@@ -189,8 +213,8 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
             style={{ fontSize: "0.7rem", padding: "0.15rem 0.4rem", width: 190 }}
           />
           {t.state?.title && (
-            <button className="btn btn-ghost" style={btn} onClick={() => t.patchNow({ title: "" })} title="Take the title down">
-              ✕
+            <button className="btn btn-ghost" style={btn} onClick={() => t.patchNow({ title: "" })} title="Take the title down" aria-label="Take the title down">
+              <X {...ICO} />
             </button>
           )}
         </label>
@@ -207,8 +231,7 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
                 style={btn}
                 title={on ? "Revealed — tap to hide" : "Hidden — tap to reveal"}
               >
-                {on ? "👁 " : "🌫 "}
-                {r.name}
+                {on ? <Eye {...ICO} /> : <EyeOff {...ICO} />} {r.name}
               </button>
             );
           })}
@@ -218,7 +241,8 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
       {/* Token roll call — collapsed by default so the board keeps the room. */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", fontSize: "0.68rem", color: "var(--muted)" }}>
         <button className="btn btn-ghost" style={btn} onClick={() => setShowTokens((v) => !v)}>
-          {showTokens ? "▾" : "▸"} {tokens.length} token{tokens.length === 1 ? "" : "s"}
+          {showTokens ? <ChevronDown {...ICO} /> : <ChevronRight {...ICO} />} {tokens.length} token
+          {tokens.length === 1 ? "" : "s"}
         </button>
         {showTokens &&
           tokens.map((tok) => (
@@ -242,7 +266,7 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
                 aria-label={`Remove ${tok.label}`}
                 style={{ background: "none", border: 0, color: "var(--danger, #ef5350)", cursor: "pointer", padding: 0, lineHeight: 1 }}
               >
-                ✕
+                <X {...ICO} />
               </button>
             </span>
           ))}

@@ -205,3 +205,21 @@ def test_a_pc_without_a_token_still_opens_by_uuid(client, api_engine):
         s.add(pc)
         s.commit()
     assert client.get(f"/api/play/{pc_id}").status_code == 200
+
+
+def test_reset_works_for_a_pc_with_features(client, api_engine):
+    """Plan 128: on DuckDB, resetting the link of a PC that has feature rows used to 500.
+
+    DuckDB turns an update of an indexed column into delete + insert, which its
+    foreign keys refuse; db.base.relax_duckdb_indexes drops the token's index there.
+    """
+    from services import feature_service
+
+    dm = "dm_l13@example.com"
+    _cid, pc_id, token = _pc(api_engine, dm)
+    with Session(api_engine) as s:
+        feature_service.sync_for_level(s, pc_id, dm)
+    assert client.get(f"/api/play/{token}/features").json(), "sync_for_level should grant features"
+    resp = client.post(f"/api/characters/{pc_id}/play-link/reset", headers={_AUTH: dm})
+    assert resp.status_code == 200, resp.text
+    assert client.get(f"/api/play/{resp.json()['play_key']}").status_code == 200

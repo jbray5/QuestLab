@@ -474,6 +474,39 @@ def broadcast_dice_roll(
     return len(pc_ids)
 
 
+def _link_scene_encounters(
+    db: DBSession, adventure_id: uuid.UUID, scenes: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Keep a scene's fight link only when it names an encounter in this arc (Plan 128).
+
+    Prep lets the DM pick "the fight in this scene" from the arc's encounters, and
+    the HUD's script loads it into the tracker. A link to an encounter that is gone,
+    belongs to another arc (or another DM), or isn't a UUID is cleared rather than
+    refused, so a deleted encounter never blocks editing the rest of the runbook.
+
+    Args:
+        db: Active database session.
+        adventure_id: The session's arc; only its encounters may be linked.
+        scenes: The scenes from the PATCH payload, in order.
+
+    Returns:
+        The scenes with each ``encounter_id`` either a valid id string or None.
+    """
+    allowed = {enc.id for enc in EncounterRepo.list_by_adventure(db, adventure_id)}
+    cleaned: list[dict[str, Any]] = []
+    for scene in scenes:
+        row = dict(scene)
+        if "encounter_id" in row:
+            raw = row["encounter_id"]
+            try:
+                enc_id = uuid.UUID(str(raw)) if raw else None
+            except ValueError:
+                enc_id = None
+            row["encounter_id"] = str(enc_id) if enc_id in allowed else None
+        cleaned.append(row)
+    return cleaned
+
+
 def patch_runbook(
     db: DBSession,
     session_id: uuid.UUID,
@@ -500,11 +533,13 @@ def patch_runbook(
         ValueError: If the session or runbook does not exist.
         PermissionError: If the DM does not own the campaign.
     """
-    get_session(db, session_id, dm_email)  # verify ownership
+    game_session = get_session(db, session_id, dm_email)  # verify ownership
     runbook = SessionRunbookRepo.get_by_session(db, session_id)
     if runbook is None:
         raise ValueError(f"No runbook saved for session {session_id}.")
     patch = update.model_dump(exclude_unset=True)
+    if patch.get("scenes") is not None:
+        patch["scenes"] = _link_scene_encounters(db, game_session.adventure_id, patch["scenes"])
     for key, value in patch.items():
         setattr(runbook, key, value)
     db.add(runbook)

@@ -31,6 +31,12 @@ export function Label({ children, style }: { children: ReactNode; style?: CSSPro
   return <span style={{ fontSize: 13, color: "var(--muted)", ...style }}>{children}</span>;
 }
 
+/** A section's title: looks like a Label, but is a real heading a screen reader can jump to (Plan 128). */
+export function Heading({ children, style, level = 2 }: { children: ReactNode; style?: CSSProperties; level?: 2 | 3 }) {
+  const H = level === 2 ? "h2" : "h3";
+  return <H style={{ margin: 0, fontSize: 13, fontWeight: 500, color: "var(--muted)", ...style }}>{children}</H>;
+}
+
 export function Monogram({ name, url, size = 36, cls }: { name: string; url?: string | null; size?: number; cls?: string | null }) {
   if (url) {
     return <img src={url} alt="" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0, boxShadow: "inset 0 0 0 1px var(--border2)" }} />;

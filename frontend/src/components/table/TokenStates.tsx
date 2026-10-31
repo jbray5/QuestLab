@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 
 import type { TableToken } from "../../api/types";
 
@@ -67,7 +68,12 @@ export default function TokenStates({ tokens, onWrite }: Props) {
         onClick={() => setOpen((o) => !o)}
         title="Size and free-text states — both show to the players"
       >
-        {open ? "▾" : "▸"} States
+        {open ? (
+          <ChevronDown size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
+        ) : (
+          <ChevronRight size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
+        )}{" "}
+        States
       </button>
       {open && (
         <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 5 }}>

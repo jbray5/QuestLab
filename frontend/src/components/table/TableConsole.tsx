@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Crosshair, ExternalLink, Eye, EyeOff, Hand, Map as MapIcon, Plus, X } from "lucide-react";
 
 import type { PlayerCharacter } from "../../api/types";
 import { useIsCompact } from "../../hooks/useIsCompact";
@@ -15,7 +16,7 @@ import { useTableController } from "./useTableController";
  * preview and PATCH the server, which pushes to the projector over SSE.
  *
  * Plan 75: the table logic moved into useTableController so the HUD's inline
- * 🎮 Live pane and this modal drive the very same state.
+ * Live pane and this modal drive the very same state.
  */
 
 interface Props {
@@ -34,7 +35,7 @@ export default function TableConsole({ sessionId, campaignId, party }: Props) {
         title="Drive the projected battle map"
         style={{ fontSize: "0.8rem" }}
       >
-        🗺 Table
+        <MapIcon size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Table
       </button>
       {open && (
         <TableConsoleModal
@@ -60,6 +61,11 @@ export function TableConsoleModal({
   const t = useTableController(sessionId, campaignId, party);
   const [npcPickerOpen, setNpcPickerOpen] = useState(false);
   const { state, maps, activeMap } = t;
+  // Plan 128 — the preview wears the same class crests the TV does.
+  const classOf = new Map(party.map((pc) => [pc.id, pc.character_class as string]));
+  const canvasTokens = (state?.tokens ?? []).map((tok) =>
+    tok.kind === "pc" && tok.ref_id && classOf.has(tok.ref_id) ? { ...tok, class_name: classOf.get(tok.ref_id) } : tok,
+  );
 
   const tableUrl = `${window.location.origin}/table/${sessionId}`;
 
@@ -100,7 +106,7 @@ export function TableConsoleModal({
             fogOn={state?.fog_on ?? false}
             revealedRegions={t.revealedPolygons}
             brushReveals={state?.brush_reveals ?? []}
-            tokens={state?.tokens ?? []}
+            tokens={canvasTokens}
             darkness={state?.darkness ?? 0}
             activeTokenRef={t.activeTokenRef}
             editable
@@ -126,14 +132,14 @@ export function TableConsoleModal({
               style={{ fontSize: "0.72rem", padding: "0.2rem 0.5rem" }}
               onClick={() => t.setMode("ping")}
             >
-              ◎ Ping
+              <Crosshair size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Ping
             </button>
             <button
               className={t.mode === "place" ? "btn" : "btn btn-ghost"}
               style={{ fontSize: "0.72rem", padding: "0.2rem 0.5rem" }}
               onClick={() => t.setMode("place")}
             >
-              ＋ Marker
+              <Plus size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Marker
             </button>
           </div>
         </div>
@@ -151,11 +157,13 @@ export function TableConsoleModal({
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <strong style={{ fontFamily: "var(--font-story)", color: "var(--gold)" }}>Table</strong>
-            <button className="btn btn-ghost" style={{ padding: "0 0.4rem" }} onClick={onClose}>✕</button>
+            <button className="btn btn-ghost" style={{ padding: "0 0.4rem" }} onClick={onClose} aria-label="Close">
+              <X size={16} aria-hidden="true" />
+            </button>
           </div>
 
           <a href={tableUrl} target="_blank" rel="noreferrer" className="btn" style={{ textAlign: "center" }}>
-            Open Table View ↗
+            Open Table View <ExternalLink size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
           </a>
           <a
             href={`${tableUrl}/3d`}
@@ -164,10 +172,11 @@ export function TableConsoleModal({
             className="btn btn-ghost"
             style={{ textAlign: "center", fontSize: "0.8rem" }}
           >
-            Open 3D Table View ↗
+            Open 3D Table View <ExternalLink size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
           </a>
           <div style={{ fontSize: "0.66rem", color: "var(--muted)", marginTop: -4 }}>
-            Share either on the players&rsquo; screen / projector — the 3D one is the pretty one.
+            Put the Table View on the TV or projector: the turn order and rolls, plus the map when you
+            stage one.
           </div>
 
           <label style={{ fontSize: "0.72rem", color: "var(--muted)" }}>
@@ -210,7 +219,11 @@ export function TableConsoleModal({
                       style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}
                       title={on ? "Revealed — tap to hide" : "Hidden — tap to reveal"}
                     >
-                      {on ? "👁 " : "🌫 "}
+                      {on ? (
+                        <Eye size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
+                      ) : (
+                        <EyeOff size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
+                      )}{" "}
                       {r.name}
                     </button>
                   );
@@ -270,7 +283,7 @@ export function TableConsoleModal({
                 disabled={!activeMap}
                 title="Line the party up again on this map — use it after switching boards"
               >
-                ⤢ Regroup
+                Regroup
               </button>
               <button className="btn btn-ghost" style={{ fontSize: "0.7rem" }} onClick={() => t.addToken("monster")} disabled={!activeMap}>
                 + Foe
@@ -341,7 +354,7 @@ export function TableConsoleModal({
                   title={`Every hostile token tagged "${g}" stops fighting — rings go grey`}
                   onClick={() => t.standDown(g)}
                 >
-                  ✋ Stand down: {g}
+                  <Hand size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Stand down: {g}
                 </button>
               ))}
             </div>
@@ -350,7 +363,9 @@ export function TableConsoleModal({
                 <div key={tok.id} style={{ display: "flex", gap: 4, alignItems: "center", fontSize: "0.72rem" }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: tok.kind === "pc" ? "#d6af36" : tok.kind === "monster" ? "#b0472f" : "#8a8fa3", flexShrink: 0 }} />
                   <span style={{ flex: 1, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tok.label}</span>
-                  <button className="btn btn-ghost" style={{ padding: "0 0.35rem", color: "var(--danger, #ef5350)" }} onClick={() => t.removeToken(tok.id)}>✕</button>
+                  <button className="btn btn-ghost" style={{ padding: "0 0.35rem", color: "var(--danger, #ef5350)" }} onClick={() => t.removeToken(tok.id)} aria-label={`Remove ${tok.label}`}>
+                  <X size={14} aria-hidden="true" />
+                </button>
                 </div>
               ))}
             </div>

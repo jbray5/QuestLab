@@ -44,6 +44,61 @@ export interface BuilderFeat {
   srd: boolean;
 }
 
+/** One spell in the picker (Plan 128: with enough to choose by, and its full text). */
+export interface BuilderSpell {
+  name: string;
+  level: number;
+  classes: string[];
+  school: string;
+  casting_time?: string;
+  range?: string;
+  duration?: string;
+  components?: string;
+  concentration?: boolean;
+  ritual?: boolean;
+  /** Deals damage / hits with an attack roll (an invocation may need such a cantrip). */
+  damage?: boolean;
+  attack?: boolean;
+  /** Optional short summary; the picker otherwise shows the text's opening lines. */
+  summary?: string;
+  /** The full text, with what a higher-level slot adds. */
+  text?: string;
+}
+
+/** One option of a class choice (Plan 128): a Divine Order, an invocation, a land... */
+export interface ChoiceOption {
+  name: string;
+  blurb: string;
+  /** Extra cantrips it brings, from which class list (Thaumaturge, Blessed Warrior). */
+  cantrips?: { count: number; list: string };
+  armor?: string[];
+  /** An invocation's Warlock level, the invocation it needs, the cantrip it needs. */
+  level?: number;
+  requires?: string;
+  cantrip?: "damage" | "attack";
+  repeatable?: boolean;
+  srd?: boolean;
+}
+
+/** A kind of class choice: how it is picked, what it says, where it is recorded. */
+export interface ChoiceKind {
+  label: string;
+  kind: "feat" | "option" | "weapon" | "expertise" | "skill";
+  note: string;
+  book?: boolean;
+  record?: string;
+  /** Skills it may pick from; "class" = the class's skill list. */
+  pool?: string[] | "class";
+  options?: ChoiceOption[];
+}
+
+export interface MasteryWeapon {
+  name: string;
+  category: string;
+  properties: string[];
+  mastery: string;
+}
+
 export interface BuilderClass {
   hit_die: number;
   primary: Ability[];
@@ -76,7 +131,7 @@ export interface BuilderOptions {
   point_buy_cost: Record<string, number>;
   point_buy_budget: number;
   armor: Record<string, { base: number; dex_cap: number | null; category: string; str_min?: number }>;
-  spells: { name: string; level: number; classes: string[]; school: string }[];
+  spells: BuilderSpell[];
   weapons: { name: string; damage_die: string; damage_type: string; category: string }[];
   // Plan 126 — the improvement step and the explanations.
   feats: BuilderFeat[];
@@ -91,6 +146,34 @@ export interface BuilderOptions {
   hp_per_level_subclass: Record<string, number>;
   unarmored_ac_subclass: Record<string, string>;
   spell_slots: Record<string, Record<string, number>[]>;
+  // Plan 128 — the class choices, always-prepared spells, mastery weapons and class numbers.
+  choice_kinds: Record<string, ChoiceKind>;
+  /** Per class (or subclass): choice key → [from level, how many] steps. */
+  class_choices: Record<string, Record<string, [number, number][]>>;
+  subclass_choices: Record<string, Record<string, [number, number][]>>;
+  fighting_style_extras: Record<string, ChoiceOption[]>;
+  mastery_weapons: MasteryWeapon[];
+  weapon_mastery_filter: Record<string, string>;
+  always_prepared_class: Record<string, Record<string, string[]>>;
+  always_prepared_subclass: Record<string, Record<string, string[]>>;
+  always_prepared_source: Record<string, string>;
+  land_spells: Record<string, Record<string, string[]>>;
+  extra_spell_lists: Record<string, Record<string, string[]>>;
+  class_scales: Record<string, { label: string; table: [number, number | string][] }[]>;
+}
+
+/** One class choice as the build sends it (Plan 128). */
+export interface ClassChoicePick {
+  key: string;
+  picks: string[];
+  book: string[];
+}
+
+/** An Origin feat's own picks: Magic Initiate's list and spells, Skilled's skills. */
+export interface OriginFeatPicks {
+  choice?: string | null;
+  spells: string[];
+  skills: string[];
 }
 
 /** One Ability Score Improvement level's pick (the level-up guide's FeatChoice + its level). */
@@ -122,6 +205,10 @@ export interface CharacterBuildBody {
   spells: string[];
   kit: string | null;
   asi: BuildAsiPick[];
+  /** Plan 128 — always a list from the wizard, so the server checks every choice. */
+  class_choices: ClassChoicePick[];
+  background_feat_picks: OriginFeatPicks | null;
+  origin_feat_picks: OriginFeatPicks | null;
   appearance: string | null;
 }
 

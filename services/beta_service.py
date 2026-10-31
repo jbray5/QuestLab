@@ -232,6 +232,35 @@ def submit_feedback(db: Session, email: str, payload: FeedbackCreate) -> Feedbac
     return FeedbackRepo.save(db, note)
 
 
+def submit_player_feedback(
+    db: Session, pc_id: uuid.UUID, character_name: str, payload: FeedbackCreate
+) -> Feedback:
+    """Store one note sent from a player's phone (Plan 128).
+
+    Players never have an account, so the note is filed as ``player:<pc id>``
+    (the character's identity, not its link key) and starts with the
+    character's name so the inbox says who it came from.
+
+    Args:
+        db: Active database session.
+        pc_id: The character whose phone sent it.
+        character_name: That character's name.
+        payload: Kind, text, page and viewport.
+
+    Returns:
+        The stored note (the caller may then ``notify``).
+    """
+    name = " ".join((character_name or "").split())[:120] or "A player"
+    note = Feedback(
+        email=f"player:{pc_id}",
+        kind=payload.kind,
+        text=f"From {name}'s phone: {payload.text.strip()}",
+        page=payload.page.strip()[:300],
+        viewport=payload.viewport.strip()[:40],
+    )
+    return FeedbackRepo.save(db, note)
+
+
 def display_name_for(db: Session, email: str) -> str:
     """The name a DM signed up with, or "" (for the feedback ping).
 

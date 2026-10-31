@@ -100,6 +100,9 @@ _FEATURE_KEYS: dict[str, tuple[str, str, str]] = {
 _SPELL_EFFECTS: dict[str, dict[str, Any]] = {
     "cure wounds": {"kind": "heal", "cost": "action", "dice": "2d8", "effect": "heal"},
     "healing word": {"kind": "heal", "cost": "bonus", "dice": "2d4", "effect": "heal"},
+    # Plan 128 — the mass heals land on one friend in a one-on-one; the table gets all six.
+    "mass healing word": {"kind": "heal", "cost": "bonus", "dice": "2d4", "effect": "heal"},
+    "mass cure wounds": {"kind": "heal", "cost": "action", "dice": "5d8", "effect": "heal"},
     "bless": {"kind": "buff", "cost": "action", "effect": "bless"},
     "shield of faith": {"kind": "buff", "cost": "bonus", "effect": "faith"},
     "guiding bolt": {"effect": "guiding_bolt"},
@@ -435,12 +438,19 @@ def _spell_attacks(
     dm_email: str,
     stats: dict[str, Any],
     mods: dict[str, int],
-) -> tuple[list[ArenaAttack], list[str]]:
-    """Known cantrips and prepared spells with the referee's rules; plus known reactions."""
+) -> tuple[list[ArenaAttack], list[str], set[str]]:
+    """Known cantrips and prepared spells with the referee's rules.
+
+    Returns:
+        ``(attacks, reactions, prepared)``: the spells as attacks, the reaction
+        spells the referee knows, and the lower-cased names of every prepared
+        spell (Divine Smite rides on that, Plan 128).
+    """
     out: list[ArenaAttack] = []
     reactions: list[str] = []
+    prepared: set[str] = set()
     if stats.get("attack_bonus") is None:
-        return out, reactions
+        return out, reactions, prepared
     cls = _class_of(pc)
     for row in spellcasting_service.list_known_for_character(db, pc.id, dm_email):
         spell = SpellRepo.get_by_id(db, row.spell_id)
@@ -449,6 +459,7 @@ def _spell_attacks(
         if spell.level > 0 and not row.prepared:
             continue
         name = spell.name.lower()
+        prepared.add(name)
         rule = _SPELL_EFFECTS.get(name, {})
         if rule.get("reaction"):
             reactions.append(rule["reaction"])
@@ -475,7 +486,7 @@ def _spell_attacks(
             per = "1d10" + (f"+{mods['cha']}" if agonizing and mods["cha"] > 0 else "")
             damage = f"{beams}×{per}"
         if effect == "heal":
-            damage = f"{rule['dice']}+{pc_spell_mod(stats, mods)}"
+            damage = f"{rule['dice']}{pc_spell_mod(stats, mods):+d}"
         is_attack = attack_type in ("melee", "ranged") and kind in ("cantrip", "spell")
         if effect == "sorcerous_burst":
             is_attack = True
@@ -501,7 +512,8 @@ def _spell_attacks(
                 save_dc=stats["save_dc"] if (save and not is_attack and kind != "buff") else None,
                 half_on_save=spell.level > 0 and kind == "spell",
                 damage=damage or "0",
-                damage_type=spell.damage_type or "force",
+                # A heal restores hit points; it has no damage type (Plan 128: not "force").
+                damage_type="healing" if effect == "heal" else (spell.damage_type or "force"),
                 spell_level=spell.level,
                 melee=attack_type == "melee",
                 effect=effect,
@@ -513,7 +525,7 @@ def _spell_attacks(
                 + hint,
             )
         )
-    return out, reactions
+    return out, reactions, prepared
 
 
 _BREATH_TYPES = ("acid", "cold", "fire", "lightning", "poison")
@@ -600,8 +612,14 @@ def _class_extras(
     prof: int,
     personal: bool = False,
     stats: Optional[dict[str, Any]] = None,
+    prepared: Optional[set[str]] = None,
 ) -> tuple[list[ArenaAttack], list[ArenaFeature]]:
-    """Level 1–5 class mechanics that aren't spells or sheet rows."""
+    """Level 1–5 class mechanics that aren't spells or sheet rows.
+
+    ``prepared`` holds the lower-cased names of the PC's prepared spells: a
+    level-1 Paladin smites only with Divine Smite prepared; from level 2
+    Paladin's Smite keeps it always prepared (Plan 128).
+    """
     cls = _class_of(pc)
     sub = (pc.subclass or "").lower()
     lvl = pc.level
@@ -713,7 +731,7 @@ def _class_extras(
                     note="bonus action after the first blade",
                 )
             )
-    if cls == "paladin":
+    if cls == "paladin" and (lvl >= 2 or "divine smite" in (prepared or set())):
         attacks.append(
             ArenaAttack(
                 key="divine_smite",
@@ -844,7 +862,7 @@ def _pc_features(
         key, cost, blurb = spec
         uses = max(0, (row.max_uses or 0) - (row.uses_spent or 0))
         if key == "lay_on_hands":
-            uses = max(uses, pc.level)  # a pool of 5 × level, spent 5 at a time
+            uses //= 5  # the pool is hit points (5 × level); the referee spends 5 at a time
         if key == "cutting_words" and "lore" not in sub:
             continue
         if key == "natures_wrath" and ("ancients" not in sub or not personal):
@@ -877,10 +895,10 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
     attacks = _weapon_attacks(db, pc)
     if not attacks or cls == "monk":
         attacks.insert(0, _unarmed(pc, mods, martial))
-    spells, reactions = _spell_attacks(db, pc, dm_email, stats, mods)
+    spells, reactions, prepared = _spell_attacks(db, pc, dm_email, stats, mods)
     attacks += spells
     personal = auth_service.personal_content_allowed(dm_email)
-    extra_attacks, extra_feats = _class_extras(pc, mods, prof, personal, stats)
+    extra_attacks, extra_feats = _class_extras(pc, mods, prof, personal, stats, prepared)
     attacks += extra_attacks
     species_attacks, species_feats = _species_extras(pc, mods, prof)
     attacks += species_attacks
@@ -995,6 +1013,10 @@ def _live_tips(apc: ArenaPc) -> list[str]:
         tips.append("Second Wind is a bonus action: heal yourself when you're below half.")
     if "action_surge" in ready:
         tips.append("Action Surge gives you a whole second action this turn.")
+    if "lay_on_hands" in ready:
+        tips.append(
+            "Lay on Hands is a bonus action: touch a friend (or yourself) and heal from your pool."
+        )
     if apc.attacks_per_action > 1:
         tips.append(
             f"Extra Attack: the Attack action lets you attack {apc.attacks_per_action} times."
@@ -1008,6 +1030,114 @@ def _live_tips(apc: ArenaPc) -> list[str]:
             "Spend a slot on a bonus-action spell and you can't spend another slot this turn."
         )
     return tips[:4]
+
+
+_RANGE_RE = re.compile(r"·\s*([\d/]+)\s*ft")
+
+
+def _fold_throws(attacks: list[ArenaAttack], smites: bool) -> list[ArenaAttack]:
+    """One row per weapon on the phone (Plan 128).
+
+    The Arena keeps a thrown weapon's swing and throw apart (only the swing
+    smites). On the phone, a throw whose numbers match the swing is folded
+    into the swing's note instead of showing the same javelin twice.
+
+    Args:
+        attacks: The arena attacks, in order.
+        smites: Whether the PC can Divine Smite (a throw can't).
+
+    Returns:
+        The attacks with matching throws folded away (copies; the input is untouched).
+    """
+    by_key = {a.key: a for a in attacks}
+    out: list[ArenaAttack] = []
+    folded: set[str] = set()
+    for a in attacks:
+        if not a.key.startswith("wt-"):
+            continue
+        swing = by_key.get("w-" + a.key[3:])
+        if swing is None or swing.hit_bonus != a.hit_bonus or swing.damage != a.damage:
+            continue
+        folded.add(a.key)
+    for a in attacks:
+        if a.key in folded:
+            continue
+        throw = by_key.get("wt-" + a.key[2:]) if a.key.startswith("w-") else None
+        if throw is not None and throw.key in folded:
+            m = _RANGE_RE.search(throw.note or "")
+            reach = f", {m.group(1)} ft" if m else ""
+            extra = f" · or throw it{reach}" + (" (no smite on a throw)" if smites else "")
+            a = a.model_copy(update={"note": (a.note or "") + extra})
+        out.append(a)
+    return out
+
+
+def _free_smite_note(row: Any) -> str:
+    """' · ... no slot (1 left)' when Paladin's Smite still has its free cast (Plan 128)."""
+    if row is None or not row.max_uses:
+        return ""
+    left = max(0, row.max_uses - row.uses_spent)
+    return f" · once per Long Rest one costs no slot ({left} left)"
+
+
+def _lay_on_hands_option(row: Any, option: TurnOption) -> TurnOption:
+    """Lay on Hands on the phone: the pool in hit points, not the Arena's 5-point chunks.
+
+    ``uses_left`` is the hit points left in the pool (Plan 128).
+    """
+    if row is None or not row.max_uses:
+        return option
+    left = max(0, row.max_uses - row.uses_spent)
+    return option.model_copy(
+        update={
+            "uses_left": left,
+            "note": (
+                f"Bonus action: touch a creature (or yourself) and restore hit points from your "
+                f"pool, {left} of {row.max_uses} left. Spend 5 to cure a poison."
+            ),
+        }
+    )
+
+
+# Healing spells the phone offers a heal roll for: (base dice, added per slot level above,
+# whether the casting modifier is added). Plan 128.
+_HEALS: dict[str, tuple[str, str, bool]] = {
+    "cure wounds": ("2d8", "2d8", True),
+    "healing word": ("2d4", "2d4", True),
+    "mass healing word": ("2d4", "1d4", True),
+    "mass cure wounds": ("5d8", "1d8", True),
+    "prayer of healing": ("2d8", "1d8", True),
+    "heal": ("70", "", False),
+}
+
+
+def heal_dice(
+    pc: PlayerCharacter, spell_name: str, spell_level: int, slot_level: Optional[int] = None
+) -> Optional[str]:
+    """The heal a spell rolls at this slot, as dice the phone can roll ("4d8+3"), or None.
+
+    Args:
+        pc: The caster.
+        spell_name: The spell's name.
+        spell_level: The spell's own level.
+        slot_level: The slot spent; defaults to the spell's level.
+
+    Returns:
+        A dice expression for healing spells, None for every other spell.
+    """
+    rule = _HEALS.get((spell_name or "").strip().lower())
+    if rule is None:
+        return None
+    base, per_level, add_mod = rule
+    extra = max(0, (slot_level or spell_level) - spell_level)
+    if spell_name.strip().lower() == "heal":
+        return str(70 + 10 * extra)
+    expr = _upcast_expr(base, per_level, extra)
+    if not add_mod:
+        return expr
+    mods = {ab: attack_service.ability_modifier(getattr(pc, f"score_{ab}")) for ab in _ABILITIES}
+    mod = pc_spell_mod(character_service.spellcasting_stats(pc), mods)
+    return f"{expr}{mod:+d}" if mod else expr
 
 
 def turn_kit(db: Session, pc: PlayerCharacter, dm_email: str) -> TurnKit:
@@ -1025,13 +1155,28 @@ def turn_kit(db: Session, pc: PlayerCharacter, dm_email: str) -> TurnKit:
         The turn kit.
     """
     apc = _build_pc(db, pc, dm_email)
+    rows = {
+        (r.feature_name or "").strip().lower(): r
+        for r in feature_service.list_for_character(db, pc.id, dm_email)
+    }
     kit = TurnKit(speed=pc.speed or 30, basic_actions=list(_BASIC_ACTIONS), tips=_live_tips(apc))
-    for a in apc.attacks:
-        getattr(kit, a.cost).append(_turn_option(a))
+    smites = any(a.effect == "divine_smite" for a in apc.attacks)
+    for a in _fold_throws(apc.attacks, smites):
+        option = _turn_option(a)
+        if a.effect == "divine_smite":
+            option.note += _free_smite_note(rows.get("paladin's smite"))
+        getattr(kit, a.cost).append(option)
     for f in apc.features:
-        getattr(kit, f.cost).append(
-            TurnOption(key=f.key, name=f.name, kind="feature", uses_left=f.uses_left, note=f.blurb)
+        option = TurnOption(
+            key=f.key, name=f.name, kind="feature", uses_left=f.uses_left, note=f.blurb
         )
+        row = rows.get((f.name or "").strip().lower())
+        if f.key == "lay_on_hands":
+            option = _lay_on_hands_option(rows.get("lay on hands"), option)
+        elif row is not None and row.max_uses:
+            # The sheet's counter is the truth at the table (Innate Sorcery is modeled as 2).
+            option.uses_left = max(0, row.max_uses - row.uses_spent)
+        getattr(kit, f.cost).append(option)
     if _class_of(pc) == "rogue" and pc.level >= 2:
         kit.bonus.insert(
             0,
@@ -1310,6 +1455,8 @@ _FONT_MIN_LEVEL = {1: 2, 2: 3, 3: 5, 4: 7, 5: 9}
 _UPCAST_BY_NAME = {
     "cure wounds": "2d8",
     "healing word": "2d4",
+    "mass healing word": "1d4",
+    "mass cure wounds": "1d8",
     "guiding bolt": "1d6",
     "magic missile": "count",
     "scorching ray": "count",

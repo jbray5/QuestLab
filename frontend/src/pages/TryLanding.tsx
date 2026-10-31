@@ -87,7 +87,7 @@ export default function TryLanding() {
         email: email.trim(),
         source: DEMO ? "demo-landing" : "landing",
       });
-      setMsg(r.already_registered ? "You're already on the list. We'll be in touch." : "You're on the list. We'll email you when the beta opens.");
+      setMsg(r.already_registered ? "You're already on the list. We'll be in touch." : "You're on the list. Justin will email you an invite when a place opens.");
       setEmail("");
     } catch (err) {
       setMsg((err as Error).message);
@@ -263,13 +263,13 @@ export default function TryLanding() {
         <section id="join" aria-labelledby="tl-join" className="tl-rise" style={{ border: "1px solid var(--accent-line)", borderRadius: 18, background: "var(--accent-soft)", padding: "clamp(28px, 5vw, 56px)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(380px, 100%), 1fr))", gap: "28px 48px", alignItems: "center" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <h2 id="tl-join" className="tl-h2">Bring it to your table.</h2>
-            <p className="tl-p">The beta is coming. Leave an email and you&rsquo;ll be first in.</p>
+            <p className="tl-p">The beta runs on invites while a few tables try it. Leave an email and you&rsquo;ll get one as places open.</p>
           </div>
           <form onSubmit={joinWaitlist} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <label htmlFor="tl-email" style={{ margin: 0 }}>Email</label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
               <input id="tl-email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: "1 1 220px", minWidth: 0, minHeight: 52, fontSize: 17 }} />
-              <button type="submit" className="btn btn-primary" disabled={busy} style={primary}>{busy ? "Joining…" : "Join the beta"}</button>
+              <button type="submit" className="btn btn-primary" disabled={busy} style={primary}>{busy ? "Sending…" : "Ask for an invite"}</button>
             </div>
             {msg && <p role="status" style={{ margin: 0, fontSize: 15, color: "var(--text)" }}>{msg}</p>}
           </form>

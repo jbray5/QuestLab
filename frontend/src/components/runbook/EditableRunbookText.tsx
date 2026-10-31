@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Check, Pencil } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { sessionsApi } from "../../api/sessions";
 import type { RunbookScene, SessionRunbook } from "../../api/types";
+import { useIsCompact } from "../../hooks/useIsCompact";
+import { keepAboveKeyboard } from "./keepAboveKeyboard";
 
 type SceneField = "read_aloud" | "dm_notes" | "title";
 type TopField = "opening_scene" | "closing_hooks";
@@ -32,66 +34,99 @@ type Props = BaseProps &
       }
   );
 
+/** What the field is called in buttons and labels ("Edit the read-aloud"). */
+const FIELD_NAMES: Record<SceneField | TopField, string> = {
+  read_aloud: "the read-aloud",
+  dm_notes: "your notes",
+  title: "the title",
+  opening_scene: "the opening",
+  closing_hooks: "the closing hooks",
+};
+
 /**
  * Plan 38 — click-to-edit wrapper for any text field in the runbook.
  *
- * Reads the current value from ``runbook`` (passed in), shows a small
- * pencil icon on hover, swaps in a textarea on click, PATCHes the
- * runbook on save. React Query invalidation on success refreshes the
- * displayed text everywhere it's rendered.
+ * Reads the current value from ``runbook`` (passed in), shows a pencil, and
+ * swaps in a textarea when the text or the pencil is clicked; PATCHes the
+ * runbook on save. React Query invalidation on success refreshes the displayed
+ * text everywhere it's rendered.
+ *
+ * Plan 128 — the HUD's Script on a phone: the pencil is thumb-sized, an empty
+ * field is a "write it" button rather than a hint to find a pencil, the text box
+ * stays above the keyboard, and focus comes back to the pencil afterwards.
+ * Prep has the full editor (scenes added, renamed, reordered); this is for a
+ * quick fix mid-session.
  */
 export default function EditableRunbookText(props: Props) {
   const { sessionId, runbook, variant = "plain", fontSize } = props;
   const qc = useQueryClient();
+  const phone = useIsCompact(640);
+  const name = FIELD_NAMES[props.field];
 
   const initial = readValue(props, runbook);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(initial);
-  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  // null while reading; the text being written while editing.
+  const [draft, setDraft] = useState<string | null>(null);
+  const editing = draft !== null;
+  const editBtnRef = useRef<HTMLButtonElement | null>(null);
 
-  useEffect(() => {
-    if (editing) {
-      setDraft(initial);
-      // focus after the textarea mounts
-      const t = setTimeout(() => taRef.current?.focus(), 0);
-      return () => clearTimeout(t);
-    }
-    // when not editing, keep draft in sync with the latest server value
-    setDraft(initial);
-  }, [editing, initial]);
+  function stopEditing() {
+    setDraft(null);
+    // The textarea is gone after this render; put focus back on the pencil.
+    window.requestAnimationFrame(() => editBtnRef.current?.focus());
+  }
 
   const save = useMutation({
-    mutationFn: () => {
-      const update = buildUpdate(props, draft, runbook);
+    mutationFn: (value: string) => {
+      const update = buildUpdate(props, value, runbook);
       return sessionsApi.patchRunbook(sessionId, update);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["runbook", sessionId] });
-      setEditing(false);
+      stopEditing();
     },
   });
 
   if (!editing) {
+    if (!initial) {
+      return (
+        <button
+          ref={editBtnRef}
+          type="button"
+          onClick={() => setDraft("")}
+          className="btn btn-ghost"
+          style={{
+            minHeight: phone ? 44 : 32,
+            fontSize: "0.875rem",
+            fontStyle: "normal",
+            fontFamily: "var(--font-ui)",
+            color: "var(--muted)",
+            border: "1px dashed var(--border2)",
+            gap: "0.4rem",
+          }}
+        >
+          <Pencil size={14} aria-hidden /> Write {name}
+        </button>
+      );
+    }
     return (
       <div
-        style={{ position: "relative", whiteSpace: "pre-wrap", paddingRight: 30 }}
+        style={{ position: "relative", whiteSpace: "pre-wrap", paddingRight: phone ? 50 : 36 }}
         className="ql-editable-runbook"
       >
-        <p style={renderStyle(variant, fontSize)}>
-          {initial || (
-            <span style={{ color: "var(--muted)", fontStyle: "italic" }}>
-              (empty — click the pencil to add)
-            </span>
-          )}
+        {/* The text itself opens the editor too (Marco clicked it and got no cursor). */}
+        <p style={{ ...renderStyle(variant, fontSize), cursor: "text" }} onClick={() => setDraft(initial)}>
+          {initial}
         </p>
         <button
-          onClick={() => setEditing(true)}
+          ref={editBtnRef}
+          type="button"
+          onClick={() => setDraft(initial)}
           className="ql-editable-runbook-pencil"
-          title="Edit this text"
-          aria-label="Edit this text"
-          style={pencilStyle}
+          title={`Edit ${name}`}
+          aria-label={`Edit ${name}`}
+          style={{ ...pencilStyle, width: phone ? 44 : 30, height: phone ? 44 : 30 }}
         >
-          <Pencil size={13} aria-hidden />
+          <Pencil size={phone ? 16 : 14} aria-hidden />
         </button>
       </div>
     );
@@ -100,19 +135,24 @@ export default function EditableRunbookText(props: Props) {
   return (
     <div>
       <textarea
-        ref={taRef}
+        autoFocus
+        aria-label={`Edit ${name}`}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
+        onFocus={(e) => keepAboveKeyboard(e.currentTarget)}
         onKeyDown={(e) => {
-          if (e.key === "Escape") setEditing(false);
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save.mutate();
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            stopEditing();
+          }
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save.mutate(draft);
         }}
-        rows={Math.max(3, Math.min(14, draft.split("\n").length + 1))}
+        rows={Math.max(3, Math.min(14, draft.split(/\r?\n/).length + 1))}
         style={{
           width: "100%",
           fontFamily: variant === "read_aloud" ? "var(--font-story)" : "inherit",
           fontStyle: variant === "read_aloud" ? "italic" : "normal",
-          fontSize: fontSize ?? "0.95rem",
+          fontSize: phone ? 16 : (fontSize ?? "0.95rem"),
           lineHeight: 1.6,
           padding: "0.5rem 0.65rem",
           background: "var(--bg)",
@@ -120,35 +160,41 @@ export default function EditableRunbookText(props: Props) {
           borderRadius: 8,
           color: "var(--text)",
           resize: "vertical",
+          maxHeight: phone ? "38vh" : undefined,
+          scrollMarginBottom: 72,
         }}
       />
       <div style={{ display: "flex", gap: "0.4rem", marginTop: "0.35rem", alignItems: "center", flexWrap: "wrap", fontStyle: "normal", fontFamily: "var(--font-ui)" }}>
         <button
-          onClick={() => save.mutate()}
+          type="button"
+          onClick={() => save.mutate(draft)}
           disabled={save.isPending || draft === initial}
           className="btn btn-secondary"
-          style={{ minHeight: 28, fontSize: "0.8125rem", padding: "0.15rem 0.65rem", gap: "0.3rem" }}
-          title="Save changes — Ctrl/Cmd+Enter"
+          style={{ minHeight: phone ? 44 : 28, fontSize: "0.8125rem", padding: "0.15rem 0.75rem", gap: "0.3rem" }}
+          title="Save changes (Ctrl or Cmd + Enter)"
         >
           {save.isPending ? "Saving…" : <><Check size={14} aria-hidden /> Save</>}
         </button>
         <button
-          onClick={() => setEditing(false)}
+          type="button"
+          onClick={stopEditing}
           disabled={save.isPending}
           className="btn btn-ghost"
-          style={{ minHeight: 28, fontSize: "0.8125rem", padding: "0.15rem 0.55rem", border: "none" }}
+          style={{ minHeight: phone ? 44 : 28, fontSize: "0.8125rem", padding: "0.15rem 0.65rem", border: "none" }}
           title="Discard (Esc)"
         >
           Cancel
         </button>
         {save.isError && (
-          <span style={{ fontSize: "0.75rem", color: "var(--danger-text)" }}>
+          <span role="alert" style={{ fontSize: "0.75rem", color: "var(--danger-text)" }}>
             {(save.error as Error)?.message ?? "Save failed"}
           </span>
         )}
-        <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginLeft: "auto" }}>
-          Ctrl/Cmd+Enter to save · Esc to cancel
-        </span>
+        {!phone && (
+          <span style={{ fontSize: "0.75rem", color: "var(--muted)", marginLeft: "auto" }}>
+            Ctrl or Cmd + Enter saves · Esc cancels
+          </span>
+        )}
       </div>
     </div>
   );
@@ -223,6 +269,6 @@ const pencilStyle: React.CSSProperties = {
   color: "var(--muted)",
   padding: 0,
   cursor: "pointer",
-  opacity: 0.55,
+  opacity: 0.8,
   transition: "opacity 150ms ease, color 150ms ease",
 };

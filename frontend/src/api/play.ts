@@ -1,10 +1,17 @@
 // Player-scope API client (Plan 00025).
 //
-// Mirrors the DM /characters endpoints but lives under /play/{pcId}/* and
-// does not require any auth header — the UUID in the URL is the implicit
-// secret. Used by frontend/src/pages/PlayerView.tsx.
+// Mirrors the DM /characters endpoints but lives under /play/{key}/* and
+// does not require any auth header — the link key in the URL is the implicit
+// secret. Used by the player's phone (frontend/src/pages/player/).
+//
+// Plan 128 — reads are quiet (the phone shows its own states, never a raw
+// "Character not found." toast), the sheet read keeps its HTTP status so a
+// replaced link can be told from a network blip, and writes that used to
+// toast still do, except when the link itself is gone: then the phone is told
+// (`ql:play-link-gone`) and shows "This link was replaced".
 
-import { api } from "./client";
+import { api, apiBase, type RequestOptions } from "./client";
+import { friendlyApiError } from "./errors";
 import type {
   CharacterFeature,
   CharacterItem,
@@ -24,6 +31,71 @@ export interface PlayerStatePatch {
   ep?: number;
   gp?: number;
   pp?: number;
+  /** Plan 128 — the player's own name ("What should we call you?"), 1–100 characters. */
+  player_name?: string;
+}
+
+/** A player-link request that failed, with its HTTP status (0 = no answer at all). */
+export class PlayRequestError extends Error {
+  status: number;
+  /** For a replaced pre-token link (410), the party it belonged to. */
+  campaignId: string | null;
+
+  constructor(status: number, message: string, campaignId: string | null = null) {
+    super(message);
+    this.name = "PlayRequestError";
+    this.status = status;
+    this.campaignId = campaignId;
+  }
+}
+
+/** True when the link itself no longer opens a sheet (unknown or replaced). */
+export function isLinkGone(e: unknown): e is PlayRequestError {
+  return e instanceof PlayRequestError && (e.status === 404 || e.status === 410);
+}
+
+/** The sheet, read with its status kept (see PlayRequestError). */
+async function getSheet(key: string): Promise<PlayerCharacter> {
+  let res: Response;
+  try {
+    res = await fetch(`${apiBase()}/play/${encodeURIComponent(key)}`);
+  } catch {
+    throw new PlayRequestError(0, "No connection. Check your Wi-Fi and try again.");
+  }
+  if (res.ok) return (await res.json()) as PlayerCharacter;
+  const body = await res.json().catch(() => ({}));
+  const detail = body?.detail;
+  const campaignId =
+    detail && typeof detail === "object" && typeof detail.campaign_id === "string" ? detail.campaign_id : null;
+  throw new PlayRequestError(res.status, friendlyApiError(detail, res.statusText), campaignId);
+}
+
+/** The words the API answers with when a link no longer opens a sheet (404 or 410). */
+const GONE = new Set(["Character not found.", "Gone"]);
+
+/**
+ * A write that used to toast its errors: it still does, unless the link is
+ * gone, in which case the phone hears `ql:play-link-gone` and re-checks it.
+ */
+async function playWrite<T>(key: string, call: (opts: RequestOptions) => Promise<T>): Promise<T> {
+  try {
+    return await call({ quiet: true });
+  } catch (e) {
+    const message = (e as Error).message;
+    const event = GONE.has(message)
+      ? new CustomEvent("ql:play-link-gone", { detail: { key } })
+      : new CustomEvent("ql:api-error", { detail: { message } });
+    if (typeof window !== "undefined") window.dispatchEvent(event);
+    throw e;
+  }
+}
+
+/** One class feature the character has, as the phone lists it (group C2's endpoint). */
+export interface ClassFeature {
+  name: string;
+  level: number;
+  source: string;
+  note: string | null;
 }
 
 /** One row of the running fight's order, as a player's phone sees it (Plan 122). */
@@ -137,95 +209,112 @@ export interface PlayLink {
   campaign_id: string;
 }
 
+const Q = { quiet: true } as const;
+
 export const playApi = {
-  get: (pcId: string) => api.get<PlayerCharacter>(`/play/${pcId}`),
+  get: (pcId: string) => getSheet(pcId),
   spellcastingStats: (pcId: string) =>
-    api.get<SpellcastingStats>(`/play/${pcId}/spellcasting-stats`),
+    api.get<SpellcastingStats>(`/play/${pcId}/spellcasting-stats`, Q),
   skillBonuses: (pcId: string) =>
-    api.get<Record<string, number>>(`/play/${pcId}/skill-bonuses`),
+    api.get<Record<string, number>>(`/play/${pcId}/skill-bonuses`, Q),
   savingThrows: (pcId: string) =>
-    api.get<Record<string, number>>(`/play/${pcId}/saving-throws`),
+    api.get<Record<string, number>>(`/play/${pcId}/saving-throws`, Q),
   spellSlots: (pcId: string) =>
-    api.get<SpellSlotStateRead>(`/play/${pcId}/spell-slots`),
-  spells: (pcId: string) => api.get<CharacterSpell[]>(`/play/${pcId}/spells`),
-  features: (pcId: string) => api.get<CharacterFeature[]>(`/play/${pcId}/features`),
-  inventory: (pcId: string) => api.get<CharacterItem[]>(`/play/${pcId}/inventory`),
-  turnState: (pcId: string) => api.get<TurnState>(`/play/${pcId}/turn-state`),
-  combatState: (pcId: string) => api.get<CombatState>(`/play/${pcId}/combat-state`),
-  npcs: (pcId: string) => api.get<VisibleNpc[]>(`/play/${pcId}/npcs`),
+    api.get<SpellSlotStateRead>(`/play/${pcId}/spell-slots`, Q),
+  spells: (pcId: string) => api.get<CharacterSpell[]>(`/play/${pcId}/spells`, Q),
+  features: (pcId: string) => api.get<CharacterFeature[]>(`/play/${pcId}/features`, Q),
+  // Plan 128 — the class's features by level (group C2's endpoint; 404 until it ships).
+  classFeatures: (pcId: string) => api.get<ClassFeature[]>(`/play/${pcId}/class-features`, Q),
+  inventory: (pcId: string) => api.get<CharacterItem[]>(`/play/${pcId}/inventory`, Q),
+  turnState: (pcId: string) => api.get<TurnState>(`/play/${pcId}/turn-state`, Q),
+  combatState: (pcId: string) => api.get<CombatState>(`/play/${pcId}/combat-state`, Q),
+  npcs: (pcId: string) => api.get<VisibleNpc[]>(`/play/${pcId}/npcs`, Q),
 
   applyDamage: (pcId: string, amount: number) =>
-    api.post<PlayerCharacter>(`/play/${pcId}/damage`, { amount }),
+    playWrite(pcId, (o) => api.post<PlayerCharacter>(`/play/${pcId}/damage`, { amount }, o)),
   applyHealing: (pcId: string, amount: number) =>
-    api.post<PlayerCharacter>(`/play/${pcId}/heal`, { amount }),
+    playWrite(pcId, (o) => api.post<PlayerCharacter>(`/play/${pcId}/heal`, { amount }, o)),
   resolveDeathSave: (pcId: string, d20: number) =>
-    api.post<PlayerCharacter>(`/play/${pcId}/death-save`, { d20 }),
+    playWrite(pcId, (o) => api.post<PlayerCharacter>(`/play/${pcId}/death-save`, { d20 }, o)),
   spendHitDice: (pcId: string, count: number) =>
-    api.post<PlayerCharacter>(`/play/${pcId}/spend-hit-dice`, { count }),
+    playWrite(pcId, (o) => api.post<PlayerCharacter>(`/play/${pcId}/spend-hit-dice`, { count }, o)),
   expendSpellSlot: (pcId: string, level: number) =>
-    api.post<SpellSlotStateRead>(`/play/${pcId}/spell-slots/${level}/expend`),
+    playWrite(pcId, (o) => api.post<SpellSlotStateRead>(`/play/${pcId}/spell-slots/${level}/expend`, undefined, o)),
   restoreSpellSlot: (pcId: string, level: number) =>
-    api.post<SpellSlotStateRead>(`/play/${pcId}/spell-slots/${level}/restore`),
-  spendFeature: (pcId: string, characterFeatureId: string) =>
-    api.post<CharacterFeature>(
-      `/play/${pcId}/features/${characterFeatureId}/spend`,
+    playWrite(pcId, (o) => api.post<SpellSlotStateRead>(`/play/${pcId}/spell-slots/${level}/restore`, undefined, o)),
+  /** Spend uses; `amount` spends several pool points at once (Lay on Hands). */
+  spendFeature: (pcId: string, characterFeatureId: string, amount = 1) =>
+    playWrite(pcId, (o) =>
+      api.post<CharacterFeature>(`/play/${pcId}/features/${characterFeatureId}/spend?amount=${amount}`, undefined, o),
     ),
   patchState: (pcId: string, patch: PlayerStatePatch) =>
-    api.patch<PlayerCharacter>(`/play/${pcId}/state`, patch),
+    playWrite(pcId, (o) => api.patch<PlayerCharacter>(`/play/${pcId}/state`, patch, o)),
+  // Plan 128 — save "What should we call you?"; the caller shows any error itself.
+  setPlayerName: (pcId: string, name: string) =>
+    api.patch<PlayerCharacter>(`/play/${pcId}/state`, { player_name: name }, Q),
+  // Plan 128 — players send feedback too (no account; filed under the character).
+  sendFeedback: (pcId: string, body: { kind: "loved" | "confusing" | "broken" | "idea"; text: string; page: string; viewport: string }) =>
+    api.post<{ id: string }>(`/play/${pcId}/feedback`, body, Q),
 
   // Plan 48 — paper-doll gear and appearance
-  gear: (pcId: string) => api.get<GearRow[]>(`/play/${pcId}/gear`),
+  gear: (pcId: string) => api.get<GearRow[]>(`/play/${pcId}/gear`, Q),
   setAppearance: (pcId: string, appearance: string) =>
-    api.patch<PlayerCharacter>(`/play/${pcId}/appearance`, { appearance }),
+    playWrite(pcId, (o) => api.patch<PlayerCharacter>(`/play/${pcId}/appearance`, { appearance }, o)),
   setEquipped: (pcId: string, characterItemId: string, equipped: boolean) =>
-    api.post<GearRow>(`/play/${pcId}/gear/${characterItemId}/equip`, { equipped }),
-  campaignName: (pcId: string) => api.get<{ name: string }>(`/play/${pcId}/campaign`),
+    playWrite(pcId, (o) => api.post<GearRow>(`/play/${pcId}/gear/${characterItemId}/equip`, { equipped }, o)),
+  campaignName: (pcId: string) => api.get<{ name: string }>(`/play/${pcId}/campaign`, Q),
   // SEC-002 — the link's current key and the character's identity (not a key).
-  link: (key: string) => api.get<PlayLink>(`/play/${key}/link`, { quiet: true }),
+  link: (key: string) => api.get<PlayLink>(`/play/${key}/link`, Q),
   // Plan 83 — where the table is tonight, for the phone's Table link.
   liveSession: (pcId: string) =>
-    api.get<{ session_id: string | null; title: string | null }>(`/play/${pcId}/live-session`),
+    api.get<{ session_id: string | null; title: string | null }>(`/play/${pcId}/live-session`, Q),
   // Plan 122 — labeled rolls with advantage, or a real die typed in.
-  roll: (pcId: string, req: RollRequest) => api.post<RollResult>(`/play/${pcId}/roll`, req, { quiet: true }),
-  turnKit: (pcId: string) => api.get<TurnKit>(`/play/${pcId}/turn-kit`),
+  roll: (pcId: string, req: RollRequest) => api.post<RollResult>(`/play/${pcId}/roll`, req, Q),
+  turnKit: (pcId: string) => api.get<TurnKit>(`/play/${pcId}/turn-kit`, Q),
   castSpell: (pcId: string, characterSpellId: string, body: { slot_level?: number; ritual?: boolean }) =>
     api.post<{ spell: string; slot_level: number | null; concentration: boolean }>(
       `/play/${pcId}/spells/${characterSpellId}/cast`,
       body,
-      { quiet: true },
+      Q,
     ),
   prepareSpell: (pcId: string, characterSpellId: string, prepared: boolean) =>
     api.post<{ id: string; prepared: boolean; count: number; cap: number }>(
       `/play/${pcId}/spells/${characterSpellId}/prepare`,
       { prepared },
-      { quiet: true },
+      Q,
     ),
   saveNotes: (pcId: string, text: string) =>
-    api.put<{ player_notes: string }>(`/play/${pcId}/notes`, { text }),
+    playWrite(pcId, (o) => api.put<{ player_notes: string }>(`/play/${pcId}/notes`, { text }, o)),
   throwDice: (pcId: string, die: string, modifier = 0, label?: string) =>
-    api.post<{ die: string; rolls: number[]; modifier: number; total: number; session_id: string }>(
-      `/play/${pcId}/roll`,
-      { die, modifier, label },
+    playWrite(pcId, (o) =>
+      api.post<{ die: string; rolls: number[]; modifier: number; total: number; session_id: string }>(
+        `/play/${pcId}/roll`,
+        { die, modifier, label },
+        o,
+      ),
     ),
   // Plan 50 — buy a shop item with coin from this PC's purse
   buy: (pcId: string, shopItemId: string) =>
-    api.post<PurchaseReceipt>(`/play/${pcId}/buy`, { shop_item_id: shopItemId }),
+    playWrite(pcId, (o) => api.post<PurchaseReceipt>(`/play/${pcId}/buy`, { shop_item_id: shopItemId }, o)),
   // Plan 51 — sell to vendors + pool coin with the party
   sell: (pcId: string, characterItemId: string) =>
-    api.post<SellReceipt>(`/play/${pcId}/sell`, { character_item_id: characterItemId }),
-  party: (pcId: string) => api.get<PartyMate[]>(`/play/${pcId}/party`),
+    playWrite(pcId, (o) => api.post<SellReceipt>(`/play/${pcId}/sell`, { character_item_id: characterItemId }, o)),
+  party: (pcId: string) => api.get<PartyMate[]>(`/play/${pcId}/party`, Q),
   // Plan 52 — use a consumable on yourself or a party member
   useItem: (pcId: string, characterItemId: string, targetPcId?: string) =>
-    api.post<UseItemReceipt>(`/play/${pcId}/use-item`, {
-      character_item_id: characterItemId,
-      target_pc_id: targetPcId ?? null,
-    }),
+    playWrite(pcId, (o) =>
+      api.post<UseItemReceipt>(
+        `/play/${pcId}/use-item`,
+        { character_item_id: characterItemId, target_pc_id: targetPcId ?? null },
+        o,
+      ),
+    ),
   // Plan 115 — the level-up guide (404 until the DM grants a level).
-  levelUpPlan: (pcId: string) => api.get<LevelUpPlan>(`/play/${pcId}/level-up`, { quiet: true }),
+  levelUpPlan: (pcId: string) => api.get<LevelUpPlan>(`/play/${pcId}/level-up`, Q),
   applyLevelUp: (pcId: string, choices: LevelUpChoices) =>
-    api.post<LevelUpResult>(`/play/${pcId}/level-up`, choices),
+    playWrite(pcId, (o) => api.post<LevelUpResult>(`/play/${pcId}/level-up`, choices, o)),
   give: (pcId: string, toPcId: string, amountGp: number) =>
-    api.post<TransferReceipt>(`/play/${pcId}/give`, { to_pc_id: toPcId, amount_gp: amountGp }),
+    playWrite(pcId, (o) => api.post<TransferReceipt>(`/play/${pcId}/give`, { to_pc_id: toPcId, amount_gp: amountGp }, o)),
 };
 
 /** Receipt from a vendor sale (Plan 51). */

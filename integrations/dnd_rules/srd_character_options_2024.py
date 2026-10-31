@@ -177,38 +177,43 @@ BACKGROUNDS: list[dict[str, Any]] = [
     },
 ]
 
+# Plan 128: in plain words a 13-year-old can choose from (persona run 3, Adaeze's club).
 ORIGIN_FEATS: list[dict[str, str]] = [
     {
         "name": "Alert",
-        "blurb": "Add your proficiency bonus to initiative; swap initiative with a willing ally.",
+        "blurb": "You act sooner in a fight (add your proficiency bonus to initiative), and can "
+        "swap turns with a willing friend.",
     },
     {
         "name": "Crafter",
-        "blurb": "Proficiency with three artisan's tools, a discount at shops, and fast crafting.",
+        "blurb": "Good with three kinds of craft tools. Shops give you a discount, and you make "
+        "things fast.",
     },
     {"name": "Healer", "blurb": "Use a Healer's Kit to heal, and reroll 1s on healing dice."},
     {
         "name": "Lucky",
-        "blurb": "Luck Points equal to your proficiency bonus: advantage on a d20 Test, or impose disadvantage on an attack against you.",  # noqa: E501
+        "blurb": "A few times a day, roll an extra d20 and keep the better roll, or make an enemy "
+        "attacking you keep the worse one.",
     },
     {
         "name": "Magic Initiate",
-        "blurb": "Two cantrips and one 1st-level spell from the Cleric, Druid, or Wizard list.",
+        "blurb": "Learn two cantrips and one level 1 spell from the Cleric, Druid or Wizard list.",
     },
     {
         "name": "Musician",
-        "blurb": "Proficiency with three instruments; inspire allies after a rest.",
+        "blurb": "Play three instruments. After a rest, your song gives friends Heroic "
+        "Inspiration.",
     },
     {
         "name": "Savage Attacker",
-        "blurb": "Once per turn, roll weapon damage twice and take the higher.",
+        "blurb": "Once a turn, roll your weapon's damage twice and keep the higher.",
     },
-    {"name": "Skilled", "blurb": "Proficiency in any three skills or tools."},
+    {"name": "Skilled", "blurb": "Get trained in three more skills of your choice."},
     {
         "name": "Tavern Brawler",
-        "blurb": "Better unarmed strikes, reroll 1s on their damage, push with a punch, improvised weapons are yours.",  # noqa: E501
+        "blurb": "Your punches hit harder, you reroll 1s on their damage, and a punch can shove.",
     },
-    {"name": "Tough", "blurb": "+2 hit points per level."},
+    {"name": "Tough", "blurb": "+2 hit points for every level, so you're harder to knock out."},
 ]
 
 _CASTER_FULL_PREPARED = [4, 5, 6, 7, 9, 10, 11, 12, 14, 15, 16, 16, 17, 17, 18, 18, 19, 20, 21, 22]

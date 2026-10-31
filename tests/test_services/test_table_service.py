@@ -602,3 +602,81 @@ class TestProjectionSafety:
         sess_svc.clear_combat_state(duckdb_session, gs.id, dm)
         proj2 = table_svc.get_projection(duckdb_session, gs.id)
         assert proj2.active_token_ref is None
+
+    def test_tv_gets_class_and_picture_for_pcs_only(self, duckdb_session: Session):
+        """Plan 128 — the TV draws a PC's class crest when it has no picture, so
+        PC tokens and PC order rows carry the class (and the picture); foes and
+        markers carry neither, and a stored class on a token is never trusted."""
+        dm = _dm()
+        campaign, _adv, gs = _campaign_and_session(duckdb_session, dm)
+        pc = _make_pc(duckdb_session, campaign.id, dm)
+        char_svc.update_character(
+            duckdb_session,
+            pc.id,
+            dm,
+            PlayerCharacterUpdate(portrait_url="https://cdn.test/willa.png"),
+        )
+        state = sess_svc.save_combat_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            SessionCombatStateWrite(
+                combat_state="running",
+                combatants=[
+                    SessionCombatantCreate(
+                        sort_index=0,
+                        name="Willa",
+                        dex_score=14,
+                        initiative_roll=18,
+                        hp_current=20,
+                        hp_max=24,
+                        type="pc",
+                        character_id=pc.id,
+                    ),
+                    SessionCombatantCreate(
+                        sort_index=1,
+                        name="Goblin",
+                        dex_score=14,
+                        initiative_roll=10,
+                        hp_current=7,
+                        hp_max=7,
+                        type="monster",
+                    ),
+                ],
+            ),
+        )
+        goblin_ref = str(state.combatants[1].id)
+        battle_map = _make_map(duckdb_session, campaign.id, dm)
+        table_svc.update_table_state(
+            duckdb_session,
+            gs.id,
+            dm,
+            TableStateUpdate(
+                active_map_id=battle_map.id,
+                tokens=[
+                    Token(id="t1", kind="pc", ref_id=str(pc.id), label="Willa"),
+                    # A stale or forged class on a foe token never reaches the TV.
+                    Token(
+                        id="t2",
+                        kind="monster",
+                        ref_id=goblin_ref,
+                        label="Goblin",
+                        class_name="Wizard",
+                    ),
+                    Token(id="t3", kind="custom", label="Barrel"),
+                ],
+            ),
+        )
+        proj = table_svc.get_projection(duckdb_session, gs.id)
+        by_id = {t.id: t for t in proj.tokens}
+        assert by_id["t1"].class_name == "Fighter"
+        assert by_id["t2"].class_name is None
+        assert by_id["t3"].class_name is None
+
+        willa, goblin = proj.initiative
+        assert willa.class_name == "Fighter"
+        assert willa.image_url == "https://cdn.test/willa.png"
+        assert (willa.hp_current, willa.hp_max) == (20, 24)
+        # Foes stay a name and a turn: no class, no picture, no numbers.
+        assert goblin.class_name is None and goblin.image_url is None
+        assert goblin.hp_current is None and goblin.hp_max is None
