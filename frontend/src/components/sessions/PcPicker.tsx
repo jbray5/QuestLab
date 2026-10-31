@@ -23,32 +23,37 @@ export default function PcPicker({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-      {characters.map((c) => (
-        <label
-          key={c.id}
-          className="flex items-center gap-2"
-          style={{
-            padding: "0.35rem 0.5rem",
-            borderRadius: 6,
-            cursor: "pointer",
-            background: selected.includes(c.id) ? "var(--surface2)" : "transparent",
-            border: selected.includes(c.id) ? "1px solid var(--gold)" : "1px solid var(--border)",
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={selected.includes(c.id)}
-            onChange={() => toggle(c.id)}
-            style={{ accentColor: "var(--gold)" }}
-          />
-          <span style={{ color: "var(--gold)", fontWeight: 600, fontSize: "0.85rem" }}>
-            {c.character_name}
-          </span>
-          <span className="text-sm text-muted">
-            Lv{c.level} {c.race} {c.character_class}
-          </span>
-        </label>
-      ))}
+      {characters.map((c) => {
+        const on = selected.includes(c.id);
+        return (
+          <label
+            key={c.id}
+            className="flex items-center gap-2"
+            style={{
+              minHeight: 40,
+              padding: "0.4rem 0.65rem",
+              margin: 0,
+              borderRadius: 8,
+              cursor: "pointer",
+              background: on ? "var(--surface2)" : "transparent",
+              border: `1px solid ${on ? "var(--border2)" : "var(--border)"}`,
+              flexWrap: "wrap",
+              rowGap: 0,
+            }}
+          >
+            <input type="checkbox" checked={on} onChange={() => toggle(c.id)} />
+            <span
+              className="story"
+              style={{ color: on ? "var(--text)" : "var(--text2)", fontWeight: 500, fontSize: "1.05rem" }}
+            >
+              {c.character_name}
+            </span>
+            <span className="text-sm text-muted" style={{ fontWeight: 400 }}>
+              Level {c.level} {c.race} {c.character_class}
+            </span>
+          </label>
+        );
+      })}
     </div>
   );
 }

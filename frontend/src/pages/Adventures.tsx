@@ -1,24 +1,21 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, ChevronDown, ChevronRight, Map as MapIcon, Pencil, Plus, Route, Skull } from "lucide-react";
 import { adventuresApi } from "../api/adventures";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Adventure } from "../api/types";
 import RowMenu from "../components/RowMenu";
 
-const TIER_BADGE: Record<string, string> = {
-  Tier1: "badge-ready",
-  Tier2: "badge-draft",
-  Tier3: "badge-progress",
-  Tier4: "badge-artifact",
+const TIER_LABELS: Record<string, string> = {
+  Tier1: "Tier 1 · levels 1–4",
+  Tier2: "Tier 2 · levels 5–10",
+  Tier3: "Tier 3 · levels 11–16",
+  Tier4: "Tier 4 · levels 17–20",
 };
 
-const TIER_LABELS: Record<string, string> = {
-  Tier1: "Tier 1 (1-4)",
-  Tier2: "Tier 2 (5-10)",
-  Tier3: "Tier 3 (11-16)",
-  Tier4: "Tier 4 (17-20)",
-};
+/** Row buttons: a notch smaller than page actions. */
+const compactBtn: React.CSSProperties = { fontSize: "0.875rem", padding: "0.3rem 0.75rem" };
 
 const TIER_OPTIONS = ["Tier1", "Tier2", "Tier3", "Tier4"];
 
@@ -127,21 +124,37 @@ export default function Adventures() {
   return (
     <div className="fade-in">
       {/* Breadcrumb */}
-      <nav className="text-sm" style={{ marginBottom: "0.75rem", opacity: 0.7 }}>
-        <span style={{ cursor: "pointer", color: "var(--gold)" }} onClick={() => navigate("/")}>Dashboard</span>
+      <nav className="text-sm" style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
+        <Link to="/">Dashboard</Link>
         {activeCampaign && (
           <>
             {" / "}
-            <span style={{ color: "var(--text-secondary)" }}>{activeCampaign.name}</span>
+            <Link to={`/campaigns/${activeCampaign.id}/sessions`} className="story">
+              {activeCampaign.name}
+            </Link>
           </>
         )}
         {" / "}
-        <strong>Arcs</strong>
+        <span style={{ color: "var(--text)" }}>Arcs</span>
       </nav>
-      <div className="flex items-center" style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}>
-        <h1>Arcs</h1>
+      <div
+        className="flex items-center"
+        style={{ marginBottom: "1.25rem", justifyContent: "space-between", gap: "1rem" }}
+      >
+        <div>
+          <h1 style={{ margin: 0 }}>Arcs</h1>
+          <p className="text-muted" style={{ margin: "0.25rem 0 0", fontSize: "0.9375rem" }}>
+            The longer stretches of your story: tier, acts, NPC roster and location notes.
+          </p>
+        </div>
         <button className={showForm ? "btn btn-secondary" : "btn btn-primary"} onClick={() => setShowForm(!showForm)}>
-          {showForm ? "Cancel" : "+ New arc"}
+          {showForm ? (
+            "Cancel"
+          ) : (
+            <>
+              <Plus size={16} aria-hidden /> New arc
+            </>
+          )}
         </button>
       </div>
 
@@ -177,7 +190,7 @@ export default function Adventures() {
             </div>
           </div>
           <div className="form-group">
-            <label>Location Notes</label>
+            <label>Location notes</label>
             <textarea
               value={locationNotes}
               onChange={(e) => setLocationNotes(e.target.value)}
@@ -200,41 +213,69 @@ export default function Adventures() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
         {adventures.map((a) => (
-          <div key={a.id} className="card">
+          <div key={a.id} className="card" style={{ padding: "1rem 1.1rem" }}>
             {/* Header row */}
             <div
               className="flex items-center"
-              style={{ justifyContent: "space-between", cursor: "pointer" }}
-              onClick={() => toggleExpand(a.id)}
+              style={{ justifyContent: "space-between", gap: "0.75rem 1rem" }}
             >
-              <div className="flex items-center gap-2">
-                <strong style={{ color: "var(--gold)", fontSize: "1.05rem" }}>{a.title}</strong>
-                <span className={`badge ${TIER_BADGE[a.tier] ?? "badge-draft"}`}>
+              {/* The whole title block toggles; the button inside gives keyboards and
+                  screen readers the same switch (its click bubbles up here). */}
+              <div
+                onClick={() => toggleExpand(a.id)}
+                title={expandedId === a.id ? "Hide details" : "Show location notes and NPCs"}
+                style={{ cursor: "pointer", minWidth: 0, flex: "1 1 260px" }}
+              >
+                <h2 className="story" style={{ fontSize: "1.3rem", margin: 0, lineHeight: 1.25 }}>
+                  <button
+                    type="button"
+                    aria-expanded={expandedId === a.id}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "none",
+                      border: "none", padding: 0, margin: 0, font: "inherit", color: "inherit",
+                      cursor: "pointer", textAlign: "left",
+                    }}
+                  >
+                    {expandedId === a.id ? (
+                      <ChevronDown size={18} aria-hidden style={{ color: "var(--muted)" }} />
+                    ) : (
+                      <ChevronRight size={18} aria-hidden style={{ color: "var(--muted)" }} />
+                    )}
+                    <span>{a.title}</span>
+                  </button>
+                </h2>
+                <div className="text-sm text-muted" style={{ marginTop: "0.15rem", paddingLeft: "calc(18px + 0.4rem)" }}>
                   {TIER_LABELS[a.tier] ?? a.tier}
-                </span>
-                <span className="text-sm text-muted">{a.act_count} acts</span>
-                {npcs(a).length > 0 && (
-                  <span className="text-sm text-muted" title={npcs(a).map((n) => n.name).join(", ")}>
-                    | {npcs(a).length} NPC{npcs(a).length !== 1 ? "s" : ""}
-                  </span>
-                )}
+                  {" · "}
+                  {a.act_count} act{a.act_count !== 1 ? "s" : ""}
+                  {npcs(a).length > 0 && (
+                    <span title={npcs(a).map((n) => n.name).join(", ")}>
+                      {" · "}
+                      {npcs(a).length} NPC{npcs(a).length !== 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }}
-                  onClick={() => openAdventure(a)}>
-                  Open
+              <div className="flex gap-2 items-center" style={{ flexWrap: "wrap" }} onClick={(e) => e.stopPropagation()}>
+                <button className="btn btn-secondary" style={compactBtn} onClick={() => openAdventure(a)}>
+                  <CalendarDays size={15} aria-hidden /> Sessions
                 </button>
-                <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }}
-                  onClick={() => { setActiveAdventure(a); navigate(`/adventures/${a.id}/encounters`); }}>
-                  Encounters
+                <button
+                  className="btn btn-ghost"
+                  style={compactBtn}
+                  onClick={() => { setActiveAdventure(a); navigate(`/adventures/${a.id}/encounters`); }}
+                >
+                  <Skull size={15} aria-hidden /> Encounters
                 </button>
-                <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }}
-                  onClick={() => { setActiveAdventure(a); navigate(`/adventures/${a.id}/maps`); }}>
-                  Map
+                <button
+                  className="btn btn-ghost"
+                  style={compactBtn}
+                  onClick={() => { setActiveAdventure(a); navigate(`/adventures/${a.id}/maps`); }}
+                >
+                  <MapIcon size={15} aria-hidden /> Map builder
                 </button>
-                <button className="btn btn-ghost" style={{ fontSize: "0.75rem" }}
-                  onClick={() => startEdit(a)}>
-                  Edit
+                <button className="btn btn-ghost" style={compactBtn} onClick={() => startEdit(a)}>
+                  <Pencil size={15} aria-hidden /> Edit
                 </button>
                 <RowMenu
                   label={`More for ${a.title}`}
@@ -252,47 +293,61 @@ export default function Adventures() {
 
             {/* Synopsis */}
             {a.synopsis && (
-              <p className="text-sm" style={{ marginTop: "0.5rem", marginBottom: 0, opacity: 0.85, lineHeight: 1.5 }}>
+              <p
+                className="story"
+                style={{
+                  margin: "0.4rem 0 0",
+                  paddingLeft: "calc(18px + 0.4rem)",
+                  color: "var(--text2)",
+                  lineHeight: 1.5,
+                  maxWidth: "75ch",
+                }}
+              >
                 {a.synopsis}
               </p>
             )}
 
             {/* Expanded details */}
             {expandedId === a.id && (
-              <div style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "0.75rem" }}>
-                {/* Location Notes */}
+              <div style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "0.85rem" }}>
+                {/* Location notes */}
                 {a.location_notes && (
-                  <div style={{ marginBottom: "0.75rem" }}>
-                    <h4 style={{ fontSize: "0.85rem", marginBottom: "0.3rem" }}>Location Notes</h4>
-                    <p className="text-sm" style={{ margin: 0, whiteSpace: "pre-wrap", opacity: 0.8 }}>
+                  <div style={{ marginBottom: "1rem" }}>
+                    <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.3rem" }}>Location notes</h3>
+                    <p style={{ margin: 0, whiteSpace: "pre-wrap", color: "var(--text2)", lineHeight: 1.5 }}>
                       {a.location_notes}
                     </p>
                   </div>
                 )}
 
-                {/* NPC Roster */}
+                {/* NPC roster */}
                 {npcs(a).length > 0 && (
                   <div>
-                    <h4 style={{ fontSize: "0.85rem", marginBottom: "0.4rem" }}>NPC Roster</h4>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-                      {npcs(a).map((npc, i) => (
+                    <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.4rem" }}>NPC roster</h3>
+                    <div
+                      style={{
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        background: "var(--surface2)",
+                      }}
+                    >
+                      {npcs(a).map((npc, i, all) => (
                         <div
                           key={i}
                           style={{
-                            padding: "0.5rem 0.75rem",
-                            background: "var(--surface2)",
-                            borderRadius: 6,
-                            borderLeft: "3px solid var(--gold)",
+                            padding: "0.55rem 0.8rem",
+                            borderBottom: i === all.length - 1 ? "none" : "1px solid var(--border)",
                           }}
                         >
-                          <div className="flex items-center gap-2">
-                            <strong style={{ color: "var(--gold)", fontSize: "0.9rem" }}>{npc.name}</strong>
-                            {npc.role && (
-                              <span className="badge badge-draft" style={{ fontSize: "0.65rem" }}>{npc.role}</span>
-                            )}
+                          <div className="flex items-center gap-2" style={{ flexWrap: "wrap" }}>
+                            <span className="story" style={{ fontWeight: 500, fontSize: "1.05rem", color: "var(--text)" }}>
+                              {npc.name}
+                            </span>
+                            {npc.role && <span className="pill">{npc.role}</span>}
                           </div>
                           {npc.notes && (
-                            <p className="text-sm text-muted" style={{ margin: "0.2rem 0 0", lineHeight: 1.4 }}>
+                            <p className="text-sm text-muted" style={{ margin: "0.2rem 0 0", lineHeight: 1.45 }}>
                               {npc.notes}
                             </p>
                           )}
@@ -303,7 +358,9 @@ export default function Adventures() {
                 )}
 
                 {!a.location_notes && npcs(a).length === 0 && (
-                  <p className="text-sm text-muted">No location notes or NPCs added yet.</p>
+                  <p className="text-sm text-muted" style={{ margin: 0 }}>
+                    No location notes or NPCs yet. Use <strong>Edit</strong> to add location notes.
+                  </p>
                 )}
               </div>
             )}
@@ -314,7 +371,7 @@ export default function Adventures() {
                 style={{ marginTop: "1rem", borderTop: "1px solid var(--border)", paddingTop: "0.75rem" }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <h4 style={{ marginBottom: "0.75rem" }}>Edit arc</h4>
+                <h3 style={{ fontSize: "1rem", marginBottom: "0.75rem" }}>Edit arc</h3>
                 <div className="form-group">
                   <label className="text-sm">Title</label>
                   <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
@@ -338,7 +395,7 @@ export default function Adventures() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="text-sm">Location Notes</label>
+                  <label className="text-sm">Location notes</label>
                   <textarea value={editLocationNotes} onChange={(e) => setEditLocationNotes(e.target.value)} rows={2} style={{ resize: "vertical" }} />
                 </div>
                 <div className="flex gap-2">
@@ -351,10 +408,13 @@ export default function Adventures() {
             )}
           </div>
         ))}
-        {!isLoading && adventures.length === 0 && (
+        {!isLoading && adventures.length === 0 && !showForm && (
           <div className="empty-state">
-            <div className="empty-icon">🗺</div>
-            <p>No arcs yet — create one above.</p>
+            <Route size={32} aria-hidden style={{ color: "var(--muted)", marginBottom: "0.75rem" }} />
+            <p style={{ maxWidth: "46ch", margin: "0 auto" }}>
+              An arc is a stretch of the story with its own sessions, encounters and maps. Add the
+              first one with <strong>New arc</strong>.
+            </p>
           </div>
         )}
       </div>

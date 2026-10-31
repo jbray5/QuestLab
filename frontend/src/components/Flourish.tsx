@@ -1,7 +1,7 @@
 /**
- * Decorative gold flourish — a horizontal rule with a centered diamond
- * and tapering filigree on each side (Plan 00029). Drop in between
- * sections to give the page a parchment-grimoire feel.
+ * The one ornament: a thin rule with a small centred diamond (Plan 00029,
+ * simplified for Lamplit in Plan 121). DESIGN.md allows at most one per page,
+ * and only in story territory (read-aloud boxes, a landing section break).
  *
  * Usage:
  *   <Flourish />            // default width
@@ -11,7 +11,7 @@
 interface Props {
   /** Width in pixels (the SVG scales to it). Defaults to 220. */
   width?: number;
-  /** Stroke color — defaults to the theme gold. */
+  /** Stroke color — defaults to the muted lantern edge. */
   color?: string;
   /** Optional inline margin override. */
   style?: React.CSSProperties;
@@ -19,7 +19,7 @@ interface Props {
 
 export default function Flourish({
   width = 220,
-  color = "var(--gold)",
+  color = "var(--accent-edge)",
   style,
 }: Props) {
   return (
@@ -32,20 +32,15 @@ export default function Flourish({
       style={{ display: "block", margin: "0.5rem auto", ...style }}
       fill="none"
       stroke={color}
-      strokeWidth="1.2"
+      strokeWidth="1"
       strokeLinecap="round"
-      strokeLinejoin="round"
     >
-      {/* Left tapering line */}
-      <line x1="2" y1="9" x2="90" y2="9" />
-      {/* Left curl */}
-      <path d="M86 9 Q92 4 99 9 Q92 14 86 9 Z" fill={color} stroke="none" opacity="0.65" />
-      {/* Center diamond */}
-      <path d="M110 2 L118 9 L110 16 L102 9 Z" fill={color} stroke="none" />
-      {/* Right curl */}
-      <path d="M134 9 Q128 4 121 9 Q128 14 134 9 Z" fill={color} stroke="none" opacity="0.65" />
-      {/* Right tapering line */}
-      <line x1="130" y1="9" x2="218" y2="9" />
+      {/* Left rule */}
+      <line x1="2" y1="9" x2="100" y2="9" />
+      {/* Centre diamond */}
+      <path d="M110 4 L115 9 L110 14 L105 9 Z" fill={color} stroke="none" />
+      {/* Right rule */}
+      <line x1="120" y1="9" x2="218" y2="9" />
     </svg>
   );
 }

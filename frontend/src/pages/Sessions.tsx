@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { CalendarDays, Play, Plus } from "lucide-react";
 import { sessionsApi } from "../api/sessions";
 import { adventuresApi } from "../api/adventures";
 import { charactersApi } from "../api/characters";
 import { useCampaignStore } from "../stores/useCampaignStore";
+import { useIsCompact } from "../hooks/useIsCompact";
 import PcPicker from "../components/sessions/PcPicker";
 import { statusLabel } from "../lib/labels";
 import RowMenu from "../components/RowMenu";
@@ -16,17 +18,44 @@ const STATUS_BADGE: Record<string, string> = {
   Complete: "badge-complete",
 };
 
-const STATUS_EMOJI: Record<string, string> = {
-  Draft: "\u{1F4DD}",
-  Ready: "\u2705",
-  InProgress: "\u2694\uFE0F",
-  Complete: "\u{1F3C1}",
+/** The Advance button says where it moves the session (Draft \u2192 Ready \u2192 In progress \u2192 Complete). */
+const NEXT_STATUS_ACTION: Record<string, string> = {
+  Draft: "Mark ready",
+  Ready: "Mark in progress",
+  InProgress: "Mark complete",
+};
+
+/** Session numbers are set as Roman numerals in the story face (DESIGN.md \u00A71). */
+function toRoman(n: number): string {
+  if (!Number.isFinite(n) || n < 1 || n >= 4000) return String(n);
+  const table: Array<[number, string]> = [
+    [1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"],
+    [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"],
+  ];
+  let rest = Math.floor(n);
+  let out = "";
+  for (const [value, mark] of table) {
+    while (rest >= value) {
+      out += mark;
+      rest -= value;
+    }
+  }
+  return out;
+}
+
+/** Row buttons: a notch smaller than page actions. */
+const compactBtn: React.CSSProperties = { fontSize: "0.875rem", padding: "0.3rem 0.75rem" };
+/** Read by screen readers, not drawn. */
+const srOnly: React.CSSProperties = {
+  position: "absolute", width: 1, height: 1, padding: 0, margin: -1,
+  overflow: "hidden", clip: "rect(0, 0, 0, 0)", whiteSpace: "nowrap", border: 0,
 };
 
 export default function Sessions() {
   const { adventureId } = useParams<{ adventureId: string }>();
   const qc = useQueryClient();
   const { activeCampaign, activeAdventure } = useCampaignStore();
+  const phone = useIsCompact(640);
 
   // Derive campaignId from store, or fetch adventure to get it (direct-URL fallback)
   const { data: adventure } = useQuery({
@@ -104,45 +133,67 @@ export default function Sessions() {
     setEditPcIds(currentIds ?? []);
   }
 
+  // "Up next" = the first unfinished session dated today or later; if none is
+  // dated, the first unfinished one (same rule as the campaign sessions page).
+  const ordered = [...sessions].sort((x, y) => x.session_number - y.session_number);
+  const today = new Date().toISOString().slice(0, 10);
+  const unfinished = ordered.filter((s) => s.status !== "Complete");
+  const upNext = unfinished.find((s) => s.date_planned && s.date_planned >= today) ?? unfinished[0];
+  const longestNumeral = ordered.reduce((m, s) => Math.max(m, toRoman(s.session_number).length), 1);
+  const numeralWidth = `max(2rem, calc(${longestNumeral} * 0.62em + 0.25rem))`;
+  const arcTitle = activeAdventure?.title ?? adventure?.title;
+
   return (
     <div className="fade-in">
       {/* Breadcrumb */}
-      <nav className="text-sm" style={{ marginBottom: "0.75rem", opacity: 0.7 }}>
-        <Link to="/" style={{ color: "var(--gold)" }}>Dashboard</Link>
+      <nav className="text-sm" style={{ marginBottom: "0.75rem", color: "var(--muted)" }}>
+        <Link to="/">Dashboard</Link>
         {activeCampaign && (
           <>
             {" / "}
-            <Link to={`/campaigns/${activeCampaign.id}/sessions`} style={{ color: "var(--gold)" }}>
+            <Link to={`/campaigns/${activeCampaign.id}/sessions`} className="story">
               {activeCampaign.name}
             </Link>
           </>
         )}
-        {(activeAdventure || adventure) && (
+        {arcTitle && (
           <>
             {" / "}
-            <span style={{ color: "var(--text-secondary)" }}>{activeAdventure?.title ?? adventure?.title}</span>
+            <span className="story" style={{ color: "var(--text2)" }}>{arcTitle}</span>
           </>
         )}
         {" / "}
-        <strong>Sessions</strong>
+        <span style={{ color: "var(--text)" }}>Sessions</span>
       </nav>
-      <div className="flex items-center" style={{ marginBottom: "1.5rem", justifyContent: "space-between" }}>
-        <h1>Sessions</h1>
-        <button className={showForm ? "btn btn-secondary" : "btn btn-primary"} onClick={() => setShowForm(!showForm)}>
-          {showForm ? "Cancel" : "+ New Session"}
+      <div
+        className="flex items-center"
+        style={{ marginBottom: "1.25rem", justifyContent: "space-between", gap: "1rem" }}
+      >
+        <h1 style={{ margin: 0 }}>Sessions</h1>
+        <button
+          className={showForm || upNext ? "btn btn-secondary" : "btn btn-primary"}
+          onClick={() => setShowForm(!showForm)}
+        >
+          {showForm ? (
+            "Cancel"
+          ) : (
+            <>
+              <Plus size={16} aria-hidden /> New session
+            </>
+          )}
         </button>
       </div>
 
       {showForm && (
         <div className="card" style={{ marginBottom: "1.5rem", maxWidth: 520 }}>
-          <h3>New Session</h3>
+          <h3 style={{ marginBottom: "0.75rem" }}>New session</h3>
           <div className="grid-2">
             <div className="form-group">
-              <label>Session # *</label>
+              <label>Session number *</label>
               <input type="number" value={sessionNumber} onChange={(e) => setSessionNumber(Number(e.target.value))} min={1} />
             </div>
             <div className="form-group">
-              <label>Date Planned</label>
+              <label>Date planned</label>
               <input type="date" value={datePlanned} onChange={(e) => setDatePlanned(e.target.value)} />
             </div>
           </div>
@@ -151,11 +202,11 @@ export default function Sessions() {
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. The Heist..." />
           </div>
           <div className="form-group">
-            <label>Attending Characters</label>
+            <label>Who&rsquo;s playing</label>
             <PcPicker characters={characters} selected={selectedPcIds} onChange={setSelectedPcIds} />
           </div>
           {createError && (
-            <p className="text-sm" style={{ color: "var(--crimson2)", marginBottom: "0.5rem" }}>
+            <p className="text-sm" style={{ color: "var(--danger-text)", marginBottom: "0.5rem" }}>
               Error: {createError}
             </p>
           )}
@@ -164,119 +215,210 @@ export default function Sessions() {
             onClick={() => create.mutate()}
             disabled={create.isPending}
           >
-            {create.isPending ? "Creating..." : "Create Session"}
+            {create.isPending ? "Creating..." : "Create session"}
           </button>
         </div>
       )}
 
       {isLoading && <p className="text-muted">Loading...</p>}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-        {sessions.map((s) => (
-          <div key={s.id} className="card">
-            <div className="flex items-center" style={{ justifyContent: "space-between" }}>
-              <div className="flex items-center gap-2">
-                <span style={{ fontSize: "1.2rem" }}>{STATUS_EMOJI[s.status] ?? "\u{1F4DD}"}</span>
-                <div>
-                  <strong style={{ color: "var(--gold)" }}>
-                    Session {s.session_number}{s.title ? `: ${s.title}` : ""}
-                  </strong>
-                  <div className="flex items-center gap-2" style={{ marginTop: "0.2rem" }}>
-                    <span className={`badge ${STATUS_BADGE[s.status] ?? "badge-draft"}`}>
-                      {statusLabel(s.status)}
+      {sessions.length > 0 && (
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            overflow: "hidden",
+          }}
+        >
+          {sessions.map((s, i) => {
+            const isNext = upNext?.id === s.id;
+            const done = s.status === "Complete";
+            const last = i === sessions.length - 1;
+            const players =
+              s.attending_pc_ids && s.attending_pc_ids.length > 0 && editingPcsFor !== s.id
+                ? s.attending_pc_ids.map(pcName).join(", ")
+                : "";
+            const subline = [s.date_planned, players].filter(Boolean).join(" · ");
+            return (
+              <div
+                key={s.id}
+                style={{
+                  position: "relative",
+                  padding: "0.75rem 1rem 0.75rem 0.85rem",
+                  background: isNext ? "var(--accent-soft)" : "transparent",
+                  // The lit row draws its own top edge over the hairline above it.
+                  marginTop: isNext && i > 0 ? -1 : 0,
+                  borderTop: isNext && i > 0 ? "1px solid var(--accent-line)" : "none",
+                  borderBottom: last
+                    ? "none"
+                    : `1px solid ${isNext ? "var(--accent-line)" : "var(--border)"}`,
+                }}
+              >
+                <div
+                  className="flex items-center"
+                  style={{ justifyContent: "space-between", gap: "0.6rem 1rem", flexWrap: "wrap" }}
+                >
+                  <div
+                    className="flex"
+                    style={{ alignItems: "baseline", gap: "0.75rem", minWidth: 0, flex: "1 1 280px" }}
+                  >
+                    <span
+                      aria-hidden
+                      title={`Session ${s.session_number}`}
+                      className="story"
+                      style={{
+                        flex: "0 0 auto",
+                        width: numeralWidth,
+                        textAlign: "center",
+                        fontSize: "1.15rem",
+                        fontWeight: isNext ? 700 : 500,
+                        color: isNext ? "var(--accent-text)" : "var(--muted)",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {toRoman(s.session_number)}
                     </span>
-                    {s.date_planned && (
-                      <span className="text-sm text-muted">{s.date_planned}</span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        className="story"
+                        style={{
+                          fontSize: "1.125rem",
+                          lineHeight: 1.3,
+                          fontWeight: isNext ? 700 : 500,
+                          color: done ? "var(--text2)" : "var(--text)",
+                        }}
+                      >
+                        {s.title ? (
+                          <>
+                            <span style={srOnly}>Session {s.session_number}: </span>
+                            {s.title}
+                          </>
+                        ) : (
+                          `Session ${s.session_number}`
+                        )}
+                      </div>
+                      {(isNext || subline || phone) && (
+                        <div
+                          className="text-sm text-muted"
+                          style={{
+                            marginTop: "0.15rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          {phone && (
+                            <span className={`badge ${STATUS_BADGE[s.status] ?? "badge-draft"}`}>
+                              {statusLabel(s.status)}
+                            </span>
+                          )}
+                          {isNext && <span style={{ color: "var(--accent-text)", fontWeight: 600 }}>Up next</span>}
+                          {isNext && subline && !phone && <span aria-hidden>·</span>}
+                          {subline && <span>{subline}</span>}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div
+                    className="flex gap-2 items-center"
+                    style={{
+                      flexWrap: "wrap",
+                      justifyContent: phone ? "flex-start" : "flex-end",
+                      marginLeft: phone ? 0 : "auto",
+                    }}
+                  >
+                    {!phone && (
+                      <span
+                        className={`badge ${STATUS_BADGE[s.status] ?? "badge-draft"}`}
+                        style={{ marginRight: "0.25rem" }}
+                      >
+                        {statusLabel(s.status)}
+                      </span>
                     )}
+                    {!done && (
+                      <button
+                        className="btn btn-ghost"
+                        style={compactBtn}
+                        onClick={() => advance.mutate(s.id)}
+                        disabled={advance.isPending}
+                        title="Move the status on: Draft → Ready → In progress → Complete"
+                      >
+                        {NEXT_STATUS_ACTION[s.status] ?? "Advance"}
+                      </button>
+                    )}
+                    <Link className="btn btn-secondary" style={compactBtn} to={`/sessions/${s.id}/prep`}>
+                      Prep
+                    </Link>
+                    <Link
+                      className={`btn ${isNext ? "btn-primary" : "btn-secondary"}`}
+                      style={compactBtn}
+                      to={`/sessions/${s.id}/hud`}
+                      title="Run the night from the HUD, the DM's screen at the table"
+                    >
+                      <Play size={14} aria-hidden /> Run
+                    </Link>
+                    <RowMenu
+                      label={`More for session ${s.session_number}`}
+                      items={[
+                        {
+                          label: "Who's playing…",
+                          onSelect: () => openPcEditor(s.id, s.attending_pc_ids),
+                        },
+                        {
+                          label: "Delete session…",
+                          danger: true,
+                          confirm: `Delete Session ${s.session_number}${s.title ? `: ${s.title}` : ""}? This can't be undone.`,
+                          onSelect: () => del.mutate(s.id),
+                        },
+                      ]}
+                    />
                   </div>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <Link className="btn btn-secondary" style={{ fontSize: "0.7rem" }} to={`/sessions/${s.id}/prep`}>
-                  Prep
-                </Link>
-                <Link
-                  className="btn btn-primary"
-                  style={{ fontSize: "0.7rem" }}
-                  to={`/sessions/${s.id}/hud`}
-                  title="Open Session HUD"
-                >
-                  HUD
-                </Link>
-                <button
-                  className="btn btn-ghost"
-                  style={{ fontSize: "0.7rem" }}
-                  onClick={() => openPcEditor(s.id, s.attending_pc_ids)}
-                >
-                  Party
-                </button>
-                <button
-                  className="btn btn-ghost"
-                  style={{ fontSize: "0.7rem" }}
-                  onClick={() => advance.mutate(s.id)}
-                  disabled={s.status === "Complete" || advance.isPending}
-                >
-                  Advance
-                </button>
-                <RowMenu
-                  label={`More for session ${s.session_number}`}
-                  items={[
-                    {
-                      label: "Delete session…",
-                      danger: true,
-                      confirm: `Delete Session ${s.session_number}${s.title ? `: ${s.title}` : ""}? This can't be undone.`,
-                      onSelect: () => del.mutate(s.id),
-                    },
-                  ]}
-                />
-              </div>
-            </div>
 
-            {/* Attending PCs summary */}
-            {s.attending_pc_ids && s.attending_pc_ids.length > 0 && editingPcsFor !== s.id && (
-              <div className="flex items-center gap-2" style={{ marginTop: "0.5rem", flexWrap: "wrap" }}>
-                <span className="text-sm text-muted">Party:</span>
-                {s.attending_pc_ids.map((id) => (
-                  <span key={id} className="badge badge-ready" style={{ fontSize: "0.7rem" }}>
-                    {pcName(id)}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* Inline PC editor */}
-            {editingPcsFor === s.id && (
-              <div style={{ marginTop: "0.75rem", borderTop: "1px solid var(--border)", paddingTop: "0.75rem" }}>
-                <h4 style={{ fontSize: "0.85rem", marginBottom: "0.5rem" }}>Attending Characters</h4>
-                <PcPicker characters={characters} selected={editPcIds} onChange={setEditPcIds} />
-                <div className="flex gap-2" style={{ marginTop: "0.5rem" }}>
-                  <button
-                    className="btn btn-primary"
-                    style={{ fontSize: "0.75rem" }}
-                    onClick={() => updatePcs.mutate({ id: s.id, pcIds: editPcIds })}
-                    disabled={updatePcs.isPending}
+                {/* Inline PC editor */}
+                {editingPcsFor === s.id && (
+                  <div
+                    style={{
+                      marginTop: "0.75rem",
+                      marginLeft: phone ? 0 : `calc(${numeralWidth} + 0.75rem)`,
+                      borderTop: "1px solid var(--border)",
+                      paddingTop: "0.75rem",
+                      maxWidth: 560,
+                    }}
                   >
-                    {updatePcs.isPending ? "Saving..." : "Save Party"}
-                  </button>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: "0.75rem" }}
-                    onClick={() => setEditingPcsFor(null)}
-                  >
-                    Cancel
-                  </button>
-                </div>
+                    <h3 style={{ fontSize: "0.9375rem", marginBottom: "0.5rem" }}>Who&rsquo;s playing</h3>
+                    <PcPicker characters={characters} selected={editPcIds} onChange={setEditPcIds} />
+                    <div className="flex gap-2" style={{ marginTop: "0.6rem" }}>
+                      <button
+                        className="btn btn-primary"
+                        style={compactBtn}
+                        onClick={() => updatePcs.mutate({ id: s.id, pcIds: editPcIds })}
+                        disabled={updatePcs.isPending}
+                      >
+                        {updatePcs.isPending ? "Saving..." : "Save party"}
+                      </button>
+                      <button className="btn btn-ghost" style={compactBtn} onClick={() => setEditingPcsFor(null)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        ))}
-        {!isLoading && sessions.length === 0 && (
-          <div className="empty-state">
-            <div className="empty-icon">{"\u{1F4C5}"}</div>
-            <p>No sessions yet - create one above.</p>
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </div>
+      )}
+      {!isLoading && sessions.length === 0 && !showForm && (
+        <div className="empty-state">
+          <CalendarDays size={32} aria-hidden style={{ color: "var(--muted)", marginBottom: "0.75rem" }} />
+          <p style={{ maxWidth: "46ch", margin: "0 auto" }}>
+            No sessions in this arc yet. Add one with <strong>New session</strong> to plan who&rsquo;s
+            playing and when.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

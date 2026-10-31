@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Ellipsis } from "lucide-react";
 
 export interface RowMenuItem {
   label: string;
@@ -38,14 +39,14 @@ export default function RowMenu({ items, label = "More actions" }: { items: RowM
       <button
         type="button"
         className="btn btn-ghost"
-        style={{ fontSize: "0.85rem", padding: "0.2rem 0.55rem", lineHeight: 1 }}
+        style={{ padding: "0.3rem 0.5rem", minWidth: "2.375rem", lineHeight: 1 }}
         aria-label={label}
         aria-haspopup="menu"
         aria-expanded={open}
         title={label}
         onClick={() => setOpen((v) => !v)}
       >
-        ⋯
+        <Ellipsis size={16} aria-hidden />
       </button>
       {open && (
         <div
@@ -55,11 +56,11 @@ export default function RowMenu({ items, label = "More actions" }: { items: RowM
             right: 0,
             top: "calc(100% + 4px)",
             zIndex: 40,
-            minWidth: 160,
+            minWidth: 170,
             background: "var(--surface)",
-            border: "1px solid var(--border)",
+            border: "1px solid var(--border2)",
             borderRadius: 8,
-            boxShadow: "0 10px 28px rgba(0,0,0,0.5)",
+            boxShadow: "0 10px 28px rgba(0,0,0,0.45)",
             padding: "0.25rem",
           }}
         >
@@ -79,14 +80,16 @@ export default function RowMenu({ items, label = "More actions" }: { items: RowM
                 display: "block",
                 width: "100%",
                 textAlign: "left",
-                padding: "0.4rem 0.65rem",
+                minHeight: 40,
+                padding: "0.5rem 0.75rem",
                 background: "transparent",
                 border: "none",
                 borderRadius: 6,
                 cursor: it.disabled ? "not-allowed" : "pointer",
-                color: it.danger ? "var(--red)" : "var(--text)",
+                color: it.danger ? "var(--danger-text)" : "var(--text)",
+                opacity: it.disabled ? 0.45 : 1,
                 font: "inherit",
-                fontSize: "0.9rem",
+                fontSize: "0.9375rem",
               }}
             >
               {it.label}

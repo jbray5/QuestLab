@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { CircleAlert, CircleCheck, Info, type LucideIcon } from "lucide-react";
 
 type ToastVariant = "error" | "info" | "success";
 
@@ -60,37 +61,38 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           pointerEvents: "none",
         }}
       >
-        {toasts.map((t) => (
-          <div
-            key={t.id}
-            className="ql-modal-in"
-            role="status"
-            style={{
-              padding: "0.6rem 0.85rem",
-              background: "var(--surface)",
-              border: `1px solid ${variantColor(t.variant)}`,
-              borderLeft: `4px solid ${variantColor(t.variant)}`,
-              borderRadius: 6,
-              color: "var(--text)",
-              fontSize: "0.85rem",
-              boxShadow: "0 6px 24px rgba(0,0,0,0.5)",
-              pointerEvents: "auto",
-            }}
-          >
-            <strong
+        {toasts.map((t) => {
+          const Icon = iconFor(t.variant);
+          return (
+            <div
+              key={t.id}
+              className="ql-modal-in"
+              role="status"
               style={{
-                color: variantColor(t.variant),
-                marginRight: "0.4rem",
-                textTransform: "uppercase",
-                fontSize: "0.7rem",
-                letterSpacing: "0.06em",
+                display: "flex",
+                alignItems: "flex-start",
+                gap: "0.55rem",
+                padding: "0.65rem 0.9rem",
+                background: "var(--surface2)",
+                border: `1px solid ${borderFor(t.variant)}`,
+                borderRadius: 8,
+                color: "var(--text)",
+                fontSize: "0.9375rem",
+                lineHeight: 1.45,
+                boxShadow: "0 6px 24px rgba(0,0,0,0.45)",
+                pointerEvents: "auto",
               }}
             >
-              {labelFor(t.variant)}
-            </strong>
-            {t.message}
-          </div>
-        ))}
+              <Icon size={16} aria-hidden style={{ color: variantColor(t.variant), marginTop: 3 }} />
+              <span>
+                <strong style={{ color: variantColor(t.variant), marginRight: "0.4rem", fontWeight: 600 }}>
+                  {labelFor(t.variant)}
+                </strong>
+                {t.message}
+              </span>
+            </div>
+          );
+        })}
       </div>
     </ToastContext.Provider>
   );
@@ -109,12 +111,28 @@ export function useToast(): ToastContextValue {
 function variantColor(v: ToastVariant): string {
   switch (v) {
     case "error":
-      return "var(--red, #ef5350)";
+      return "var(--danger-text)";
     case "success":
-      return "var(--green2, #4caf50)";
+      return "var(--teal-text)";
     case "info":
     default:
-      return "var(--gold)";
+      return "var(--text2)";
+  }
+}
+
+function borderFor(v: ToastVariant): string {
+  return v === "error" ? "var(--danger-line)" : "var(--border2)";
+}
+
+function iconFor(v: ToastVariant): LucideIcon {
+  switch (v) {
+    case "error":
+      return CircleAlert;
+    case "success":
+      return CircleCheck;
+    case "info":
+    default:
+      return Info;
   }
 }
 

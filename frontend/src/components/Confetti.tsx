@@ -7,12 +7,13 @@ interface Props {
   count?: number;
 }
 
+// Lamplit tokens: lantern orange, warm amber, parchment, teal (Plan 121).
 const COLORS = [
-  "#f4d068",
-  "#d6af36",
-  "#9d7c1f",
-  "#fff7d6",
-  "#c0392b",
+  "var(--accent)",
+  "var(--accent-text)",
+  "var(--amber)",
+  "var(--text)",
+  "var(--teal)",
 ];
 
 interface Particle {
@@ -82,7 +83,6 @@ export default function Confetti({ trigger, count = 36 }: Props) {
               opacity: 0.95,
               "--ql-x": `${p.dx}px`,
               animation: `ql-confetti-fall ${p.duration}s ease-in ${p.delay}s forwards`,
-              boxShadow: `0 0 8px ${p.color}55`,
             } as React.CSSProperties
           }
         />

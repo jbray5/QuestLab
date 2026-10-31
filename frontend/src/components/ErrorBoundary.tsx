@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { RefreshCw, RotateCcw, TriangleAlert } from "lucide-react";
 
 interface Props {
   /** Label for the boundary — shown in the fallback UI. */
@@ -44,33 +45,47 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div
           className="card"
+          role="alert"
           style={{
             margin: "1.5rem auto",
             maxWidth: 540,
             textAlign: "center",
-            border: "1px solid var(--crimson2, #8b1a1a)",
+            borderColor: "var(--danger-line)",
           }}
         >
-          <h3 style={{ marginTop: 0, color: "var(--red, #ef5350)" }}>
-            ⚠ Something broke
-            {this.props.label ? <span style={{ opacity: 0.7 }}> · {this.props.label}</span> : null}
+          <h3
+            style={{
+              marginTop: 0,
+              color: "var(--danger-text)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.45rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <TriangleAlert size={18} aria-hidden />
+            Something broke
+            {this.props.label ? (
+              <span style={{ color: "var(--muted)", fontWeight: 400 }}>· {this.props.label}</span>
+            ) : null}
           </h3>
-          <p className="text-sm" style={{ marginBottom: "0.75rem" }}>
+          <p className="text-sm" style={{ marginBottom: "0.75rem", color: "var(--text2)" }}>
             {this.state.error.message || "Unknown render error."}
           </p>
           <p className="text-muted text-sm" style={{ marginBottom: "1rem" }}>
-            The rest of the app is still working. Try the button below, or
-            reload the page if it persists.
+            The rest of the app is still working. Try again, or reload the page if it keeps
+            happening. Nothing you saved is lost.
           </p>
           <div className="flex" style={{ justifyContent: "center", gap: "0.5rem" }}>
             <button className="btn btn-secondary" onClick={this.reset}>
-              ↺ Retry
+              <RotateCcw size={16} aria-hidden /> Try again
             </button>
             <button
               className="btn btn-ghost"
               onClick={() => window.location.reload()}
             >
-              ⟳ Reload page
+              <RefreshCw size={16} aria-hidden /> Reload page
             </button>
           </div>
         </div>

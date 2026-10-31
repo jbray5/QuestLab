@@ -1,11 +1,11 @@
 import { useNavigate } from "react-router-dom";
-
-import Flourish from "../components/Flourish";
+import { Compass, House } from "lucide-react";
 
 /**
- * 404 — you wandered into the mist (Plan 00029 polish).
+ * 404 — you wandered off the map (Plan 00029, restyled for Lamplit in Plan 121).
  *
- * Themed, centered, and animated. Offers a single way home.
+ * A plain panel: what happened in tool words, one line of story flavour,
+ * and a single way home.
  */
 export default function NotFound() {
   const navigate = useNavigate();
@@ -13,56 +13,36 @@ export default function NotFound() {
     <div
       className="ql-modal-in"
       style={{
-        maxWidth: 560,
+        maxWidth: 520,
         margin: "8vh auto",
-        padding: "2rem",
+        padding: "2rem 1.5rem",
         textAlign: "center",
         background: "var(--surface)",
-        border: "1px solid var(--gold)",
-        borderRadius: 12,
-        boxShadow: "0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(201, 168, 76, 0.08)",
+        border: "1px solid var(--border)",
+        borderRadius: 10,
       }}
     >
-      <img
-        src="/d20.svg"
-        alt=""
-        aria-hidden
-        style={{
-          width: 64,
-          height: 64,
-          opacity: 0.7,
-          animation: "ql-shake 1.6s ease-in-out infinite",
-        }}
-      />
-      <h1
-        style={{
-          fontSize: "3rem",
-          margin: "0.5rem 0 0",
-          color: "var(--gold)",
-          fontFamily: "var(--font-story)",
-          letterSpacing: "0.1em",
-        }}
-      >
-        404
-      </h1>
-      <Flourish width={180} />
+      <Compass size={40} aria-hidden style={{ color: "var(--muted)" }} />
+      <h1 style={{ fontSize: "1.45rem", margin: "0.75rem 0 0.25rem" }}>Page not found</h1>
+      <p className="text-muted" style={{ margin: "0 0 1rem", fontSize: "0.9375rem" }}>
+        This link doesn&rsquo;t lead anywhere in QuestLab (error <span className="num">404</span>).
+      </p>
       <p
+        className="story"
         style={{
           fontStyle: "italic",
-          color: "var(--muted)",
-          fontSize: "1.05rem",
-          margin: "0.5rem 0 1.4rem",
+          color: "var(--story-text)",
+          fontSize: "1.1rem",
+          lineHeight: 1.5,
+          margin: "0 0 1.4rem",
         }}
       >
-        The path you sought lies beyond the map's edge.<br />
+        The path you sought lies beyond the map&rsquo;s edge.
+        <br />
         Mist swallows it, and stars give no light here.
       </p>
-      <button
-        className="btn btn-primary"
-        onClick={() => navigate("/")}
-        style={{ fontSize: "0.95rem" }}
-      >
-        ↩ Return to the keep
+      <button className="btn btn-primary" onClick={() => navigate("/")}>
+        <House size={16} aria-hidden /> Back to the dashboard
       </button>
     </div>
   );
