@@ -23,7 +23,7 @@ function inviteMailto(email: string, code: string): string {
   const body = [
     "Hi! A place opened in the QuestLab beta. Make your account here:",
     inviteLink(code),
-    'The sample night is the quickest way in. Tell me how it goes with "Send feedback" in the menu.',
+    'Start a campaign and share its join link with your players. Tell me how it goes with "Send feedback" in the menu.',
   ].join("\n\n");
   return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
@@ -75,6 +75,11 @@ export default function BetaPanel() {
   const seen = useMutation({
     mutationFn: (id: string) => betaApi.markSeen(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin-feedback"] }),
+  });
+  // Plan 130 — give a DM Patron (no Patreon needed), or take it back.
+  const comp = useMutation({
+    mutationFn: ({ email, comped }: { email: string; comped: boolean }) => betaApi.setComp(email, comped),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["admin-beta"] }),
   });
 
   async function copy(code: string) {
@@ -249,6 +254,7 @@ export default function BetaPanel() {
                 <th style={{ padding: "0.4rem 0.5rem", fontWeight: 500 }}>Last seen</th>
                 <th style={{ padding: "0.4rem 0.5rem", fontWeight: 500, textAlign: "right" }}>Campaigns</th>
                 <th style={{ padding: "0.4rem 0.5rem", fontWeight: 500, textAlign: "right" }}>Sessions</th>
+                <th style={{ padding: "0.4rem 0.5rem", fontWeight: 500 }}>Plan</th>
               </tr>
             </thead>
             <tbody>
@@ -263,6 +269,29 @@ export default function BetaPanel() {
                   <td style={{ padding: "0.45rem 0.5rem", whiteSpace: "nowrap" }}>{when(d.last_seen_at)}</td>
                   <td className="num" style={{ padding: "0.45rem 0.5rem", textAlign: "right" }}>{d.campaigns}</td>
                   <td className="num" style={{ padding: "0.45rem 0.5rem", textAlign: "right" }}>{d.sessions}</td>
+                  <td style={{ padding: "0.45rem 0.5rem" }}>
+                    <div className="flex items-center" style={{ gap: "0.35rem", flexWrap: "wrap" }}>
+                      <span
+                        className={d.plan === "patron" ? "pill pill-teal" : "pill"}
+                        title={d.comped ? "Given Patron by an admin" : undefined}
+                      >
+                        {d.plan === "patron" ? "Patron" : "Free"}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ minHeight: 44, fontSize: "0.8125rem", whiteSpace: "nowrap" }}
+                        disabled={comp.isPending}
+                        aria-label={`${d.comped ? "Remove Patron from" : "Give Patron to"} ${d.display_name || d.email}`}
+                        onClick={() => {
+                          if (d.comped && !window.confirm(`Remove the Patron you gave ${d.display_name || d.email}?`)) return;
+                          comp.mutate({ email: d.email, comped: !d.comped });
+                        }}
+                      >
+                        {d.comped ? "Remove Patron" : "Give Patron"}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

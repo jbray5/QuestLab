@@ -39,6 +39,9 @@ export interface BetaDm {
   last_seen_at: string;
   campaigns: number;
   sessions: number;
+  /** Plan 130 — their plan, and whether an admin gave them Patron. */
+  plan: "free" | "patron";
+  comped: boolean;
 }
 
 /** Someone who left an email on the landing page (Plan 54). */
@@ -67,4 +70,10 @@ export const betaApi = {
   feedback: () => api.get<FeedbackRow[]>("/admin/feedback"),
   markSeen: (id: string) => api.post<FeedbackRow>(`/admin/feedback/${id}/seen`),
   waitlist: () => api.get<{ count: number; entries: WaitlistEntry[] }>("/admin/waitlist"),
+  /** Plan 130 — give a DM Patron, or take it back. */
+  setComp: (email: string, comped: boolean) =>
+    api.post<{ email: string; comped: boolean; plan: "free" | "patron" }>(
+      `/admin/users/${encodeURIComponent(email)}/comp`,
+      { comped },
+    ),
 };

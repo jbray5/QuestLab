@@ -26,11 +26,15 @@ class User(SQLModel, table=True):
     avatar_url: Optional[str] = Field(default=None, max_length=1000)
     discord_id: Optional[str] = Field(default=None, index=True, max_length=64)
     patreon_id: Optional[str] = Field(default=None, index=True, max_length=64)
-    # Former Patreon membership snapshot (Plan 77 AI tiers, removed in Plan 124).
-    # The columns stay so existing rows keep their data; nothing writes them now.
+    # Patreon membership snapshot (Plan 130 pricing; first added for Plan 77).
+    # Written on each Patreon sign-in or "Link your Patreon". patron_tier_cents
+    # is the monthly-equivalent amount (services/plan_service.membership_cents).
+    # A membership counts for 40 days after patron_checked_at (UTC).
     patron_active: bool = Field(default=False)
     patron_tier_cents: int = Field(default=0, ge=0)
     patron_checked_at: Optional[datetime] = Field(default=None)
+    # Plan 130 — Patron given by an admin ("Give Patron"), no Patreon needed.
+    patron_comped: bool = Field(default=False)
     # Email + password accounts (Plan 73b) — scrypt hash, null for OAuth-only users.
     password_hash: Optional[str] = Field(default=None, max_length=300)
     # Plan 125 — the friends-beta invite code this account was started with.

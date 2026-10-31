@@ -75,8 +75,8 @@ class CharacterBuild(BaseModel):
     # Plan 128 — the class's own choices and the Origin feats' picks. The wizard always sends a
     # list here (empty when the class has nothing to choose), and then every choice is checked:
     # the class choices, Magic Initiate's spells and Skilled's skills, and the spell counts.
-    # None means a caller from before Plan 128 (the sample night's pregens): those aren't asked
-    # for, and the result's warnings say what's still open.
+    # None means a caller that predates Plan 128 (a script or an old client): those aren't
+    # asked for, and the result's warnings say what's still open.
     class_choices: Optional[list[ClassChoicePick]] = Field(default=None, max_length=20)
     background_feat_picks: Optional[OriginFeatPicks] = None  # the background's Origin feat
     origin_feat_picks: Optional[OriginFeatPicks] = None  # a Human's Versatile feat

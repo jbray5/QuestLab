@@ -1,7 +1,54 @@
-# Pricing — proposal for Justin's approval (2026-10-31)
+# Pricing (approved 2026-10-31, built in Plan 130)
 
-Status: **proposal**. Nothing in the app charges money today. The old Patreon tier
-machinery existed only to meter AI and is being removed with the AI code (Plan 124).
+Status: **approved** by Justin on 2026-10-31 ("yeah build it out") and **built** (Plan 130,
+`plans/00130-pricing-patron.md`). It ships switched off: `PRICING=off` is the beta, with no
+caps. QuestLab never takes payment itself. Patreon does, and QuestLab only reads the
+membership. The old Patreon tier machinery (it metered AI) went with the AI code in Plan 124.
+
+## The facts (for the landing page, the Terms and the plan page)
+- **Players never pay.** The player link, the phone, the join page and the market are free for
+  good. A DM never has to ask their table for money.
+- **During the beta** (now, until about 50 active DMs): free for DMs, with no limits. A quiet
+  "Support QuestLab" link goes to the Patreon page.
+- **After the beta:**
+  - **Free DM:** every table feature (the HUD, tracker, prep, players' phones, compendium,
+    sessions and notebook), **2 campaigns** and **250 MB** of uploads.
+  - **Patron:** **$4/month or $40/year** on Patreon. **Unlimited campaigns**, **5 GB** of uploads,
+    early access to new features, and a thank-you in the credits.
+- **The limits are on campaigns and storage, never on table features.**
+- **Going past a limit never deletes or hides anything.** A DM over a limit keeps everything,
+  and can't add a new campaign or upload until there's room.
+- Uploads made before the limits existed don't count.
+- Justin can give Patron to anyone ("Give Patron" in Admin). Admins have no limits.
+
+## What is built (Plan 130)
+- **Plans in one place:** `services/plan_service.py` (`FREE_CAMPAIGNS`, `FREE_UPLOAD_BYTES`,
+  `PATRON_UPLOAD_BYTES`, `PATRON_MIN_CENTS = 400`, `PATRON_MIN_ANNUAL_CENTS = 4000`,
+  `MEMBERSHIP_FRESH_DAYS = 40`, the display prices).
+- **Who is a Patron:**
+  - an admin;
+  - a DM given Patron by an admin (`users.patron_comped`);
+  - or a DM whose Patreon membership of `PATREON_CAMPAIGN_ID` is active, worth at least $4 a
+    month (a $40/year payment counts as $4 a month; the entitled tier's own price counts too),
+    and checked in the last 40 days.
+  Each Patreon sign-in, "Link your Patreon" or "Check my Patreon again" renews the check.
+- **Enforcement (only with `PRICING=on`):** campaign create and all three upload routes check the
+  plan first. A refusal is a 402 with plain words, for example "Free DMs run two campaigns.
+  Become a Patron for unlimited campaigns, or delete one you've finished."
+- **The uploads ledger** (`uploads` table, migration 0060) records every upload's owner, URL,
+  bytes and kind. Storage use is its sum.
+- **API:** `GET /api/me/plan`, `POST /api/me/patreon/link` and `/confirm`,
+  `POST /api/admin/users/{email}/comp`, and the plan shown in the admin beta overview.
+- **Screens:** "Your plan" (`/plan`) has the plan, usage meters, the two plans, "Support QuestLab"
+  or "Become a Patron", and "Link your Patreon". The menu has "Your plan", plus "Support
+  QuestLab" when `PATREON_URL` is set. A 402 at campaign create or upload says why and links to
+  `/plan`. Admin → Beta has a "Give Patron" toggle per DM.
+- **Turning it on:** see `docs/deployment.md`, "Pricing and Patreon": the Patreon tier,
+  `PATREON_CAMPAIGN_ID`, the OAuth redirect URI, then `PRICING=on`.
+
+---
+
+The approved proposal follows, unchanged.
 
 ## What DMs compare us with
 - D&D Beyond Master: $5.99/month, or $4.58/month billed yearly. It shares bought books
@@ -40,3 +87,4 @@ Roughly $35–45/month before storage. Ten patrons cover it.
 - Add a "Support QuestLab" link (footer + Terms) pointing at `PATREON_URL`.
 - After the beta: a small entitlement check (campaign count, upload bytes) in `services/`,
   with Patreon membership read at sign-in. This is a new plan; no AI quota code comes back.
+  (Done: Plan 130, above.)

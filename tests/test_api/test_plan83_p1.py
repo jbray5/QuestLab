@@ -1,8 +1,8 @@
 """Plan 83 — the P1 list from the six-DM field test, driven through the API.
 
 Join codes gate the join page; players move their own token; the projection
-carries initiative and party HP but never foe HP; the sample campaign opens
-twice; combat_state synonyms land on real states and nonsense is a 422; export
+carries initiative and party HP but never foe HP; combat_state synonyms
+land on real states and nonsense is a 422; export
 is a complete bundle the owner alone can pull.
 """
 
@@ -214,22 +214,6 @@ def test_phone_finds_the_live_session(client, api_engine):
     r = client.get(f"/api/play/{pc}/live-session")
     assert r.status_code == 200 and r.json()["session_id"] == sid
     assert client.get(f"/api/play/{uuid.uuid4()}/live-session").status_code == 404
-
-
-def test_sample_campaign_opens_twice_and_is_runnable(client):
-    """First call builds it (201); the second hands back the same ids (200)."""
-    h = auth("starter@example.com")
-    first = client.post("/api/onboarding/starter", headers=h)
-    assert first.status_code == 201, first.text
-    ids = first.json()
-    again = client.post("/api/onboarding/starter", headers=h)
-    assert again.status_code == 200 and again.json()["session_id"] == ids["session_id"]
-    gs = client.get(f"/api/sessions/{ids['session_id']}", headers=h).json()
-    assert gs["title"] == "The Millpond Bells"
-    npcs = client.get(f"/api/campaigns/{ids['campaign_id']}/npcs", headers=h).json()
-    assert {n["name"] for n in npcs} >= {"Aldous Fenwright", "Tansy Quill"}
-    rb = client.get(f"/api/sessions/{ids['session_id']}/runbook", headers=h)
-    assert rb.status_code == 200 and len(rb.json()["scenes"]) == 3
 
 
 def test_export_is_owner_only_and_complete(client, api_engine):

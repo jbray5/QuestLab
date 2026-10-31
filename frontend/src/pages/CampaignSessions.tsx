@@ -597,7 +597,7 @@ export default function CampaignSessions() {
                   </div>
                   <div className="form-group">
                     <label>Title</label>
-                    <input value={sTitle} onChange={(e) => setSTitle(e.target.value)} placeholder="e.g. The Gilded Kettle" autoFocus />
+                    <input value={sTitle} onChange={(e) => setSTitle(e.target.value)} placeholder="e.g. Session one" autoFocus />
                   </div>
                   <div className="form-group">
                     <label>Who&rsquo;s playing</label>

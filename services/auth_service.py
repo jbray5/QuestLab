@@ -3,6 +3,12 @@
 Flow: ``start`` mints a signed CSRF state and returns the provider URL;
 ``complete`` verifies the state, exchanges the code, upserts the user,
 and issues a session token. Email is the identity everything else keys on.
+
+Plan 130 — "Link your Patreon" for a signed-in DM: ``start_patreon_link``
+signs a state carrying the link intent and that DM's email;
+``complete_patreon_link`` (the callback) reads the Patreon identity and
+membership and returns a short-lived signed result; ``confirm_patreon_link``
+attaches it, only for the same signed-in DM who started it.
 """
 
 import hmac
@@ -13,12 +19,16 @@ from sqlmodel import Session as DBSession
 
 from db.repos.campaign_repo import CampaignRepo
 from db.repos.user_repo import UserRepo
+from domain.plan import PatreonLinkResult
 from domain.user import User, UserRead
 from integrations import oauth, session_token
 from integrations.identity import get_current_user_email as _get_email
-from services import beta_service
+from services import beta_service, plan_service
 
 _STATE_TTL = 10 * 60
+# Plan 130 — the callback's signed link result lives only as long as a sign-in state.
+_LINK_KIND = "patreon_link"
+_LINK_INTENT = "link"
 
 
 # ── Legacy identity + admin helpers (unchanged; admin router + pages use these) ──
@@ -229,12 +239,182 @@ def complete(db: DBSession, provider: str, code: str, state: str) -> tuple[str, 
         user.discord_id = profile.provider_id
     else:
         user.patreon_id = profile.provider_id
+        # Plan 130 — every Patreon sign-in refreshes the membership.
+        plan_service.apply_membership(user, profile.membership)
     if not user.display_name:
         user.display_name = profile.display_name
     if profile.avatar_url and not user.avatar_url:
         user.avatar_url = profile.avatar_url
     user = UserRepo.save(db, user)
     return session_token.issue(user.email), user
+
+
+# ── Plan 130: link a Patreon account to the signed-in DM ──
+
+
+def start_patreon_link(email: str) -> str:
+    """Begin "Link your Patreon" for a signed-in DM.
+
+    The signed state names this DM and the link intent, so the callback can
+    only ever attach the Patreon account to them.
+
+    Args:
+        email: The signed-in DM.
+
+    Returns:
+        Patreon's authorization URL (scope ``identity identity.memberships``).
+
+    Raises:
+        ValueError: If Patreon isn't configured.
+        RuntimeError: If APP_SECRET is missing (no signed state possible).
+    """
+    if "patreon" not in oauth.configured_providers():
+        raise ValueError("Patreon isn't set up on this server yet.")
+    state = session_token.issue(
+        email,
+        kind="state",
+        ttl_seconds=_STATE_TTL,
+        extra={"provider": "patreon", "intent": _LINK_INTENT},
+    )
+    return oauth.patreon_link_url(state)
+
+
+def state_intent(state: str) -> str:
+    """Whether a callback's state is a sign-in or a Patreon link.
+
+    Args:
+        state: The signed state from the callback.
+
+    Returns:
+        ``"link"`` for a valid link state, else ``"signin"`` (which ``complete``
+        then verifies on its own).
+    """
+    claims = session_token.verify(state, kind="state")
+    if claims is not None and claims.get("intent") == _LINK_INTENT:
+        return _LINK_INTENT
+    return "signin"
+
+
+def _refuse_if_linked_elsewhere(db: DBSession, patreon_id: str, email: str) -> None:
+    """Refuse to link a Patreon account that already belongs to another QuestLab account."""
+    other = UserRepo.get_by_provider(db, "patreon", patreon_id)
+    if other is not None and other.email != email.strip().lower():
+        raise ValueError(
+            "That Patreon account is already linked to another QuestLab account. "
+            "Sign in with Patreon to use that account, or link a different Patreon."
+        )
+
+
+def complete_patreon_link(db: DBSession, code: str, state: str) -> str:
+    """Finish the Patreon side of a link: read the identity and membership.
+
+    Nothing is attached yet. The result is signed for the DM named in the state
+    and handed to the plan page, which confirms it with that DM's own session
+    (so a link started by one person can't be finished in someone else's browser).
+
+    Args:
+        db: Active database session.
+        code: Authorization code from the callback.
+        state: The signed link state.
+
+    Returns:
+        A short-lived signed link result for ``confirm_patreon_link``.
+
+    Raises:
+        ValueError: On a bad or expired state, a failed exchange, or a Patreon
+            account already linked to someone else.
+    """
+    claims = session_token.verify(state, kind="state")
+    if (
+        claims is None
+        or claims.get("intent") != _LINK_INTENT
+        or claims.get("provider") != "patreon"
+    ):
+        raise ValueError("That Patreon link expired or was tampered with. Try again.")
+    email = str(claims["sub"])
+    profile = oauth.exchange_code("patreon", code)
+    if not profile.provider_id:
+        raise ValueError("Patreon did not say who you are. Try again.")
+    _refuse_if_linked_elsewhere(db, profile.provider_id, email)
+    extra: dict = {"patreon_id": profile.provider_id, "asked": profile.membership is not None}
+    m = profile.membership
+    if m is not None:
+        extra.update(
+            found=m.found,
+            status=m.patron_status or "",
+            entitled=m.entitled_cents,
+            cadence=m.cadence_months,
+            tier=m.tier_cents,
+        )
+    return session_token.issue(email, kind=_LINK_KIND, ttl_seconds=_STATE_TTL, extra=extra)
+
+
+def _link_message(status_counts: bool, membership: Optional[oauth.PatreonMembership]) -> str:
+    """The sentence the plan page shows after a link."""
+    if status_counts:
+        return "Your Patreon is linked. Thank you for being a Patron."
+    if membership is None:
+        return "Your Patreon is linked."
+    if not membership.found:
+        return (
+            "Your Patreon is linked, but it has no QuestLab membership yet. "
+            "Join on Patreon, then check again."
+        )
+    if not membership.active:
+        return (
+            "Your Patreon is linked, but the membership isn't active. "
+            "Check it on Patreon, then check again."
+        )
+    return (
+        "Your Patreon is linked, but the membership is below the Patron tier "
+        f"({plan_service.PRICE_MONTHLY} or {plan_service.PRICE_YEARLY})."
+    )
+
+
+def confirm_patreon_link(db: DBSession, email: str, token: str) -> PatreonLinkResult:
+    """Attach a finished Patreon link to the signed-in DM who started it.
+
+    Args:
+        db: Active database session.
+        email: The signed-in DM (from their session, not from the token).
+        token: The signed result from ``complete_patreon_link``.
+
+    Returns:
+        A sentence saying what happened, and the plan afterwards.
+
+    Raises:
+        ValueError: If the result is invalid or expired, or the Patreon account
+            is linked to another QuestLab account.
+        PermissionError: If a different DM started this link.
+    """
+    claims = session_token.verify(token, kind=_LINK_KIND)
+    if claims is None or not claims.get("patreon_id"):
+        raise ValueError("That Patreon link expired. Try linking again.")
+    email = email.strip().lower()
+    if str(claims["sub"]).strip().lower() != email:
+        raise PermissionError(
+            "That Patreon link was started from a different QuestLab account. "
+            "Sign in as that account, or start the link again here."
+        )
+    patreon_id = str(claims["patreon_id"])
+    _refuse_if_linked_elsewhere(db, patreon_id, email)
+    user = UserRepo.get_by_email(db, email) or User(email=email)
+    user.patreon_id = patreon_id
+    membership = None
+    if claims.get("asked"):
+        membership = oauth.PatreonMembership(
+            found=bool(claims.get("found")),
+            patron_status=claims.get("status") or None,
+            entitled_cents=int(claims.get("entitled") or 0),
+            cadence_months=int(claims.get("cadence") or 1),
+            tier_cents=int(claims.get("tier") or 0),
+        )
+    plan_service.apply_membership(user, membership)
+    UserRepo.save(db, user)
+    status = plan_service.status(db, email)
+    return PatreonLinkResult(
+        message=_link_message(status.patreon_counts, membership), status=status
+    )
 
 
 def _require_claim_code(claim_code: Optional[str]) -> None:

@@ -1,4 +1,4 @@
-"""Admin router — monster seeding and campaign export (admin-only)."""
+"""Admin router — monster seeding, campaign export, the beta and Patron comps (admin-only)."""
 
 import json
 import uuid
@@ -6,10 +6,11 @@ import uuid
 from fastapi import APIRouter, HTTPException, Response, status
 
 from api.deps import DB, CurrentUser
-from domain.beta import BetaOverview, FeedbackRead, InviteCreate, InviteRead
+from domain.beta import FeedbackRead, InviteCreate, InviteRead
 from domain.monster import MonsterStatBlock as Monster
+from domain.plan import BetaPlanOverview, CompRequest, CompResult
 from integrations.dnd_rules.stat_blocks import seed_monsters
-from services import auth_service, beta_service, campaign_service, encounter_service
+from services import auth_service, beta_service, campaign_service, encounter_service, plan_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -193,18 +194,34 @@ def revoke_invite(invite_id: uuid.UUID, db: DB, user: CurrentUser) -> InviteRead
     return _beta_call(beta_service.revoke_invite, db, user, invite_id)
 
 
-@router.get("/beta", response_model=BetaOverview)
-def beta_overview(db: DB, user: CurrentUser) -> BetaOverview:
-    """Who is in the beta and how much they've played (admin only).
+@router.get("/beta", response_model=BetaPlanOverview)
+def beta_overview(db: DB, user: CurrentUser) -> BetaPlanOverview:
+    """Who is in the beta, how much they've played, and their plan (admin only).
 
     Args:
         db: Database session.
         user: Authenticated admin email.
 
     Returns:
-        Invite-only status and every DM with campaign and session counts.
+        Invite-only status and every DM with campaign and session counts and plan.
     """
     return _beta_call(beta_service.overview, db, user)
+
+
+@router.post("/users/{email}/comp", response_model=CompResult)
+def set_comp(email: str, body: CompRequest, db: DB, user: CurrentUser) -> CompResult:
+    """Give Patron to a DM, or take it back (admin only, Plan 130).
+
+    Args:
+        email: The DM's account email.
+        body: ``{comped: bool}``.
+        db: Database session.
+        user: Authenticated admin email.
+
+    Returns:
+        The DM's comp flag and plan afterwards.
+    """
+    return _beta_call(plan_service.set_comped, db, user, email[:320], body.comped)
 
 
 @router.get("/feedback", response_model=list[FeedbackRead])

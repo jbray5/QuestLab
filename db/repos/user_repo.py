@@ -66,17 +66,20 @@ class UserRepo:
         return list(session.exec(stmt).all())
 
     @staticmethod
-    def save(session: Session, user: User) -> User:
-        """Persist a new or mutated user and bump ``last_seen_at``.
+    def save(session: Session, user: User, touch: bool = True) -> User:
+        """Persist a new or mutated user and (by default) bump ``last_seen_at``.
 
         Args:
             session: Active database session.
             user: The row.
+            touch: Bump ``last_seen_at``. False for changes made by someone else
+                (an admin giving Patron), so "Last seen" stays the DM's own.
 
         Returns:
             The refreshed row.
         """
-        user.last_seen_at = datetime.now(UTC)
+        if touch:
+            user.last_seen_at = datetime.now(UTC)
         session.add(user)
         session.commit()
         session.refresh(user)

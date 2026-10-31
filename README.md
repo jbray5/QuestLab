@@ -89,8 +89,11 @@ QuestLab runs in **personal mode** by default (trusted-header identity). To let 
 | `LOG_LEVEL` | No | `INFO` | Logging verbosity |
 | `ENV` | No | `production` | `development` enables dev fallbacks |
 | `BLOB_READ_WRITE_TOKEN` | In production | — | Vercel Blob store for uploads (portraits and notebook pastes under `portraits/`, maps, `.glb` figures). Blank in dev: files go to `uploads/` |
+| `PRICING` | No | `off` | Plan 130. `off` during the beta: nothing is capped. `on`: a Free DM gets 2 campaigns and 250 MB of uploads; Patrons and admins get more. Players never pay |
+| `PATREON_URL` | No | — | QuestLab's Patreon page: "Support QuestLab" in the menu and on `/plan`, and "Become a Patron" |
+| `PATREON_CAMPAIGN_ID` | To read memberships | — | QuestLab's Patreon campaign; a DM whose membership of it is active (at least $4/month or $40/year) is a Patron |
 
-`.env.example` lists the rest (accounts, beta invites, rate limits); see [docs/deployment.md](docs/deployment.md).
+`.env.example` lists the rest (accounts, beta invites, rate limits); see [docs/deployment.md](docs/deployment.md). Turning pricing on and setting up Patreon is in the "Pricing and Patreon" section there.
 
 **Never commit `.env`.** Commit `.env.example` only.
 

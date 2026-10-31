@@ -178,6 +178,64 @@ Cloudflare Access policy or Vercel's password protection (Pro plan).
 
 ---
 
+## Pricing and Patreon (Plan 130)
+
+Players never pay. During the beta nothing is capped. Pricing is in `docs/PRICING.md`; the
+code is `services/plan_service.py`.
+
+### Env vars (questlab-api → Environment)
+
+| Key | Value | Notes |
+|---|---|---|
+| `PRICING` | `off` (default) or `on` | `render.yaml` sets `off`. `on` enforces the Free plan's 2 campaigns and 250 MB. Admins are never capped. Changing it needs no code change, just a redeploy. |
+| `PATREON_URL` | `https://www.patreon.com/<page>` | QuestLab's public Patreon page. It shows "Support QuestLab" in the menu and on `/plan`, and the plan page's "Become a Patron" button. |
+| `PATREON_CAMPAIGN_ID` | e.g. `1234567` | QuestLab's campaign id. A DM is a Patron when their membership of **this** campaign is active. Without it, memberships aren't read at all. |
+| `PATREON_CLIENT_ID` / `PATREON_CLIENT_SECRET` | from the Patreon client | Already used by "Sign in with Patreon"; "Link your Patreon" uses the same client. |
+| `OAUTH_REDIRECT_BASE` / `FRONTEND_ORIGIN` / `APP_SECRET` | as for sign-in | The link's signed state and result need `APP_SECRET`. The callback lands on `FRONTEND_ORIGIN/plan`. |
+
+### Patreon setup (once)
+
+1. **Tier.** On QuestLab's Patreon page, make one paid tier called **Patron** at **$4/month**.
+   Turn on annual billing at **$40/year** (Patreon calls the yearly price a discount).
+   A membership counts when it's worth at least $4 a month, or at least $40 paid yearly
+   (`PATRON_MIN_CENTS` and `PATRON_MIN_ANNUAL_CENTS`).
+2. **Client.** At <https://www.patreon.com/portal/registration/register-clients>, under the
+   same creator account as the campaign, create or reuse the OAuth client:
+   - Redirect URI: `https://<render-api-host>/api/auth/patreon/callback`, exactly
+     `OAUTH_REDIRECT_BASE` + `/auth/patreon/callback`. Sign-in and linking share it.
+   - Scopes requested: sign-in asks for `identity identity[email]`; "Link your Patreon" asks
+     for `identity identity.memberships`. Patreon shows them on its consent screen; nothing
+     else has to be set in the portal.
+3. **Campaign id.** Find it in the creator portal, or read it from the API with the client's
+   creator access token:
+   `curl -H "Authorization: Bearer <creator token>" https://www.patreon.com/api/oauth2/v2/campaigns`.
+   Put the `data[0].id` value in `PATREON_CAMPAIGN_ID`.
+4. Set `PATREON_URL`, then redeploy.
+
+### How a DM becomes a Patron
+
+- **Patreon:** they join the tier on Patreon, then press **Link your Patreon** (or **Check my
+  Patreon again**) on `/plan`, or sign in with Patreon. Each check counts for **40 days**.
+  Patreon tokens expire and nothing polls in the background, so a lapsed membership stops
+  counting at most 40 days after the last check. Signing in with Patreon renews it.
+- **Comp:** in Admin → Beta → DMs, press **Give Patron** (`POST /api/admin/users/{email}/comp`).
+  It works without Patreon, until it's removed.
+- **Admins** (`BOOTSTRAP_ADMIN_EMAILS`) have no caps.
+
+### Switching pricing on (when the beta ends, around 50 active DMs)
+
+1. Make sure the Patreon setup above is done and `/plan` shows "Link your Patreon".
+2. Set `PRICING=on` and redeploy.
+3. Check `/plan` on a free test account: it should say **Free**, with the meters against
+   2 campaigns and 250 MB. A third campaign should answer 402 with "Free DMs run two campaigns…".
+4. Nothing is deleted or hidden for DMs already over a limit. They just can't add more.
+   Comp anyone who should keep going.
+
+Storage counts every upload since migration 0060 (the uploads ledger). Older files count as 0,
+and replacing or deleting a picture doesn't lower the count yet (see TD-130a in `docs/QUALITY.md`).
+
+---
+
 ## Updating after a code change
 
 Both Render and Vercel auto-deploy on every push to `main`:

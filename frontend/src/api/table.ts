@@ -1,4 +1,5 @@
 import { api, apiBase, authHeaders } from "./client";
+import { friendlyStatusError } from "./errors";
 import type {
   BattleMap,
   BattleMapCreate,
@@ -20,7 +21,8 @@ async function uploadTo(route: string, file: File): Promise<string> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(body?.detail ?? res.statusText);
+    // Plan 130 — a 402 (past the plan's storage) reads as the plan's own sentence.
+    throw new Error(friendlyStatusError(res.status, body, res.statusText || "Upload failed."));
   }
   const { url } = (await res.json()) as { url: string };
   return url;

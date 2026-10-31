@@ -58,6 +58,7 @@ const JoinView = lazy(() => import("./pages/JoinView"));
 const GuidePage = lazy(() => import("./pages/GuidePage"));
 const CharacterCreator = lazy(() => import("./pages/CharacterCreator"));
 const TermsPage = lazy(() => import("./pages/TermsPage"));
+const PlanPage = lazy(() => import("./pages/PlanPage"));
 
 function PageLoader() {
   return (
@@ -147,6 +148,7 @@ export default function App() {
       <Route path="/" element={lazyRoute(<Layout />)}>
         <Route index element={lazyRoute(<Dashboard />)} />
         <Route path="campaigns" element={lazyRoute(<Campaigns />)} />
+        <Route path="plan" element={lazyRoute(<PlanPage />)} />
         <Route
           path="campaigns/:campaignId/adventures"
           element={lazyRoute(<Adventures />)}

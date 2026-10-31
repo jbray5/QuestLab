@@ -90,16 +90,66 @@ function one(e: PydanticError): string {
 }
 
 /**
+ * Plan 130 — a 402 means a new campaign or upload would go past the DM's plan.
+ * The API sends `{code: "plan_limit", limit, message}`; the message is written
+ * for people. Messages seen here are remembered so a screen can tell, from the
+ * Error it caught, that it should offer a link to the plan page.
+ */
+interface PlanLimitDetail {
+  code: "plan_limit";
+  limit: "campaigns" | "storage";
+  message: string;
+}
+
+const PLAN_LIMIT_FALLBACK =
+  "That's past what your plan allows. Your plan, in the menu, shows what you use.";
+const planLimitMessages = new Set<string>([PLAN_LIMIT_FALLBACK]);
+
+function isPlanLimitDetail(detail: unknown): detail is PlanLimitDetail {
+  return (
+    !!detail &&
+    typeof detail === "object" &&
+    (detail as { code?: unknown }).code === "plan_limit" &&
+    typeof (detail as { message?: unknown }).message === "string"
+  );
+}
+
+/** Whether an error thrown by an API call was a plan limit (a 402), so the screen can link to /plan. */
+export function isPlanLimitError(err: unknown): boolean {
+  return err instanceof Error && planLimitMessages.has(err.message);
+}
+
+/**
+ * The message for a failed request when the caller has the status code (uploads
+ * use their own fetch). A 402 always reads as a plan limit.
+ *
+ * @param status - The HTTP status.
+ * @param body - The parsed JSON body, if any.
+ * @param fallback - What to say when there is nothing usable.
+ */
+export function friendlyStatusError(status: number, body: unknown, fallback: string): string {
+  const detail = body && typeof body === "object" ? (body as { detail?: unknown }).detail : undefined;
+  if (status === 402 && !isPlanLimitDetail(detail)) return PLAN_LIMIT_FALLBACK;
+  return friendlyApiError(detail, fallback);
+}
+
+/**
  * The message to show for a failed request.
  *
  * @param detail - The `detail` field of the error body (string, list, or anything).
  * @param fallback - What to say when there is nothing usable (e.g. the status text).
  */
 export function friendlyApiError(detail: unknown, fallback: string): string {
+  if (isPlanLimitDetail(detail)) {
+    planLimitMessages.add(detail.message);
+    return detail.message;
+  }
   if (typeof detail === "string" && detail.trim()) return detail;
   if (Array.isArray(detail)) {
     const lines = Array.from(new Set((detail as PydanticError[]).map(one)));
     if (lines.length) return lines.join(" ");
   }
+  // A bare 402 (no plan_limit body) still reads as the plan, never "Payment Required".
+  if (fallback === "Payment Required") return PLAN_LIMIT_FALLBACK;
   return fallback || "Something went wrong — try again.";
 }

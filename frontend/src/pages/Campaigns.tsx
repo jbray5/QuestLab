@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Plus, ScrollText } from "lucide-react";
 import { api } from "../api/client";
 import { campaignsApi } from "../api/campaigns";
+import { isPlanLimitError } from "../api/errors";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Campaign } from "../api/types";
 import RowMenu from "../components/RowMenu";
@@ -27,7 +28,10 @@ export default function Campaigns() {
   const navigate = useNavigate();
   const { setActiveCampaign } = useCampaignStore();
 
-  const [showForm, setShowForm] = useState(false);
+  // Plan 129/130 — the dashboard's "Start your first campaign" links to
+  // /campaigns?new=1, which opens the form on arrival.
+  const [searchParams] = useSearchParams();
+  const [showForm, setShowForm] = useState(() => searchParams.get("new") === "1");
   const [name, setName] = useState("");
   const [setting, setSetting] = useState("");
   const [tone, setTone] = useState("");
@@ -124,8 +128,15 @@ export default function Campaigns() {
             {create.isPending ? "Creating..." : "Create campaign"}
           </button>
           {create.isError && (
-            <p style={{ color: "var(--danger-text)", marginTop: "0.5rem", fontSize: "0.875rem" }}>
+            <p role="alert" style={{ color: "var(--danger-text)", marginTop: "0.5rem", fontSize: "0.875rem" }}>
               {(create.error as Error).message}
+              {/* Plan 130 — past the Free plan's campaigns (a 402): the plan page explains. */}
+              {isPlanLimitError(create.error) && (
+                <>
+                  {" "}
+                  <Link to="/plan">See your plan</Link>
+                </>
+              )}
             </p>
           )}
         </div>

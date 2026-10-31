@@ -166,7 +166,7 @@ class TestSpellCounts:
             )
 
     def test_an_older_caller_keeps_the_lenient_rules(self, duckdb_session: Session):
-        """No class_choices (the sample night's pregens): a short list is a warning, not a stop."""
+        """No class_choices (an older caller): a short list is a warning, not a stop."""
         c = _campaign(duckdb_session)
         res = builder.create(duckdb_session, c.id, self._bard(duckdb_session, class_choices=None))
         assert res.pc_id

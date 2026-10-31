@@ -17,7 +17,7 @@ export interface TourStep {
   placement?: "right" | "bottom" | "top" | "left";
 }
 
-// Tag nav items, the sample button and the dice tray with data-tour-id so
+// Tag nav items, the start button and the dice tray with data-tour-id so
 // the tour can find them regardless of label tweaks (Layout.tsx, Dashboard.tsx,
 // DiceTray.tsx). A step whose target isn't on the current page renders centered
 // with no spotlight, never a spotlight on the wrong thing (Plan 83).
@@ -29,15 +29,6 @@ export const TOUR_STEPS: TourStep[] = [
       "sheet lives on their own phone. There is no generative AI in it.",
   },
   {
-    title: "Run the sample night first",
-    body:
-      "One tap builds a campaign with four ready characters, an ambush and a runbook " +
-      "with read-aloud text. It opens straight into the HUD, so you can see a session " +
-      "before you write one.",
-    targetSelector: "[data-tour-id='sample-campaign']",
-    placement: "top",
-  },
-  {
     title: "Campaign, arc, session",
     body:
       "That's the whole model. Pick a campaign and its pages appear here: " +
@@ -46,7 +37,7 @@ export const TOUR_STEPS: TourStep[] = [
     placement: "right",
   },
   {
-    title: "Your own campaigns",
+    title: "Start with a campaign",
     body:
       "A name, a setting and a tone are all it needs. Deleting a campaign takes its " +
       "sessions, maps and NPCs with it, and nothing else.",
@@ -61,6 +52,13 @@ export const TOUR_STEPS: TourStep[] = [
       "spells, hit points and whose turn it is.",
     targetSelector: "[data-tour-id='nav-characters']",
     placement: "right",
+  },
+  {
+    title: "Your maps, if you use them",
+    body:
+      "Upload a battle map, set its grid and paint fog where the party hasn't been. The " +
+      "TV shows it with everyone's tokens, and a player at home opens the map from their " +
+      "phone and moves their own token. No map? The TV shows the turn order instead.",
   },
   {
     title: "Dice when you want them",

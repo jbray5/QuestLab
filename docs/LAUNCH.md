@@ -77,9 +77,11 @@ with Discord while still in header mode to confirm, THEN set `AUTH_MODE=oauth`.
 
 ## Pricing
 QuestLab has no generative AI (Plan 86; the code was removed in Plan 124), so there is no AI
-paywall or tier ladder any more. The current proposal is in [PRICING.md](PRICING.md): players never
-pay, DMs are free during the beta, and later one "Patron" tier caps storage and campaign count,
-never table features.
+paywall or tier ladder any more. Pricing was approved and built on 10/31 (Plan 130, see
+[PRICING.md](PRICING.md)): players never pay, DMs are free during the beta, and after it one
+"Patron" tier on Patreon ($4/month or $40/year) lifts the free caps (2 campaigns, 250 MB), never
+table features. It ships switched off (`PRICING=off`); the steps to switch it on are in
+[deployment.md](deployment.md) "Pricing and Patreon". Fix TD-130a (storage only grows) first.
 
 ## 3. Frontend (Vercel)
 No new env needed. `/welcome` shows the provider buttons automatically once the
@@ -105,18 +107,18 @@ To open sign-up to everyone later, set `BETA_INVITES=off`; no deploy is needed b
 - [x] Rate limits: in-app per-IP throttle (Plan 77) on sign-in/sign-up/join (20/min) and every write (120/min). Cloudflare in front is still a good idea for the raw flood case.
 - [ ] The demo service (`questlab-demo`) either fixed (new free Postgres, re-point PG*, redeploy, `scripts/seed_demo_world.py`) or its links removed from `/try`.
 - [ ] Support channel: a Discord server invite in the Guide footer, or an email.
-- [ ] Try the full new-DM path yourself in a private window: sign in → sample campaign → QR join from a phone → stage a map → roll.
+- [ ] Try the full new-DM path yourself in a private window: sign in → start a campaign (the dashboard's four steps) → QR join from a phone → stage a map → roll.
 - [x] Compendium check: the character creator ships SRD 5.2.1 only. The two PHB subclasses' feature text (Circle of Stars, Soulknife) is listed and granted only to `BOOTSTRAP_ADMIN_EMAILS` (Plan 77) — everyone else sees the SRD catalog.
-- [x] Shippable art check (Plan 124): the sample campaign and the demo use the code-drawn sample map; no AI art ships. Your Czepeku/Dynamic-Dungeons imports live in *your* campaign and never seed anyone else's.
+- [x] Shippable art and words (Plans 124, 129): no AI art ships, and the AI-drafted sample adventure and the landing's story snippets are gone (Plan 129) until Justin writes a one-shot himself. The demo world uses the code-drawn map. Your Czepeku/Dynamic-Dungeons imports live in *your* campaign and never seed anyone else's.
 
 ## 5. The post (draft)
 **Title:** I built a free table tool for in-person D&D — a DM screen and initiative tracker, with each player's sheet on their own phone. No AI. Looking for DMs to break it.
 
 Body beats: what it is (the loop in 4 sentences) · a 30-second clip of the HUD and a
 player's phone in the same fight · players never pay, DMs free in the beta, no AI anywhere
-(no art, no text) · **say it upfront: built by a developer who uses AI coding tools; nothing in
-the app generates content or sends your words to a model** (same wording as Terms §"No generative
-AI, and how QuestLab is built") · link + the Guide
+(no art, no text) · **say it upfront in the post (not in the app, Justin 10/31): built by a
+developer who uses AI coding tools; nothing in the app generates content or sends your words to a
+model** · link + the Guide
 · what feedback you want (retention: "would you run your next session on it?").
 Subreddit rules: r/DnD and r/DMAcademy require self-promo be under 10% of your
 activity and value-first; r/VTT and r/dndnext are friendlier to tools. Post the

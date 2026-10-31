@@ -92,6 +92,11 @@ def callback(
     The token rides in the URL fragment (never sent to servers) to
     ``/welcome#token=…`` on the frontend origin.
 
+    Plan 130 — a "Link your Patreon" state lands on ``/plan`` instead: the
+    signed link result rides in the fragment (``/plan#patreon=…``) for the
+    plan page to confirm with the DM's own session; an error rides in
+    ``/plan?patreon_error=…``. No session token is issued for a link.
+
     Args:
         provider: ``discord`` or ``patreon``.
         request: The incoming request (for the frontend origin).
@@ -103,6 +108,15 @@ def callback(
         A 302 to the frontend.
     """
     front = _frontend_origin(request)
+    if provider == "patreon" and state and auth_service.state_intent(state) == "link":
+        if not code:
+            msg = "Linking your Patreon was cancelled."
+            return RedirectResponse(f"{front}/plan?{urlencode({'patreon_error': msg})}", 302)
+        try:
+            result = auth_service.complete_patreon_link(db, code, state)
+        except (ValueError, RuntimeError) as exc:
+            return RedirectResponse(f"{front}/plan?{urlencode({'patreon_error': str(exc)})}", 302)
+        return RedirectResponse(f"{front}/plan#{urlencode({'patreon': result})}", 302)
     if not code or not state:
         return RedirectResponse(
             f"{front}/welcome?{urlencode({'error': 'Sign-in was cancelled.'})}", 302

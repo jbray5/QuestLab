@@ -27,9 +27,8 @@ export default function TermsPage() {
       <h2>Map and image rights</h2>
       <p>You may only upload maps and images you own or are licensed to use at your own table (your own work, personal-use map packs you bought or back, free maps under their terms). Do not upload or redistribute other creators&rsquo; files. Uploads are private to your account. QuestLab ships no third-party map packs.</p>
 
-      <h2 id="no-ai">No generative AI, and how QuestLab is built</h2>
+      <h2 id="no-ai">No generative AI</h2>
       <p>QuestLab contains no generative AI. Nothing you write or upload is sent to a model, used to train one, or generated for you by one: no AI art, no AI-written story, NPCs or runbooks.</p>
-      <p>To be upfront about the workshop: QuestLab is made by a software developer who uses AI coding assistants to help write and test the code, as most software is made today. That help stays in the workshop. A person reviews and tests every change, and nothing in the app you use runs a model.</p>
 
       <h2>Rules content</h2>
       <p>Game rules content is from the System Reference Document 5.2.1, used under the Creative Commons Attribution 4.0 license. QuestLab is not affiliated with Wizards of the Coast.</p>
@@ -50,6 +49,11 @@ export default function TermsPage() {
 
       <h2>Cookies and storage</h2>
       <p>QuestLab sets no cookies and runs no analytics, advertising or tracking scripts, so there is nothing to accept or reject. Your browser keeps a few things on your device so the app works the way you left it: your sign-in, the campaign you had open, the help level you picked on your phone, whether you&rsquo;ve seen the tour and other one-time hints, which character you last opened from a join link, which party each player link belongs to (so a replaced link can point you back to your party), and, if you link Obsidian notes, your vault&rsquo;s name. Only your sign-in is ever sent back, to prove who you are. Fonts and icons come from QuestLab itself, never a third-party font or tracking service. Clearing this site&rsquo;s data in your browser removes all of it.</p>
+
+      <h2 id="price">Prices</h2>
+      <p>Players never pay. A player&rsquo;s link, phone sheet, the join page and the market are free for good, and no player ever makes an account.</p>
+      <p>DMs are free during the beta, with no limits. After the beta, a free DM keeps every table feature with two campaigns and 250&nbsp;MB of uploads. A Patron ($4 a month or $40 a year) gets unlimited campaigns and 5&nbsp;GB of uploads. Limits are on campaigns and storage, never on table features, and going over one never deletes or hides anything: you just can&rsquo;t add more until there&rsquo;s room. We&rsquo;ll say so here and in the app before the limits start.</p>
+      <p>QuestLab never takes payment itself. Patron memberships are run by Patreon under Patreon&rsquo;s terms; QuestLab only reads whether your linked Patreon membership is active and at what level.</p>
 
       <h2>Reasonable use</h2>
       <p>Don&rsquo;t abuse the service, share other people&rsquo;s private data, or upload unlawful content. We may suspend accounts that do.</p>

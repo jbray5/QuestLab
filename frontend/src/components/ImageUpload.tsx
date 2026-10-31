@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { ImagePlus } from "lucide-react";
 
 import { apiBase, authHeaders } from "../api/client";
+import { friendlyStatusError, isPlanLimitError } from "../api/errors";
 
 interface Props {
   currentUrl?: string | null;
@@ -20,9 +22,12 @@ export default function ImageUpload({
   const [urlInput, setUrlInput] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  // Plan 130 — the error was a plan limit (402): offer the plan page.
+  const [planLimit, setPlanLimit] = useState(false);
 
   async function handleFile(file: File) {
     setError("");
+    setPlanLimit(false);
     setUploading(true);
     try {
       const formData = new FormData();
@@ -34,12 +39,13 @@ export default function ImageUpload({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(body?.detail ?? res.statusText);
+        throw new Error(friendlyStatusError(res.status, body, res.statusText || "Upload failed."));
       }
       const { url } = await res.json();
       onUrlChange(url);
     } catch (e) {
       setError((e as Error).message);
+      setPlanLimit(isPlanLimitError(e));
     } finally {
       setUploading(false);
     }
@@ -149,7 +155,17 @@ export default function ImageUpload({
         </button>
       </div>
 
-      {error && <p style={{ color: "var(--danger-text)", fontSize: "0.8125rem", margin: 0 }}>{error}</p>}
+      {error && (
+        <p role="alert" style={{ color: "var(--danger-text)", fontSize: "0.8125rem", margin: 0 }}>
+          {error}
+          {planLimit && (
+            <>
+              {" "}
+              <Link to="/plan">See your plan</Link>
+            </>
+          )}
+        </p>
+      )}
     </div>
   );
 }

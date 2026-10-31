@@ -2,7 +2,8 @@
 
 Rules enforced here:
 - Only the owning DM can read, update, or delete their campaigns.
-- A DM may own at most 20 campaigns (soft limit).
+- A DM may own at most 20 campaigns (soft limit; Patrons and admins have none).
+- With PRICING=on, a Free DM may own two (Plan 130, services/plan_service.py).
 """
 
 import uuid
@@ -24,6 +25,7 @@ from db.repos.puzzle_repo import PuzzleRepo
 from db.repos.session_repo import SessionRepo, SessionRunbookRepo
 from db.repos.shop_repo import ShopItemRepo, ShopRepo
 from domain.campaign import Campaign, CampaignCreate, CampaignRead, CampaignUpdate
+from services import plan_service
 
 MAX_CAMPAIGNS_PER_DM = 20
 
@@ -103,14 +105,17 @@ def create_campaign(
         The newly created CampaignRead.
 
     Raises:
-        ValueError: If the name is blank, or the DM already has
+        ValueError: If the name is blank, or a non-Patron DM already has
             MAX_CAMPAIGNS_PER_DM campaigns.
+        PlanLimitError: With PRICING=on, a Free DM already runs two campaigns
+            (Plan 130; the API answers 402).
     """
     name = (name or "").strip()
     if not name:
         raise ValueError("Give your campaign a name.")
+    plan_service.check_can_create_campaign(session, dm_email)
     existing = CampaignRepo.list_by_dm(session, dm_email)
-    if len(existing) >= MAX_CAMPAIGNS_PER_DM:
+    if len(existing) >= MAX_CAMPAIGNS_PER_DM and not plan_service.is_patron(session, dm_email):
         raise ValueError(
             f"Campaign limit reached ({MAX_CAMPAIGNS_PER_DM}). "
             "Archive an existing campaign before creating a new one."

@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  BookOpen, CalendarDays, ChevronDown, ChevronRight, Compass, FlaskConical, Gem, LayoutDashboard, LogOut,
+  BadgeCheck, BookOpen, CalendarDays, ChevronDown, ChevronRight, Compass, FlaskConical, Gem, LayoutDashboard, LogOut,
   Map as MapIcon, Megaphone, Menu, NotebookPen, PencilRuler, Puzzle, ScrollText, Shield, Skull, Sparkles, Store,
-  MessageSquarePlus, Sword, Swords, UserRound, Users,
+  Heart, MessageSquarePlus, Sword, Swords, UserRound, Users,
 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/useAuthStore";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import { campaignsApi } from "../api/campaigns";
 import { adventuresApi } from "../api/adventures";
+import { planApi, PLAN_QUERY_KEY } from "../api/plan";
 import { useHudPrefs } from "../stores/useHudPrefs";
 import { useTourStore } from "../stores/useTourStore";
 import { useIsCompact } from "../hooks/useIsCompact";
@@ -159,6 +161,14 @@ export default function Layout() {
   // Plan 125 — the friends beta: two-tap feedback from any DM page.
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const hamburgerRef = useRef<HTMLButtonElement>(null);
+  // Plan 130 — "Support QuestLab" shows in the menu only when PATREON_URL is set.
+  const myPlan = useQuery({
+    queryKey: PLAN_QUERY_KEY,
+    queryFn: planApi.get,
+    enabled: !!dmEmail,
+    staleTime: 5 * 60_000,
+  });
+  const supportUrl = myPlan.data?.support_url ?? null;
 
   // Plan 128 — Escape closes the phone menu and hands focus back to its button
   // (unless a dialog is open on top; that dialog's Escape comes first).
@@ -355,6 +365,12 @@ export default function Layout() {
 
       {/* DM identity at the bottom — email + sign out. */}
       <div style={{ marginTop: "auto", paddingTop: "1rem", borderTop: "1px solid var(--border)" }}>
+        {/* Plan 130 — the DM's plan, usage and Patreon link. */}
+        <div style={{ marginBottom: "0.6rem" }}>
+          <NavItem to="/plan" icon={<BadgeCheck size={16} />} onClick={closeNav}>
+            Your plan
+          </NavItem>
+        </div>
         <p style={{ fontSize: "0.75rem", color: "var(--muted)", margin: "0 0.25rem 0.1rem" }}>Signed in as</p>
         <p
           style={{
@@ -418,6 +434,18 @@ export default function Layout() {
           >
             <MessageSquarePlus size={14} /> Send feedback
           </button>
+          {supportUrl && (
+            <a
+              href={supportUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-ghost"
+              title="QuestLab's Patreon page"
+              style={{ fontSize: "0.8125rem", padding: "0.35rem 0.5rem", gridColumn: "1 / -1" }}
+            >
+              <Heart size={14} /> Support QuestLab
+            </a>
+          )}
         </div>
       </div>
     </>

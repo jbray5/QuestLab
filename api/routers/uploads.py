@@ -3,6 +3,10 @@
 Everything goes to Vercel Blob when ``BLOB_READ_WRITE_TOKEN`` is set (production:
 Render's disk is wiped on every deploy and the frontend is on another origin), and
 to the local ``uploads/`` dir otherwise (dev and tests).
+
+Plan 130 — every route checks the DM's plan before storing (a 402 when a
+Free DM would pass 250 MB, only with PRICING=on) and records each stored file
+in the uploads ledger (owner, URL, bytes, kind).
 """
 
 import uuid
@@ -11,7 +15,8 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
-from api.deps import CurrentUser
+from api.deps import DB, CurrentUser
+from services import plan_service
 from services.upload_service import IMAGE_TYPES, MODEL_TYPES, VIDEO_TYPES, accept_upload
 
 router = APIRouter(tags=["uploads"])
@@ -61,7 +66,8 @@ def _store(folder: str, filename: str, contents: bytes, content_type: str) -> st
 @router.post("/uploads", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_image(
     file: UploadFile,
-    _user: CurrentUser,
+    db: DB,
+    user: CurrentUser,
 ) -> UploadResponse:
     """Upload an image file and return its public URL.
 
@@ -72,7 +78,8 @@ async def upload_image(
 
     Args:
         file: Multipart image upload.
-        _user: Authenticated DM (required; not used beyond auth check).
+        db: Database session (plan check and uploads ledger, Plan 130).
+        user: Authenticated DM; owns the upload.
 
     Returns:
         UploadResponse with the public URL for the stored image.
@@ -80,6 +87,7 @@ async def upload_image(
     Raises:
         HTTPException 415: If the bytes are not a JPEG, PNG, WebP or GIF.
         HTTPException 413: If the file exceeds 5 MB.
+        PlanLimitError: Past the plan's storage with PRICING=on (answered 402).
     """
     contents = await file.read()
     if len(contents) > _MAX_BYTES:
@@ -94,14 +102,18 @@ async def upload_image(
             detail="Only JPEG, PNG, WebP, or GIF images are allowed.",
         )
 
+    plan_service.check_can_upload(db, user, len(contents))
     filename = f"{uuid.uuid4()}.{kind.ext}"
-    return UploadResponse(url=_store("portraits", filename, contents, kind.content_type))
+    url = _store("portraits", filename, contents, kind.content_type)
+    plan_service.record_upload(db, user, url, len(contents), "portrait")
+    return UploadResponse(url=url)
 
 
 @router.post("/uploads/map", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_map(
     file: UploadFile,
-    _user: CurrentUser,
+    db: DB,
+    user: CurrentUser,
 ) -> UploadResponse:
     """Upload a large battle-map image (up to 80 MB) for the Table View (Plan 42).
 
@@ -112,7 +124,8 @@ async def upload_map(
 
     Args:
         file: Multipart image upload.
-        _user: Authenticated DM (required; not used beyond auth).
+        db: Database session (plan check and uploads ledger, Plan 130).
+        user: Authenticated DM; owns the upload.
 
     Returns:
         UploadResponse with the stored map's public URL.
@@ -120,6 +133,7 @@ async def upload_map(
     Raises:
         HTTPException 415: If the bytes are not an allowed image or video.
         HTTPException 413: If the file exceeds 80 MB.
+        PlanLimitError: Past the plan's storage with PRICING=on (answered 402).
     """
     contents = await file.read()
     if len(contents) > _MAX_MAP_BYTES:
@@ -134,14 +148,18 @@ async def upload_map(
             detail="Only JPEG, PNG, WebP, GIF images or MP4/WebM loops are allowed.",
         )
 
+    plan_service.check_can_upload(db, user, len(contents))
     filename = f"{uuid.uuid4()}.{kind.ext}"
-    return UploadResponse(url=_store("maps", filename, contents, kind.content_type))
+    url = _store("maps", filename, contents, kind.content_type)
+    plan_service.record_upload(db, user, url, len(contents), "map")
+    return UploadResponse(url=url)
 
 
 @router.post("/uploads/model", response_model=UploadResponse, status_code=status.HTTP_201_CREATED)
 async def upload_model(
     file: UploadFile,
-    _user: CurrentUser,
+    db: DB,
+    user: CurrentUser,
 ) -> UploadResponse:
     """Upload a rigged ``.glb`` figure for the immersive table (Plan 111).
 
@@ -152,7 +170,8 @@ async def upload_model(
 
     Args:
         file: Multipart ``.glb`` upload.
-        _user: Authenticated DM (required; not used beyond auth).
+        db: Database session (plan check and uploads ledger, Plan 130).
+        user: Authenticated DM; owns the upload.
 
     Returns:
         UploadResponse with the stored model's public URL.
@@ -160,6 +179,7 @@ async def upload_model(
     Raises:
         HTTPException 415: If the bytes are not a binary glTF 2.
         HTTPException 413: If the file exceeds 30 MB.
+        PlanLimitError: Past the plan's storage with PRICING=on (answered 402).
     """
     contents = await file.read()
     if len(contents) > _MAX_MODEL_BYTES:
@@ -173,5 +193,8 @@ async def upload_model(
             detail="Only a binary glTF (.glb) figure is allowed.",
         )
 
+    plan_service.check_can_upload(db, user, len(contents))
     filename = f"{uuid.uuid4()}.glb"
-    return UploadResponse(url=_store("models", filename, contents, "model/gltf-binary"))
+    url = _store("models", filename, contents, "model/gltf-binary")
+    plan_service.record_upload(db, user, url, len(contents), "model")
+    return UploadResponse(url=url)

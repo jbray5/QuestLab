@@ -4,6 +4,7 @@ import { ArrowDown, Lock, Play } from "lucide-react";
 
 import { api } from "../api/client";
 import BrandMark from "../components/BrandMark";
+import ClassCrest from "../components/ClassCrest";
 import { NIGHT_SCENE } from "../components/landing/nightScene.generated";
 import { useIsCompact } from "../hooks/useIsCompact";
 import { useAuthStore } from "../stores/useAuthStore";
@@ -137,14 +138,14 @@ export default function TryLanding() {
         <div className="tl-wrap tl-plx-copy" style={{ position: "relative", zIndex: 2, flex: 1, padding: "96px 24px 200px", display: "flex", flexDirection: "column", gap: 22 }}>
           <p style={{ margin: 0, display: "flex", alignItems: "center", gap: 10, fontSize: 15, fontWeight: 500, color: "var(--text2)" }}>
             <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden><path d="M5 0l5 5-5 5-5-5z" fill="var(--accent)" /></svg>
-            For D&amp;D tables that meet in the same room
+            For D&amp;D tables, around one table or online
           </p>
           <h1 className="story" style={{ margin: 0, fontWeight: 700, fontSize: "clamp(46px, 7vw, 88px)", lineHeight: 1, letterSpacing: "-0.01em", display: "flex", flexDirection: "column" }}>
             <span>Run the table.</span>
             <span style={{ color: "var(--accent-text)" }}>Tell the story.</span>
           </h1>
           <p style={{ margin: 0, maxWidth: 560, fontSize: 19, color: "#D6D0C1", textWrap: "pretty" } as CSSProperties}>
-            QuestLab is your DM screen and initiative tracker, with every player&rsquo;s sheet on their own phone, all kept in step for D&amp;D 5e (2024 rules). Real dice, a real table, nothing to install.
+            QuestLab is your DM screen and initiative tracker, with every player&rsquo;s sheet on their own phone, all kept in step for D&amp;D 5e (2024 rules). Real dice, your own maps if you use them, nothing to install.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 8 }}>
             {DEMO ? (
@@ -176,11 +177,11 @@ export default function TryLanding() {
             </div>
             <div style={{ borderRadius: 10, background: "var(--story-bg)", border: "1px solid var(--story-line)", padding: "13px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-                <span className="story" style={{ fontSize: 18, fontWeight: 700 }}>The Pale Steward</span>
+                <span className="story" style={{ fontSize: 18, fontWeight: 700 }}>Your NPC</span>
                 <span className="pill" style={{ fontSize: 12 }}><Lock size={12} /> Hidden from players</span>
               </div>
-              <span style={{ fontSize: 13, color: "var(--muted)" }}>NPC · keeps the cellar below the Kettle</span>
-              <span className="story" style={{ fontStyle: "italic", fontWeight: 500, fontSize: 17, color: "var(--story-text)" }}>&ldquo;You&rsquo;re late. The kettle doesn&rsquo;t like to wait.&rdquo;</span>
+              <span style={{ fontSize: 13, color: "var(--muted)" }}>Who they are, what they want, the secret only you know</span>
+              <span className="story" style={{ fontStyle: "italic", fontWeight: 500, fontSize: 17, color: "var(--story-text)" }}>Their voice, in your words, one tap away.</span>
             </div>
           </div>
         </section>
@@ -224,15 +225,15 @@ export default function TryLanding() {
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="tl-panel" style={{ overflow: "clip" }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", padding: "12px 16px", background: "var(--surface2)", borderBottom: "1px solid var(--border)" }}>
-                <span className="story" style={{ fontSize: 20, fontWeight: 700 }}>The Kettle Job</span>
+                <span className="story" style={{ fontSize: 20, fontWeight: 700 }}>Your first arc</span>
                 <span style={{ fontSize: 13, color: "var(--muted)" }}>Tier 1 · levels 1–4</span>
               </div>
-              <SessionRow n="I" title="The Gilded Kettle" pill={<span className="pill pill-teal">Complete</span>} />
-              <SessionRow n="II" title="Below the Kettle" pill={<span className="pill pill-live">Up next</span>} live />
+              <SessionRow n="I" title="Session one" pill={<span className="pill pill-teal">Complete</span>} />
+              <SessionRow n="II" title="Session two" pill={<span className="pill pill-live">Up next</span>} live />
             </div>
             <div className="read-aloud" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <span style={{ fontFamily: "var(--font-ui)", fontStyle: "normal", fontSize: 12, fontWeight: 500, color: "var(--muted)" }}>Session II opens · read aloud</span>
-              The kettle on the hearth has not gone cold in forty years. Tonight, with the taproom empty, you can hear what keeps it warm: something under the floorboards, breathing slowly.
+              Your opening words go here, written by you at prep and set large enough to read by lamplight when the night begins.
             </div>
           </div>
         </section>
@@ -246,6 +247,12 @@ export default function TryLanding() {
           </div>
         </section>
 
+        <section aria-labelledby="tl-maps" className="tl-two tl-rise">
+          <Copy eyebrow="Battle maps, if you use them" id="tl-maps" title="Your maps on the TV, and on every screen at home.">
+            Upload a battle map, set its grid and paint fog over the rooms the party hasn&rsquo;t seen. The TV shows it with everyone&rsquo;s tokens, and a player joining from home opens the same map on their phone or laptop and moves their own token. Theatre of the mind? The TV shows the turn order instead.
+          </Copy>
+          <MapMock />
+        </section>
         <section aria-labelledby="tl-promise" className="tl-rise" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18, textAlign: "center", padding: "8px 0" }}>
           <div aria-hidden style={{ display: "flex", alignItems: "center", gap: 12, width: "min(420px, 100%)" }}>
             <div style={{ flex: 1, height: 1, background: "var(--border2)" }} />
@@ -254,12 +261,19 @@ export default function TryLanding() {
           </div>
           <h2 id="tl-promise" className="story" style={{ margin: 0, fontStyle: "italic", fontWeight: 500, fontSize: "clamp(30px, 3.6vw, 42px)", lineHeight: 1.15 }}>No AI art. No AI-written story.</h2>
           <p className="tl-p" style={{ maxWidth: 560 }}>QuestLab keeps the numbers. Every word spoken at your table is yours.</p>
-          <p className="tl-p" style={{ maxWidth: 560, fontSize: 15, color: "var(--muted)" }}>
-            Honest note: it&rsquo;s built by a developer who uses AI coding tools to write the software, as most
-            developers do now. Nothing in the app itself generates anything. <a href="/terms#no-ai">How we put it</a>
-          </p>
         </section>
 
+        <section aria-labelledby="tl-price" className="tl-rise" style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+          <Copy eyebrow="What it costs" id="tl-price" title="Free for players, always." wide>
+            Your players never pay and never make an account. DMs are free during the beta, with no limits.
+          </Copy>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 16 }}>
+            <PriceCard title="Players" price="Free" lines={["Their sheet on their phone", "No account, ever", "Join with a QR code"]} />
+            <PriceCard title="DMs, after the beta" price="Free" lines={["Every table feature", "2 campaigns", "250 MB of uploads"]} />
+            <PriceCard title="Patron" price="$4 a month" note="or $40 a year, on Patreon" lines={["Unlimited campaigns", "5 GB of uploads", "Early access to new features"]} lit />
+          </div>
+          <p className="tl-p" style={{ fontSize: 15, color: "var(--muted)", margin: 0 }}>Limits are on campaigns and storage, never on table features. Going over one never deletes anything.</p>
+        </section>
         <section id="join" aria-labelledby="tl-join" className="tl-rise" style={{ border: "1px solid var(--accent-line)", borderRadius: 18, background: "var(--accent-soft)", padding: "clamp(28px, 5vw, 56px)", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(380px, 100%), 1fr))", gap: "28px 48px", alignItems: "center" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <h2 id="tl-join" className="tl-h2">Bring it to your table.</h2>
@@ -351,6 +365,43 @@ function TrackerRow({ init, name, side, hp, now, hurt, last, phone }: { init: nu
       <span className={`pill ${side === "Party" ? "pill-teal" : "pill-danger"}`} style={{ justifySelf: "start" }}>{side}</span>
       <span className="num" style={{ fontSize: 15, fontWeight: 600, color: hurt ? "var(--danger-text)" : undefined }}>{hp}</span>
       {now ? <span style={{ fontSize: 14, fontWeight: 600, color: "var(--accent-text)" }}>Their turn</span> : <span />}
+    </div>
+  );
+}
+
+function PriceCard({ title, price, note, lines, lit }: { title: string; price: string; note?: string; lines: string[]; lit?: boolean }) {
+  return (
+    <div className="tl-panel" style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 10, borderColor: lit ? "var(--accent-line)" : undefined }}>
+      <span style={{ fontSize: 15, fontWeight: 600, color: "var(--text2)" }}>{title}</span>
+      <span className="story" style={{ fontSize: 30, fontWeight: 700, lineHeight: 1.1 }}>{price}</span>
+      {note && <span style={{ fontSize: 14, color: "var(--muted)", marginTop: -6 }}>{note}</span>}
+      <ul style={{ margin: 0, paddingLeft: "1.1rem", display: "flex", flexDirection: "column", gap: 4, fontSize: 15, color: "var(--text)" }}>
+        {lines.map((l) => <li key={l}>{l}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+/** A battle map drawn in CSS (grid, two tokens, one fog patch): no image, nothing generated. */
+function MapMock() {
+  const token = (cls: string, name: string, left: string, top: string, lit?: boolean) => (
+    <div style={{ position: "absolute", left, top, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, transform: "translate(-50%, -50%)" }}>
+      <div style={{ borderRadius: "50%", boxShadow: lit ? "0 0 0 3px var(--accent)" : "0 0 0 2px var(--border2)" }}>
+        <ClassCrest cls={cls} size={46} round />
+      </div>
+      <span style={{ fontSize: 13, fontWeight: 600, padding: "1px 8px", borderRadius: 6, background: "rgba(10,12,11,0.82)", color: "var(--text)" }}>{name}</span>
+    </div>
+  );
+  return (
+    <div className="tl-panel" aria-hidden style={{ position: "relative", minHeight: 300, overflow: "clip", background: "#2a2a22" }}>
+      <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(0,0,0,0.28) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.28) 1px, transparent 1px)", backgroundSize: "40px 40px", backgroundColor: "#6f6a52" }} />
+      <div style={{ position: "absolute", left: "8%", top: "14%", width: "46%", height: "52%", borderRadius: 6, background: "#8a8466", boxShadow: "inset 0 0 0 3px rgba(40,34,24,0.55)" }} />
+      <div style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "40%", background: "radial-gradient(120% 90% at 100% 50%, rgba(8,10,9,0.96) 55%, rgba(8,10,9,0.7) 75%, rgba(8,10,9,0) 100%)" }} />
+      {token("rogue", "Sable", "26%", "36%", true)}
+      {token("fighter", "Bram", "42%", "58%")}
+      <span style={{ position: "absolute", left: 14, bottom: 12, fontSize: 13, color: "var(--text2)", background: "rgba(10,12,11,0.7)", padding: "3px 10px", borderRadius: 999 }}>
+        Round <span className="num">2</span> · Sable&rsquo;s turn
+      </span>
     </div>
   );
 }

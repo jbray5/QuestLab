@@ -1,4 +1,5 @@
 import { api, apiBase, authHeaders } from "./client";
+import { friendlyStatusError } from "./errors";
 
 // Plan 57 — the Session Notebook. DM-only; every route 403s until the
 // server sets NOTEBOOK_ENABLED=true (ship dark).
@@ -127,7 +128,11 @@ export async function uploadImage(file: File | Blob, name = "pasted.png"): Promi
     headers: authHeaders(),
     body: form,
   });
-  if (!res.ok) throw new Error("Upload failed.");
+  if (!res.ok) {
+    // Plan 130 — a 402 (past the plan's storage) says so; anything else stays short.
+    const err = await res.json().catch(() => null);
+    throw new Error(res.status === 402 ? friendlyStatusError(402, err, "") : "Upload failed.");
+  }
   const body = (await res.json()) as { url: string };
   // The API serves /uploads/* itself — make the URL absolute for <img>.
   return body.url.startsWith("http")

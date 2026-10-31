@@ -4,20 +4,21 @@ import { Check, Circle, X } from "lucide-react";
 import type { Campaign } from "../api/types";
 import FeedbackSheet from "./FeedbackSheet";
 
+// A sample campaign from before Plan 129 doesn't count as your own.
 const SAMPLE_SUFFIX = "(sample)";
 
-type StepKey = "sample" | "own" | "phone" | "session" | "feedback";
+type StepKey = "own" | "players" | "phone" | "session" | "feedback";
 
 const STEPS: { key: StepKey; title: string; body: string }[] = [
   {
-    key: "sample",
-    title: "Run the sample night",
-    body: "A ready-made adventure with four characters. Ten minutes shows you the whole loop.",
+    key: "own",
+    title: "Start your campaign",
+    body: "Manage campaigns, then New campaign. Add an arc and a first session.",
   },
   {
-    key: "own",
-    title: "Start your own campaign",
-    body: "Manage campaigns, then New campaign. Add an arc and a first session.",
+    key: "players",
+    title: "Bring your players",
+    body: "Characters shows the join link and a QR code. Each player builds their character on their phone.",
   },
   {
     key: "phone",
@@ -54,7 +55,7 @@ function readTicks(email: string): { ticks: StepKey[]; hidden: boolean } {
  * BetaWelcome (Plan 125) — the friends-beta checklist on the Dashboard.
  *
  * Five steps from first sign-in to a real night and a note back. Steps the
- * app can see tick themselves (the sample night, your own campaign); the rest
+ * app can see tick themselves (your own campaign); the rest
  * the DM ticks. Hidden for good once dismissed; remembered per account on
  * this device.
  */
@@ -67,7 +68,6 @@ export default function BetaWelcome({ email, campaigns }: { email: string; campa
   if (state.hidden || !email) return null;
 
   const auto: Partial<Record<StepKey, boolean>> = {
-    sample: campaigns.some((c) => c.name.endsWith(SAMPLE_SUFFIX)),
     own: campaigns.some((c) => !c.name.endsWith(SAMPLE_SUFFIX)),
   };
   const done = (k: StepKey) => !!auto[k] || state.ticks.includes(k);
@@ -117,7 +117,7 @@ export default function BetaWelcome({ email, campaigns }: { email: string; campa
           const automatic = !!auto[s.key];
           return (
             <li key={s.key} style={{ display: "flex", gap: "0.6rem", alignItems: "flex-start" }}>
-              {/* Each tick is a named checkbox ("Run the sample night, checked").
+              {/* Each tick is a named checkbox ("Start your campaign, checked").
                   Steps QuestLab can see tick themselves and say so. */}
               <button
                 ref={s.key === "feedback" ? feedbackTickRef : undefined}

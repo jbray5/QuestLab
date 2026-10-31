@@ -30,4 +30,6 @@ from domain.shop import Shop as Shop  # noqa: F401
 from domain.shop import ShopItem as ShopItem  # noqa: F401
 from domain.spell import Spell as Spell  # noqa: F401
 from domain.table_state import TableState as TableState  # noqa: F401
+from domain.upload import Upload as Upload  # noqa: F401
+from domain.user import User as User  # noqa: F401
 from domain.waitlist import WaitlistEntry as WaitlistEntry  # noqa: F401

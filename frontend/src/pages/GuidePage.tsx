@@ -74,9 +74,8 @@ export default function GuidePage() {
       <div className="step">
         <span className="k">2</span>
         <div>
-          <b>Create a campaign.</b> Name, setting, tone. New here? Press{" "}
-          <span className="btnref">Run the sample night</span> on the dashboard for a ready-made
-          adventure with four pregenerated characters and an encounter you can run tonight.
+          <b>Create a campaign.</b> Name, setting, tone. New here? The dashboard walks you
+          through a first night in four steps.
         </div>
       </div>
       <div className="step">
@@ -159,13 +158,16 @@ export default function GuidePage() {
         <div className="card2">
           <h3>A TV, if you have one</h3>
           In the HUD, open <span className="btnref">Player display</span> &rarr;{" "}
-          <span className="btnref">Projector / TV</span> on the TV. It shows the join QR, whose turn
-          it is and the last roll.
+          <span className="btnref">Projector / TV</span> on the TV. Before the fight it shows the
+          join QR; during it, the turn order, the round and the last roll, big enough to read
+          across the room. Stage a battle map and the TV shows the map instead.
         </div>
         <div className="card2">
           <h3>Players at home</h3>
           The join link works anywhere. Remote players keep their sheet open on their phone or
-          laptop while you talk on your usual call.
+          laptop while you talk on your usual call. When a map is up, their phone offers{" "}
+          <span className="btnref">Open the table map</span>: the same map, where they move their
+          own token.
         </div>
       </div>
       <ul>
@@ -181,6 +183,27 @@ export default function GuidePage() {
         </li>
       </ul>
 
+      <h2 id="maps">Battle maps, if you use them</h2>
+      <p>
+        Plenty of tables play theatre of the mind, and QuestLab works without a single map. If you
+        like a map on the table:
+      </p>
+      <ol>
+        <li>
+          Campaign &rarr; <span className="btnref">Battle maps</span>: upload an image (or a looping
+          video), set its grid, and paint fog over the rooms the party hasn&rsquo;t seen. Name the fog
+          areas so you can lift them with one tap later.
+        </li>
+        <li>
+          In the HUD, the <span className="btnref">Live</span> tab puts a map on the table, places
+          tokens and lifts the fog as the party explores.
+        </li>
+        <li>
+          The TV shows the map with everyone&rsquo;s tokens and conditions, and each player at home
+          opens it from their phone and moves their own token.
+        </li>
+      </ol>
+
       <h2 id="uploads">Your uploads</h2>
       <p>
         Upload only art you have the right to use at your own table: your own drawings, portraits
@@ -193,15 +216,17 @@ export default function GuidePage() {
       <p>
         QuestLab has no generative AI in it: no AI art, no AI-written NPCs, briefs or runbooks, no
         models behind any button. The rules are the System Reference Document, and the art is yours
-        &mdash; your uploads and your players&rsquo; drawings. Everything is free. If it runs your
-        table, back the project on Patreon; that keeps the servers on and gets you a seat in the
-        Discord and your name in the credits.
+        &mdash; your uploads and your players&rsquo; drawings.
       </p>
+
+      <h2 id="price">What it costs</h2>
       <p>
-        One honest note about how it&rsquo;s made: QuestLab is built by Justin, a software developer
-        who, like most developers now, uses AI coding tools to help write and test the code. That
-        stays in the workshop. Nothing in the app generates content, and nothing you or your players
-        write is ever sent to an AI.
+        Players never pay: their link, their phone sheet, the join page and the market are free for
+        good. DMs are free during the beta, with no limits. After the beta a free DM keeps every
+        table feature with two campaigns and 250&nbsp;MB of uploads, and a Patron ($4 a month or
+        $40 a year, on Patreon) gets unlimited campaigns, 5&nbsp;GB and early access. Going over a
+        limit never deletes anything. <span className="btnref">Your plan</span> in the menu shows
+        where you stand.
       </p>
 
       <h2>Common questions</h2>

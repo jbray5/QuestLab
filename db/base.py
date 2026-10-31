@@ -231,6 +231,8 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS conditions JSON",
         # 0059 — the friends beta (Plan 125); its two tables come from create_all
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code VARCHAR(40)",
+        # 0060 — pricing (Plan 130): Patron comps; the uploads ledger comes from create_all
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS patron_comped BOOLEAN DEFAULT FALSE",
         # 0035 — 2024 PHB recovery numbers (Paladin CD 2 uses; the
         # regain-one-on-short-rest pattern for CD + Second Wind).
         # seed_catalog() only fires on an empty table, so already-seeded

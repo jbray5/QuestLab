@@ -72,7 +72,7 @@ tests/
 - `test_services/test_plan128_builder_rules.py`:
   - the subclass is required at its level (a book subclass is recorded by name);
   - a Bard must pick its cantrip and spell counts; off-list and too-high spells are refused;
-  - a build without `class_choices` (the sample night's pregens) keeps the lenient rules and is told what's still open;
+  - a build without `class_choices` (an older caller) keeps the lenient rules and is told what's still open;
   - always-prepared spells come free (Paladin 5: Divine Smite, Find Steed and oath spells; Ranger 1: Hunter's Mark; the subclass and Land tables);
   - Magic Initiate picks from the background's list, and a Human's Versatile feat has its own picks;
   - a Fighter picks its style and masteries, and masteries follow the class; unknown and unasked choices are refused;
@@ -95,6 +95,34 @@ tests/
 - `test_api/test_plan128_runbook_scenes.py`: scenes are added, renamed, reordered and deleted as one PATCH of the list; a scene keeps a fight from its own arc and drops any other; another DM can't patch the scenes.
 - `test_api/test_plan128_uploads.py`: with a blob token, a portrait is stored under `portraits/` and the blob URL is returned; without one, it goes to `uploads/`.
 - `test_api/test_sec002_play_links.py::test_reset_works_for_a_pc_with_features`: Reset link works for a PC with feature rows on DuckDB. It used to 500.
+
+### Plan 130 — pricing (Free and Patron)
+Both files set `PRICING` per test (`monkeypatch.setenv("PRICING", "on")`; the default is off) and
+use fresh emails, because service tests share one session-scoped engine and services commit.
+- `test_services/test_plan130_plans.py`:
+  - **Membership parsing** from fixture JSON, with no network: active, declined, another
+    campaign, missing, annual $40 counting as $4 a month, an annual low tier not counting, the
+    entitled tier's price winning over a converted local amount, and active winning over former.
+  - **Plan rules:** admin, comped, active and recent Patreon, lapsed (41 days, while 40 still
+    counts), low tier, inactive or never checked; `apply_membership` writes or leaves the snapshot.
+  - **Caps off vs on** for campaigns (including through `campaign_service.create_campaign`) and
+    uploads (exactly at the line is fine). Patrons get 5 GB and admins have no cap. Patrons
+    skip the old 20-campaign soft limit, free DMs don't.
+  - The ledger feeds usage, the beta status, and admin-only comp.
+- `test_api/test_plan130_pricing.py`:
+  - `GET /api/me/plan` in the beta and for an admin, and a 401 without a DM.
+  - 402s: the third campaign (exact message, nothing hidden), all three upload routes past
+    storage (a refused file is neither stored nor counted), a bad file still answering 415.
+  - The ledger records portrait, map and model uploads.
+  - **Patreon link:** the state names the signed-in DM, with scope
+    `identity identity.memberships`. Link then confirm makes a Patron, and no session token
+    rides the callback. A low tier says so. Another DM can't confirm someone else's link (403).
+    A Patreon id already linked elsewhere is refused at the callback, and at confirm if it
+    happened in between (409). A tampered result, a cancelled link and an unconfigured Patreon
+    are all handled.
+  - A Patreon sign-in refreshes the membership.
+  - **Admin comp:** admin-only, toggles both ways, shows in the beta overview, and an unknown
+    email is a 404.
 
 ## Running Tests
 ```bash

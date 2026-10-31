@@ -24,9 +24,7 @@ from db.repos.campaign_repo import CampaignRepo
 from db.repos.session_repo import SessionRepo
 from db.repos.user_repo import UserRepo
 from domain.beta import (
-    BetaDm,
     BetaInvite,
-    BetaOverview,
     Feedback,
     FeedbackCreate,
     FeedbackRead,
@@ -34,7 +32,9 @@ from domain.beta import (
     InviteJoiner,
     InviteRead,
 )
+from domain.plan import BetaDmPlan, BetaPlanOverview
 from integrations import feature_flags
+from services import plan_service
 
 logger = logging.getLogger(__name__)
 
@@ -348,15 +348,16 @@ def mark_seen(db: Session, admin_email: str, feedback_id: uuid.UUID) -> Feedback
     return FeedbackRead(**note.model_dump(), display_name=user.display_name if user else "")
 
 
-def overview(db: Session, admin_email: str) -> BetaOverview:
-    """Who is in the beta and how much they've played.
+def overview(db: Session, admin_email: str) -> BetaPlanOverview:
+    """Who is in the beta, how much they've played, and their plan (Plan 130).
 
     Args:
         db: Active database session.
         admin_email: The requesting admin.
 
     Returns:
-        Whether sign-up is invite-only, and every DM with campaign and session counts.
+        Whether sign-up is invite-only, and every DM with campaign and session
+        counts, their plan and whether an admin gave them Patron.
 
     Raises:
         PermissionError: If the requester isn't an admin.
@@ -369,8 +370,9 @@ def overview(db: Session, admin_email: str) -> BetaOverview:
         for c in campaigns:
             for a in AdventureRepo.list_by_campaign(db, c.id):
                 sessions += len(SessionRepo.list_by_adventure(db, a.id))
+        plan, _why = plan_service.plan_for(u.email, u)
         dms.append(
-            BetaDm(
+            BetaDmPlan(
                 email=u.email,
                 display_name=u.display_name,
                 invite_code=u.invite_code,
@@ -378,6 +380,8 @@ def overview(db: Session, admin_email: str) -> BetaOverview:
                 last_seen_at=u.last_seen_at,
                 campaigns=len(campaigns),
                 sessions=sessions,
+                plan=plan,
+                comped=u.patron_comped,
             )
         )
-    return BetaOverview(invites_required=invites_required(), dms=dms)
+    return BetaPlanOverview(invites_required=invites_required(), dms=dms)

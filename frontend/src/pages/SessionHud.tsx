@@ -33,6 +33,7 @@ import { encountersApi } from "../api/encounters";
 import { npcsApi } from "../api/npcs";
 import TonightsCastDrawer from "../components/tonights-cast/TonightsCastDrawer";
 import HudMenu from "../components/hud/HudMenu";
+import { useAuthStore } from "../stores/useAuthStore";
 import { useHudPrefs } from "../stores/useHudPrefs";
 import EditableRunbookText from "../components/runbook/EditableRunbookText";
 import TableRollStrip from "../components/dice-tray/TableRollStrip";
@@ -1113,7 +1114,10 @@ export default function SessionHud() {
   const combatState = useInitiativeStore((s) => s.combatState);
   const fightOn = combatActive && combatState === "running";
   const turnAnnouncement = fightOn && activeCombatantName ? `Round ${storeRound}, ${activeCombatantName}'s turn` : "";
-  const uses3d = useHudPrefs((s) => s.uses3d);
+  // Plan 129 — the immersive 3D table is Justin's own (never pitched): only an
+  // admin sees it in Player display, and only an admin gets its HUD extras.
+  const isAdmin = useAuthStore((s) => s.profile?.is_admin ?? false);
+  const uses3d = useHudPrefs((s) => s.uses3d) && isAdmin;
   const setUses3d = useHudPrefs((s) => s.setUses3d);
   const round = storeRound;
 
@@ -1655,14 +1659,18 @@ export default function SessionHud() {
               },
             ]}
             footer={[
-              {
-                key: "immersive",
-                label: "3D set dressing (immersive)",
-                onSelect: () => setUses3d(true),
-                icon: <Warehouse size={16} />,
-                hint: "Built rooms, walking figures, fog and weather on the TV. Needs a strong computer.",
-                href: `/table/${sessionId}/engine`,
-              },
+              ...(isAdmin
+                ? [
+                    {
+                      key: "immersive",
+                      label: "3D set dressing (immersive)",
+                      onSelect: () => setUses3d(true),
+                      icon: <Warehouse size={16} />,
+                      hint: "Built rooms, walking figures, fog and weather on the TV. Needs a strong computer.",
+                      href: `/table/${sessionId}/engine`,
+                    },
+                  ]
+                : []),
               {
                 key: "console",
                 label: "Map controls in a pop-up",

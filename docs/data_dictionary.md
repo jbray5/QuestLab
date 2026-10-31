@@ -389,6 +389,28 @@ Notes DMs send from the app's "Send feedback" sheet (Plan 125, migration 0059), 
 
 `users.invite_code` (VARCHAR(40), nullable, indexed, migration 0059) records which invite started an account.
 
+### uploads
+The uploads ledger (Plan 130, migration 0060): one row per file a DM uploaded through `/api/uploads`, `/api/uploads/map` or `/api/uploads/model`. A DM's storage use is the sum of `size_bytes`, which the Free plan caps at 250 MB when `PRICING=on`. Files uploaded before the ledger have no row, so they count as 0. Rows aren't removed when a picture is replaced or a campaign deleted (TD-130a). They will feed the orphan sweep.
+
+| Column | Type | Nullable | Constraints | Notes |
+|---|---|---|---|---|
+| id | UUID | No | PK | |
+| owner_email | VARCHAR(320) | No | INDEX | The uploading DM (PII) |
+| url | VARCHAR(1000) | No | | Vercel Blob URL, or `/uploads/<file>` in local dev |
+| size_bytes | BIGINT | No | DEFAULT 0 | |
+| kind | VARCHAR(20) | No | DEFAULT 'portrait' | `portrait` (also notebook pictures) · `map` · `model` |
+| created_at | TIMESTAMPTZ | No | | |
+
+### users: plan columns (Plan 130)
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| patreon_id | VARCHAR(64) | Yes | Linked Patreon user id (sign-in or "Link your Patreon"); one QuestLab account per Patreon id |
+| patron_active | BOOLEAN | No | Patreon said `active_patron` at the last check |
+| patron_tier_cents | INTEGER | No | The membership's monthly-equivalent cents at the last check: the larger of the entitled tier's price and the amount paid (a yearly payment counts at $40/year = $4/month). Patron needs ≥ 400 |
+| patron_checked_at | TIMESTAMP (naive UTC) | Yes | The last Patreon check. A membership counts for 40 days after it |
+| patron_comped | BOOLEAN | No | DEFAULT false, migration 0060. An admin gave this DM Patron |
+
 ---
 
 ## PII Fields
@@ -399,6 +421,8 @@ Notes DMs send from the app's "Send feedback" sheet (Plan 125, migration 0059), 
 | player_characters | player_name | PII — real person name |
 | monster_stat_blocks | created_by_email | PII — creator identity |
 | feedback | email | PII — DM identity (a player's note carries `player:<pc id>` instead) |
+| uploads | owner_email | PII — DM identity |
+| users | patreon_id, patron_* | Personal — the DM's Patreon account id and membership snapshot |
 
 Do not log, export without authorisation, or include in error messages.
 
@@ -426,3 +450,4 @@ Do not log, export without authorisation, or include in error messages.
 | session_runbooks | ix_session_runbooks_session_id | session_id |
 | duels | ix_duels_campaign_id | campaign_id |
 | duels | ix_duels_host_pc_id | host_pc_id |
+| uploads | ix_uploads_owner_email | owner_email |

@@ -35,10 +35,10 @@ from api.routers import (
     inventory,
     items,
     maps,
+    me,
     monsters,
     notebooks,
     npcs,
-    onboarding,
     play,
     puzzles,
     rest,
@@ -52,6 +52,7 @@ from api.routers import (
     waitlist,
 )
 from integrations import rate_limit
+from services.plan_service import PlanLimitError
 from services.upload_service import is_servable
 
 load_dotenv()
@@ -205,8 +206,16 @@ app.include_router(waitlist.router, prefix=_PREFIX)
 app.include_router(puzzles.router, prefix=_PREFIX)
 app.include_router(crier.router, prefix=_PREFIX)
 app.include_router(notebooks.router, prefix=_PREFIX)
-app.include_router(onboarding.router, prefix=_PREFIX)
 app.include_router(beta.router, prefix=_PREFIX)
+app.include_router(me.router, prefix=_PREFIX)
+
+
+# ── Plan 130 — a plan limit (new campaign or upload past the Free plan) is a 402
+# from whichever route hit it, with the plain-words detail the frontend shows.
+@app.exception_handler(PlanLimitError)
+async def _plan_limit(request: Request, exc: PlanLimitError) -> JSONResponse:
+    """Answer 402 with ``{"detail": {"code": "plan_limit", "limit", "message"}}``."""
+    return JSONResponse(status_code=402, content={"detail": exc.detail()})
 
 
 @app.get("/api/health")

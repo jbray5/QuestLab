@@ -1,8 +1,7 @@
-import { api } from "../api/client";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { Dices, ScrollText } from "lucide-react";
+import { Plus, ScrollText } from "lucide-react";
 import { campaignsApi } from "../api/campaigns";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import { useTourStore } from "../stores/useTourStore";
@@ -103,7 +102,7 @@ export default function Dashboard() {
     navigate(`/campaigns/${c.id}/sessions`);
   }
 
-  // A brand-new DM's next step is the sample night; after that, their campaigns.
+  // A brand-new DM's next step is their first campaign; after that, their campaigns.
   const fresh = !isLoading && !isError && campaigns.length === 0;
 
   return (
@@ -121,24 +120,11 @@ export default function Dashboard() {
         </div>
         <div className="ql-actions">
           <button
-            className={fresh ? "btn btn-primary" : "btn btn-secondary"}
-            title="A ready-made adventure, four pregens, a staged map and an encounter — run it tonight"
-            data-tour-id="sample-campaign"
-            onClick={() => {
-              // Plan 83 — build it (or find it) and land in the HUD with the script open.
-              void api
-                .post<{ campaign_id: string; session_id?: string | null }>("/onboarding/starter")
-                .then((r) => navigate(r.session_id ? `/sessions/${r.session_id}/hud?script=1` : "/campaigns"))
-                .catch(() => navigate("/campaigns"));
-            }}
+            className="btn btn-primary"
+            data-tour-id="start-campaign"
+            onClick={() => navigate(fresh ? "/campaigns?new=1" : "/campaigns")}
           >
-            <Dices size={16} aria-hidden /> Run the sample night
-          </button>
-          <button
-            className={fresh ? "btn btn-secondary" : "btn btn-primary"}
-            onClick={() => navigate("/campaigns")}
-          >
-            Manage campaigns
+            {fresh ? <><Plus size={16} aria-hidden /> Start your first campaign</> : "Manage campaigns"}
           </button>
         </div>
       </div>
@@ -167,8 +153,8 @@ export default function Dashboard() {
         <div className="empty-state">
           <ScrollText size={32} aria-hidden style={{ color: "var(--muted)", marginBottom: "0.75rem" }} />
           <p style={{ maxWidth: "48ch", margin: "0 auto" }}>
-            No campaigns yet. <strong>Run the sample night</strong> to play a ready-made adventure
-            tonight, or start your own from <strong>Manage campaigns</strong>.
+            No campaigns yet. <strong>Start your first campaign</strong>, then share its join link
+            so each player builds their character on their phone.
           </p>
         </div>
       )}
