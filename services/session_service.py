@@ -454,21 +454,22 @@ def broadcast_dice_roll(
         pc_ids = [pc.id for pc in CharacterRepo.list_by_campaign(db, adventure.campaign_id)]
     publish_dice_rolled(pc_ids, adventure.campaign_id, roll)
     # Plan 85 — the DM's roll lands on the projector and the remote windows too.
-    dice_m = re.search(r"(\d+)d(\d+)", roll.label or "")
-    faces = (
-        [int(x) for x in re.findall(r"-?\d+", roll.detail.split("]")[0])]
-        if "[" in roll.detail
-        else []
-    )
-    mod_m = re.search(r"\]\s*([+-]\s*\d+)", roll.detail or "")
+    # The roll arrives as a dict (the router's model_dump); reading it as an
+    # object crashed here, so the TV never got the DM's rolls (persona run 3).
+    label = str(roll.get("label") or "")
+    detail = str(roll.get("detail") or "")
+    total = int(roll.get("total") or 0)
+    dice_m = re.search(r"(\d+)d(\d+)", label)
+    faces = [int(x) for x in re.findall(r"-?\d+", detail.split("]")[0])] if "[" in detail else []
+    mod_m = re.search(r"\]\s*([+-]\s*\d+)", detail)
     publish_table_roll(
         session_id,
-        roller=roll.roller or "DM",
-        die=f"d{dice_m.group(2)}" if dice_m else roll.label,
-        rolls=faces or [roll.total],
+        roller=str(roll.get("roller") or "DM"),
+        die=f"d{dice_m.group(2)}" if dice_m else label,
+        rolls=faces or [total],
         modifier=int(mod_m.group(1).replace(" ", "")) if mod_m else 0,
-        total=roll.total,
-        label=None if not dice_m else roll.label,
+        total=total,
+        label=None if not dice_m else label,
     )
     return len(pc_ids)
 

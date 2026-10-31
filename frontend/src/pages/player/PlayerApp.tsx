@@ -88,6 +88,11 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
           active_combatant_name: (e.active_combatant_name as string) ?? (active ? prev?.active_combatant_name : undefined),
           order: prev?.order?.map((r: OrderRow) => ({ ...r, current: r.name === e.active_combatant_name })),
         }));
+        // A fight starting, a turn passing or a fight ending all arrive as turn
+        // changes: re-read whether a fight is on (Now screen) and the full order,
+        // or the phone sits on "No fight right now" (persona run 3, Nina).
+        void qc.invalidateQueries({ queryKey: ["play-combat-state", pcId] });
+        void qc.invalidateQueries({ queryKey: ["play-turn-state", pcId] });
         if (active) {
           try {
             navigator.vibrate?.([60, 40, 60]);

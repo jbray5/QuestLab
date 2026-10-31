@@ -352,3 +352,21 @@ def test_stand_down_flips_group_to_neutral(client, api_engine):
     assert client.post(
         f"/api/sessions/{sid}/table/stand-down", json={"group": "house"}
     ).status_code in (401, 403)
+
+
+def test_dm_table_roll_reaches_the_table(client, api_engine, monkeypatch):
+    """Persona run 3 — the HUD's Table roll 500'd (the roll was read as an object, not a dict)."""
+    dm = "dm_roll@example.com"
+    _cid, sid = _seed(api_engine, dm)
+    seen = []
+    import services.session_service as svc
+
+    monkeypatch.setattr(svc, "publish_table_roll", lambda session_id, **kw: seen.append(kw))
+    resp = client.post(
+        f"/api/sessions/{sid}/dice-roll",
+        headers=auth(dm),
+        json={"label": "2d6+3", "detail": "[4, 5] +3", "total": 12, "roller": "DM"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert seen and seen[0]["die"] == "d6" and seen[0]["rolls"] == [4, 5]
+    assert seen[0]["modifier"] == 3 and seen[0]["total"] == 12
