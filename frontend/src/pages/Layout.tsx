@@ -6,7 +6,8 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { useAuthStore } from "../stores/useAuthStore";
+import { useAuthStore, type DmProfile } from "../stores/useAuthStore";
+import { api } from "../api/client";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import { campaignsApi } from "../api/campaigns";
 import { adventuresApi } from "../api/adventures";
@@ -149,7 +150,7 @@ function SkipLink() {
 }
 
 export default function Layout() {
-  const { dmEmail, signOut, profile } = useAuthStore();
+  const { dmEmail, signOut, profile, setProfile } = useAuthStore();
   const isAdmin = !!profile?.is_admin;
   const { activeCampaign, activeAdventure, setActiveCampaign, setActiveAdventure } = useCampaignStore();
   const startTour = useTourStore((s) => s.start);
@@ -169,6 +170,17 @@ export default function Layout() {
     staleTime: 5 * 60_000,
   });
   const supportUrl = myPlan.data?.support_url ?? null;
+  // The stored profile is a snapshot from sign-in; read it fresh once per
+  // visit so a changed admin flag or display name shows without signing out.
+  const freshProfile = useQuery({
+    queryKey: ["auth-me", dmEmail],
+    queryFn: () => api.get<DmProfile>("/auth/me"),
+    enabled: !!dmEmail,
+    staleTime: 10 * 60_000,
+  });
+  useEffect(() => {
+    if (freshProfile.data) setProfile(freshProfile.data);
+  }, [freshProfile.data, setProfile]);
 
   // Plan 128 — Escape closes the phone menu and hands focus back to its button
   // (unless a dialog is open on top; that dialog's Escape comes first).

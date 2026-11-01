@@ -63,3 +63,25 @@ def test_providers_reports_password_signup(client, monkeypatch):
     assert client.get("/api/auth/providers").json()["password_signup"] is True
     monkeypatch.delenv("APP_SECRET")
     assert client.get("/api/auth/providers").json()["password_signup"] is False
+
+
+def test_password_sign_in_reports_admin(client, monkeypatch):
+    """Sign-up and password sign-in agree with /auth/me on the admin flag (10/31 bug)."""
+    monkeypatch.setenv("BOOTSTRAP_ADMIN_EMAILS", "boss@example.com")
+    up = client.post(
+        "/api/auth/signup",
+        json={"name": "Boss", "email": "Boss@Example.com", "password": "rollforinit"},
+    )
+    assert up.status_code == 201 and up.json()["user"]["is_admin"] is True
+    login = client.post(
+        "/api/auth/login", json={"email": "boss@example.com", "password": "rollforinit"}
+    )
+    assert login.json()["user"]["is_admin"] is True
+    token = login.json()["token"]
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.json()["is_admin"] is True
+    other = client.post(
+        "/api/auth/signup",
+        json={"name": "Pal", "email": "pal@example.com", "password": "rollforinit"},
+    )
+    assert other.json()["user"]["is_admin"] is False

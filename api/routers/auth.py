@@ -181,14 +181,7 @@ def me(db: DB, user: CurrentUser) -> UserRead:
     Returns:
         A UserRead.
     """
-    from services.auth_service import me as _me
-
-    admins = {
-        e.strip().lower()
-        for e in os.environ.get("BOOTSTRAP_ADMIN_EMAILS", "").split(",")
-        if e.strip()
-    }
-    return _me(db, user, is_admin=user in admins)
+    return auth_service.me(db, user)
 
 
 @router.get("/auth/dev-token")

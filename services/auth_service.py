@@ -531,13 +531,15 @@ def touch_header_user(db: DBSession, email: str) -> None:
         UserRepo.save(db, User(email=email.strip().lower()))
 
 
-def me(db: DBSession, email: str, *, is_admin: bool = False) -> UserRead:
+def me(db: DBSession, email: str) -> UserRead:
     """Profile summary for the signed-in DM.
+
+    The admin flag comes from BOOTSTRAP_ADMIN_EMAILS here, so every route that
+    returns a profile (sign-up, password sign-in, /auth/me) agrees on it.
 
     Args:
         db: Active database session.
         email: The DM's email.
-        is_admin: Whether the caller is an admin.
 
     Returns:
         A UserRead.
@@ -549,5 +551,5 @@ def me(db: DBSession, email: str, *, is_admin: bool = False) -> UserRead:
         avatar_url=user.avatar_url if user else None,
         discord_linked=bool(user and user.discord_id),
         patreon_linked=bool(user and user.patreon_id),
-        is_admin=is_admin,
+        is_admin=is_admin(email),
     )
