@@ -43,7 +43,11 @@ class PlayerCharacter(SQLModel, table=True):
     background: Optional[str] = Field(default=None, max_length=100)
     # Plan 131 — copied from the campaign at creation (a Ruleset value, "2024" or "2014");
     # never changes after.
-    ruleset: str = Field(default=Ruleset.R2024.value, max_length=4)
+    ruleset: str = Field(
+        default=Ruleset.R2024.value,
+        max_length=4,
+        sa_column_kwargs={"server_default": Ruleset.R2024.value},
+    )
     alignment: Optional[str] = Field(default=None, max_length=50)
     # Ability scores
     score_str: int = Field(ge=1, le=30)
@@ -538,7 +542,11 @@ class ClassFeature(SQLModel, table=True):
     description: str
     source: str = Field(default="SRD 5.5e / 2024 PHB", max_length=60)
     # Plan 131 — which edition's catalog this row belongs to; a PC only gets its own edition's.
-    ruleset: str = Field(default=Ruleset.R2024.value, max_length=4)
+    ruleset: str = Field(
+        default=Ruleset.R2024.value,
+        max_length=4,
+        sa_column_kwargs={"server_default": Ruleset.R2024.value},
+    )
 
 
 class ClassFeatureCreate(BaseModel):

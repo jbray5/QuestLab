@@ -1,4 +1,4 @@
-"""Class-feature service — catalog browsing + per-PC usage tracking (Plans 00021, 128).
+"""Class-feature service — catalog browsing + per-PC usage tracking (Plans 00021, 128, 131).
 
 Resolves the ``UsesFormula`` enum (or a level-scaled override from the rules
 module) against a PC to produce the actual ``max_uses`` integer. Seeds every
@@ -6,6 +6,9 @@ catalog row a database is missing, grants new rows to the characters that
 qualify, and lists every class and subclass feature a character has at its
 level. All DM authz goes through campaign ownership; the player route is a
 capability link the router resolves.
+
+Plan 131: the catalog holds both editions' rows (``ClassFeature.ruleset``), and a
+PC is only ever granted its own edition's (``pc.ruleset``, stamped from the campaign).
 """
 
 from __future__ import annotations
@@ -29,8 +32,8 @@ from domain.character import (
     PlayerCharacter,
 )
 from domain.enums import CharacterClass, UsesFormula
+from integrations.dnd_rules import rulesets
 from integrations.dnd_rules.class_features_2024 import (
-    CLASS_FEATURES_2024,
     NON_SRD_SUBCLASSES,
     canonical_subclass,
     features_for_level,
@@ -43,10 +46,34 @@ logger = logging.getLogger(__name__)
 
 _ABILITIES = ("str", "dex", "con", "int", "wis", "cha")
 
+# Plan 131 — counts that step up at set levels: (from level, uses), ascending. A 0 means
+# no limit (2014 Rage and Wild Shape at level 20): nothing to count, so no counter shows.
+_LEVEL_STEPS: dict[UsesFormula, tuple[tuple[int, int], ...]] = {
+    UsesFormula.RAGE_2014: ((1, 2), (3, 3), (6, 4), (12, 5), (17, 6), (20, 0)),
+    UsesFormula.WILD_SHAPE_2014: ((1, 2), (20, 0)),
+    UsesFormula.CHANNEL_DIV_2014: ((1, 1), (6, 2), (18, 3)),
+    UsesFormula.ACTION_SURGE: ((1, 1), (17, 2)),
+    UsesFormula.INDOMITABLE: ((1, 1), (13, 2), (17, 3)),
+}
+
 
 def _ability_mod(score: int) -> int:
     """Standard 5e modifier formula."""
     return (int(score) - 10) // 2
+
+
+def _at_level(level: int, steps: tuple[tuple[int, int], ...]) -> int:
+    """The value from an ascending (from_level, value) table at ``level``."""
+    out = steps[0][1]
+    for at, value in steps:
+        if level >= at:
+            out = value
+    return out
+
+
+def _ruleset_of(obj: Any) -> str:
+    """The plain ruleset ("2024"/"2014") of a catalog row or a PC; a missing one is 2024."""
+    return rulesets.normalize(getattr(obj, "ruleset", None))
 
 
 def resolve_max_uses(formula: UsesFormula, pc: PlayerCharacter) -> int:
@@ -93,6 +120,14 @@ def resolve_max_uses(formula: UsesFormula, pc: PlayerCharacter) -> int:
         return max(1, pc.level // 3)
     if formula == UsesFormula.LEVEL_DIV_2:
         return max(1, pc.level // 2)
+    # Plan 131 — the 2014 counters.
+    if formula == UsesFormula.CHA_MOD_PLUS_1:
+        return max(1, 1 + _ability_mod(pc.score_cha))
+    if formula == UsesFormula.LEVEL_X5:
+        return 5 * max(1, pc.level)
+    steps = _LEVEL_STEPS.get(formula)
+    if steps is not None:
+        return _at_level(pc.level, steps)
     return 0
 
 
@@ -100,8 +135,9 @@ def max_uses_for(feature: ClassFeature, pc: PlayerCharacter) -> int:
     """Max uses of a catalog feature for this PC, level-scaled where 2024 says so.
 
     Action Surge, Indomitable, Wild Shape and the Paladin's Channel Divinity gain
-    uses at set levels; Lay on Hands is a pool of 5 hit points per level. Those
-    come from the rules module; everything else from the row's ``UsesFormula``.
+    uses at set levels; Lay on Hands is a pool of 5 hit points per level. For 2024
+    rows those come from the rules module, keyed by name; everything else, and every
+    2014 row (Plan 131: its formula says it all), from the row's ``UsesFormula``.
 
     Args:
         feature: The catalog row.
@@ -112,9 +148,10 @@ def max_uses_for(feature: ClassFeature, pc: PlayerCharacter) -> int:
     """
     if feature.uses_formula == UsesFormula.NONE:
         return 0
-    scaled = scaled_uses(feature.character_class, feature.name, pc.level)
-    if scaled is not None:
-        return scaled
+    if not rulesets.is_2014(_ruleset_of(feature)):
+        scaled = scaled_uses(feature.character_class, feature.name, pc.level)
+        if scaled is not None:
+            return scaled
     return resolve_max_uses(feature.uses_formula, pc)
 
 
@@ -196,6 +233,7 @@ def list_catalog(
     character_class: CharacterClass | None = None,
     max_level: int = 20,
     dm_email: str | None = None,
+    ruleset: Any = None,
 ) -> list[ClassFeatureRead]:
     """Return catalog features for a class (or all classes).
 
@@ -204,11 +242,16 @@ def list_catalog(
         character_class: Optional class filter.
         max_level: Inclusive upper bound on level_acquired.
         dm_email: The requesting DM; non-SRD entries are shown only to admins (Plan 77).
+        ruleset: Optional edition filter ("2024"/"2014", Plan 131), so the "learn a
+            feature" list for a PC shows only its own edition's rows. None lists both.
 
     Returns:
         ClassFeatureRead list.
     """
     rows = ClassFeatureRepo.list_all(db, character_class=character_class, max_level=max_level)
+    if ruleset is not None:
+        wanted = rulesets.normalize(ruleset)
+        rows = [r for r in rows if _ruleset_of(r) == wanted]
     personal = bool(dm_email) and auth_service.personal_content_allowed(dm_email)
     return [
         ClassFeatureRead.model_validate(r)
@@ -217,22 +260,31 @@ def list_catalog(
     ]
 
 
-def _catalog_key(name: str, character_class: Any, subclass: Optional[str]) -> tuple[str, str, str]:
-    """The identity a catalog row is matched on: name + class + subclass."""
+def _catalog_key(
+    name: str, character_class: Any, subclass: Optional[str], ruleset: Any = None
+) -> tuple[str, str, str, str]:
+    """The identity a catalog row is matched on: name + class + subclass + ruleset (Plan 131)."""
     cls = str(getattr(character_class, "value", character_class) or "").strip().lower()
-    return (name.strip().lower(), cls, (subclass or "").strip().lower())
+    return (
+        name.strip().lower(),
+        cls,
+        (subclass or "").strip().lower(),
+        rulesets.normalize(ruleset),
+    )
 
 
 def _seed_missing(db: Session, payloads: Iterable[Any]) -> list[ClassFeature]:
     """Insert the payloads the catalog lacks and return the new rows (see ``seed_catalog``)."""
     existing = {
-        _catalog_key(r.name, r.character_class, r.subclass): r
+        _catalog_key(r.name, r.character_class, r.subclass, _ruleset_of(r)): r
         for r in ClassFeatureRepo.list_all(db)
     }
     inserted: list[ClassFeature] = []
     changed = 0
     for payload in payloads:
-        key = _catalog_key(payload.name, payload.character_class, payload.subclass)
+        key = _catalog_key(
+            payload.name, payload.character_class, payload.subclass, _ruleset_of(payload)
+        )
         row = existing.get(key)
         if row is None:
             row = ClassFeatureRepo.create(db, payload)
@@ -252,11 +304,12 @@ def _seed_missing(db: Session, payloads: Iterable[Any]) -> list[ClassFeature]:
 def seed_catalog(db: Session, payloads: list) -> int:
     """Insert every catalog row the table is missing. Idempotent.
 
-    Rows are matched on name + class + subclass, so a database that already
-    holds some rows (an older seed, or the rows data migrations planted) gets
-    the rest, and nothing is ever duplicated. Existing rows keep their id (PCs'
-    counters point at it); only their max-uses formula and recovery are kept
-    in step with the rules module (Plan 83).
+    Rows are matched on name + class + subclass + ruleset, so a database that
+    already holds some rows (an older seed, or the rows data migrations planted)
+    gets the rest, nothing is ever duplicated, and the 2014 Rage never overwrites
+    the 2024 one (Plan 131). Existing rows keep their id (PCs' counters point at
+    it); only their max-uses formula and recovery are kept in step with the
+    rules module (Plan 83).
 
     Args:
         db: Active database session.
@@ -272,11 +325,13 @@ def seed_and_backfill(db: Session, payloads: list) -> dict[str, int]:
     """Startup: seed the missing catalog rows, then grant the new ones to every PC who qualifies.
 
     Only rows inserted by this call are granted, so a feature a DM removed
-    from a sheet on purpose doesn't come back on the next restart.
+    from a sheet on purpose doesn't come back on the next restart. A row only
+    goes to PCs of its own edition (see ``_qualifies``), so startup can pass both
+    editions' catalogs.
 
     Args:
         db: Active database session.
-        payloads: List of ClassFeatureCreate payloads.
+        payloads: List of ClassFeatureCreate payloads (either edition, or both).
 
     Returns:
         ``{"inserted": n, "granted": m}``.
@@ -428,9 +483,10 @@ def forget_feature(db: Session, character_feature_id: uuid.UUID, dm_email: str) 
 def _subclass_matches(feature_subclass: str, pc: PlayerCharacter) -> bool:
     """Whether a subclass catalog row belongs to this PC's subclass.
 
-    Case-insensitive substring either way ("Life Domain" matches "Life"), or the
-    same SRD subclass however it was written ("Path of the Berserker" is the
-    Berserker, "School of Evocation" the Evoker).
+    Case-insensitive substring either way ("Life Domain" matches "Life"), or, for
+    2024, the same SRD subclass however it was written ("Path of the Berserker" is
+    the Berserker, "School of Evocation" the Evoker). A 2014 PC matches the 2014
+    rows' own names directly: the 2024 aliases point at 2024 keys (Plan 131).
     """
     subclass = (pc.subclass or "").strip().lower()
     if not subclass:
@@ -438,12 +494,17 @@ def _subclass_matches(feature_subclass: str, pc: PlayerCharacter) -> bool:
     fsub = feature_subclass.strip().lower()
     if fsub in subclass or subclass in fsub:
         return True
+    if rulesets.is_2014(_ruleset_of(pc)):
+        return False
     canon = canonical_subclass(pc.character_class, pc.subclass)
     return canon is not None and canon.lower() == fsub
 
 
 def _qualifies(feature: ClassFeature, pc: PlayerCharacter, personal: bool) -> bool:
-    """Class, level and subclass all fit (and non-SRD text only at the owner's table)."""
+    """Edition, class, level and subclass all fit (and non-SRD text only at the owner's table)."""
+    # Plan 131 — a PC only ever gets its own edition's rows.
+    if _ruleset_of(feature) != _ruleset_of(pc):
+        return False
     if feature.character_class != pc.character_class or feature.level_acquired > pc.level:
         return False
     if feature.subclass:
@@ -474,10 +535,11 @@ def sync_for_level(db: Session, character_id: uuid.UUID, dm_email: str) -> list[
     """Grant every catalog feature the PC qualifies for (creation and level-up helper).
 
     Idempotent: features already learned are skipped. The catalog is first
-    topped up from the rules module, so a database whose startup seed missed
-    rows still grants the whole set. A feature qualifies when its class
-    matches, its ``level_acquired`` is within the PC's level, and it is either
-    class-generic or belongs to the PC's subclass (see ``_subclass_matches``).
+    topped up from the PC's edition's rules module, so a database whose startup
+    seed missed rows still grants the whole set. A feature qualifies when its
+    edition and class match, its ``level_acquired`` is within the PC's level, and
+    it is either class-generic or belongs to the PC's subclass (see
+    ``_subclass_matches``).
 
     Args:
         db: Active database session.
@@ -488,7 +550,7 @@ def sync_for_level(db: Session, character_id: uuid.UUID, dm_email: str) -> list[
         Names of the newly granted features (empty if up to date).
     """
     pc = _assert_pc_owner(db, character_id, dm_email)
-    _seed_missing(db, CLASS_FEATURES_2024)
+    _seed_missing(db, rulesets.class_features(_ruleset_of(pc)))
     catalog = ClassFeatureRepo.list_all(db, character_class=pc.character_class, max_level=pc.level)
     return _grant(db, pc, catalog, auth_service.personal_content_allowed(dm_email))
 

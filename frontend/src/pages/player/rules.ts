@@ -4,6 +4,8 @@
  */
 import type { CSSProperties } from "react";
 
+import type { Ruleset } from "../../lib/ruleset";
+
 export const mod = (score: number) => Math.floor((score - 10) / 2);
 export const fmt = (n: number) => (n >= 0 ? `+${n}` : `−${Math.abs(n)}`);
 export const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;
@@ -60,6 +62,30 @@ export const CONDITION_TEXT: Record<string, string> = {
   stunned: "You can't move or act, and fail Strength and Dexterity saves.",
   unconscious: "You're out cold: you drop what you hold and fall prone.",
 };
+
+/** The same sentences for the 2014 rules (Plan 131), from the SRD 5.1 conditions. */
+export const CONDITION_TEXT_2014: Record<string, string> = {
+  blinded: "You can't see. Your attacks have disadvantage; attacks against you have advantage.",
+  charmed: "You can't attack the charmer, and they have advantage when talking you round.",
+  deafened: "You can't hear.",
+  exhaustion: "Each level adds an effect: first disadvantage on checks, then half speed, and worse. A long rest removes a level.",
+  frightened: "Disadvantage on checks and attacks while you can see what scares you; you can't move closer to it.",
+  grappled: "Your speed is 0 until you get free.",
+  incapacitated: "You can't take actions or reactions.",
+  invisible: "No one can see you without magic, but noise and tracks give you away. Your attacks have advantage; attacks against you have disadvantage.",
+  paralyzed: "You can't move or act. Attacks against you have advantage; hits from close by are critical.",
+  petrified: "You're turned to stone: you can't move or act, but you resist all damage.",
+  poisoned: "Disadvantage on attacks and checks.",
+  prone: "You're on the ground: you crawl until you stand (half your movement). Your attacks have disadvantage; close attacks against you have advantage.",
+  restrained: "Your speed is 0. Your attacks and Dexterity saves have disadvantage; attacks against you have advantage.",
+  stunned: "You can't move or act, can barely speak, and fail Strength and Dexterity saves.",
+  unconscious: "You're out cold: you drop what you hold and fall prone.",
+};
+
+/** What a condition does to you in a sentence, under your campaign's rules (Plan 131). */
+export function conditionText(name: string, ruleset: Ruleset): string | undefined {
+  return (ruleset === "2014" ? CONDITION_TEXT_2014 : CONDITION_TEXT)[name.toLowerCase()];
+}
 
 export const RECOVERY_TEXT: Record<string, string> = {
   short: "back after a short or long rest",

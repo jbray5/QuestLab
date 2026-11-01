@@ -81,9 +81,9 @@ async def lifespan(app: FastAPI):
     from sqlmodel import Session
 
     from db.base import create_db_and_tables, get_engine, patch_duckdb_schema
+    from integrations.dnd_rules.class_features_2014 import CLASS_FEATURES_2014
     from integrations.dnd_rules.class_features_2024 import CLASS_FEATURES_2024
     from integrations.dnd_rules.srd_armor_2024 import SRD_ARMOR_2024
-    from integrations.dnd_rules.srd_spells_2024 import SRD_SPELLS_2024
     from integrations.dnd_rules.srd_weapons_2024 import SRD_WEAPONS_2024
     from integrations.dnd_rules.stat_blocks import seed_monsters
     from services.feature_service import seed_and_backfill as seed_class_features
@@ -93,7 +93,7 @@ async def lifespan(app: FastAPI):
         seed_magic_items,
         seed_weapons,
     )
-    from services.spell_service import seed_spells
+    from services.spell_service import seed_srd_spells
 
     create_db_and_tables()
     patch_duckdb_schema()
@@ -103,8 +103,12 @@ async def lifespan(app: FastAPI):
         seed_magic_items(db)
         seed_weapons(db, SRD_WEAPONS_2024)
         seed_armor(db, SRD_ARMOR_2024)
-        seed_spells(db, SRD_SPELLS_2024)
-        seed_class_features(db, CLASS_FEATURES_2024)
+        # Plan 131 — the 2024 (SRD 5.2.1) and 2014 (SRD 5.1) spells, each edition
+        # inserted only while it has no rows.
+        seed_srd_spells(db)
+        # Plan 131 — both editions' trackers, insert-if-missing; a row only goes to its
+        # own edition's characters.
+        seed_class_features(db, [*CLASS_FEATURES_2024, *CLASS_FEATURES_2014])
         # After all seeds, backfill magic-weapon items with stats from the
         # mundane weapon catalog so AttacksList (Plan 22) can render them.
         backfill_weapon_stats(db)

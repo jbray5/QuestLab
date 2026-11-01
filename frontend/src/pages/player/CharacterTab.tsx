@@ -11,7 +11,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronRight, Shirt, Swords } from "lucide-react";
 
 import { playApi } from "../../api/play";
+import { exhaustion2014Summary } from "../../lib/conditions";
 import { portraitSrc } from "../../lib/portrait";
+import { rulesetOf } from "../../lib/ruleset";
 import { usePlayer } from "./playerContext";
 import { useRoll } from "./rollContext";
 import { abilitySpec, initiativeSpec, saveSpec, skillSpec } from "./rolls";
@@ -97,7 +99,10 @@ function HitPoints() {
       </div>
       <button type="button" aria-pressed={pc.heroic_inspiration} onClick={() => insp.mutate()} disabled={insp.isPending} className="btn btn-ghost" style={{ minHeight: 44, justifyContent: "flex-start", whiteSpace: "normal", textAlign: "left", borderColor: pc.heroic_inspiration ? "var(--accent-edge)" : undefined, color: pc.heroic_inspiration ? "var(--accent-text)" : undefined }}>
         <span aria-hidden style={{ width: 14, height: 14, flexShrink: 0, borderRadius: "50%", border: "2px solid currentColor", background: pc.heroic_inspiration ? "currentColor" : "transparent" }} />
-        {pc.heroic_inspiration ? "Heroic Inspiration: tap to spend it" : "No Heroic Inspiration"}
+        {/* Plan 131 — the 2014 rules call it plain Inspiration (advantage on one roll). */}
+        {rulesetOf(pc.ruleset) === "2014"
+          ? pc.heroic_inspiration ? "Inspiration: tap to spend it for advantage on one roll" : "No Inspiration"
+          : pc.heroic_inspiration ? "Heroic Inspiration: tap to spend it" : "No Heroic Inspiration"}
         {help === "teach" && !pc.heroic_inspiration && <span style={{ color: "var(--muted)", fontWeight: 400 }}> · the DM hands it out</span>}
       </button>
     </Panel>
@@ -449,6 +454,8 @@ function Exhaustion() {
   const { pc, pcId, refresh, help } = usePlayer();
   const set = useMutation({ mutationFn: (n: number) => playApi.patchState(pcId, { exhaustion: n }), onSuccess: refresh });
   const level = pc.exhaustion ?? 0;
+  // Plan 131 — the 2014 rules: each level adds an effect; nothing comes off your rolls.
+  const old = rulesetOf(pc.ruleset) === "2014";
   if (level === 0 && help !== "numbers") {
     return (
       <button type="button" className="btn btn-ghost" onClick={() => set.mutate(1)} style={{ minHeight: 40, alignSelf: "flex-start" }}>
@@ -460,7 +467,8 @@ function Exhaustion() {
     <Panel style={{ gap: 8 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Exhaustion <span className="num">{level}</span></h2>
-        {level > 0 && <span className="num" style={{ fontSize: 13, color: "var(--amber-text)" }}>−{level * 2} to every d20 roll</span>}
+        {level > 0 && !old && <span className="num" style={{ fontSize: 13, color: "var(--amber-text)" }}>−{level * 2} to every d20 roll</span>}
+        {level > 0 && old && <span style={{ fontSize: 13, color: "var(--amber-text)", textAlign: "right" }}>{exhaustion2014Summary(level)}</span>}
       </div>
       <div style={{ display: "flex", gap: 6 }}>
         {[1, 2, 3, 4, 5, 6].map((i) => (

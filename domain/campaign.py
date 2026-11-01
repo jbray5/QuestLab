@@ -37,7 +37,11 @@ class Campaign(CampaignBase, table=True):
     # Plan 131 — the edition this table plays by: "2024" (default) or "2014" (a Ruleset value,
     # stored as its plain value). Locked once the campaign has characters (campaign_service),
     # and copied onto each PC at creation.
-    ruleset: str = Field(default=Ruleset.R2024.value, max_length=4)
+    ruleset: str = Field(
+        default=Ruleset.R2024.value,
+        max_length=4,
+        sa_column_kwargs={"server_default": Ruleset.R2024.value},
+    )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 

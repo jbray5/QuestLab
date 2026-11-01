@@ -2,11 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, X } from "lucide-react";
 
 import { useIsCompact } from "../../hooks/useIsCompact";
-import { DM_SCREEN_TABS, type RulesEntry } from "./dm-screen-content";
+import { rulesetLabel, type Ruleset } from "../../lib/ruleset";
+import { dmScreenTabs, type RulesEntry } from "./dm-screen-content";
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Plan 131 — the campaign's rules; the 2014 rules get their own reference. */
+  ruleset?: Ruleset;
 }
 
 /**
@@ -19,19 +22,28 @@ interface Props {
  *
  * Mobile-friendly: tabs wrap, content scrolls. ESC and click-outside
  * dismiss.
+ *
+ * Plan 131 — a 2014 campaign's screen shows the 2014 rules (same tabs).
  */
-export default function DmScreen({ open, onClose }: Props) {
-  const [activeTab, setActiveTab] = useState(DM_SCREEN_TABS[0].id);
+export default function DmScreen({ open, onClose, ruleset = "2024" }: Props) {
+  const tabs = dmScreenTabs(ruleset);
+  const [activeTab, setActiveTab] = useState(tabs[0].id);
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement | null>(null);
   // Plan 123 — a phone gets the whole screen: title and close on top, the search
   // on its own row, the tabs in one sideways-scrolling row.
   const phone = useIsCompact(640);
 
+  // Each opening starts with an empty search (reset while rendering, not in an effect).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setQuery("");
+  }
+
   // ESC dismisses + autofocus search on open.
   useEffect(() => {
     if (!open) return;
-    setQuery("");
     setTimeout(() => searchRef.current?.focus(), 0);
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -46,7 +58,7 @@ export default function DmScreen({ open, onClose }: Props) {
   const matches = useMemo(() => {
     if (!searching) return null;
     const all: Array<{ tabLabel: string; entry: RulesEntry }> = [];
-    for (const tab of DM_SCREEN_TABS) {
+    for (const tab of tabs) {
       for (const entry of tab.entries) {
         const haystack = [
           entry.title,
@@ -61,11 +73,11 @@ export default function DmScreen({ open, onClose }: Props) {
       }
     }
     return all;
-  }, [q, searching]);
+  }, [q, searching, tabs]);
 
   if (!open) return null;
 
-  const activeTabData = DM_SCREEN_TABS.find((t) => t.id === activeTab);
+  const activeTabData = tabs.find((t) => t.id === activeTab);
 
   return (
     // On a phone it covers the dice button too (it has its own close); sheets stay above.
@@ -81,6 +93,11 @@ export default function DmScreen({ open, onClose }: Props) {
             <h2 style={titleStyle}>
               <BookOpen size={18} aria-hidden style={{ color: "var(--muted)" }} />
               DM screen
+              {ruleset === "2014" && (
+                <span className="pill" style={{ fontSize: "0.75rem", padding: "0 0.5rem", fontWeight: 500 }}>
+                  {rulesetLabel(ruleset)}
+                </span>
+              )}
             </h2>
             <input
               ref={searchRef}
@@ -108,7 +125,7 @@ export default function DmScreen({ open, onClose }: Props) {
               className={phone ? "ql-scroll-x" : undefined}
               style={phone ? { ...tabsStyle, flexWrap: "nowrap", gap: "0.4rem", margin: "0.5rem -0.75rem 0", padding: "0 0.75rem" } : tabsStyle}
             >
-              {DM_SCREEN_TABS.map((tab) => (
+              {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   className="btn btn-ghost"

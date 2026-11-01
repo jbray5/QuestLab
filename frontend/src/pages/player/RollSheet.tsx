@@ -4,13 +4,20 @@
  * bonus at the player's help level, offers advantage, and chains an attack to
  * its damage (crits double the dice; a rogue can add Sneak Attack). A healing
  * spell's roll (Plan 128) offers to put the total on your own hit points.
+ *
+ * Plan 131 — an exhausted character on the 2014 rules starts the roll at
+ * disadvantage where exhaustion gives it (checks from level 1, attacks and
+ * saves from level 3), with a line saying why; they can still change it.
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Dices, Info, X } from "lucide-react";
 
 import { playApi, type RollResult } from "../../api/play";
 import { friendlyApiError } from "../../api/errors";
+import { exhaustionRollNote } from "../../lib/conditions";
+import { rulesetOf } from "../../lib/ruleset";
 import type { HelpLevel } from "../../stores/usePlayerPrefs";
+import { usePlayer } from "./playerContext";
 import { fmt, parseDice } from "./rules";
 import { RollCtx, type Die, type RollSpec } from "./rollContext";
 
@@ -31,7 +38,10 @@ export function RollProvider({ pcId, help, children }: { pcId: string; help: Hel
 }
 
 function Sheet({ pcId, help, spec, onClose, onNext }: { pcId: string; help: HelpLevel; spec: RollSpec; onClose: () => void; onNext: (s: RollSpec) => void }) {
-  const [mode, setMode] = useState<"normal" | "advantage" | "disadvantage">("normal");
+  const { pc } = usePlayer();
+  // Plan 131 — 2014 exhaustion: disadvantage on this roll (null on the 2024 rules).
+  const tired = spec.die === "d20" && (spec.count ?? 1) === 1 ? exhaustionRollNote(pc.exhaustion, rulesetOf(pc.ruleset), spec.kind) : null;
+  const [mode, setMode] = useState<"normal" | "advantage" | "disadvantage">(tired ? "disadvantage" : "normal");
   const [real, setReal] = useState("");
   const [real2, setReal2] = useState("");
   const [busy, setBusy] = useState(false);
@@ -182,6 +192,12 @@ function Sheet({ pcId, help, spec, onClose, onNext }: { pcId: string; help: Help
                     </button>
                   ))}
                 </div>
+                {tired && (
+                  <span style={{ fontSize: 13, color: "var(--amber-text)" }}>
+                    {tired.text}
+                    {help !== "numbers" && " If something gives you advantage too, they cancel: pick Normal."}
+                  </span>
+                )}
                 {help === "teach" && (
                   <span style={{ fontSize: 13, color: "var(--muted)" }}>Advantage: roll twice, keep the higher. The DM says when you have it.</span>
                 )}

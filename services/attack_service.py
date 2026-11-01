@@ -11,6 +11,25 @@ from __future__ import annotations
 
 from domain.character import PlayerCharacter
 from domain.item import Item, WeaponAttackPreview
+from integrations.dnd_rules import rulesets
+
+
+def mastery_for(weapon: Item, character: PlayerCharacter) -> str | None:
+    """The weapon's mastery property, if this character's rules have weapon mastery.
+
+    Weapon mastery is a 2024 rule; a PC in a 2014 campaign (Plan 131) never
+    gets one, so the sheet and the phone show none.
+
+    Args:
+        weapon: Weapon Item.
+        character: The wielding PC (its ``ruleset`` decides).
+
+    Returns:
+        The mastery name ("Vex", "Topple"...), or None.
+    """
+    if rulesets.is_2014(getattr(character, "ruleset", None)):
+        return None
+    return weapon.mastery
 
 
 def is_weapon(item: Item) -> bool:
@@ -106,7 +125,9 @@ def compute_attack(
             Ignored if the weapon has no ``versatile_damage``.
 
     Returns:
-        WeaponAttackPreview with hit bonus, damage roll, mastery, etc.
+        WeaponAttackPreview with hit bonus, damage roll, mastery (None for a
+        2014 PC: no weapon mastery in those rules), etc. Exhaustion is not
+        folded into the hit bonus in either edition (Plan 131).
 
     Raises:
         ValueError: If ``weapon`` is not a weapon.
@@ -130,7 +151,7 @@ def compute_attack(
         hit_bonus=hit_bonus,
         damage_roll=damage_roll,
         damage_type=weapon.damage_type or "bludgeoning",
-        mastery=weapon.mastery,
+        mastery=mastery_for(weapon, character),
         proficient=proficient,
         two_handed=two_handed,
     )

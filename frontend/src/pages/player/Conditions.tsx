@@ -3,15 +3,30 @@
  * exhaustion, each with one plain sentence. Sits near the top of the Now
  * screen (just under "Your turn" in a fight) and on the Character tab, so a
  * Frightened player sees it before they act, not three screens down.
+ *
+ * Plan 131 — in a 2014 campaign the sentences follow the 2014 rules, and
+ * exhaustion lists what each level does instead of a number off your rolls.
  */
 import { AlertTriangle } from "lucide-react";
 
+import { exhaustion2014Effects } from "../../lib/conditions";
+import { rulesetOf } from "../../lib/ruleset";
 import { usePlayer } from "./playerContext";
-import { CONDITION_TEXT } from "./rules";
+import { conditionText } from "./rules";
 import { Panel } from "./ui";
+
+/** Exhaustion in a sentence: the 2014 effects that add up, or the 2024 −2 per level. */
+function exhaustionSentence(level: number, old: boolean): string {
+  if (!old) return `Every d20 roll you make is ${level * 2} lower. A long rest removes a level.`;
+  if (level >= 6) return "Exhaustion 6 means death. Tell the DM.";
+  const effects = exhaustion2014Effects(level);
+  const line = effects.join(", ").replace(/, ([^,]*)$/, " and $1");
+  return `${line.charAt(0).toUpperCase()}${line.slice(1)}. A long rest, with food and drink, removes a level.`;
+}
 
 export default function Conditions() {
   const { combat, help, pc } = usePlayer();
+  const old = rulesetOf(pc.ruleset) === "2014";
   // UX-001 — lasting conditions show between fights too (the server sends them).
   const list = [...(combat?.conditions ?? []), ...(pc.exhaustion ? ["exhaustion"] : [])];
   if (list.length === 0) return null;
@@ -25,8 +40,8 @@ export default function Conditions() {
         const name = c === "exhaustion" ? `Exhaustion ${pc.exhaustion}` : c.charAt(0).toUpperCase() + c.slice(1);
         const text =
           c === "exhaustion"
-            ? `Every d20 roll you make is ${(pc.exhaustion ?? 0) * 2} lower. A long rest removes a level.`
-            : (CONDITION_TEXT[c.toLowerCase()] ?? "Ask the DM what this does.");
+            ? exhaustionSentence(pc.exhaustion ?? 0, old)
+            : (conditionText(c, old ? "2014" : "2024") ?? "Ask the DM what this does.");
         return (
           <div key={c} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <span style={{ fontWeight: 600, fontSize: 15, color: "var(--text)" }}>{name}</span>

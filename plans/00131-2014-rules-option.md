@@ -4,7 +4,7 @@
 [ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
 
 **Started:** 2026-11-01
-**Last updated:** 2026-11-01
+**Last updated:** 2026-11-01 (M1 done)
 **Implemented by:** Claude (lead) + subagents (milestones M1, M2)
 
 ---
@@ -19,12 +19,13 @@ Justin chose "all of it before shipping", so the work lives on branch `feat/2014
 ---
 
 ## Progress
-- [ ] M0 foundation (lead): enum, columns, migration 0061, campaign setting and lock, PC stamp, dispatch, SpellRepo filter, slots, frontend campaign field and form
-- [ ] M1-D1 data: `srd_character_options_2014.py`
-- [ ] M1-D2 data: `levelup_2014.py`
-- [ ] M1-S spells: generator script, `srd_spells_2014.py`, seed, DM catalog filter
-- [ ] M1-F features: `class_features_2014.py`, feature_service, rest_service
-- [ ] M1-T table rules: conditions, exhaustion, DM screen, weapon mastery, encounter math, Spells page
+- [x] M0 foundation (lead), 11/01, commit 24be631
+- [x] M1-D1 data: `srd_character_options_2014.py` (50 tests)
+- [x] M1-D2 data: `levelup_2014.py` (27 tests)
+- [x] M1-S spells: generator, `srd_spells_2014.py` (319), seed both editions, `?ruleset=` (21 tests)
+- [x] M1-F features: `class_features_2014.py` (28 rows), catalog keyed by edition, rest (85 tests)
+- [x] M1-T table rules: conditions, exhaustion, DM screen, mastery, encounter math, Spells page (33 tests)
+- [x] M1.5 (lead): `feat_rules` takes `ruleset` (SUBCLASS_ARMOR, Pact Boon and named-cantrip prerequisites); DB-level `server_default` on the ruleset columns (a fresh DuckDB crashed without it). Full suite: 1430 passed.
 - [ ] M2-B builder: character_builder_service and wizard
 - [ ] M2-L level-up: levelup_service, LevelUpGuide, daily preparers
 - [ ] M3 integration: end-to-end tests, phone screenshots, docs, full gate, merge
@@ -39,6 +40,20 @@ Justin chose "all of it before shipping", so the work lives on branch `feat/2014
   - `encounter_math.py` keeps 2014 alias properties.
 - `_DAILY_PREPARERS` (`services/player_service.py:1325`) and `_PREPARED_CASTERS` (`services/levelup_service.py:43`) disagree on Ranger. Pre-existing, 2024 only.
 - `uses_formula` and `recovery` are `String(20)` columns, so new UsesFormula values must be ≤20 chars. No DB enum type.
+- **Dataset errors**, where the SRD 5.1 text wins:
+  - Warlock invocations known (2/3/4 at 2/5/7)
+  - Metamagic at 17
+  - Wild Shape CR 1 at 8
+  - Guardian of Faith missing from the Life Domain spells
+  - the Rogue's ASI rows out of order
+  - the Dragonborn line is 5×30 ft
+  - reaction triggers stripped from casting times
+- **Pre-existing 2024 bugs found (TDs, not fixed here):**
+  - The long rest gives back half the Hit Dice for every PC; 2024 RAW is all.
+  - The "2024" DM screen content is partly 2014 (its action list, long rest, contested grapple, Absorb Elements).
+  - Bardic Inspiration never refills on a short rest from level 5, in either edition.
+- 2024 never applied an exhaustion penalty automatically (it's shown as text only). 2014 starts the phone roll sheet at disadvantage, and the player can change it.
+- The 2014 encounter thresholds and multipliers come from the 2014 DMG (game numbers); SRD 5.1 has no encounter-building section.
 
 ---
 
@@ -57,6 +72,12 @@ Justin chose "all of it before shipping", so the work lives on branch `feat/2014
 | 11/01 | 2014 feats | none / Grappler + book names | Grappler (only SRD 5.1 feat) + "From my book" names | SRD limit; same pattern as book subclasses |
 | 11/01 | Immersive 3D arena | port / leave 2024 | leave 2024 (TD) | Private, admin-only, never marketed |
 | 11/01 | Branching | main / feature branch | `feat/2014-rules`, merge at M3 | Ship together; main stays hot-fixable |
+| 11/01 | 2014 spellcasting key | reuse `prepared` / new keys | `kind`, `known`, `prepared_formula`, `first_level`, `spellbook` (no `prepared`) | The frontend reads `prepared` as `number[]`; a missed branch fails loudly |
+| 11/01 | Subclass strings | dataset short names / SRD headings | SRD headings ("Life Domain", "The Fiend") | Match the book players hold |
+| 11/01 | Dragonborn ancestry | trait text / structured choice | `SPECIES_CHOICE_KINDS` in the class-choice shape | 2024 has no structured species choice; the builder reuses choice validation |
+| 11/01 | Unlimited uses (Rage, Wild Shape at 20) | sentinel / 0 | max_uses 0 (no counter) | Existing "passive" display |
+| 11/01 | 2014 encounter bands | new enum / reuse | Easy=LOW, Medium=MODERATE, Hard=HIGH, Deadly=DEADLY; labelled per ruleset | No DB change |
+| 11/01 | Species trackers (Breath Weapon) | add / skip | skip | The catalog is class-only (`character_class` required) |
 
 ---
 

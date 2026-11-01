@@ -13,10 +13,12 @@ import { plural } from "../lib/plural";
 import RowMenu from "../components/RowMenu";
 import { useIsCompact } from "../hooks/useIsCompact";
 import {
-  DIFFICULTY_HELP,
-  DIFFICULTY_HOW,
   DIFFICULTY_PILL,
+  difficultyHelp,
+  difficultyHow,
+  difficultyLabel,
 } from "../components/encounter-builder/difficultyHelp";
+import { useCampaignRuleset } from "../hooks/useCampaignRuleset";
 
 /** Roster table header cell (Console table: small, muted, sentence case). */
 const TH: React.CSSProperties = {
@@ -504,6 +506,8 @@ export default function Encounters() {
   });
 
   const pcLevels = characters.map((c) => c.level);
+  // Plan 131 — a 2014 campaign's encounters use the 2014 math and words (Easy / Medium / Hard).
+  const ruleset = useCampaignRuleset(adventure?.campaign_id);
 
   const create = useMutation({
     mutationFn: () =>
@@ -592,10 +596,11 @@ export default function Encounters() {
               Starting difficulty
             </label>
             <select value={difficulty} onChange={(e) => setDifficulty(e.target.value)}>
-              <option value="Low">Low</option>
-              <option value="Moderate">Moderate</option>
-              <option value="High">High</option>
-              <option value="Deadly">Deadly</option>
+              {["Low", "Moderate", "High", "Deadly"].map((band) => (
+                <option key={band} value={band}>
+                  {difficultyLabel(band, ruleset)}
+                </option>
+              ))}
             </select>
           </div>
           {createError && (
@@ -648,17 +653,25 @@ export default function Encounters() {
                   <span
                     className={DIFFICULTY_PILL[e.difficulty] ?? "pill"}
                     title={
-                      (DIFFICULTY_HELP[e.difficulty] ?? e.difficulty) +
+                      (difficultyHelp(e.difficulty, ruleset) ?? e.difficulty) +
                       " " +
                       (pcLevels.length && e.xp_budget > 0
-                        ? DIFFICULTY_HOW
+                        ? difficultyHow(ruleset)
                         : "This is your pick for now — add characters and monsters and it's worked out for you.")
                     }
                   >
-                    {e.difficulty}
+                    {difficultyLabel(e.difficulty, ruleset)}
                   </span>
                   {e.xp_budget > 0 && (
-                    <span className="num text-sm" style={{ color: "var(--muted)" }} title="The monsters' total XP">
+                    <span
+                      className="num text-sm"
+                      style={{ color: "var(--muted)" }}
+                      title={
+                        ruleset === "2014"
+                          ? "Adjusted XP: the monsters' total XP times the multiplier for how many there are"
+                          : "The monsters' total XP"
+                      }
+                    >
                       {e.xp_budget.toLocaleString()} XP
                     </span>
                   )}

@@ -5,7 +5,10 @@ import { ChevronRight } from "lucide-react";
 import { spellsApi } from "../api/spells";
 import type { Spell } from "../api/types";
 import PhoneSheet from "../components/PhoneSheet";
+import { useCampaignRuleset } from "../hooks/useCampaignRuleset";
 import { useIsCompact } from "../hooks/useIsCompact";
+import { RULESETS, rulesetLabel, type Ruleset } from "../lib/ruleset";
+import { useCampaignStore } from "../stores/useCampaignStore";
 
 // Keeps a checkbox its native size inside .ql-filters (which sizes inputs to 100%).
 const CHECK: React.CSSProperties = { width: "auto", flex: "none", margin: 0 };
@@ -161,6 +164,12 @@ export default function Spells() {
   const [showRituals, setShowRituals] = useState(false);
   const [showConcentration, setShowConcentration] = useState(false);
   const [selected, setSelected] = useState<Spell | null>(null);
+  // Plan 131 — one edition's spells, the active campaign's unless the DM switches.
+  // Homebrew spells show under both.
+  const campaignRules = useCampaignRuleset();
+  const hasCampaign = !!useCampaignStore((s) => s.activeCampaign);
+  const [rulesPick, setRulesPick] = useState<Ruleset | null>(null);
+  const rules = rulesPick ?? campaignRules;
 
   const params = useMemo(
     () => ({
@@ -171,8 +180,9 @@ export default function Spells() {
       class_name: classFilter === "All" ? undefined : classFilter,
       is_ritual: showRituals ? true : undefined,
       is_concentration: showConcentration ? true : undefined,
+      ruleset: rules,
     }),
-    [search, level, school, classFilter, showRituals, showConcentration],
+    [search, level, school, classFilter, showRituals, showConcentration, rules],
   );
 
   const { data: spells = [], isLoading } = useQuery({
@@ -195,7 +205,7 @@ export default function Spells() {
     <div className="fade-in">
       <h1>Spells</h1>
       <p className="text-muted" style={{ marginBottom: "1.5rem" }}>
-        D&amp;D 5e (2024 rules) SRD spell reference. <span className="num">{spells.length}</span>{" "}
+        D&amp;D 5e ({rulesetLabel(rules)}) SRD spell reference. <span className="num">{spells.length}</span>{" "}
         spells in catalog.
       </p>
 
@@ -244,6 +254,24 @@ export default function Spells() {
             {SCHOOLS.map((s) => (
               <option key={s} value={s}>
                 {s === "All" ? "All schools" : s}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div style={{ flex: "1 1 120px" }}>
+          <label htmlFor="spell-rules" title="Each edition has its own SRD spells; your homebrew shows under both">
+            Rules
+          </label>
+          <select
+            id="spell-rules"
+            value={rules}
+            onChange={(e) => setRulesPick(e.target.value as Ruleset)}
+            style={{ width: "100%" }}
+          >
+            {RULESETS.map((r) => (
+              <option key={r} value={r}>
+                {rulesetLabel(r)}
+                {hasCampaign && r === campaignRules ? " (your campaign)" : ""}
               </option>
             ))}
           </select>

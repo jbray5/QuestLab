@@ -681,9 +681,11 @@ def list_gear(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
     """
     from db.repos.item_repo import ItemRepo
     from services import inventory_service
+    from services.attack_service import mastery_for
     from services.shop_service import sell_price_gp
 
     dm = _dm_email_for(db, pc_id)
+    pc = _get_pc_or_raise(db, pc_id)
     gear: list[dict[str, Any]] = []
     for row in inventory_service.list_for_character(db, pc_id, dm):
         item = ItemRepo.get_by_id(db, row.item_id)
@@ -708,7 +710,8 @@ def list_gear(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
                 "weapon_properties": item.weapon_properties,
                 "versatile_damage": item.versatile_damage,
                 "weapon_range": item.weapon_range,
-                "mastery": item.mastery,
+                # Plan 131 — no weapon mastery for a PC on the 2014 rules.
+                "mastery": mastery_for(item, pc),
                 "quantity": row.quantity,
                 "equipped": row.equipped,
                 "attuned": row.attuned,

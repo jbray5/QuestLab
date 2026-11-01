@@ -1,4 +1,4 @@
-"""Spells router — SRD 5.5e spell catalog (Plan 00017).
+"""Spells router — SRD spell catalogs, 2024 and 2014 (Plans 00017, 131).
 
 Reads are open to any authenticated DM. Writes (create/update/delete) are
 intended for homebrew authoring — any authenticated DM may write to the
@@ -12,6 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.deps import DB, CurrentUser
+from domain.enums import Ruleset
 from domain.spell import SpellCreate, SpellRead, SpellUpdate
 from services import spell_service
 
@@ -32,6 +33,10 @@ def list_spells(
     ),
     is_ritual: Optional[bool] = Query(None, description="Ritual filter"),
     is_concentration: Optional[bool] = Query(None, description="Concentration filter"),
+    ruleset: Optional[Ruleset] = Query(
+        None,
+        description="Edition: 2024 or 2014 (homebrew shows in both); omit for every spell",
+    ),
 ) -> list[SpellRead]:
     """Browse the spell catalog with optional filters.
 
@@ -44,6 +49,8 @@ def list_spells(
         class_name: Optional class scope. Query param is ``class`` (aliased).
         is_ritual: Optional ritual flag.
         is_concentration: Optional concentration flag.
+        ruleset: Plan 131 — keep one edition's spells plus homebrew. FastAPI answers 422
+            for anything but "2024"/"2014".
 
     Returns:
         Filtered spell list.
@@ -57,6 +64,7 @@ def list_spells(
         is_ritual=is_ritual,
         is_concentration=is_concentration,
         viewer=user,
+        ruleset=ruleset,
     )
 
 
@@ -84,7 +92,7 @@ def get_spell(spell_id: uuid.UUID, db: DB, _user: CurrentUser) -> SpellRead:
 
 @router.post("/spells", response_model=SpellRead, status_code=status.HTTP_201_CREATED)
 def create_spell(body: SpellCreate, db: DB, user: CurrentUser) -> SpellRead:
-    """Create a homebrew spell, stamped as the DM's own (SEC-003).
+    """Create a homebrew spell, stamped as the DM's own (SEC-003), with no ruleset (Plan 131).
 
     Args:
         body: Validated spell creation payload.

@@ -12,6 +12,7 @@ export const spellsApi = {
     if (params?.is_concentration !== undefined) {
       qs.set("is_concentration", String(params.is_concentration));
     }
+    if (params?.ruleset) qs.set("ruleset", params.ruleset);
     const query = qs.toString();
     return api.get<Spell[]>(`/spells${query ? `?${query}` : ""}`);
   },

@@ -2,6 +2,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { charactersApi } from "../../api/characters";
 import type { PlayerCharacter } from "../../api/types";
+import { exhaustion2014Summary, exhaustionHelp } from "../../lib/conditions";
+import { rulesetLabel, rulesetOf } from "../../lib/ruleset";
 import InfoTip from "./InfoTip";
 
 interface Props {
@@ -15,10 +17,15 @@ interface Props {
  * 0–6 dot chain. 2024 rules: each level applies a cumulative −2 penalty
  * to D20 Tests (attack rolls, ability checks, saving throws). Level 6 = dead.
  * Long rest reduces by 1. Players adjust the level themselves via clicks.
+ *
+ * Plan 131 — a PC on the 2014 rules gets the 2014 table instead: six levels
+ * whose effects add up (disadvantage on checks, half speed, ...), no number
+ * taken off rolls.
  */
 export default function ExhaustionTracker({ pc, readOnly = false }: Props) {
   const qc = useQueryClient();
   const level = Math.max(0, Math.min(6, pc.exhaustion ?? 0));
+  const ruleset = rulesetOf(pc.ruleset);
 
   const set = useMutation({
     mutationFn: (newLevel: number) =>
@@ -59,16 +66,7 @@ export default function ExhaustionTracker({ pc, readOnly = false }: Props) {
         >
           Exhaustion
         </h4>
-        <InfoTip title="Exhaustion (2024 rules)">
-          0–6 scale. Each level applies a cumulative −2 penalty to all
-          D20 Tests (attack rolls, ability checks, saving throws).
-          Level 6 = death.{"\n\n"}
-          When to apply: forced march without rest, going hungry/thirsty
-          for too long, failing a CON save vs a harmful effect (e.g.
-          extreme cold), the Ray of Sickness spell, certain monster
-          attacks.{"\n\n"}
-          Long rest reduces by 1. Click a dot to set the level.
-        </InfoTip>
+        <InfoTip title={`Exhaustion (${rulesetLabel(ruleset)})`}>{exhaustionHelp(ruleset)}</InfoTip>
         <span
           style={{
             fontSize: "0.875rem",
@@ -77,7 +75,13 @@ export default function ExhaustionTracker({ pc, readOnly = false }: Props) {
           }}
         >
           Level <span className="num">{level}</span>
-          {level > 0 && !dead && (
+          {level > 0 && !dead && ruleset === "2014" && (
+            <span style={{ color: "var(--muted)", fontWeight: 400 }}>
+              {" "}
+              · {exhaustion2014Summary(level)}
+            </span>
+          )}
+          {level > 0 && !dead && ruleset !== "2014" && (
             <span style={{ color: "var(--muted)", fontWeight: 400 }}>
               {" "}
               · <span className="num">{penalty}</span> to every d20 roll

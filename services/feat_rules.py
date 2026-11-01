@@ -5,40 +5,65 @@ Plan 115 wrote these inside ``levelup_service``. The creator needs the same rule
 built at level 4 or higher (one pick per Ability Score Improvement level it has already
 passed), so they live here and both services call them. Pure functions: no I/O, no session.
 The data (feat catalog, class tables) stays in ``integrations/dnd_rules/levelup_2024.py``.
+
+Plan 131: every function that reads those tables takes ``ruleset`` ("2024", the default, or
+"2014") and reads that edition's tables through ``rulesets``; the 2014 modules have the same
+names and shapes.
 """
 
+from types import ModuleType
 from typing import Any, Optional
 
 from domain.level_up import FeatChoice, FeatOption
 from domain.spell import Spell
-from integrations.dnd_rules import levelup_2024 as rules
-from integrations.dnd_rules import srd_character_options_2024 as srd
+from integrations.dnd_rules import rulesets
 
 ASI = "Ability Score Improvement"
 _CATEGORY_ORDER = {"general": 0, "fighting_style": 1, "origin": 2}
 
 
-def feat_names(feats: list[str]) -> set[str]:
+def _tables(ruleset: Any) -> tuple[ModuleType, ModuleType]:
+    """(level-up tables, character-option tables) for one edition."""
+    return rulesets.levelup(ruleset), rulesets.options(ruleset)
+
+
+def feat_names(feats: list[str], ruleset: Any = "2024") -> set[str]:
     """Casefolded base feat names on a sheet ("Elemental Adept (Fire)" → "elemental adept")."""
+    rules = rulesets.levelup(ruleset)
     return {rules.base_feat_name(f).casefold() for f in feats}
 
 
-def is_caster(class_name: str, subclass: Optional[str]) -> bool:
+def is_caster(class_name: str, subclass: Optional[str], ruleset: Any = "2024") -> bool:
     """True when the class (or a third-caster subclass) has Spellcasting or Pact Magic."""
+    rules, srd = _tables(ruleset)
     cls = srd.CLASSES.get(class_name)
     if cls and cls["spellcasting"]:
         return True
     return any(s.casefold() in (subclass or "").casefold() for s in rules.CASTER_SUBCLASSES)
 
 
-def armor_training(class_name: str, feats: list[str]) -> set[str]:
+def armor_training(
+    class_name: str,
+    feats: list[str],
+    ruleset: Any = "2024",
+    subclass: Optional[str] = None,
+) -> set[str]:
     """Armor categories the class trains, widened by the armor-training feats on the sheet.
 
     Plan 128: a Cleric's Divine Order (Protector) or a Druid's Primal Order (Warden), recorded
-    as "Divine Order: Protector" in ``feats``, widens it too.
+    as "Divine Order: Protector" in ``feats``, widens it too (2024 only; 2014 has no Orders).
+    Plan 131: a 2014 subclass can add armor too (the Life Domain's heavy armor).
     """
-    out = set(srd.CLASSES.get(class_name, {}).get("armor", []))
-    names = feat_names(feats)
+    rules, srd = _tables(ruleset)
+    sub = (subclass or "").casefold()
+    out_sub = {
+        a
+        for name, armor in getattr(rules, "SUBCLASS_ARMOR", {}).items()
+        if sub and name.casefold() in sub
+        for a in armor
+    }
+    out = set(srd.CLASSES.get(class_name, {}).get("armor", [])) | out_sub
+    names = feat_names(feats, ruleset)
     if "lightly armored" in names:
         out |= {"light", "shields"}
     if "moderately armored" in names:
@@ -46,25 +71,33 @@ def armor_training(class_name: str, feats: list[str]) -> set[str]:
     if "heavily armored" in names:
         out.add("heavy")
     for key in ("divine_order", "primal_order"):
-        spec = rules.CHOICE_KINDS[key]
+        spec = rules.CHOICE_KINDS.get(key)
+        if spec is None:
+            continue
         for opt in spec["options"]:
-            if entry(key, opt["name"]).casefold() in names:
+            if entry(key, opt["name"], ruleset).casefold() in names:
                 out |= set(opt.get("armor") or [])
     return out
 
 
-def has_fighting_style(class_name: str, level: int, feats: list[str]) -> bool:
+def has_fighting_style(
+    class_name: str, level: int, feats: list[str], ruleset: Any = "2024"
+) -> bool:
     """True once the class has its Fighting Style feature, or a Fighting Style feat is taken."""
+    rules = rulesets.levelup(ruleset)
     at = rules.FIGHTING_STYLE_LEVEL.get(class_name)
     if at is not None and level >= at:
         return True
     styles = {f["name"].casefold() for f in rules.FEATS if f["category"] == "fighting_style"}
-    return bool(feat_names(feats) & styles)
+    return bool(feat_names(feats, ruleset) & styles)
 
 
-def hp_bonus_per_level(race: Optional[str], subclass: Optional[str], feats: list[str]) -> int:
+def hp_bonus_per_level(
+    race: Optional[str], subclass: Optional[str], feats: list[str], ruleset: Any = "2024"
+) -> int:
     """Extra max HP each level brings: Tough, Dwarven Toughness, Draconic Resilience."""
-    names = feat_names(feats)
+    rules = rulesets.levelup(ruleset)
+    names = feat_names(feats, ruleset)
     bonus = sum(
         f["hp_per_level"]
         for f in rules.FEATS
@@ -85,6 +118,7 @@ def feat_options(
     scores: dict[str, int],
     feats: list[str],
     subclass: Optional[str],
+    ruleset: Any = "2024",
 ) -> list[FeatOption]:
     """Every catalog feat with whether this PC may take it at ``level``, best picks first.
 
@@ -94,14 +128,16 @@ def feat_options(
         scores: Ability scores before this pick (the book checks prerequisites against them).
         feats: Feat names already on the sheet.
         subclass: The PC's subclass, if any (third-casters count as casters).
+        ruleset: Plan 131 — the edition whose feat catalog to offer.
 
     Returns:
         FeatOption rows: qualifying popular picks first, then the rest, locked ones last.
     """
+    rules = rulesets.levelup(ruleset)
     popular = rules.POPULAR_FEATS.get(class_name, [])
-    training = armor_training(class_name, feats)
-    style = has_fighting_style(class_name, level, feats)
-    caster = is_caster(class_name, subclass)
+    training = armor_training(class_name, feats, ruleset, subclass)
+    style = has_fighting_style(class_name, level, feats, ruleset)
+    caster = is_caster(class_name, subclass, ruleset)
     out: list[FeatOption] = []
     for row in rules.FEATS:
         ok, reason = rules.feat_qualifies(
@@ -205,6 +241,7 @@ def apply_feat(
     catalog: dict[str, Spell],
     summary: list[str],
     warnings: list[str],
+    ruleset: Any = "2024",
 ) -> tuple[dict[str, int], list[str], dict[str, Any]]:
     """Validate a feat (or Ability Score Improvement) pick and fold it into the sheet lists.
 
@@ -220,6 +257,7 @@ def apply_feat(
         catalog: Spell catalog by casefolded name.
         summary: Lines describing what changed.
         warnings: Lines the player should read.
+        ruleset: Plan 131 — the edition whose feat catalog the pick comes from.
 
     Returns:
         (ability increase, spells to learn, the catalog row — empty for a book feat).
@@ -227,9 +265,10 @@ def apply_feat(
     Raises:
         ValueError: If the feat is unknown, its prerequisite isn't met, or a sub-pick is wrong.
     """
+    rules, srd = _tables(ruleset)
     if fc.from_book:
         name = fc.name.strip()
-        if name.casefold() in feat_names(feats) and name.casefold() != ASI.casefold():
+        if name.casefold() in feat_names(feats, ruleset) and name.casefold() != ASI.casefold():
             raise ValueError(f"You already have {name}.")
         inc = {}
         if fc.asi:
@@ -331,14 +370,19 @@ def apply_feat(
 _KIND_ORDER = {"skill": 0, "expertise": 1, "feat": 2, "option": 3, "weapon": 4}
 
 
-def entry(key: str, name: str) -> str:
+def entry(key: str, name: str, ruleset: Any = "2024") -> str:
     """How a class choice is written in ``feats``: "Divine Order: Protector"."""
-    spec = rules.CHOICE_KINDS[key]
+    spec = rulesets.levelup(ruleset).CHOICE_KINDS[key]
     return f"{spec.get('record') or spec['label']}: {name}"
 
 
-def mastery_weapons() -> list[dict[str, Any]]:
-    """Every SRD weapon with a mastery property: name, category, properties, mastery."""
+def mastery_weapons(ruleset: Any = "2024") -> list[dict[str, Any]]:
+    """Every SRD weapon with a mastery property: name, category, properties, mastery.
+
+    Plan 131: the 2014 rules have no Weapon Mastery, so a 2014 table gets an empty list.
+    """
+    if rulesets.is_2014(ruleset):
+        return []
     from integrations.dnd_rules.srd_weapons_2024 import SRD_WEAPONS_2024
 
     return [
@@ -367,6 +411,7 @@ def apply_class_choices(
     cantrips: list[Spell],
     summary: list[str],
     warnings: list[str],
+    ruleset: Any = "2024",
 ) -> dict[str, Any]:
     """Validate the class's choices at ``level`` and record them on the sheet lists.
 
@@ -386,6 +431,7 @@ def apply_class_choices(
         cantrips: The class cantrips picked (an invocation may need a damaging one).
         summary: Lines describing what was chosen.
         warnings: Lines the player should read.
+        ruleset: Plan 131 — the edition whose class choices apply.
 
     Returns:
         Effects for the rest of the build: ``{"cantrips": extra cantrip count,
@@ -394,12 +440,19 @@ def apply_class_choices(
     Raises:
         ValueError: On a missing, extra, unknown or locked pick, in plain words.
     """
+    rules = rulesets.levelup(ruleset)
     counts = rules.class_choice_counts(class_name, level, subclass)
     for key in picks:
         if key not in counts:
             label = rules.CHOICE_KINDS.get(key, {}).get("label", key)
             raise ValueError(f"A level {level} {class_name} has no {label} to choose.")
     effects: dict[str, Any] = {"cantrips": 0, "cantrip_lists": [], "land": None}
+    # Plan 131: a 2014 invocation can need the Pact Boon, which is its own choice: picked now,
+    # or on an earlier level, where it's recorded as "Pact Boon: Pact of the Blade".
+    elsewhere: set[str] = set()
+    if rulesets.is_2014(ruleset):
+        elsewhere = {n.strip() for named, _ in picks.values() for n in named if n and n.strip()}
+        elsewhere |= {f.split(": ", 1)[1] for f in feats if ": " in f}
     order = sorted(counts, key=lambda k: _KIND_ORDER.get(rules.CHOICE_KINDS[k]["kind"], 9))
     for key in order:
         spec = rules.CHOICE_KINDS[key]
@@ -415,14 +468,26 @@ def apply_class_choices(
         if total > count:
             raise ValueError(f"{label}: a level {level} {class_name} chooses {count}.")
         if kind in ("skill", "expertise"):
-            _apply_skills(spec, class_name, listed, skills)
+            _apply_skills(spec, class_name, listed, skills, ruleset)
             summary.append(f"{label}: " + ", ".join(listed))
         elif kind == "weapon":
-            names = _weapons(class_name, listed)
-            feats += [entry(key, n) for n in names]
+            names = _weapons(class_name, listed, ruleset)
+            feats += [entry(key, n, ruleset) for n in names]
             summary.append(f"{label}: " + ", ".join(names))
         else:
-            _apply_options(key, spec, class_name, level, listed, book, feats, cantrips, effects)
+            _apply_options(
+                key,
+                spec,
+                class_name,
+                level,
+                listed,
+                book,
+                feats,
+                cantrips,
+                effects,
+                ruleset,
+                elsewhere,
+            )
             for name in book:
                 warnings.append(f"{label}: {name} is recorded by name. Play it from your book.")
             summary.append(f"{label}: " + ", ".join(listed + book))
@@ -439,9 +504,16 @@ def _apply_options(
     feats: list[str],
     cantrips: list[Spell],
     effects: dict[str, Any],
+    ruleset: Any = "2024",
+    elsewhere: Optional[set[str]] = None,
 ) -> None:
-    """Check listed options (and their prerequisites) and record them with the book entries."""
+    """Check listed options (and their prerequisites) and record them with the book entries.
+
+    ``elsewhere`` holds names picked under other choices or already on the sheet, which a
+    prerequisite may name (Plan 131: a 2014 invocation's Pact Boon).
+    """
     label, kind = spec["label"], spec["kind"]
+    rules = rulesets.levelup(ruleset)
     options = {o["name"].casefold(): o for o in rules.choice_options(class_name, key)}
     rows = []
     for name in listed:
@@ -451,10 +523,10 @@ def _apply_options(
             raise ValueError(f"{label}: {name} isn't one of the choices.{hint}")
         rows.append(row)
     _no_repeats(label, [r["name"] for r in rows if not r.get("repeatable")])
-    chosen = {r["name"] for r in rows}
+    chosen = {r["name"] for r in rows} | (elsewhere or set())
     for row in rows:
         _check_prereq(label, row, level, chosen, cantrips)
-        if kind == "feat" and row["name"].casefold() in feat_names(feats):
+        if kind == "feat" and row["name"].casefold() in feat_names(feats, ruleset):
             raise ValueError(f"{label}: you already have {row['name']}.")
         extra = row.get("cantrips")
         if extra:
@@ -466,14 +538,15 @@ def _apply_options(
         if kind == "feat" and not extra:
             feats.append(row["name"])  # a Fighting Style feat, as the guide records feats
         else:
-            feats.append(entry(key, row["name"]))
+            feats.append(entry(key, row["name"], ruleset))
     for name in book:
-        feats.append(name if kind == "feat" else entry(key, name))
+        feats.append(name if kind == "feat" else entry(key, name, ruleset))
 
 
-def _weapons(class_name: str, listed: list[str]) -> list[str]:
+def _weapons(class_name: str, listed: list[str], ruleset: Any = "2024") -> list[str]:
     """Catalog names of the weapon kinds picked for Weapon Mastery, checked for the class."""
-    weapons = {w["name"].casefold(): w for w in mastery_weapons()}
+    rules = rulesets.levelup(ruleset)
+    weapons = {w["name"].casefold(): w for w in mastery_weapons(ruleset)}
     names = []
     for name in listed:
         w = weapons.get(name.casefold())
@@ -507,8 +580,13 @@ def _no_repeats(label: str, names: list[str]) -> None:
 
 
 def _apply_skills(
-    spec: dict[str, Any], class_name: str, names: list[str], skills: dict[str, int]
+    spec: dict[str, Any],
+    class_name: str,
+    names: list[str],
+    skills: dict[str, int],
+    ruleset: Any = "2024",
 ) -> None:
+    srd = rulesets.options(ruleset)
     label, kind = spec["label"], spec["kind"]
     pool = spec.get("pool")
     if pool == "class":
@@ -539,7 +617,7 @@ def _check_prereq(
     if need and level < need:
         raise ValueError(f"{label}: {row['name']} needs Warlock level {need}.")
     req = row.get("requires")
-    if req and req not in chosen:
+    if req and req.casefold() not in {c.casefold() for c in chosen}:
         raise ValueError(f"{label}: {row['name']} needs {req}.")
     want = row.get("cantrip")
     if want == "damage" and not any(s.damage_dice for s in cantrips):
@@ -548,3 +626,10 @@ def _check_prereq(
         raise ValueError(
             f"{label}: {row['name']} needs a Warlock cantrip that deals damage with an attack."
         )
+    # Plan 131: a 2014 invocation names its cantrip ("Eldritch Blast").
+    if (
+        want
+        and want not in ("damage", "attack")
+        and not any(s.name.casefold() == want.casefold() for s in cantrips)
+    ):
+        raise ValueError(f"{label}: {row['name']} needs the {want} cantrip.")

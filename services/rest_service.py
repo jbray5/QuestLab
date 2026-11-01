@@ -1,9 +1,14 @@
-"""Rest mechanics (Plan 00021).
+"""Rest mechanics (Plans 00021, 131).
 
 Per-PC and party-wide short / long rest helpers. Consolidates:
 - Class-feature usage resets (recovery=short or long)
 - Spell-slot recovery (long rest = full; short rest = Warlock pact only)
 - HP restoration (long rest only — sets hp_current = hp_max)
+- Hit Dice (long rest: half the total, at least 1) and exhaustion (long rest: one level)
+
+The same code serves both rulesets (Plan 131): a 2014 feature row's recovery is SHORT
+or LONG (a 2014 short rest brings back every use), and the 2014 long rest's Hit Dice
+and exhaustion rules are the ones below.
 
 The party-wide variants resolve "the party" from
 ``session.attending_pc_ids``. Each PC gets its own ``RestSummary`` so the
@@ -108,6 +113,23 @@ def _regain_one_short_one(db: Session, character_id: uuid.UUID) -> list[str]:
     return restored
 
 
+def _hit_dice_regained(pc: PlayerCharacter) -> int:
+    """How many spent Hit Dice a long rest gives back: half the PC's total, at least 1.
+
+    The total is the PC's level; the half rounds down, and never more than were spent
+    (Plan 00024). That is the 2014 rule (SRD 5.1), so a 2014 PC is exactly right
+    (Plan 131). The 2024 rules give back all of them, but every PC has used the half
+    rule since Plan 00024, and Plan 131 keeps a 2024 table's behavior as it was.
+
+    Args:
+        pc: The resting PC.
+
+    Returns:
+        The number of Hit Dice to give back (0 when none are spent).
+    """
+    return min(pc.hit_dice_spent, max(1, pc.level // 2))
+
+
 def short_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSummary:
     """Apply a short rest to one PC.
 
@@ -181,12 +203,11 @@ def long_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSum
     if hp_restored > 0:
         pc.hp_current = pc.hp_max
 
-    # Plan 00024 — hit dice: regain max(1, level // 2), capped by spent count.
-    hd_recovered = min(pc.hit_dice_spent, max(1, pc.level // 2))
+    hd_recovered = _hit_dice_regained(pc)
     if hd_recovered > 0:
         pc.hit_dice_spent -= hd_recovered
 
-    # Plan 00024 — exhaustion drops by one level on long rest (2024 RAW).
+    # Plan 00024 — exhaustion drops by one level on long rest (both editions' RAW).
     exhaustion_dropped = pc.exhaustion > 0
     if exhaustion_dropped:
         pc.exhaustion = max(0, pc.exhaustion - 1)

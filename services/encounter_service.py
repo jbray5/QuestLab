@@ -20,6 +20,7 @@ from db.repos.monster_repo import MonsterRepo
 from domain.encounter import Encounter, EncounterCreate, EncounterUpdate
 from domain.enums import EncounterDifficulty
 from domain.monster import MonsterStatBlock, MonsterStatBlockCreate, MonsterStatBlockUpdate
+from integrations.dnd_rules import rulesets
 from integrations.dnd_rules.encounter_math import calculate_difficulty, cr_to_xp
 from services.auth_service import catalog_visible, require_catalog_editor
 
@@ -68,10 +69,26 @@ def _assert_encounter_owner(session: Session, encounter: Encounter, dm_email: st
     _assert_adventure_owner(session, encounter.adventure_id, dm_email)
 
 
+def _campaign_ruleset(session: Session, adventure_id: uuid.UUID) -> str:
+    """The rules ("2024" or "2014") of the campaign this adventure belongs to (Plan 131).
+
+    Args:
+        session: Active database session.
+        adventure_id: UUID of the adventure.
+
+    Returns:
+        The campaign's ruleset; "2024" if the adventure or campaign is missing.
+    """
+    adventure = AdventureRepo.get_by_id(session, adventure_id)
+    campaign = CampaignRepo.get_by_id(session, adventure.campaign_id) if adventure else None
+    return rulesets.normalize(getattr(campaign, "ruleset", None))
+
+
 def _compute_xp_and_difficulty(
     session: Session,
     monster_roster: list[dict[str, Any]],
     pc_levels: list[int],
+    ruleset: str = rulesets.R2024,
 ) -> tuple[int, Optional[EncounterDifficulty]]:
     """Compute XP budget and difficulty from monster roster and PC levels.
 
@@ -79,6 +96,8 @@ def _compute_xp_and_difficulty(
         session: Active database session.
         monster_roster: List of roster entries with 'monster_id' and 'count'.
         pc_levels: List of PC levels (1–20) for XP threshold calculation.
+        ruleset: The campaign's rules. A 2014 budget is the adjusted XP (the
+            monsters' XP times the monster-count multiplier, Plan 131).
 
     Returns:
         Tuple of (adjusted_xp, difficulty). Difficulty is None when there is
@@ -105,7 +124,7 @@ def _compute_xp_and_difficulty(
     if not monster_xp_values:
         return 0, None
 
-    result = calculate_difficulty(pc_levels, monster_xp_values)
+    result = calculate_difficulty(pc_levels, monster_xp_values, ruleset)
     return result.adjusted_xp, result.difficulty
 
 
@@ -261,7 +280,9 @@ def create_encounter(
 
     roster = monster_roster or []
     levels = pc_levels or []
-    xp_budget, computed = _compute_xp_and_difficulty(session, roster, levels)
+    xp_budget, computed = _compute_xp_and_difficulty(
+        session, roster, levels, _campaign_ruleset(session, adventure_id)
+    )
 
     payload = EncounterCreate(
         adventure_id=adventure_id,
@@ -315,7 +336,12 @@ def update_encounter(
     # If roster or pc_levels supplied, recalculate budget
     new_roster = patch.get("monster_roster", encounter.monster_roster or [])
     if effective_levels and ("xp_budget" not in patch or "monster_roster" in patch):
-        xp_budget, difficulty = _compute_xp_and_difficulty(session, new_roster, effective_levels)
+        xp_budget, difficulty = _compute_xp_and_difficulty(
+            session,
+            new_roster,
+            effective_levels,
+            _campaign_ruleset(session, encounter.adventure_id),
+        )
         patch["xp_budget"] = xp_budget
         if difficulty is not None:
             patch["difficulty"] = difficulty
@@ -377,7 +403,10 @@ def preview_difficulty(
         compat alias of raw under 2024), ``multiplier`` (always 1.0 in
         2024), ``low_threshold``, ``moderate_threshold``,
         ``high_threshold``, ``deadly_threshold`` (informal 1.5× High),
-        ``difficulty``.
+        ``difficulty``, plus (Plan 131) ``ruleset`` and ``difficulty_label``
+        (the band in the edition's words). In a 2014 campaign the four
+        thresholds are Easy / Medium / Hard / Deadly, ``adjusted_xp`` is raw
+        XP times ``multiplier``, and the label can be "Trivial".
 
     Raises:
         ValueError: If the adventure is missing.
@@ -385,6 +414,7 @@ def preview_difficulty(
     """
     _assert_adventure_owner(session, adventure_id, dm_email)
     levels = _resolve_party_levels(session, adventure_id)
+    ruleset = _campaign_ruleset(session, adventure_id)
 
     # Expand the roster into individual XP values (count-aware).
     xp_values: list[int] = []
@@ -414,9 +444,11 @@ def preview_difficulty(
             "high_threshold": 0,
             "deadly_threshold": 0,
             "difficulty": None,
+            "ruleset": ruleset,
+            "difficulty_label": None,
         }
 
-    result = calculate_difficulty(levels, xp_values)
+    result = calculate_difficulty(levels, xp_values, ruleset)
     return {
         "party_levels": levels,
         "raw_xp": result.raw_xp,
@@ -427,6 +459,8 @@ def preview_difficulty(
         "high_threshold": result.high_threshold,
         "deadly_threshold": result.deadly_threshold,
         "difficulty": result.difficulty.value,
+        "ruleset": ruleset,
+        "difficulty_label": result.label,
     }
 
 

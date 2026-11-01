@@ -1,7 +1,7 @@
 """Class-feature router (Plan 00021).
 
 Two surfaces:
-- Catalog browsing: ``GET /class-features`` (filterable by class + level).
+- Catalog browsing: ``GET /class-features`` (filterable by class, level and edition).
 - Per-PC management: ``GET/POST/PATCH/DELETE /characters/{id}/features``.
 """
 
@@ -16,7 +16,7 @@ from domain.character import (
     CharacterFeatureRead,
     ClassFeatureRead,
 )
-from domain.enums import CharacterClass
+from domain.enums import CharacterClass, Ruleset
 from services import feature_service
 
 router = APIRouter(tags=["features"])
@@ -28,20 +28,27 @@ def list_class_features(
     _user: CurrentUser,
     character_class: Optional[CharacterClass] = Query(None, description="Filter by class"),
     max_level: int = Query(20, ge=1, le=20),
+    ruleset: Optional[Ruleset] = Query(None, description="Filter by edition: 2024 or 2014"),
 ) -> list[ClassFeatureRead]:
-    """Browse the 2024 class-feature catalog.
+    """Browse the class-feature catalog (both editions unless ``ruleset`` narrows it).
 
     Args:
         db: Database session.
         _user: Authenticated DM.
         character_class: Optional class filter.
         max_level: Inclusive upper bound on level_acquired.
+        ruleset: Plan 131 — optional edition filter. Pass the PC's, so its "learn a
+            feature" list shows only its own edition's rows.
 
     Returns:
         Filtered feature list.
     """
     return feature_service.list_catalog(
-        db, character_class=character_class, max_level=max_level, dm_email=_user
+        db,
+        character_class=character_class,
+        max_level=max_level,
+        dm_email=_user,
+        ruleset=ruleset,
     )
 
 

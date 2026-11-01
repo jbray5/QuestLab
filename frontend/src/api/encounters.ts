@@ -1,3 +1,4 @@
+import type { Ruleset } from "../lib/ruleset";
 import { api } from "./client";
 import type { Encounter, EncounterCreate } from "./types";
 
@@ -22,6 +23,14 @@ export interface DifficultyPreview {
   /** Informal "way above budget" line at 1.5× High — not 2024 RAW. */
   deadly_threshold: number;
   difficulty: EncounterDifficulty | null;
+  /**
+   * Plan 131 — the campaign's rules. On 2014 the four thresholds are Easy / Medium /
+   * Hard / Deadly (Deadly is a real line), and `adjusted_xp` is the raw XP times the
+   * monster-count `multiplier`.
+   */
+  ruleset?: Ruleset;
+  /** The band in the edition's words: "Moderate" (2024), "Medium" or "Trivial" (2014). */
+  difficulty_label?: string | null;
 }
 
 export const encountersApi = {

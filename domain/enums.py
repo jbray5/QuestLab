@@ -230,3 +230,19 @@ class UsesFormula(str, Enum):
     LEVEL = "level"
     LEVEL_DIV_3 = "level_div_3"
     LEVEL_DIV_2 = "level_div_2"
+    # Plan 131 — the 2014 (SRD 5.1) counters. The DB stores the member NAME in a
+    # String(20) column, so names stay at 20 characters or fewer.
+    # 2014 Rage: 2, 3 at 3, 4 at 6, 5 at 12, 6 at 17, no limit at 20 (0: no counter).
+    RAGE_2014 = "rage_2014"
+    # 2014 Wild Shape: 2, no limit at 20 (Archdruid).
+    WILD_SHAPE_2014 = "wild_shape_2014"
+    # 2014 Cleric Channel Divinity: 1, 2 at level 6, 3 at level 18.
+    CHANNEL_DIV_2014 = "channel_div_2014"
+    # Action Surge: 1, 2 at level 17. Indomitable: 1, 2 at 13, 3 at 17. (2024 rows
+    # reach the same numbers through class_features_2024.USES_BY_LEVEL.)
+    ACTION_SURGE = "action_surge"
+    INDOMITABLE = "indomitable"
+    # 2014 Divine Sense: 1 + CHA modifier (at least 1).
+    CHA_MOD_PLUS_1 = "cha_mod_plus_1"
+    # 2014 Lay on Hands: a pool of 5 × level points.
+    LEVEL_X5 = "level_x5"

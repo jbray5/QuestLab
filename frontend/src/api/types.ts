@@ -103,6 +103,8 @@ export interface PlayerCharacter {
   pending_level?: number | null;
   /** UX-001 — conditions the DM set that last between fights ("Poisoned"). */
   conditions?: string[] | null;
+  /** Plan 131 — the campaign's rules, copied onto the PC ("2024" when missing). */
+  ruleset?: Ruleset;
   /** SEC-002 — the player link's secret (DM reads only): the link is /play/{play_token}. */
   play_token?: string | null;
   // Proficiencies — JSON columns on the backend (Plan 00022)
@@ -602,9 +604,11 @@ export interface SpellListParams {
   class_name?: string;
   is_ritual?: boolean;
   is_concentration?: boolean;
+  /** Plan 131 — one edition's SRD spells (homebrew shows in both). */
+  ruleset?: Ruleset;
 }
 
-// ── Weapons (Plan 00018) ─────────────────────────────────────────────────────
+// ── Weapons (Plan 00018)─────────────────────────────────────────────────────
 // Weapons are Items with weapon_* fields populated.
 
 export interface WeaponListParams {

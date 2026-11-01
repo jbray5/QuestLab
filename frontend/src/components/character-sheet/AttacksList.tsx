@@ -19,6 +19,7 @@ interface Props {
  * weapon's full details (for damage_die + mastery), and asks the server
  * to compute the attack-preview against this PC. Clicking the row rolls
  * a d20+hit on the client and surfaces the result via ``onRoll``.
+ * Mastery comes from the preview, which has none for a PC on the 2014 rules.
  */
 export default function AttacksList({ characterId, onRoll, readOnly = false }: Props) {
   // PC's inventory
@@ -96,7 +97,8 @@ export default function AttacksList({ characterId, onRoll, readOnly = false }: P
                 onRoll?.({
                   label: `${entry.item.name} attack`,
                   mod: preview.hit_bonus,
-                  breakdown: `${preview.ability} mod + prof${entry.item.mastery ? ` · mastery: ${entry.item.mastery}` : ""}`,
+                  // The server leaves mastery out for a 2014 PC (Plan 131: no weapon mastery).
+                  breakdown: `${preview.ability} mod + prof${preview.mastery ? ` · mastery: ${preview.mastery}` : ""}`,
                   damage: `${preview.damage_roll} ${preview.damage_type}`,
                 });
               }}

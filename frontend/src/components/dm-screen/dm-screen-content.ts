@@ -4,6 +4,13 @@
 // entry is a single rules nugget the DM might need at the table.
 // Categorized into tabs and tagged with keywords so the search box can
 // match common phrasings ("OA" → opportunity attack, "DC" → DC table).
+//
+// Plan 131 — a campaign on the 2014 rules gets DM_SCREEN_TABS_2014: the same
+// tabs, with the entries the 2014 rules (SRD 5.1, CC-BY-4.0) word differently
+// swapped in, the 2014 conditions and exhaustion, and Surprise and Inspiration.
+// Pick one with dmScreenTabs(ruleset).
+
+import type { Ruleset } from "../../lib/ruleset";
 
 export interface RulesEntry {
   /** Display title — bold heading on the card. */
@@ -461,3 +468,201 @@ export const DM_SCREEN_TABS: RulesTab[] = [
     ],
   },
 ];
+
+// ── Plan 131 — the 2014 rules ────────────────────────────────────────────────
+
+/** The 2014 conditions tab, condensed from the SRD 5.1 conditions. */
+const CONDITIONS_2014: RulesEntry[] = [
+  {
+    title: "Blinded",
+    body: "Can't see → automatically fails any check requiring sight. Attacks vs you have Advantage; your attacks have Disadvantage.",
+    keywords: ["blind"],
+  },
+  {
+    title: "Charmed",
+    body: "Can't attack the charmer or target them with harmful abilities or magical effects. Charmer has Advantage on social checks vs you.",
+    keywords: ["charm"],
+  },
+  {
+    title: "Deafened",
+    body: "Can't hear → automatically fails any check requiring hearing.",
+    keywords: ["deaf"],
+  },
+  {
+    title: "Frightened",
+    body: "Disadvantage on ability checks and attack rolls while the source of fear is within line of sight. Can't willingly move closer to the source.",
+    keywords: ["fear", "scared"],
+  },
+  {
+    title: "Grappled",
+    body: "Speed becomes 0; can't benefit from any bonus to speed. Ends if the grappler is Incapacitated, or if an effect moves you out of the grappler's reach (e.g. Thunderwave hurls you away).",
+    keywords: ["grapple", "grab"],
+  },
+  {
+    title: "Incapacitated",
+    body: "Can't take actions or reactions (so no bonus actions either). Part of Paralyzed, Petrified, Stunned and Unconscious.",
+    keywords: ["incap"],
+  },
+  {
+    title: "Invisible",
+    body: "Impossible to see without magic or a special sense; heavily obscured for the purpose of hiding. Noise and tracks still give away where you are. Attacks vs you have Disadvantage; your attacks have Advantage.",
+    keywords: ["invis"],
+  },
+  {
+    title: "Paralyzed",
+    body: "Incapacitated · can't move or speak · auto-fails STR and DEX saves · attacks vs you have Advantage · any hit from within 5 ft is a critical hit.",
+    keywords: ["paralyze"],
+  },
+  {
+    title: "Petrified",
+    body: "Turned to stone with your gear (weight ×10, stops aging). Incapacitated, can't move or speak, unaware. Attacks vs you have Advantage. Auto-fails STR/DEX saves. Resistance to all damage. Immune to poison and disease (any already in you is paused, not cured).",
+    keywords: ["petrified", "stone"],
+  },
+  {
+    title: "Poisoned",
+    body: "Disadvantage on attack rolls and ability checks.",
+    keywords: ["poison"],
+  },
+  {
+    title: "Prone",
+    body: "Your only movement is crawling unless you stand. Standing costs half your speed. Your attacks have Disadvantage. Attacks vs you have Advantage from within 5 ft, Disadvantage from farther away.",
+    keywords: ["prone", "knocked down"],
+  },
+  {
+    title: "Restrained",
+    body: "Speed 0; can't benefit from any bonus to speed. Attacks vs you have Advantage; your attacks have Disadvantage. DEX saves at Disadvantage.",
+    keywords: ["restrain", "trap"],
+  },
+  {
+    title: "Stunned",
+    body: "Incapacitated, can't move, speaks only falteringly. Auto-fails STR and DEX saves. Attacks vs you have Advantage.",
+    keywords: ["stun"],
+  },
+  {
+    title: "Unconscious",
+    body: "Incapacitated · can't move or speak, unaware · drops what they're holding · falls Prone · auto-fails STR/DEX saves · attacks vs you have Advantage · hits from within 5 ft are critical hits.",
+    keywords: ["unconscious", "ko"],
+  },
+  {
+    title: "Exhaustion (2014)",
+    body: "Six levels, and the effects add up — level 2 has level 1's effect too:\n1 · Disadvantage on ability checks\n2 · Speed halved\n3 · Disadvantage on attack rolls and saving throws\n4 · Hit point maximum halved\n5 · Speed reduced to 0\n6 · Death\nNo number comes off rolls. A long rest removes one level if the character has had food and drink.",
+    keywords: ["exhaust", "tired"],
+  },
+];
+
+/** 2014 entries that replace a 2024 entry of the same title, per tab. */
+const SWAPS_2014: Record<string, Record<string, RulesEntry>> = {
+  "action-economy": {
+    "Action Options": {
+      title: "Action Options",
+      body: "Attack · Cast a Spell · Dash · Disengage · Dodge · Help · Hide · Ready · Search · Use an Object · plus any action a class or feature gives, or one you improvise (the DM says what roll it needs). The 2014 rules have no Study, Influence, Utilize or Magic action.",
+      keywords: ["action list"],
+    },
+  },
+  actions: {
+    "Cast a Spell": {
+      title: "Cast a Spell",
+      body: "Cast a spell whose casting time is 1 action. Some spells take a bonus action or a reaction instead. If you cast a spell as a bonus action, the only other spell you can cast that turn is a cantrip with a casting time of 1 action.",
+      keywords: ["cast", "spell"],
+    },
+    Dodge: {
+      title: "Dodge",
+      body: "Until the start of your next turn, attack rolls against you have Disadvantage if you can see the attacker, and you make DEX saves with Advantage. Lost if you become Incapacitated or your speed drops to 0.",
+      keywords: ["dodge", "defend"],
+    },
+    Help: {
+      title: "Help",
+      body: "Give an ally Advantage on their next ability check for a task you're helping with (made before your next turn starts). OR distract a creature within 5 ft of you: an ally's first attack roll against it before your next turn has Advantage.",
+      keywords: ["help", "assist", "aid"],
+    },
+    Hide: {
+      title: "Hide",
+      body: "Make a DEX (Stealth) check. You can't hide from someone who can see you clearly; you need cover, heavy obscurement or invisibility. Until you're found or stop hiding, the check is opposed by the WIS (Perception) of anyone searching for you. Making noise or attacking gives you away.",
+      keywords: ["hide", "stealth", "sneak"],
+    },
+  },
+  reactions: {
+    "Common Spell Reactions": {
+      title: "Common Spell Reactions",
+      body: "Shield (when hit or targeted by Magic Missile: +5 AC until the start of your next turn, including against that attack) · Counterspell (a spell of 3rd level or lower just fails; a higher one needs a spellcasting ability check, DC 10 + the spell's level) · Hellish Rebuke (when a creature you can see damages you, it makes a DEX save) · Feather Fall (when you or allies fall).",
+      keywords: ["shield", "counterspell", "rebuke"],
+    },
+    "Common Feature Reactions": {
+      title: "Common Feature Reactions",
+      body: "Paladin Divine Smite is NOT a reaction — it takes no action at all: after a melee weapon hit, spend a slot for 2d8 radiant (+1d8 per slot level above 1st, max 5d8; +1d8 vs undead or fiends) · Rogue Uncanny Dodge (level 5): halve the damage of an attack from an attacker you can see · Protection fighting style: with a shield, give an attacker Disadvantage against an ally within 5 ft of you.",
+      keywords: ["smite", "uncanny dodge", "protection"],
+    },
+  },
+  "combat-tricks": {
+    "Two-Weapon Fighting": {
+      title: "Two-Weapon Fighting",
+      body: "When you take the Attack action with a light melee weapon in one hand, you can use your bonus action to attack with a different light melee weapon in the other. Don't add your ability modifier to the bonus attack's damage (unless it's negative). If either weapon has the thrown property, you can throw it instead.",
+      keywords: ["twf", "dual"],
+    },
+    Flanking: {
+      title: "Flanking",
+      body: "NOT a standard rule. The 2014 Dungeon Master's Guide offers it as an option: a creature with an ally directly opposite it, on the other side of an enemy, has Advantage on melee attacks against that enemy. Recommend skipping for new tables — it makes melee classes much stronger.",
+      keywords: ["flank"],
+    },
+  },
+  resting: {
+    "Long Rest (8 hours)": {
+      title: "Long Rest (8 hours)",
+      body: "Once per 24 hours, at least 8 hours: sleep, plus no more than 2 hours of light activity. Need at least 1 HP to start. HP back to max. Spell slots back. All class features refresh. Regain spent Hit Dice up to half your total (min 1). Exhaustion drops by 1 if you've had food and drink.",
+      keywords: ["long rest", "sleep"],
+    },
+    "Interrupted Rest": {
+      title: "Interrupted Rest",
+      body: "A long rest interrupted by at least 1 hour of strenuous activity (walking, fighting, casting spells) must start over to give any benefit.",
+      keywords: ["interrupt"],
+    },
+  },
+  hazards: {
+    Suffocation: {
+      title: "Suffocation",
+      body: "A creature can hold its breath for 1 + CON mod minutes (min 30 seconds). Once out of breath (or choking), it lasts CON mod rounds (min 1); at the start of its next turn it drops to 0 HP and is dying, and can't regain HP or be stabilized until it can breathe.",
+      keywords: ["breath", "drown", "suffocate"],
+    },
+    Drowning: {
+      title: "Drowning",
+      body: "Works like suffocation: hold breath 1 + CON mod minutes (min 30 s), then CON mod rounds (min 1), then 0 HP and dying until rescued.",
+      keywords: ["drown", "water"],
+    },
+    Thirst: {
+      title: "Thirst",
+      body: "Need 1 gallon of water a day (2 in hot weather). Only half that: DC 15 CON save or a level of Exhaustion at the end of the day. Less than half: a level of Exhaustion automatically. Already exhausted? Two levels instead. It can't be removed until you drink the full amount.",
+      keywords: ["water"],
+    },
+  },
+};
+
+/** Entries only the 2014 screen has, added to the end of a tab. */
+const EXTRAS_2014: Record<string, RulesEntry[]> = {
+  "action-economy": [
+    {
+      title: "Surprise",
+      body: "The DM decides who might be surprised. If anyone is sneaking, compare their DEX (Stealth) checks with each foe's passive WIS (Perception); anyone who doesn't notice a threat is surprised. A surprised creature can't move or take an action on its first turn, and can't take a reaction until that turn ends.",
+      keywords: ["surprise", "ambush", "initiative"],
+    },
+    {
+      title: "Inspiration",
+      body: "The DM gives Inspiration for playing your character well. Spend it for Advantage on one attack roll, saving throw or ability check. You have it or you don't — it doesn't stack — and you can give yours to another player.",
+      keywords: ["inspiration", "heroic"],
+    },
+  ],
+};
+
+/** The DM screen for the 2014 rules: the same tabs, with the 2014 wording swapped in. */
+export const DM_SCREEN_TABS_2014: RulesTab[] = DM_SCREEN_TABS.map((tab) => {
+  if (tab.id === "conditions") return { ...tab, entries: CONDITIONS_2014 };
+  const swaps = SWAPS_2014[tab.id] ?? {};
+  return {
+    ...tab,
+    entries: [...tab.entries.map((e) => swaps[e.title] ?? e), ...(EXTRAS_2014[tab.id] ?? [])],
+  };
+});
+
+/** The rules reference for a campaign's edition. */
+export function dmScreenTabs(ruleset: Ruleset): RulesTab[] {
+  return ruleset === "2014" ? DM_SCREEN_TABS_2014 : DM_SCREEN_TABS;
+}

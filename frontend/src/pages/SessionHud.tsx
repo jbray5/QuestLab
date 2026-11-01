@@ -45,6 +45,10 @@ import { spellcastingApi } from "../api/spellcasting";
 import CharacterSheet from "../components/character-sheet/CharacterSheet";
 import PlayerLinkButton from "../components/character-sheet/PlayerLinkButton";
 import DmScreen from "../components/dm-screen/DmScreen";
+import { conditionRule, exhaustion2014Summary } from "../lib/conditions";
+import { rulesetOf, type Ruleset } from "../lib/ruleset";
+import { useCampaignRuleset } from "../hooks/useCampaignRuleset";
+import { difficultyLabel } from "../components/encounter-builder/difficultyHelp";
 import LootPanel from "../components/LootPanel";
 import { TableConsoleModal } from "../components/table/TableConsole";
 import LiveBoardPane from "../components/table/LiveBoardPane";
@@ -152,24 +156,10 @@ function initials(name: string): string {
   return (first + last).toUpperCase();
 }
 
-const CONDITION_RULES: Record<Condition, string> = {
-  Blinded: "Can't see. Auto-fail checks needing sight. Attack rolls against you have advantage; your attacks have disadvantage.",
-  Charmed: "Can't attack charmer. Charmer has advantage on social checks vs you.",
-  Concentrating: "Casting a concentration spell. Taking damage requires CON save (DC 10 or half damage, whichever is higher) or lose the spell.",
-  Deafened: "Can't hear. Auto-fail checks needing hearing.",
-  Exhausted: "Levels 1–6 apply cumulative penalties (disadvantage → speed halved → -5 to all → speed 0 → death saves fail → dead).",
-  Frightened: "Disadvantage on checks/saves while source is in sight. Can't willingly move closer to source.",
-  Grappled: "Speed = 0. Ends if grappler is incapacitated or target is moved out of reach.",
-  Incapacitated: "Can't take actions or reactions.",
-  Invisible: "Impossible to see without magic. Attacks against you have disadvantage; your attacks have advantage.",
-  Paralyzed: "Incapacitated + can't move/speak. Auto-fail STR/DEX saves. Attacks against you have advantage. Hits within 5 ft are crits.",
-  Petrified: "Transformed to stone. Incapacitated, speed 0. Resistance to all damage. Immune to poison/disease.",
-  Poisoned: "Disadvantage on attack rolls and ability checks.",
-  Prone: "Melee attacks against you have advantage; ranged have disadvantage. Your attacks have disadvantage. Getting up costs half movement.",
-  Restrained: "Speed = 0. Attacks against you have advantage; your attacks have disadvantage. Disadvantage on DEX saves.",
-  Stunned: "Incapacitated + can't move + can only speak falteringly. Auto-fail STR/DEX saves. Attacks against you have advantage.",
-  Unconscious: "Incapacitated + can't move/speak + unaware of surroundings. Drop held items, fall prone. Auto-fail STR/DEX saves. Attacks have advantage; hits within 5 ft are crits.",
-};
+/** Plan 131 — each condition's rule line, in the campaign's edition (lib/conditions). */
+function conditionRules(c: Condition, ruleset: Ruleset): string {
+  return conditionRule(c, ruleset) ?? "";
+}
 
 
 function abilityMod(score: number) {
@@ -381,9 +371,11 @@ interface ConditionTagsProps {
    * sideways, which clips anything that pops out of it; fixed escapes that.
    */
   floating?: boolean;
+  /** Plan 131 — whose rules explain the conditions (2014 or 2024). */
+  ruleset?: Ruleset;
 }
 
-function ConditionTags({ name, active, onToggle, immunities, floating = false }: ConditionTagsProps) {
+function ConditionTags({ name, active, onToggle, immunities, floating = false, ruleset = "2024" }: ConditionTagsProps) {
   const [open, setOpen] = useState(false);
   const [tooltip, setTooltip] = useState<Condition | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -431,7 +423,7 @@ function ConditionTags({ name, active, onToggle, immunities, floating = false }:
               border: "none", cursor: "pointer", fontSize: "0.75rem", padding: "0.05rem 0.5rem",
               ...(phone ? { minHeight: 44, fontSize: "0.875rem", padding: "0 0.75rem" } : {}),
             }}
-            title={CONDITION_RULES[c]}
+            title={conditionRules(c, ruleset)}
           >
             {c} <X size={12} aria-hidden />
           </button>
@@ -458,7 +450,7 @@ function ConditionTags({ name, active, onToggle, immunities, floating = false }:
           boxShadow: "0 6px 18px rgba(0,0,0,0.4)",
         }}>
           <strong style={{ color: "var(--amber-text)" }}>{tooltip}</strong>
-          <br />{CONDITION_RULES[tooltip]}
+          <br />{conditionRules(tooltip, ruleset)}
         </div>
       )}
 
@@ -487,7 +479,7 @@ function ConditionTags({ name, active, onToggle, immunities, floating = false }:
                 key={c}
                 onClick={() => { onToggle(c); closePicker(); }}
                 aria-pressed={on}
-                title={immune ? `Target is immune to ${c}. Click to apply anyway.` : CONDITION_RULES[c]}
+                title={immune ? `Target is immune to ${c}. Click to apply anyway.` : conditionRules(c, ruleset)}
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 4,
                   background: on ? "var(--amber-soft)" : "var(--surface2)",
@@ -785,6 +777,8 @@ export default function SessionHud() {
     queryFn: () => adventuresApi.get(session!.adventure_id),
     enabled: !!session?.adventure_id,
   });
+  // Plan 131 — conditions, the DM screen and encounter labels follow the campaign's rules.
+  const ruleset = useCampaignRuleset(adventure?.campaign_id);
 
   const { data: allChars = [], isLoading: charsLoading, isSuccess: charsReady } = useQuery({
     queryKey: ["characters", adventure?.campaign_id],
@@ -2008,6 +2002,7 @@ export default function SessionHud() {
                     name={pc.character_name}
                     active={pcConditions}
                     onToggle={(c) => toggleCondition(pc.id, c)}
+                    ruleset={rulesetOf(pc.ruleset ?? ruleset)}
                   />
                 </div>
 
@@ -2239,7 +2234,7 @@ export default function SessionHud() {
                 <option value="">Load a prepared encounter…</option>
                 {adventureEncounters.map((e) => (
                   <option key={e.id} value={e.id}>
-                    {e.name} ({e.difficulty})
+                    {e.name} ({difficultyLabel(e.difficulty, ruleset)})
                   </option>
                 ))}
               </select>
@@ -2615,6 +2610,7 @@ export default function SessionHud() {
                         c.monsterId ? immunitiesByMonsterId[c.monsterId] : undefined
                       }
                       floating={!phone}
+                      ruleset={ruleset}
                     />
                   </div>
                 </div>
@@ -3220,7 +3216,7 @@ export default function SessionHud() {
       )}
 
       {/* Plan 27 — DM Screen modal */}
-      {onTop(<DmScreen open={dmScreenOpen} onClose={() => setDmScreenOpen(false)} />)}
+      {onTop(<DmScreen open={dmScreenOpen} onClose={() => setDmScreenOpen(false)} ruleset={ruleset} />)}
 
       {/* Plan 38/39 — Tonight's Cast drawer. Slides in from the right
           with NPC portraits / accents / dialog hooks, highlighting the
@@ -3374,6 +3370,8 @@ function PcStatusIcons({ pc }: { pc: PlayerCharacter }) {
   const dying = pc.hp_current === 0;
   const exhaustion = pc.exhaustion ?? 0;
   const hasAny = tempHp > 0 || insp || !!conc || dying || exhaustion > 0;
+  // Plan 131 — the 2014 rules: plain Inspiration (advantage), and exhaustion's added-up effects.
+  const old = rulesetOf(pc.ruleset) === "2014";
   if (!hasAny) return null;
   return (
     <div
@@ -3391,7 +3389,14 @@ function PcStatusIcons({ pc }: { pc: PlayerCharacter }) {
         </StatusBadge>
       )}
       {insp && (
-        <StatusBadge tone="neutral" title="Heroic Inspiration available — they can reroll one die">
+        <StatusBadge
+          tone="neutral"
+          title={
+            old
+              ? "Inspiration available — they can spend it for advantage on one attack, save or ability check"
+              : "Heroic Inspiration available — they can reroll one die"
+          }
+        >
           <Sparkles size={12} aria-hidden /> Inspiration
         </StatusBadge>
       )}
@@ -3414,7 +3419,9 @@ function PcStatusIcons({ pc }: { pc: PlayerCharacter }) {
           title={
             exhaustion >= 6
               ? "Exhaustion 6 — dead"
-              : `Exhaustion ${exhaustion} (${exhaustion * -2} to D20 Tests)`
+              : old
+                ? `Exhaustion ${exhaustion}: ${exhaustion2014Summary(exhaustion).toLowerCase()}`
+                : `Exhaustion ${exhaustion} (${exhaustion * -2} to D20 Tests)`
           }
         >
           Exhaustion <span className="num">{exhaustion}</span>
