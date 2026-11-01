@@ -5,12 +5,14 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel
+from pydantic import Field as PydanticField
+from pydantic import field_validator, model_validator
 from sqlalchemy import Column
 from sqlalchemy.types import JSON, DateTime
 from sqlmodel import Field, SQLModel
 
-from domain.enums import AbilityScore, CharacterClass
+from domain.enums import RULESET_PATTERN, AbilityScore, CharacterClass, Ruleset
 
 
 def new_play_token() -> str:
@@ -39,6 +41,9 @@ class PlayerCharacter(SQLModel, table=True):
     subclass: Optional[str] = Field(default=None, max_length=100)
     level: int = Field(ge=1, le=20)
     background: Optional[str] = Field(default=None, max_length=100)
+    # Plan 131 — copied from the campaign at creation (a Ruleset value, "2024" or "2014");
+    # never changes after.
+    ruleset: str = Field(default=Ruleset.R2024.value, max_length=4)
     alignment: Optional[str] = Field(default=None, max_length=50)
     # Ability scores
     score_str: int = Field(ge=1, le=30)
@@ -147,6 +152,8 @@ class PlayerCharacterCreate(BaseModel):
     character_name: str
     race: str
     character_class: CharacterClass
+    # Plan 131 — a plain value (not the enum) so it lands in the str column as "2024"/"2014".
+    ruleset: str = PydanticField(default=Ruleset.R2024.value, pattern=RULESET_PATTERN)
     subclass: Optional[str] = None
     level: int = Field(ge=1, le=20)
     background: Optional[str] = None
@@ -190,6 +197,7 @@ class PlayerCharacterRead(BaseModel):
     character_name: str
     race: str
     character_class: CharacterClass
+    ruleset: Ruleset = Ruleset.R2024
     subclass: Optional[str] = None
     level: int
     background: Optional[str] = None
@@ -529,6 +537,8 @@ class ClassFeature(SQLModel, table=True):
     uses_formula: UsesFormula
     description: str
     source: str = Field(default="SRD 5.5e / 2024 PHB", max_length=60)
+    # Plan 131 — which edition's catalog this row belongs to; a PC only gets its own edition's.
+    ruleset: str = Field(default=Ruleset.R2024.value, max_length=4)
 
 
 class ClassFeatureCreate(BaseModel):
@@ -542,6 +552,7 @@ class ClassFeatureCreate(BaseModel):
     uses_formula: UsesFormula
     description: str
     source: str = "SRD 5.5e / 2024 PHB"
+    ruleset: str = PydanticField(default=Ruleset.R2024.value, pattern=RULESET_PATTERN)
 
 
 class ClassFeatureRead(BaseModel):
@@ -556,6 +567,7 @@ class ClassFeatureRead(BaseModel):
     uses_formula: UsesFormula
     description: str
     source: str
+    ruleset: Ruleset = Ruleset.R2024
 
     model_config = {"from_attributes": True}
 

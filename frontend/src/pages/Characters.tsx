@@ -15,6 +15,8 @@ import InventoryPanel from "../components/InventoryPanel";
 import SpellPanel from "../components/SpellPanel";
 import { portraitSrc } from "../lib/portrait";
 import RowMenu from "../components/RowMenu";
+import RulesPicker from "../components/RulesPicker";
+import { rulesetOf, type Ruleset } from "../lib/ruleset";
 import Monogram from "../components/character-sheet/Monogram";
 import { useIsCompact } from "../hooks/useIsCompact";
 
@@ -296,6 +298,14 @@ export default function Characters() {
       void qc.invalidateQueries({ queryKey: ["campaign", campaignId] });
     },
   });
+  // Plan 131 — the campaign's rules; the server refuses a change once characters exist.
+  const rulesMut = useMutation({
+    mutationFn: (r: Ruleset) => campaignsApi.update(campaignId as string, { ruleset: r }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["campaign", campaignId] });
+      void qc.invalidateQueries({ queryKey: ["campaigns"] });
+    },
+  });
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<PlayerCharacter | null>(null);
@@ -476,6 +486,23 @@ export default function Characters() {
             if ((campaign?.join_code ?? "") !== code) codeMut.mutate(code);
           }}
         />
+      )}
+
+      {/* Plan 131 — which edition this table plays by; locked once a character exists. */}
+      {campaign && !isLoading && (
+        <section className="card" aria-label="Rules" style={{ marginBottom: "1.25rem" }}>
+          <RulesPicker
+            value={rulesetOf(campaign.ruleset)}
+            onChange={(r) => rulesMut.mutate(r)}
+            locked={characters.length > 0}
+            busy={rulesMut.isPending}
+          />
+          {rulesMut.isError && (
+            <p role="alert" className="text-sm" style={{ color: "var(--danger-text)", margin: "0.4rem 0 0" }}>
+              {(rulesMut.error as Error).message}
+            </p>
+          )}
+        </section>
       )}
 
       {showForm && (

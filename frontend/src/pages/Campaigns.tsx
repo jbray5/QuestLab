@@ -8,6 +8,8 @@ import { isPlanLimitError } from "../api/errors";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import type { Campaign } from "../api/types";
 import RowMenu from "../components/RowMenu";
+import RulesPicker from "../components/RulesPicker";
+import { rulesetLabel, rulesetOf, type Ruleset } from "../lib/ruleset";
 
 // Plan 83 — the whole campaign as one JSON file, named after it.
 async function exportCampaign(c: Campaign): Promise<void> {
@@ -36,6 +38,7 @@ export default function Campaigns() {
   const [setting, setSetting] = useState("");
   const [tone, setTone] = useState("");
   const [description, setDescription] = useState("");
+  const [ruleset, setRuleset] = useState<Ruleset>("2024");
 
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ["campaigns"],
@@ -49,10 +52,11 @@ export default function Campaigns() {
         setting,
         tone,
         description: description.trim() || undefined,
+        ruleset,
       }),
     onSuccess: (made) => {
       qc.invalidateQueries({ queryKey: ["campaigns"] });
-      setName(""); setSetting(""); setTone(""); setDescription("");
+      setName(""); setSetting(""); setTone(""); setDescription(""); setRuleset("2024");
       setShowForm(false);
       // Review 10/30 — a new campaign opens straight away.
       handleOpen(made);
@@ -120,6 +124,10 @@ export default function Campaigns() {
               style={{ resize: "vertical" }}
             />
           </div>
+          {/* Plan 131 — the table's edition; it can change until the first character is made. */}
+          <div className="form-group">
+            <RulesPicker value={ruleset} onChange={setRuleset} />
+          </div>
           <button
             className="btn btn-primary"
             onClick={() => create.mutate()}
@@ -157,13 +165,15 @@ export default function Campaigns() {
                 <h2 className="story" style={{ fontSize: "1.3rem", margin: 0, lineHeight: 1.25 }}>
                   {c.name}
                 </h2>
-                {(c.setting || c.tone) && (
+                {(c.setting || c.tone || rulesetOf(c.ruleset) === "2014") && (
                   <div
                     className="flex items-center gap-2"
                     style={{ marginTop: "0.3rem", flexWrap: "wrap" }}
                   >
                     {c.setting && <span className="text-muted text-sm">{c.setting}</span>}
                     {c.tone && <span className="pill">{c.tone}</span>}
+                    {/* Plan 131 — only the non-default edition gets a chip. */}
+                    {rulesetOf(c.ruleset) === "2014" && <span className="pill">{rulesetLabel("2014")}</span>}
                   </div>
                 )}
               </div>

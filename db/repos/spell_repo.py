@@ -6,11 +6,21 @@ JSON-array containment across Postgres + DuckDB is fiddly.
 """
 
 import uuid
-from typing import Optional
+from typing import Any, Optional
 
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from domain.spell import Spell, SpellCreate, SpellUpdate
+
+
+def _in_ruleset(stmt: Any, ruleset: Optional[str]) -> Any:
+    """Narrow a spell query to one edition's rows plus homebrew (NULL ruleset), or not at all."""
+    if not ruleset:
+        return stmt
+    return stmt.where(
+        or_(Spell.ruleset == str(getattr(ruleset, "value", ruleset)), Spell.ruleset.is_(None))
+    )
 
 
 class SpellRepo:
@@ -30,17 +40,19 @@ class SpellRepo:
         return session.get(Spell, spell_id)
 
     @staticmethod
-    def get_by_name(session: Session, name: str) -> Optional[Spell]:
+    def get_by_name(session: Session, name: str, ruleset: Optional[str] = None) -> Optional[Spell]:
         """Fetch a spell by exact name (case-insensitive).
 
         Args:
             session: Active database session.
             name: Spell name to look up.
+            ruleset: Plan 131 — "2024"/"2014" to look in that edition's catalog (homebrew,
+                which has no ruleset, matches either). None searches every row.
 
         Returns:
             Spell if found, else None.
         """
-        stmt = select(Spell).where(Spell.name.ilike(name)).limit(1)
+        stmt = _in_ruleset(select(Spell).where(Spell.name.ilike(name)), ruleset).limit(1)
         return session.exec(stmt).first()
 
     @staticmethod
@@ -52,6 +64,7 @@ class SpellRepo:
         class_name: Optional[str] = None,
         is_ritual: Optional[bool] = None,
         is_concentration: Optional[bool] = None,
+        ruleset: Optional[str] = None,
     ) -> list[Spell]:
         """List spells with optional filters.
 
@@ -67,11 +80,13 @@ class SpellRepo:
             class_name: Optional class scope (e.g. "Wizard"). Case-sensitive.
             is_ritual: Optional ritual flag.
             is_concentration: Optional concentration flag.
+            ruleset: Plan 131 — "2024"/"2014" keeps that edition's rows plus homebrew (which
+                has no ruleset). None lists every row.
 
         Returns:
             Spells ordered by level ascending, then name ascending.
         """
-        stmt = select(Spell)
+        stmt = _in_ruleset(select(Spell), ruleset)
         if q:
             stmt = stmt.where(Spell.name.ilike(f"%{q}%"))
         if level is not None:
@@ -161,13 +176,18 @@ class SpellRepo:
         return True
 
     @staticmethod
-    def count(session: Session) -> int:
-        """Return the total number of spells in the catalog.
+    def count(session: Session, ruleset: Optional[str] = None) -> int:
+        """Return the number of spells in the catalog.
 
         Args:
             session: Active database session.
+            ruleset: Plan 131 — count only that edition's SRD rows ("2024"/"2014"), for the
+                insert-if-missing seeds. None counts every row.
 
         Returns:
             Row count.
         """
-        return len(list(session.exec(select(Spell)).all()))
+        stmt = select(Spell)
+        if ruleset:
+            stmt = stmt.where(Spell.ruleset == str(getattr(ruleset, "value", ruleset)))
+        return len(list(session.exec(stmt).all()))

@@ -184,7 +184,7 @@ def _max_slots_for_pc(pc: PlayerCharacter) -> dict[str, int]:
         Dict keyed by slot-level-as-string ("1".."9") → max slot count. Empty
         dict for non-casters. Cantrips (level 0) excluded.
     """
-    raw = character_service.compute_spell_slots(pc.character_class, pc.level)
+    raw = character_service.compute_spell_slots(pc.character_class, pc.level, pc.ruleset)
     if pc.character_class == CharacterClass.WARLOCK:
         # {"pact": N, "level": L} → {str(L): N}
         if "level" in raw and "pact" in raw:

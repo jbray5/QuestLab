@@ -175,14 +175,18 @@ _HALF_CASTERS = {CharacterClass.PALADIN, CharacterClass.RANGER}
 _NON_CASTERS = {CharacterClass.BARBARIAN, CharacterClass.FIGHTER, CharacterClass.MONK}
 
 
-def compute_spell_slots(character_class: CharacterClass, level: int) -> dict[str, int]:
-    """Return the standard spell slot dict for a class/level per 2024 rules.
+def compute_spell_slots(
+    character_class: CharacterClass, level: int, ruleset: str = "2024"
+) -> dict[str, int]:
+    """Return the standard spell slot dict for a class/level.
 
     For non-casters returns an empty dict. Warlock returns pact magic slots.
 
     Args:
         character_class: The character's class.
         level: Character level (1–20).
+        ruleset: Plan 131 — "2024" (default) or "2014". The tables match except that a 2014
+            Paladin or Ranger has no spellcasting (so no slots) until level 2.
 
     Returns:
         Dict mapping spell level string to slot count. Warlock uses keys "pact"
@@ -192,6 +196,8 @@ def compute_spell_slots(character_class: CharacterClass, level: int) -> dict[str
     if character_class in _FULL_CASTERS:
         return dict(_FULL_CASTER_SLOTS[idx])
     if character_class in _HALF_CASTERS:
+        if str(getattr(ruleset, "value", ruleset)) == "2014" and level < 2:
+            return {}
         return dict(_HALF_CASTER_SLOTS[idx])
     if character_class == CharacterClass.WARLOCK:
         return dict(_WARLOCK_PACT_SLOTS[idx])
@@ -443,8 +449,12 @@ def create_character(
         raise ValueError(
             f"Campaign already has {MAX_CHARACTERS_PER_CAMPAIGN} characters (maximum)."
         )
+    # Plan 131 — the PC plays by its campaign's rules, stamped once here.
+    ruleset = campaign.ruleset or "2024"
     resolved_slots = (
-        spell_slots if spell_slots is not None else compute_spell_slots(character_class, level)
+        spell_slots
+        if spell_slots is not None
+        else compute_spell_slots(character_class, level, ruleset)
     )
     data = PlayerCharacterCreate(
         campaign_id=campaign_id,
@@ -452,6 +462,7 @@ def create_character(
         character_name=character_name,
         race=race,
         character_class=character_class,
+        ruleset=ruleset,
         subclass=subclass,
         level=level,
         background=background,
@@ -550,7 +561,7 @@ def update_character(
     if ("level" in patch or "character_class" in patch) and "spell_slots" not in patch:
         new_level = patch.get("level", character.level)
         new_class = patch.get("character_class", character.character_class)
-        patch["spell_slots"] = compute_spell_slots(new_class, new_level) or None
+        patch["spell_slots"] = compute_spell_slots(new_class, new_level, character.ruleset) or None
     # Plan 37 — if the DM PATCHes hp_current up from 0, clear the
     # death-save tracker too (matches apply_healing's revive behavior).
     prev_hp = character.hp_current

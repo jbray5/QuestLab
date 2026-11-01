@@ -1,5 +1,7 @@
 // ── Domain types mirroring FastAPI response models ──────────────────────────
 
+import type { Ruleset } from "../lib/ruleset";
+
 export interface Campaign {
   id: string;
   name: string;
@@ -12,6 +14,8 @@ export interface Campaign {
   allow_player_signup?: boolean;
   // Plan 83 — optional code the join page asks for.
   join_code?: string | null;
+  // Plan 131 — "2024" or "2014"; locked once the campaign has characters.
+  ruleset?: Ruleset;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -22,6 +26,7 @@ export interface CampaignCreate {
   tone?: string;
   description?: string;
   world_notes?: string;
+  ruleset?: Ruleset;
 }
 
 export interface Adventure {

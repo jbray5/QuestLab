@@ -7,6 +7,8 @@ from typing import Optional
 from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
 
+from domain.enums import Ruleset
+
 
 class CampaignBase(SQLModel):
     """Shared fields for Campaign create and read schemas."""
@@ -32,6 +34,10 @@ class Campaign(CampaignBase, table=True):
     allow_player_signup: bool = Field(default=True)
     # Plan 83 — optional short code the join page asks for before listing the party.
     join_code: Optional[str] = Field(default=None, max_length=12)
+    # Plan 131 — the edition this table plays by: "2024" (default) or "2014" (a Ruleset value,
+    # stored as its plain value). Locked once the campaign has characters (campaign_service),
+    # and copied onto each PC at creation.
+    ruleset: str = Field(default=Ruleset.R2024.value, max_length=4)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -44,6 +50,10 @@ class CampaignCreate(CampaignBase):
     """
 
     dm_email: Optional[str] = None
+    ruleset: Ruleset = Ruleset.R2024
+
+    # Plan 131 — keep "2024"/"2014" (not the enum) after validation: it lands in a str column.
+    model_config = {"use_enum_values": True}
 
 
 class CampaignRead(CampaignBase):
@@ -53,6 +63,7 @@ class CampaignRead(CampaignBase):
     dm_email: str
     allow_player_signup: bool = True
     join_code: Optional[str] = None
+    ruleset: Ruleset = Ruleset.R2024
     created_at: datetime
     updated_at: datetime
 
@@ -69,3 +80,6 @@ class CampaignUpdate(BaseModel):
     allow_player_signup: Optional[bool] = None
     join_code: Optional[str] = Field(default=None, max_length=12)
     world_notes: Optional[str] = None
+    ruleset: Optional[Ruleset] = None
+
+    model_config = {"use_enum_values": True}

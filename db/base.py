@@ -233,6 +233,12 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code VARCHAR(40)",
         # 0060 — pricing (Plan 130): Patron comps; the uploads ledger comes from create_all
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS patron_comped BOOLEAN DEFAULT FALSE",
+        # 0061 — rulesets (Plan 131): every existing row reads as 2024; homebrew spells stay NULL
+        "ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS ruleset VARCHAR(4) DEFAULT '2024'",
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS ruleset VARCHAR(4) DEFAULT '2024'",
+        "ALTER TABLE class_features ADD COLUMN IF NOT EXISTS ruleset VARCHAR(4) DEFAULT '2024'",
+        "ALTER TABLE spells ADD COLUMN IF NOT EXISTS ruleset VARCHAR(4)",
+        "UPDATE spells SET ruleset = '2024' WHERE ruleset IS NULL AND created_by_email IS NULL",
         # 0035 — 2024 PHB recovery numbers (Paladin CD 2 uses; the
         # regain-one-on-short-rest pattern for CD + Second Wind).
         # seed_catalog() only fires on an empty table, so already-seeded

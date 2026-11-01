@@ -13,6 +13,8 @@ from sqlalchemy import Column
 from sqlalchemy.types import JSON
 from sqlmodel import Field, SQLModel
 
+from domain.enums import RULESET_PATTERN
+
 
 class Spell(SQLModel, table=True):
     """Spell SQLModel table — one row per SRD 5.5e spell.
@@ -55,6 +57,8 @@ class Spell(SQLModel, table=True):
     # JSON list of class names that can learn this spell.
     classes: Optional[list] = Field(default=None, sa_column=Column(JSON, nullable=True))
     source: str = Field(default="SRD 5.5e (2024)", max_length=60)
+    # Plan 131 — "2024" or "2014" for the SRD rows; NULL for a DM's homebrew (valid in both).
+    ruleset: Optional[str] = Field(default=None, max_length=4, index=True)
     # SEC-003: the DM who authored a homebrew spell; NULL = the shared SRD
     # catalog (admin-only to change). Stamped server-side.
     created_by_email: Optional[str] = Field(default=None, max_length=200, index=True)
@@ -82,6 +86,8 @@ class SpellCreate(BaseModel):
     attack_type: Optional[str] = None
     classes: list[str] = PydanticField(default_factory=list)
     source: str = "SRD 5.5e (2024)"
+    # Plan 131 — the seeds set "2024"/"2014"; a DM's homebrew leaves it None (both rulesets).
+    ruleset: Optional[str] = PydanticField(default=None, pattern=RULESET_PATTERN)
 
 
 class SpellRead(BaseModel):
@@ -107,6 +113,7 @@ class SpellRead(BaseModel):
     attack_type: Optional[str] = None
     classes: list[str] = PydanticField(default_factory=list)
     source: str
+    ruleset: Optional[str] = None
     # SEC-003: None for the shared catalog; the author's email for homebrew.
     created_by_email: Optional[str] = None
 

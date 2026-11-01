@@ -3,6 +3,17 @@
 from enum import Enum
 
 
+class Ruleset(str, Enum):
+    """Which edition a campaign plays by (Plan 131): 2024 rules (SRD 5.2.1) or 2014 (SRD 5.1)."""
+
+    R2024 = "2024"
+    R2014 = "2014"
+
+
+# For str fields that hold a Ruleset value (DB columns store "2024"/"2014", not the enum name).
+RULESET_PATTERN = r"^(2024|2014)$"
+
+
 class CharacterClass(str, Enum):
     """D&D 5e 2024 character classes."""
 

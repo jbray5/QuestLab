@@ -89,6 +89,7 @@ def create_campaign(
     dm_email: str,
     description: Optional[str] = None,
     world_notes: Optional[str] = None,
+    ruleset: str = "2024",
 ) -> CampaignRead:
     """Create a new campaign for the requesting DM.
 
@@ -100,6 +101,7 @@ def create_campaign(
         dm_email: Email of the owning DM.
         description: Optional campaign premise and overview.
         world_notes: Optional free-form world-building notes.
+        ruleset: Plan 131 — "2024" (default) or "2014"; every PC in it follows these rules.
 
     Returns:
         The newly created CampaignRead.
@@ -127,9 +129,14 @@ def create_campaign(
         dm_email=dm_email.strip().lower(),
         description=description,
         world_notes=world_notes,
+        ruleset=ruleset,
     )
     campaign = CampaignRepo.create(session, data)
     return CampaignRead.model_validate(campaign)
+
+
+class RulesetLockedError(ValueError):
+    """Plan 131 — a campaign's rules can't change once it has characters."""
 
 
 def update_campaign(
@@ -151,12 +158,23 @@ def update_campaign(
 
     Raises:
         ValueError: If the campaign does not exist.
+        RulesetLockedError: If the rules would change on a campaign that has characters.
         PermissionError: If the DM does not own the campaign.
     """
     campaign = CampaignRepo.get_by_id(session, campaign_id)
     if campaign is None:
         raise ValueError(f"Campaign {campaign_id} not found.")
     _assert_owner(campaign, dm_email)
+    if update.ruleset is not None and update.ruleset != campaign.ruleset:
+        # Plan 131 — every PC is built on its campaign's rules; there's no converting one.
+        if CharacterRepo.list_by_campaign(session, campaign_id):
+            raise RulesetLockedError(
+                f"This campaign already has characters built on the {campaign.ruleset} rules, "
+                "so its rules are locked. Start a new campaign to play by the other rules."
+            )
+    elif "ruleset" in update.model_fields_set:
+        update.ruleset = None  # a null or unchanged value never touches the column
+        update.model_fields_set.discard("ruleset")
     if "join_code" in update.model_fields_set:
         # Plan 83 — codes are short, upper-case, and "" clears them.
         code = "".join(ch for ch in (update.join_code or "").upper() if ch.isalnum())[:12]

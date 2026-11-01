@@ -52,6 +52,7 @@ def create_campaign(body: CampaignCreate, db: DB, user: CurrentUser) -> Campaign
             dm_email=user,
             description=body.description,
             world_notes=body.world_notes,
+            ruleset=body.ruleset,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
@@ -94,6 +95,8 @@ def update_campaign(
     """
     try:
         return campaign_service.update_campaign(db, campaign_id, user, body)
+    except campaign_service.RulesetLockedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
