@@ -824,6 +824,7 @@ export default function Characters() {
               characterId={c.id}
               characterClass={c.character_class}
               characterName={c.character_name}
+              ruleset={c.ruleset}
             />
 
             <FeaturePanel
@@ -831,6 +832,7 @@ export default function Characters() {
               characterClass={c.character_class}
               characterLevel={c.level}
               characterName={c.character_name}
+              ruleset={c.ruleset}
             />
 
             {/* A pending level-up is live: the player's guide is waiting. */}

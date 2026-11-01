@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { useCampaignStore } from "../stores/useCampaignStore";
 import { useIsCompact } from "../hooks/useIsCompact";
+import { useCampaignRuleset } from "../hooks/useCampaignRuleset";
+import { difficultyLabel } from "../components/encounter-builder/difficultyHelp";
 import PhoneSheet from "../components/PhoneSheet";
 import RowMenu from "../components/RowMenu";
 import {
@@ -657,6 +659,8 @@ function NodeDetail({ node, isDungeon, encounters, onClose, onSave, saving, inSh
   const [lootNotes, setLootNotes] = useState<string>((node.data.loot_notes as string) ?? "");
   const [trapNotes, setTrapNotes] = useState<string>((node.data.trap_notes as string) ?? "");
   const [encounterId, setEncounterId] = useState<string>((node.data.encounter_id as string) ?? "");
+  // Plan 131 — a 2014 campaign names the bands Easy / Medium / Hard / Deadly.
+  const ruleset = useCampaignRuleset();
   const nodeType = String(node.data.node_type ?? "Room") as NodeType;
   const tone = toneOf(nodeType);
 
@@ -689,7 +693,7 @@ function NodeDetail({ node, isDungeon, encounters, onClose, onSave, saving, inSh
             <option value="">None</option>
             {encounters.map((enc) => (
               <option key={enc.id} value={enc.id}>
-                {enc.name} ({enc.difficulty})
+                {enc.name} ({difficultyLabel(enc.difficulty, ruleset)})
               </option>
             ))}
           </select>

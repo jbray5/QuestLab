@@ -1,5 +1,22 @@
-import type { BuilderOptions } from "../../api/characterBuilder";
-import { ABILITY_NAMES, abilityWords, andList, cantripCap, featureNote, fmt, maxSpellLevel, ordinal, choiceCounts, spellCap, stepAt } from "./rules";
+import type { BuilderOptions, BuilderSpellcasting } from "../../api/characterBuilder";
+import { ABILITY_NAMES, abilityWords, andList, cantripCap, featureNote, fmt, maxSpellLevel, ordinal, choiceCounts, spellCap, spellbookSize, stepAt } from "./rules";
+
+/**
+ * Plan 131 — how a 2014 class gets its leveled spells, in words: "4 known", "Wisdom modifier +
+ * level prepared", or a Wizard's spellbook. Null when the class uses the 2024 prepared table.
+ */
+function spells2014(opts: Opts, klass: string, level: number, sc: BuilderSpellcasting): string | null {
+  if (sc.prepared) return null;
+  const first = sc.first_level ?? 1;
+  if (level < first) return `none yet: a ${klass}'s spells start at level ${first}`;
+  const ability = ABILITY_NAMES[sc.ability];
+  const top = `up to ${ordinal(Math.max(1, maxSpellLevel(opts, klass, level)))} level`;
+  if (sc.kind === "known") return `${spellCap(opts, klass, level)} known, ${top}`;
+  const half = sc.prepared_formula === "half_level";
+  const prep = `${ability} modifier + ${half ? `half your level (${Math.floor(level / 2)})` : `your level (${level})`} prepared each day, at least 1`;
+  if (sc.spellbook) return `a spellbook of ${spellbookSize(opts, klass, level)} spells, ${top}; ${prep}`;
+  return `${prep}, ${top}`;
+}
 
 /**
  * "What does this give me?" panels for the wizard (Plan 126, DESIGN.md §0): plain words next
@@ -62,7 +79,9 @@ export function ClassExplainer({ opts, klass, level, subclass }: { opts: Opts; k
       {sc && (
         <div className="row"><span>Spells</span><span>
           Cast with {ABILITY_NAMES[sc.ability]}: {cantripCap(opts, klass, level) ? <><span className="num">{cantripCap(opts, klass, level)}</span> cantrips, </> : null}
-          <span className="num">{spellCap(opts, klass, level)}</span> prepared, up to {ordinal(Math.max(1, maxSpellLevel(opts, klass, level)))} level. You pick them on the Spells step
+          {spells2014(opts, klass, level, sc) ?? (
+            <><span className="num">{spellCap(opts, klass, level)}</span> prepared, up to {ordinal(Math.max(1, maxSpellLevel(opts, klass, level)))} level</>
+          )}. You pick them on the Spells step
         </span></div>
       )}
       {scales.length > 0 && (
@@ -144,6 +163,18 @@ export function SubclassFeatures({ opts, klass, subclass, level }: { opts: Opts;
 
 /** A background's skills, tool, Origin feat (with what the feat does) and ability bonus. */
 export function BackgroundExplainer({ opts, bg }: { opts: Opts; bg: Opts["backgrounds"][number] }) {
+  // Plan 131 — a 2014 background: skills, languages and a feature; no feat, tool or bonus.
+  if (!bg.feat) {
+    return (
+      <div className="panel">
+        <div className="phead">What {bg.name} gives</div>
+        <div className="row"><span>Skills</span><span>{bg.skills.join(" and ")}</span></div>
+        {bg.tool && <div className="row"><span>Tool</span><span>{bg.tool}</span></div>}
+        {!!bg.languages && <div className="row"><span>Languages</span><span>{bg.languages} of your choice</span></div>}
+        {bg.feature && <div className="row"><span>Feature</span><span>{bg.feature}</span></div>}
+      </div>
+    );
+  }
   const featName = bg.feat.split(" (")[0];
   const feat = opts.origin_feats.find((f) => f.name === featName);
   return (

@@ -15,12 +15,14 @@ import { usePlayer } from "./playerContext";
 import { useRoll, type RollSpec } from "./rollContext";
 import { healLabel, healSpec } from "./rolls";
 import { Heading, Panel, Pips } from "./ui";
-import { DAILY_PREPARERS, fmt, ordinal, parseDice } from "./rules";
+import { fmt, isDailyPreparer, ordinal, parseDice } from "./rules";
+import { rulesetOf } from "../../lib/ruleset";
 
 export default function SpellsTab() {
   const { spells, pc, help, stats } = usePlayer();
   const [preparing, setPreparing] = useState(false);
-  const canPrepare = DAILY_PREPARERS.has(pc.character_class);
+  // Plan 131 — a 2014 Ranger or Bard knows spells; only the 2014 prepared casters swap daily.
+  const canPrepare = isDailyPreparer(pc.character_class, rulesetOf(pc.ruleset));
   const levels = [...new Set(spells.map((s) => s.level))].sort((a, b) => a - b);
   const prepared = spells.filter((s) => s.level > 0 && s.prepared).length;
   return (

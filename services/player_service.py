@@ -1327,6 +1327,38 @@ def party_for_arena(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
 
 # Classes that change prepared spells day to day (after a Long Rest), 2024 PHB.
 _DAILY_PREPARERS = {"Cleric", "Druid", "Paladin", "Ranger", "Wizard"}
+# Plan 131 — the 2014 rules: the prepared casters (a Ranger learns spells, like a Bard).
+_DAILY_PREPARERS_2014 = {"Cleric", "Druid", "Paladin", "Wizard"}
+
+
+def _daily_preparers(ruleset: Any) -> set[str]:
+    """The classes that change their prepared spells after a Long Rest, per edition."""
+    from integrations.dnd_rules import rulesets
+
+    return _DAILY_PREPARERS_2014 if rulesets.is_2014(ruleset) else _DAILY_PREPARERS
+
+
+def _always_prepared_2014(pc: PlayerCharacter, cls: str) -> set[str]:
+    """Casefolded spells a 2014 PC always has prepared (domain, oath, circle spells)."""
+    from integrations.dnd_rules import rulesets
+
+    rules = rulesets.levelup(pc.ruleset)
+    spec = rules.CHOICE_KINDS.get("land") or {}
+    prefix = f"{spec.get('record') or spec.get('label') or 'Land'}: ".casefold()
+    picked = next(
+        (f[len(prefix) :].strip() for f in (pc.feats or []) if f.casefold().startswith(prefix)),
+        None,
+    )
+    land = next(
+        (k for k in rules.LAND_SPELLS if picked and k.casefold() == picked.casefold()), None
+    )
+    # The SRD subclass however the sheet spells it ("Life" is the Life Domain).
+    text = (pc.subclass or "").strip().casefold()
+    keys = list(rules.ALWAYS_PREPARED_SUBCLASS) + ["Circle of the Land"]
+    sub = next((k for k in keys if k.casefold() == text), None) or next(
+        (k for k in keys if text and (k.casefold() in text or text in k.casefold())), pc.subclass
+    )
+    return {n.casefold() for n, _src in rules.always_prepared(cls, pc.level, sub, land)}
 
 
 def _pc_or_lookup(db: Session, pc_id: uuid.UUID) -> PlayerCharacter:
@@ -1453,26 +1485,39 @@ def set_spell_prepared(
     """
     from db.repos.character_spell_repo import CharacterSpellRepo
     from db.repos.spell_repo import SpellRepo
-    from integrations.dnd_rules.srd_character_options_2024 import spells_prepared
+    from integrations.dnd_rules import rulesets
 
     pc = _pc_or_lookup(db, pc_id)
     row, spell = _own_spell(db, pc, character_spell_id)
     if spell.level == 0:
         raise ValueError("Cantrips are always ready; there's nothing to prepare.")
     cls = str(getattr(pc.character_class, "value", pc.character_class)).title()
-    if cls not in _DAILY_PREPARERS:
+    if cls not in _daily_preparers(pc.ruleset):
         raise ValueError(f"A {cls} changes spells when they level up, not after a rest.")
+    srd = rulesets.options(pc.ruleset)
+    # Plan 131 — the 2014 number is the ability modifier + level (Paladin: half), and domain,
+    # oath and circle spells are always prepared without counting against it.
+    free: set[str] = set()
+    if rulesets.is_2014(pc.ruleset):
+        sc = srd.CLASSES[cls]["spellcasting"]
+        ability_mod = (int(getattr(pc, f"score_{sc['ability'].lower()}")) - 10) // 2
+        cap = srd.spells_prepared(cls, pc.level, ability_mod)
+        free = _always_prepared_2014(pc, cls)
+    else:
+        cap = srd.spells_prepared(cls, pc.level)
     leveled = []
     for r in CharacterSpellRepo.list_for_character(db, pc.id):
         s = SpellRepo.get_by_id(db, r.spell_id)
-        if s is not None and s.level > 0 and r.prepared:
+        if s is not None and s.level > 0 and r.prepared and s.name.casefold() not in free:
             leveled.append(r.id)
-    cap = spells_prepared(cls, pc.level)
-    if prepared and not row.prepared and len(leveled) >= cap:
+    counts = spell.name.casefold() not in free
+    if counts and prepared and not row.prepared and len(leveled) >= cap:
         raise ValueError(f"You can have {cap} spells prepared. Unprepare one first.")
     was = bool(row.prepared)
     spellcasting_service.set_prepared(db, row.id, prepared, _dm_email_for(db, pc_id))
-    count = len(leveled) + (1 if prepared and not was else 0) - (1 if was and not prepared else 0)
+    count = len(leveled)
+    if counts:
+        count += (1 if prepared and not was else 0) - (1 if was and not prepared else 0)
     return {"id": str(row.id), "prepared": prepared, "count": count, "cap": cap}
 
 

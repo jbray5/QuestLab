@@ -563,8 +563,164 @@ def _mods(pc: PlayerCharacter) -> dict[str, int]:
     return {ab: _ability_mod(getattr(pc, f"score_{ab}")) for ab in _ABILITIES}
 
 
+# Plan 131 — the 2014 listing, built from ``levelup_2014`` in the 2024 listing's shape.
+# Markers in the class tables that aren't features a character "has".
+_SKIP_2014 = {"Ability Score Improvement"}
+_SUB_MARK_2014 = "Subclass feature"
+# Table rows that only bump a count the base feature's note already states.
+_COUNT_BUMPS_2014 = {
+    "Action Surge (two uses)",
+    "Indomitable (two uses)",
+    "Indomitable (three uses)",
+    "Brutal Critical (two dice)",
+    "Brutal Critical (three dice)",
+    "Aura improvements",
+}
+# A later feature that replaces an earlier one with the same job.
+_REPLACED_BY_2014 = {
+    "Extra Attack": "Two Extra Attacks",
+    "Two Extra Attacks": "Three Extra Attacks",
+}
+# The SRD name → the name the tracked row uses, kept recognisable ("Sorcery Points" is what
+# the counter tracks; FeaturePanel pairs names up to " (").
+_DISPLAY_NAME_2014 = {"Font of Magic": "Sorcery Points (Font of Magic)"}
+# Which per-level numbers (``levelup_2014.class_scales`` labels) a feature's note quotes.
+_NUMBERS_2014: dict[tuple[str, str], tuple[str, ...]] = {
+    ("Barbarian", "Rage"): ("Rages", "Rage damage"),
+    ("Barbarian", "Brutal Critical"): ("Brutal Critical dice",),
+    ("Bard", "Bardic Inspiration"): ("Bardic Inspiration die",),
+    ("Bard", "Song of Rest"): ("Song of Rest die",),
+    ("Cleric", "Channel Divinity"): ("Channel Divinity uses",),
+    ("Cleric", "Destroy Undead"): ("Destroy Undead",),
+    ("Druid", "Wild Shape"): ("Wild Shape uses", "Wild Shape max CR"),
+    ("Fighter", "Action Surge"): ("Action Surge uses",),
+    ("Fighter", "Indomitable"): ("Indomitable uses",),
+    ("Monk", "Martial Arts"): ("Martial Arts die",),
+    ("Monk", "Ki"): ("Ki points",),
+    ("Monk", "Unarmored Movement"): ("Unarmored Movement",),
+    ("Paladin", "Lay on Hands"): ("Lay on Hands pool",),
+    ("Paladin", "Aura of Protection"): ("Aura range",),
+    ("Paladin", "Aura of Courage"): ("Aura range",),
+    ("Paladin", "Aura of Devotion"): ("Aura range",),
+    ("Ranger", "Favored Enemy"): ("Favored enemies",),
+    ("Ranger", "Natural Explorer"): ("Favored terrains",),
+    ("Rogue", "Sneak Attack"): ("Sneak Attack",),
+    ("Sorcerer", "Font of Magic"): ("Sorcery points",),
+    ("Sorcerer", "Metamagic"): ("Metamagic options",),
+    ("Warlock", "Eldritch Invocations"): ("Eldritch Invocations",),
+    ("Wizard", "Arcane Recovery"): ("Arcane Recovery slot levels",),
+}
+# Features whose uses are the Charisma modifier (quoted with the PC's own number).
+_CHA_USES_2014 = {"Bardic Inspiration", "Divine Sense", "Cleansing Touch"}
+
+
+def _scale_value(table: list[list[Any]], level: int) -> Any:
+    """The value from an ascending [[from_level, value], ...] table at ``level`` (None below)."""
+    out = None
+    for at, value in table:
+        if level >= at:
+            out = value
+    return out
+
+
+def _note_2014(
+    rules: Any,
+    scales: dict[str, list[dict[str, Any]]],
+    class_name: str,
+    name: str,
+    level: int,
+    mods: dict[str, int],
+) -> str:
+    """The plain-words note for a 2014 feature, with this character's numbers in it."""
+    note = rules.feature_note(class_name, name) or "See your book for what this does."
+    tables = {row["label"]: row["table"] for row in scales.get(class_name, [])}
+    parts = []
+    for label in _NUMBERS_2014.get((class_name, name), ()):
+        value = _scale_value(tables.get(label, []), level)
+        if value is not None:
+            parts.append(f"{label} {value}")
+    if parts:
+        note += " Now: " + ", ".join(parts).rstrip(".") + "."
+    if name in _CHA_USES_2014:
+        note += f" Your Charisma modifier is {mods.get('cha', 0):+d}."
+    return note
+
+
+def _features_for_level_2014(pc: PlayerCharacter) -> list[dict[str, Any]]:
+    """Every 2014 class and subclass feature a PC has at its level (SRD 5.1 names).
+
+    Same rows as the 2024 listing: ``{"name", "level", "source", "note"}`` in level order,
+    class features before subclass features within a level. A feature the class table lists
+    again later (Expertise, Magical Secrets, Favored Enemy) appears once, where it starts; its
+    note quotes the count at the PC's level.
+    """
+    rules = rulesets.levelup(_ruleset_of(pc))
+    class_name = str(getattr(pc.character_class, "value", pc.character_class)).strip().title()
+    level = max(1, min(20, int(pc.level or 1)))
+    table = rules.CLASS_LEVEL_FEATURES.get(class_name, {})
+    named_sub = (pc.subclass or "").strip()
+    sub_key = next(
+        (k for k in rules.SUBCLASS_LEVEL_FEATURES if k.casefold() == named_sub.casefold()), None
+    ) or next(
+        (
+            k
+            for k in rules.SUBCLASS_LEVEL_FEATURES
+            if named_sub
+            and (k.casefold() in named_sub.casefold() or named_sub.casefold() in k.casefold())
+        ),
+        None,
+    )
+    sub_table = rules.SUBCLASS_LEVEL_FEATURES.get(sub_key, {}) if sub_key else {}
+    have = {n for lvl in range(1, level + 1) for n in table.get(lvl, [])}
+    scales = rules.class_scales()
+    mods = _mods(pc)
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+
+    def add(name: str, lvl: int, source: str, note: str) -> None:
+        if name in seen:
+            return
+        seen.add(name)
+        out.append({"name": name, "level": lvl, "source": source, "note": note})
+
+    for lvl in range(1, level + 1):
+        for name in table.get(lvl, []):
+            if name in _SKIP_2014 or name in _COUNT_BUMPS_2014:
+                continue
+            if _REPLACED_BY_2014.get(name) in have:
+                continue
+            is_pick = name.endswith(" Subclass")
+            if is_pick or name == _SUB_MARK_2014:
+                if sub_key:
+                    continue  # the SRD subclass's own features are listed below
+                if named_sub:
+                    add(
+                        named_sub if is_pick else f"{named_sub} feature ({lvl})",
+                        lvl,
+                        "subclass",
+                        "Your subclass gives you something at this level: read it in your book.",
+                    )
+                elif is_pick:
+                    add(
+                        name,
+                        lvl,
+                        "class",
+                        "Choose your subclass (ask your DM which ones your table uses). None is "
+                        "on this sheet yet.",
+                    )
+                continue
+            note = _note_2014(rules, scales, class_name, name, level, mods)
+            add(_DISPLAY_NAME_2014.get(name, name), lvl, "class", note)
+        for name in sub_table.get(lvl, []):
+            add(name, lvl, "subclass", _note_2014(rules, scales, class_name, name, level, mods))
+    return out
+
+
 def class_features_of(pc: PlayerCharacter) -> list[dict[str, Any]]:
     """Every class and subclass feature this PC has at its level, with plain-words notes.
+
+    Plan 131: a 2014 PC gets the SRD 5.1 listing (``levelup_2014`` tables), whose names
+    match the tracked 2014 rows ("Ki", "Wild Shape"), so the sheet pairs them up.
 
     Args:
         pc: The player character.
@@ -572,6 +728,8 @@ def class_features_of(pc: PlayerCharacter) -> list[dict[str, Any]]:
     Returns:
         ``[{"name", "level", "source": "class"|"subclass", "note"}]`` in level order.
     """
+    if rulesets.is_2014(_ruleset_of(pc)):
+        return _features_for_level_2014(pc)
     return features_for_level(pc.character_class, pc.subclass, pc.level, _mods(pc))
 
 

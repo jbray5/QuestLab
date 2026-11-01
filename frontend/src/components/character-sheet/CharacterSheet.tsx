@@ -584,6 +584,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
             characterId={characterId}
             characterClass={pc.character_class}
             characterName={pc.character_name}
+            ruleset={pc.ruleset}
             defaultOpen
             readOnly={readOnly}
           />
@@ -594,6 +595,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
             characterLevel={pc.level}
             characterName={pc.character_name}
             characterSubclass={pc.subclass}
+            ruleset={pc.ruleset}
             defaultOpen
             readOnly={readOnly}
           />

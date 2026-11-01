@@ -97,6 +97,13 @@ export const RECOVERY_TEXT: Record<string, string> = {
 
 export const CASTER_CLASSES = new Set(["Bard", "Cleric", "Druid", "Paladin", "Ranger", "Sorcerer", "Warlock", "Wizard", "Artificer"]);
 export const DAILY_PREPARERS = new Set(["Cleric", "Druid", "Paladin", "Ranger", "Wizard"]);
+/** Plan 131 — the 2014 rules: a Ranger learns its spells (and swaps on level-up), like a Bard. */
+export const DAILY_PREPARERS_2014 = new Set(["Cleric", "Druid", "Paladin", "Wizard"]);
+
+/** Whether a class changes its prepared spells after a Long Rest, under the PC's rules. */
+export function isDailyPreparer(characterClass: string, ruleset: Ruleset): boolean {
+  return (ruleset === "2014" ? DAILY_PREPARERS_2014 : DAILY_PREPARERS).has(characterClass);
+}
 
 export const HIT_DIE_BY_CLASS: Record<string, number> = {
   Sorcerer: 6, Wizard: 6, Artificer: 8, Bard: 8, Cleric: 8, Druid: 8, Monk: 8, Rogue: 8, Warlock: 8,
@@ -143,13 +150,15 @@ export function realPlayerName(name: string | null | undefined): string | null {
  * A healing spell's dice, read from its text (Plan 128): "regains a number of
  * Hit Points equal to 2d8 plus your spellcasting ability modifier", "regain
  * 2d8 Hit Points", "regains 4d8 + 15 Hit Points", and "The healing increases
- * by 2d8 for each spell slot level above 1". Null for anything that doesn't heal.
+ * by 2d8 for each spell slot level above 1". Plan 131: the 2014 wording, "1d8 +
+ * your spellcasting ability modifier", adds the modifier too. Null for anything
+ * that doesn't heal.
  */
 export function healingOf(
   description: string | null | undefined,
   higherLevels: string | null | undefined,
 ): { count: number; sides: number; plus: number; addMod: boolean; perSlot: { count: number; sides: number } | null } | null {
-  const m = /regains?\s+(?:a number of\s+)?(?:hit points equal to\s+)?(\d+)d(\d+)(?:\s*(?:\+\s*(\d+)|(plus your spellcasting ability modifier)))?/i.exec(description ?? "");
+  const m = /regains?\s+(?:a number of\s+)?(?:hit points equal to\s+)?(\d+)d(\d+)(?:\s*(?:\+\s*(\d+)|(plus your spellcasting ability modifier|\+\s*your spellcasting ability modifier)))?/i.exec(description ?? "");
   if (!m) return null;
   const up = /healing increases by (\d+)d(\d+) for each (?:spell )?slot level above/i.exec(higherLevels ?? "");
   return {

@@ -4,7 +4,7 @@
 [ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
 
 **Started:** 2026-11-01
-**Last updated:** 2026-11-01 (M1 done)
+**Last updated:** 2026-11-01 (M2 and M3 done; merge pending)
 **Implemented by:** Claude (lead) + subagents (milestones M1, M2)
 
 ---
@@ -26,9 +26,11 @@ Justin chose "all of it before shipping", so the work lives on branch `feat/2014
 - [x] M1-F features: `class_features_2014.py` (28 rows), catalog keyed by edition, rest (85 tests)
 - [x] M1-T table rules: conditions, exhaustion, DM screen, mastery, encounter math, Spells page (33 tests)
 - [x] M1.5 (lead): `feat_rules` takes `ruleset` (SUBCLASS_ARMOR, Pact Boon and named-cantrip prerequisites); DB-level `server_default` on the ruleset columns (a fresh DuckDB crashed without it). Full suite: 1430 passed.
-- [ ] M2-B builder: character_builder_service and wizard
-- [ ] M2-L level-up: levelup_service, LevelUpGuide, daily preparers
-- [ ] M3 integration: end-to-end tests, phone screenshots, docs, full gate, merge
+- [x] M2-B builder: 2014 races, subraces, Half-Elf picks, Acolyte and book backgrounds, known/prepared casting, Wizard spellbook, choices, kits (29 tests)
+- [x] M2-L level-up: plan and apply, guide, class choices, 2014 feature listing, daily preparers, ruleset-aware spell and feature panels (32 tests)
+- [x] M2-A turn kit (added): the phone's Now tab for 2014 PCs (actions, Lay on Hands as an action, Divine Smite on hit, ki costs, 2014 breath weapon); 2024 kits snapshot-identical (28 tests)
+- [x] M3 (lead): `feat_rules` helpers made public; the panels pass the PC's ruleset; Mystic Arcanum recorded, not learned (builder and level-up agree); MapBuilder labels; Terms (SRD 5.1 attribution plus a 5e-database credit), Guide, landing line, data dictionary, ARCHITECTURE invariant 9, TD-131a–m; phone screenshots at 390 px (race, scores, spells, level-up guide, Rules card). Full suite: 1519 passed; tsc, eslint (branch files) and the build are clean.
+- [ ] Merge to main and push (waiting on Justin)
 
 ---
 

@@ -468,14 +468,14 @@ def apply_class_choices(
         if total > count:
             raise ValueError(f"{label}: a level {level} {class_name} chooses {count}.")
         if kind in ("skill", "expertise"):
-            _apply_skills(spec, class_name, listed, skills, ruleset)
+            apply_skills(spec, class_name, listed, skills, ruleset)
             summary.append(f"{label}: " + ", ".join(listed))
         elif kind == "weapon":
             names = _weapons(class_name, listed, ruleset)
             feats += [entry(key, n, ruleset) for n in names]
             summary.append(f"{label}: " + ", ".join(names))
         else:
-            _apply_options(
+            apply_options(
                 key,
                 spec,
                 class_name,
@@ -494,7 +494,7 @@ def apply_class_choices(
     return effects
 
 
-def _apply_options(
+def apply_options(
     key: str,
     spec: dict[str, Any],
     class_name: str,
@@ -522,7 +522,7 @@ def _apply_options(
             hint = " Pick From my book for others." if spec.get("book") else ""
             raise ValueError(f"{label}: {name} isn't one of the choices.{hint}")
         rows.append(row)
-    _no_repeats(label, [r["name"] for r in rows if not r.get("repeatable")])
+    no_repeats(label, [r["name"] for r in rows if not r.get("repeatable")])
     chosen = {r["name"] for r in rows} | (elsewhere or set())
     for row in rows:
         _check_prereq(label, row, level, chosen, cantrips)
@@ -555,7 +555,7 @@ def _weapons(class_name: str, listed: list[str], ruleset: Any = "2024") -> list[
         if not rules.mastery_weapon_ok(class_name, w["category"], w["properties"]):
             raise ValueError(f"Weapon Mastery: a {class_name} can't master the {w['name']}.")
         names.append(w["name"])
-    _no_repeats("Weapon Mastery", names)
+    no_repeats("Weapon Mastery", names)
     return names
 
 
@@ -571,7 +571,12 @@ def _missing(kind: str, n: int, count: int) -> str:
     return f"choose {n} more."
 
 
-def _no_repeats(label: str, names: list[str]) -> None:
+def no_repeats(label: str, names: list[str]) -> None:
+    """Refuse a name picked twice in one choice (case-insensitive).
+
+    Raises:
+        ValueError: "<label>: <name> is picked twice."
+    """
     seen: set[str] = set()
     for name in names:
         if name.casefold() in seen:
@@ -579,19 +584,27 @@ def _no_repeats(label: str, names: list[str]) -> None:
         seen.add(name.casefold())
 
 
-def _apply_skills(
+def apply_skills(
     spec: dict[str, Any],
     class_name: str,
     names: list[str],
     skills: dict[str, int],
     ruleset: Any = "2024",
 ) -> None:
+    """Check skill or expertise picks against the choice's pool and record them in ``skills``.
+
+    Used by the creator (through ``apply_class_choices``) and by the 2014 level-up guide,
+    which checks only a level's new picks.
+
+    Raises:
+        ValueError: On an unknown skill, one outside the pool, or one already trained.
+    """
     srd = rulesets.options(ruleset)
     label, kind = spec["label"], spec["kind"]
     pool = spec.get("pool")
     if pool == "class":
         pool = srd.CLASSES[class_name]["skills"]["from"]
-    _no_repeats(label, names)
+    no_repeats(label, names)
     for name in names:
         if name not in srd.SKILLS:
             raise ValueError(f"{label}: {name} isn't a skill.")

@@ -10,6 +10,7 @@
 // toast still do, except when the link itself is gone: then the phone is told
 // (`ql:play-link-gone`) and shows "This link was replaced".
 
+import type { Ruleset } from "../lib/ruleset";
 import { api, apiBase, type RequestOptions } from "./client";
 import { friendlyApiError } from "./errors";
 import type {
@@ -432,6 +433,42 @@ export interface LevelUpFeat {
   ac_bonus_in_armor: number;
 }
 
+/** Plan 131 — a spell the new level adds by itself (always prepared, no pick spent). */
+export interface LevelUpGrantedSpell {
+  name: string;
+  source: string;
+  /** Set when it comes only with this subclass, picked at this level. */
+  subclass?: string | null;
+}
+
+/** Plan 131 — one option of a class choice, and whether this PC may take it now. */
+export interface LevelUpChoiceOption {
+  name: string;
+  blurb: string;
+  ok: boolean;
+  reason: string | null;
+}
+
+/** Plan 131 — a class choice the new level brings (2014 rules): `count` new picks. */
+export interface LevelUpChoiceStep {
+  key: string;
+  label: string;
+  kind: "option" | "feat" | "expertise" | "skill" | "spell";
+  note: string | null;
+  count: number;
+  book: boolean;
+  options: LevelUpChoiceOption[];
+  spells: LevelUpSpell[];
+  /** Skill kinds: the skills allowed (null = any). */
+  skills: string[] | null;
+  /** Earlier picks already on the sheet. */
+  taken: string[];
+  /** Every option also teaches this many class cantrips (the Circle of the Land's). */
+  cantrips: number;
+  /** Set when the choice comes only with this subclass, picked at this level. */
+  subclass: string | null;
+}
+
 export interface LevelUpPlan {
   pc_id: string;
   character_name: string;
@@ -445,7 +482,8 @@ export interface LevelUpPlan {
   hp_max: number;
   hp_average_gain: number;
   hp_bonus_per_level: number;
-  new_features: { name: string; note: string | null }[];
+  /** `subclass` (Plan 131): the feature comes with that subclass, picked at this level. */
+  new_features: { name: string; note: string | null; subclass?: string | null }[];
   scaling: string[];
   slots_before: Record<string, number>;
   slots_after: Record<string, number>;
@@ -467,10 +505,20 @@ export interface LevelUpPlan {
     known: LevelUpSpell[];
     options: LevelUpSpell[];
     note: string | null;
+    /** Plan 131 (2014): spells prepared each day at the new level; null for known casters. */
+    prepared_count?: number | null;
+    /** The Wizard's new spells go in the spellbook. */
+    spellbook?: boolean;
+    /** The level spellcasting starts (a 2014 Paladin or Ranger at 2). */
+    first_spells?: boolean;
+    always_prepared?: LevelUpGrantedSpell[];
   } | null;
   feat_spells: LevelUpSpell[];
   ac: number;
   ac_abilities: string[];
+  /** Plan 131 — the rules this plan follows ("2024" when missing). */
+  ruleset?: Ruleset;
+  class_choices?: LevelUpChoiceStep[];
 }
 
 export interface LevelUpChoices {
@@ -491,6 +539,8 @@ export interface LevelUpChoices {
   cantrip_swap?: { forget: string; learn: string } | null;
   spell_swap?: { forget: string; learn: string } | null;
   armor?: "none" | "light" | "medium" | "heavy" | null;
+  /** Plan 131 — picks for the plan's class choices (listed names, book names). */
+  class_choices?: { key: string; picks: string[]; book: string[] }[];
 }
 
 export interface LevelUpResult {

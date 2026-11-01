@@ -2,12 +2,16 @@ import { useState } from "react";
 
 import type { BuilderClass, BuilderOptions } from "../../api/characterBuilder";
 import Fold from "./Fold";
-import { ABILITY_NAMES, armorClass, fmt, profBonus, type OriginPickState } from "./rules";
+import { ABILITY_NAMES, andList, armorClass, armorTraining, fmt, is2014, profBonus, type OriginPickState } from "./rules";
 
 /**
  * Skills and gear (Plan 74, Plan 128). A Human's screen used to be one 2,000 px page on a phone
  * (skills, then ten Origin feats, then the gear: persona run 3), so each decision is now its own
  * fold-out section with a one-line summary, and finishing one opens the next.
+ *
+ * Plan 131: in 2014 the race can give skills too (Elf Perception, Half-Orc Intimidation), a book
+ * background gives the 2 the player picked, the Half-Elf adds 2 of any, and gear needs the armor
+ * training (the Cleric's chain mail needs the Life Domain).
  */
 
 type Opts = BuilderOptions;
@@ -31,23 +35,41 @@ interface Props {
   finalScores: Record<string, number>;
   startFeats: string[];
   activeSub: string | null;
+  /** Skills that come free, and where from ("from background", "from race"). */
+  granted: Record<string, string>;
+  /** The race as the sheet stores it ("Hill Dwarf"), for the gear's Armor Class preview. */
+  race: string;
 }
 
 export default function SkillsStep(p: Props) {
-  const { opts, cls, klass, level, species, speciesRow, bg, skills, setSkills, originFeat, setOriginFeat, originPicks, setOriginPicks, kit, setKit } = p;
+  const { opts, cls, klass, level, species, speciesRow, bg, skills, setSkills, originFeat, setOriginFeat, originPicks, setOriginPicks, kit, setKit, granted } = p;
+  const old = is2014(opts);
   const bonusN = speciesRow?.bonus_skill_choices ?? 0;
   const bonusFrom = speciesRow?.bonus_skill_from;
   const allowedN = cls.skills.choose + bonusN;
-  const bgSkills = bg?.skills ?? [];
+  const bgSkills = Object.keys(granted);
   const classPicks = skills.filter((s) => !bgSkills.includes(s));
+  // Plan 131 — 2014 gear needs the armor training (the Life Domain's heavy armor).
+  const training = old ? armorTraining(opts, klass, p.startFeats, p.activeSub) : null;
+  const kitBlock = (k: Props["cls"]["kits"][number]): string | null => {
+    if (!training) return null;
+    const cat = k.armor ? opts.armor[k.armor]?.category : undefined;
+    if (cat && !training.has(cat)) {
+      const by = Object.entries(opts.subclass_armor ?? {}).filter(([s, a]) => a.includes(cat) && cls.srd_subclasses.includes(s)).map(([s]) => s);
+      return `${k.armor} is ${cat} armor: ${by.length ? `a ${by[0]} ${klass} wears it` : `a ${klass} isn't trained in it`}.`;
+    }
+    if (k.shield && !training.has("shields")) return `A ${klass} isn't trained with shields.`;
+    return null;
+  };
   const offListPicked = classPicks.filter((x) => !cls.skills.from.includes(x)).length;
   const versatile = !!speciesRow?.bonus_origin_feat;
   const skilled = versatile && originFeat === "Skilled";
   const skilledLeft = skilled ? 3 - originPicks.skills.length : 0;
 
   const sections = ["skills", ...(versatile ? ["feat"] : []), ...(cls.kits.length ? ["gear"] : [])];
+  const kitRow = cls.kits.find((k) => k.name === kit);
   const incomplete = (k: string) =>
-    k === "skills" ? classPicks.length < allowedN : k === "feat" ? !originFeat || skilledLeft > 0 : !kit;
+    k === "skills" ? classPicks.length < allowedN : k === "feat" ? !originFeat || skilledLeft > 0 : !kit || (!!kitRow && !!kitBlock(kitRow));
   const [open, setOpen] = useState<string | null>(() => sections.find(incomplete) ?? sections[0]);
   const after = (k: string) => sections.slice(sections.indexOf(k) + 1).find(incomplete) ?? null;
 
@@ -64,12 +86,14 @@ export default function SkillsStep(p: Props) {
           setSkills(next);
           if (!on && next.filter((x) => !bgSkills.includes(x)).length >= allowedN) setOpen(after("skills"));
         }}>
-        {s} <small>{fromBg ? "from background" : ABILITY_NAMES[opts.skills[s]] ?? opts.skills[s]}</small>
+        {s} <small>{fromBg ? granted[s] : ABILITY_NAMES[opts.skills[s]] ?? opts.skills[s]}</small>
       </button>
     );
   };
   const others = Object.keys(opts.skills).filter((s) => !cls.skills.from.includes(s));
   const trained = new Set([...skills, ...bgSkills]);
+  const fromRace = bgSkills.filter((s) => granted[s] === "from race");
+  const fromBook = !bg && old ? bgSkills.filter((s) => granted[s] === "from background") : [];
 
   return (
     <>
@@ -77,16 +101,20 @@ export default function SkillsStep(p: Props) {
       <p className="note">
         Skills are what you&rsquo;re trained at: you add your proficiency bonus ({fmt(profBonus(level))} at level {level}) to those checks.
         {bg ? ` ${bg.name} already gives ${bg.skills.join(" and ")}.` : ""}
+        {fromBook.length ? ` Your background gives ${andList(fromBook)}.` : ""}
+        {fromRace.length ? ` Your race gives ${andList(fromRace)}.` : ""}
       </p>
 
       <Fold id="cc-sk-skills" title="Skills" open={open === "skills"} onToggle={() => setOpen(open === "skills" ? null : "skills")}
         done={!incomplete("skills")} summary={classPicks.length ? `${classPicks.join(", ")}${classPicks.length < allowedN ? ` · ${allowedN - classPicks.length} left` : ""}` : `Pick ${allowedN}`}>
-        <span className="lbl" style={{ marginTop: 0 }}>{klass} skills: pick {cls.skills.choose}</span>
+        <span className="lbl" style={{ marginTop: 0 }}>
+          {klass} skills: pick {cls.skills.choose}{old && bonusN > 0 && others.length === 0 ? `, plus ${bonusN} more from your race` : ""}
+        </span>
         <div className="cc-chips">{cls.skills.from.map(chip)}</div>
         {others.length > 0 && (
           <>
             <span className="lbl">
-              {bonusN > 0 ? `${species} adds one more${bonusFrom ? `: ${bonusFrom.join(", ")}` : ", any skill"}` : `Not on the ${klass} list`}
+              {bonusN > 0 ? `${species} adds ${bonusN > 1 ? `${bonusN} more` : "one more"}${bonusFrom ? `: ${bonusFrom.join(", ")}` : `, any skill${bonusN > 1 ? "s" : ""}`}` : `Not on the ${klass} list`}
             </span>
             <div className="cc-chips">{others.map(chip)}</div>
           </>
@@ -100,7 +128,7 @@ export default function SkillsStep(p: Props) {
           <div className="cc-cards">
             {opts.origin_feats.map((f) => {
               // A feat is taken once unless it says otherwise (Magic Initiate, Skilled).
-              const fromBg = bg?.feat.split(" (")[0] === f.name && !opts.feats.find((x) => x.name === f.name)?.repeatable;
+              const fromBg = bg?.feat?.split(" (")[0] === f.name && !opts.feats.find((x) => x.name === f.name)?.repeatable;
               return (
                 <button type="button" key={f.name} aria-pressed={originFeat === f.name} className={`cc-card ${originFeat === f.name ? "on" : ""}`} disabled={fromBg}
                   onClick={() => {
@@ -142,13 +170,16 @@ export default function SkillsStep(p: Props) {
           done={!incomplete("gear")} summary={kit || "Pick one"}>
           <div className="cc-cards">
             {cls.kits.map((k) => {
-              const preview = armorClass(opts, klass, p.finalScores, k, p.startFeats, p.activeSub);
+              const preview = armorClass(opts, klass, p.finalScores, k, p.startFeats, p.activeSub, p.race);
+              const why = kitBlock(k);
               return (
-                <button type="button" key={k.name} aria-pressed={kit === k.name} className={`cc-card ${kit === k.name ? "on" : ""}`} onClick={() => setKit(k.name)}>
+                <button type="button" key={k.name} aria-pressed={kit === k.name} className={`cc-card ${kit === k.name ? "on" : ""}`} disabled={!!why && kit !== k.name} onClick={() => setKit(k.name)}>
                   <b>{k.name}</b>
                   <small>{[...k.items, k.armor, k.shield ? "Shield" : null].filter(Boolean).join(", ")}</small>
-                  <small style={{ color: "var(--muted)" }}>Armor Class <span className="num">{preview.ac}</span> with this gear</small>
-                  {preview.warning && <small className="why">{preview.warning}</small>}
+                  {why ? <small className="why">{why}</small> : (
+                    <small style={{ color: "var(--muted)" }}>Armor Class <span className="num">{preview.ac}</span> with this gear</small>
+                  )}
+                  {preview.warning && !why && <small className="why">{preview.warning}</small>}
                 </button>
               );
             })}

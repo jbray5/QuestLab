@@ -45,7 +45,7 @@ export default function GuidePage() {
       <h1>Your first session in 15 minutes</h1>
       <p className="lede">
         QuestLab is your DM screen and initiative tracker, with every player&rsquo;s sheet on their
-        own phone, all kept in step for D&amp;D 5e (2024 rules). You run the night from one screen;
+        own phone, all kept in step for D&amp;D 5e (2024 or 2014 rules). You run the night from one screen;
         your players hold their own sheets. Here&rsquo;s the whole loop, button by button.
       </p>
 
@@ -242,8 +242,11 @@ export default function GuidePage() {
       </p>
       <h3>What rules does it use?</h3>
       <p>
-        D&amp;D 5e (2024 rules), with SRD 5.2.1 content under CC-BY 4.0. Characters built on the
-        2014 rules still work; the rules engine and the level-up guide follow 2024.
+        The 2024 rules, unless you pick the 2014 rules when you make a campaign. Every character
+        in a campaign follows its rules: the builder (races give ability bonuses in 2014), spells,
+        the level-up guide, class trackers, exhaustion and the DM screen. The free rules (SRD 5.2.1
+        and SRD 5.1, under CC-BY 4.0) are built in; anything else from your own books goes in by
+        name with &ldquo;From my book&rdquo;. A campaign&rsquo;s rules lock once it has characters.
       </p>
       <h3>Something broke mid-session</h3>
       <p>

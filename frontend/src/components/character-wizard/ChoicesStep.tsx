@@ -3,12 +3,15 @@ import { Plus, X } from "lucide-react";
 
 import type { BuilderOptions } from "../../api/characterBuilder";
 import Fold from "./Fold";
+import SpellList from "./SpellList";
 import {
   ABILITY_NAMES,
   MASTERY_NOTES,
   andList,
   choiceOptions,
+  choiceSpellPool,
   masteryWeaponOk,
+  ordinal,
   type ChoiceSection,
   type ChoiceState,
 } from "./rules";
@@ -19,7 +22,20 @@ import {
  * Circle's land, Lore's skills). One fold-out section each, with what it does in plain words,
  * how many to pick, and why a pick is locked. Each lands on the sheet where the level-up guide
  * records it; the server checks the same rules.
+ *
+ * Plan 131: the 2014 choices render here too (Pact Boon, invocations that need a Pact Boon or
+ * Eldritch Blast, Favored Enemy, Natural Explorer, Dragon Ancestor, Metamagic, the land, the
+ * Hunter's picks), and the "spell" choices (Mystic Arcanum, Magical Secrets) get a spell picker
+ * filtered by their rule, with "From my book" for spells the app doesn't list.
  */
+
+/** A cantrip an option needs, in words (a damaging one, or in 2014 one by name). */
+function cantripNeed(want: string | undefined): string | null {
+  if (!want) return null;
+  if (want === "damage") return "Needs a Warlock cantrip that deals damage (pick it on the Spells step).";
+  if (want === "attack") return "Needs a Warlock cantrip that hits with an attack and deals damage (pick it on the Spells step).";
+  return `Needs the ${want} cantrip (pick it on the Spells step).`;
+}
 
 interface Props {
   opts: BuilderOptions;
@@ -74,12 +90,56 @@ function BookEntries({ state, room, onChange, label }: { state: ChoiceState; roo
   );
 }
 
-function SectionBody({ opts, klass, level, s, setChoice }: { opts: BuilderOptions; klass: string; level: number; s: ChoiceSection; setChoice: Props["setChoice"] }) {
+/**
+ * One choice's picker: skills, weapon kinds, spells (Plan 131) or listed options. Exported so the
+ * 2014 race step can show the Dragonborn's ancestry with the same cards (Plan 131).
+ */
+export function SectionBody({ opts, klass, level, s, setChoice }: { opts: BuilderOptions; klass: string; level: number; s: ChoiceSection; setChoice: Props["setChoice"] }) {
   const { spec, state, count } = s;
   const set = (next: ChoiceState) => setChoice(s.key, next);
   const total = state.picks.length + state.book.length;
   const full = total >= count;
   const [showBook, setShowBook] = useState(state.book.length > 0);
+
+  if (spec.kind === "spell") {
+    // Plan 131 — Mystic Arcanum (one Warlock spell of each level from 6th) or Magical Secrets.
+    const pool = choiceSpellPool(opts, klass, level, spec, count);
+    const levels = spec.spell?.levels?.slice(0, count) ?? null;
+    const groups = levels ?? [...new Set(pool.map((x) => x.level))].sort((a, b) => a - b);
+    const pick = (name: string) => {
+      const row = pool.find((x) => x.name === name);
+      if (state.picks.includes(name)) return set({ ...state, picks: state.picks.filter((x) => x !== name) });
+      // Mystic Arcanum: a new pick of a level replaces the old one.
+      const kept = levels && row ? state.picks.filter((n) => pool.find((x) => x.name === n)?.level !== row.level) : state.picks;
+      if (kept.length + state.book.length < count) set({ ...state, picks: [...kept, name] });
+    };
+    // Mystic Arcanum swaps a level's pick; Magical Secrets fills up to the count.
+    const blocked = levels ? undefined : () => (full ? `All ${count} picked: take one off first.` : null);
+    return (
+      <>
+        <p className="note">{spec.note} Pick {count}: <span className="num">{total}</span> of <span className="num">{count}</span>.</p>
+        {groups.map((lvl) => {
+          const list = pool.filter((x) => x.level === lvl);
+          return (
+            <div key={lvl} style={{ marginBottom: 8 }}>
+              <span className="lbl" style={{ marginTop: 8 }}>{lvl === 0 ? "Cantrips" : `${ordinal(lvl)} level`}</span>
+              {list.length ? <SpellList spells={list} picked={state.picks} onToggle={pick} blocked={blocked} />
+                : <p className="note">None in the app&rsquo;s list yet: add it from your book below.</p>}
+            </div>
+          );
+        })}
+        {spec.book && (
+          showBook || state.book.length > 0 ? (
+            <BookEntries state={state} room={count - total} onChange={set} label="Spell name" />
+          ) : (
+            <div className="cc-chips" style={{ marginTop: 10 }}>
+              <button type="button" className="cc-chip" onClick={() => setShowBook(true)}>From my book…</button>
+            </div>
+          )
+        )}
+      </>
+    );
+  }
 
   if (spec.kind === "skill" || spec.kind === "expertise") {
     return (
@@ -144,8 +204,7 @@ function SectionBody({ opts, klass, level, s, setChoice }: { opts: BuilderOption
       <div className="cc-cards">
         {shown.map((o) => {
           const on = state.picks.includes(o.name);
-          const needs = [o.requires ? `Needs ${o.requires}.` : null, o.cantrip === "damage" ? "Needs a Warlock cantrip that deals damage (pick it on the Spells step)." : null,
-            o.cantrip === "attack" ? "Needs a Warlock cantrip that hits with an attack and deals damage (pick it on the Spells step)." : null].filter(Boolean).join(" ");
+          const needs = [o.requires ? `Needs ${o.requires}.` : null, cantripNeed(o.cantrip)].filter(Boolean).join(" ");
           return (
             <button type="button" key={o.name} className={`cc-card ${on ? "on" : ""}`} aria-pressed={on} disabled={!on && full && count > 1}
               onClick={() => set({ ...state, picks: toggle(state.picks, o.name, count) })}>

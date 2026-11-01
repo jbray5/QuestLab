@@ -2008,7 +2008,7 @@ export default function SessionHud() {
 
                 {/* Spell slots — persistent, reads from Plan 20 store */}
                 <SpellSlotTracker pcId={pc.id} />
-                <SpellChips pcId={pc.id} characterClass={pc.character_class} />
+                <SpellChips pcId={pc.id} characterClass={pc.character_class} ruleset={pc.ruleset} />
 
                 {/* Plan 60 — spendable class-feature pips (Channel Divinity,
                     Psionic Dice, Wild Shape…) without leaving the HUD. */}

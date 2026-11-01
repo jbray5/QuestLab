@@ -16,6 +16,7 @@ import {
 import { spellcastingApi } from "../api/spellcasting";
 import { spellsApi } from "../api/spells";
 import { flavorOf } from "../engine/strikes";
+import { rulesetOf } from "../lib/ruleset";
 import { useStrikeStore } from "../stores/useStrikeStore";
 import type { CharacterSpell, Spell } from "../api/types";
 
@@ -23,6 +24,8 @@ interface Props {
   characterId: string;
   characterClass: string;
   characterName: string;
+  /** Plan 131 — the PC's rules: the picker offers that edition's spells (plus homebrew). */
+  ruleset?: string | null;
   /** Start expanded (used inside the character sheet). */
   defaultOpen?: boolean;
   /** Hide mutating controls (Plan 26 player-view foundation). */
@@ -41,9 +44,12 @@ export default function SpellPanel({
   characterId,
   characterClass,
   characterName,
+  ruleset = null,
   defaultOpen = false,
 }: Props) {
   const qc = useQueryClient();
+  // No ruleset passed (an older caller): every edition, as before Plan 131.
+  const edition = ruleset ? rulesetOf(ruleset) : undefined;
   const [open, setOpen] = useState(defaultOpen);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -74,10 +80,11 @@ export default function SpellPanel({
   }, [slotState]);
 
   const { data: classSpells = [] } = useQuery({
-    queryKey: ["class-spells", characterClass, maxCastableLevel],
+    queryKey: ["class-spells", characterClass, maxCastableLevel, edition],
     queryFn: () =>
       spellsApi.list({
         class_name: characterClass,
+        ruleset: edition,
       }),
     enabled: open,
   });

@@ -42,6 +42,8 @@ export default function RulesPicker({
                 alignItems: "flex-start",
                 gap: "0.2rem",
                 textAlign: "left",
+                whiteSpace: "normal",
+                minWidth: 0,
                 minHeight: 44,
                 padding: "0.55rem 0.75rem",
                 opacity: locked && !on ? 0.55 : 1,

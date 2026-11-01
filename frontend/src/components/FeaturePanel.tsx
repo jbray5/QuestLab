@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import { featuresApi } from "../api/features";
 import { restApi } from "../api/rest";
 import type { CharacterFeature } from "../api/types";
+import { rulesetOf } from "../lib/ruleset";
 import {
   PANEL_HEAD_STYLE,
   PANEL_ROW_STYLE,
@@ -23,6 +24,8 @@ interface Props {
   characterName: string;
   /** The subclass, so the always-on list refreshes when it changes. */
   characterSubclass?: string | null;
+  /** Plan 131 — the PC's rules ("2024" when missing): the catalog picker keeps to them. */
+  ruleset?: string | null;
   /** Start expanded (used inside the character sheet). */
   defaultOpen?: boolean;
   /** Hide mutating controls (Plan 26 player-view foundation). */
@@ -81,10 +84,13 @@ export default function FeaturePanel({
   characterLevel,
   characterName,
   characterSubclass = null,
+  ruleset = null,
   defaultOpen = false,
   readOnly = false,
 }: Props) {
   const qc = useQueryClient();
+  // No ruleset passed (an older caller): list both editions, as before Plan 131.
+  const edition = ruleset ? rulesetOf(ruleset) : undefined;
   const [open, setOpen] = useState(defaultOpen);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -97,11 +103,12 @@ export default function FeaturePanel({
   });
 
   const { data: catalog = [] } = useQuery({
-    queryKey: ["features-catalog", characterClass, characterLevel],
+    queryKey: ["features-catalog", characterClass, characterLevel, edition],
     queryFn: () =>
       featuresApi.listCatalog({
         character_class: characterClass,
         max_level: characterLevel,
+        ruleset: edition,
       }),
     enabled: open,
   });

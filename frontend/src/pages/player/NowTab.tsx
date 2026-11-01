@@ -11,6 +11,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Dices, Sparkles, Star } from "lucide-react";
 
 import { playApi, type TurnOption } from "../../api/play";
+import { rulesetOf } from "../../lib/ruleset";
 import { usePlayer } from "./playerContext";
 import { useRoll } from "./rollContext";
 import { damageSpec, initiativeSpec, skillSpec, weaponAttackSpec } from "./rolls";
@@ -30,6 +31,17 @@ const BASIC_TEXT: Record<string, string> = {
   Search: "Look for something: a Perception or Investigation check.",
   Study: "Recall or work something out: an Intelligence check.",
   Utilize: "Use an object: drink a potion, pull a lever, open a lock.",
+  // Plan 131 — the 2014 rules' name for it.
+  "Use an Object": "Use something that takes your action: drink a potion, pull a lever, open a lock.",
+};
+
+// Plan 131 — on the 2014 rules these are paid from a pool: turn-kit key → [tracked row, points].
+const POOL_COST_2014: Record<string, [string, number]> = {
+  flurry: ["ki", 1],
+  patient_defense: ["ki", 1],
+  step_of_the_wind: ["ki", 1],
+  stunning_strike: ["ki", 1],
+  quicken: ["sorcery points", 2],
 };
 
 export default function NowTab() {
@@ -67,18 +79,29 @@ function YourTurn() {
   const roll = useRoll();
   const [more, setMore] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(help === "teach");
+  const old = rulesetOf(pc.ruleset) === "2014";
   const spend = useMutation({
-    mutationFn: (id: string) => playApi.spendFeature(pcId, id),
+    mutationFn: ({ id, amount = 1 }: { id: string; amount?: number }) => playApi.spendFeature(pcId, id, amount),
     onSuccess: () => refresh(),
   });
   const takeFeature = (o: TurnOption) => {
+    // 2014: Flurry of Blows and friends spend ki; Quickened Spell spends sorcery points.
+    const cost = old ? POOL_COST_2014[o.key] : undefined;
+    const pool = cost ? features.find((x) => x.feature_name.toLowerCase() === cost[0]) : undefined;
+    if (cost && pool) {
+      if (pool.max_uses - pool.uses_spent >= cost[1]) {
+        spend.mutate({ id: pool.id, amount: cost[1] });
+        notify(`${o.name}: ${cost[1]} ${pool.feature_name} spent.`);
+      } else notify(`${o.name}: not enough ${pool.feature_name} left.`);
+      return;
+    }
     const f = features.find((x) => x.feature_name.toLowerCase() === o.name.toLowerCase());
     // A pool (Lay on Hands) spends a chosen number of points: that's on the Character tab.
     if (f && f.max_uses > 10) {
       go("character");
       notify(`${o.name}: choose how many points under "Features with uses".`);
     } else if (f && f.max_uses > 0 && f.uses_spent < f.max_uses) {
-      spend.mutate(f.id);
+      spend.mutate({ id: f.id });
       notify(`${o.name} used.`);
     } else notify(`${o.name}: tell the DM you're using it.`);
   };
@@ -139,6 +162,9 @@ function YourTurn() {
   const bonus = kit?.bonus ?? [];
   const cunning = bonus.find((b) => b.key === "cunning_action");
   const otherBonus = bonus.filter((b) => b.key !== "cunning_action");
+  // Plan 131 — what costs no action (Divine Smite, Action Surge, Stunning Strike). Shown for
+  // the 2014 rules, where Divine Smite lives here; 2024 tables see the screen as before.
+  const free = old ? (kit?.free ?? []) : [];
   return (
     <>
       <Panel tone="lit" style={{ gap: 4 }}>
@@ -189,6 +215,14 @@ function YourTurn() {
           <span style={{ fontSize: 14, color: "var(--muted)" }}>Nothing on your sheet uses a bonus action yet. That's normal.</span>
         )}
       </Step>
+
+      {free.length > 0 && (
+        <Panel style={{ gap: 8 }}>
+          <h3 style={{ margin: 0, fontWeight: 600, fontSize: 16 }}>No action needed</h3>
+          {help === "teach" && <span style={{ fontSize: 14, color: "var(--muted)" }}>These don't use up your action or your bonus action.</span>}
+          <div style={{ display: "flex", flexDirection: "column" }}>{free.map((o, i) => actionRow(o, i === free.length - 1))}</div>
+        </Panel>
+      )}
 
       {help !== "numbers" && (kit?.tips.length ?? 0) > 0 && (
         help === "teach" || tipsOpen ? (

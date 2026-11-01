@@ -145,7 +145,7 @@ export default function TryLanding() {
             <span style={{ color: "var(--accent-text)" }}>Tell the story.</span>
           </h1>
           <p style={{ margin: 0, maxWidth: 560, fontSize: 19, color: "#D6D0C1", textWrap: "pretty" } as CSSProperties}>
-            QuestLab is your DM screen and initiative tracker, with every player&rsquo;s sheet on their own phone, all kept in step for D&amp;D 5e (2024 rules). Real dice, your own maps if you use them, nothing to install.
+            QuestLab is your DM screen and initiative tracker, with every player&rsquo;s sheet on their own phone, all kept in step for D&amp;D 5e (2024 or 2014 rules). Real dice, your own maps if you use them, nothing to install.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 8 }}>
             {DEMO ? (

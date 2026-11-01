@@ -2,10 +2,17 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Dices } from "lucide-react";
+import { Dices, Plus, X } from "lucide-react";
 
 import { playApi } from "../api/play";
-import type { LevelUpChoices, LevelUpFeat, LevelUpPlan, LevelUpResult, LevelUpSpell } from "../api/play";
+import type {
+  LevelUpChoiceStep,
+  LevelUpChoices,
+  LevelUpFeat,
+  LevelUpPlan,
+  LevelUpResult,
+  LevelUpSpell,
+} from "../api/play";
 import Confetti from "../components/Confetti";
 
 /**
@@ -14,6 +21,12 @@ import Confetti from "../components/Confetti";
  * The DM grants a level; this walks the player through their own choices for it, one step
  * per screen, phone-first, in the character creator's look. Every number shown here is the
  * server's: the page previews, the server validates and writes.
+ *
+ * Plan 131 — a 2014 plan (`plan.ruleset === "2014"`) adds a Choices step for the class
+ * choices the level brings (Pact Boon, Eldritch Invocations, Metamagic, Expertise, Magical
+ * Secrets...), words the spells step the 2014 way (known casters learn and may swap one;
+ * prepared casters get a bigger daily list; the Wizard adds to the spellbook), and shows the
+ * spells that become always prepared. A 2024 plan has none of these and looks as before.
  */
 
 const ABILITIES = ["STR", "DEX", "CON", "INT", "WIS", "CHA"] as const;
@@ -180,16 +193,32 @@ function Done({ result, onSheet, onNext }: { result: LevelUpResult; onSheet: () 
 function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => void; onDone: (r: LevelUpResult) => void }) {
   const { pcId = "" } = useParams<{ pcId: string }>();
   const sc = plan.spellcasting;
+  const is2014 = plan.ruleset === "2014";
+  const [subclass, setSubclass] = useState("");
+  const [customSub, setCustomSub] = useState("");
+  // Plan 131 — what a subclass picked now brings is tagged with it: keep the chosen one's.
+  const pickedSub = subclass === BOOK ? customSub.trim() : subclass;
+  const activeChoices = useMemo(
+    () => (plan.class_choices ?? []).filter((c) => !c.subclass || c.subclass === pickedSub),
+    [plan.class_choices, pickedSub],
+  );
+  const activeAlways = useMemo(
+    () => (sc?.always_prepared ?? []).filter((g) => !g.subclass || g.subclass === pickedSub),
+    [sc, pickedSub],
+  );
+  // The Circle of the Land's Bonus Cantrip comes with its land pick.
+  const cantripCap = (sc?.new_cantrips ?? 0) + activeChoices.reduce((n, c) => n + c.cantrips, 0);
   const steps = useMemo(() => {
     const s = ["new", "hp"];
     if (plan.needs_subclass) s.push("subclass");
+    if (activeChoices.length) s.push("choices");
     if (plan.asi_level) s.push("feat");
-    if (sc && (sc.new_cantrips || sc.new_spells || sc.cantrip_swap || sc.spell_swap)) s.push("spells");
+    if (sc && (cantripCap || sc.new_spells || sc.cantrip_swap || sc.spell_swap || activeAlways.length)) s.push("spells");
     s.push("review");
     return s;
-  }, [plan, sc]);
+  }, [plan, sc, activeChoices, cantripCap, activeAlways]);
   const STEP_NAMES: Record<string, string> = {
-    new: "What's new", hp: "Hit points", subclass: "Subclass", feat: "Feat", spells: "Spells", review: "Review",
+    new: "What's new", hp: "Hit points", subclass: "Subclass", choices: "Choices", feat: "Feat", spells: "Spells", review: "Review",
   };
   const [i, setI] = useState(0);
   const step = steps[i];
@@ -199,8 +228,8 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
   const [hpRoll, setHpRoll] = useState<number | null>(null);
   const [rolling, setRolling] = useState(false);
   const [rollNote, setRollNote] = useState<string | null>(null);
-  const [subclass, setSubclass] = useState("");
-  const [customSub, setCustomSub] = useState("");
+  const [classPicks, setClassPicks] = useState<Record<string, string[]>>({});
+  const [classBook, setClassBook] = useState<Record<string, string[]>>({});
   const [featName, setFeatName] = useState("");
   const [bookFeat, setBookFeat] = useState("");
   const [asiMode, setAsiMode] = useState<"2" | "11">("2");
@@ -289,10 +318,20 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
     return null;
   }
 
+  /** Plan 131 — every class choice needs exactly its count (listed picks plus book names). */
+  function choicesReady(): string | null {
+    for (const c of activeChoices) {
+      const left = c.count - (classPicks[c.key] ?? []).length - (classBook[c.key] ?? []).length;
+      if (left > 0) return c.count === 1 ? `Pick your ${c.label}.` : `${c.label}: pick ${left} more.`;
+    }
+    return null;
+  }
+
   function hint(): string | null {
     switch (step) {
       case "hp": return hpMethod === "roll" && !hpRoll ? `Tap what your d${plan.hit_die} rolled.` : null;
       case "subclass": return subclass === "" ? "Pick your subclass." : subclass === BOOK && !customSub.trim() ? "Type your subclass." : null;
+      case "choices": return choicesReady();
       case "feat": return featReady();
       case "spells":
         if (cSwapOut && !cSwapIn) return "Pick the cantrip to swap in.";
@@ -319,6 +358,7 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
       cantrip_swap: cSwapOut && cSwapIn ? { forget: cSwapOut, learn: cSwapIn } : null,
       spell_swap: sSwapOut && sSwapIn ? { forget: sSwapOut, learn: sSwapIn } : null,
       armor: armor && armor !== "unsure" ? armor : null,
+      class_choices: activeChoices.map((c) => ({ key: c.key, picks: classPicks[c.key] ?? [], book: classBook[c.key] ?? [] })),
     };
   }
 
@@ -336,13 +376,25 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
 
   const slotLevels = Array.from(new Set([...Object.keys(plan.slots_before), ...Object.keys(plan.slots_after)])).sort();
   const slotChanges = slotLevels.filter((l) => (plan.slots_before[l] ?? 0) !== (plan.slots_after[l] ?? 0));
-  const offered = plan.feats.filter((f) => f.reason !== "Already taken.");
+  // A 2014 fighting style comes from the Fighting Style feature, never an improvement: no
+  // point listing the styles as locked feats.
+  const offered = plan.feats.filter((f) => f.reason !== "Already taken." && !(is2014 && f.category === "fighting_style"));
   const popular = offered.filter((f) => f.ok && f.popular);
   const others = offered.filter((f) => f.ok && !f.popular);
   const locked = offered.filter((f) => !f.ok);
   const castSpells = (sc?.options ?? []).filter((s) => s.level >= 1);
   const castCantrips = (sc?.options ?? []).filter((s) => s.level === 0);
   const takenByPicks = new Set([...cantrips, ...spells, cSwapIn, sSwapIn]);
+  const newFeatures = plan.new_features.filter((f) => !f.subclass);
+  const subFeatures = plan.new_features.filter((f) => f.subclass && f.subclass === pickedSub);
+  // Skills trained by a choice this level can take Expertise too (College of Lore + Bard 3).
+  const trainedNow = activeChoices.filter((c) => c.kind === "skill").flatMap((c) => classPicks[c.key] ?? []);
+  const setPicksFor = (key: string, list: string[]) => setClassPicks({ ...classPicks, [key]: list });
+  const setBookFor = (key: string, list: string[]) => setClassBook({ ...classBook, [key]: list });
+  // The spells step's pick wording, per the 2014 caster kinds (2024 keeps Plan 115's).
+  const toBook = is2014 && !!sc?.spellbook;
+  const spellVerb = toBook ? "Add" : sc?.prepared_caster ? "Prepare" : "Learn";
+  const spellMid = toBook || sc?.first_spells ? "" : is2014 && !sc?.prepared_caster ? " new" : " more";
 
   return (
     <Shell>
@@ -357,8 +409,8 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
         <>
           <h2>What level {plan.to_level} brings</h2>
           <div className="panel">
-            {plan.new_features.length === 0 && <p className="note">No new class features at this level, but your numbers grow.</p>}
-            {plan.new_features.map((f) => (
+            {newFeatures.length === 0 && <p className="note">No new class features at this level, but your numbers grow.</p>}
+            {newFeatures.map((f) => (
               <div key={f.name} className="new"><b>{f.name}</b>{f.note && <span>{f.note}</span>}</div>
             ))}
           </div>
@@ -420,21 +472,55 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
             <button className={`lu-chip ${subclass === BOOK ? "on" : ""}`} onClick={() => setSubclass(BOOK)}>From my book…</button>
           </div>
           {subclass === BOOK && <input type="text" style={{ marginTop: 8 }} value={customSub} onChange={(e) => setCustomSub(e.target.value)} placeholder="e.g. Circle of the Moon" />}
+          {subFeatures.length > 0 && (
+            <>
+              <span className="lbl">With {pickedSub} you also get</span>
+              <div className="panel">
+                {subFeatures.map((f) => (
+                  <div key={f.name} className="new"><b>{f.name}</b>{f.note && <span>{f.note}</span>}</div>
+                ))}
+              </div>
+            </>
+          )}
           <p className="note">A subclass from your book is recorded by name; you play its features from the book.</p>
+        </>
+      )}
+
+      {step === "choices" && (
+        <>
+          <h2>Your class choices</h2>
+          <p className="note">Level {plan.to_level} lets you choose these. Read each one in your book if you&rsquo;re not sure.</p>
+          {activeChoices.map((c) => (
+            <ChoiceSection
+              key={c.key}
+              c={c}
+              picks={classPicks[c.key] ?? []}
+              book={classBook[c.key] ?? []}
+              setPicks={(list) => setPicksFor(c.key, list)}
+              setBook={(list) => setBookFor(c.key, list)}
+              skills={plan.skills}
+              allSkills={plan.all_skills}
+              trainedNow={c.kind === "expertise" ? trainedNow : []}
+            />
+          ))}
         </>
       )}
 
       {step === "feat" && (
         <>
           <h2>Ability Score Improvement or a feat</h2>
-          <p className="note">Take +2 to one ability (or +1 to two), or trade that for any feat you qualify for. Most feats also give +1 to an ability. Read the full feat in your book before you pick.</p>
+          {is2014 ? (
+            <p className="note">Take +2 to one ability (or +1 to two). If your DM uses feats, you can take one instead. Grappler is the only feat in the free rules, so any other comes from your book.</p>
+          ) : (
+            <p className="note">Take +2 to one ability (or +1 to two), or trade that for any feat you qualify for. Most feats also give +1 to an ability. Read the full feat in your book before you pick.</p>
+          )}
           {popular.length > 0 && <span className="lbl">Popular for a {plan.character_class}</span>}
           <div className="lu-cards">
             {popular.map((f) => <FeatCard key={f.name} f={f} on={featName === f.name} onPick={pickFeat} />)}
           </div>
-          {showAll || others.some((f) => f.name === featName) ? (
+          {showAll || is2014 || others.some((f) => f.name === featName) ? (
             <>
-              <span className="lbl">Every other feat you qualify for</span>
+              <span className="lbl">{is2014 ? "Pick one" : "Every other feat you qualify for"}</span>
               <div className="lu-cards">
                 {others.map((f) => <FeatCard key={f.name} f={f} on={featName === f.name} onPick={pickFeat} />)}
                 <button className={`lu-card ${isBook ? "on" : ""}`} onClick={() => pickFeat(BOOK)}>
@@ -564,14 +650,24 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
       {step === "spells" && sc && (
         <>
           <h2>Spells</h2>
-          {sc.new_cantrips > 0 && (
+          {is2014 && <p className="sub" style={{ margin: "0 0 4px" }}>{spellLead2014(sc)}</p>}
+          {activeAlways.length > 0 && (
             <>
-              <span className="lbl">New cantrip{sc.new_cantrips > 1 ? "s" : ""} (cast any time, no slot): <span className="num">{cantrips.length}</span> of <span className="num">{sc.new_cantrips}</span></span>
+              <span className="lbl">Always prepared from now on</span>
+              <div className="panel">
+                {activeAlways.map((g) => <div key={g.name} className="row"><span>{g.name}</span><span>{g.source}</span></div>)}
+              </div>
+              <p className="note">Free: they&rsquo;re added to your sheet and don&rsquo;t count against the spells you prepare.</p>
+            </>
+          )}
+          {cantripCap > 0 && (
+            <>
+              <span className="lbl">New cantrip{cantripCap > 1 ? "s" : ""} (cast any time, no slot): <span className="num">{cantrips.length}</span> of <span className="num">{cantripCap}</span></span>
               <div className="lu-chips">
                 {castCantrips.map((s) => (
                   <button key={s.name} className={`lu-chip ${cantrips.includes(s.name) ? "on" : ""}`}
-                    disabled={!cantrips.includes(s.name) && (cantrips.length >= sc.new_cantrips || takenByPicks.has(s.name))}
-                    onClick={() => setCantrips(toggle(cantrips, s.name, sc.new_cantrips))}>{s.name}</button>
+                    disabled={!cantrips.includes(s.name) && (cantrips.length >= cantripCap || takenByPicks.has(s.name))}
+                    onClick={() => setCantrips(toggle(cantrips, s.name, cantripCap))}>{s.name}</button>
                 ))}
               </div>
             </>
@@ -579,7 +675,7 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
           {sc.new_spells > 0 && (
             <>
               <span className="lbl">
-                {sc.prepared_caster ? "Prepare" : "Learn"} {sc.new_spells} more spell{sc.new_spells > 1 ? "s" : ""} (up to {ordinal(sc.max_spell_level)} level): <span className="num">{spells.length}</span> of <span className="num">{sc.new_spells}</span>
+                {spellVerb} {sc.new_spells}{spellMid} spell{sc.new_spells > 1 ? "s" : ""}{toBook ? " to your spellbook" : ""} (up to {ordinal(sc.max_spell_level)} level): <span className="num">{spells.length}</span> of <span className="num">{sc.new_spells}</span>
               </span>
               {Array.from({ length: sc.max_spell_level }, (_, k) => k + 1).map((lvl) => {
                 const list = castSpells.filter((s) => s.level === lvl);
@@ -626,13 +722,18 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
             {[...featSpells, ...(feat?.fixed_spells ?? [])].length > 0 && <div className="row"><span>Feat spells</span><span>{[...(feat?.fixed_spells ?? []), ...featSpells].join(", ")}</span></div>}
             {featSkills.length > 0 && <div className="row"><span>Skills</span><span>{featSkills.join(", ")}</span></div>}
             {featExpertise.length > 0 && <div className="row"><span>Expertise</span><span>{featExpertise.join(", ")}</span></div>}
+            {activeChoices.map((c) => {
+              const names = [...(classPicks[c.key] ?? []), ...(classBook[c.key] ?? [])];
+              return names.length > 0 ? <div key={c.key} className="row"><span>{c.label}</span><span>{names.join(", ")}</span></div> : null;
+            })}
             {cantrips.length > 0 && <div className="row"><span>New cantrips</span><span>{cantrips.join(", ")}</span></div>}
-            {spells.length > 0 && <div className="row"><span>New spells</span><span>{spells.join(", ")}</span></div>}
+            {spells.length > 0 && <div className="row"><span>{toBook ? "Spellbook" : "New spells"}</span><span>{spells.join(", ")}</span></div>}
+            {activeAlways.length > 0 && <div className="row"><span>Always prepared</span><span>{activeAlways.map((g) => g.name).join(", ")}</span></div>}
             {cSwapOut && cSwapIn && <div className="row"><span>Cantrip swap</span><span>{cSwapOut} → {cSwapIn}</span></div>}
             {sSwapOut && sSwapIn && <div className="row"><span>Spell swap</span><span>{sSwapOut} → {sSwapIn}</span></div>}
           </div>
-          {sc && (cantrips.length < sc.new_cantrips || spells.length < sc.new_spells) && (
-            <p className="warn">You've left {sc.new_cantrips - cantrips.length > 0 ? `${sc.new_cantrips - cantrips.length} cantrip` : ""}{sc.new_cantrips - cantrips.length > 0 && sc.new_spells - spells.length > 0 ? " and " : ""}{sc.new_spells - spells.length > 0 ? `${sc.new_spells - spells.length} spell` : ""} unpicked. That's fine: tell your DM what you chose.</p>
+          {sc && (cantrips.length < cantripCap || spells.length < sc.new_spells) && (
+            <p className="warn">You've left {cantripCap - cantrips.length > 0 ? `${cantripCap - cantrips.length} cantrip` : ""}{cantripCap - cantrips.length > 0 && sc.new_spells - spells.length > 0 ? " and " : ""}{sc.new_spells - spells.length > 0 ? `${sc.new_spells - spells.length} spell` : ""} unpicked. That's fine: tell your DM what you chose.</p>
           )}
           {acChanges && (
             <>
@@ -666,6 +767,150 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
         </div>
       </div>
     </Shell>
+  );
+}
+
+type SpellStep = NonNullable<LevelUpPlan["spellcasting"]>;
+
+/** Plan 131 — the spells step's first line under the 2014 rules, by kind of caster. */
+function spellLead2014(sc: SpellStep): string {
+  const n = sc.new_spells;
+  const plural = n === 1 ? "" : "s";
+  if (sc.first_spells && sc.prepared_caster) {
+    return `Your first spells! You can now prepare ${sc.prepared_count ?? n} spells each day and cast them with your new spell slots.`;
+  }
+  if (sc.first_spells) return `Your first spells! Learn ${n} and cast them with your new spell slots.`;
+  if (sc.spellbook) {
+    return `+${n} spell${plural} for your spellbook. You can prepare ${sc.prepared_count ?? 0} of your spellbook spells each day.`;
+  }
+  if (sc.prepared_caster) return `You can now prepare ${sc.prepared_count ?? 0} spells each day.`;
+  if (n > 0) return `Learn ${n} new spell${plural}${sc.spell_swap ? ", and you may swap one you know for another" : ""}.`;
+  return sc.spell_swap ? "You may swap one spell you know for another." : "Your spells grow with your level.";
+}
+
+/** Plan 131 — one class choice: options (or skills, or spells) to pick, plus book names. */
+function ChoiceSection({ c, picks, book, setPicks, setBook, skills, allSkills, trainedNow }: {
+  c: LevelUpChoiceStep; picks: string[]; book: string[];
+  setPicks: (list: string[]) => void; setBook: (list: string[]) => void;
+  skills: Record<string, number>; allSkills: string[]; trainedNow: string[];
+}) {
+  const [showLocked, setShowLocked] = useState(false);
+  const room = c.count - book.length;
+  // One-pick choices swap on tap; the rest stop at their count (book names take room too).
+  const noRoom = room <= 0 || (room > 1 && picks.length >= room);
+  const pick = (name: string) => setPicks(toggle(picks, name, room));
+  const open = c.options.filter((o) => o.ok);
+  const locked = c.options.filter((o) => !o.ok && o.reason !== "Already yours.");
+  return (
+    <div className="panel pad">
+      <b style={{ fontWeight: 600, fontSize: "1.05rem", color: "var(--text)" }}>
+        {c.label}{c.subclass ? <span className="pill" style={{ marginLeft: 8 }}>{c.subclass}</span> : null}
+      </b>
+      {c.note && <p className="note" style={{ marginTop: 4, color: "var(--text2)" }}>{c.note}</p>}
+      <span className="lbl">Pick {c.count}: <span className="num">{picks.length + book.length}</span> of <span className="num">{c.count}</span></span>
+      {c.taken.length > 0 && <p className="note">Already yours: {c.taken.join(", ")}.</p>}
+
+      {(c.kind === "option" || c.kind === "feat") && (
+        <>
+          <div className="lu-cards">
+            {open.map((o) => {
+              const on = picks.includes(o.name);
+              return (
+                <button type="button" key={o.name} aria-pressed={on} className={`lu-card ${on ? "on" : ""}`}
+                  disabled={!on && noRoom} onClick={() => pick(o.name)}>
+                  <b>{o.name}</b>{o.blurb && <small>{o.blurb}</small>}
+                </button>
+              );
+            })}
+          </div>
+          {locked.length > 0 && (
+            <>
+              <button type="button" className="lu-chip" style={{ marginTop: 10 }} onClick={() => setShowLocked(!showLocked)}>
+                {`${showLocked ? "Hide" : "Show"} the ones you can't take yet (${locked.length})`}
+              </button>
+              {showLocked && (
+                <div className="lu-cards" style={{ marginTop: 8 }}>
+                  {locked.map((o) => <button type="button" key={o.name} className="lu-card" disabled><b>{o.name}</b><small>{o.reason}</small></button>)}
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+
+      {(c.kind === "skill" || c.kind === "expertise") && (
+        <div className="lu-chips">
+          {(c.skills ?? allSkills).map((s) => {
+            const have = skills[s] ?? 0;
+            const on = picks.includes(s);
+            const blocked = c.kind === "expertise" ? have >= 2 || (have < 1 && !trainedNow.includes(s)) : have >= 1;
+            return (
+              <button type="button" key={s} aria-pressed={on} className={`lu-chip ${on ? "on" : ""}`}
+                disabled={!on && (blocked || noRoom)} onClick={() => pick(s)}>
+                {s}{!on && blocked ? <small>{c.kind === "expertise" && have < 1 ? "not trained" : "have it"}</small> : null}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {c.kind === "spell" && (
+        <>
+          {Array.from(new Set(c.spells.map((s) => s.level))).sort((a, b) => a - b).map((lvl) => (
+            <div key={lvl} style={{ marginBottom: 8 }}>
+              <span className="note">{lvl === 0 ? "Cantrips" : `${ordinal(lvl)} level`}</span>
+              <div className="lu-chips">
+                {c.spells.filter((s) => s.level === lvl).map((s) => {
+                  const on = picks.includes(s.name);
+                  return (
+                    <button type="button" key={s.name} aria-pressed={on} className={`lu-chip ${on ? "on" : ""}`}
+                      disabled={!on && noRoom} onClick={() => pick(s.name)}>{s.name}</button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {c.spells.length === 0 && <p className="note">None in the app&rsquo;s list: add yours from your book below.</p>}
+        </>
+      )}
+
+      {c.book && (
+        <BookAdd book={book} room={c.count - picks.length} setBook={setBook}
+          label={c.kind === "spell" ? "A spell from your book" : `A ${c.label.toLowerCase()} from your book`} />
+      )}
+    </div>
+  );
+}
+
+/** "From my book" names for a choice: typed, added, removable. */
+function BookAdd({ book, room, setBook, label }: { book: string[]; room: number; setBook: (list: string[]) => void; label: string }) {
+  const [draft, setDraft] = useState("");
+  const add = () => {
+    const name = draft.trim();
+    if (!name || room - book.length <= 0 || book.includes(name)) return;
+    setBook([...book, name]);
+    setDraft("");
+  };
+  return (
+    <div style={{ marginTop: 10 }}>
+      <span className="lbl">From my book: type the name as your book writes it</span>
+      {book.length > 0 && (
+        <div className="lu-chips" style={{ marginBottom: 8 }}>
+          {book.map((b) => (
+            <button type="button" key={b} className="lu-chip on" aria-label={`Remove ${b}`} onClick={() => setBook(book.filter((x) => x !== b))}>
+              {b} <X size={14} aria-hidden />
+            </button>
+          ))}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 8 }}>
+        <input type="text" value={draft} maxLength={80} placeholder={label} aria-label={label} style={{ flex: 1, minWidth: 0 }}
+          onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} />
+        <button type="button" className="btn btn-secondary" style={{ minHeight: 44 }} disabled={!draft.trim() || room - book.length <= 0} onClick={add}>
+          <Plus size={16} aria-hidden /> Add
+        </button>
+      </div>
+    </div>
   );
 }
 

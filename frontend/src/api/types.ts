@@ -595,6 +595,8 @@ export interface Spell {
   attack_type: string | null;
   classes: string[];
   source: string;
+  /** Plan 131 — the SRD edition ("2024"/"2014"); null for homebrew (valid in both). */
+  ruleset?: Ruleset | null;
 }
 
 export interface SpellListParams {
@@ -707,6 +709,8 @@ export interface ClassFeature {
   uses_formula: string;
   description: string;
   source: string;
+  /** Plan 131 — the edition the row belongs to ("2024" when missing). */
+  ruleset?: Ruleset;
 }
 
 export interface CharacterFeature {

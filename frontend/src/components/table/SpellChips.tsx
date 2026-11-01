@@ -4,6 +4,7 @@ import { spellcastingApi } from "../../api/spellcasting";
 import { spellsApi } from "../../api/spells";
 import type { Spell } from "../../api/types";
 import { FLAVOR_BY_KEY, flavorOf } from "../../engine/strikes";
+import { rulesetOf } from "../../lib/ruleset";
 import { useStrikeStore } from "../../stores/useStrikeStore";
 
 /**
@@ -12,13 +13,19 @@ import { useStrikeStore } from "../../stores/useStrikeStore";
  * the table's next hit to that type — so applying damage right after plays a
  * bolt in that colour — and, for a levelled spell, spends a slot of its level.
  */
-export default function SpellChips({ pcId, characterClass }: { pcId: string; characterClass: string }) {
+export default function SpellChips({ pcId, characterClass, ruleset = null }: {
+  pcId: string;
+  characterClass: string;
+  /** Plan 131 — the PC's rules: only that edition's catalog is fetched (plus homebrew). */
+  ruleset?: string | null;
+}) {
   const setFlavor = useStrikeStore((s) => s.setFlavor);
   const flavor = useStrikeStore((s) => s.flavor);
+  const edition = ruleset ? rulesetOf(ruleset) : undefined;
   const { data: known } = useQuery({ queryKey: ["char-spells", pcId], queryFn: () => spellcastingApi.listSpells(pcId) });
   const { data: catalog } = useQuery({
-    queryKey: ["class-spells-all", characterClass],
-    queryFn: () => spellsApi.list({ class_name: characterClass }),
+    queryKey: ["class-spells-all", characterClass, edition],
+    queryFn: () => spellsApi.list({ class_name: characterClass, ruleset: edition }),
     enabled: !!characterClass,
     staleTime: 10 * 60 * 1000,
   });

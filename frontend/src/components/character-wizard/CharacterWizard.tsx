@@ -3,10 +3,11 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { builderApi } from "../../api/characterBuilder";
-import type { Ability, BuildAsiPick, ClassChoicePick, OriginFeatPicks, WizardMode } from "../../api/characterBuilder";
+import type { Ability, BuildAsiPick, CharacterBuildBody, ClassChoicePick, OriginFeatPicks, WizardMode } from "../../api/characterBuilder";
 import AsiStep from "./AsiStep";
 import ChoicesStep from "./ChoicesStep";
 import { ClassExplainer, BackgroundExplainer, SpeciesTraits, SubclassFeatures } from "./Explainers";
+import RaceStep2014, { OTHER } from "./RaceStep2014";
 import SkillsStep from "./SkillsStep";
 import SpellsStep from "./SpellsStep";
 import {
@@ -15,12 +16,18 @@ import {
   BOOK,
   MAGIC_INITIATE,
   abilityWords,
+  armorTraining,
+  bonusWords,
+  choiceEntry,
   derive,
   emptyOrigin,
   fmt,
+  is2014,
   miNeed,
   mod,
   profBonus,
+  raceCantripProblem,
+  raceHint,
   splitFeat,
   spellPlan,
   walkClassChoices,
@@ -46,6 +53,12 @@ import {
  * until the step is complete: the subclass at its level, the class's own choices, cantrips and
  * prepared spells up to the count, Magic Initiate's spells. Review shows the derived sheet. The
  * server checks the same rules on Create.
+ *
+ * Plan 131: a 2014 campaign (`opts.ruleset === "2014"`) gets the 2014 steps: a race with its
+ * ability bonuses and subrace (the Half-Elf's two +1s, the Dragonborn's ancestry), a background
+ * with no bonus and no Origin feat (a book background picks 2 skills), racial bonuses on the
+ * scores, 2014 spell counts (the Wizard's spellbook) and no Epic Boon. A 2024 campaign renders
+ * and sends exactly what it did.
  */
 
 const NOT_ASSIGNED = "Not assigned yet";
@@ -201,6 +214,13 @@ interface Draft {
   classPicks: ChoicePicks;
   bgFeatPicks: OriginPickState;
   originPicks: OriginPickState;
+  // Plan 131 — the 2014 picks.
+  subrace: string;
+  customSubrace: string;
+  abilityChoice: Record<string, number>;
+  speciesPicks: ChoicePicks;
+  bgSkills: string[];
+  prepared: string[];
 }
 
 /** Plan 82 — the standard array laid out for a class: primary abilities first, then CON, then the rest. */
@@ -276,12 +296,20 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const [classPicks, setClassPicks] = useState<ChoicePicks>(draft.classPicks ?? {});
   const [bgFeatPicks, setBgFeatPicks] = useState<OriginPickState>(draft.bgFeatPicks ?? emptyOrigin());
   const [originPicks, setOriginPicks] = useState<OriginPickState>(draft.originPicks ?? emptyOrigin());
+  // Plan 131 — the 2014 picks: subrace, the Half-Elf's +1s (or a book race's bonuses), the
+  // Dragonborn's ancestry, a book background's skills, a Wizard's prepared spells.
+  const [subrace, setSubrace] = useState(draft.subrace ?? "");
+  const [customSubrace, setCustomSubrace] = useState(draft.customSubrace ?? "");
+  const [abilityChoice, setAbilityChoice] = useState<Record<string, number>>(draft.abilityChoice ?? {});
+  const [speciesPicks, setSpeciesPicks] = useState<ChoicePicks>(draft.speciesPicks ?? {});
+  const [bgSkills, setBgSkills] = useState<string[]>(draft.bgSkills ?? []);
+  const [prepared, setPrepared] = useState<string[]>(draft.prepared ?? []);
 
   useEffect(() => {
     const next: Draft = {
       step, characterName, playerName, species, customSpecies, klass, subclass, customSub, level, background, customBg,
       method, scores, bonusMode, bonusPlus2, bonusPlus1, skills, originFeat, kit, asiPicks, cantrips, spells, appearance,
-      classPicks, bgFeatPicks, originPicks,
+      classPicks, bgFeatPicks, originPicks, subrace, customSubrace, abilityChoice, speciesPicks, bgSkills, prepared,
     };
     try {
       sessionStorage.setItem(draftKey, JSON.stringify(next));
@@ -290,7 +318,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
     }
   }, [draftKey, step, characterName, playerName, species, customSpecies, klass, subclass, customSub, level, background, customBg,
     method, scores, bonusMode, bonusPlus2, bonusPlus1, skills, originFeat, kit, asiPicks, cantrips, spells, appearance,
-    classPicks, bgFeatPicks, originPicks]);
+    classPicks, bgFeatPicks, originPicks, subrace, customSubrace, abilityChoice, speciesPicks, bgSkills, prepared]);
 
   // Picking a draft back up says so, with a way to start clean.
   const [resumed, setResumed] = useState(() => Boolean(draft.characterName || draft.klass || draft.species));
@@ -308,6 +336,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
     }
   }
 
+  const old = is2014(opts);
   const cls = opts && klass ? opts.classes[klass] : null;
   const speciesRow = opts?.species.find((s) => s.name === species);
   const bg = opts?.backgrounds.find((b) => b.name === background);
@@ -316,19 +345,35 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const bgName = background === "__other" ? customBg : background;
   const activeSub = cls && level >= cls.subclass_level && subclassName.trim() ? subclassName.trim() : null;
   const versatile = !!speciesRow?.bonus_origin_feat;
+  // Plan 131 — a 2014 race: the subrace (stored as the race, "Hill Dwarf") and its bonuses.
+  const subraceRow = old ? speciesRow?.subraces?.find((s) => s.name === subrace) : undefined;
+  const subraceName = old && speciesRow?.subraces?.length ? (subrace === OTHER ? customSubrace.trim() : subrace) : "";
+  const raceName = subraceName || speciesName;
+  const bookBackground = old && background === "__other";
 
   const bonus = useMemo(() => {
-    if (!bg) return {} as Record<string, number>;
+    if (!bg || old) return {} as Record<string, number>;
     if (bonusMode === "111") return Object.fromEntries(bg.abilities.map((a) => [a, 1]));
     const out: Record<string, number> = {};
     if (bonusPlus2) out[bonusPlus2] = 2;
     if (bonusPlus1 && bonusPlus1 !== bonusPlus2) out[bonusPlus1] = 1;
     return out;
-  }, [bg, bonusMode, bonusPlus2, bonusPlus1]);
+  }, [bg, old, bonusMode, bonusPlus2, bonusPlus1]);
+
+  // Plan 131 — 2014 ability bonuses come from the race: its own, its subrace's, and the ones
+  // picked (the Half-Elf's +1s, or a book race's).
+  const raceBonus = useMemo(() => {
+    const out: Record<string, number> = {};
+    if (!old) return out;
+    for (const b of [speciesRow?.ability_bonuses, subraceRow?.ability_bonuses, abilityChoice]) {
+      for (const [a, v] of Object.entries(b ?? {})) if (v) out[a] = (out[a] ?? 0) + v;
+    }
+    return out;
+  }, [old, speciesRow, subraceRow, abilityChoice]);
 
   const finalScores = useMemo(
-    () => Object.fromEntries(ABILITIES.map((a) => [a, Math.min(20, scores[a] + (bonus[a] ?? 0))])) as Record<Ability, number>,
-    [scores, bonus],
+    () => Object.fromEntries(ABILITIES.map((a) => [a, Math.min(20, scores[a] + ((old ? raceBonus : bonus)[a] ?? 0))])) as Record<Ability, number>,
+    [scores, bonus, old, raceBonus],
   );
 
   const pointsSpent = useMemo(
@@ -337,22 +382,37 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   );
   const arrayUsed = useMemo(() => [...ABILITIES.map((a) => scores[a])].sort((x, y) => y - x), [scores]);
 
+  // Skills that come free: the background's, and (2014) the race's and a book background's two.
+  const granted = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const s of bg?.skills ?? []) out[s] = "from background";
+    if (old) {
+      for (const s of speciesRow?.skills ?? []) out[s] = "from race";
+      if (bookBackground) for (const s of bgSkills) out[s] = "from background";
+    }
+    return out;
+  }, [bg, old, speciesRow, bookBackground, bgSkills]);
   const skillPicksAllowed = (cls?.skills.choose ?? 0) + (speciesRow?.bonus_skill_choices ?? 0);
-  const classSkillPicks = skills.filter((s) => !(bg?.skills ?? []).includes(s));
+  const classSkillPicks = skills.filter((s) => !granted[s]);
 
   // The background's Origin feat and a Human's Versatile one, as they go on the sheet.
-  const bgFeat = bg ? splitFeat(bg.feat) : null;
+  // Plan 131: a 2014 background has no feat (feat: null); a 2014 race's choices go on instead.
+  const bgFeat = bg?.feat ? splitFeat(bg.feat) : null;
+  const raceChoiceFeats = useMemo(
+    () => (old && opts ? Object.keys(speciesRow?.choices ?? {}).flatMap((k) => (speciesPicks[k]?.picks ?? []).map((n) => choiceEntry(opts, k, n))) : []),
+    [old, opts, speciesRow, speciesPicks],
+  );
   const startFeats = useMemo(() => {
-    const out = bg ? [bg.feat.startsWith(MAGIC_INITIATE) ? bg.feat : bg.feat.split(" (")[0]] : [];
+    const out = bg?.feat ? [bg.feat.startsWith(MAGIC_INITIATE) ? bg.feat : bg.feat.split(" (")[0]] : [];
     if (versatile && originFeat) out.push(originFeat === MAGIC_INITIATE && originPicks.choice ? `${MAGIC_INITIATE} (${originPicks.choice})` : originFeat);
-    return out;
-  }, [bg, versatile, originFeat, originPicks.choice]);
+    return [...out, ...raceChoiceFeats];
+  }, [bg, versatile, originFeat, originPicks.choice, raceChoiceFeats]);
   const startSkills = useMemo(() => {
     const out: Record<string, number> = {};
-    for (const s of [...skills, ...(bg?.skills ?? [])]) out[s] = 1;
+    for (const s of [...skills, ...Object.keys(granted)]) out[s] = 1;
     if (versatile && originFeat === "Skilled") for (const s of originPicks.skills) out[s] = 1;
     return out;
-  }, [skills, bg, versatile, originFeat, originPicks.skills]);
+  }, [skills, granted, versatile, originFeat, originPicks.skills]);
 
   // Plan 128 — the class's own choices, walked like the server: they add feats and skills.
   const choiceWalk = useMemo(
@@ -369,16 +429,25 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
     [opts, klass, asiDue, activeSub, finalScores, choiceWalk, cls, asiPicks],
   );
   const kitRow = cls?.kits.find((x) => x.name === kit) ?? cls?.kits[0];
+  // Plan 131 — 2014 gear needs the armor training (the Cleric's chain mail: the Life Domain).
+  const kitTraining = old && opts && klass ? armorTraining(opts, klass, walk?.feats ?? startFeats, activeSub) : null;
+  const kitCategory = kitRow?.armor ? opts?.armor[kitRow.armor]?.category : undefined;
+  const kitNeedsTraining = !!kitTraining && ((!!kitCategory && !kitTraining.has(kitCategory)) || (!!kitRow?.shield && !kitTraining.has("shields")));
   const sheet = useMemo(() => {
     if (!opts || !cls || !walk) return null;
     return derive({
-      opts, klass, level, species: speciesName, subclass: activeSub, scores: walk.scores,
+      opts, klass, level, species: raceName, subclass: activeSub, scores: walk.scores,
       feats: walk.feats, saves: walk.saves, skills: walk.skills, kit: kitRow, speed: speciesRow?.speed ?? 30,
     });
-  }, [opts, cls, walk, klass, level, speciesName, activeSub, kitRow, speciesRow]);
+  }, [opts, cls, walk, klass, level, raceName, activeSub, kitRow, speciesRow]);
 
   // Spells: the plan (counts, pools, always prepared) and Magic Initiate's picks.
-  const plan = useMemo(() => (opts && klass ? spellPlan(opts, klass, level, activeSub, choiceWalk) : null), [opts, klass, level, activeSub, choiceWalk]);
+  // Plan 131: a 2014 prepared count uses the final ability modifier; a High Elf adds a cantrip.
+  const raceCantrip = subraceRow?.cantrip_choice ?? null;
+  const plan = useMemo(
+    () => (opts && klass ? spellPlan(opts, klass, level, activeSub, choiceWalk, old ? { scores: walk?.scores, raceCantrip } : {}) : null),
+    [opts, klass, level, activeSub, choiceWalk, old, walk?.scores, raceCantrip],
+  );
   const miNeeds = useMemo(() => {
     if (!opts) return [] as MiNeed[];
     const out: MiNeed[] = [];
@@ -389,30 +458,41 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   // Class picks that still fit (a later subclass may have made one always prepared).
   const cleanCantrips = plan ? cantrips.filter((n) => plan.cantripPool.some((s) => s.name === n)) : cantrips;
   const cleanSpells = plan ? spells.filter((n) => plan.spellPool.some((s) => s.name === n)) : spells;
+  // Plan 131 — a 2014 Wizard's prepared spells, out of its spellbook picks.
+  const cleanPrepared = plan?.mode === "spellbook" ? prepared.filter((n) => cleanSpells.includes(n)) : [];
   const featPicked = useMemo(() => asiDue.flatMap((l) => asiPicks[l]?.spells ?? []), [asiDue, asiPicks]);
+  const choiceSpells = useMemo(() => choiceWalk?.choiceSpells ?? [], [choiceWalk]);
   const elsewhere = useMemo(() => {
     const m = new Map<string, string>();
     for (const n of featPicked) m.set(n, "a feat");
     for (const need of miNeeds) for (const n of need.state.spells) m.set(n, `Magic Initiate (${need.from})`);
+    for (const n of choiceSpells) m.set(n, "a class choice");
     return m;
-  }, [featPicked, miNeeds]);
+  }, [featPicked, miNeeds, choiceSpells]);
   const doubled = useMemo(() => {
     const seen = new Set<string>();
-    for (const n of [...cleanCantrips, ...cleanSpells, ...featPicked, ...miNeeds.flatMap((m) => m.state.spells)]) {
+    for (const n of [...cleanCantrips, ...cleanSpells, ...featPicked, ...miNeeds.flatMap((m) => m.state.spells), ...choiceSpells]) {
       if (seen.has(n)) return n;
       seen.add(n);
     }
     return null;
-  }, [cleanCantrips, cleanSpells, featPicked, miNeeds]);
+  }, [cleanCantrips, cleanSpells, featPicked, miNeeds, choiceSpells]);
   const cantripNeed = useMemo(() => {
     if (!choiceWalk || !opts) return null;
     const picked = cleanCantrips.map((n) => opts.spells.find((s) => s.name === n)).filter(Boolean);
     for (const need of choiceWalk.needsCantrip) {
+      // Plan 131 — a 2014 invocation names its cantrip ("Eldritch Blast").
+      if (need.want !== "damage" && need.want !== "attack") {
+        if (!picked.some((s) => s!.name === need.want)) return `${need.name} needs the ${need.want} cantrip: pick it here.`;
+        continue;
+      }
       const ok = need.want === "damage" ? picked.some((s) => s!.damage) : picked.some((s) => s!.damage && s!.attack);
       if (!ok) return `${need.name} needs a Warlock cantrip that ${need.want === "damage" ? "deals damage" : "hits with an attack and deals damage"}, such as Eldritch Blast.`;
     }
+    // Plan 131 — the High Elf's cantrip comes from the Wizard list.
+    if (plan && klass) return raceCantripProblem(opts, plan, klass, raceName, cleanCantrips, [klass, ...choiceWalk.cantripLists]);
     return null;
-  }, [choiceWalk, opts, cleanCantrips]);
+  }, [choiceWalk, opts, cleanCantrips, plan, klass, raceName]);
 
   const steps = useMemo(() => {
     const s = ["name", "species", "class", "background", "scores", "skills"];
@@ -424,6 +504,8 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const at = Math.min(step, steps.length - 1);
   const key = steps[at];
   const who = `a level ${level} ${klass}`;
+  // Plan 131 — the 2014 rules call it a race.
+  const titles = old ? { ...STEP_TITLES, species: "Race" } : STEP_TITLES;
 
   /** Plan 82 — why Next is disabled, in one line, so nobody sits tapping a dead button. */
   function hintFor(k: string): string | null {
@@ -432,7 +514,13 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         if (!characterName.trim()) return dm ? "Give the character a name." : "Give your character a name.";
         if (!dm && !playerName.trim()) return "Add your own name too.";
         return null;
-      case "species": return species === "" ? "Pick a species." : species === "__other" && !customSpecies.trim() ? "Type the species name." : null;
+      case "species":
+        if (old) {
+          if (species === "") return "Pick a race.";
+          if (species === "__other" && !customSpecies.trim()) return "Type the race name.";
+          return opts ? raceHint(speciesRow, subrace, customSubrace, abilityChoice, speciesPicks, opts) : null;
+        }
+        return species === "" ? "Pick a species." : species === "__other" && !customSpecies.trim() ? "Type the species name." : null;
       case "class":
         if (klass === "") return "Pick a class.";
         if (cls && level >= cls.subclass_level && !subclass) return `Pick a subclass: a level ${level} ${klass} has one (they start at level ${cls.subclass_level}).`;
@@ -441,6 +529,8 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
       case "background":
         if (background === "") return "Pick a background.";
         if (background === "__other" && !customBg.trim()) return "Type the background name.";
+        // Plan 131 — no background bonus in 2014; a book background picks its 2 skills.
+        if (old) return bookBackground && bgSkills.length < 2 ? `Pick ${plural(2 - bgSkills.length, "more skill")} your book's background gives (below).` : null;
         if (bg && bonusMode === "21" && !bonusPlus2) return "Choose which ability gets the +2 (below).";
         if (bg && bonusMode === "21" && (!bonusPlus1 || bonusPlus1 === bonusPlus2)) return "Now choose the +1.";
         return null;
@@ -450,17 +540,29 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         return null;
       case "skills": {
         const left = skillPicksAllowed - classSkillPicks.length;
-        if (left > 0) return `Pick ${plural(left, "more skill")}. Greyed ones already come from the background.`;
+        if (left > 0) return `Pick ${plural(left, "more skill")}. Greyed ones already come from ${old ? "your race or background" : "the background"}.`;
         if (versatile && originFeat === "") return "Humans pick an Origin feat: choose one under Origin feat.";
         if (versatile && originFeat === "Skilled" && originPicks.skills.length < 3) return `Skilled: pick ${plural(3 - originPicks.skills.length, "more skill")}.`;
         if (cls?.kits.length && kit === "") return "Pick the starting gear.";
+        if (old && kitRow && kitNeedsTraining) return `${kitRow.name} needs armor training ${who} doesn't have: pick other gear.`;
         return null;
       }
       case "choices": return choiceWalk?.problem ?? null;
       case "asi": return walk?.problem ?? null;
       case "spells": {
         if (!plan) return null;
-        if (plan.caster) {
+        if (plan.caster && plan.mode !== "prepared") {
+          // Plan 131 — 2014 known casters and the Wizard's spellbook.
+          const book = plan.mode === "spellbook";
+          const has = book ? `${who}'s spellbook holds ${plan.spellCap}` : `${who} knows ${plan.spellCap}`;
+          if (cleanCantrips.length > plan.cantripCap) return `Take ${plural(cleanCantrips.length - plan.cantripCap, "cantrip")} off: ${who} has ${plan.cantripCap}.`;
+          if (cleanCantrips.length < plan.needCantrips) return `Pick ${plural(plan.needCantrips - cleanCantrips.length, "more cantrip")}: ${who} has ${plan.cantripCap}.`;
+          if (cleanSpells.length > plan.spellCap) return `Take ${plural(cleanSpells.length - plan.spellCap, "spell")} off: ${has}.`;
+          if (cleanSpells.length < plan.needSpells) return `Pick ${plural(plan.needSpells - cleanSpells.length, "more spell")}: ${has}.`;
+          if (book && cleanPrepared.length > plan.prepareCap) return `Take ${plural(cleanPrepared.length - plan.prepareCap, "prepared spell")} off: ${who} prepares ${plan.prepareCap}.`;
+          if (book && cleanPrepared.length < Math.min(plan.prepareCap, cleanSpells.length)) return `Prepare ${plural(Math.min(plan.prepareCap, cleanSpells.length) - cleanPrepared.length, "more spell")} from your spellbook: ${who} prepares ${plan.prepareCap}.`;
+          if (cantripNeed) return cantripNeed;
+        } else if (plan.caster) {
           if (cleanCantrips.length > plan.cantripCap) return `Take ${plural(cleanCantrips.length - plan.cantripCap, "cantrip")} off: ${who} has ${plan.cantripCap}.`;
           if (cleanCantrips.length < plan.needCantrips) return `Pick ${plural(plan.needCantrips - cleanCantrips.length, "more cantrip")}: ${who} has ${plan.cantripCap}.`;
           if (cleanSpells.length > plan.spellCap) return `Take ${plural(cleanSpells.length - plan.spellCap, "spell")} off: ${who} prepares ${plan.spellCap}.`;
@@ -520,6 +622,22 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
     };
   }
 
+  /** Plan 131 — what a 2014 build adds (and the 2024 picks it leaves empty). */
+  function payload2014(): Partial<CharacterBuildBody> {
+    const book = species === "__other" || subrace === OTHER;
+    return {
+      subrace: subraceName || null,
+      ability_choice: Object.fromEntries(Object.entries(abilityChoice).filter(([, v]) => v && (book || speciesRow?.ability_choice))),
+      background_skills: bookBackground ? bgSkills : [],
+      species_choices: Object.keys(speciesRow?.choices ?? {}).map((k) => ({ key: k, picks: speciesPicks[k]?.picks ?? [], book: [] })),
+      prepared_spells: cleanPrepared,
+      background_bonus: {},
+      origin_feat: null,
+      background_feat_picks: null,
+      origin_feat_picks: null,
+    };
+  }
+
   async function submit() {
     if (!campaignId) return;
     setBusy(true);
@@ -545,6 +663,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         class_choices: choicesPayload(),
         ...originPayloads(),
         appearance: appearance.trim() || null,
+        ...(old ? payload2014() : {}),
       });
       clearDraft();
       if (dm) {
@@ -601,7 +720,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         <p className="eyebrow-muted">New character for</p>
         <h1>{opts.campaign_name}</h1>
         <p className="sub">
-          {STEP_TITLES[key]} · step <span className="num">{at + 1}</span> of <span className="num">{steps.length}</span>
+          {titles[key]} · step <span className="num">{at + 1}</span> of <span className="num">{steps.length}</span>
         </p>
         <div className="steps" aria-hidden>{steps.map((s, i) => <i key={s} className={i <= at ? "on" : ""} />)}</div>
         {resumed && (
@@ -627,7 +746,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
           </>
         )}
 
-        {key === "species" && (
+        {key === "species" && !old && (
           <>
             <h2>Species</h2>
             <p className="note">Your species sets your size and speed and gives traits you keep all game.</p>
@@ -651,6 +770,37 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
           </>
         )}
 
+        {key === "species" && old && (
+          <>
+            <h2>Race</h2>
+            <p className="note">Your race raises some ability scores, sets your size and speed, and gives traits you keep all game.</p>
+            <div className="cc-cards">
+              {opts.species.map((s) => (
+                <button type="button" key={s.name} aria-pressed={species === s.name} className={`cc-card ${species === s.name ? "on" : ""}`}
+                  onClick={() => { if (species !== s.name) { setSpecies(s.name); setSubrace(""); setCustomSubrace(""); setAbilityChoice({}); setSpeciesPicks({}); } }}>
+                  <b>{s.name}</b><small>{s.size} · speed <span className="num">{s.speed}</span> ft</small>
+                  {bonusWords(s.ability_bonuses) && <small className="plus">{bonusWords(s.ability_bonuses)}{s.ability_choice ? `, +${s.ability_choice.amount} to ${s.ability_choice.choose} more` : ""}</small>}
+                </button>
+              ))}
+              <button type="button" aria-pressed={species === "__other"} className={`cc-card ${species === "__other" ? "on" : ""}`}
+                onClick={() => { if (species !== "__other") { setSpecies("__other"); setSubrace(""); setCustomSubrace(""); setAbilityChoice({}); setSpeciesPicks({}); } }}>
+                <b>From my book…</b><small>Any race your DM allows. You track its traits.</small>
+              </button>
+            </div>
+            {species === "__other" && (
+              <>
+                <label htmlFor="cspecies">Race name</label>
+                <input id="cspecies" type="text" value={customSpecies} onChange={(e) => setCustomSpecies(e.target.value)} placeholder="e.g. Aasimar" />
+              </>
+            )}
+            {speciesRow && <SpeciesTraits row={speciesRow} level={level} />}
+            <RaceStep2014 opts={opts} klass={klass} level={level} row={speciesRow} book={species === "__other"}
+              subrace={subrace} setSubrace={setSubrace} customSubrace={customSubrace} setCustomSubrace={setCustomSubrace}
+              abilityChoice={abilityChoice} setAbilityChoice={setAbilityChoice}
+              picks={speciesPicks} setPick={(k, st) => setSpeciesPicks((prev) => ({ ...prev, [k]: st }))} />
+          </>
+        )}
+
         {key === "class" && (
           <>
             <h2>Class</h2>
@@ -658,7 +808,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
             <div className="cc-cards">
               {Object.entries(opts.classes).map(([name, c]) => (
                 <button type="button" key={name} aria-pressed={klass === name} className={`cc-card ${klass === name ? "on" : ""}`} onClick={() => {
-                  setKlass(name); setSubclass(""); setSkills([]); setKit(c.kits[0]?.name ?? ""); setCantrips([]); setSpells([]); setAsiPicks({}); setClassPicks({});
+                  setKlass(name); setSubclass(""); setSkills([]); setKit(c.kits[0]?.name ?? ""); setCantrips([]); setSpells([]); setAsiPicks({}); setClassPicks({}); setPrepared([]);
                   if (method === "standard") setScores(arrayForClass(c.primary ?? []));
                   window.setTimeout(() => document.getElementById("cc-class-more")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50);
                 }}>
@@ -702,7 +852,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         {key === "background" && (
           <>
             <h2>Background</h2>
-            <p className="note">Where you come from. It gives two skills, a tool, an Origin feat and bonuses to three ability scores.</p>
+            <p className="note">{old ? "Where you come from. It gives two skills, languages and a feature. (In the 2014 rules your ability bonuses come from your race.)" : "Where you come from. It gives two skills, a tool, an Origin feat and bonuses to three ability scores."}</p>
             <div className="cc-cards">
               {opts.backgrounds.map((b) => (
                 <button type="button" key={b.name} aria-pressed={background === b.name} className={`cc-card ${background === b.name ? "on" : ""}`} onClick={() => { setBackground(b.name); setBonusPlus2(""); setBonusPlus1(""); setBgFeatPicks(emptyOrigin()); window.setTimeout(() => document.getElementById("cc-bonus")?.scrollIntoView({ block: "nearest", behavior: "smooth" }), 50); }}>
@@ -710,13 +860,32 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
                 </button>
               ))}
               <button type="button" aria-pressed={background === "__other"} className={`cc-card ${background === "__other" ? "on" : ""}`} onClick={() => setBackground("__other")}>
-                <b>From my book…</b><small>Recorded by name; no automatic bonuses.</small>
+                <b>From my book…</b><small>{old ? "Recorded by name: you pick the 2 skills it gives." : "Recorded by name; no automatic bonuses."}</small>
               </button>
             </div>
             {background === "__other" && (
               <input type="text" value={customBg} onChange={(e) => setCustomBg(e.target.value)} placeholder="Background name" style={{ marginTop: 8 }} aria-label="Background name" />
             )}
-            {bg && (
+            {bg && old && <BackgroundExplainer opts={opts} bg={bg} />}
+            {bookBackground && (
+              <>
+                <span className="lbl">Skills from your book's background: pick 2 ({bgSkills.length} of 2)</span>
+                <div className="cc-chips">
+                  {Object.keys(opts.skills).map((sk) => {
+                    const on = bgSkills.includes(sk);
+                    const fromRace = (speciesRow?.skills ?? []).includes(sk);
+                    return (
+                      <button type="button" key={sk} className={`cc-chip ${on ? "on" : ""}`} aria-pressed={on} disabled={fromRace || (!on && bgSkills.length >= 2)}
+                        onClick={() => { setBgSkills(on ? bgSkills.filter((x) => x !== sk) : [...bgSkills, sk]); setSkills(skills.filter((x) => x !== sk)); }}>
+                        {sk} <small>{fromRace ? "from race" : ABILITY_NAMES[opts.skills[sk]] ?? opts.skills[sk]}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="note">Its feature and languages are yours to track from the book.</p>
+              </>
+            )}
+            {bg && !old && (
               <>
                 <BackgroundExplainer opts={opts} bg={bg} />
                 <span className="lbl" id="cc-bonus">Ability bonus from {bg.name}: pick where the +2 and +1 go</span>
@@ -753,9 +922,9 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
               <button type="button" aria-pressed={method === "pointbuy"} className={`cc-chip ${method === "pointbuy" ? "on" : ""}`} onClick={() => { setMethod("pointbuy"); setScores({ STR: 8, DEX: 8, CON: 8, INT: 8, WIS: 8, CHA: 8 }); }}>Point buy</button>
               <button type="button" aria-pressed={method === "manual"} className={`cc-chip ${method === "manual" ? "on" : ""}`} onClick={() => setMethod("manual")}>I rolled them</button>
             </div>
-            {method === "pointbuy" && <p className="note"><span className="num">{pointsSpent}</span> of <span className="num">{opts.point_buy_budget}</span> points spent. Scores run 8 to 15 before the background bonus; 14 and 15 cost more.</p>}
+            {method === "pointbuy" && <p className="note"><span className="num">{pointsSpent}</span> of <span className="num">{opts.point_buy_budget}</span> points spent. Scores run 8 to 15 before the {old ? "racial bonuses" : "background bonus"}; 14 and 15 cost more.</p>}
             {method === "standard" && <p className="note">Give each ability one of 15, 14, 13, 12, 10 and 8. {cls ? `A ${klass} wants high ${abilityWords(cls.primary)}.` : ""}</p>}
-            {method === "manual" && <p className="note">Rolled your scores? Set each one with − and + (3 to 20 before the background bonus).</p>}
+            {method === "manual" && <p className="note">Rolled your scores? Set each one with − and + (3 to 20 before the {old ? "racial bonuses" : "background bonus"}).</p>}
             <div className="scores">
               {ABILITIES.map((a) => {
                 const cost = (v: number) => opts.point_buy_cost[String(v)] ?? 99;
@@ -767,7 +936,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
                   <div key={a} className="score">
                     <b>{ABILITY_NAMES[a]}</b>
                     <div className="v">{finalScores[a]}</div>
-                    <div className="m">{fmt(mod(finalScores[a]))}{bonus[a] ? <small>+{bonus[a]} from background</small> : null}</div>
+                    <div className="m">{fmt(mod(finalScores[a]))}{(old ? raceBonus : bonus)[a] ? <small>+{(old ? raceBonus : bonus)[a]} from {old ? "race" : "background"}</small> : null}</div>
                     {method === "standard" ? (
                       <select aria-label={`${ABILITY_NAMES[a]} score`} value={scores[a]} onChange={(e) => setScores({ ...scores, [a]: Number(e.target.value) })}>
                         {opts.standard_array.map((v) => <option key={v} value={v}>{v}</option>)}
@@ -796,7 +965,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
           <SkillsStep opts={opts} cls={cls} klass={klass} level={level} species={species} speciesRow={speciesRow} bg={bg}
             skills={skills} setSkills={setSkills} originFeat={originFeat} setOriginFeat={setOriginFeat}
             originPicks={originPicks} setOriginPicks={setOriginPicks} kit={kit} setKit={setKit}
-            finalScores={finalScores} startFeats={startFeats} activeSub={activeSub} />
+            finalScores={finalScores} startFeats={startFeats} activeSub={activeSub} granted={granted} race={raceName} />
         )}
 
         {key === "choices" && cls && choiceWalk && (
@@ -810,7 +979,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         {key === "spells" && plan && (
           <SpellsStep opts={opts} klass={klass} level={level} plan={plan} cantrips={cleanCantrips} spells={cleanSpells}
             setCantrips={setCantrips} setSpells={setSpells} elsewhere={elsewhere} featSpells={walk?.featSpells ?? []}
-            mi={miNeeds} setMi={setMi} cantripNeed={cantripNeed} />
+            mi={miNeeds} setMi={setMi} cantripNeed={cantripNeed} prepared={cleanPrepared} setPrepared={setPrepared} race={raceName} />
         )}
 
         {key === "review" && sheet && walk && cls && (
@@ -819,7 +988,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
             <div className="panel">
               <div className="row"><span>Name</span><span className="story" style={{ fontWeight: 700 }}>{characterName}</span></div>
               {dm && <div className="row"><span>Played by</span><span>{playerName.trim() || NOT_ASSIGNED}</span></div>}
-              <div className="row"><span>Species</span><span>{speciesName}</span></div>
+              <div className="row"><span>{old ? "Race" : "Species"}</span><span>{raceName}</span></div>
               <div className="row"><span>Class</span><span>{klass} <span className="num">{level}</span>{subclassName && level >= cls.subclass_level ? ` · ${subclassName}` : ""}</span></div>
               <div className="row"><span>Background</span><span>{bgName}</span></div>
             </div>
@@ -859,10 +1028,19 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
               </span></div>
               {sheet.slots && <div className="row"><span>Spell slots</span><span>{sheet.slots}</span></div>}
               {choiceWalk && choiceWalk.summary.length > 0 && <div className="row"><span>Class choices</span><span>{choiceWalk.summary.join("; ")}</span></div>}
-              <div className="row"><span>Feats</span><span>{startFeats.concat(walk.feats.filter((f) => !choiceWalk?.feats.includes(f))).join(", ") || "None"}</span></div>
+              {old && raceChoiceFeats.length > 0 && <div className="row"><span>Race choices</span><span>{raceChoiceFeats.join("; ")}</span></div>}
+              {old && Object.keys(raceBonus).length > 0 && <div className="row"><span>Racial bonuses</span><span>{bonusWords(raceBonus)}</span></div>}
+              <div className="row"><span>Feats</span><span>{(old ? [] : startFeats).concat(walk.feats.filter((f) => !choiceWalk?.feats.includes(f))).join(", ") || "None"}</span></div>
               {walk.summary.length > 0 && <div className="row"><span>Improvements</span><span>{walk.summary.join("; ")}</span></div>}
               {alwaysNames.length > 0 && <div className="row"><span>Always prepared</span><span>{alwaysNames.join(", ")}</span></div>}
-              {plan?.caster && <div className="row"><span>Spells</span><span>{[...cleanCantrips, ...cleanSpells].join(", ") || "None yet"}</span></div>}
+              {plan?.caster && plan.mode !== "spellbook" && <div className="row"><span>Spells</span><span>{[...cleanCantrips, ...cleanSpells].join(", ") || "None yet"}</span></div>}
+              {plan?.mode === "spellbook" && (
+                <>
+                  <div className="row"><span>Cantrips</span><span>{cleanCantrips.join(", ") || "None yet"}</span></div>
+                  <div className="row"><span>Spellbook</span><span>{cleanSpells.join(", ") || "None yet"}</span></div>
+                  <div className="row"><span>Prepared today</span><span>{cleanPrepared.join(", ") || "None yet"}</span></div>
+                </>
+              )}
               {miSpells.length > 0 && <div className="row"><span>Magic Initiate</span><span>{miSpells.join(", ")}</span></div>}
               {walk.featSpells.length > 0 && <div className="row"><span>Feat spells</span><span>{walk.featSpells.join(", ")}</span></div>}
               <div className="row"><span>Gear</span><span>{kitRow ? kitRow.name : "None"}</span></div>
@@ -870,7 +1048,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
             {sheet.warnings.map((w) => <p key={w} className="warn">{w}</p>)}
             {blocking && (
               <p className="warn" role="alert">
-                {STEP_TITLES[blocking[0]]} isn&rsquo;t finished: {blocking[1]}{" "}
+                {titles[blocking[0]]} isn&rsquo;t finished: {blocking[1]}{" "}
                 <button type="button" className="btn btn-ghost" style={{ minHeight: 44, padding: "0 0.5rem" }} onClick={() => setStep(steps.indexOf(blocking[0]))}>Go there</button>
               </p>
             )}

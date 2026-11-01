@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { Ruleset } from "../lib/ruleset";
 
 /**
  * The character creator's API (Plan 74, Plan 126).
@@ -7,6 +8,11 @@ import { api } from "./client";
  * campaign's join code and its "players can create characters" switch); the campaign's DM
  * builds from the Characters page (`/campaigns/.../character-builder`, owner only). The
  * server applies the same rules either way.
+ *
+ * Plan 131: the options say which rules the campaign plays by (`ruleset`). A 2014 campaign's
+ * tables carry the 2014 keys (races with ability bonuses and subraces, known/prepared casters, the
+ * spellbook), and its builds send the 2014 picks (subrace, the Half-Elf's +1s, a book background's
+ * skills, the Dragonborn's ancestry, a Wizard's prepared spells).
  */
 
 export type Ability = "STR" | "DEX" | "CON" | "INT" | "WIS" | "CHA";
@@ -42,6 +48,8 @@ export interface BuilderFeat {
   ac_bonus_in_armor: number;
   repeatable: boolean;
   srd: boolean;
+  /** Plan 131 — a 2014 fighting style: the classes whose Fighting Style offers it. */
+  classes?: string[];
 }
 
 /** One spell in the picker (Plan 128: with enough to choose by, and its full text). */
@@ -72,24 +80,40 @@ export interface ChoiceOption {
   /** Extra cantrips it brings, from which class list (Thaumaturge, Blessed Warrior). */
   cantrips?: { count: number; list: string };
   armor?: string[];
-  /** An invocation's Warlock level, the invocation it needs, the cantrip it needs. */
+  /**
+   * An invocation's Warlock level, what it needs (another invocation, or in 2014 a Pact Boon),
+   * and the cantrip it needs: a damaging one ("damage"/"attack"), or in 2014 by name
+   * ("Eldritch Blast").
+   */
   level?: number;
   requires?: string;
-  cantrip?: "damage" | "attack";
+  cantrip?: string;
   repeatable?: boolean;
   srd?: boolean;
+}
+
+/** Plan 131 — a 2014 "spell" choice's rule (Mystic Arcanum, Magical Secrets). */
+export interface ChoiceSpellRule {
+  /** Class lists it picks from; null = any class. */
+  lists: string[] | null;
+  /** The spell levels, one pick each in order (Mystic Arcanum 6, 7, 8, 9); null = any you cast. */
+  levels: number[] | null;
+  cantrips?: boolean;
+  /** The picks count as spells known (Magical Secrets). */
+  known: boolean;
 }
 
 /** A kind of class choice: how it is picked, what it says, where it is recorded. */
 export interface ChoiceKind {
   label: string;
-  kind: "feat" | "option" | "weapon" | "expertise" | "skill";
+  kind: "feat" | "option" | "weapon" | "expertise" | "skill" | "spell";
   note: string;
   book?: boolean;
   record?: string;
   /** Skills it may pick from; "class" = the class's skill list. */
   pool?: string[] | "class";
   options?: ChoiceOption[];
+  spell?: ChoiceSpellRule;
 }
 
 export interface MasteryWeapon {
@@ -97,6 +121,23 @@ export interface MasteryWeapon {
   category: string;
   properties: string[];
   mastery: string;
+}
+
+/**
+ * A class's spellcasting. 2024: `prepared` is the 20-level table. Plan 131, 2014: no `prepared`
+ * table; `kind` says how it gets spells: `known` (a 20-level table) or prepared each day by
+ * `prepared_formula` (ability modifier + level, or + half level), from `first_level`; the
+ * Wizard keeps a `spellbook`.
+ */
+export interface BuilderSpellcasting {
+  ability: Ability;
+  cantrips_base: number;
+  prepared?: number[];
+  kind?: "known" | "prepared";
+  known?: number[] | null;
+  prepared_formula?: "level" | "half_level" | null;
+  first_level?: number;
+  spellbook?: boolean;
 }
 
 export interface BuilderClass {
@@ -107,23 +148,58 @@ export interface BuilderClass {
   armor: string[];
   subclass_level: number;
   srd_subclasses: string[];
-  spellcasting: { ability: Ability; cantrips_base: number; prepared: number[] } | null;
+  spellcasting: BuilderSpellcasting | null;
   kits: { name: string; items: string[]; armor: string | null; shield: boolean }[];
+}
+
+/** Plan 131 — a 2014 subrace: its bonuses and traits (Hill Dwarf, High Elf...). */
+export interface BuilderSubrace {
+  name: string;
+  ability_bonuses: Record<string, number>;
+  traits: string[];
+  hp_per_level?: number;
+  /** The High Elf's cantrip: one Wizard cantrip, cast with Intelligence. */
+  cantrip_choice?: { count: number; list: string; ability: string };
+}
+
+export interface BuilderSpecies {
+  name: string;
+  size: string;
+  speed: number;
+  traits: string[];
+  bonus_skill_choices?: number;
+  bonus_skill_from?: string[];
+  bonus_origin_feat?: boolean;
+  hp_per_level_bonus?: number;
+  // Plan 131 — 2014 races.
+  ability_bonuses?: Record<string, number>;
+  /** The Half-Elf's two +1s: how many, how much, which abilities can't take one. */
+  ability_choice?: { choose: number; amount: number; exclude: string[] } | null;
+  /** Skills the race always gives (Elf Perception, Half-Orc Intimidation). */
+  skills?: string[];
+  skill_choice?: number;
+  subraces?: BuilderSubrace[];
+  /** Race choices: a key into `choice_kinds` → how many picks (Dragonborn ancestry: 1). */
+  choices?: Record<string, number>;
+}
+
+export interface BuilderBackground {
+  name: string;
+  abilities: Ability[];
+  /** 2024: its Origin feat; 2014: null (2014 backgrounds give no feat). */
+  feat: string | null;
+  skills: string[];
+  tool: string | null;
+  blurb: string;
+  /** Plan 131 — 2014: languages of your choice, and the background's feature. */
+  languages?: number;
+  feature?: string;
 }
 
 export interface BuilderOptions {
   campaign_name: string;
-  species: {
-    name: string;
-    size: string;
-    speed: number;
-    traits: string[];
-    bonus_skill_choices?: number;
-    bonus_skill_from?: string[];
-    bonus_origin_feat?: boolean;
-    hp_per_level_bonus?: number;
-  }[];
-  backgrounds: { name: string; abilities: Ability[]; feat: string; skills: string[]; tool: string; blurb: string }[];
+  species: BuilderSpecies[];
+  backgrounds: BuilderBackground[];
   origin_feats: { name: string; blurb: string }[];
   classes: Record<string, BuilderClass>;
   skills: Record<string, Ability>;
@@ -160,6 +236,16 @@ export interface BuilderOptions {
   land_spells: Record<string, Record<string, string[]>>;
   extra_spell_lists: Record<string, Record<string, string[]>>;
   class_scales: Record<string, { label: string; table: [number, number | string][] }[]>;
+  // Plan 131 — which rules, and the 2014-only tables (empty for a 2024 campaign).
+  ruleset?: Ruleset;
+  /** Spells in a spellbook by level 1-20 (the 2014 Wizard). */
+  spellbook_size?: Record<string, number[]>;
+  /** Unarmored AC base + DEX by subclass (Draconic Bloodline: 13). */
+  unarmored_ac_base_subclass?: Record<string, number>;
+  /** Armor a subclass trains (Life Domain: heavy). */
+  subclass_armor?: Record<string, string[]>;
+  /** Spells a subclass adds to its class's list, by class level (The Fiend). */
+  expanded_spells?: Record<string, Record<string, string[]>>;
 }
 
 /** One class choice as the build sends it (Plan 128). */
@@ -210,6 +296,16 @@ export interface CharacterBuildBody {
   background_feat_picks: OriginFeatPicks | null;
   origin_feat_picks: OriginFeatPicks | null;
   appearance: string | null;
+  // Plan 131 — 2014 builds only (a 2024 build leaves them out).
+  subrace?: string | null;
+  /** The Half-Elf's two +1s, or a book race's bonuses. */
+  ability_choice?: Record<string, number>;
+  /** A book background's 2 skills. */
+  background_skills?: string[];
+  /** The race's own choices (Dragonborn ancestry), in the class-choice shape. */
+  species_choices?: ClassChoicePick[];
+  /** A Wizard's prepared spells, out of `spells` (its spellbook). */
+  prepared_spells?: string[];
 }
 
 export interface BuildResult {

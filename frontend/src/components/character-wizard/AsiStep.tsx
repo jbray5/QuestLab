@@ -11,6 +11,7 @@ import {
   asiAllowed,
   emptyPick,
   featSpellPool,
+  is2014,
   ordinal,
   type LevelContext,
   type PickState,
@@ -65,7 +66,8 @@ export default function AsiStep({ opts, klass, level: charLevel, levels, context
       <p className="note">
         By level <span className="num">{charLevel}</span> a {klass} has had {levels.length === 1 ? "one Ability Score Improvement" : `${levels.length} Ability Score Improvements`},
         at level{levels.length > 1 ? "s" : ""} {andList(levels)}. Each one is +2 to one ability (or +1 to two), or a feat you
-        qualify for at that level instead. Most feats also give +1 to an ability. No score goes above 20.
+        qualify for at that level instead.{" "}
+        {is2014(opts) ? "The free 2014 rules have one feat, Grappler; any other comes from your book." : "Most feats also give +1 to an ability."} No score goes above 20.
       </p>
       {levels.map((level, i) => {
         const ctx = contexts[i];
@@ -74,7 +76,7 @@ export default function AsiStep({ opts, klass, level: charLevel, levels, context
         return (
           <section key={level} id={`cc-asi-${level}`} className={`cc-asi ${isOpen ? "open" : ""}`}>
             <button type="button" className="cc-asi-head" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : level)}>
-              <span className="cc-asi-title">Level <span className="num">{level}</span>{level === 19 ? " · Epic Boon" : ""}</span>
+              <span className="cc-asi-title">Level <span className="num">{level}</span>{level === 19 && !is2014(opts) ? " · Epic Boon" : ""}</span>
               <span className="cc-asi-sum">{ctx ? summarize(p, ctx) : ""}</span>
               {isOpen ? <ChevronUp size={16} aria-hidden /> : <ChevronDown size={16} aria-hidden />}
             </button>
@@ -115,12 +117,14 @@ function LevelPicker({ opts, klass, ctx, pick, setPick, onDone, isLast }: {
   const feat = row?.feat;
   const isBook = pick.name === BOOK;
   const choose = (name: string) => setPick({ ...emptyPick(), name });
+  // Plan 131 — level 19 brings an Epic Boon in 2024 only; in 2014 it is an ordinary improvement.
+  const boon = ctx.level === 19 && !is2014(opts);
   const sortPopular = (a: (typeof popular)[number], b: (typeof popular)[number]) =>
     (opts.popular_feats[klass] ?? []).indexOf(a.feat.name) - (opts.popular_feats[klass] ?? []).indexOf(b.feat.name);
 
   return (
     <div className="cc-asi-body">
-      {ctx.level === 19 && (
+      {boon && (
         <p className="note">Level 19 brings an Epic Boon: take one from your book (tap &ldquo;From my book&rdquo;), or any feat below, or the Ability Score Improvement.</p>
       )}
       {popular.length > 0 && <span className="lbl">Popular for a {klass}</span>}
@@ -133,7 +137,7 @@ function LevelPicker({ opts, klass, ctx, pick, setPick, onDone, isLast }: {
           <div className="cc-cards">
             {others.map((r) => <FeatCard key={r.feat.name} f={r.feat} on={pick.name === r.feat.name} onPick={choose} />)}
             <button type="button" className={`cc-card ${isBook ? "on" : ""}`} aria-pressed={isBook} onClick={() => choose(BOOK)}>
-              <b>From my book…</b><small>{ctx.level === 19 ? "An Epic Boon, or any other feat your DM allows." : "Any other feat your DM allows. Recorded by name."}</small>
+              <b>From my book…</b><small>{boon ? "An Epic Boon, or any other feat your DM allows." : "Any other feat your DM allows. Recorded by name."}</small>
             </button>
           </div>
         </>
@@ -143,7 +147,7 @@ function LevelPicker({ opts, klass, ctx, pick, setPick, onDone, isLast }: {
             {others.length === 1 ? "See 1 other feat" : `Browse all ${others.length} other feats`}
           </button>
           <button type="button" className={`cc-chip ${isBook ? "on" : ""}`} aria-pressed={isBook} onClick={() => choose(BOOK)}>
-            {ctx.level === 19 ? "Epic Boon from my book…" : "From my book…"}
+            {boon ? "Epic Boon from my book…" : "From my book…"}
           </button>
         </div>
       )}
@@ -168,7 +172,7 @@ function LevelPicker({ opts, klass, ctx, pick, setPick, onDone, isLast }: {
         <div className="panel pad">
           {isBook ? (
             <>
-              <label htmlFor={`cc-book-${ctx.level}`} style={{ marginTop: 0 }}>{ctx.level === 19 ? "Epic Boon or feat name" : "Feat name"}</label>
+              <label htmlFor={`cc-book-${ctx.level}`} style={{ marginTop: 0 }}>{boon ? "Epic Boon or feat name" : "Feat name"}</label>
               <input id={`cc-book-${ctx.level}`} type="text" value={pick.bookName} onChange={(e) => setPick({ ...pick, bookName: e.target.value })} placeholder="As written in your book" />
               <span className="lbl">Does it give +1 to an ability? (optional)</span>
               <AbilityChips scores={ctx.scores} allowed={[...ABILITIES]} asi={pick.asi} setAsi={(asi) => setPick({ ...pick, asi })} each={1} total={1} />

@@ -43,6 +43,7 @@ from domain.arena import (
 )
 from domain.character import PlayerCharacter
 from integrations import arena_signing
+from integrations.dnd_rules import rulesets
 from integrations.dnd_rules.wild_magic_2024 import RANDOM_SPELLS, surge_entry
 from services import (
     attack_service,
@@ -452,6 +453,7 @@ def _spell_attacks(
     if stats.get("attack_bonus") is None:
         return out, reactions, prepared
     cls = _class_of(pc)
+    old = _is_2014(pc)  # Plan 131: 2014 heal dice, casting-time wording, invocations
     for row in spellcasting_service.list_known_for_character(db, pc.id, dm_email):
         spell = SpellRepo.get_by_id(db, row.spell_id)
         if spell is None:
@@ -472,7 +474,9 @@ def _spell_attacks(
         damage = spell.damage_dice or ""
         kind = rule.get("kind") or ("cantrip" if spell.level == 0 else "spell")
         casting = (spell.casting_time or "").lower()
-        cost = rule.get("cost") or ("bonus" if casting.startswith("bonus") else "action")
+        # The 2014 catalog writes "1 bonus action" where the 2024 one writes "Bonus Action".
+        bonus = casting.startswith("bonus") or (old and casting.startswith("1 bonus action"))
+        cost = rule.get("cost") or ("bonus" if bonus else "action")
         if not damage and not rule:
             continue  # nothing the referee can do with it in a one-on-one
         if spell.level == 0 and damage:
@@ -483,10 +487,13 @@ def _spell_attacks(
         if effect == "eldritch_blast":
             beams = 1 + (pc.level >= 5) + (pc.level >= 11) + (pc.level >= 17)
             agonizing = cls == "warlock" and pc.level >= 2
+            if old:  # 2014: only with the Agonizing Blast invocation on the sheet
+                agonizing = any("agonizing blast" in f.lower() for f in _feats(pc))
             per = "1d10" + (f"+{mods['cha']}" if agonizing and mods["cha"] > 0 else "")
             damage = f"{beams}×{per}"
         if effect == "heal":
-            damage = f"{rule['dice']}{pc_spell_mod(stats, mods):+d}"
+            dice = _HEALS_2014.get(name, (rule["dice"],))[0] if old else rule["dice"]
+            damage = f"{dice}{pc_spell_mod(stats, mods):+d}"
         is_attack = attack_type in ("melee", "ranged") and kind in ("cantrip", "spell")
         if effect == "sorcerous_burst":
             is_attack = True
@@ -496,6 +503,8 @@ def _spell_attacks(
             if spell.level == 0
             else (_UPCAST_BY_NAME.get(name) or _parse_upcast(spell.higher_levels or ""))
         )
+        if old and spell.level > 0:
+            upcast = _UPCAST_2014.get(name) or _parse_upcast_2014(spell.higher_levels or "")
         hint = (
             " · one more per slot level up"
             if upcast == "count"
@@ -849,6 +858,401 @@ def _metamagic(pc: PlayerCharacter) -> list[str]:
     return out
 
 
+# ── The 2014 rules (Plan 131) ────────────────────────────────────────────────
+# A PC on the 2014 rules (SRD 5.1) gets the 2014 costs, dice and blurbs below; the
+# 2024 paths above are untouched. The phone's turn kit is the point: it must say what
+# the 2014 rules say. The immersive Arena still referees with its 2024 engine (admin
+# only, never marketed); these tables just make sure a 2014 sheet builds there too.
+
+
+def _is_2014(pc: Any) -> bool:
+    """True when the PC plays by the 2014 rules (a missing value means 2024)."""
+    return rulesets.is_2014(getattr(pc, "ruleset", None))
+
+
+# The 2014 actions anyone can take instead of attacking: no Influence, Study or Utilize.
+_BASIC_ACTIONS_2014 = [
+    "Dash",
+    "Disengage",
+    "Dodge",
+    "Help",
+    "Hide",
+    "Ready",
+    "Search",
+    "Use an Object",
+]
+
+# Heals by the 2014 numbers: (base dice, added per slot level above, add the casting
+# modifier). Cure Wounds is 1d8, Healing Word 1d4 and Mass Cure Wounds 3d8 in 2014.
+_HEALS_2014: dict[str, tuple[str, str, bool]] = {
+    "cure wounds": ("1d8", "1d8", True),
+    "healing word": ("1d4", "1d4", True),
+    "mass healing word": ("1d4", "1d4", True),
+    "mass cure wounds": ("3d8", "1d8", True),
+    "prayer of healing": ("2d8", "1d8", True),
+    "heal": ("70", "", False),
+}
+
+# Upcasts the 2014 text doesn't state cleanly enough to parse, by spell name.
+_UPCAST_2014 = {
+    "cure wounds": "1d8",
+    "healing word": "1d4",
+    "mass healing word": "1d4",
+    "mass cure wounds": "1d8",
+    "guiding bolt": "1d6",
+    "magic missile": "count",
+    "scorching ray": "count",
+}
+# 2014 wording: "the damage increases by 1d6 for each slot level above 1st".
+_UPCAST_DIE_2014_RE = re.compile(
+    r"increases by (\d+d\d+) for each (?:spell )?slot level above", re.I
+)
+
+# Options paid from a pool: turn-kit key → (tracked row, points per use).
+_POOL_COST_2014: dict[str, tuple[str, int]] = {
+    "flurry": ("ki", 1),
+    "patient_defense": ("ki", 1),
+    "step_of_the_wind": ("ki", 1),
+    "stunning_strike": ("ki", 1),
+    "quicken": ("sorcery points", 2),
+}
+
+# With no "Draconic Ancestry: X" on the sheet, the breath's damage type picks a dragon.
+_CHROMATIC_2014 = {
+    "acid": "black",
+    "cold": "white",
+    "fire": "red",
+    "lightning": "blue",
+    "poison": "green",
+}
+
+# Tracked 2014 rows the phone offers on a turn: name → (key, cost, blurb). Rage, Bardic
+# Inspiration and both Channel Divinities depend on level or subclass, so
+# ``_feature_spec_2014`` builds those.
+_FEATURE_KEYS_2014: dict[str, tuple[str, str, str]] = {
+    "second wind": ("second_wind", "bonus", "Bonus action: heal 1d10 + your level."),
+    "action surge": ("action_surge", "free", "Take a second action this turn."),
+    "lay on hands": ("lay_on_hands", "action", "Action: heal 5 HP from your pool."),
+    "wild shape": (
+        "wild_shape",
+        "action",
+        "Action: turn into a beast you have seen. Its hit points take the damage first.",
+    ),
+    "divine sense": (
+        "divine_sense",
+        "action",
+        "Action: until the end of your next turn, sense celestials, fiends and undead "
+        "within 60 ft.",
+    ),
+}
+
+
+def _parse_upcast_2014(text: str) -> str:
+    """The per-level scaling a 2014 spell's "higher levels" text describes, or ""."""
+    m = _UPCAST_DIE_2014_RE.search(text or "")
+    if m:
+        return m.group(1)
+    if _UPCAST_COUNT_RE.search(text or ""):
+        return "count"
+    return ""
+
+
+def _martial_die_2014(level: int) -> int:
+    """The 2014 Martial Arts die: d4, d6 at level 5, d8 at 11, d10 at 17."""
+    return 4 + 2 * ((level >= 5) + (level >= 11) + (level >= 17))
+
+
+def _feature_spec_2014(name: str, pc: PlayerCharacter) -> Optional[tuple[str, str, str]]:
+    """A tracked 2014 row's turn option as ``(key, cost, blurb)``, or None if it isn't one.
+
+    Args:
+        name: The row's feature name, lower-cased.
+        pc: The player character (level and subclass shape some blurbs).
+
+    Returns:
+        The arena key, the cost and the plain-words blurb, or None.
+    """
+    sub = (pc.subclass or "").lower()
+    lvl = pc.level
+    if name == "rage":
+        bonus = 2 + (lvl >= 9) + (lvl >= 16)
+        return (
+            "rage",
+            "bonus",
+            f"Bonus action: +{bonus} damage on Strength melee hits; bludgeoning, piercing "
+            "and slashing damage to you is halved.",
+        )
+    if name == "bardic inspiration":
+        if "lore" not in sub:
+            return None
+        die = 6 + 2 * ((lvl >= 5) + (lvl >= 10) + (lvl >= 15))
+        return (
+            "cutting_words",
+            "reaction",
+            f"Cutting Words: when a creature you can see within 60 ft. rolls an attack, a "
+            f"check or damage, spend an inspiration die (d{die}) to take it off the roll.",
+        )
+    if name == "channel divinity":
+        domain = (
+            "Preserve Life (share out 5 × your level in healing among creatures within 30 "
+            "ft., none above half its hit points)"
+            if "life" in sub
+            else "your domain's own option"
+        )
+        return (
+            "channel_divinity",
+            "action",
+            "Action: Turn Undead (undead within 30 ft. make a WIS save or flee for a minute), "
+            f"or {domain}.",
+        )
+    if name == "channel divinity (paladin)":
+        oath = (
+            "Sacred Weapon (add your Charisma modifier to weapon attack rolls for a minute) "
+            "or Turn the Unholy (fiends and undead within 30 ft. make a WIS save or flee)"
+            if "devotion" in sub
+            else "one of your oath's Channel Divinity options"
+        )
+        return ("oath_channel", "action", f"Action: {oath}.")
+    return _FEATURE_KEYS_2014.get(name)
+
+
+def _pc_features_2014(db: Session, pc: PlayerCharacter, dm_email: str) -> list[ArenaFeature]:
+    """The 2014 sheet features the turn kit offers, with uses left.
+
+    Args:
+        db: Active database session.
+        pc: The player character.
+        dm_email: The owning DM.
+
+    Returns:
+        The modeled features.
+    """
+    out: list[ArenaFeature] = []
+    for row in feature_service.list_for_character(db, pc.id, dm_email):
+        spec = _feature_spec_2014((row.feature_name or "").strip().lower(), pc)
+        if not spec:
+            continue
+        key, cost, blurb = spec
+        if row.max_uses:
+            uses = max(0, row.max_uses - (row.uses_spent or 0))
+        else:
+            # max_uses 0 is "no limit" for Rage and Wild Shape at level 20.
+            uses = 99 if key in ("rage", "wild_shape") else 0
+        if key == "lay_on_hands":
+            uses //= 5  # the pool is hit points (5 × level); the referee spends 5 at a time
+        out.append(
+            ArenaFeature(  # type: ignore[arg-type]
+                key=key, name=row.feature_name, uses_left=uses, cost=cost, blurb=blurb
+            )
+        )
+    return out
+
+
+def _class_extras_2014(
+    pc: PlayerCharacter, mods: dict[str, int], prof: int
+) -> tuple[list[ArenaAttack], list[ArenaFeature]]:
+    """The 2014 class mechanics that aren't spells or sheet rows (SRD 5.1).
+
+    No Steady Aim, Innate Sorcery or Tides of Chaos (none is 2014 SRD). Ki pays for
+    Flurry of Blows, Patient Defense and Step of the Wind; Divine Smite costs no action
+    and needs no prepared spell; Metamagic starts at level 3.
+
+    Args:
+        pc: The player character.
+        mods: Ability modifiers.
+        prof: Proficiency bonus.
+
+    Returns:
+        ``(attacks, features)`` to fold into the kit.
+    """
+    cls = _class_of(pc)
+    lvl = pc.level
+    attacks: list[ArenaAttack] = []
+    feats: list[ArenaFeature] = []
+
+    def feat(key: str, name: str, cost: str, blurb: str) -> None:
+        """Add an option with no counter of its own (99 uses: the turn kit shows none)."""
+        feats.append(
+            ArenaFeature(  # type: ignore[arg-type]
+                key=key, name=name, uses_left=99, cost=cost, blurb=blurb
+            )
+        )
+
+    if cls == "barbarian" and lvl >= 2:
+        feat(
+            "reckless",
+            "Reckless Attack",
+            "free",
+            "Advantage on your melee attacks this turn; the foe gets it back on you.",
+        )
+    if cls == "monk":
+        feat(
+            "martial_bonus",
+            "Martial Arts strike",
+            "bonus",
+            "After you attack with a fist or a monk weapon: one Unarmed Strike as a bonus action.",
+        )
+        if lvl >= 2:
+            feat(
+                "flurry",
+                "Flurry of Blows",
+                "bonus",
+                "1 ki point, right after you take the Attack action: two Unarmed Strikes "
+                "as a bonus action.",
+            )
+            feat(
+                "patient_defense",
+                "Patient Defense",
+                "bonus",
+                "1 ki point: Dodge as a bonus action.",
+            )
+            feat(
+                "step_of_the_wind",
+                "Step of the Wind",
+                "bonus",
+                "1 ki point: Dash or Disengage as a bonus action, and you jump twice as far "
+                "this turn.",
+            )
+        if lvl >= 5:
+            attacks.append(
+                ArenaAttack(
+                    key="stunning_strike",
+                    name="Stunning Strike",
+                    kind="feature",
+                    cost="free",
+                    damage="0",
+                    effect="stunning_strike",
+                    after_melee_hit=True,
+                    save_ability="con",
+                    save_dc=8 + prof + mods["wis"],
+                    note="1 ki point, after a melee weapon hit: CON save or Stunned until the "
+                    "end of your next turn",
+                )
+            )
+    if cls == "paladin" and lvl >= 2:
+        attacks.append(
+            ArenaAttack(
+                key="divine_smite",
+                name="Divine Smite",
+                kind="feature",
+                cost="free",
+                damage="2d8",
+                damage_type="radiant",
+                effect="divine_smite",
+                after_melee_hit=True,
+                spell_level=1,
+                note="no action: when you hit with a melee weapon, spend a slot for 2d8 "
+                "radiant, +1d8 per slot level above 1st (5d8 at most), +1d8 against undead "
+                "and fiends",
+            )
+        )
+    if cls == "sorcerer" and lvl >= 2:
+        feat(
+            "create_slot",
+            "Font of Magic: make a slot",
+            "bonus",
+            "Bonus action: sorcery points into a spell slot. Level 1 costs 2, level 2 "
+            "costs 3, level 3 costs 5, level 4 costs 6, level 5 costs 7.",
+        )
+        feat(
+            "convert_slot",
+            "Font of Magic: slot to points",
+            "bonus",
+            "Bonus action: a spell slot into sorcery points equal to its level.",
+        )
+        if lvl >= 3 and "quickened spell" in _metamagic(pc):
+            feat(
+                "quicken",
+                "Quickened Spell",
+                "free",
+                "2 sorcery points: cast a spell that takes an action as a bonus action instead.",
+            )
+    return attacks, feats
+
+
+def _ancestry_2014(pc: PlayerCharacter) -> dict[str, Any]:
+    """The dragonborn's Draconic Ancestry row ("Draconic Ancestry: Blue" in the feats).
+
+    A sheet without one falls back to the damage type its notes mention (fire, so Red,
+    when they say nothing), as the 2024 breath does.
+
+    Args:
+        pc: The player character.
+
+    Returns:
+        A ``DRACONIC_ANCESTRY`` row: name, damage_type, area, save.
+    """
+    rows = {r["name"].lower(): r for r in rulesets.options(rulesets.R2014).DRACONIC_ANCESTRY}
+    for f in _feats(pc):
+        head, _, pick = f.partition(":")
+        if head.strip().lower() == "draconic ancestry" and pick.strip().lower() in rows:
+            return rows[pick.strip().lower()]
+    return rows[_CHROMATIC_2014[_breath_type(pc)]]
+
+
+def _species_extras_2014(
+    pc: PlayerCharacter, mods: dict[str, int], prof: int
+) -> tuple[list[ArenaAttack], list[ArenaFeature]]:
+    """The 2014 Dragonborn Breath Weapon: an action, once per short or long rest.
+
+    Area and save come from the ancestry (a 5 by 30 ft. line or a 15 ft. cone; DEX or
+    CON); 2d6, 3d6 at level 6, 4d6 at 11, 5d6 at 16; DC 8 + CON modifier + proficiency.
+
+    Args:
+        pc: The player character.
+        mods: Ability modifiers.
+        prof: Proficiency bonus.
+
+    Returns:
+        ``(attacks, features)`` to fold into the kit.
+    """
+    if "dragonborn" not in (pc.race or "").lower():
+        return [], []
+    ancestry = _ancestry_2014(pc)
+    dice = 2 + (pc.level >= 6) + (pc.level >= 11) + (pc.level >= 16)
+    dc = 8 + mods.get("con", 0) + prof
+    save = ancestry["save"]
+    attack = ArenaAttack(
+        key="breath_weapon",
+        name=f"Breath Weapon ({ancestry['damage_type']})",
+        kind="feature",
+        cost="action",
+        save_ability=save.lower(),
+        save_dc=dc,
+        half_on_save=True,
+        damage=f"{dice}d6",
+        damage_type=ancestry["damage_type"],
+        melee=False,
+        note=f"{ancestry['area']}, {save} save DC {dc} for half. Once per short or long rest.",
+    )
+    uses = ArenaFeature(
+        key="breath_weapon",
+        name="Breath Weapon uses",
+        uses_left=1,
+        cost="free",
+        blurb="Once per short or long rest — spent by the Breath Weapon attack above.",
+    )
+    return [attack], [uses]
+
+
+def _pool_uses_2014(option: TurnOption, rows: dict[str, Any]) -> TurnOption:
+    """A ki or sorcery-point option shows how many times the pool can still pay for it.
+
+    Args:
+        option: The turn option.
+        rows: The PC's tracked rows by lower-cased name.
+
+    Returns:
+        The option, with ``uses_left`` from the pool when it costs points.
+    """
+    pool = _POOL_COST_2014.get(option.key)
+    row = rows.get(pool[0]) if pool else None
+    if pool is None or row is None or not row.max_uses:
+        return option
+    option.uses_left = max(0, row.max_uses - row.uses_spent) // pool[1]
+    return option
+
+
 def _pc_features(
     db: Session, pc: PlayerCharacter, dm_email: str, personal: bool = False
 ) -> list[ArenaFeature]:
@@ -891,19 +1295,29 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
         slots_max = {lvl: int(s.max) for lvl, s in state.levels.items() if s.max > 0}
     except Exception:  # noqa: BLE001 — non-casters and odd sheets simply have no slots
         slots = {}
+    old = _is_2014(pc)  # Plan 131
     martial = (6 if pc.level < 5 else 8) if cls == "monk" else 0
+    if old:
+        martial = _martial_die_2014(pc.level) if cls == "monk" else 0
     attacks = _weapon_attacks(db, pc)
     if not attacks or cls == "monk":
         attacks.insert(0, _unarmed(pc, mods, martial))
     spells, reactions, prepared = _spell_attacks(db, pc, dm_email, stats, mods)
     attacks += spells
     personal = auth_service.personal_content_allowed(dm_email)
-    extra_attacks, extra_feats = _class_extras(pc, mods, prof, personal, stats, prepared)
+    if old:
+        extra_attacks, extra_feats = _class_extras_2014(pc, mods, prof)
+    else:
+        extra_attacks, extra_feats = _class_extras(pc, mods, prof, personal, stats, prepared)
     attacks += extra_attacks
-    species_attacks, species_feats = _species_extras(pc, mods, prof)
+    species = _species_extras_2014 if old else _species_extras
+    species_attacks, species_feats = species(pc, mods, prof)
     attacks += species_attacks
     extra_feats += species_feats
-    features = _pc_features(db, pc, dm_email, personal) + extra_feats
+    if old:
+        features = _pc_features_2014(db, pc, dm_email) + extra_feats
+    else:
+        features = _pc_features(db, pc, dm_email, personal) + extra_feats
     sorcery = pc.level if cls == "sorcerer" and pc.level >= 2 else 0
     sorcery_max = sorcery
     for row in feature_service.list_for_character(db, pc.id, dm_email):
@@ -939,7 +1353,9 @@ def _build_pc(db: Session, pc: PlayerCharacter, dm_email: str) -> ArenaPc:
         sorcery_max=sorcery_max,
         ac_bonus=1 if _has_style(pc, "defense") else 0,
         metamagic=_metamagic(pc),
-        wild_magic=bool(personal and cls == "sorcerer" and "wild" in (pc.subclass or "").lower()),
+        wild_magic=bool(
+            not old and personal and cls == "sorcerer" and "wild" in (pc.subclass or "").lower()
+        ),
     )
 
 
@@ -995,8 +1411,12 @@ def _turn_option(a: ArenaAttack) -> TurnOption:
     )
 
 
-def _live_tips(apc: ArenaPc) -> list[str]:
-    """The coach's reminders for a real turn: what a newer player forgets, by what they have."""
+def _live_tips(apc: ArenaPc, old: bool = False) -> list[str]:
+    """The coach's reminders for a real turn: what a newer player forgets, by what they have.
+
+    ``old`` is a PC on the 2014 rules (Plan 131): Lay on Hands is an action, Divine
+    Smite costs none, and a bonus-action spell leaves only a cantrip for the turn.
+    """
     cls = apc.character_class.lower()
     ready = {f.key for f in apc.features if f.uses_left > 0}
     tips: list[str] = []
@@ -1015,19 +1435,28 @@ def _live_tips(apc: ArenaPc) -> list[str]:
         tips.append("Action Surge gives you a whole second action this turn.")
     if "lay_on_hands" in ready:
         tips.append(
-            "Lay on Hands is a bonus action: touch a friend (or yourself) and heal from your pool."
+            f"Lay on Hands is {'an action' if old else 'a bonus action'}: touch a friend "
+            "(or yourself) and heal from your pool."
         )
     if apc.attacks_per_action > 1:
         tips.append(
             f"Extra Attack: the Attack action lets you attack {apc.attacks_per_action} times."
         )
     if any(a.effect == "divine_smite" for a in apc.attacks):
-        tips.append("Divine Smite: after a melee hit, spend a slot for extra radiant damage.")
+        tips.append(
+            "Divine Smite: when you hit with a melee weapon, spend a slot for extra radiant "
+            "damage. It takes no action."
+            if old
+            else "Divine Smite: after a melee hit, spend a slot for extra radiant damage."
+        )
     if any(a.kind == "cantrip" for a in apc.attacks):
         tips.append("Cantrips never run out: cast them as often as you like.")
     if any(a.cost == "bonus" and a.spell_level > 0 for a in apc.attacks):
         tips.append(
-            "Spend a slot on a bonus-action spell and you can't spend another slot this turn."
+            "Cast a spell as a bonus action and your only other spell this turn can be a "
+            "cantrip that takes an action."
+            if old
+            else "Spend a slot on a bonus-action spell and you can't spend another slot this turn."
         )
     return tips[:4]
 
@@ -1080,10 +1509,11 @@ def _free_smite_note(row: Any) -> str:
     return f" · once per Long Rest one costs no slot ({left} left)"
 
 
-def _lay_on_hands_option(row: Any, option: TurnOption) -> TurnOption:
+def _lay_on_hands_option(row: Any, option: TurnOption, cost: str = "Bonus action") -> TurnOption:
     """Lay on Hands on the phone: the pool in hit points, not the Arena's 5-point chunks.
 
-    ``uses_left`` is the hit points left in the pool (Plan 128).
+    ``uses_left`` is the hit points left in the pool (Plan 128). ``cost`` is "Action"
+    on the 2014 rules (Plan 131).
     """
     if row is None or not row.max_uses:
         return option
@@ -1092,7 +1522,7 @@ def _lay_on_hands_option(row: Any, option: TurnOption) -> TurnOption:
         update={
             "uses_left": left,
             "note": (
-                f"Bonus action: touch a creature (or yourself) and restore hit points from your "
+                f"{cost}: touch a creature (or yourself) and restore hit points from your "
                 f"pool, {left} of {row.max_uses} left. Spend 5 to cure a poison."
             ),
         }
@@ -1125,7 +1555,8 @@ def heal_dice(
     Returns:
         A dice expression for healing spells, None for every other spell.
     """
-    rule = _HEALS.get((spell_name or "").strip().lower())
+    heals = _HEALS_2014 if _is_2014(pc) else _HEALS  # Plan 131
+    rule = heals.get((spell_name or "").strip().lower())
     if rule is None:
         return None
     base, per_level, add_mod = rule
@@ -1159,23 +1590,36 @@ def turn_kit(db: Session, pc: PlayerCharacter, dm_email: str) -> TurnKit:
         (r.feature_name or "").strip().lower(): r
         for r in feature_service.list_for_character(db, pc.id, dm_email)
     }
-    kit = TurnKit(speed=pc.speed or 30, basic_actions=list(_BASIC_ACTIONS), tips=_live_tips(apc))
+    old = _is_2014(pc)  # Plan 131: the 2014 actions, costs and pools
+    kit = TurnKit(
+        speed=pc.speed or 30,
+        basic_actions=list(_BASIC_ACTIONS_2014 if old else _BASIC_ACTIONS),
+        tips=_live_tips(apc, old),
+    )
     smites = any(a.effect == "divine_smite" for a in apc.attacks)
     for a in _fold_throws(apc.attacks, smites):
         option = _turn_option(a)
-        if a.effect == "divine_smite":
+        if a.effect == "divine_smite" and not old:
             option.note += _free_smite_note(rows.get("paladin's smite"))
+        if old:
+            option = _pool_uses_2014(option, rows)
         getattr(kit, a.cost).append(option)
     for f in apc.features:
+        if old and f.key == "breath_weapon":
+            continue  # the Breath Weapon option itself says "once per short or long rest"
         option = TurnOption(
             key=f.key, name=f.name, kind="feature", uses_left=f.uses_left, note=f.blurb
         )
         row = rows.get((f.name or "").strip().lower())
         if f.key == "lay_on_hands":
-            option = _lay_on_hands_option(rows.get("lay on hands"), option)
+            option = _lay_on_hands_option(
+                rows.get("lay on hands"), option, "Action" if old else "Bonus action"
+            )
         elif row is not None and row.max_uses:
             # The sheet's counter is the truth at the table (Innate Sorcery is modeled as 2).
             option.uses_left = max(0, row.max_uses - row.uses_spent)
+        if old:
+            option = _pool_uses_2014(option, rows)
         getattr(kit, f.cost).append(option)
     if _class_of(pc) == "rogue" and pc.level >= 2:
         kit.bonus.insert(

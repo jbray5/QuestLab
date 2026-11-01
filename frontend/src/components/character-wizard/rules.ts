@@ -2,6 +2,7 @@ import type {
   Ability,
   BuilderFeat,
   BuilderOptions,
+  BuilderSpecies,
   BuilderSpell,
   ChoiceKind,
   ChoiceOption,
@@ -12,7 +13,14 @@ import type {
  * The wizard's rule math (Plan 74, Plan 126) — a mirror of the server's, so each step can
  * show what a choice gives and why a pick is locked. The server (character_builder_service +
  * feat_rules) re-checks everything on Create; this file only previews.
+ *
+ * Plan 131: a 2014 campaign (`opts.ruleset === "2014"`) branches where the rules differ: racial
+ * ability bonuses, known vs prepared casters and the spellbook, half casters from level 2,
+ * subclass armor, fighting styles only from the class feature, and the "spell" class choices.
  */
+
+/** Plan 131 — the options are for a 2014 campaign. */
+export const is2014 = (opts: BuilderOptions | null | undefined) => opts?.ruleset === "2014";
 
 export const ABILITIES: Ability[] = ["STR", "DEX", "CON", "INT", "WIS", "CHA"];
 export const ABILITY_NAMES: Record<string, string> = {
@@ -48,14 +56,33 @@ export function cantripCap(opts: BuilderOptions, klass: string, level: number): 
   return sc.cantrips_base + (level >= 4 ? 1 : 0) + (level >= 10 ? 1 : 0);
 }
 
-export function spellCap(opts: BuilderOptions, klass: string, level: number): number {
+/**
+ * Leveled spells a class has ready at `level`. 2024: the prepared table. Plan 131, 2014: a known
+ * caster's Spells Known; a prepared caster's ability modifier (`mod`) + level, or + half level
+ * (at least 1, nothing below its first spell level). A Wizard prepares this many out of its
+ * spellbook (see `spellbookSize`).
+ */
+export function spellCap(opts: BuilderOptions, klass: string, level: number, mod = 0): number {
   const sc = opts.classes[klass]?.spellcasting;
-  return sc ? sc.prepared[Math.max(1, Math.min(20, level)) - 1] : 0;
+  if (!sc) return 0;
+  const lvl = Math.max(1, Math.min(20, level));
+  if (sc.prepared) return sc.prepared[lvl - 1];
+  if (sc.kind === "known") return sc.known?.[lvl - 1] ?? 0;
+  if (lvl < (sc.first_level ?? 1)) return 0;
+  return Math.max(1, mod + (sc.prepared_formula === "half_level" ? Math.floor(lvl / 2) : lvl));
+}
+
+/** Plan 131 — spells in a 2014 Wizard's spellbook at `level` (0 for every other class). */
+export function spellbookSize(opts: BuilderOptions, klass: string, level: number): number {
+  return opts.spellbook_size?.[klass]?.[Math.max(1, Math.min(20, level)) - 1] ?? 0;
 }
 
 /** Highest spell level castable (2024: half casters reach 2nd at 5, 3rd at 9...). */
 export function maxSpellLevel(opts: BuilderOptions, klass: string, level: number): number {
-  if (!opts.classes[klass]?.spellcasting) return 0;
+  const sc = opts.classes[klass]?.spellcasting;
+  if (!sc) return 0;
+  // Plan 131 — a 2014 Paladin or Ranger casts nothing until level 2.
+  if (level < (sc.first_level ?? 1)) return 0;
   if (klass === "Paladin" || klass === "Ranger") return Math.min(5, Math.floor((Math.max(1, level) + 3) / 4));
   if (klass === "Warlock") return Math.min(5, Math.floor((level + 1) / 2));
   return Math.min(9, Math.floor((level + 1) / 2));
@@ -82,8 +109,11 @@ export function isCaster(opts: BuilderOptions, klass: string, subclass: string |
   return opts.caster_subclasses.some((s) => sub.includes(s.toLowerCase()));
 }
 
-export function armorTraining(opts: BuilderOptions, klass: string, feats: string[]): Set<string> {
+export function armorTraining(opts: BuilderOptions, klass: string, feats: string[], subclass: string | null = null): Set<string> {
   const out = new Set(opts.classes[klass]?.armor ?? []);
+  // Plan 131 — a 2014 subclass can train armor too (the Life Domain's heavy armor).
+  const sub = (subclass ?? "").toLowerCase();
+  for (const [name, armor] of Object.entries(opts.subclass_armor ?? {})) if (sub && sub.includes(name.toLowerCase())) armor.forEach((a) => out.add(a));
   const names = featSet(feats);
   if (names.has("lightly armored")) { out.add("light"); out.add("shields"); }
   if (names.has("moderately armored")) { out.add("medium"); out.add("shields"); }
@@ -193,10 +223,12 @@ export function walkImprovements(
   const popular = opts.popular_feats[klass] ?? [];
   const caster = isCaster(opts, klass, subclass);
   let first: string | null = null;
+  // Plan 131 — in 2014 a fighting style comes only from the Fighting Style feature: not offered.
+  const catalog = is2014(opts) ? opts.feats.filter((f) => f.category !== "fighting_style") : opts.feats;
 
   for (const level of levels) {
-    const ctx = { scores: { ...scores }, caster, training: armorTraining(opts, klass, feats), style: hasFightingStyle(opts, klass, level, feats), feats: [...feats] };
-    const rows: FeatRow[] = opts.feats.map((f) => ({ feat: f, check: featQualifies(f, ctx), popular: popular.includes(f.name) }));
+    const ctx = { scores: { ...scores }, caster, training: armorTraining(opts, klass, feats, subclass), style: hasFightingStyle(opts, klass, level, feats), feats: [...feats] };
+    const rows: FeatRow[] = catalog.map((f) => ({ feat: f, check: featQualifies(f, ctx), popular: popular.includes(f.name) }));
     const context: LevelContext = { level, scores: { ...scores }, feats: [...feats], saves: [...saves], skills: { ...skills }, rows, problem: null };
     contexts.push(context);
     const p = picks[level] ?? emptyPick();
@@ -274,6 +306,7 @@ export function armorClass(
   kit: { armor: string | null; shield: boolean } | undefined,
   feats: string[],
   subclass: string | null,
+  race = "",
 ): { ac: number; how: string; warning: string | null } {
   const dex = mod(scores.DEX);
   const names = featSet(feats);
@@ -289,7 +322,9 @@ export function armorClass(
     how = `${kit.armor} ${armor.base}` + (cap === 0 ? "" : ` + Dexterity ${fmt(dexPart)}${cap !== null && dex > cap ? ` (at most ${cap})` : ""}`);
     const defense = opts.feats.filter((f) => f.ac_bonus_in_armor && names.has(f.name.toLowerCase()));
     for (const f of defense) { ac += f.ac_bonus_in_armor; how += ` + ${f.name} ${f.ac_bonus_in_armor}`; }
-    if (armor.str_min && scores.STR < armor.str_min) warning = `${kit.armor} wants Strength ${armor.str_min} (you have ${scores.STR}): your speed drops by 10 ft. until then.`;
+    // Plan 131 — heavy armor doesn't slow a 2014 dwarf.
+    const dwarf = is2014(opts) && race.toLowerCase().includes("dwarf");
+    if (armor.str_min && scores.STR < armor.str_min && !dwarf) warning = `${kit.armor} wants Strength ${armor.str_min} (you have ${scores.STR}): your speed drops by 10 ft. until then.`;
   } else {
     ac = 10 + dex;
     how = `No armor: 10 + Dexterity ${fmt(dex)}`;
@@ -300,6 +335,12 @@ export function armorClass(
       ac = 10 + dex + mod(scores[extra]);
       how = `No armor: 10 + Dexterity ${fmt(dex)} + ${ABILITY_NAMES[extra]} ${fmt(mod(scores[extra]))} (${subclass})`;
     }
+    // Plan 131 — the 2014 Draconic Resilience: 13 + Dexterity.
+    const base = subclass ? opts.unarmored_ac_base_subclass?.[subclass] : undefined;
+    if (base && base + dex > ac) {
+      ac = base + dex;
+      how = `No armor: ${base} + Dexterity ${fmt(dex)} (${subclass})`;
+    }
   }
   if (kit?.shield) { ac += 2; how += " + shield 2"; }
   return { ac, how: `${how} = ${ac}`, warning };
@@ -308,6 +349,7 @@ export function armorClass(
 /** The trait or feature behind a per-level hit point bonus, by species or subclass. */
 const TRAIT_NAMES: Record<string, string> = {
   Dwarf: "Dwarven Toughness",
+  "Hill Dwarf": "Dwarven Toughness",
   "Draconic Sorcery": "Draconic Resilience",
   "Draconic Bloodline": "Draconic Resilience",
 };
@@ -345,7 +387,7 @@ export function derive(args: {
   for (const [label, n] of extras) { hp += n * level; hpLines.push(`${label}: +${n} × ${level} levels = ${n * level}`); }
   hp = Math.max(1, hp);
 
-  const { ac, how, warning } = armorClass(opts, klass, scores, kit, feats, subclass);
+  const { ac, how, warning } = armorClass(opts, klass, scores, kit, feats, subclass, species);
   const pb = profBonus(level);
   const saveRows = Object.keys(ABILITY_NAMES).map((a) => ({ ability: a, prof: saves.includes(a), bonus: mod(scores[a]) + (saves.includes(a) ? pb : 0) }));
   const skillRows = Object.entries(opts.skills).map(([name, a]) => {
@@ -406,11 +448,31 @@ export function choiceOptions(opts: BuilderOptions, klass: string, key: string):
   if (!k) return [];
   if (k.kind === "feat") {
     return [
-      ...opts.feats.filter((f) => f.category === "fighting_style").map((f) => ({ name: f.name, blurb: f.blurb, srd: f.srd })),
+      // Plan 131 — a 2014 style names the classes whose Fighting Style offers it.
+      ...opts.feats
+        .filter((f) => f.category === "fighting_style" && (!f.classes || f.classes.includes(klass)))
+        .map((f) => ({ name: f.name, blurb: f.blurb, srd: f.srd })),
       ...(opts.fighting_style_extras?.[klass] ?? []),
     ];
   }
   return k.options ?? [];
+}
+
+/**
+ * Plan 131 — the spells a 2014 "spell" choice may pick (Mystic Arcanum, Magical Secrets): from
+ * its lists (any class when null), of its levels (Mystic Arcanum: the first `count` of 6th, 7th...)
+ * or any level the class casts, plus cantrips where it allows them.
+ */
+export function choiceSpellPool(opts: BuilderOptions, klass: string, level: number, spec: ChoiceKind, count: number): BuilderSpell[] {
+  const rule = spec.spell;
+  if (!rule) return [];
+  const levels = rule.levels ? rule.levels.slice(0, count) : null;
+  const top = maxSpellLevel(opts, klass, level);
+  return opts.spells.filter((s) => {
+    if (rule.lists && !s.classes.some((c) => rule.lists!.includes(c))) return false;
+    if (levels) return levels.includes(s.level);
+    return s.level === 0 ? !!rule.cantrips : s.level <= top;
+  });
 }
 
 /** Weapons this class may name for Weapon Mastery. */
@@ -444,8 +506,15 @@ export interface ChoiceWalk {
   cantripLists: string[];
   land: string | null;
   summary: string[];
-  /** Invocations that need a damaging (or attack) cantrip: checked on the Spells step. */
-  needsCantrip: { name: string; want: "damage" | "attack" }[];
+  /**
+   * Invocations that need a damaging (or attack) cantrip, or in 2014 a cantrip by name
+   * ("Eldritch Blast"): checked on the Spells step.
+   */
+  needsCantrip: { name: string; want: string }[];
+  /** Plan 131 — spells picked by 2014 "spell" choices (Mystic Arcanum, Magical Secrets). */
+  choiceSpells: string[];
+  /** Plan 131 — how many of those count as spells known (Magical Secrets). */
+  knownFromChoices: number;
   problem: string | null;
 }
 
@@ -478,10 +547,17 @@ export function walkClassChoices(
   const skills = { ...start.skills };
   const summary: string[] = [];
   const needsCantrip: ChoiceWalk["needsCantrip"] = [];
+  const choiceSpells: string[] = [];
+  let knownFromChoices = 0;
   let extraCantrips = 0;
   const cantripLists: string[] = [];
   let land: string | null = null;
   let first: string | null = null;
+  // Plan 131 — a 2014 invocation can need the Pact Boon, picked under its own choice (or on the
+  // sheet already, as "Pact Boon: Pact of the Blade").
+  const old = is2014(opts);
+  const chosenAnywhere = new Set<string>(old ? Object.entries(picks).filter(([k]) => counts[k]).flatMap(([, s]) => s.picks) : []);
+  if (old) for (const f of start.feats) if (f.includes(": ")) chosenAnywhere.add(f.split(": ").slice(1).join(": "));
   const keys = Object.keys(counts).sort(
     (a, b) => (KIND_ORDER[opts.choice_kinds[a]?.kind] ?? 9) - (KIND_ORDER[opts.choice_kinds[b]?.kind] ?? 9),
   );
@@ -523,12 +599,25 @@ export function walkClassChoices(
       if (listed.length) summary.push(`${spec.label}: ${listed.join(", ")}`);
       continue;
     }
+    if (spec.kind === "spell") {
+      // Plan 131 — Mystic Arcanum: one spell of each level, 6th first; Magical Secrets.
+      const pool = choiceSpellPool(opts, klass, level, spec, count);
+      const levels = spec.spell?.levels?.slice(0, count) ?? null;
+      const rows = listed.map((n) => pool.find((s) => s.name === n)).filter(Boolean) as BuilderSpell[];
+      if (rows.length < listed.length) fail("a picked spell doesn't fit this choice: take it off.");
+      else if (levels && new Set(rows.map((s) => s.level)).size < rows.length) fail(`pick one spell of each level (${levels.map(ordinal).join(", ")}).`);
+      if (spec.spell?.known) knownFromChoices += count;
+      choiceSpells.push(...listed);
+      for (const n of [...listed, ...book]) feats.push(choiceEntry(opts, key, n));
+      if (listed.length || book.length) summary.push(`${spec.label}: ${[...listed, ...book].join(", ")}`);
+      continue;
+    }
     const options = choiceOptions(opts, klass, key);
     for (const n of listed) {
       const o = options.find((x) => x.name === n);
       if (!o) continue;
       if (o.level && level < o.level) fail(`${n} needs Warlock level ${o.level}.`);
-      if (o.requires && !listed.includes(o.requires)) fail(`${n} needs ${o.requires}.`);
+      if (o.requires && !(old ? chosenAnywhere.has(o.requires) : listed.includes(o.requires))) fail(`${n} needs ${o.requires}.`);
       if (o.cantrip) needsCantrip.push({ name: n, want: o.cantrip });
       if (o.cantrips) {
         extraCantrips += o.cantrips.count;
@@ -540,7 +629,7 @@ export function walkClassChoices(
     for (const b of book) feats.push(spec.kind === "feat" ? b : choiceEntry(opts, key, b));
     if (listed.length || book.length) summary.push(`${spec.label}: ${[...listed, ...book].join(", ")}`);
   }
-  return { sections, feats, skills, extraCantrips, cantripLists, land, summary, needsCantrip, problem: first };
+  return { sections, feats, skills, extraCantrips, cantripLists, land, summary, needsCantrip, choiceSpells, knownFromChoices, problem: first };
 }
 
 // ── Plan 128: spells ─────────────────────────────────────────────────────────
@@ -567,11 +656,24 @@ export function extraSpellLists(opts: BuilderOptions, klass: string, level: numb
   return out;
 }
 
+/** Plan 131 — spells a 2014 subclass adds to its class's list by `level` (The Fiend). */
+export function expandedSpells(opts: BuilderOptions, subclass: string | null, level: number): string[] {
+  const out: string[] = [];
+  const table = subclass ? opts.expanded_spells?.[subclass] ?? {} : {};
+  for (const [at, names] of Object.entries(table).sort((a, b) => Number(a[0]) - Number(b[0]))) {
+    if (level >= Number(at)) names.forEach((n) => { if (!out.includes(n)) out.push(n); });
+  }
+  return out;
+}
+
+export type RaceCantrip = { count: number; list: string; ability: string };
+
 export interface SpellPlan {
   caster: boolean;
   always: AlwaysSpell[];
   alwaysSet: Set<string>;
   cantripCap: number;
+  /** Leveled picks: prepared (2024, 2014 prepared casters), known (2014), or the spellbook (2014 Wizard). */
   spellCap: number;
   maxLevel: number;
   cantripLists: string[];
@@ -581,26 +683,82 @@ export interface SpellPlan {
   /** What must be picked: the cap, or every spell the catalog has if fewer. */
   needCantrips: number;
   needSpells: number;
+  // Plan 131 — the 2014 rules.
+  /** How the leveled picks work. */
+  mode: "prepared" | "known" | "spellbook";
+  /** A 2014 Wizard: how many of its spellbook spells it prepares (0 otherwise). */
+  prepareCap: number;
+  /** The spellcasting ability modifier a 2014 prepared count uses. */
+  abilityMod: number;
+  /** A 2014 half caster below its first spell level: the level its spells start; else null. */
+  startsAt: number | null;
+  /** Spells a 2014 subclass adds to the list (The Fiend). */
+  expanded: string[];
+  /** A race's cantrip (the High Elf's Wizard cantrip). */
+  raceCantrip: RaceCantrip | null;
 }
 
-export function spellPlan(opts: BuilderOptions, klass: string, level: number, subclass: string | null, choices: ChoiceWalk | null): SpellPlan {
+export function spellPlan(
+  opts: BuilderOptions,
+  klass: string,
+  level: number,
+  subclass: string | null,
+  choices: ChoiceWalk | null,
+  extra: { scores?: Record<string, number>; raceCantrip?: RaceCantrip | null } = {},
+): SpellPlan {
   const always = alwaysPrepared(opts, klass, level, subclass, choices?.land ?? null);
   const alwaysSet = new Set(always.map((a) => a.name.toLowerCase()));
   const sc = opts.classes[klass]?.spellcasting;
-  const extra = choices?.extraCantrips ?? 0;
-  const caster = !!sc || extra > 0;
-  const cantripCapN = (sc ? cantripCap(opts, klass, level) : 0) + extra;
-  const spellCapN = sc ? spellCap(opts, klass, level) : 0;
+  const raceCantrip = extra.raceCantrip ?? null;
+  const extraCantrips = (choices?.extraCantrips ?? 0) + (raceCantrip?.count ?? 0);
+  const caster = !!sc || extraCantrips > 0;
+  const cantripCapN = (sc ? cantripCap(opts, klass, level) : 0) + extraCantrips;
+  const abilityMod = sc && extra.scores ? mod(extra.scores[sc.ability] ?? 10) : 0;
+  let spellCapN = sc ? spellCap(opts, klass, level, abilityMod) : 0;
+  let mode: SpellPlan["mode"] = "prepared";
+  let prepareCap = 0;
+  if (is2014(opts) && sc?.spellbook) {
+    mode = "spellbook";
+    prepareCap = spellCapN;
+    spellCapN = spellbookSize(opts, klass, level);
+  } else if (is2014(opts) && sc?.kind === "known") {
+    mode = "known";
+    spellCapN = Math.max(0, spellCapN - (choices?.knownFromChoices ?? 0));
+  }
+  const startsAt = sc && level < (sc.first_level ?? 1) ? sc.first_level ?? null : null;
   const maxLevel = sc ? maxSpellLevel(opts, klass, level) : 0;
-  const cantripLists = [...new Set([klass, ...(choices?.cantripLists ?? [])])];
+  const cantripLists = [...new Set([klass, ...(choices?.cantripLists ?? []), ...(raceCantrip ? [raceCantrip.list] : [])])];
   const spellLists = [klass, ...extraSpellLists(opts, klass, level)];
+  const expanded = expandedSpells(opts, subclass, level);
+  const expandedSet = new Set(expanded.map((n) => n.toLowerCase()));
   const onList = (s: BuilderSpell, lists: string[]) => s.classes.some((c) => lists.includes(c));
   const cantripPool = cantripCapN ? opts.spells.filter((s) => s.level === 0 && onList(s, cantripLists) && !alwaysSet.has(s.name.toLowerCase())) : [];
-  const spellPool = spellCapN ? opts.spells.filter((s) => s.level >= 1 && s.level <= maxLevel && onList(s, spellLists) && !alwaysSet.has(s.name.toLowerCase())) : [];
+  const spellPool = spellCapN
+    ? opts.spells.filter((s) => s.level >= 1 && s.level <= maxLevel && (onList(s, spellLists) || expandedSet.has(s.name.toLowerCase())) && !alwaysSet.has(s.name.toLowerCase()))
+    : [];
   return {
     caster, always, alwaysSet, cantripCap: cantripCapN, spellCap: spellCapN, maxLevel, cantripLists, spellLists, cantripPool, spellPool,
     needCantrips: Math.min(cantripCapN, cantripPool.length), needSpells: Math.min(spellCapN, spellPool.length),
+    mode, prepareCap, abilityMod, startsAt, expanded, raceCantrip,
   };
+}
+
+/**
+ * Plan 131 — a race's cantrip comes from its own list: of the cantrips picked, no more than the
+ * race's count may sit only on its list, and no more than the class's only on the class's.
+ * Returns what to fix, in words, or null.
+ */
+export function raceCantripProblem(opts: BuilderOptions, plan: SpellPlan, klass: string, race: string, picked: string[], classLists: string[]): string | null {
+  const rc = plan.raceCantrip;
+  if (!rc || classLists.includes(rc.list)) return null;
+  const rows = picked.map((n) => opts.spells.find((s) => s.name === n)).filter(Boolean) as BuilderSpell[];
+  const onlyRace = rows.filter((s) => !s.classes.some((c) => classLists.includes(c))).length;
+  const onlyClass = rows.filter((s) => !s.classes.includes(rc.list)).length;
+  const a = /^[AEIOU]/i.test(race) ? "an" : "a";
+  const what = `As ${a} ${race} you get ${rc.count} ${rc.list} cantrip${rc.count > 1 ? "s" : ""}`;
+  if (onlyRace > rc.count) return `${what}: pick the rest from the ${klass} list.`;
+  if (onlyClass > plan.cantripCap - rc.count) return `${what}: pick ${rc.count > 1 ? "them" : "it"} from the ${rc.list} list.`;
+  return null;
 }
 
 // ── Plan 128: Origin feats with their own picks ──────────────────────────────
@@ -671,4 +829,37 @@ export function spellSummary(text: string | undefined, limit = 160): string {
   out = out.trim();
   if (out.length < 40) out = flat.length <= limit ? flat : `${flat.slice(0, limit - 1).replace(/\s+\S*$/, "")}…`;
   return out;
+}
+
+// ── Plan 131: 2014 races ─────────────────────────────────────────────────────
+
+/** "+2 Constitution, +1 Wisdom". */
+export function bonusWords(b: Record<string, number> | undefined): string {
+  return Object.entries(b ?? {})
+    .filter(([, v]) => v)
+    .map(([a, v]) => `+${v} ${ABILITY_NAMES[a] ?? a}`)
+    .join(", ");
+}
+
+/** What the species step still needs in 2014, in one line, or null. */
+export function raceHint(
+  row: BuilderSpecies | undefined,
+  subrace: string,
+  customSubrace: string,
+  abilityChoice: Record<string, number>,
+  picks: ChoicePicks,
+  opts: BuilderOptions,
+): string | null {
+  if (!row) return null;
+  if (row.subraces?.length && !subrace) return `Pick a subrace: in the free rules ${/^[AEIOU]/i.test(row.name) ? "an" : "a"} ${row.name} is ${row.subraces.map((s) => `${/^[AEIOU]/i.test(s.name) ? "an" : "a"} ${s.name}`).join(" or ")}.`;
+  if (subrace === "__other" && !customSubrace.trim()) return "Type the subrace name.";
+  const spec = row.ability_choice;
+  if (spec) {
+    const chosen = Object.entries(abilityChoice).filter(([, v]) => v);
+    if (chosen.length !== spec.choose) return `Pick ${spec.choose} abilities for +${spec.amount} each (not ${spec.exclude.map((a) => ABILITY_NAMES[a]).join(" or ")}).`;
+  }
+  for (const [key, n] of Object.entries(row.choices ?? {})) {
+    if ((picks[key]?.picks.length ?? 0) < n) return `Pick your ${opts.choice_kinds[key]?.label ?? key}.`;
+  }
+  return null;
 }

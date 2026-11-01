@@ -1,8 +1,18 @@
-"""Level-up guide schemas (Plan 115) — what the player's guide shows, sends, and gets back."""
+"""Level-up guide schemas (Plan 115) — what the player's guide shows, sends, and gets back.
 
-from typing import Any, Literal, Optional
+Plan 131: the plan says which rules it follows (``ruleset``). A 2014 plan also carries the
+class choices the new level brings (Pact Boon, Eldritch Invocations, Metamagic...), the
+spells that become always prepared, and the counts the 2014 spell rules use.
+"""
+
+from typing import Annotated, Any, Literal, Optional
 
 from pydantic import BaseModel, Field
+
+from domain.enums import Ruleset
+
+# A name the player typed or picked (a feat, a spell, a choice option).
+PickName = Annotated[str, Field(min_length=1, max_length=80)]
 
 
 class LevelUpGrant(BaseModel):
@@ -42,6 +52,14 @@ class SpellOption(BaseModel):
     classes: list[str] = Field(default_factory=list)
 
 
+class GrantedSpell(BaseModel):
+    """A spell the new level adds by itself: always prepared, no pick spent (Plan 131)."""
+
+    name: str
+    source: str  # "Life Domain", "Circle of the Land (Forest)"
+    subclass: Optional[str] = None  # only if this subclass is the one picked at this level
+
+
 class SpellStep(BaseModel):
     """The spells part of the guide: how many to pick, from what, and swap rules."""
 
@@ -54,6 +72,12 @@ class SpellStep(BaseModel):
     known: list[SpellOption]
     options: list[SpellOption]  # class list, castable, not already known
     note: Optional[str] = None
+    # Plan 131 (2014 rules). How many spells the PC prepares each day at the new level
+    # (Cleric, Druid, Paladin, Wizard); None for a known caster and for every 2024 plan.
+    prepared_count: Optional[int] = None
+    spellbook: bool = False  # Wizard: the new spells go in the spellbook
+    first_spells: bool = False  # the level spellcasting starts (a 2014 Paladin or Ranger at 2)
+    always_prepared: list[GrantedSpell] = Field(default_factory=list)
 
 
 class NewFeature(BaseModel):
@@ -61,6 +85,38 @@ class NewFeature(BaseModel):
 
     name: str
     note: Optional[str] = None
+    # Plan 131: set when the feature comes with a subclass picked at this level.
+    subclass: Optional[str] = None
+
+
+class ChoiceOption(BaseModel):
+    """One pick a class choice offers, and whether this PC may take it now (Plan 131)."""
+
+    name: str
+    blurb: str = ""
+    ok: bool = True
+    reason: Optional[str] = None
+
+
+class ChoiceStep(BaseModel):
+    """A class choice the new level brings (Plan 131, 2014 rules).
+
+    ``count`` is the number of *new* picks: the class tables hold running totals, so a
+    Warlock going from 4 to 5 picks one more invocation, not three.
+    """
+
+    key: str  # "pact_boon", "invocations", "metamagic", "expertise", "magical_secrets"...
+    label: str
+    kind: str  # "option" | "feat" | "expertise" | "skill" | "spell"
+    note: Optional[str] = None
+    count: int
+    book: bool = False  # "From my book" names are accepted
+    options: list[ChoiceOption] = Field(default_factory=list)  # kinds "option" and "feat"
+    spells: list[SpellOption] = Field(default_factory=list)  # kind "spell"
+    skills: Optional[list[str]] = None  # kinds "skill"/"expertise": allowed skills, None = any
+    taken: list[str] = Field(default_factory=list)  # earlier picks already on the sheet
+    cantrips: int = 0  # every option also teaches this many class cantrips (the Land's)
+    subclass: Optional[str] = None  # only if this subclass is the one picked at this level
 
 
 class LevelUpPlan(BaseModel):
@@ -96,6 +152,9 @@ class LevelUpPlan(BaseModel):
     # When a score that feeds AC rises, the guide asks what armor the PC wears.
     ac: int
     ac_abilities: list[str]
+    # Plan 131 — the rules this plan follows, and (2014) the class choices to make.
+    ruleset: Ruleset = Ruleset.R2024
+    class_choices: list[ChoiceStep] = Field(default_factory=list)
 
 
 class SpellSwap(BaseModel):
@@ -117,6 +176,14 @@ class FeatChoice(BaseModel):
     expertise: list[str] = Field(default_factory=list)
 
 
+class ClassChoicePick(BaseModel):
+    """The player's picks for one class choice (Plan 131): listed names and book names."""
+
+    key: str = Field(min_length=1, max_length=40)
+    picks: list[PickName] = Field(default_factory=list, max_length=12)
+    book: list[PickName] = Field(default_factory=list, max_length=12)
+
+
 class LevelUpChoices(BaseModel):
     """What the player picked in the guide."""
 
@@ -129,6 +196,8 @@ class LevelUpChoices(BaseModel):
     cantrip_swap: Optional[SpellSwap] = None
     spell_swap: Optional[SpellSwap] = None
     armor: Optional[Literal["none", "light", "medium", "heavy"]] = None
+    # Plan 131 — the class choices of a 2014 plan (``LevelUpPlan.class_choices``).
+    class_choices: list[ClassChoicePick] = Field(default_factory=list, max_length=12)
 
 
 class LevelUpResult(BaseModel):

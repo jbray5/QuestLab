@@ -9,6 +9,9 @@ Schema source of truth: Postgres (via Alembic). DuckDB is used for local tests o
 
 All enum values are stored as `VARCHAR` in Postgres (not native Postgres ENUMs).
 
+### Ruleset (Plan 131)
+`2024 | 2014`. Stored as the plain value (`'2024'`), not the enum name. Every edition-aware column below is `VARCHAR(4)`.
+
 ### CharacterClass
 `Barbarian | Bard | Cleric | Druid | Fighter | Monk | Paladin | Ranger | Rogue | Sorcerer | Warlock | Wizard | Artificer`
 
@@ -64,6 +67,7 @@ Top-level container owned by a DM.
 | dm_email | VARCHAR | No | INDEX | Owning DM email (lowercased) |
 | allow_player_signup | BOOLEAN | No | default true | Plan 74 — anyone with the join link may build a character |
 | join_code | VARCHAR(12) | Yes | | Plan 83 — upper-case code the join page asks for before listing the party; NULL = open |
+| ruleset | VARCHAR(4) | No | DEFAULT '2024' | Plan 131 — `2024` or `2014`. Every PC in the campaign follows it. Locked once the campaign has a character (`campaign_service.update_campaign` raises `RulesetLockedError`, which the API returns as 409) |
 | created_at | TIMESTAMP | No | | UTC creation time |
 | updated_at | TIMESTAMP | No | | Updated on every PATCH |
 
@@ -97,6 +101,7 @@ Full 2024 5e character sheet, belonging to a Campaign.
 | character_name | VARCHAR(100) | No | | In-game character name |
 | race | VARCHAR(100) | No | | |
 | character_class | VARCHAR(50) | No | | CharacterClass enum |
+| ruleset | VARCHAR(4) | No | DEFAULT '2024' | Plan 131 — copied from the campaign at creation and never changed after (invariant: equals `campaigns.ruleset`) |
 | subclass | VARCHAR(100) | Yes | | |
 | level | INTEGER | No | 1–20 | |
 | background | VARCHAR(100) | Yes | | |
@@ -148,6 +153,7 @@ The tracked class-feature catalog (Plan 21, migration 0012): features with limit
 | uses_formula | VARCHAR(20) | No | | UsesFormula enum. Some features scale with level in the rules module instead (`scaled_uses`: Action Surge, Indomitable, Wild Shape, the Paladin's Channel Divinity); Lay on Hands is a pool of 5 × Paladin level |
 | description | TEXT | No | | Our own words, not book text |
 | source | VARCHAR(60) | No | DEFAULT 'SRD 5.5e / 2024 PHB' | |
+| ruleset | VARCHAR(4) | No | DEFAULT '2024' | Plan 131 — which edition's catalog this row belongs to. The 2014 rows (`class_features_2014.py`, source 'SRD 5.1 (2014)') sit beside the 2024 ones; the catalog key is name + class + subclass + ruleset, and a PC is only granted rows of its own edition |
 
 ### character_features
 A PC's copy of a catalog feature, with its uses spent (migration 0012).
@@ -413,6 +419,9 @@ The uploads ledger (Plan 130, migration 0060): one row per file a DM uploaded th
 
 ---
 
+### spells: ruleset (Plan 131)
+`spells.ruleset` VARCHAR(4), nullable, indexed. `'2024'` for the SRD 5.2.1 rows, `'2014'` for the SRD 5.1 rows (generated into `integrations/dnd_rules/srd_spells_2014.py` by `scripts/build_srd51_spells.py`), NULL for a DM's homebrew, which is valid in both editions. Migration 0061 stamped the existing shared rows `'2024'`. At startup `spell_service.seed_srd_spells` inserts each edition while it has no rows. Lookups pass the PC's or campaign's ruleset (`SpellRepo.list_all(ruleset=)`, `get_by_name(ruleset=)`), so a name like "Fireball" resolves within one edition.
+
 ## PII Fields
 
 | Table | Column | Classification |
@@ -441,6 +450,7 @@ Do not log, export without authorisation, or include in error messages.
 | character_features | ix_character_features_feature_id | feature_id |
 | items | ix_items_created_by_email | created_by_email |
 | spells | ix_spells_created_by_email | created_by_email |
+| spells | ix_spells_ruleset | ruleset (Plan 131) |
 | loot_tables | ix_loot_tables_adventure_id | adventure_id |
 | encounters | ix_encounters_adventure_id | adventure_id |
 | maps | ix_maps_adventure_id | adventure_id |
