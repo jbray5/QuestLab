@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { Copy, Pencil, X } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Monster } from "../api/types";
 import { monstersApi } from "../api/monsters";
@@ -10,10 +10,21 @@ import ObsidianLink, { ObsidianNoteInput } from "./dm/ObsidianLink";
 import PhoneSheet from "./PhoneSheet";
 import { useIsCompact } from "../hooks/useIsCompact";
 import { useCanEditCatalog } from "../hooks/useCanEditCatalog";
+import HomebrewChip from "./HomebrewChip";
+import { isMine, useMyEmail } from "../lib/homebrew";
 
 interface Props {
   monster: Monster;
   onClose: () => void;
+  /**
+   * Plan 132 — the homebrew buttons. Each shows only when its handler is given
+   * (the Monsters page passes them; the session HUD doesn't): "Copy and edit"
+   * on any block, "Edit" and "Delete" on one the DM may change.
+   */
+  onCopy?: () => void;
+  onEdit?: () => void;
+  /** Called after a delete went through. */
+  onDeleted?: () => void;
 }
 
 function abilityModifier(score: number): string {
@@ -97,7 +108,7 @@ function ActionSection({ title, entries }: SectionProps) {
   );
 }
 
-export default function MonsterStatBlock({ monster, onClose }: Props) {
+export default function MonsterStatBlock({ monster, onClose, onCopy, onEdit, onDeleted }: Props) {
   // Plan 123: on a phone the stat block is a bottom sheet with the name in its header.
   const phone = useIsCompact(640);
   // SEC-003 — SRD monsters are admin-only to change; homebrew belongs to its DM.
@@ -117,6 +128,17 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
   const saveNote = useMutation({
     mutationFn: (dm_note: string | null) => monstersApi.update(monster.id, { dm_note }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["monsters"] }),
+  });
+  // Plan 132 — the DM's own homebrew: a "Yours" chip, and Delete (refused while in use).
+  const myEmail = useMyEmail();
+  const mine = isMine(monster.created_by_email, myEmail);
+  const canDelete = !!onDeleted && monster.is_custom && canEdit;
+  const remove = useMutation({
+    mutationFn: () => monstersApi.remove(monster.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["monsters"] });
+      onDeleted?.();
+    },
   });
 
   const scores: Array<{ label: string; value: number }> = [
@@ -180,12 +202,56 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
     </p>
   );
 
+  // Plan 132 — first thing under the name, so making it yours is never buried.
+  const showEdit = !!onEdit && canEdit;
+  const homebrewBar =
+    onCopy || showEdit || canDelete ? (
+      <div className="ql-tap" style={{ marginTop: "0.75rem" }}>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+          {onCopy && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onCopy}
+              title="Make a monster of your own from this one; this one stays as it is"
+            >
+              <Copy size={16} aria-hidden /> Copy and edit
+            </button>
+          )}
+          {showEdit && (
+            <button type="button" className="btn btn-secondary" onClick={onEdit}>
+              <Pencil size={16} aria-hidden /> Edit
+            </button>
+          )}
+          {canDelete && (
+            <button
+              type="button"
+              className="btn btn-danger"
+              style={{ marginLeft: "auto" }}
+              disabled={remove.isPending}
+              onClick={() => {
+                if (window.confirm(`Delete "${monster.name}"? This can't be undone.`)) remove.mutate();
+              }}
+            >
+              {remove.isPending ? "Deleting…" : "Delete"}
+            </button>
+          )}
+        </div>
+        {remove.isError && (
+          <p role="alert" style={{ color: "var(--danger-text)", fontSize: "0.875rem", margin: "0.5rem 0 0" }}>
+            {(remove.error as Error)?.message || "That didn't delete. Try again."}
+          </p>
+        )}
+      </div>
+    ) : null;
+
   const body = (
     <>
         {/* Header (on a phone the sheet's own header already names the monster) */}
         {phone ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem" }}>
             {typeLine}
+            {mine && <HomebrewChip />}
             <ObsidianLink dmNote={monster.dm_note} />
           </div>
         ) : (
@@ -203,12 +269,15 @@ export default function MonsterStatBlock({ monster, onClose }: Props) {
                 >
                   {monster.name}
                 </h2>
+                {mine && <HomebrewChip />}
                 <ObsidianLink dmNote={monster.dm_note} />
               </div>
               {typeLine}
             </div>
           </div>
         )}
+
+        {homebrewBar}
 
         <Divider />
 

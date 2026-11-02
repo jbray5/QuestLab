@@ -8,9 +8,10 @@ JSON-array containment across Postgres + DuckDB is fiddly.
 import uuid
 from typing import Any, Optional
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlmodel import Session, select
 
+from domain.character import CharacterSpell, PlayerCharacter
 from domain.spell import Spell, SpellCreate, SpellUpdate
 
 
@@ -54,6 +55,42 @@ class SpellRepo:
         """
         stmt = _in_ruleset(select(Spell).where(Spell.name.ilike(name)), ruleset).limit(1)
         return session.exec(stmt).first()
+
+    @staticmethod
+    def list_named(session: Session, name: str) -> list[Spell]:
+        """Every spell with exactly this name, ignoring case and outer spaces (Plan 132).
+
+        An equality match, not a pattern, so ``%`` or ``_`` in a homebrew name match only
+        themselves.
+
+        Args:
+            session: Active database session.
+            name: The spell name.
+
+        Returns:
+            Matching spells across both editions and every DM's homebrew.
+        """
+        stmt = select(Spell).where(func.lower(Spell.name) == name.strip().lower())
+        return list(session.exec(stmt).all())
+
+    @staticmethod
+    def knower_names(session: Session, spell_id: uuid.UUID) -> list[str]:
+        """Names of the characters with this spell on their spell list (Plan 132).
+
+        Args:
+            session: Active database session.
+            spell_id: UUID of the spell.
+
+        Returns:
+            One character name per ``character_spells`` row, sorted.
+        """
+        stmt = (
+            select(PlayerCharacter.character_name)
+            .join(CharacterSpell, CharacterSpell.character_id == PlayerCharacter.id)
+            .where(CharacterSpell.spell_id == spell_id)
+            .order_by(PlayerCharacter.character_name.asc())
+        )
+        return list(session.exec(stmt).all())
 
     @staticmethod
     def list_all(

@@ -38,7 +38,6 @@ export default function InventoryPanel({
   characterId,
   characterName,
   defaultOpen = false,
-  readOnly: _readOnly = false,
 }: Props) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(defaultOpen);
@@ -71,7 +70,8 @@ export default function InventoryPanel({
   // Search compendium for adding new items.
   const { data: searchHits = [], isFetching: searchLoading } = useQuery({
     queryKey: ["item-search", search],
-    queryFn: () => itemsApi.list({ q: search.trim() || undefined }),
+    // Plan 132 — weapons, armor and gear too (SRD and the DM's homebrew), not just magic items.
+    queryFn: () => itemsApi.list({ q: search.trim() || undefined, kind: "all" }),
     enabled: open && search.trim().length >= 2,
   });
 

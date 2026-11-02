@@ -1,12 +1,17 @@
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronRight } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronRight, Copy, Pencil, Plus } from "lucide-react";
 
 import { spellsApi } from "../api/spells";
 import type { Spell } from "../api/types";
+import HomebrewChip from "../components/HomebrewChip";
+import SpellForm, { SRD_CLASSES, type SpellFormMode } from "../components/homebrew/SpellForm";
 import PhoneSheet from "../components/PhoneSheet";
+import RowMenu from "../components/RowMenu";
 import { useCampaignRuleset } from "../hooks/useCampaignRuleset";
+import { useCanEditCatalog } from "../hooks/useCanEditCatalog";
 import { useIsCompact } from "../hooks/useIsCompact";
+import { isMine, useMyEmail } from "../lib/homebrew";
 import { RULESETS, rulesetLabel, type Ruleset } from "../lib/ruleset";
 import { useCampaignStore } from "../stores/useCampaignStore";
 
@@ -27,17 +32,8 @@ const SCHOOLS = [
   "Transmutation",
 ] as const;
 
-const CLASSES = [
-  "All",
-  "Bard",
-  "Cleric",
-  "Druid",
-  "Paladin",
-  "Ranger",
-  "Sorcerer",
-  "Warlock",
-  "Wizard",
-] as const;
+// Plan 132 — all 12 classes: a DM's homebrew may go to a Fighter or a Monk.
+const CLASSES = ["All", ...SRD_CLASSES] as const;
 
 function levelLabel(lvl: number): string {
   return lvl === 0 ? "Cantrip" : `Level ${lvl}`;
@@ -155,6 +151,70 @@ function SpellDetail({ s }: { s: Spell }) {
   );
 }
 
+/**
+ * Plan 132 — what a DM can do with a spell: copy any of them into their homebrew, and edit or
+ * delete their own (an admin, the shared ones too). Delete sits in the ⋯ menu and asks first.
+ */
+function SpellActions({
+  s,
+  phone,
+  onForm,
+  onDelete,
+  deleteError,
+}: {
+  s: Spell;
+  phone: boolean;
+  onForm: (mode: SpellFormMode, from: Spell) => void;
+  onDelete: (s: Spell) => void;
+  deleteError: string | null;
+}) {
+  const canEdit = useCanEditCatalog(s.created_by_email);
+  const btn: React.CSSProperties = { minHeight: phone ? 44 : undefined, flex: phone ? "1 1 auto" : undefined };
+  return (
+    <div style={{ marginTop: "1rem", paddingTop: "0.75rem", borderTop: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.5rem" }}>
+        {canEdit && (
+          <button type="button" className="btn btn-secondary" style={btn} onClick={() => onForm("edit", s)}>
+            <Pencil size={15} aria-hidden /> Edit
+          </button>
+        )}
+        <button
+          type="button"
+          className={canEdit ? "btn btn-ghost" : "btn btn-secondary"}
+          style={btn}
+          onClick={() => onForm("copy", s)}
+          title="Start a homebrew spell from this one; the original stays as it is"
+        >
+          <Copy size={15} aria-hidden /> Copy and edit
+        </button>
+        {canEdit && (
+          <RowMenu
+            label={`More for ${s.name}`}
+            items={[
+              {
+                label: "Delete spell",
+                danger: true,
+                confirm: `Delete ${s.name}? This can't be undone.`,
+                onSelect: () => onDelete(s),
+              },
+            ]}
+          />
+        )}
+      </div>
+      {!canEdit && (
+        <p style={{ margin: "0.4rem 0 0", fontSize: "0.8125rem", color: "var(--muted)" }}>
+          A rules spell: copy it to make your own version.
+        </p>
+      )}
+      {deleteError && (
+        <p role="alert" style={{ margin: "0.5rem 0 0", fontSize: "0.875rem", color: "var(--danger-text)" }}>
+          {deleteError}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function Spells() {
   const phone = useIsCompact(640);
   const [search, setSearch] = useState("");
@@ -164,6 +224,13 @@ export default function Spells() {
   const [showRituals, setShowRituals] = useState(false);
   const [showConcentration, setShowConcentration] = useState(false);
   const [selected, setSelected] = useState<Spell | null>(null);
+  // Plan 132 — homebrew: the form (new, copy or edit), a filter, and what just happened.
+  const qc = useQueryClient();
+  const myEmail = useMyEmail();
+  const [homebrewOnly, setHomebrewOnly] = useState(false);
+  const [form, setForm] = useState<{ mode: SpellFormMode; from: Spell | null; key: number } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<{ id: string; message: string } | null>(null);
   // Plan 131 — one edition's spells, the active campaign's unless the DM switches.
   // Homebrew spells show under both.
   const campaignRules = useCampaignRuleset();
@@ -185,10 +252,51 @@ export default function Spells() {
     [search, level, school, classFilter, showRituals, showConcentration, rules],
   );
 
-  const { data: spells = [], isLoading } = useQuery({
+  const { data: allSpells = [], isLoading } = useQuery({
     queryKey: ["spells", params],
     queryFn: () => spellsApi.list(params),
   });
+  // Lists hold the shared catalog plus only this DM's own homebrew (SEC-003).
+  const spells = useMemo(
+    () => (homebrewOnly ? allSpells.filter((s) => !!s.created_by_email) : allSpells),
+    [allSpells, homebrewOnly],
+  );
+  const yours = allSpells.filter((s) => isMine(s.created_by_email, myEmail)).length;
+
+  function openForm(mode: SpellFormMode, from: Spell | null) {
+    setDeleteError(null);
+    setForm({ mode, from, key: Date.now() });
+  }
+
+  function refresh() {
+    void qc.invalidateQueries({ queryKey: ["spells"] });
+    // The character sheet's spell picker (SpellPanel) caches its own class lists.
+    void qc.invalidateQueries({ queryKey: ["class-spells"] });
+  }
+
+  function onSaved(saved: Spell) {
+    const mode = form?.mode;
+    setForm(null);
+    setSelected(saved);
+    refresh();
+    setNotice(
+      mode === "edit"
+        ? `Saved your changes to ${saved.name}.`
+        : `${saved.name} is in your spells, marked Yours. It shows under both rules editions.`,
+    );
+  }
+
+  async function onDelete(s: Spell) {
+    setDeleteError(null);
+    try {
+      await spellsApi.remove(s.id);
+      setSelected(null);
+      refresh();
+      setNotice(`Deleted ${s.name}.`);
+    } catch (e) {
+      setDeleteError({ id: s.id, message: e instanceof Error ? e.message : "Couldn't delete the spell." });
+    }
+  }
 
   // Checkbox rows: a full 44 px tap row on a phone.
   const checkLabel: React.CSSProperties = {
@@ -203,11 +311,47 @@ export default function Spells() {
 
   return (
     <div className="fade-in">
-      <h1>Spells</h1>
-      <p className="text-muted" style={{ marginBottom: "1.5rem" }}>
-        D&amp;D 5e ({rulesetLabel(rules)}) SRD spell reference. <span className="num">{spells.length}</span>{" "}
-        spells in catalog.
-      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: "0.75rem", marginBottom: "1.5rem" }}>
+        <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+          <h1>Spells</h1>
+          <p className="text-muted" style={{ margin: 0 }}>
+            D&amp;D 5e ({rulesetLabel(rules)}) SRD spell reference, plus your homebrew.{" "}
+            <span className="num">{spells.length}</span> {spells.length === 1 ? "spell" : "spells"}
+            {yours > 0 && (
+              <>
+                , <span className="num">{yours}</span> of them yours
+              </>
+            )}
+            .
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => openForm("new", null)}
+          style={{ minHeight: 44, width: phone ? "100%" : undefined, justifyContent: "center" }}
+        >
+          <Plus size={16} aria-hidden /> New spell
+        </button>
+      </div>
+
+      {notice && (
+        <div
+          role="status"
+          className="card"
+          style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem", padding: "0.6rem 0.9rem" }}
+        >
+          <span style={{ flex: 1, fontSize: "0.9375rem" }}>{notice}</span>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setNotice(null)}
+            style={{ minHeight: phone ? 44 : undefined }}
+          >
+            OK
+          </button>
+        </div>
+      )}
 
       {/* Filter bar: search on its own row on a phone, the selects two to a row. */}
       <div
@@ -308,6 +452,10 @@ export default function Spells() {
             />
             Concentration only
           </label>
+          <label style={checkLabel} title="Only the spells you made">
+            <input type="checkbox" style={CHECK} checked={homebrewOnly} onChange={(e) => setHomebrewOnly(e.target.checked)} />
+            Homebrew only
+          </label>
         </div>
       </div>
 
@@ -315,10 +463,21 @@ export default function Spells() {
       {isLoading && <p className="text-muted">Loading spells…</p>}
       {!isLoading && spells.length === 0 && (
         <div className="card">
-          <p className="text-muted" style={{ margin: 0 }}>
-            No spells match. (The catalog seeds on first app boot; if this is a fresh DB
-            it may not be populated yet.)
-          </p>
+          {homebrewOnly ? (
+            <>
+              <p className="text-muted" style={{ marginTop: 0 }}>
+                No homebrew spells match these filters yet. Make one from scratch, or open any spell
+                and choose Copy and edit.
+              </p>
+              <button type="button" className="btn btn-secondary" onClick={() => openForm("new", null)} style={{ minHeight: 44 }}>
+                <Plus size={16} aria-hidden /> New spell
+              </button>
+            </>
+          ) : (
+            <p className="text-muted" style={{ margin: 0 }}>
+              No spells match. Try a shorter search or another filter, or make your own with New spell.
+            </p>
+          )}
         </div>
       )}
 
@@ -359,6 +518,12 @@ export default function Spells() {
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span className="story" style={{ display: "block", fontWeight: 700, fontSize: "1.05rem" }}>
                         {s.name}
+                        {isMine(s.created_by_email, myEmail) && (
+                          <>
+                            {" "}
+                            <HomebrewChip />
+                          </>
+                        )}
                       </span>
                       <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.3rem 0.5rem", marginTop: "0.15rem", fontSize: "0.8125rem", color: "var(--muted)" }}>
                         <span>
@@ -391,6 +556,12 @@ export default function Spells() {
                     </span>
                     <span className="story" style={{ flex: 1, fontWeight: 700, fontSize: "1.05rem" }}>
                       {s.name}
+                      {isMine(s.created_by_email, myEmail) && (
+                        <>
+                          {" "}
+                          <HomebrewChip />
+                        </>
+                      )}
                     </span>
                     <span className="pill">{s.school}</span>
                     <SpellTags s={s} />
@@ -406,6 +577,13 @@ export default function Spells() {
                     }}
                   >
                     <SpellDetail s={s} />
+                    <SpellActions
+                      s={s}
+                      phone={false}
+                      onForm={openForm}
+                      onDelete={(sp) => void onDelete(sp)}
+                      deleteError={deleteError?.id === s.id ? deleteError.message : null}
+                    />
                   </div>
                 )}
               </div>
@@ -420,9 +598,21 @@ export default function Spells() {
             <span className="pill">{levelLabel(selected.level)}</span>
             <span className="pill">{selected.school}</span>
             <SpellTags s={selected} />
+            {isMine(selected.created_by_email, myEmail) && <HomebrewChip />}
           </div>
           <SpellDetail s={selected} />
+          <SpellActions
+            s={selected}
+            phone
+            onForm={openForm}
+            onDelete={(sp) => void onDelete(sp)}
+            deleteError={deleteError?.id === selected.id ? deleteError.message : null}
+          />
         </PhoneSheet>
+      )}
+
+      {form && (
+        <SpellForm key={form.key} mode={form.mode} from={form.from} onClose={() => setForm(null)} onSaved={onSaved} />
       )}
     </div>
   );

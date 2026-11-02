@@ -29,6 +29,7 @@ from domain.character import (
     PlayerCharacter,
 )
 from integrations.event_bus import publish_pc_updated
+from services.auth_service import catalog_visible
 
 ATTUNEMENT_CAP = 3
 """Max items a PC may be attuned to (D&D 5e 2024 RAW)."""
@@ -178,7 +179,8 @@ def add_item(
     """
     pc = _assert_pc_owner(db, character_id, dm_email)
     item = ItemRepo.get_by_id(db, payload.item_id)
-    if item is None:
+    # Plan 132: another DM's homebrew is invisible here, as in every catalog list (SEC-003).
+    if item is None or not catalog_visible(item.created_by_email, dm_email):
         raise ValueError(f"Item {payload.item_id} not found.")
 
     existing = CharacterItemRepo.find_by_pc_and_item(db, character_id, payload.item_id)

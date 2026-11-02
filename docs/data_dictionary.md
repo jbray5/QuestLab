@@ -422,6 +422,17 @@ The uploads ledger (Plan 130, migration 0060): one row per file a DM uploaded th
 ### spells: ruleset (Plan 131)
 `spells.ruleset` VARCHAR(4), nullable, indexed. `'2024'` for the SRD 5.2.1 rows, `'2014'` for the SRD 5.1 rows (generated into `integrations/dnd_rules/srd_spells_2014.py` by `scripts/build_srd51_spells.py`), NULL for a DM's homebrew, which is valid in both editions. Migration 0061 stamped the existing shared rows `'2024'`. At startup `spell_service.seed_srd_spells` inserts each edition while it has no rows. Lookups pass the PC's or campaign's ruleset (`SpellRepo.list_all(ruleset=)`, `get_by_name(ruleset=)`), so a name like "Fireball" resolves within one edition.
 
+### Homebrew (Plan 132)
+DM-made rows in `monster_stat_blocks`, `items` and `spells` carry `created_by_email` (SEC-003). The rules:
+- Only the owner and admins see or change them. Lists filter with `auth_service.catalog_visible`, and so do the level-up guide, `learn_spell` and inventory adds.
+- **Names must be unique** within what the DM can see (shared rows plus their own), because the builder, kits, shops and the level-up guide look things up by name. A clash returns 409.
+- **Deleting:** `DELETE /api/monsters|items|spells/{id}` refuses (409, in plain words) while the row is in use:
+  - monsters: in an encounter, or linked to an NPC;
+  - items: in an inventory, a shop or a loot table;
+  - spells: on a character's spell list.
+- **Kits** match only shared rows, and a shop's name match prefers the shared row.
+- **Magic weapons:** `items.properties.bonus` (e.g. `"+1"`, 0–3) is added to the attack and damage of a magic weapon by `attack_service.compute_attack` (Plan 132; the PHB seed already stored it).
+
 ## PII Fields
 
 | Table | Column | Classification |

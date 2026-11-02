@@ -1,9 +1,12 @@
 """Item and LootTable domain models — magic items and loot generation."""
 
+import re
 import uuid
 from typing import Any, Optional
 
 from pydantic import BaseModel
+from pydantic import Field as PField
+from pydantic import field_validator
 from sqlalchemy import Column
 from sqlalchemy.types import JSON
 from sqlmodel import Field, SQLModel
@@ -54,26 +57,70 @@ class Item(SQLModel, table=True):
     created_by_email: Optional[str] = Field(default=None, max_length=200, index=True)
 
 
-class ItemCreate(BaseModel):
-    """Input schema for creating an item."""
+# Plan 132: weapon dice the attack preview can read ("1d8", "2d6+1") or a flat number
+# (the SRD blowgun deals 1).
+_DAMAGE_RE = re.compile(
+    r"^\s*(\d{1,2}d(4|6|8|10|12|20|100)\s*([+-]\s*\d{1,3})?|\d{1,3})\s*$", re.IGNORECASE
+)
 
-    name: str
+
+def _check_damage(value: Optional[str]) -> Optional[str]:
+    """Trim a weapon damage field; blank means none; refuse what no roll can read.
+
+    Args:
+        value: The submitted damage string, or None.
+
+    Returns:
+        The trimmed value, or None when blank.
+
+    Raises:
+        ValueError: If it is neither dice like ``1d8``/``2d6+1`` nor a flat number.
+    """
+    if value is None or not value.strip():
+        return None
+    if not _DAMAGE_RE.match(value):
+        raise ValueError("Damage must be dice like 1d8 or 2d6+1, or a flat number.")
+    return value.strip()
+
+
+class ItemCreate(BaseModel):
+    """Input schema for creating an item.
+
+    Lengths match the table's columns (Plan 132: a DM's homebrew form writes
+    here, so an over-long field is a plain 422, not a database error).
+    """
+
+    name: str = PField(min_length=1, max_length=200)
     rarity: ItemRarity
-    item_type: str
-    description: Optional[str] = None
+    item_type: str = PField(min_length=1, max_length=100)
+    description: Optional[str] = PField(default=None, max_length=10000)
     attunement_required: bool = False
     properties: Optional[dict[str, Any]] = None
     value_gp: int = Field(default=0, ge=0)
     is_magic: bool = False
-    image_url: Optional[str] = None
+    image_url: Optional[str] = PField(default=None, max_length=500)
     # Weapon fields (Plan 00018, all optional)
-    weapon_category: Optional[str] = None
-    damage_die: Optional[str] = None
-    damage_type: Optional[str] = None
+    weapon_category: Optional[str] = PField(default=None, max_length=40)
+    damage_die: Optional[str] = PField(default=None, max_length=20)
+    damage_type: Optional[str] = PField(default=None, max_length=20)
     weapon_properties: Optional[list[str]] = None
-    versatile_damage: Optional[str] = None
-    weapon_range: Optional[str] = None
-    mastery: Optional[str] = None
+    versatile_damage: Optional[str] = PField(default=None, max_length=20)
+    weapon_range: Optional[str] = PField(default=None, max_length=40)
+    mastery: Optional[str] = PField(default=None, max_length=20)
+
+    @field_validator("name", "item_type")
+    @classmethod
+    def _not_blank(cls, value: str) -> str:
+        """Trim the name and type; a blank one is refused."""
+        if not value.strip():
+            raise ValueError("This can't be blank.")
+        return value.strip()
+
+    @field_validator("damage_die", "versatile_damage")
+    @classmethod
+    def _dice(cls, value: Optional[str]) -> Optional[str]:
+        """Weapon damage must be dice or a flat number."""
+        return _check_damage(value)
 
 
 class ItemRead(BaseModel):
@@ -104,25 +151,50 @@ class ItemRead(BaseModel):
 
 
 class ItemUpdate(BaseModel):
-    """Partial update schema for an item."""
+    """Partial update schema for an item (same limits as ``ItemCreate``)."""
 
-    name: Optional[str] = None
+    name: Optional[str] = PField(default=None, min_length=1, max_length=200)
     rarity: Optional[ItemRarity] = None
-    item_type: Optional[str] = None
-    description: Optional[str] = None
+    item_type: Optional[str] = PField(default=None, min_length=1, max_length=100)
+    description: Optional[str] = PField(default=None, max_length=10000)
     attunement_required: Optional[bool] = None
     properties: Optional[dict[str, Any]] = None
     value_gp: Optional[int] = Field(default=None, ge=0)
     is_magic: Optional[bool] = None
-    image_url: Optional[str] = None
+    image_url: Optional[str] = PField(default=None, max_length=500)
     # Weapon fields
-    weapon_category: Optional[str] = None
-    damage_die: Optional[str] = None
-    damage_type: Optional[str] = None
+    weapon_category: Optional[str] = PField(default=None, max_length=40)
+    damage_die: Optional[str] = PField(default=None, max_length=20)
+    damage_type: Optional[str] = PField(default=None, max_length=20)
     weapon_properties: Optional[list[str]] = None
-    versatile_damage: Optional[str] = None
-    weapon_range: Optional[str] = None
-    mastery: Optional[str] = None
+    versatile_damage: Optional[str] = PField(default=None, max_length=20)
+    weapon_range: Optional[str] = PField(default=None, max_length=40)
+    mastery: Optional[str] = PField(default=None, max_length=20)
+
+    @field_validator("name", "item_type")
+    @classmethod
+    def _not_blank(cls, value: Optional[str]) -> Optional[str]:
+        """Trim the name and type; a blank one is refused."""
+        if value is None:
+            return None
+        if not value.strip():
+            raise ValueError("This can't be blank.")
+        return value.strip()
+
+    @field_validator("damage_die", "versatile_damage")
+    @classmethod
+    def _dice(cls, value: Optional[str]) -> Optional[str]:
+        """Weapon damage must be dice or a flat number (blank clears it)."""
+        return _check_damage(value)
+
+
+class ItemConflictError(Exception):
+    """A homebrew item change that clashes with the catalog (Plan 132): an HTTP 409.
+
+    Raised when an item can't be deleted because something still holds it, or when a
+    homebrew name is one its DM can already see (kits and shops look items up by name).
+    The message is a plain sentence, shown to the DM as is.
+    """
 
 
 class WeaponAttackPreview(BaseModel):
@@ -145,6 +217,9 @@ class WeaponAttackPreview(BaseModel):
     mastery: Optional[str] = None
     proficient: bool = True
     two_handed: bool = False
+    # Plan 132: a magic weapon's +1/+2/+3 (``properties["bonus"]``), already
+    # included in ``hit_bonus`` and ``damage_roll``; 0 for a mundane weapon.
+    magic_bonus: int = 0
 
 
 class LootTable(SQLModel, table=True):

@@ -212,6 +212,17 @@ export default function GuidePage() {
         your account and only appear in your own campaigns.
       </p>
 
+      <h2 id="homebrew">Your own monsters, items and spells</h2>
+      <p>
+        On <span className="btnref">Monsters</span>, <span className="btnref">Magic Items</span>{" "}
+        and <span className="btnref">Spells</span>, tap <span className="btnref">New</span> to make
+        your own, or <span className="btnref">Copy and edit</span> on any entry to start from it
+        (a tougher goblin, a +1 sword with a name). Yours carry a <em>Yours</em> chip, only you see
+        them, and they work everywhere the built-in ones do: encounters, loot, shops, your
+        players&rsquo; sheets, and both the 2024 and 2014 rules. You can delete one once nothing
+        uses it any more.
+      </p>
+
       <h2>No generative AI</h2>
       <p>
         QuestLab has no generative AI in it: no AI art, no AI-written NPCs, briefs or runbooks, no

@@ -30,6 +30,7 @@ from domain.character import (
 from domain.enums import CharacterClass
 from integrations.event_bus import publish_pc_updated
 from services import character_service
+from services.auth_service import catalog_visible
 
 
 def _assert_pc_owner(db: Session, character_id: uuid.UUID, dm_email: str) -> PlayerCharacter:
@@ -123,7 +124,8 @@ def learn_spell(
     """
     _assert_pc_owner(db, character_id, dm_email)
     spell = SpellRepo.get_by_id(db, payload.spell_id)
-    if spell is None:
+    # Plan 132: another DM's homebrew is invisible here, as in every catalog list (SEC-003).
+    if spell is None or not catalog_visible(spell.created_by_email, dm_email):
         raise ValueError(f"Spell {payload.spell_id} not found.")
     existing = CharacterSpellRepo.find_by_pc_and_spell(db, character_id, payload.spell_id)
     if existing is not None:

@@ -555,6 +555,9 @@ def create_custom_monster(
     row = MonsterRepo.create(session, payload)
     row.is_custom = True
     row.created_by_email = dm_email
+    # Plan 132 — a copy of an SRD block is the DM's own now, not the SRD's.
+    if not (row.source or "").strip() or row.source.strip().upper() == "SRD":
+        row.source = "Homebrew"
     session.add(row)
     session.commit()
     session.refresh(row)
@@ -578,6 +581,10 @@ def get_monster(session: Session, monster_id: uuid.UUID) -> MonsterStatBlock:
     if monster is None:
         raise ValueError(f"Monster {monster_id} not found.")
     return monster
+
+
+class MonsterInUseError(ValueError):
+    """Plan 132 — a monster still in an encounter or linked to an NPC can't be deleted."""
 
 
 def monster_owner(monster: MonsterStatBlock) -> Optional[str]:
@@ -624,3 +631,62 @@ def update_monster(
     session.commit()
     session.refresh(monster)
     return monster
+
+
+def _names(items: list[Any], limit: int = 5) -> str:
+    """Join up to ``limit`` row names for a message, then "and N more"."""
+    names = [str(getattr(i, "name", "") or "unnamed") for i in items]
+    shown = ", ".join(names[:limit])
+    extra = len(names) - limit
+    return f"{shown} and {extra} more" if extra > 0 else shown
+
+
+def monster_in_use_message(session: Session, monster: MonsterStatBlock) -> Optional[str]:
+    """Plain words for where a monster is still used, or None when it is free to delete.
+
+    Args:
+        session: Active database session.
+        monster: The stat block.
+
+    Returns:
+        A sentence naming the encounters and NPCs that use it, or None.
+    """
+    encounters = MonsterRepo.encounters_using(session, monster.id)
+    npcs = MonsterRepo.npcs_using(session, monster.id)
+    if not encounters and not npcs:
+        return None
+    parts = []
+    if encounters:
+        noun = "encounter" if len(encounters) == 1 else "encounters"
+        parts.append(f"in {len(encounters)} {noun} ({_names(encounters)})")
+    if npcs:
+        noun = "NPC" if len(npcs) == 1 else "NPCs"
+        parts.append(f"the stat block for {len(npcs)} {noun} ({_names(npcs)})")
+    those = "that" if len(encounters) + len(npcs) == 1 else "those"
+    return (
+        f"{monster.name} is still {' and '.join(parts)}. "
+        f"Take it out of {those} first, then delete it."
+    )
+
+
+def delete_monster(session: Session, monster_id: uuid.UUID, dm_email: str) -> None:
+    """Delete a monster stat block the DM may edit, unless something still uses it (Plan 132).
+
+    Args:
+        session: Active database session.
+        monster_id: UUID of the monster.
+        dm_email: The requesting DM.
+
+    Raises:
+        ValueError: If the monster is not found.
+        PermissionError: If it is an SRD row (non-admin) or another DM's homebrew.
+        MonsterInUseError: If an encounter or NPC still uses it.
+    """
+    monster = MonsterRepo.get_by_id(session, monster_id)
+    if monster is None:
+        raise ValueError(f"Monster {monster_id} not found.")
+    require_catalog_editor(monster_owner(monster), dm_email)
+    in_use = monster_in_use_message(session, monster)
+    if in_use:
+        raise MonsterInUseError(in_use)
+    MonsterRepo.delete(session, monster)

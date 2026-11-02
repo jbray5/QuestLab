@@ -1,15 +1,18 @@
 """Item service — business logic for magic item browsing."""
 
 import uuid
-from typing import Optional
+from typing import Literal, Optional
 
 from sqlmodel import Session
 
-from db.repos.item_repo import ItemRepo
+from db.repos.item_repo import ItemRepo, LootTableRepo
 from domain.enums import ItemRarity
-from domain.item import Item, ItemCreate, ItemRead, ItemUpdate
+from domain.item import Item, ItemConflictError, ItemCreate, ItemRead, ItemUpdate
 from integrations.dnd_rules.magic_items import PHB_MAGIC_ITEMS
 from services.auth_service import catalog_visible, require_catalog_editor
+
+ItemKind = Literal["magic", "mundane", "all"]
+"""Which part of the catalog a list shows: magic items (the default), the rest, or both."""
 
 
 def is_weapon(item: Item) -> bool:
@@ -24,28 +27,48 @@ def is_weapon(item: Item) -> bool:
     return bool(item.weapon_category and item.damage_die)
 
 
+def _type_matches(item_type: str, wanted: str) -> bool:
+    """True when ``item_type`` is ``wanted`` or a kind of it ("Weapon (longsword)" is a Weapon).
+
+    Args:
+        item_type: The item's catalog type.
+        wanted: The type filter, any case.
+
+    Returns:
+        Whether the item passes the filter.
+    """
+    have = (item_type or "").strip().lower()
+    want = wanted.strip().lower()
+    return have == want or have.startswith(f"{want} (")
+
+
 def list_items(
     db: Session,
     q: Optional[str] = None,
     rarity: Optional[str] = None,
     item_type: Optional[str] = None,
     viewer: Optional[str] = None,
+    kind: ItemKind = "magic",
 ) -> list[ItemRead]:
-    """Return all magic items with optional search / filter.
+    """Return catalog items (magic ones by default) with optional search / filter.
 
     Args:
         db: Active database session.
         q: Optional name substring search (case-insensitive).
         rarity: Optional exact rarity filter (e.g. 'Rare', 'VeryRare').
-        item_type: Optional item_type filter (e.g. 'Weapon', 'Potion').
+        item_type: Optional type filter (e.g. 'Weapon', 'Potion'); 'Weapon'
+            also matches 'Weapon (longsword)'.
         viewer: The listing DM: shared items plus their own homebrew (SEC-003).
+        kind: 'magic' (default), 'mundane' (weapons, armor and gear: where a
+            DM's non-magic homebrew lives, Plan 132) or 'all'.
 
     Returns:
         Filtered list of ItemRead objects ordered by name.
     """
+    is_magic = {"magic": True, "mundane": False}.get(kind)
     items = [
         i
-        for i in ItemRepo.list_all(db, is_magic=True)
+        for i in ItemRepo.list_all(db, is_magic=is_magic)
         if catalog_visible(i.created_by_email, viewer)
     ]
     if q:
@@ -54,8 +77,7 @@ def list_items(
     if rarity:
         items = [i for i in items if i.rarity.value == rarity]
     if item_type:
-        lower_type = item_type.lower()
-        items = [i for i in items if i.item_type.lower() == lower_type]
+        items = [i for i in items if _type_matches(i.item_type, item_type)]
     return [ItemRead.model_validate(i) for i in items]
 
 
@@ -126,7 +148,8 @@ def seed_armor(db: Session, payloads: list[ItemCreate]) -> int:
     """Seed SRD armor and the shield into the items table, by name. Idempotent.
 
     Unlike weapons this is per-row: a catalog that already has "Shield" but not
-    "Chain Mail" gets the missing rows only (Plan 83).
+    "Chain Mail" gets the missing rows only (Plan 83). Only shared rows count, so
+    a DM's homebrew "Chain Mail" never stands in for the SRD one (Plan 132).
 
     Args:
         db: Active database session.
@@ -135,7 +158,7 @@ def seed_armor(db: Session, payloads: list[ItemCreate]) -> int:
     Returns:
         Number of rows inserted.
     """
-    have = {i.name for i in ItemRepo.list_all(db)}
+    have = {i.name for i in ItemRepo.list_all(db) if not i.created_by_email}
     inserted = 0
     for payload in payloads:
         if payload.name in have:
@@ -152,6 +175,7 @@ def create_item(db: Session, payload: ItemCreate, dm_email: Optional[str] = None
     Moonglass etc.). A DM's item is stamped with their email (SEC-003): it
     lists only for them and only they (or an admin) can change it. Seeders
     and internal callers pass no email, which makes a shared catalog row.
+    Plan 132: a homebrew name must not be one its DM can already see.
 
     Args:
         db: Active database session.
@@ -160,7 +184,12 @@ def create_item(db: Session, payload: ItemCreate, dm_email: Optional[str] = None
 
     Returns:
         Persisted Item.
+
+    Raises:
+        ItemConflictError: If a homebrew name is already taken.
     """
+    if dm_email is not None:
+        _require_free_name(db, payload.name, dm_email)
     return ItemRepo.create(db, payload, owner_email=dm_email)
 
 
@@ -179,10 +208,129 @@ def update_item(db: Session, item_id: uuid.UUID, payload: ItemUpdate, dm_email: 
     Raises:
         ValueError: If the item does not exist.
         PermissionError: If it is shared (non-admin) or another DM's homebrew.
+        ItemConflictError: If a homebrew item is renamed to a name its DM can already see.
     """
     item = get_item(db, item_id)
     require_catalog_editor(item.created_by_email, dm_email)
+    renamed = payload.name is not None and payload.name.casefold() != item.name.casefold()
+    if renamed and item.created_by_email:
+        _require_free_name(db, payload.name, item.created_by_email, skip=item.id)
     return ItemRepo.update(db, item, payload)
+
+
+def _require_free_name(
+    db: Session, name: str, owner_email: str, skip: Optional[uuid.UUID] = None
+) -> None:
+    """Refuse a homebrew name already used by an item its owner can see (Plan 132).
+
+    Starting kits, shops and the backfill look items up by name, so a homebrew
+    "Longsword" must never stand beside (or in for) the SRD one. The shared rows and
+    the owner's own homebrew count; other DMs' homebrew doesn't (they never see it).
+
+    Args:
+        db: Active database session.
+        name: The proposed name.
+        owner_email: The homebrew row's owner.
+        skip: The row being renamed (it may keep its own name).
+
+    Raises:
+        ItemConflictError: If the name is taken.
+    """
+    for row in ItemRepo.list_named(db, name):
+        if row.id != skip and catalog_visible(row.created_by_email, owner_email):
+            mine = bool(row.created_by_email)
+            where = "You already have a homebrew item" if mine else "The rules already have an item"
+            raise ItemConflictError(
+                f"{where} called {row.name}. Give this one its own name, so inventories, "
+                "shops and starting gear can tell them apart."
+            )
+
+
+def _name_list(names: list[str], limit: int = 3) -> str:
+    """Join names for a sentence: "A", "A and B", "A, B and C", "A, B, C and 2 more"."""
+    if len(names) > limit:
+        return f"{', '.join(names[:limit])} and {len(names) - limit} more"
+    if len(names) <= 1:
+        return "".join(names)
+    return f"{', '.join(names[:-1])} and {names[-1]}"
+
+
+def _places(rows: list[tuple[str, str]], dm_email: str, one: str, many: str) -> Optional[str]:
+    """Phrase where-used rows: names from the DM's own campaigns, a count for anyone else's.
+
+    Args:
+        rows: ``(name, campaign DM email)`` pairs.
+        dm_email: The requesting DM (only their own tables are named).
+        one: Noun for a single row elsewhere ("character").
+        many: Plural noun ("characters").
+
+    Returns:
+        A phrase like "Brannoc and Wren" or "Brannoc and 2 characters at other
+        tables", or None when there are no rows.
+    """
+    if not rows:
+        return None
+    me = dm_email.strip().lower()
+    mine = [name for name, dm in rows if (dm or "").strip().lower() == me]
+    others = len(rows) - len(mine)
+    parts = [_name_list(mine)] if mine else []
+    if others:
+        parts.append(f"{others} {one if others == 1 else many} at other tables")
+    return " and ".join(parts)
+
+
+def where_used(db: Session, item: Item, dm_email: str) -> list[str]:
+    """Plain phrases for everywhere the item is still held: bags, shops, loot tables.
+
+    Args:
+        db: Active database session.
+        item: The catalog item.
+        dm_email: The requesting DM (other DMs' tables are counted, never named).
+
+    Returns:
+        Phrases like "carried by Brannoc" or "stocked in The Gilded Anvil"; empty
+        when the item is unused.
+    """
+    out: list[str] = []
+    holders = _places(ItemRepo.inventory_holders(db, item.id), dm_email, "character", "characters")
+    if holders:
+        out.append(f"carried by {holders}")
+    shops = _places(ItemRepo.shops_stocking(db, item.id), dm_email, "shop", "shops")
+    if shops:
+        out.append(f"stocked in {shops}")
+    loot = _places(
+        LootTableRepo.tables_listing_item(db, item.id), dm_email, "loot table", "loot tables"
+    )
+    if loot:
+        out.append(f"listed on {loot}")
+    return out
+
+
+def delete_item(db: Session, item_id: uuid.UUID, dm_email: str) -> None:
+    """Delete a catalog item the DM may edit, unless something still holds it (Plan 132).
+
+    Deleting never cascades: an item in a character's inventory, a shop or a
+    loot table is refused with a plain sentence saying where, so nothing at
+    the table silently disappears.
+
+    Args:
+        db: Active database session.
+        item_id: UUID of the item.
+        dm_email: The requesting DM.
+
+    Raises:
+        ValueError: If the item does not exist.
+        PermissionError: If it is shared (non-admin) or another DM's homebrew.
+        ItemConflictError: If any inventory, shop or loot table still holds it.
+    """
+    item = get_item(db, item_id)
+    require_catalog_editor(item.created_by_email, dm_email)
+    uses = where_used(db, item, dm_email)
+    if uses:
+        raise ItemConflictError(
+            f"{item.name} is still in use: {'; '.join(uses)}. Take it out first, then delete it."
+        )
+    ItemRepo.delete(db, item)
 
 
 def get_item(db: Session, item_id: uuid.UUID) -> Item:
@@ -292,10 +440,11 @@ def backfill_weapon_stats(db: Session) -> int:
     from domain.item import ItemUpdate
 
     all_items = ItemRepo.list_all(db)
-    # Build a name→weapon lookup from items that already have weapon stats.
+    # Build a name→weapon lookup from the shared weapons (never a DM's homebrew
+    # "Longsword", Plan 132), which already have weapon stats.
     weapon_by_name: dict[str, object] = {}
     for i in all_items:
-        if i.weapon_category and i.damage_die:
+        if i.weapon_category and i.damage_die and not i.created_by_email:
             weapon_by_name[i.name.lower()] = i
     if not weapon_by_name:
         return 0

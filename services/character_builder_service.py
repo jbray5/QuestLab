@@ -164,7 +164,8 @@ def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
             "properties": list(i.weapon_properties or []),
         }
         for i in ItemRepo.list_all(db)
-        if i.name in weapon_names
+        # Plan 132: kits name SRD gear, so only the shared rows (never a DM's homebrew).
+        if i.name in weapon_names and i.created_by_email is None
     ]
 
     def lists(table: dict[str, dict[str, list[tuple[int, int]]]]) -> dict[str, Any]:
@@ -1056,7 +1057,8 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
 
     # Starting kit: catalog weapons + the armor/shield as inventory rows.
     if kit:
-        items = {i.name: i for i in ItemRepo.list_all(db)}
+        # Plan 132: kits name SRD gear; a DM's homebrew "Mace" never stands in for it.
+        items = {i.name: i for i in ItemRepo.list_all(db) if i.created_by_email is None}
         wanted = (
             kit["items"]
             + ([kit["armor"]] if kit["armor"] else [])

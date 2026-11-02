@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, SearchX } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ChevronRight, Plus, SearchX } from "lucide-react";
 import { monstersApi } from "../api/monsters";
 import type { Monster } from "../api/types";
 import MonsterStatBlock from "../components/MonsterStatBlock";
+import HomebrewChip from "../components/HomebrewChip";
+import MonsterForm, { type MonsterFormMode } from "../components/homebrew/MonsterForm";
 import { useIsCompact } from "../hooks/useIsCompact";
+import { isMine, useMyEmail } from "../lib/homebrew";
 
 const CR_OPTIONS = [
   "All", "0", "1/8", "1/4", "1/2",
@@ -55,6 +58,16 @@ export default function Monsters() {
   const [cr, setCr] = useState("All");
   const [creatureType, setCreatureType] = useState("All Types");
   const [selected, setSelected] = useState<Monster | null>(null);
+  // Plan 132 — DM homebrew: the filter, and the form (new, copy of a block, or edit).
+  const [homebrewOnly, setHomebrewOnly] = useState(false);
+  const [form, setForm] = useState<{ mode: MonsterFormMode; source: Monster | null } | null>(null);
+  const myEmail = useMyEmail();
+  const qc = useQueryClient();
+
+  function openForm(mode: MonsterFormMode, source: Monster | null) {
+    setSelected(null);
+    setForm({ mode, source });
+  }
 
   const queryParams = {
     search: search.trim() || undefined,
@@ -62,29 +75,51 @@ export default function Monsters() {
     creature_type: creatureType !== "All Types" ? creatureType : undefined,
   };
 
-  const { data: monsters, isLoading } = useQuery({
+  const { data: allMonsters, isLoading } = useQuery({
     queryKey: ["monsters", search, cr, creatureType],
     queryFn: () => monstersApi.list(queryParams),
   });
+  // Every custom row in the list is the DM's own (the server lists the SRD plus theirs).
+  const monsters = homebrewOnly ? allMonsters?.filter((m) => m.is_custom) : allMonsters;
 
-  const filtered = !!search.trim() || cr !== "All" || creatureType !== "All Types";
+  const filtered = !!search.trim() || cr !== "All" || creatureType !== "All Types" || homebrewOnly;
+  const noHomebrewYet = homebrewOnly && !search.trim() && cr === "All" && creatureType === "All Types";
 
   return (
     <div className="fade-in ql-page" style={{ "--page-max": "900px" } as React.CSSProperties}>
       {/* Page Header */}
-      <div style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ marginBottom: "0.25rem" }}>Monster Compendium</h1>
-        <p className="text-muted text-sm" style={{ margin: 0 }}>
-          SRD 5.1 — Systems Reference Document. {phone ? "Tap" : "Click"} a monster for its stat
-          block.
-        </p>
+      <div
+        style={{
+          marginBottom: "1.5rem",
+          display: "flex",
+          gap: "0.75rem",
+          alignItems: phone ? "stretch" : "flex-end",
+          justifyContent: "space-between",
+          flexDirection: phone ? "column" : "row",
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <h1 style={{ marginBottom: "0.25rem" }}>Monster Compendium</h1>
+          <p className="text-muted text-sm" style={{ margin: 0 }}>
+            The SRD 5.1 monsters and your own. {phone ? "Tap" : "Click"} a monster for its stat
+            block, or copy one to make it yours.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn btn-primary"
+          onClick={() => openForm("new", null)}
+          style={phone ? { minHeight: 44 } : { flexShrink: 0 }}
+        >
+          <Plus size={16} aria-hidden /> New monster
+        </button>
       </div>
 
       {/* Filters: search on its own row on a phone, the two selects under it. */}
       <div className="card" style={{ marginBottom: "1rem", padding: "1rem" }}>
         <div
           className="ql-filters"
-          style={phone ? undefined : { gridTemplateColumns: "1fr auto auto" }}
+          style={phone ? undefined : { gridTemplateColumns: "1fr auto auto auto" }}
         >
           <div className="form-group ql-filter-wide">
             <label htmlFor="monster-search">Search</label>
@@ -128,6 +163,28 @@ export default function Monsters() {
               ))}
             </select>
           </div>
+
+          <label
+            className={phone ? "ql-filter-wide" : undefined}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              minHeight: 44,
+              margin: 0,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={homebrewOnly}
+              onChange={(e) => setHomebrewOnly(e.target.checked)}
+              // .ql-filters stretches its inputs; a checkbox keeps its own size.
+              style={{ width: "auto" }}
+            />
+            Homebrew only
+          </label>
         </div>
       </div>
 
@@ -136,12 +193,24 @@ export default function Monsters() {
         <span className="text-sm text-muted">
           {isLoading
             ? "Loading monsters…"
-            : `Showing ${monsters?.length ?? 0} monster${monsters?.length !== 1 ? "s" : ""}`}
+            : `Showing ${monsters?.length ?? 0} ${homebrewOnly ? "of your " : ""}monster${monsters?.length !== 1 ? "s" : ""}`}
         </span>
       </div>
 
       {/* Empty State */}
-      {!isLoading && monsters && monsters.length === 0 && (
+      {!isLoading && monsters && monsters.length === 0 && noHomebrewYet && (
+        <div className="card empty-state">
+          <p style={{ color: "var(--text)", marginBottom: "0.35rem" }}>You haven't made a monster yet.</p>
+          <p className="text-sm" style={{ marginBottom: "1rem" }}>
+            Start a new one, or open any monster and choose "Copy and edit" to make it yours.
+          </p>
+          <button type="button" className="btn btn-primary" onClick={() => openForm("new", null)}>
+            <Plus size={16} aria-hidden /> New monster
+          </button>
+        </div>
+      )}
+
+      {!isLoading && monsters && monsters.length === 0 && !noHomebrewYet && (
         <div className="card empty-state">
           <div className="empty-icon">
             <SearchX size={28} aria-hidden />
@@ -158,6 +227,7 @@ export default function Monsters() {
                 setSearch("");
                 setCr("All");
                 setCreatureType("All Types");
+                setHomebrewOnly(false);
               }}
             >
               Clear the filters
@@ -191,6 +261,12 @@ export default function Monsters() {
                 <span style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "0.5rem" }}>
                   <span className="story" style={{ fontSize: "1.1rem", fontWeight: 700, minWidth: 0 }}>
                     {monster.name}
+                    {isMine(monster.created_by_email, myEmail) && (
+                      <>
+                        {" "}
+                        <HomebrewChip />
+                      </>
+                    )}
                   </span>
                   <span className={crPillClass(monster.challenge_rating)} style={{ flexShrink: 0 }}>
                     CR <span className="num">{monster.challenge_rating}</span>
@@ -231,6 +307,7 @@ export default function Monsters() {
                     <span className={crPillClass(monster.challenge_rating)}>
                       CR <span className="num">{monster.challenge_rating}</span>
                     </span>
+                    {isMine(monster.created_by_email, myEmail) && <HomebrewChip />}
                   </div>
 
                   {/* Center: Type + Size */}
@@ -267,7 +344,27 @@ export default function Monsters() {
 
       {/* Stat block: a modal on desktop, a bottom sheet on a phone. */}
       {selected && (
-        <MonsterStatBlock monster={selected} onClose={() => setSelected(null)} />
+        <MonsterStatBlock
+          monster={selected}
+          onClose={() => setSelected(null)}
+          onCopy={() => openForm("copy", selected)}
+          onEdit={() => openForm("edit", selected)}
+          onDeleted={() => setSelected(null)}
+        />
+      )}
+
+      {/* Plan 132 — the homebrew form. Saved: the list refreshes and the new block opens. */}
+      {form && (
+        <MonsterForm
+          mode={form.mode}
+          source={form.source}
+          onClose={() => setForm(null)}
+          onSaved={(m) => {
+            qc.invalidateQueries({ queryKey: ["monsters"] });
+            setForm(null);
+            setSelected(m);
+          }}
+        />
       )}
     </div>
   );

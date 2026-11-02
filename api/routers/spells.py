@@ -1,9 +1,9 @@
-"""Spells router — SRD spell catalogs, 2024 and 2014 (Plans 00017, 131).
+"""Spells router — SRD spell catalogs, 2024 and 2014 (Plans 00017, 131), and DM homebrew.
 
-Reads are open to any authenticated DM. Writes (create/update/delete) are
-intended for homebrew authoring — any authenticated DM may write to the
-shared catalog. If multi-DM separation is needed later, add an
-``author_email`` column and scope by it.
+Reads are open to any authenticated DM; lists show the shared catalog plus the caller's own
+homebrew. SEC-003: create stamps the caller as the author; update and delete need the author
+or an admin. Plan 132: a clashing homebrew name, or deleting a spell characters still know,
+is a 409 with a plain message.
 """
 
 import uuid
@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from api.deps import DB, CurrentUser
 from domain.enums import Ruleset
-from domain.spell import SpellCreate, SpellRead, SpellUpdate
+from domain.spell import SpellConflictError, SpellCreate, SpellRead, SpellUpdate
 from services import spell_service
 
 router = APIRouter(tags=["spells"])
@@ -101,8 +101,14 @@ def create_spell(body: SpellCreate, db: DB, user: CurrentUser) -> SpellRead:
 
     Returns:
         Newly created SpellRead.
+
+    Raises:
+        HTTPException 409: If the DM can already see a spell with that name (Plan 132).
     """
-    spell = spell_service.create_spell(db, body, dm_email=user)
+    try:
+        spell = spell_service.create_spell(db, body, dm_email=user)
+    except SpellConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     return SpellRead.model_validate(spell)
 
 
@@ -122,9 +128,12 @@ def update_spell(spell_id: uuid.UUID, body: SpellUpdate, db: DB, user: CurrentUs
     Raises:
         HTTPException 404: If the spell does not exist.
         HTTPException 403: If the spell is shared or another DM's (SEC-003).
+        HTTPException 409: If the new name clashes with one the DM can see (Plan 132).
     """
     try:
         spell = spell_service.update_spell(db, spell_id, body, user)
+    except SpellConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:
@@ -144,9 +153,12 @@ def delete_spell(spell_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
     Raises:
         HTTPException 404: If the spell does not exist.
         HTTPException 403: If the spell is shared or another DM's (SEC-003).
+        HTTPException 409: If a character knows the spell; the message names who (Plan 132).
     """
     try:
         spell_service.delete_spell(db, spell_id, user)
+    except SpellConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:

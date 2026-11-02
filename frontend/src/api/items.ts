@@ -28,6 +28,28 @@ export interface ItemListParams {
   q?: string;
   rarity?: string;
   item_type?: string;
+  /** Plan 132: "magic" (the server's default), "mundane" (weapons, armor, gear) or "all". */
+  kind?: "magic" | "mundane" | "all";
+}
+
+/** Plan 132: what the homebrew item form sends (POST creates; PATCH takes the same fields). */
+export interface ItemWrite {
+  name: string;
+  rarity: string;
+  item_type: string;
+  description: string | null;
+  attunement_required: boolean;
+  value_gp: number;
+  is_magic: boolean;
+  /** Free-form extras; a magic weapon's +1/+2/+3 lives here as `bonus: "+1"`. */
+  properties: Record<string, unknown> | null;
+  weapon_category: string | null;
+  damage_die: string | null;
+  damage_type: string | null;
+  weapon_properties: string[] | null;
+  versatile_damage: string | null;
+  weapon_range: string | null;
+  mastery: string | null;
 }
 
 export const itemsApi = {
@@ -36,12 +58,19 @@ export const itemsApi = {
     if (params?.q) qs.set("q", params.q);
     if (params?.rarity) qs.set("rarity", params.rarity);
     if (params?.item_type) qs.set("item_type", params.item_type);
+    if (params?.kind) qs.set("kind", params.kind);
     const query = qs.toString();
     return api.get<MagicItem[]>(`/items${query ? `?${query}` : ""}`);
   },
   get: (id: string) => api.get<MagicItem>(`/items/${id}`),
   updateImage: (id: string, image_url: string) =>
     api.patch<MagicItem>(`/items/${id}`, { image_url }),
+  // ── Homebrew (Plan 132): the server stamps the author; only they (or an admin) edit ──
+  create: (body: ItemWrite) => api.post<MagicItem>("/items", body, { quiet: true }),
+  update: (id: string, body: Partial<ItemWrite>) =>
+    api.patch<MagicItem>(`/items/${id}`, body, { quiet: true }),
+  /** Refused (409) with a plain sentence while a character, shop or loot table holds it. */
+  remove: (id: string) => api.delete(`/items/${id}`, { quiet: true }),
   // ── Weapons (Plan 00018) ──────────────────────────────────────────────
   listWeapons: (params?: WeaponListParams) => {
     const qs = new URLSearchParams();

@@ -1,22 +1,29 @@
-"""Spell service — business logic for the SRD spell catalogs.
+"""Spell service — business logic for the SRD spell catalogs and DM homebrew.
 
-Plan 00017 — read-mostly. Writes are admin-only (DM-only auth model means
-any authenticated DM can author homebrew spells, but listing/reading is open
-to any authenticated user).
+Plan 00017 — read-mostly. SEC-003: any signed-in DM may author homebrew spells (stamped
+as theirs, listed only to them); the shared SRD rows are admin-only to change.
+
+Plan 132 — a homebrew spell's name must not clash with a spell its DM can already see (the
+character builder and level-up guide look spells up by name), and a spell characters still
+know is not deleted: the refusal names who knows it.
 
 Plan 131 — the catalog holds two editions side by side: the 2024 rows (SRD 5.2.1,
 ``ruleset="2024"``) and the 2014 rows (SRD 5.1, ``ruleset="2014"``). A DM's homebrew has no
 ruleset and shows in both. Lists take an optional ``ruleset`` to keep one edition.
 """
 
+import uuid
 from typing import Any, Optional
 
 from sqlmodel import Session
 
 from db.repos.spell_repo import SpellRepo
-from domain.spell import Spell, SpellCreate, SpellRead, SpellUpdate
+from domain.spell import Spell, SpellConflictError, SpellCreate, SpellRead, SpellUpdate
 from integrations.dnd_rules import rulesets
 from services.auth_service import catalog_visible, require_catalog_editor
+
+# Plan 132 — what a DM's homebrew spell says it comes from when the form gives no source.
+HOMEBREW_SOURCE = "Homebrew"
 
 
 def list_spells(
@@ -112,7 +119,8 @@ def create_spell(db: Session, payload: SpellCreate, dm_email: Optional[str] = No
     """Persist a new spell (the seeder, or a DM's homebrew).
 
     A DM's homebrew never carries a ruleset (Plan 131): it is valid in both editions, and
-    only the SRD seeds stamp "2024"/"2014".
+    only the SRD seeds stamp "2024"/"2014". Plan 132: its name must not be one the DM can
+    already see, and with no source given it says "Homebrew", not the SRD.
 
     Args:
         db: Active database session.
@@ -121,9 +129,16 @@ def create_spell(db: Session, payload: SpellCreate, dm_email: Optional[str] = No
 
     Returns:
         The newly persisted Spell.
+
+    Raises:
+        SpellConflictError: If a homebrew name is already taken.
     """
-    if dm_email is not None and payload.ruleset is not None:
-        payload = payload.model_copy(update={"ruleset": None})
+    if dm_email is not None:
+        update: dict[str, Any] = {"ruleset": None}
+        if "source" not in payload.model_fields_set:
+            update["source"] = HOMEBREW_SOURCE
+        payload = payload.model_copy(update=update)
+        _require_free_name(db, payload.name, dm_email)
     return SpellRepo.create(db, payload, owner_email=dm_email)
 
 
@@ -142,14 +157,22 @@ def update_spell(db: Session, spell_id, payload: SpellUpdate, dm_email: str) -> 
     Raises:
         ValueError: If the spell does not exist.
         PermissionError: If it is shared (non-admin) or another DM's homebrew.
+        SpellConflictError: If a homebrew spell is renamed to a name its DM can already see.
     """
     spell = get_spell(db, spell_id)
     require_catalog_editor(spell.created_by_email, dm_email)
+    renamed = payload.name is not None and payload.name.casefold() != spell.name.casefold()
+    if renamed and spell.created_by_email:
+        _require_free_name(db, payload.name, spell.created_by_email, skip=spell.id)
     return SpellRepo.update(db, spell, payload)
 
 
 def delete_spell(db: Session, spell_id, dm_email: str) -> bool:
-    """Delete a spell the DM may edit (SEC-003).
+    """Delete a spell the DM may edit (SEC-003), unless a character knows it (Plan 132).
+
+    ``character_spells`` points at the spell with a plain foreign key, so deleting a known
+    spell would fail in the database (or, without the key, leave spell lists pointing at
+    nothing). It is refused instead, naming who knows it.
 
     Args:
         db: Active database session.
@@ -162,10 +185,56 @@ def delete_spell(db: Session, spell_id, dm_email: str) -> bool:
     Raises:
         ValueError: If the spell does not exist.
         PermissionError: If it is shared (non-admin) or another DM's homebrew.
+        SpellConflictError: If any character has it on their spell list.
     """
     spell = get_spell(db, spell_id)
     require_catalog_editor(spell.created_by_email, dm_email)
+    knowers = SpellRepo.knower_names(db, spell.id)
+    if knowers:
+        raise SpellConflictError(_in_use_message(spell.name, knowers))
     return SpellRepo.delete(db, spell)
+
+
+def _require_free_name(
+    db: Session, name: str, owner_email: str, skip: Optional[uuid.UUID] = None
+) -> None:
+    """Refuse a homebrew name already used by a spell its owner can see (Plan 132).
+
+    The shared rows of either edition and the owner's own homebrew count; other DMs'
+    homebrew doesn't (they never see each other's).
+
+    Raises:
+        SpellConflictError: If the name is taken.
+    """
+    for row in SpellRepo.list_named(db, name):
+        if row.id != skip and catalog_visible(row.created_by_email, owner_email):
+            mine = bool(row.created_by_email)
+            where = (
+                "You already have a homebrew spell" if mine else "The rules already have a spell"
+            )
+            raise SpellConflictError(
+                f"{where} called {row.name}. Give this one its own name, so spell pickers "
+                "can tell them apart."
+            )
+
+
+def _in_use_message(spell_name: str, names: list[str]) -> str:
+    """The plain refusal for deleting a spell characters know: who, and what to do first."""
+    unique = list(dict.fromkeys(names))
+    shown = unique[:3]
+    rest = len(names) - len(shown)
+    if rest > 0:
+        who = f"{', '.join(shown)} and {rest} more"
+    elif len(shown) > 1:
+        who = f"{', '.join(shown[:-1])} and {shown[-1]}"
+    else:
+        who = shown[0]
+    verb = "knows" if len(names) == 1 else "know"
+    lists = "spell list" if len(names) == 1 else "spell lists"
+    return (
+        f"{spell_name} can't be deleted yet: {who} {verb} it. "
+        f"Take it off their {lists} first, then delete it."
+    )
 
 
 def _edition(ruleset: Any) -> Optional[str]:

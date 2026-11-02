@@ -98,7 +98,7 @@ export default function AttacksList({ characterId, onRoll, readOnly = false }: P
                   label: `${entry.item.name} attack`,
                   mod: preview.hit_bonus,
                   // The server leaves mastery out for a 2014 PC (Plan 131: no weapon mastery).
-                  breakdown: `${preview.ability} mod + prof${preview.mastery ? ` · mastery: ${preview.mastery}` : ""}`,
+                  breakdown: `${preview.ability} mod + prof${preview.magic_bonus ? ` + ${preview.magic_bonus} magic` : ""}${preview.mastery ? ` · mastery: ${preview.mastery}` : ""}`,
                   damage: `${preview.damage_roll} ${preview.damage_type}`,
                 });
               }}

@@ -50,6 +50,7 @@ from domain.spell import Spell
 from integrations.dnd_rules import rulesets
 from integrations.event_bus import publish_pc_updated
 from services import character_service, feat_rules, feature_service, spellcasting_service
+from services.auth_service import catalog_visible
 
 _PREPARED_CASTERS = {"Cleric", "Druid", "Paladin", "Wizard"}
 _ABILITY_NAMES = {
@@ -604,6 +605,18 @@ def _spell_step_2024(
     )
 
 
+def _visible_spells(db: Session, ruleset: str, dm: str) -> list[Spell]:
+    """The spells this PC's level-up may offer: its edition's SRD rows and its DM's homebrew.
+
+    Plan 132: never another DM's homebrew (SEC-003), and so a name lookup never resolves to it.
+    """
+    return [
+        s
+        for s in SpellRepo.list_all(db, ruleset=ruleset)
+        if catalog_visible(s.created_by_email, dm)
+    ]
+
+
 def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
     """Everything the guide shows for the PC's next level, by the PC's edition."""
     rules, srd = _tables(pc)
@@ -642,7 +655,7 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
     )
 
     # Plan 131 — the PC's edition only: a name-keyed lookup must never pick the other's row.
-    all_spells = SpellRepo.list_all(db, ruleset=ruleset)
+    all_spells = _visible_spells(db, ruleset, dm)
     known = _known_spells(db, pc, dm)
     scaling = rules.scaling_notes(class_name, old, new, is_caster=caster)
     choices: list[ChoiceStep] = []
@@ -976,7 +989,7 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
     learn: list[str] = []
     forget: list[str] = []
     capped: set[str] = set()  # new picks a 2014 prepared caster prepares only while there's room
-    catalog = {s.name.casefold(): s for s in SpellRepo.list_all(db, ruleset=ruleset)}
+    catalog = {s.name.casefold(): s for s in _visible_spells(db, ruleset, dm)}
 
     # Subclass.
     subclass = pc.subclass

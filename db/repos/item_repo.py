@@ -3,9 +3,14 @@
 import uuid
 from typing import Optional
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 
+from domain.adventure import Adventure
+from domain.campaign import Campaign
+from domain.character import CharacterItem, PlayerCharacter
 from domain.item import Item, ItemCreate, ItemUpdate, LootTable, LootTableCreate, LootTableUpdate
+from domain.shop import Shop, ShopItem
 
 
 class ItemRepo:
@@ -39,6 +44,20 @@ class ItemRepo:
         if is_magic is not None:
             stmt = stmt.where(Item.is_magic == is_magic)
         stmt = stmt.order_by(Item.name.asc())
+        return list(session.exec(stmt).all())
+
+    @staticmethod
+    def list_named(session: Session, name: str) -> list[Item]:
+        """Items whose name matches, ignoring case and outer spaces (any owner).
+
+        Args:
+            session: Active database session.
+            name: The name to match.
+
+        Returns:
+            Matching items.
+        """
+        stmt = select(Item).where(func.lower(Item.name) == name.strip().lower())
         return list(session.exec(stmt).all())
 
     @staticmethod
@@ -95,6 +114,48 @@ class ItemRepo:
         session.commit()
         return True
 
+    # ── Where an item is used (Plan 132: delete refuses while anything holds it) ──
+
+    @staticmethod
+    def inventory_holders(session: Session, item_id: uuid.UUID) -> list[tuple[str, str]]:
+        """Characters carrying this item, with their campaign's DM.
+
+        Args:
+            session: Active database session.
+            item_id: UUID of the item.
+
+        Returns:
+            ``(character name, campaign DM email)`` pairs, by name.
+        """
+        stmt = (
+            select(PlayerCharacter.character_name, Campaign.dm_email)
+            .join(CharacterItem, CharacterItem.character_id == PlayerCharacter.id)
+            .join(Campaign, Campaign.id == PlayerCharacter.campaign_id)
+            .where(CharacterItem.item_id == item_id)
+            .order_by(PlayerCharacter.character_name.asc())
+        )
+        return [(name, dm) for name, dm in session.exec(stmt).all()]
+
+    @staticmethod
+    def shops_stocking(session: Session, item_id: uuid.UUID) -> list[tuple[str, str]]:
+        """Shops that stock this item, with their campaign's DM.
+
+        Args:
+            session: Active database session.
+            item_id: UUID of the item.
+
+        Returns:
+            ``(shop name, campaign DM email)`` pairs, by name.
+        """
+        stmt = (
+            select(Shop.name, Campaign.dm_email)
+            .join(ShopItem, ShopItem.shop_id == Shop.id)
+            .join(Campaign, Campaign.id == Shop.campaign_id)
+            .where(ShopItem.item_id == item_id)
+            .order_by(Shop.name.asc())
+        )
+        return [(name, dm) for name, dm in session.exec(stmt).all()]
+
 
 class LootTableRepo:
     """CRUD operations for LootTable records."""
@@ -129,6 +190,33 @@ class LootTableRepo:
             .order_by(LootTable.name.asc())
         )
         return list(session.exec(stmt).all())
+
+    @staticmethod
+    def tables_listing_item(session: Session, item_id: uuid.UUID) -> list[tuple[str, str]]:
+        """Loot tables with an entry naming this item (``"item_id"``), with their campaign's DM.
+
+        Entries are free-form JSON, so the match is made on the loaded rows.
+
+        Args:
+            session: Active database session.
+            item_id: UUID of the item.
+
+        Returns:
+            ``(loot table name, campaign DM email)`` pairs, by name.
+        """
+        stmt = (
+            select(LootTable, Campaign.dm_email)
+            .join(Adventure, Adventure.id == LootTable.adventure_id)
+            .join(Campaign, Campaign.id == Adventure.campaign_id)
+            .order_by(LootTable.name.asc())
+        )
+        target = str(item_id)
+        out: list[tuple[str, str]] = []
+        for table, dm in session.exec(stmt).all():
+            entries = table.entries or []
+            if any(isinstance(e, dict) and str(e.get("item_id")) == target for e in entries):
+                out.append((table.name, dm))
+        return out
 
     @staticmethod
     def create(session: Session, data: LootTableCreate) -> LootTable:

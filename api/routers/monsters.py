@@ -1,4 +1,4 @@
-"""Public monster browser router — read-only browse + image update."""
+"""Monster catalog router: browse, homebrew create/edit/delete (SEC-003, Plan 132)."""
 
 import uuid
 from typing import Optional
@@ -108,6 +108,30 @@ def update_monster(
     """
     try:
         return encounter_service.update_monster(db, monster_id, body, user)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.delete("/monsters/{monster_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_monster(monster_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
+    """Delete a homebrew monster the DM made (Plan 132), unless something still uses it.
+
+    Args:
+        monster_id: UUID of the monster.
+        db: Database session.
+        user: Authenticated DM (must own the homebrew row, or be an admin).
+
+    Raises:
+        HTTPException 404: If the monster does not exist.
+        HTTPException 403: If it is an SRD row or another DM's (SEC-003).
+        HTTPException 409: If an encounter or NPC still uses it; the detail names them.
+    """
+    try:
+        encounter_service.delete_monster(db, monster_id, user)
+    except encounter_service.MonsterInUseError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
     except PermissionError as exc:

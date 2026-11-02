@@ -20,16 +20,27 @@ No screen makes them, and monsters and items have no delete route. When this is 
 ---
 
 ## Progress
-- [ ] Lead: plan, branch `feat/homebrew`, shared `HomebrewChip`
-- [ ] Agent HM: monsters (new, copy SRD, edit, delete; form; delete route)
-- [ ] Agent HI: magic items and weapons (new, copy SRD weapon, edit, delete; delete route)
-- [ ] Agent HS: spells (new, copy, edit, delete; edition note)
-- [ ] Lead: integration (encounter picker, inventory add, shops show homebrew), screenshots, docs, gate, merge
+- [x] Lead: plan, branch `feat/homebrew`, `HomebrewChip` / `MineChip`, `lib/homebrew.ts`
+- [x] Agent HM: monsters (form with attack-line helper, copy, edit, delete with in-use refusal; 9 tests)
+- [x] Agent HI: items and weapons ("Weapons and gear" view, base weapon + magic bonus applied in `compute_attack`, delete refusal; 24 tests)
+- [x] Agent HS: spells (form, copy, edit, delete refused while known; unique names; 13 tests)
+- [x] Lead integration:
+  - the level-up guide and `learn_spell` hide other DMs' homebrew (this leak predates the plan);
+  - inventory adds check visibility;
+  - kits use only shared rows, and shops prefer the shared row;
+  - the inventory search covers all gear;
+  - the attack breakdown shows "+N magic";
+  - Weapons gets the Yours chip;
+  - `api.delete({quiet})`;
+  - docs: Guide #homebrew, data dictionary, TD-132a.
 
 ---
 
 ## Surprises and Discoveries
 - The backend create, update and visibility for all three catalogs already exist (SEC-003). The work is mostly frontend, plus two delete routes.
+- **The level-up guide offered every DM's homebrew spells to every table.** This leak predates Plan 132 (`SpellRepo.list_all` with no visibility filter); fixed here.
+- **No magic weapon bonus was applied anywhere before.** `properties.bonus` is now added in `compute_attack`, so existing SRD magic weapons with stats show their bonus too (Sun Blade +2, Holy Avenger +3...).
+- **Deleting a spell a character knew failed with a 500** (foreign key); it's now a plain 409.
 - Weapons are `items` rows with weapon columns (`weapon_category`, `damage_die`, `damage_type`, `weapon_properties`, `versatile_damage`, `weapon_range`, `mastery`), so one item form covers magic items, magic weapons and mundane homebrew weapons.
 
 ---

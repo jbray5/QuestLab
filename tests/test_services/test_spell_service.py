@@ -7,6 +7,7 @@ from sqlmodel import Session, delete
 
 import services.spell_service as spell_svc
 from db.repos.spell_repo import SpellRepo
+from domain.character import CharacterSpell
 from domain.spell import Spell, SpellCreate, SpellUpdate
 
 
@@ -17,6 +18,10 @@ def _clean_spells(duckdb_session: Session):
     The shared engine fixture commits across tests; assertions on exact lists
     require a fresh table each time.
     """
+    # Spell rows a PC knows (left by other suites on the shared engine) hold a foreign key;
+    # DuckDB still sees them until they're committed away.
+    duckdb_session.exec(delete(CharacterSpell))
+    duckdb_session.commit()
     duckdb_session.exec(delete(Spell))
     duckdb_session.commit()
     yield

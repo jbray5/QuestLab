@@ -597,6 +597,35 @@ export interface Spell {
   source: string;
   /** Plan 131 — the SRD edition ("2024"/"2014"); null for homebrew (valid in both). */
   ruleset?: Ruleset | null;
+  /** SEC-003 / Plan 132 — the DM who made this homebrew spell; null for the shared SRD rows. */
+  created_by_email?: string | null;
+}
+
+/**
+ * Plan 132 — a DM's homebrew spell, as the form sends it (POST /spells; the same fields
+ * PATCH). The server stamps the author and leaves `ruleset` null, so it shows in both editions.
+ */
+export interface SpellInput {
+  name: string;
+  level: number;
+  school: string;
+  casting_time: string;
+  range: string;
+  components_v: boolean;
+  components_s: boolean;
+  components_m: string | null;
+  duration: string;
+  is_ritual: boolean;
+  is_concentration: boolean;
+  description: string;
+  higher_levels: string | null;
+  damage_dice: string | null;
+  damage_type: string | null;
+  save_ability: string | null;
+  attack_type: string | null;
+  classes: string[];
+  /** Create only ("Homebrew"); PATCH ignores it. */
+  source?: string;
 }
 
 export interface SpellListParams {
@@ -631,6 +660,8 @@ export interface WeaponAttackPreview {
   mastery: string | null;
   proficient: boolean;
   two_handed: boolean;
+  /** Plan 132: a magic weapon's +1/+2/+3, already in hit_bonus and damage_roll (0 if none). */
+  magic_bonus?: number;
 }
 
 // ── PC inventory (Plan 00019) ────────────────────────────────────────────────

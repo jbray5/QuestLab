@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { itemsApi } from "../api/items";
 import type { MagicItem } from "../api/items";
 import PhoneSheet from "../components/PhoneSheet";
+import { MineChip } from "../components/HomebrewChip";
 import { useIsCompact } from "../hooks/useIsCompact";
 
 // Keeps a checkbox its native size inside .ql-filters (which sizes inputs to 100%).
@@ -358,7 +359,7 @@ export default function Weapons() {
                     <span style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "0.5rem" }}>
                         <span className="story" style={{ fontWeight: 700, fontSize: "1.05rem", minWidth: 0 }}>
-                          {w.name}
+                          {w.name} <MineChip createdBy={w.created_by_email} />
                         </span>
                         <span style={{ fontSize: "0.875rem", color: "var(--text2)", flexShrink: 0 }}>
                           <span className="num">{w.damage_die}</span>
@@ -398,7 +399,7 @@ export default function Weapons() {
                     }}
                   >
                     <span className="story" style={{ fontWeight: 700, fontSize: "1.05rem", flex: 1 }}>
-                      {w.name}
+                      {w.name} <MineChip createdBy={w.created_by_email} />
                     </span>
                     <span style={{ fontSize: "0.8125rem", color: "var(--text2)" }}>
                       <Damage w={w} />

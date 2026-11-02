@@ -3,9 +3,11 @@
 import uuid
 from typing import Optional
 
-from sqlmodel import Session, select
+from sqlmodel import Session, String, cast, select
 
+from domain.encounter import Encounter
 from domain.monster import MonsterStatBlock, MonsterStatBlockCreate, MonsterStatBlockUpdate
+from domain.npc import Npc
 
 
 class MonsterRepo:
@@ -115,6 +117,49 @@ class MonsterRepo:
         session.delete(monster)
         session.commit()
         return True
+
+    @staticmethod
+    def encounters_using(session: Session, monster_id: uuid.UUID) -> list[Encounter]:
+        """Encounters whose monster roster includes this monster (Plan 132 "where used").
+
+        The roster is a JSON list of ``{"monster_id", "count", ...}`` entries; a
+        text match narrows the scan in SQL and each hit is confirmed entry by entry.
+
+        Args:
+            session: Active database session.
+            monster_id: UUID of the monster.
+
+        Returns:
+            The encounters that use it, ordered by name.
+        """
+        needle = str(monster_id).lower()
+        stmt = (
+            select(Encounter)
+            .where(cast(Encounter.monster_roster, String).contains(needle))
+            .order_by(Encounter.name.asc())
+        )
+        return [
+            enc
+            for enc in session.exec(stmt).all()
+            if any(
+                isinstance(entry, dict) and str(entry.get("monster_id", "")).lower() == needle
+                for entry in (enc.monster_roster or [])
+            )
+        ]
+
+    @staticmethod
+    def npcs_using(session: Session, monster_id: uuid.UUID) -> list[Npc]:
+        """NPCs whose combat stat block is this monster (Plan 132 "where used").
+
+        Args:
+            session: Active database session.
+            monster_id: UUID of the monster.
+
+        Returns:
+            The NPCs linked to it, ordered by name.
+        """
+        stmt = select(Npc).where(Npc.monster_stat_block_id == monster_id).order_by(Npc.name.asc())
+        return list(session.exec(stmt).all())
 
     @staticmethod
     def count(session: Session) -> int:

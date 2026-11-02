@@ -5,15 +5,24 @@ Catalog-only: no PC↔Spell link yet (lands in Plan 00020).
 """
 
 import uuid
-from typing import Optional
+from typing import Annotated, Optional
 
 from pydantic import BaseModel
 from pydantic import Field as PydanticField
+from pydantic import StringConstraints, field_validator
 from sqlalchemy import Column
 from sqlalchemy.types import JSON
 from sqlmodel import Field, SQLModel
 
 from domain.enums import RULESET_PATTERN
+
+
+class SpellConflictError(ValueError):
+    """A homebrew spell change that clashes (Plan 132): a name already taken, or still known."""
+
+
+# Plan 132 — a spell's name, trimmed before its length is checked (so "  " is refused).
+SpellName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 
 
 class Spell(SQLModel, table=True):
@@ -67,7 +76,7 @@ class Spell(SQLModel, table=True):
 class SpellCreate(BaseModel):
     """Input schema for creating a spell."""
 
-    name: str = PydanticField(min_length=1, max_length=120)
+    name: SpellName
     level: int = PydanticField(ge=0, le=9)
     school: str = PydanticField(min_length=1, max_length=40)
     casting_time: str = PydanticField(min_length=1, max_length=400)
@@ -80,12 +89,13 @@ class SpellCreate(BaseModel):
     is_concentration: bool = False
     description: str = PydanticField(min_length=1)
     higher_levels: Optional[str] = None
-    damage_dice: Optional[str] = None
-    damage_type: Optional[str] = None
-    save_ability: Optional[str] = None
-    attack_type: Optional[str] = None
+    # Plan 132 — the column sizes, so a homebrew form gets a 422 rather than a DB error.
+    damage_dice: Optional[str] = PydanticField(default=None, max_length=40)
+    damage_type: Optional[str] = PydanticField(default=None, max_length=40)
+    save_ability: Optional[str] = PydanticField(default=None, max_length=10)
+    attack_type: Optional[str] = PydanticField(default=None, max_length=20)
     classes: list[str] = PydanticField(default_factory=list)
-    source: str = "SRD 5.5e (2024)"
+    source: str = PydanticField(default="SRD 5.5e (2024)", max_length=60)
     # Plan 131 — the seeds set "2024"/"2014"; a DM's homebrew leaves it None (both rulesets).
     ruleset: Optional[str] = PydanticField(default=None, pattern=RULESET_PATTERN)
 
@@ -121,23 +131,48 @@ class SpellRead(BaseModel):
 
 
 class SpellUpdate(BaseModel):
-    """Partial update for a spell."""
+    """Partial update for a spell.
 
-    name: Optional[str] = None
+    Plan 132 — the same limits as ``SpellCreate``; a field that can't be empty can't be
+    cleared with null either (only the optional texts and rolls can).
+    """
+
+    name: Optional[SpellName] = None
     level: Optional[int] = PydanticField(default=None, ge=0, le=9)
-    school: Optional[str] = None
-    casting_time: Optional[str] = None
-    range: Optional[str] = None
+    school: Optional[str] = PydanticField(default=None, min_length=1, max_length=40)
+    casting_time: Optional[str] = PydanticField(default=None, min_length=1, max_length=400)
+    range: Optional[str] = PydanticField(default=None, min_length=1, max_length=120)
     components_v: Optional[bool] = None
     components_s: Optional[bool] = None
-    components_m: Optional[str] = None
-    duration: Optional[str] = None
+    components_m: Optional[str] = PydanticField(default=None, max_length=600)
+    duration: Optional[str] = PydanticField(default=None, min_length=1, max_length=120)
     is_ritual: Optional[bool] = None
     is_concentration: Optional[bool] = None
-    description: Optional[str] = None
+    description: Optional[str] = PydanticField(default=None, min_length=1)
     higher_levels: Optional[str] = None
-    damage_dice: Optional[str] = None
-    damage_type: Optional[str] = None
-    save_ability: Optional[str] = None
-    attack_type: Optional[str] = None
+    damage_dice: Optional[str] = PydanticField(default=None, max_length=40)
+    damage_type: Optional[str] = PydanticField(default=None, max_length=40)
+    save_ability: Optional[str] = PydanticField(default=None, max_length=10)
+    attack_type: Optional[str] = PydanticField(default=None, max_length=20)
     classes: Optional[list[str]] = None
+
+    @field_validator(
+        "name",
+        "level",
+        "school",
+        "casting_time",
+        "range",
+        "components_v",
+        "components_s",
+        "duration",
+        "is_ritual",
+        "is_concentration",
+        "description",
+        "classes",
+    )
+    @classmethod
+    def _not_null(cls, value):
+        """Refuse an explicit null for a field every spell must have."""
+        if value is None:
+            raise ValueError("can't be empty")
+        return value

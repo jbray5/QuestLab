@@ -192,11 +192,15 @@ def _find_or_create_item(db: DBSession, data: ShopItemAdd, dm_email: str) -> Ite
     name = (data.name or "").strip()
     if not name:
         raise ValueError("Item name is required when item_id is not given.")
-    for item in ItemRepo.list_all(db):
-        if item.name.strip().lower() == name.lower() and catalog_visible(
-            item.created_by_email, dm_email
-        ):
-            return item
+    matches = [
+        item
+        for item in ItemRepo.list_all(db)
+        if item.name.strip().lower() == name.lower()
+        and catalog_visible(item.created_by_email, dm_email)
+    ]
+    if matches:
+        # Plan 132: the shared row wins over this DM's same-named homebrew.
+        return min(matches, key=lambda i: i.created_by_email is not None)
     rarity = data.rarity or ItemRarity.COMMON
     return ItemRepo.create(
         db,

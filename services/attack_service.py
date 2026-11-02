@@ -99,6 +99,34 @@ def _choose_ability(weapon: Item, str_mod: int, dex_mod: int) -> tuple[str, int]
     return "STR", str_mod
 
 
+MAX_MAGIC_BONUS = 3
+"""The largest +N a magic weapon gives (a +3 weapon is the top of the table)."""
+
+
+def magic_bonus(weapon: Item) -> int:
+    """The weapon's +1/+2/+3 to attack and damage rolls, or 0 (Plan 132).
+
+    Magic weapons carry it as ``properties["bonus"]`` ("+1", the PHB seed's
+    representation; an int is read too). Anything unreadable counts as 0 and
+    the value is capped at +3.
+
+    Args:
+        weapon: Weapon Item.
+
+    Returns:
+        The bonus, 0 to ``MAX_MAGIC_BONUS``.
+    """
+    props = weapon.properties if isinstance(weapon.properties, dict) else {}
+    raw = props.get("bonus")
+    if isinstance(raw, bool) or raw is None:
+        return 0
+    try:
+        value = int(str(raw).strip().replace(" ", ""))
+    except ValueError:
+        return 0
+    return max(0, min(MAX_MAGIC_BONUS, value))
+
+
 def _format_damage_roll(die: str, ability_mod: int) -> str:
     """Render the damage roll string, e.g. ``1d8+3`` or ``2d6-1`` or just ``1d6``."""
     if ability_mod > 0:
@@ -127,7 +155,9 @@ def compute_attack(
     Returns:
         WeaponAttackPreview with hit bonus, damage roll, mastery (None for a
         2014 PC: no weapon mastery in those rules), etc. Exhaustion is not
-        folded into the hit bonus in either edition (Plan 131).
+        folded into the hit bonus in either edition (Plan 131). A magic
+        weapon's +N (``magic_bonus``) is added to both the hit bonus and the
+        damage roll (Plan 132).
 
     Raises:
         ValueError: If ``weapon`` is not a weapon.
@@ -139,10 +169,11 @@ def compute_attack(
     dex_mod = ability_modifier(character.score_dex)
     ability, ability_mod = _choose_ability(weapon, str_mod, dex_mod)
     prof_bonus = proficiency_bonus(character.level) if proficient else 0
-    hit_bonus = ability_mod + prof_bonus
+    plus = magic_bonus(weapon)
+    hit_bonus = ability_mod + prof_bonus + plus
 
     die = weapon.versatile_damage if (two_handed and weapon.versatile_damage) else weapon.damage_die
-    damage_roll = _format_damage_roll(die or "1d4", ability_mod)
+    damage_roll = _format_damage_roll(die or "1d4", ability_mod + plus)
 
     return WeaponAttackPreview(
         weapon_id=weapon.id,
@@ -154,4 +185,5 @@ def compute_attack(
         mastery=mastery_for(weapon, character),
         proficient=proficient,
         two_handed=two_handed,
+        magic_bonus=plus,
     )

@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 
 from api.deps import DB, CurrentUser
 from db.repos.character_repo import CharacterRepo
-from domain.item import ItemCreate, ItemRead, ItemUpdate, WeaponAttackPreview
+from domain.item import ItemConflictError, ItemCreate, ItemRead, ItemUpdate, WeaponAttackPreview
 from services import attack_service, item_service
 
 router = APIRouter(tags=["items"])
@@ -20,8 +20,11 @@ def list_items(
     q: Optional[str] = Query(None, description="Name search (case-insensitive)"),
     rarity: Optional[str] = Query(None, description="Filter by rarity (e.g. Rare, VeryRare)"),
     item_type: Optional[str] = Query(None, description="Filter by item type (e.g. Weapon, Potion)"),
+    kind: item_service.ItemKind = Query(
+        "magic", description="magic (default), mundane (weapons, armor, gear) or all"
+    ),
 ) -> list[ItemRead]:
-    """Browse magic items with optional search and filters.
+    """Browse catalog items (magic ones unless ``kind`` says otherwise) with filters.
 
     Args:
         db: Database session.
@@ -29,11 +32,15 @@ def list_items(
         q: Optional name substring search.
         rarity: Optional exact rarity filter.
         item_type: Optional item type filter.
+        kind: magic (default), mundane or all (Plan 132: a DM's non-magic
+            homebrew weapon lists under mundane).
 
     Returns:
-        Filtered list of magic items ordered by name.
+        Filtered list of items ordered by name.
     """
-    return item_service.list_items(db, q=q, rarity=rarity, item_type=item_type, viewer=user)
+    return item_service.list_items(
+        db, q=q, rarity=rarity, item_type=item_type, viewer=user, kind=kind
+    )
 
 
 @router.get("/weapons", response_model=list[ItemRead])
@@ -136,8 +143,14 @@ def create_item(body: ItemCreate, db: DB, user: CurrentUser) -> ItemRead:
 
     Returns:
         Newly persisted item.
+
+    Raises:
+        HTTPException 409: If the DM can already see an item with that name (Plan 132).
     """
-    item = item_service.create_item(db, body, dm_email=user)
+    try:
+        item = item_service.create_item(db, body, dm_email=user)
+    except ItemConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     return ItemRead.model_validate(item)
 
 
@@ -188,11 +201,40 @@ def update_item(
     Raises:
         HTTPException 404: If item not found.
         HTTPException 403: If the item is shared or another DM's (SEC-003).
+        HTTPException 409: If a homebrew item is renamed to a name the DM can
+            already see (Plan 132).
     """
     try:
         updated = item_service.update_item(db, item_id, body, user)
+    except ItemConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     return ItemRead.model_validate(updated)
+
+
+@router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_item(item_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
+    """Delete a homebrew item (Plan 132); refused while anything still holds it.
+
+    Args:
+        item_id: UUID of the item to delete.
+        db: Database session.
+        user: Authenticated DM (must own the homebrew row, or be an admin).
+
+    Raises:
+        HTTPException 404: If item not found.
+        HTTPException 403: If the item is shared or another DM's (SEC-003).
+        HTTPException 409: If a character's inventory, a shop or a loot table
+            still holds it; the detail says where, in plain words.
+    """
+    try:
+        item_service.delete_item(db, item_id, user)
+    except ItemConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
