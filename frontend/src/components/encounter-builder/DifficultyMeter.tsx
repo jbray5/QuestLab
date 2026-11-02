@@ -21,6 +21,8 @@ interface Band {
   label: string;
   num: string;
   soft: string;
+  /** The band's full colour: the bar fills with it up to the marker. */
+  strong: string;
   help?: string;
 }
 
@@ -44,11 +46,11 @@ function barFor(preview: DifficultyPreview): { xp: number; bands: Band[]; end: n
       end,
       note: "The bar runs from no XP to past the Deadly line. The marker is this encounter's adjusted XP.",
       bands: [
-        { key: "Trivial", from: 0, to: low, label: "", num: "", soft: "transparent" },
-        { key: "Low", from: low, to: mod, label: "Easy", num: `${low}+`, soft: DIFFICULTY_TONE.Low.soft, help: help("Low") },
-        { key: "Moderate", from: mod, to: high, label: "Medium", num: `${mod}+`, soft: DIFFICULTY_TONE.Moderate.soft, help: help("Moderate") },
-        { key: "High", from: high, to: deadly, label: "Hard", num: `${high}+`, soft: DIFFICULTY_TONE.High.soft, help: help("High") },
-        { key: "Deadly", from: deadly, to: end, label: "Deadly", num: `${deadly}+`, soft: DIFFICULTY_TONE.Deadly.soft, help: help("Deadly") },
+        { key: "Trivial", from: 0, to: low, label: "", num: "", soft: "transparent", strong: "var(--muted)" },
+        { key: "Low", from: low, to: mod, label: "Easy", num: `${low}+`, soft: DIFFICULTY_TONE.Low.soft, strong: DIFFICULTY_TONE.Low.strong, help: help("Low") },
+        { key: "Moderate", from: mod, to: high, label: "Medium", num: `${mod}+`, soft: DIFFICULTY_TONE.Moderate.soft, strong: DIFFICULTY_TONE.Moderate.strong, help: help("Moderate") },
+        { key: "High", from: high, to: deadly, label: "Hard", num: `${high}+`, soft: DIFFICULTY_TONE.High.soft, strong: DIFFICULTY_TONE.High.strong, help: help("High") },
+        { key: "Deadly", from: deadly, to: end, label: "Deadly", num: `${deadly}+`, soft: DIFFICULTY_TONE.Deadly.soft, strong: DIFFICULTY_TONE.Deadly.strong, help: help("Deadly") },
       ],
     };
   }
@@ -59,16 +61,18 @@ function barFor(preview: DifficultyPreview): { xp: number; bands: Band[]; end: n
     end: deadly,
     note: "The bar runs from no XP to the informal Deadly line (1.5 × High). The marker is this encounter.",
     bands: [
-      { key: "Low", from: 0, to: low, label: "Low", num: `${low}`, soft: DIFFICULTY_TONE.Low.soft, help: help("Low") },
-      { key: "Moderate", from: low, to: mod, label: "Moderate", num: `${mod}`, soft: DIFFICULTY_TONE.Moderate.soft, help: help("Moderate") },
-      { key: "High", from: mod, to: high, label: "High", num: `${high}`, soft: DIFFICULTY_TONE.High.soft, help: help("High") },
-      { key: "Deadly", from: high, to: deadly, label: "Deadly", num: `${deadly}+`, soft: DIFFICULTY_TONE.Deadly.soft, help: help("Deadly") },
+      { key: "Low", from: 0, to: low, label: "Low", num: `${low}`, soft: DIFFICULTY_TONE.Low.soft, strong: DIFFICULTY_TONE.Low.strong, help: help("Low") },
+      { key: "Moderate", from: low, to: mod, label: "Moderate", num: `${mod}`, soft: DIFFICULTY_TONE.Moderate.soft, strong: DIFFICULTY_TONE.Moderate.strong, help: help("Moderate") },
+      { key: "High", from: mod, to: high, label: "High", num: `${high}`, soft: DIFFICULTY_TONE.High.soft, strong: DIFFICULTY_TONE.High.strong, help: help("High") },
+      { key: "Deadly", from: high, to: deadly, label: "Deadly", num: `${deadly}+`, soft: DIFFICULTY_TONE.Deadly.soft, strong: DIFFICULTY_TONE.Deadly.strong, help: help("Deadly") },
     ],
   };
 }
 
 /**
  * Live difficulty meter (Plan 00031).
+ *
+ * The bar fills from the left up to the marker, each band in its own colour (11/01).
  *
  * Visual gauge of the encounter's adjusted XP against the party's three
  * thresholds (Low / Moderate / High / Deadly = 1.5 × High). The marker
@@ -161,6 +165,25 @@ export default function DifficultyMeter({ preview, isLoading = false }: Props) {
             }}
           />
         ))}
+
+        {/* The fill: each band the encounter reaches lights up in its own colour, up to the
+            marker, so how far into the danger the fight goes reads at a glance. */}
+        {bands.map((b) => {
+          const width = Math.max(0, at(Math.min(b.to, xp)) - at(b.from));
+          return (
+            <div
+              key={`fill-${b.key}`}
+              style={{
+                ...bandStyle,
+                left: `${at(b.from)}%`,
+                width: `${width}%`,
+                background: b.strong,
+                opacity: 0.85,
+                transition: "width 250ms ease",
+              }}
+            />
+          );
+        })}
 
         {/* Section dividers */}
         {bands.slice(1).map((b) => (

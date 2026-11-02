@@ -1,7 +1,7 @@
 # Plan 00132 — DM homebrew: make your own monsters, magic items, weapons and spells
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
 
 **Started:** 2026-11-01
 **Last updated:** 2026-11-01
