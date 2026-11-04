@@ -13,6 +13,9 @@ import type { Ruleset } from "../lib/ruleset";
  * tables carry the 2014 keys (races with ability bonuses and subraces, known/prepared casters, the
  * spellbook), and its builds send the 2014 picks (subrace, the Half-Elf's +1s, a book background's
  * skills, the Dragonborn's ancestry, a Wizard's prepared spells).
+ *
+ * Plan 133: the options carry the campaign DM's homebrew races and subclasses, and whether a 2014
+ * campaign uses custom origin (a build may then move its racial bonuses: `origin_bonus`).
  */
 
 export type Ability = "STR" | "DEX" | "CON" | "INT" | "WIS" | "CHA";
@@ -181,6 +184,19 @@ export interface BuilderSpecies {
   subraces?: BuilderSubrace[];
   /** Race choices: a key into `choice_kinds` → how many picks (Dragonborn ancestry: 1). */
   choices?: Record<string, number>;
+  /**
+   * Plan 133 — the campaign DM's own race (made under Races & subclasses). Its traits are
+   * plain lines, its skill choice is `bonus_skill_choices` (any skill), its fixed skills are
+   * `skills` in either edition, and its hit points per level are `hp_per_level_bonus`.
+   */
+  homebrew?: boolean;
+}
+
+/** Plan 133 — one of the campaign DM's homebrew subclasses, with its features by level. */
+export interface BuilderHomebrewSubclass {
+  name: string;
+  blurb: string;
+  features: { level: number; name: string; text: string }[];
 }
 
 export interface BuilderBackground {
@@ -246,6 +262,12 @@ export interface BuilderOptions {
   subclass_armor?: Record<string, string[]>;
   /** Spells a subclass adds to its class's list, by class level (The Fiend). */
   expanded_spells?: Record<string, Record<string, string[]>>;
+  // Plan 133 — the campaign DM's homebrew (their races are in `species`, marked `homebrew`).
+  /** Their subclasses by class name; also merged into `subclass_features`, `feature_notes`
+   * and `always_prepared_subclass`. */
+  homebrew_subclasses?: Record<string, BuilderHomebrewSubclass[]>;
+  /** A 2014 campaign with custom origin on: a race's fixed bonuses may move (`origin_bonus`). */
+  custom_origin?: boolean;
 }
 
 /** One class choice as the build sends it (Plan 128). */
@@ -306,6 +328,8 @@ export interface CharacterBuildBody {
   species_choices?: ClassChoicePick[];
   /** A Wizard's prepared spells, out of `spells` (its spellbook). */
   prepared_spells?: string[];
+  /** Plan 133 — custom origin: the race's fixed bonuses moved ({DEX: 2, INT: 1}); empty keeps them. */
+  origin_bonus?: Record<string, number>;
 }
 
 export interface BuildResult {

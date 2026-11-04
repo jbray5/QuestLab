@@ -16,6 +16,9 @@ export interface Campaign {
   join_code?: string | null;
   // Plan 131 — "2024" or "2014"; locked once the campaign has characters.
   ruleset?: Ruleset;
+  // Plan 133 — Tasha's custom origin: racial ability bonuses may go on any abilities.
+  // 2014 campaigns only (the server refuses it on 2024); it can change any time.
+  custom_origin?: boolean;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -27,6 +30,8 @@ export interface CampaignCreate {
   description?: string;
   world_notes?: string;
   ruleset?: Ruleset;
+  // Plan 133 — 2014 only.
+  custom_origin?: boolean;
 }
 
 export interface Adventure {

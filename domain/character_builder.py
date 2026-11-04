@@ -12,6 +12,10 @@ Plan 131: a campaign can play by the 2014 rules. The build gains the 2014 picks 
 Half-Elf's two +1s, a book background's skills, the Dragonborn's ancestry, a Wizard's prepared
 spells out of its spellbook), all optional with empty defaults so a 2024 build is unchanged; the
 options say which ruleset they are for and carry the 2014-only tables.
+
+Plan 133: the options carry the campaign DM's homebrew races and subclasses, and whether the
+campaign uses custom origin; a 2014 build with custom origin on may move its racial bonuses
+(``origin_bonus``).
 """
 
 from typing import Annotated, Any, Optional
@@ -101,6 +105,10 @@ class CharacterBuild(BaseModel):
     species_choices: list[ClassChoicePick] = Field(default_factory=list, max_length=4)
     # A Wizard's prepared spells, out of ``spells`` (which is the spellbook for a 2014 Wizard).
     prepared_spells: list[_Name] = Field(default_factory=list, max_length=40)
+    # Plan 133 — custom origin (a 2014 campaign with the switch on): the race's fixed bonuses
+    # moved onto other abilities, the same amounts each on a different ability. A Hill Dwarf's
+    # +2 CON and +1 WIS can become {"DEX": 2, "INT": 1}. Empty keeps the race's own.
+    origin_bonus: dict[str, int] = Field(default_factory=dict, max_length=6)
 
 
 class BuilderOptions(BaseModel):
@@ -158,6 +166,14 @@ class BuilderOptions(BaseModel):
     unarmored_ac_base_subclass: dict[str, int] = Field(default_factory=dict)
     subclass_armor: dict[str, list[str]] = Field(default_factory=dict)
     expanded_spells: dict[str, dict[int, list[str]]] = Field(default_factory=dict)
+    # Plan 133 — the campaign DM's homebrew. Their races join ``species`` (marked
+    # ``homebrew: True``); their subclasses are listed here by class, ``{"Paladin": [{"name",
+    # "blurb", "features": [{"level", "name", "text"}]}]}``, and their features and
+    # always-prepared spells are merged into ``subclass_features``, ``feature_notes`` and
+    # ``always_prepared_subclass``. ``custom_origin``: the 2014 switch that lets a race's
+    # bonuses move (always False in 2024).
+    homebrew_subclasses: dict[str, list[dict[str, Any]]] = Field(default_factory=dict)
+    custom_origin: bool = False
 
 
 class BuildResult(BaseModel):

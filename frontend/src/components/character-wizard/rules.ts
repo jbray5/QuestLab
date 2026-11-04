@@ -1,9 +1,11 @@
 import type {
   Ability,
   BuilderFeat,
+  BuilderHomebrewSubclass,
   BuilderOptions,
   BuilderSpecies,
   BuilderSpell,
+  BuilderSubrace,
   ChoiceKind,
   ChoiceOption,
   MasteryWeapon,
@@ -17,6 +19,10 @@ import type {
  * Plan 131: a 2014 campaign (`opts.ruleset === "2014"`) branches where the rules differ: racial
  * ability bonuses, known vs prepared casters and the spellbook, half casters from level 2,
  * subclass armor, fighting styles only from the class feature, and the "spell" class choices.
+ *
+ * Plan 133: the campaign DM's homebrew races (their own hit points per level, fixed skills in
+ * either edition) and subclasses (their features in the DM's words), and custom origin's moved
+ * racial bonuses.
  */
 
 /** Plan 131 — the options are for a 2014 campaign. */
@@ -366,8 +372,13 @@ export function derive(args: {
   skills: Record<string, number>;
   kit: { armor: string | null; shield: boolean } | undefined;
   speed: number;
+  /**
+   * Plan 133 — a homebrew race: its own hit points per level, in place of the SRD species
+   * table (so "Dwarfling" never picks up the Dwarf's toughness by its name).
+   */
+  raceHp?: { label: string; n: number } | null;
 }): Derived {
-  const { opts, klass, level, species, subclass, scores, feats, saves, skills, kit } = args;
+  const { opts, klass, level, species, subclass, scores, feats, saves, skills, kit, raceHp } = args;
   const cls = opts.classes[klass];
   const con = mod(scores.CON);
   const die = cls.hit_die;
@@ -381,9 +392,15 @@ export function derive(args: {
   }
   const names = featSet(feats);
   const extras: [string, number][] = [];
-  for (const [sp, n] of Object.entries(opts.hp_per_level_species)) if (species.toLowerCase().startsWith(sp.toLowerCase())) extras.push([TRAIT_NAMES[sp] ?? `${sp} trait`, n]);
+  if (raceHp) {
+    if (raceHp.n > 0) extras.push([raceHp.label, raceHp.n]);
+  } else {
+    for (const [sp, n] of Object.entries(opts.hp_per_level_species)) if (species.toLowerCase().startsWith(sp.toLowerCase())) extras.push([TRAIT_NAMES[sp] ?? `${sp} trait`, n]);
+  }
   for (const f of opts.feats) if (f.hp_per_level && names.has(f.name.toLowerCase())) extras.push([f.name, f.hp_per_level]);
-  for (const [sc, n] of Object.entries(opts.hp_per_level_subclass)) if (subclass && subclass.toLowerCase().includes(sc.toLowerCase())) extras.push([TRAIT_NAMES[sc] ?? sc, n]);
+  // Plan 133 — a homebrew subclass is never read as an SRD one by a look-alike name.
+  const srdSub = homebrewSubclass(opts, klass, subclass) ? null : subclass;
+  for (const [sc, n] of Object.entries(opts.hp_per_level_subclass)) if (srdSub && srdSub.toLowerCase().includes(sc.toLowerCase())) extras.push([TRAIT_NAMES[sc] ?? sc, n]);
   for (const [label, n] of extras) { hp += n * level; hpLines.push(`${label}: +${n} × ${level} levels = ${n * level}`); }
   hp = Math.max(1, hp);
 
@@ -856,10 +873,75 @@ export function raceHint(
   const spec = row.ability_choice;
   if (spec) {
     const chosen = Object.entries(abilityChoice).filter(([, v]) => v);
-    if (chosen.length !== spec.choose) return `Pick ${spec.choose} abilities for +${spec.amount} each (not ${spec.exclude.map((a) => ABILITY_NAMES[a]).join(" or ")}).`;
+    // Plan 133 — a homebrew race may exclude nothing; custom origin may move what's excluded.
+    const not = spec.exclude.length ? ` (not ${spec.exclude.map((a) => ABILITY_NAMES[a]).join(" or ")})` : "";
+    if (chosen.length !== spec.choose || chosen.some(([a]) => spec.exclude.includes(a))) return `Pick ${spec.choose} abilities for +${spec.amount} each${not}.`;
   }
   for (const [key, n] of Object.entries(row.choices ?? {})) {
     if ((picks[key]?.picks.length ?? 0) < n) return `Pick your ${opts.choice_kinds[key]?.label ?? key}.`;
   }
   return null;
+}
+
+// ── Plan 133: the DM's homebrew and custom origin ────────────────────────────
+
+/** The campaign DM's homebrew subclass `name` for `klass`, or undefined (an SRD or book one). */
+export function homebrewSubclass(opts: BuilderOptions, klass: string, name: string | null | undefined): BuilderHomebrewSubclass | undefined {
+  if (!name) return undefined;
+  return (opts.homebrew_subclasses?.[klass] ?? []).find((s) => s.name === name);
+}
+
+/** A subclass feature's words: a homebrew subclass's own text (never an SRD note), else the SRD note. */
+export function subclassFeatureNote(opts: BuilderOptions, klass: string, subclass: string, name: string): string | undefined {
+  const own = homebrewSubclass(opts, klass, subclass);
+  if (own) return own.features.find((f) => f.name === name)?.text || undefined;
+  return featureNote(opts, klass, name);
+}
+
+/** One of a race's fixed bonuses under custom origin: its amount, its own ability, where it goes now. */
+export interface OriginSlot {
+  amount: number;
+  own: Ability;
+  pick: Ability;
+}
+
+/**
+ * Custom origin: the race's and subrace's fixed bonuses, one slot each, the race's first (a Hill
+ * Dwarf: +2 Constitution, +1 Wisdom). `picks` are where each goes now, by slot; a missing one
+ * stays on the race's own ability. No two slots ever share an ability: a later slot that would
+ * (a subrace's +1 Wisdom after the race's +2 moved onto Wisdom) takes the earlier one's own.
+ */
+export function originSlots(row: BuilderSpecies | undefined, sub: BuilderSubrace | undefined, picks: string[]): OriginSlot[] {
+  const fixed: { amount: number; own: Ability }[] = [];
+  for (const b of [row?.ability_bonuses, sub?.ability_bonuses]) {
+    for (const [a, v] of Object.entries(b ?? {})) if (v) fixed.push({ amount: v, own: a as Ability });
+  }
+  const out: OriginSlot[] = [];
+  for (const [i, f] of fixed.entries()) {
+    let pick = (ABILITIES as string[]).includes(picks[i]) ? (picks[i] as Ability) : f.own;
+    const taken = new Set(out.map((s) => s.pick));
+    if (taken.has(pick)) {
+      const earlier = out.find((s) => s.pick === pick);
+      pick = earlier && !taken.has(earlier.own) ? earlier.own : ABILITIES.find((a) => !taken.has(a)) ?? pick;
+    }
+    out.push({ ...f, pick });
+  }
+  return out;
+}
+
+/** Where the slots put the bonuses ({DEX: 2, INT: 1}). */
+export function slotBonus(slots: OriginSlot[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const s of slots) out[s.pick] = (out[s.pick] ?? 0) + s.amount;
+  return out;
+}
+
+/** The build's `origin_bonus`: the moved bonuses, or null when every one is on the race's own ability. */
+export function originBonus(slots: OriginSlot[]): Record<string, number> | null {
+  return slots.some((s) => s.pick !== s.own) ? slotBonus(slots) : null;
+}
+
+/** Skills the race and the background both give: each becomes one more pick of any skill (as on the server). */
+export function skillOverlap(row: BuilderSpecies | undefined, bgSkills: string[] | undefined): string[] {
+  return (row?.skills ?? []).filter((s) => (bgSkills ?? []).includes(s));
 }

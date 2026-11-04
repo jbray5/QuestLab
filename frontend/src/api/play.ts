@@ -482,8 +482,9 @@ export interface LevelUpPlan {
   hp_max: number;
   hp_average_gain: number;
   hp_bonus_per_level: number;
-  /** `subclass` (Plan 131): the feature comes with that subclass, picked at this level. */
-  new_features: { name: string; note: string | null; subclass?: string | null }[];
+  /** `subclass` (Plan 131): the feature comes with that subclass, picked at this level.
+   *  `homebrew` (Plan 133): a feature of the DM's own subclass; `note` is the DM's text. */
+  new_features: { name: string; note: string | null; subclass?: string | null; homebrew?: boolean }[];
   scaling: string[];
   slots_before: Record<string, number>;
   slots_after: Record<string, number>;
@@ -519,6 +520,14 @@ export interface LevelUpPlan {
   /** Plan 131 — the rules this plan follows ("2024" when missing). */
   ruleset?: Ruleset;
   class_choices?: LevelUpChoiceStep[];
+  /** Plan 133 — the DM's homebrew subclasses for this class (also in `subclass_options`). */
+  homebrew_subclasses?: LevelUpHomebrewSubclass[];
+}
+
+/** Plan 133 — a subclass the campaign's DM made, offered at the subclass level. */
+export interface LevelUpHomebrewSubclass {
+  name: string;
+  blurb: string;
 }
 
 export interface LevelUpChoices {

@@ -6,9 +6,20 @@ import { sessionsApi } from "../../api/sessions";
 import { tableApi } from "../../api/table";
 import type { BattleMap, PlayerCharacter, TableStateRead, TableToken } from "../../api/types";
 
-export type CanvasMode = "ping" | "place" | "reveal";
+export type CanvasMode = "ping" | "place" | "reveal" | "hide";
 
 const ID_SALT = Date.now().toString(36);
+
+/** Even-odd point-in-polygon, in image pixels. */
+function insidePolygon(x: number, y: number, poly: number[][]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i];
+    const [xj, yj] = poly[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
 
 /**
  * useTableController — one brain for every DM surface that drives the projected
@@ -229,6 +240,22 @@ export function useTableController(sessionId: string, campaignId: string, party:
     const r = 3 * (activeMap.grid_size || Math.round(activeMap.width / 24));
     patchNow({ fog_on: true, brush_reveals: [...(state.brush_reveals ?? []), { x, y, r }] });
   }
+  /**
+   * Plan 133 — the other half of Reveal: tap a revealed spot and the fog closes
+   * over it again (every reveal circle and revealed fog area under the tap).
+   */
+  function hideAt(x: number, y: number) {
+    if (!state || !activeMap) return;
+    const brushes = state.brush_reveals ?? [];
+    const ids = state.revealed_region_ids ?? [];
+    const keptBrushes = brushes.filter((b) => (x - b.x) ** 2 + (y - b.y) ** 2 > b.r * b.r);
+    const keptIds = ids.filter((id) => {
+      const poly = activeMap.regions.find((r) => r.id === id)?.points;
+      return !(poly && poly.length >= 3 && insidePolygon(x, y, poly));
+    });
+    if (keptBrushes.length === brushes.length && keptIds.length === ids.length) return;
+    patchNow({ brush_reveals: keptBrushes, revealed_region_ids: keptIds });
+  }
   function clearReveals() {
     patchNow({ brush_reveals: [], revealed_region_ids: [] });
   }
@@ -257,6 +284,8 @@ export function useTableController(sessionId: string, campaignId: string, party:
       void tableApi.ping(sessionId, x, y);
     } else if (mode === "reveal") {
       revealAt(x, y);
+    } else if (mode === "hide") {
+      hideAt(x, y);
     } else if (mode === "place") {
       if (!state) return;
       const t: TableToken = {
@@ -322,6 +351,7 @@ export function useTableController(sessionId: string, campaignId: string, party:
     addFoesFromCombat,
     removeToken,
     revealAt,
+    hideAt,
     clearReveals,
     revealExit,
     descend,

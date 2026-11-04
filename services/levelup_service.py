@@ -14,11 +14,17 @@ learn from the Spells Known table and may swap one, prepared casters get a bigge
 (the Wizard two spellbook spells), subclass spells become always prepared, and the class
 choices the new level brings (Pact Boon, Eldritch Invocations, Metamagic, Expertise...) are
 asked for and checked. A 2024 PC levels exactly as before.
+
+Plan 133: the campaign DM's homebrew subclasses (``homebrew_service``) join the subclass
+choice in both editions. A PC whose subclass is homebrew gets the DM's features at the
+levels the DM set ("What's new") and the always-prepared spells, learned and prepared. The
+SRD subclass tables never read a homebrew name (a homebrew "Life" is not the Life Domain).
+A homebrew race's hit points per level count toward every level's gain.
 """
 
 import uuid
 from datetime import UTC, datetime
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any, Optional
 
 from sqlmodel import Session
@@ -34,11 +40,13 @@ from domain.character import (
     PlayerCharacterUpdate,
 )
 from domain.enums import CharacterClass, Ruleset
+from domain.homebrew import HomebrewSubclassRead
 from domain.level_up import (
     ChoiceOption,
     ChoiceStep,
     ClassChoicePick,
     GrantedSpell,
+    HomebrewSubclassOption,
     LevelUpChoices,
     LevelUpPlan,
     LevelUpResult,
@@ -49,7 +57,13 @@ from domain.level_up import (
 from domain.spell import Spell
 from integrations.dnd_rules import rulesets
 from integrations.event_bus import publish_pc_updated
-from services import character_service, feat_rules, feature_service, spellcasting_service
+from services import (
+    character_service,
+    feat_rules,
+    feature_service,
+    homebrew_service,
+    spellcasting_service,
+)
 from services.auth_service import catalog_visible
 
 _PREPARED_CASTERS = {"Cleric", "Druid", "Paladin", "Wizard"}
@@ -63,6 +77,8 @@ _ABILITY_NAMES = {
 }
 # Skills and expertise first, then the picks that may depend on them (as feat_rules orders).
 _KIND_ORDER = {"skill": 0, "expertise": 1, "feat": 2, "option": 3, "spell": 4}
+# The class tables' marker for "your subclass gives you something here" (both editions).
+_SUB_MARK = "Subclass feature"
 
 
 # ── Lookups ───────────────────────────────────────────────────────────────────
@@ -116,9 +132,22 @@ def _mod(score: int) -> int:
     return (score - 10) // 2
 
 
-def _hp_bonus_per_level(pc: PlayerCharacter, feats: list[str]) -> int:
-    """Extra max HP each level brings: Tough, Dwarven Toughness, Draconic Resilience."""
-    return feat_rules.hp_bonus_per_level(pc.race, pc.subclass, feats, _ruleset(pc))
+def _hp_bonus_per_level(
+    pc: PlayerCharacter,
+    feats: list[str],
+    subclass: Optional[str],
+    homebrew_race_hp: Optional[int] = None,
+) -> int:
+    """Extra max HP each level brings: Tough, Dwarven Toughness, Draconic Resilience, and a
+    homebrew race's hit points per level (Plan 133).
+
+    ``subclass`` is the one the SRD tables may read: None for a homebrew subclass. Likewise a
+    homebrew race (``homebrew_race_hp`` not None) never reads as an SRD one by its name
+    ("Dwarfling" is not a Dwarf), as in the builder.
+    """
+    race = None if homebrew_race_hp is not None else pc.race
+    bonus = feat_rules.hp_bonus_per_level(race, subclass, feats, _ruleset(pc))
+    return bonus + (homebrew_race_hp or 0)
 
 
 def _hit_die(class_name: str, srd: ModuleType) -> int:
@@ -202,6 +231,103 @@ def _land(rules: ModuleType, feats: list[str]) -> Optional[str]:
             picked = entry[len(prefix) :].strip().casefold()
             return next((k for k in rules.LAND_SPELLS if k.casefold() == picked), None)
     return None
+
+
+# ── Homebrew subclasses and races (Plan 133) ──────────────────────────────────
+
+
+def _homebrew_scope(pc: PlayerCharacter, dm: str) -> SimpleNamespace:
+    """The campaign as ``homebrew_service`` reads it: its DM, and the PC's edition."""
+    return SimpleNamespace(dm_email=dm, ruleset=_ruleset(pc))
+
+
+def _homebrew_subclasses(
+    db: Session, pc: PlayerCharacter, dm: str, class_name: str
+) -> list[HomebrewSubclassRead]:
+    """The campaign DM's homebrew subclasses for this class and edition, by name.
+
+    Only the PC's own campaign DM's rows (SEC-003): never another DM's homebrew.
+    """
+    _races, subs = homebrew_service.for_campaign(db, _homebrew_scope(pc, dm))
+    return [s for s in subs if s.character_class.casefold() == class_name.casefold()]
+
+
+def _homebrew_named(
+    subs: list[HomebrewSubclassRead], name: Optional[str]
+) -> Optional[HomebrewSubclassRead]:
+    """The homebrew subclass a sheet (or a pick) names, ignoring case, or None."""
+    key = (name or "").strip().casefold()
+    return next((s for s in subs if s.name.casefold() == key), None) if key else None
+
+
+def _homebrew_race_hp(db: Session, pc: PlayerCharacter, dm: str) -> Optional[int]:
+    """A homebrew race's extra hit points per level; None when the race isn't homebrew."""
+    race = homebrew_service.race_for(db, _homebrew_scope(pc, dm), pc.race)
+    return int(race.hp_per_level or 0) if race else None
+
+
+def _homebrew_features(
+    sub: HomebrewSubclassRead, low: int, high: int, tag: Optional[str] = None
+) -> list[NewFeature]:
+    """A homebrew subclass's features that arrive at levels ``low``–``high``, with its text."""
+    return [
+        NewFeature(name=f.name, note=f.text or None, subclass=tag, homebrew=True)
+        for f in sorted(sub.features, key=lambda f: f.level)
+        if low <= f.level <= high
+    ]
+
+
+def _homebrew_always(
+    sub: HomebrewSubclassRead,
+    low: int,
+    high: int,
+    skip: set[str],
+    spelled: dict[str, str],
+    tag: Optional[str] = None,
+) -> list[GrantedSpell]:
+    """A homebrew subclass's always-prepared spells set at levels ``low``–``high``.
+
+    Spells in ``skip`` (on the sheet already, or granted by the class) are left out; names
+    the catalog knows take its spelling (``spelled``), the rest stay as the DM typed them
+    (``apply`` warns about those in plain words).
+    """
+    out: list[GrantedSpell] = []
+    seen = set(skip)
+    for level, names in sorted((sub.always_prepared or {}).items(), key=lambda kv: int(kv[0])):
+        if not low <= int(level) <= high:
+            continue
+        for name in names:
+            if name.casefold() in seen:
+                continue
+            seen.add(name.casefold())
+            out.append(
+                GrantedSpell(name=spelled.get(name.casefold(), name), source=sub.name, subclass=tag)
+            )
+    return out
+
+
+def _always_only(always: list[GrantedSpell]) -> Optional[SpellStep]:
+    """A spells step with nothing to pick, for a class without spells whose homebrew
+    subclass grants always-prepared ones (None when it grants none)."""
+    if not always:
+        return None
+    return SpellStep(
+        new_cantrips=0,
+        new_spells=0,
+        max_spell_level=0,
+        prepared_caster=False,
+        cantrip_swap=False,
+        spell_swap=False,
+        known=[],
+        options=[],
+        always_prepared=always,
+    )
+
+
+def _with_extra_always(always: list[GrantedSpell], extra: list[GrantedSpell]) -> list[GrantedSpell]:
+    """``always`` plus the homebrew grants it doesn't already hold (no spell twice)."""
+    have = {g.name.casefold() for g in always if g.subclass is None}
+    return always + [g for g in extra if g.name.casefold() not in have]
 
 
 # ── The plan: 2014 pieces ─────────────────────────────────────────────────────
@@ -359,6 +485,7 @@ def _choice_steps(
     rules: ModuleType,
     srd: ModuleType,
     pc: PlayerCharacter,
+    subclass: Optional[str],
     class_name: str,
     old: int,
     new: int,
@@ -369,9 +496,12 @@ def _choice_steps(
     all_spells: list[Spell],
 ) -> list[ChoiceStep]:
     """The class choices the new level brings: each table's running total at ``new`` minus
-    the total at ``old``. A subclass picked at this level adds its own, tagged with it."""
+    the total at ``old``. A subclass picked at this level adds its own, tagged with it.
+
+    ``subclass`` is the sheet's as the SRD tables may read it (None for a homebrew one).
+    """
     ruleset = _ruleset(pc)
-    sub = _srd_subclass(rules, pc.subclass)
+    sub = _srd_subclass(rules, subclass)
     groups = [
         (
             None,
@@ -432,6 +562,7 @@ def _spell_step_2014(
     rules: ModuleType,
     srd: ModuleType,
     pc: PlayerCharacter,
+    subclass: Optional[str],
     class_name: str,
     old: int,
     new: int,
@@ -441,12 +572,17 @@ def _spell_step_2014(
     needs_subclass: bool,
     subclass_options: list[str],
     choices: list[ChoiceStep],
+    extra_always: list[GrantedSpell],
 ) -> Optional[SpellStep]:
     """The 2014 spells step: known casters learn from their table and may swap one;
-    prepared casters prepare more each day (the Wizard adds two spellbook spells)."""
+    prepared casters prepare more each day (the Wizard adds two spellbook spells).
+
+    ``subclass`` is the sheet's as the SRD tables may read it (None for a homebrew one);
+    ``extra_always`` are the homebrew subclass's always-prepared spells (Plan 133).
+    """
     sc = srd.CLASSES.get(class_name, {}).get("spellcasting")
     if not sc:
-        return None
+        return _always_only(extra_always)
     feats = list(pc.feats or [])
     mod = _mod(scores[sc["ability"]])
     max_level = srd.max_spell_level(class_name, new)
@@ -470,11 +606,12 @@ def _spell_step_2014(
 
     known_names = {s.name.casefold() for s in known}
     land = _land(rules, feats)
-    sub = _srd_subclass(rules, pc.subclass)
+    sub = _srd_subclass(rules, subclass)
     always = _always_new(rules, class_name, old, new, sub, land, known_names)
     if needs_subclass:
         for option in subclass_options:
             always += _always_new(rules, class_name, old, new, option, land, known_names, option)
+    always = _with_extra_always(always, extra_always)
     always_keys = {g.name.casefold() for g in always}
     expanded = {n.casefold() for n in rules.expanded_spells(sub, new)}
     # Only class-list spells can be swapped (a Fiend's expanded spells count as Warlock ones).
@@ -567,12 +704,14 @@ def _spell_step_2024(
     new: int,
     known: list[Spell],
     all_spells: list[Spell],
+    always: list[GrantedSpell],
 ) -> Optional[SpellStep]:
-    """The 2024 spells step (Plan 115), unchanged."""
+    """The 2024 spells step (Plan 115), unchanged but for a homebrew subclass's
+    always-prepared spells (``always``, Plan 133), which no pick may take."""
     known_names = {s.name.casefold() for s in known}
     n_cantrips, n_spells, max_level = _spell_counts(srd, class_name, old, new)
     if class_name not in srd.CLASSES or not srd.CLASSES[class_name]["spellcasting"]:
-        return None
+        return _always_only(always)
     # Only spells on the class list can be swapped: a species or feat cantrip (an Aasimar's
     # Light) isn't the class feature's to replace.
     class_known = [s for s in known if class_name in (s.classes or [])]
@@ -580,14 +719,16 @@ def _spell_step_2024(
         s.level == 0 for s in class_known
     )
     spell_swap = class_name in rules.SPELL_SWAP_CLASSES and any(s.level >= 1 for s in class_known)
-    if not (n_cantrips or n_spells or cantrip_swap or spell_swap):
+    if not (n_cantrips or n_spells or cantrip_swap or spell_swap or always):
         return None
+    always_keys = {g.name.casefold() for g in always}
     options = [
         _option(s)
         for s in all_spells
         if class_name in (s.classes or [])
         and s.level <= max_level
         and s.name.casefold() not in known_names
+        and s.name.casefold() not in always_keys
     ]
     note = None
     if class_name in _PREPARED_CASTERS:
@@ -602,6 +743,7 @@ def _spell_step_2024(
         known=[_option(s) for s in class_known],
         options=options,
         note=note,
+        always_prepared=always,
     )
 
 
@@ -630,15 +772,19 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
     cls = srd.CLASSES.get(class_name, {})
     die = _hit_die(class_name, srd)
     con = _mod(scores["CON"])
-    bonus = _hp_bonus_per_level(pc, feats)
+    # Plan 133 — the campaign DM's homebrew subclasses for this class. A homebrew subclass on
+    # the sheet is never read as an SRD one (``srd_sub`` None), however loosely names match.
+    hb_subs = _homebrew_subclasses(db, pc, dm, class_name)
+    hb_sub = _homebrew_named(hb_subs, pc.subclass)
+    srd_sub = None if hb_sub else pc.subclass
+    bonus = _hp_bonus_per_level(pc, feats, srd_sub, _homebrew_race_hp(db, pc, dm))
 
     sub_level = int(cls.get("subclass_level", 3))
     needs_subclass = new >= sub_level and not (pc.subclass or "").strip()
-    subclass_options = list(cls.get("srd_subclasses", []))
+    srd_options = list(cls.get("srd_subclasses", []))
+    hb_options = hb_subs if needs_subclass else []
     if is_2014:
-        new_features = _features_2014(
-            rules, class_name, pc.subclass, new, needs_subclass, subclass_options
-        )
+        new_features = _features_2014(rules, class_name, srd_sub, new, needs_subclass, srd_options)
     else:
         new_features = []
         for name in rules.features_at(class_name, new):
@@ -646,6 +792,13 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
             if name.endswith(" Subclass"):
                 note = "Choose your subclass below." if needs_subclass else None
             new_features.append(NewFeature(name=name, note=note))
+    if hb_sub is not None:
+        # The DM's own features stand in for the class table's "Subclass feature" marker.
+        new_features = [f for f in new_features if f.name != _SUB_MARK or f.subclass]
+        new_features += _homebrew_features(hb_sub, new, new)
+    for option in hb_options:
+        # Picked now: every feature up to this level comes with it.
+        new_features += _homebrew_features(option, 1, new, option.name)
 
     asi_level = new in rules.asi_levels(class_name)
     feat_options = (
@@ -657,6 +810,15 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
     # Plan 131 — the PC's edition only: a name-keyed lookup must never pick the other's row.
     all_spells = _visible_spells(db, ruleset, dm)
     known = _known_spells(db, pc, dm)
+    # Plan 133 — a homebrew subclass's always-prepared spells: the sheet's, from this level;
+    # one picked now, every level up to this one (tagged with it, like an SRD option's).
+    known_names = {s.name.casefold() for s in known}
+    spelled = {s.name.casefold(): s.name for s in all_spells}
+    extra_always: list[GrantedSpell] = []
+    if hb_sub is not None:
+        extra_always += _homebrew_always(hb_sub, new, new, known_names, spelled)
+    for option in hb_options:
+        extra_always += _homebrew_always(option, 1, new, known_names, spelled, option.name)
     scaling = rules.scaling_notes(class_name, old, new, is_caster=caster)
     choices: list[ChoiceStep] = []
     if is_2014:
@@ -664,11 +826,12 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
             rules,
             srd,
             pc,
+            srd_sub,
             class_name,
             old,
             new,
             needs_subclass,
-            subclass_options,
+            srd_options,
             feats,
             known,
             all_spells,
@@ -677,6 +840,7 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
             rules,
             srd,
             pc,
+            srd_sub,
             class_name,
             old,
             new,
@@ -684,12 +848,13 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
             known,
             all_spells,
             needs_subclass,
-            subclass_options,
+            srd_options,
             choices,
+            extra_always,
         )
         scaling = _scaling_2014(srd, class_name, old, new, scores) + scaling
     else:
-        step = _spell_step_2024(rules, srd, class_name, old, new, known, all_spells)
+        step = _spell_step_2024(rules, srd, class_name, old, new, known, all_spells, extra_always)
 
     ac_abilities = ["DEX"]
     if class_name == "Monk":
@@ -715,7 +880,7 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
         slots_before=_slots(class_name, old, ruleset),
         slots_after=_slots(class_name, new, ruleset),
         needs_subclass=needs_subclass,
-        subclass_options=subclass_options,
+        subclass_options=srd_options + [s.name for s in hb_subs],
         asi_level=asi_level,
         feats=feat_options,
         scores=scores,
@@ -728,6 +893,7 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
         ac_abilities=ac_abilities,
         ruleset=Ruleset(ruleset),
         class_choices=choices,
+        homebrew_subclasses=[HomebrewSubclassOption(name=s.name, blurb=s.blurb) for s in hb_subs],
     )
 
 
@@ -991,17 +1157,25 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
     capped: set[str] = set()  # new picks a 2014 prepared caster prepares only while there's room
     catalog = {s.name.casefold(): s for s in _visible_spells(db, ruleset, dm)}
 
-    # Subclass.
+    # Subclass. Plan 133: the DM's homebrew one is recorded as the DM spelled it.
+    hb_subs = _homebrew_subclasses(db, pc, dm, class_name)
     subclass = pc.subclass
     picked_sub = (choices.subclass or "").strip()
     if plan.needs_subclass:
         if picked_sub:
-            subclass = picked_sub
-            summary.append(f"Subclass: {picked_sub}")
+            hb_pick = _homebrew_named(hb_subs, picked_sub)
+            subclass = hb_pick.name if hb_pick else picked_sub
+            summary.append(f"Subclass: {subclass}")
         else:
             warnings.append("No subclass yet: pick it with your DM.")
     elif picked_sub and picked_sub != (pc.subclass or ""):
         raise ValueError("Your subclass is already set. Ask your DM to change it.")
+    hb_sub = _homebrew_named(hb_subs, subclass)
+    if hb_sub is not None:
+        low = 1 if plan.needs_subclass else new
+        gained = [f.name for f in _homebrew_features(hb_sub, low, new)]
+        if gained:
+            summary.append(f"{hb_sub.name}: " + ", ".join(gained))
     # Plan 131 — what a subclass picked now brings is tagged with it; keep the chosen one's.
     active_choices = [s for s in plan.class_choices if s.subclass in (None, subclass)]
     if choices.class_choices and not is_2014:
@@ -1114,7 +1288,8 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
     else:
         die_part = die // 2 + 1
     old_con, new_con = _mod(old_scores["CON"]), _mod(new_scores["CON"])
-    bonus = _hp_bonus_per_level(pc, feats)
+    srd_pc_sub = None if _homebrew_named(hb_subs, pc.subclass) else pc.subclass
+    bonus = _hp_bonus_per_level(pc, feats, srd_pc_sub, _homebrew_race_hp(db, pc, dm))
     gain = max(1, die_part + new_con) + bonus + (new_con - old_con) * old
     if feat_row.get("hp_per_level"):
         gain += feat_row["hp_per_level"] * old  # Tough counts every earlier level too
@@ -1159,10 +1334,17 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
         ability = srd.CLASSES[class_name]["spellcasting"]["ability"]
         cap = srd.spells_prepared(class_name, new, _mod(new_scores[ability]))
         land = _land(rules, feats)
+        srd_new_sub = None if hb_sub else _srd_subclass(rules, subclass)
         always_keys = {
-            n.casefold()
-            for n, _ in rules.always_prepared(class_name, new, _srd_subclass(rules, subclass), land)
+            n.casefold() for n, _ in rules.always_prepared(class_name, new, srd_new_sub, land)
         }
+        if hb_sub is not None:
+            always_keys |= {
+                n.casefold()
+                for lvl, names in (hb_sub.always_prepared or {}).items()
+                if int(lvl) <= new
+                for n in names
+            }
         room = _prepared_room(db, pc, dm, cap, always_keys)
 
     # Everything checks out: write the sheet.

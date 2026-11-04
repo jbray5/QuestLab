@@ -191,8 +191,9 @@ export default function GuidePage() {
       <ol>
         <li>
           Campaign &rarr; <span className="btnref">Battle maps</span>: upload an image (or a looping
-          video), set its grid, and paint fog over the rooms the party hasn&rsquo;t seen. Name the fog
-          areas so you can lift them with one tap later.
+          video) and say how many squares across it is (QuestLab often reads the grid off the
+          picture). Draw fog areas over the rooms the party hasn&rsquo;t seen and name them: at
+          the table one tap shows an area, and another tap hides it again.
         </li>
         <li>
           In the HUD, the <span className="btnref">Live</span> tab puts a map on the table, places

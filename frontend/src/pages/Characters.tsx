@@ -307,6 +307,14 @@ export default function Characters() {
     },
   });
   const qc = useQueryClient();
+  // Plan 133 — Tasha's custom origin (2014 campaigns): changes how new characters are built.
+  const originMut = useMutation({
+    mutationFn: (on: boolean) => campaignsApi.update(campaignId as string, { custom_origin: on }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["campaign", campaignId] });
+      void qc.invalidateQueries({ queryKey: ["campaigns"] });
+    },
+  });
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<PlayerCharacter | null>(null);
   const [form, setForm] = useState(BLANK_FORM);
@@ -496,10 +504,18 @@ export default function Characters() {
             onChange={(r) => rulesMut.mutate(r)}
             locked={characters.length > 0}
             busy={rulesMut.isPending}
+            customOrigin={campaign.custom_origin ?? false}
+            onCustomOrigin={(on) => originMut.mutate(on)}
+            customOriginBusy={originMut.isPending}
           />
           {rulesMut.isError && (
             <p role="alert" className="text-sm" style={{ color: "var(--danger-text)", margin: "0.4rem 0 0" }}>
               {(rulesMut.error as Error).message}
+            </p>
+          )}
+          {originMut.isError && (
+            <p role="alert" className="text-sm" style={{ color: "var(--danger-text)", margin: "0.4rem 0 0" }}>
+              {(originMut.error as Error).message}
             </p>
           )}
         </section>

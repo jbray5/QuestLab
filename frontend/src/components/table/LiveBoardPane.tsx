@@ -17,6 +17,7 @@ import {
 
 import type { PlayerCharacter } from "../../api/types";
 import { EXITS } from "../../engine/passages";
+import FogAreaChips from "./FogAreaChips";
 import MapCanvas from "./MapCanvas";
 import TokenStates from "./TokenStates";
 import { useTableController } from "./useTableController";
@@ -53,6 +54,8 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
   // Open by default: the roll call is how a token leaves the board (or right-click it).
   const [showTokens, setShowTokens] = useState(true);
   const [titleDraft, setTitleDraft] = useState("");
+  // Plan 133 — a tall strip (a chase map) can fill the pane's width and scroll.
+  const [fitWidth, setFitWidth] = useState(false);
   const btn: React.CSSProperties = { fontSize: "0.7rem", padding: "0.18rem 0.5rem" };
 
   if (!t.activeMap) {
@@ -75,6 +78,29 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
   // Plan 112 — a hidden way out on this map: reveal it when they find it, then take them through.
   const exits = EXITS.filter((e) => e.from === t.activeMap?.id);
   const found = (key: string) => (t.state?.revealed_region_ids ?? []).includes("exit:" + key);
+  const revealedCount = (t.state?.brush_reveals?.length ?? 0) + (t.state?.revealed_region_ids?.length ?? 0);
+  const tall = t.activeMap.height > t.activeMap.width * 1.2;
+  const scrolling = tall && fitWidth;
+  const canvas = (
+    <MapCanvas
+      map={t.activeMap}
+      fogOn={t.state?.fog_on ?? false}
+      revealedRegions={t.revealedPolygons}
+      brushReveals={t.state?.brush_reveals ?? []}
+      tokens={canvasTokens}
+      darkness={t.state?.darkness ?? 0}
+      activeTokenRef={t.activeTokenRef}
+      editable
+      onCanvasPointerDown={(x, y) => {
+        // Plan 83 — a board click drops focus from the notes so N / hotkeys work.
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        t.onCanvasDown(x, y);
+      }}
+      onTokenMove={t.moveTokenLocal}
+      onTokenDragEnd={() => t.commitTokens()}
+      onTokenRemove={t.removeToken}
+    />
+  );
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8, height: "100%", minHeight: 0 }}>
@@ -89,6 +115,20 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
         <button className={t.mode === "reveal" ? "btn" : "btn btn-ghost"} style={btn} onClick={() => t.setMode("reveal")} title="Tap the map to reveal a circle of it — turns fog on">
           <Eye {...ICO} /> Reveal
         </button>
+        <button className={t.mode === "hide" ? "btn" : "btn btn-ghost"} style={btn} onClick={() => t.setMode("hide")} title="Tap a revealed spot on the map to cover it with fog again">
+          <EyeOff {...ICO} /> Hide
+        </button>
+        {tall && (
+          <button
+            className="btn btn-ghost"
+            style={btn}
+            onClick={() => setFitWidth((v) => !v)}
+            aria-pressed={scrolling}
+            title={scrolling ? "Fit the whole map in the pane" : "Fill the pane's width and scroll down the map"}
+          >
+            {scrolling ? "Whole map" : "Fit width"}
+          </button>
+        )}
         <span style={{ width: 1, height: 18, background: "var(--border)", margin: "0 2px" }} />
         <button className="btn btn-ghost" style={btn} onClick={t.addPartyTokens} title="One token per attending PC">
           + Party
@@ -137,34 +177,26 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
 
       {/* The board itself — same canvas the projector renders. */}
       <div
+        data-testid="live-board"
         style={{
           background: "#06060b",
           flex: 1,
           minHeight: 280,
           display: "flex",
+          position: "relative",
           borderRadius: 8,
           overflow: "hidden",
           border: "1px solid var(--border)",
         }}
       >
-        <MapCanvas
-          map={t.activeMap}
-          fogOn={t.state?.fog_on ?? false}
-          revealedRegions={t.revealedPolygons}
-          brushReveals={t.state?.brush_reveals ?? []}
-          tokens={canvasTokens}
-          darkness={t.state?.darkness ?? 0}
-          activeTokenRef={t.activeTokenRef}
-          editable
-          onCanvasPointerDown={(x, y) => {
-            // Plan 83 — a board click drops focus from the notes so N / hotkeys work.
-            (document.activeElement as HTMLElement | null)?.blur?.();
-            t.onCanvasDown(x, y);
-          }}
-          onTokenMove={t.moveTokenLocal}
-          onTokenDragEnd={() => t.commitTokens()}
-          onTokenRemove={t.removeToken}
-        />
+        {scrolling ? (
+          // An absolute layer, so the long map scrolls inside the pane instead of stretching it.
+          <div style={{ position: "absolute", inset: 0, overflowX: "hidden", overflowY: "auto" }}>
+            <div style={{ width: "100%", aspectRatio: `${t.activeMap.width} / ${t.activeMap.height}` }}>{canvas}</div>
+          </div>
+        ) : (
+          canvas
+        )}
       </div>
 
       {/* Fog: always offered. Regions when the map has them; the Reveal brush always. */}
@@ -190,9 +222,9 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
             )}
           </span>
         ))}
-        {(t.state?.brush_reveals?.length ?? 0) > 0 && (
-          <button className="btn btn-ghost" style={btn} onClick={t.clearReveals} title="Hide everything again">
-            <CloudFog {...ICO} /> Hide all ({t.state?.brush_reveals?.length})
+        {revealedCount > 0 && (
+          <button className="btn btn-ghost" style={btn} onClick={t.clearReveals} title="Cover the whole map with fog again">
+            <CloudFog {...ICO} /> Hide all ({revealedCount})
           </button>
         )}
         {t.state?.fog_on && !(t.state?.brush_reveals?.length || t.state?.revealed_region_ids?.length) && (
@@ -219,24 +251,13 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
           )}
         </label>
       </div>
-      {t.activeMap.regions.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, alignItems: "center" }}>
-          {t.activeMap.regions.map((r) => {
-            const on = (t.state?.revealed_region_ids ?? []).includes(r.id);
-            return (
-              <button
-                key={r.id}
-                onClick={() => t.toggleRegion(r.id)}
-                className={on ? "btn" : "btn btn-ghost"}
-                style={btn}
-                title={on ? "Revealed — tap to hide" : "Hidden — tap to reveal"}
-              >
-                {on ? <Eye {...ICO} /> : <EyeOff {...ICO} />} {r.name}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <FogAreaChips
+        regions={t.activeMap.regions}
+        revealedIds={t.state?.revealed_region_ids ?? []}
+        fogOn={t.state?.fog_on ?? false}
+        onToggle={t.toggleRegion}
+        btnStyle={btn}
+      />
 
       {/* Token roll call — collapsed by default so the board keeps the room. */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", fontSize: "0.68rem", color: "var(--muted)" }}>
@@ -271,7 +292,15 @@ export default function LiveBoardPane({ sessionId, campaignId, party }: Props) {
             </span>
           ))}
         <span style={{ marginLeft: "auto" }}>
-          Drag tokens · right-click to remove · {t.mode === "ping" ? "tap to ping" : t.mode === "reveal" ? "tap to reveal" : "tap to drop a marker"} · players follow live
+          Drag tokens · right-click to remove ·{" "}
+          {t.mode === "ping"
+            ? "tap to ping"
+            : t.mode === "reveal"
+              ? "tap to reveal"
+              : t.mode === "hide"
+                ? "tap a revealed spot to hide it"
+                : "tap to drop a marker"}{" "}
+          · players follow live
         </span>
       </div>
     </div>

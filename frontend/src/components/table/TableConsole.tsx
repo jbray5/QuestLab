@@ -3,6 +3,7 @@ import { Crosshair, ExternalLink, Eye, EyeOff, Hand, Map as MapIcon, Plus, X } f
 
 import type { PlayerCharacter } from "../../api/types";
 import { useIsCompact } from "../../hooks/useIsCompact";
+import FogAreaChips from "./FogAreaChips";
 import MapCanvas from "./MapCanvas";
 import { useTableController } from "./useTableController";
 
@@ -60,11 +61,33 @@ export function TableConsoleModal({
   const [titleDraft, setTitleDraft] = useState("");
   const t = useTableController(sessionId, campaignId, party);
   const [npcPickerOpen, setNpcPickerOpen] = useState(false);
+  // Plan 133 — a tall strip (a chase map) can fill the preview's width and scroll.
+  const [fitWidth, setFitWidth] = useState(false);
   const { state, maps, activeMap } = t;
+  const tall = !!activeMap && activeMap.height > activeMap.width * 1.2;
+  const scrolling = tall && fitWidth;
+  const revealedCount = (state?.brush_reveals?.length ?? 0) + (state?.revealed_region_ids?.length ?? 0);
+  const overlayBtn: React.CSSProperties = { fontSize: "0.72rem", padding: "0.2rem 0.5rem" };
   // Plan 128 — the preview wears the same class crests the TV does.
   const classOf = new Map(party.map((pc) => [pc.id, pc.character_class as string]));
   const canvasTokens = (state?.tokens ?? []).map((tok) =>
     tok.kind === "pc" && tok.ref_id && classOf.has(tok.ref_id) ? { ...tok, class_name: classOf.get(tok.ref_id) } : tok,
+  );
+  const canvas = (
+    <MapCanvas
+      map={activeMap}
+      fogOn={state?.fog_on ?? false}
+      revealedRegions={t.revealedPolygons}
+      brushReveals={state?.brush_reveals ?? []}
+      tokens={canvasTokens}
+      darkness={state?.darkness ?? 0}
+      activeTokenRef={t.activeTokenRef}
+      editable
+      onCanvasPointerDown={t.onCanvasDown}
+      onTokenMove={t.moveTokenLocal}
+      onTokenDragEnd={() => t.commitTokens()}
+      onTokenRemove={t.removeToken}
+    />
   );
 
   const tableUrl = `${window.location.origin}/table/${sessionId}`;
@@ -101,27 +124,24 @@ export function TableConsoleModal({
       >
         {/* Live preview */}
         <div style={{ background: "#06060b", minHeight: 420, position: "relative", display: "flex" }}>
-          <MapCanvas
-            map={activeMap}
-            fogOn={state?.fog_on ?? false}
-            revealedRegions={t.revealedPolygons}
-            brushReveals={state?.brush_reveals ?? []}
-            tokens={canvasTokens}
-            darkness={state?.darkness ?? 0}
-            activeTokenRef={t.activeTokenRef}
-            editable
-            onCanvasPointerDown={t.onCanvasDown}
-            onTokenMove={t.moveTokenLocal}
-            onTokenDragEnd={() => t.commitTokens()}
-            onTokenRemove={t.removeToken}
-          />
+          {scrolling && activeMap ? (
+            // An absolute layer, so the long map scrolls inside the preview instead of growing the dialog.
+            <div style={{ position: "absolute", inset: 0, overflowX: "hidden", overflowY: "auto" }}>
+              <div style={{ width: "100%", aspectRatio: `${activeMap.width} / ${activeMap.height}` }}>{canvas}</div>
+            </div>
+          ) : (
+            canvas
+          )}
           <div
             style={{
               position: "absolute",
               top: 10,
               left: 10,
+              right: 10,
               display: "flex",
+              flexWrap: "wrap",
               gap: 6,
+              width: "fit-content",
               background: "rgba(6,6,12,0.6)",
               padding: "4px 6px",
               borderRadius: 8,
@@ -129,18 +149,49 @@ export function TableConsoleModal({
           >
             <button
               className={t.mode === "ping" ? "btn" : "btn btn-ghost"}
-              style={{ fontSize: "0.72rem", padding: "0.2rem 0.5rem" }}
+              style={overlayBtn}
               onClick={() => t.setMode("ping")}
             >
               <Crosshair size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Ping
             </button>
             <button
               className={t.mode === "place" ? "btn" : "btn btn-ghost"}
-              style={{ fontSize: "0.72rem", padding: "0.2rem 0.5rem" }}
+              style={overlayBtn}
               onClick={() => t.setMode("place")}
             >
               <Plus size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Marker
             </button>
+            {activeMap && (
+              <>
+                <button
+                  className={t.mode === "reveal" ? "btn" : "btn btn-ghost"}
+                  style={overlayBtn}
+                  onClick={() => t.setMode("reveal")}
+                  title="Tap the map to reveal a circle of it — turns fog on"
+                >
+                  <Eye size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Reveal
+                </button>
+                <button
+                  className={t.mode === "hide" ? "btn" : "btn btn-ghost"}
+                  style={overlayBtn}
+                  onClick={() => t.setMode("hide")}
+                  title="Tap a revealed spot on the map to cover it with fog again"
+                >
+                  <EyeOff size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} /> Hide
+                </button>
+              </>
+            )}
+            {tall && (
+              <button
+                className="btn btn-ghost"
+                style={overlayBtn}
+                onClick={() => setFitWidth((v) => !v)}
+                aria-pressed={scrolling}
+                title={scrolling ? "Fit the whole map in the preview" : "Fill the preview's width and scroll down the map"}
+              >
+                {scrolling ? "Whole map" : "Fit width"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -202,32 +253,25 @@ export function TableConsoleModal({
                   onChange={(e) => t.patchNow({ fog_on: e.target.checked })}
                 />
                 Fog of war
-                {(state?.brush_reveals?.length ?? 0) > 0 && (
-                  <button className="btn btn-ghost" style={{ fontSize: "0.68rem", padding: "0 0.4rem" }} onClick={t.clearReveals}>
-                    hide all
-                  </button>
-                )}
               </label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 6 }}>
-                {activeMap.regions.map((r) => {
-                  const on = (state?.revealed_region_ids ?? []).includes(r.id);
-                  return (
-                    <button
-                      key={r.id}
-                      onClick={() => t.toggleRegion(r.id)}
-                      className={on ? "btn" : "btn btn-ghost"}
-                      style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}
-                      title={on ? "Revealed — tap to hide" : "Hidden — tap to reveal"}
-                    >
-                      {on ? (
-                        <Eye size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
-                      ) : (
-                        <EyeOff size={14} aria-hidden="true" style={{ verticalAlign: "-2px" }} />
-                      )}{" "}
-                      {r.name}
-                    </button>
-                  );
-                })}
+              {revealedCount > 0 && (
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: "0.68rem", padding: "0 0.4rem", marginTop: 4 }}
+                  onClick={t.clearReveals}
+                  title="Cover the whole map with fog again"
+                >
+                  Hide all ({revealedCount})
+                </button>
+              )}
+              <div style={{ marginTop: 6 }}>
+                <FogAreaChips
+                  regions={activeMap.regions}
+                  revealedIds={state?.revealed_region_ids ?? []}
+                  fogOn={state?.fog_on ?? false}
+                  onToggle={t.toggleRegion}
+                  btnStyle={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}
+                />
               </div>
             </div>
           )}

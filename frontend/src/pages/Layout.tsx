@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  BadgeCheck, BookOpen, CalendarDays, ChevronDown, ChevronRight, Compass, FlaskConical, Gem, LayoutDashboard, LogOut,
+  BadgeCheck, BookOpen, CalendarDays, ChevronDown, ChevronRight, Compass, Feather, FlaskConical, Gem, LayoutDashboard, LogOut,
   Map as MapIcon, Megaphone, Menu, NotebookPen, PencilRuler, Puzzle, ScrollText, Shield, Skull, Sparkles, Store,
   Heart, MessageSquarePlus, Sword, Swords, UserRound, Users,
 } from "lucide-react";
@@ -366,6 +366,10 @@ export default function Layout() {
         </NavItem>
         <NavItem to="/spells" icon={<Sparkles size={16} />} onClick={closeNav}>
           Spells
+        </NavItem>
+        {/* Plan 133 — the DM's own races and subclasses, for every campaign they run. */}
+        <NavItem to="/homebrew" icon={<Feather size={16} />} onClick={closeNav}>
+          Races &amp; subclasses
         </NavItem>
         <NavItem to="/weapons" icon={<Sword size={16} />} onClick={closeNav}>
           Weapons

@@ -12,6 +12,9 @@ import { ABILITY_NAMES, andList, armorClass, armorTraining, fmt, is2014, profBon
  * Plan 131: in 2014 the race can give skills too (Elf Perception, Half-Orc Intimidation), a book
  * background gives the 2 the player picked, the Half-Elf adds 2 of any, and gear needs the armor
  * training (the Cleric's chain mail needs the Life Domain).
+ *
+ * Plan 133: a homebrew race's fixed skills come free in either edition, and its skill choice
+ * adds picks of any skill; a skill the race and the background both give becomes one more pick.
  */
 
 type Opts = BuilderOptions;
@@ -39,6 +42,11 @@ interface Props {
   granted: Record<string, string>;
   /** The race as the sheet stores it ("Hill Dwarf"), for the gear's Armor Class preview. */
   race: string;
+  /**
+   * Plan 133 — skills the race and the background both give. Each became one more pick of any
+   * skill (already counted in `speciesRow.bonus_skill_choices`); this only says why.
+   */
+  overlap?: string[];
 }
 
 export default function SkillsStep(p: Props) {
@@ -92,8 +100,9 @@ export default function SkillsStep(p: Props) {
   };
   const others = Object.keys(opts.skills).filter((s) => !cls.skills.from.includes(s));
   const trained = new Set([...skills, ...bgSkills]);
-  const fromRace = bgSkills.filter((s) => granted[s] === "from race");
+  const fromRace = bgSkills.filter((s) => granted[s] === "from race" || granted[s] === "from species");
   const fromBook = !bg && old ? bgSkills.filter((s) => granted[s] === "from background") : [];
+  const overlap = p.overlap ?? [];
 
   return (
     <>
@@ -102,7 +111,8 @@ export default function SkillsStep(p: Props) {
         Skills are what you&rsquo;re trained at: you add your proficiency bonus ({fmt(profBonus(level))} at level {level}) to those checks.
         {bg ? ` ${bg.name} already gives ${bg.skills.join(" and ")}.` : ""}
         {fromBook.length ? ` Your background gives ${andList(fromBook)}.` : ""}
-        {fromRace.length ? ` Your race gives ${andList(fromRace)}.` : ""}
+        {fromRace.filter((s) => !overlap.includes(s)).length ? ` Your ${old ? "race" : "species"} gives ${andList(fromRace.filter((s) => !overlap.includes(s)))}.` : ""}
+        {overlap.length ? ` Your ${old ? "race" : "species"} gives ${andList(overlap)} too, so you pick ${overlap.length === 1 ? "one more skill" : `${overlap.length} more skills`} of any kind.` : ""}
       </p>
 
       <Fold id="cc-sk-skills" title="Skills" open={open === "skills"} onToggle={() => setOpen(open === "skills" ? null : "skills")}

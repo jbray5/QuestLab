@@ -39,6 +39,8 @@ export default function Campaigns() {
   const [tone, setTone] = useState("");
   const [description, setDescription] = useState("");
   const [ruleset, setRuleset] = useState<Ruleset>("2024");
+  // Plan 133 — Tasha's custom origin, 2014 only (switched off when the rules go back to 2024).
+  const [customOrigin, setCustomOrigin] = useState(false);
 
   const { data: campaigns = [], isLoading } = useQuery({
     queryKey: ["campaigns"],
@@ -53,10 +55,11 @@ export default function Campaigns() {
         tone,
         description: description.trim() || undefined,
         ruleset,
+        custom_origin: ruleset === "2014" && customOrigin,
       }),
     onSuccess: (made) => {
       qc.invalidateQueries({ queryKey: ["campaigns"] });
-      setName(""); setSetting(""); setTone(""); setDescription(""); setRuleset("2024");
+      setName(""); setSetting(""); setTone(""); setDescription(""); setRuleset("2024"); setCustomOrigin(false);
       setShowForm(false);
       // Review 10/30 — a new campaign opens straight away.
       handleOpen(made);
@@ -126,7 +129,15 @@ export default function Campaigns() {
           </div>
           {/* Plan 131 — the table's edition; it can change until the first character is made. */}
           <div className="form-group">
-            <RulesPicker value={ruleset} onChange={setRuleset} />
+            <RulesPicker
+              value={ruleset}
+              onChange={(r) => {
+                setRuleset(r);
+                if (r !== "2014") setCustomOrigin(false);
+              }}
+              customOrigin={customOrigin}
+              onCustomOrigin={setCustomOrigin}
+            />
           </div>
           <button
             className="btn btn-primary"

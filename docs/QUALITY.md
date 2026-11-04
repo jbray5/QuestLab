@@ -75,6 +75,10 @@ Any import violation is a bug. Add import boundary tests in Stage 3.
 | TD-131l | The builder's AC subtracts a negative DEX modifier in heavy armor (`min(dex, 0)` in `_armor_class`, both editions); heavy armor ignores DEX either way. Found in Plan 131, left because it changes 2024 sheets | Medium | 2026-11-01 | |
 | TD-131m | A 2014 High Elf who isn't a Wizard: the race's Wizard cantrip isn't recorded apart from the class cantrips (the notes say it's cast with INT) | Low | 2026-11-01 | |
 | TD-132a | `GET /api/monsters/{id}`, `/items/{id}` and `/spells/{id}` return a row whatever its owner (the lists, the level-up guide, `learn_spell` and inventory adds are filtered). The ids are random UUIDs, so another DM's homebrew is only reachable by someone who already has its id. The DM's own panels fetch known rows by id, so filtering needs care | Low | 2026-11-01 | |
+| TD-133a | Battle-map scale is fixed text ("1 square = 5 ft"); a per-map feet value needs a column (Plan 133 kept it migration-free) | Low | 2026-11-03 | |
+| TD-133b | Fog can't "start uncovered and hide chosen areas": a `cover` flag fits in the fog areas' JSON, but the player projection (`table_service`, `domain/table_state.py`) and every fog renderer (`MapCanvas`, the 3D board) would need covered regions | Medium | 2026-11-03 | |
+| TD-133c | On the TV and remote windows a long strip map shows whole but small (about 240 px wide at 720p); a camera that follows the party needs a viewport in the table state | Low | 2026-11-03 | |
+| TD-133d | Dev only: `vite.config.ts` proxies `/uploads` to `:8000`, so with the API on another port uploaded art shows broken locally | Low | 2026-11-03 | |
 | UX-003 | Characters: cards embed full inventory/spells/features (very long); DM sheet header fixed and eats half a phone; join settings crowd the header. NPCs: one very long editor form; "Reveal true form" click also opens the editor (event bubbles). Encounters: difficulty shown from two sources; breadcrumb not keyboard-reachable. Battle maps: "drop here" area misses the drop handler | Medium | 2026-10-30 | Plan 121 step 10 |
 
 ## Definition of Done (per task)

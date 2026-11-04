@@ -9,12 +9,16 @@ capability link the router resolves.
 
 Plan 131: the catalog holds both editions' rows (``ClassFeature.ruleset``), and a
 PC is only ever granted its own edition's (``pc.ruleset``, stamped from the campaign).
+
+Plan 133: when a PC's subclass is its campaign DM's homebrew subclass, the every-feature
+listing shows the DM's features (with the DM's text) up to the PC's level, in both editions.
 """
 
 from __future__ import annotations
 
 import logging
 import uuid
+from types import SimpleNamespace
 from typing import Any, Iterable, Optional
 
 from sqlmodel import Session
@@ -32,6 +36,7 @@ from domain.character import (
     PlayerCharacter,
 )
 from domain.enums import CharacterClass, UsesFormula
+from domain.homebrew import HomebrewSubclassRead
 from integrations.dnd_rules import rulesets
 from integrations.dnd_rules.class_features_2024 import (
     NON_SRD_SUBCLASSES,
@@ -40,7 +45,7 @@ from integrations.dnd_rules.class_features_2024 import (
     scaled_uses,
 )
 from integrations.event_bus import publish_pc_updated
-from services import auth_service, character_service
+from services import auth_service, character_service, homebrew_service
 
 logger = logging.getLogger(__name__)
 
@@ -646,19 +651,22 @@ def _note_2014(
     return note
 
 
-def _features_for_level_2014(pc: PlayerCharacter) -> list[dict[str, Any]]:
+def _features_for_level_2014(
+    pc: PlayerCharacter, ignore_subclass: bool = False
+) -> list[dict[str, Any]]:
     """Every 2014 class and subclass feature a PC has at its level (SRD 5.1 names).
 
     Same rows as the 2024 listing: ``{"name", "level", "source", "note"}`` in level order,
     class features before subclass features within a level. A feature the class table lists
     again later (Expertise, Magical Secrets, Favored Enemy) appears once, where it starts; its
-    note quotes the count at the PC's level.
+    note quotes the count at the PC's level. ``ignore_subclass`` lists the class alone, as
+    if no subclass were on the sheet (Plan 133: a homebrew subclass adds its own rows).
     """
     rules = rulesets.levelup(_ruleset_of(pc))
     class_name = str(getattr(pc.character_class, "value", pc.character_class)).strip().title()
     level = max(1, min(20, int(pc.level or 1)))
     table = rules.CLASS_LEVEL_FEATURES.get(class_name, {})
-    named_sub = (pc.subclass or "").strip()
+    named_sub = "" if ignore_subclass else (pc.subclass or "").strip()
     sub_key = next(
         (k for k in rules.SUBCLASS_LEVEL_FEATURES if k.casefold() == named_sub.casefold()), None
     ) or next(
@@ -716,18 +724,81 @@ def _features_for_level_2014(pc: PlayerCharacter) -> list[dict[str, Any]]:
     return out
 
 
-def class_features_of(pc: PlayerCharacter) -> list[dict[str, Any]]:
+_HOMEBREW_SUB_NOTE = "Your DM made this subclass for your table."
+_HOMEBREW_FEATURE_NOTE = "Your DM's own feature: ask them how it works."
+
+
+def _homebrew_subclass_of(db: Session, pc: PlayerCharacter) -> Optional[HomebrewSubclassRead]:
+    """The PC's subclass when it is its campaign DM's homebrew one (PC's edition), or None.
+
+    Only that campaign's DM's rows are looked at, so another DM's homebrew never shows.
+    """
+    if not (pc.subclass or "").strip():
+        return None
+    campaign = CampaignRepo.get_by_id(db, pc.campaign_id)
+    if campaign is None:
+        return None
+    scope = SimpleNamespace(dm_email=campaign.dm_email, ruleset=_ruleset_of(pc))
+    return homebrew_service.subclass_for(db, scope, pc.character_class, pc.subclass)
+
+
+def _with_homebrew_subclass(pc: PlayerCharacter, sub: HomebrewSubclassRead) -> list[dict[str, Any]]:
+    """The class listing with a homebrew subclass's own rows (Plan 133).
+
+    The class rows come as for a PC with no subclass (so no SRD subclass is ever read into
+    a homebrew name); the "choose your subclass" row becomes the subclass itself (its
+    blurb as the note), and each DM feature up to the PC's level follows, with the DM's text.
+    """
+    level = max(1, min(20, int(pc.level or 1)))
+    if rulesets.is_2014(_ruleset_of(pc)):
+        rows = _features_for_level_2014(pc, ignore_subclass=True)
+    else:
+        rows = features_for_level(pc.character_class, None, level, _mods(pc))
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        if row["source"] == "class" and row["name"].endswith(" Subclass"):
+            row = {
+                "name": sub.name,
+                "level": row["level"],
+                "source": "subclass",
+                "note": sub.blurb or _HOMEBREW_SUB_NOTE,
+            }
+        out.append(row)
+    for feature in sub.features:
+        if feature.level <= level:
+            out.append(
+                {
+                    "name": feature.name,
+                    "level": feature.level,
+                    "source": "subclass",
+                    "note": feature.text or _HOMEBREW_FEATURE_NOTE,
+                }
+            )
+    # Level order, class rows before subclass rows within a level (a stable sort).
+    out.sort(key=lambda r: (r["level"], r["source"] == "subclass"))
+    return out
+
+
+def class_features_of(pc: PlayerCharacter, db: Optional[Session] = None) -> list[dict[str, Any]]:
     """Every class and subclass feature this PC has at its level, with plain-words notes.
 
     Plan 131: a 2014 PC gets the SRD 5.1 listing (``levelup_2014`` tables), whose names
     match the tracked 2014 rows ("Ki", "Wild Shape"), so the sheet pairs them up.
 
+    Plan 133: given ``db``, a subclass that is the campaign DM's homebrew one lists its own
+    features up to the PC's level (``source`` "subclass", the DM's text as the note), in
+    both editions. Without ``db`` the listing reads the SRD tables only, as before.
+
     Args:
         pc: The player character.
+        db: Active database session, to look up the campaign DM's homebrew subclass.
 
     Returns:
         ``[{"name", "level", "source": "class"|"subclass", "note"}]`` in level order.
     """
+    homebrew = _homebrew_subclass_of(db, pc) if db is not None else None
+    if homebrew is not None:
+        return _with_homebrew_subclass(pc, homebrew)
     if rulesets.is_2014(_ruleset_of(pc)):
         return _features_for_level_2014(pc)
     return features_for_level(pc.character_class, pc.subclass, pc.level, _mods(pc))
@@ -750,7 +821,7 @@ def list_class_features(
         ValueError: If the PC or campaign is missing.
         PermissionError: If the DM does not own the campaign.
     """
-    return class_features_of(_assert_pc_owner(db, character_id, dm_email))
+    return class_features_of(_assert_pc_owner(db, character_id, dm_email), db)
 
 
 def list_class_features_for_player(db: Session, pc_id: uuid.UUID) -> list[dict[str, Any]]:
@@ -769,4 +840,4 @@ def list_class_features_for_player(db: Session, pc_id: uuid.UUID) -> list[dict[s
     pc = CharacterRepo.get_by_id(db, pc_id)
     if pc is None:
         raise LookupError("Character not found.")
-    return class_features_of(pc)
+    return class_features_of(pc, db)

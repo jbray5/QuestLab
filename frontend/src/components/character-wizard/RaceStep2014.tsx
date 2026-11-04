@@ -1,13 +1,24 @@
-import type { BuilderOptions, BuilderSpecies } from "../../api/characterBuilder";
+import type { Ability, BuilderOptions, BuilderSpecies } from "../../api/characterBuilder";
 import { SectionBody } from "./ChoicesStep";
-import { ABILITIES, ABILITY_NAMES, bonusWords, emptyChoice, type ChoicePicks, type ChoiceState } from "./rules";
+import { ABILITIES, ABILITY_NAMES, bonusWords, emptyChoice, slotBonus, type ChoicePicks, type ChoiceState, type OriginSlot } from "./rules";
 
 /**
  * The 2014 race details (Plan 131), under the race cards: what the race (and its subrace) adds
  * to the ability scores, the subrace pick where the race has them (or one typed from the book),
  * the Half-Elf's two +1s, the Dragonborn's ancestry, and a book race's bonuses. Plain words, one
  * decision at a time; the server checks the same rules.
+ *
+ * Plan 133: with custom origin on (the DM's switch), each of the race's fixed bonuses gets a
+ * "+2 → [ability]" picker, prefilled with the race's own; picking an ability another bonus has
+ * swaps the two, so no ability ever gets two.
  */
+
+/** Plan 133 — custom origin's pickers: the slots, and how to move or reset them. */
+export interface OriginControls {
+  slots: OriginSlot[];
+  setPick: (index: number, ability: Ability) => void;
+  reset: () => void;
+}
 
 export const OTHER = "__other";
 
@@ -27,6 +38,34 @@ interface Props {
   setAbilityChoice: (v: Record<string, number>) => void;
   picks: ChoicePicks;
   setPick: (key: string, state: ChoiceState) => void;
+  /** Plan 133 — custom origin is on and the race has fixed bonuses to move. */
+  origin?: OriginControls | null;
+}
+
+/** Custom origin: "+2 → [Dexterity]" for each of the race's fixed bonuses. */
+function OriginPickers({ origin }: { origin: OriginControls }) {
+  const moved = origin.slots.some((s) => s.pick !== s.own);
+  return (
+    <div className="panel pad">
+      <div className="phead" style={{ paddingTop: 0 }}>Custom origin: move your race&rsquo;s bonuses</div>
+      <p className="note" style={{ marginTop: 0 }}>Your DM lets this table put a race&rsquo;s ability bonuses on any abilities. Each bonus goes on a different one.</p>
+      {origin.slots.map((s, i) => (
+        <div key={`${i}-${s.own}`} style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+          <span className="num" style={{ fontWeight: 600, minWidth: 28 }}>+{s.amount}</span>
+          <span aria-hidden style={{ color: "var(--muted)" }}>→</span>
+          <select aria-label={`Where the +${s.amount} from ${ABILITY_NAMES[s.own]} goes`} value={s.pick}
+            onChange={(e) => origin.setPick(i, e.target.value as Ability)} style={{ flex: 1, minWidth: 0 }}>
+            {ABILITIES.map((a) => <option key={a} value={a}>{ABILITY_NAMES[a]}{a === s.own ? " (the race's own)" : ""}</option>)}
+          </select>
+        </div>
+      ))}
+      {moved && (
+        <button type="button" className="btn btn-ghost" style={{ minHeight: 44, marginTop: 8, padding: "0 0.5rem" }} onClick={origin.reset}>
+          Put them back where the race has them
+        </button>
+      )}
+    </div>
+  );
 }
 
 /** Tap an ability: +1, tap again: +2, again: off; never past `most` in all. */
@@ -58,7 +97,7 @@ function BookBonuses({ value, set, most }: { value: Record<string, number>; set:
 }
 
 export default function RaceStep2014(p: Props) {
-  const { opts, klass, level, row, book, subrace, setSubrace, customSubrace, setCustomSubrace, abilityChoice, setAbilityChoice, picks, setPick } = p;
+  const { opts, klass, level, row, book, subrace, setSubrace, customSubrace, setCustomSubrace, abilityChoice, setAbilityChoice, picks, setPick, origin } = p;
 
   if (book) {
     return (
@@ -73,11 +112,15 @@ export default function RaceStep2014(p: Props) {
   const sub = row.subraces?.find((s) => s.name === subrace);
   const spec = row.ability_choice;
   const chosen = Object.keys(abilityChoice).filter((a) => abilityChoice[a]);
+  const originSlots = origin?.slots.length ? origin.slots : null;
+  const fixedWords = originSlots
+    ? bonusWords(slotBonus(originSlots))
+    : [bonusWords(row.ability_bonuses), sub ? bonusWords(sub.ability_bonuses) : ""].filter(Boolean).join(", ");
 
   return (
     <>
       <div className="panel">
-        <div className="row"><span>Ability bonuses</span><span>{[bonusWords(row.ability_bonuses), sub ? bonusWords(sub.ability_bonuses) : ""].filter(Boolean).join(", ") || "None"}</span></div>
+        <div className="row"><span>Ability bonuses</span><span>{fixedWords || "None"}</span></div>
         {!!row.skills?.length && <div className="row"><span>Skills</span><span>Trained in {row.skills.join(" and ")}</span></div>}
         {!!row.skill_choice && <div className="row"><span>Skills</span><span>{row.skill_choice} more of your choice, picked with your class skills</span></div>}
       </div>
@@ -110,11 +153,14 @@ export default function RaceStep2014(p: Props) {
         </>
       )}
 
+      {origin && originSlots && <OriginPickers origin={origin} />}
+
       {spec && (
         <>
           <span className="lbl">Pick {spec.choose} abilities for +{spec.amount} each ({chosen.length} of {spec.choose})</span>
           <div className="cc-chips">
-            {ABILITIES.filter((a) => !spec.exclude.includes(a)).map((a) => {
+            {/* A pick that custom origin has since barred still shows, so it can be taken off. */}
+            {ABILITIES.filter((a) => !spec.exclude.includes(a) || !!abilityChoice[a]).map((a) => {
               const on = !!abilityChoice[a];
               return (
                 <button type="button" key={a} className={`cc-chip ${on ? "on" : ""}`} aria-pressed={on} disabled={!on && chosen.length >= spec.choose}
@@ -129,7 +175,9 @@ export default function RaceStep2014(p: Props) {
               );
             })}
           </div>
-          <p className="note">Not {spec.exclude.map((a) => ABILITY_NAMES[a]).join(" or ")}: it already gets its bonus from your race.</p>
+          {spec.exclude.length > 0 && (
+            <p className="note">Not {spec.exclude.map((a) => ABILITY_NAMES[a]).join(" or ")}: {spec.exclude.length > 1 ? "they already get their bonuses" : "it already gets its bonus"} from your race.</p>
+          )}
         </>
       )}
 

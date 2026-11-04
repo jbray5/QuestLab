@@ -34,7 +34,7 @@ Everything comes from the HUD's **LIVE** and **MAPS** tabs:
 | The camera glides to whoever's turn it is | Start the fight (**ROLL INIT**), then **END TURN**. It only follows a running fight. |
 | A ring under a figure glows | That's the active combatant. Grey ring = defeated. |
 | A hidden trapdoor appears | **🚪 Reveal …** under the LIVE map, on a map that has one (Restwater's hatch). **⬇ Take the party to …** then moves everyone through. |
-| The dark closes in and only revealed ground is lit | **☐ Fog** on the LIVE tab, then **👁 Reveal** and tap the map to open a circle. **Hide all** takes the reveals back. The party is always shown; foes and markers only where revealed. |
+| The dark closes in and only revealed ground is lit | **☐ Fog** on the LIVE tab, then **👁 Reveal** and tap the map to open a circle. **Hide** and tap covers that spot again (Plan 133); the fog-area chips under the map show or hide a named area with one tap; **Hide all** takes every reveal back. The party is always shown; foes and markers only where revealed. |
 | Weather in the air; the light dims | The weather preset and the 🌙 darkness slider (top right of the LIVE tab). |
 | A title lands over the table | The **🎬** box under the LIVE map — type, Enter. ✕ takes it down. |
 | A ripple on the floor | **◎ Ping** and tap the map. |

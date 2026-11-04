@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { builderApi } from "../../api/characterBuilder";
-import type { Ability, BuildAsiPick, CharacterBuildBody, ClassChoicePick, OriginFeatPicks, WizardMode } from "../../api/characterBuilder";
+import type { Ability, BuildAsiPick, BuilderSpecies, CharacterBuildBody, ClassChoicePick, OriginFeatPicks, WizardMode } from "../../api/characterBuilder";
 import AsiStep from "./AsiStep";
 import ChoicesStep from "./ChoicesStep";
-import { ClassExplainer, BackgroundExplainer, SpeciesTraits, SubclassFeatures } from "./Explainers";
-import RaceStep2014, { OTHER } from "./RaceStep2014";
+import { ClassExplainer, BackgroundExplainer, HomebrewTag, SpeciesTraits, SubclassFeatures } from "./Explainers";
+import RaceStep2014, { OTHER, type OriginControls } from "./RaceStep2014";
 import SkillsStep from "./SkillsStep";
 import SpellsStep from "./SpellsStep";
 import {
@@ -25,9 +25,13 @@ import {
   is2014,
   miNeed,
   mod,
+  originBonus,
+  originSlots,
   profBonus,
   raceCantripProblem,
   raceHint,
+  skillOverlap,
+  slotBonus,
   splitFeat,
   spellPlan,
   walkClassChoices,
@@ -59,6 +63,12 @@ import {
  * with no bonus and no Origin feat (a book background picks 2 skills), racial bonuses on the
  * scores, 2014 spell counts (the Wizard's spellbook) and no Epic Boon. A 2024 campaign renders
  * and sends exactly what it did.
+ *
+ * Plan 133: the campaign DM's homebrew races and subclasses sit with the SRD ones, marked
+ * "Yours" for the DM and "Your table's" for a player; a homebrew subclass's features show in the
+ * explainers in the DM's words. In DM mode, "Make a custom race / subclass" opens the catalog in
+ * a new tab, and the options reload when the DM comes back. A 2014 campaign with custom origin on
+ * lets the race's fixed bonuses move ("+2 → [ability]").
  */
 
 const NOT_ASSIGNED = "Not assigned yet";
@@ -221,6 +231,8 @@ interface Draft {
   speciesPicks: ChoicePicks;
   bgSkills: string[];
   prepared: string[];
+  // Plan 133 — custom origin: where each of the race's fixed bonuses goes, for the race `key`.
+  origin: { key: string; picks: string[] };
 }
 
 /** Plan 82 — the standard array laid out for a class: primary abilities first, then CON, then the rest. */
@@ -255,6 +267,23 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   });
   const opts = optsQuery.data ?? null;
   const loadError = optsQuery.error ? (optsQuery.error as Error).message : null;
+  // Plan 133 — after "Make a custom race / subclass" (a new tab), coming back to this tab
+  // reloads the options, so the DM's new homebrew is on the list straight away.
+  const reloadOnReturn = useRef(false);
+  useEffect(() => {
+    if (!dm) return;
+    const reload = () => {
+      if (!reloadOnReturn.current || document.visibilityState === "hidden") return;
+      reloadOnReturn.current = false;
+      void qc.invalidateQueries({ queryKey: ["character-builder-options", mode, campaignId] });
+    };
+    window.addEventListener("focus", reload);
+    document.addEventListener("visibilitychange", reload);
+    return () => {
+      window.removeEventListener("focus", reload);
+      document.removeEventListener("visibilitychange", reload);
+    };
+  }, [dm, qc, mode, campaignId]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -304,12 +333,13 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const [speciesPicks, setSpeciesPicks] = useState<ChoicePicks>(draft.speciesPicks ?? {});
   const [bgSkills, setBgSkills] = useState<string[]>(draft.bgSkills ?? []);
   const [prepared, setPrepared] = useState<string[]>(draft.prepared ?? []);
+  const [origin, setOrigin] = useState<Draft["origin"]>(draft.origin ?? { key: "", picks: [] });
 
   useEffect(() => {
     const next: Draft = {
       step, characterName, playerName, species, customSpecies, klass, subclass, customSub, level, background, customBg,
       method, scores, bonusMode, bonusPlus2, bonusPlus1, skills, originFeat, kit, asiPicks, cantrips, spells, appearance,
-      classPicks, bgFeatPicks, originPicks, subrace, customSubrace, abilityChoice, speciesPicks, bgSkills, prepared,
+      classPicks, bgFeatPicks, originPicks, subrace, customSubrace, abilityChoice, speciesPicks, bgSkills, prepared, origin,
     };
     try {
       sessionStorage.setItem(draftKey, JSON.stringify(next));
@@ -318,7 +348,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
     }
   }, [draftKey, step, characterName, playerName, species, customSpecies, klass, subclass, customSub, level, background, customBg,
     method, scores, bonusMode, bonusPlus2, bonusPlus1, skills, originFeat, kit, asiPicks, cantrips, spells, appearance,
-    classPicks, bgFeatPicks, originPicks, subrace, customSubrace, abilityChoice, speciesPicks, bgSkills, prepared]);
+    classPicks, bgFeatPicks, originPicks, subrace, customSubrace, abilityChoice, speciesPicks, bgSkills, prepared, origin]);
 
   // Picking a draft back up says so, with a way to start clean.
   const [resumed, setResumed] = useState(() => Boolean(draft.characterName || draft.klass || draft.species));
@@ -350,6 +380,43 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const subraceName = old && speciesRow?.subraces?.length ? (subrace === OTHER ? customSubrace.trim() : subrace) : "";
   const raceName = subraceName || speciesName;
   const bookBackground = old && background === "__other";
+  // Plan 133 — custom origin (a 2014 campaign's switch): each of the race's fixed bonuses can
+  // move. The picks belong to one race (the race's slots first, so picking its subrace keeps
+  // them); another race starts from its own.
+  const originKey = species;
+  const slots = useMemo(
+    () => (old && opts?.custom_origin && species !== "__other"
+      ? originSlots(speciesRow, subraceRow, origin.key === originKey ? origin.picks : [])
+      : []),
+    [old, opts?.custom_origin, species, speciesRow, subraceRow, origin, originKey],
+  );
+  const movedBonus = originBonus(slots);
+  // The ability choice (the Half-Elf's +1s) stays off wherever the race's bonuses are now.
+  const raceRow = useMemo<BuilderSpecies | undefined>(
+    () => (speciesRow?.ability_choice && slots.length
+      ? { ...speciesRow, ability_choice: { ...speciesRow.ability_choice, exclude: [...new Set(slots.map((s) => s.pick))] } }
+      : speciesRow),
+    [speciesRow, slots],
+  );
+  const originControls: OriginControls | null = slots.length
+    ? {
+        slots,
+        setPick: (i, a) => {
+          // Picking an ability another bonus has swaps the two: no ability gets two.
+          const next = slots.map((s) => s.pick);
+          const j = next.indexOf(a);
+          if (j >= 0 && j !== i) next[j] = next[i];
+          next[i] = a;
+          setOrigin({ key: originKey, picks: next });
+          if (abilityChoice[a]) {
+            const left = { ...abilityChoice };
+            delete left[a];
+            setAbilityChoice(left);
+          }
+        },
+        reset: () => setOrigin({ key: originKey, picks: [] }),
+      }
+    : null;
 
   const bonus = useMemo(() => {
     if (!bg || old) return {} as Record<string, number>;
@@ -365,11 +432,13 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const raceBonus = useMemo(() => {
     const out: Record<string, number> = {};
     if (!old) return out;
-    for (const b of [speciesRow?.ability_bonuses, subraceRow?.ability_bonuses, abilityChoice]) {
+    // Plan 133 — with custom origin the fixed bonuses sit where the slots put them.
+    const fixed = slots.length ? [slotBonus(slots)] : [speciesRow?.ability_bonuses, subraceRow?.ability_bonuses];
+    for (const b of [...fixed, abilityChoice]) {
       for (const [a, v] of Object.entries(b ?? {})) if (v) out[a] = (out[a] ?? 0) + v;
     }
     return out;
-  }, [old, speciesRow, subraceRow, abilityChoice]);
+  }, [old, speciesRow, subraceRow, abilityChoice, slots]);
 
   const finalScores = useMemo(
     () => Object.fromEntries(ABILITIES.map((a) => [a, Math.min(20, scores[a] + ((old ? raceBonus : bonus)[a] ?? 0))])) as Record<Ability, number>,
@@ -386,13 +455,18 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   const granted = useMemo(() => {
     const out: Record<string, string> = {};
     for (const s of bg?.skills ?? []) out[s] = "from background";
-    if (old) {
-      for (const s of speciesRow?.skills ?? []) out[s] = "from race";
-      if (bookBackground) for (const s of bgSkills) out[s] = "from background";
-    }
+    // Plan 133 — a homebrew species' fixed skills count in 2024 too (the 2024 SRD ones have none).
+    for (const s of speciesRow?.skills ?? []) out[s] = old ? "from race" : "from species";
+    if (old && bookBackground) for (const s of bgSkills) out[s] = "from background";
     return out;
   }, [bg, old, speciesRow, bookBackground, bgSkills]);
-  const skillPicksAllowed = (cls?.skills.choose ?? 0) + (speciesRow?.bonus_skill_choices ?? 0);
+  // Plan 133 — a skill the race and the background both give becomes one more pick of any skill.
+  const overlap = useMemo(() => skillOverlap(speciesRow, bg?.skills), [speciesRow, bg]);
+  const skillRow = useMemo<BuilderSpecies | undefined>(
+    () => (speciesRow && overlap.length ? { ...speciesRow, bonus_skill_choices: (speciesRow.bonus_skill_choices ?? 0) + overlap.length } : speciesRow),
+    [speciesRow, overlap],
+  );
+  const skillPicksAllowed = (cls?.skills.choose ?? 0) + (skillRow?.bonus_skill_choices ?? 0);
   const classSkillPicks = skills.filter((s) => !granted[s]);
 
   // The background's Origin feat and a Human's Versatile one, as they go on the sheet.
@@ -438,6 +512,8 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
     return derive({
       opts, klass, level, species: raceName, subclass: activeSub, scores: walk.scores,
       feats: walk.feats, saves: walk.saves, skills: walk.skills, kit: kitRow, speed: speciesRow?.speed ?? 30,
+      // Plan 133 — a homebrew race's own hit points per level.
+      raceHp: speciesRow?.homebrew ? { label: speciesRow.name, n: speciesRow.hp_per_level_bonus ?? 0 } : null,
     });
   }, [opts, cls, walk, klass, level, raceName, activeSub, kitRow, speciesRow]);
 
@@ -518,7 +594,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         if (old) {
           if (species === "") return "Pick a race.";
           if (species === "__other" && !customSpecies.trim()) return "Type the race name.";
-          return opts ? raceHint(speciesRow, subrace, customSubrace, abilityChoice, speciesPicks, opts) : null;
+          return opts ? raceHint(raceRow, subrace, customSubrace, abilityChoice, speciesPicks, opts) : null;
         }
         return species === "" ? "Pick a species." : species === "__other" && !customSpecies.trim() ? "Type the species name." : null;
       case "class":
@@ -540,7 +616,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         return null;
       case "skills": {
         const left = skillPicksAllowed - classSkillPicks.length;
-        if (left > 0) return `Pick ${plural(left, "more skill")}. Greyed ones already come from ${old ? "your race or background" : "the background"}.`;
+        if (left > 0) return `Pick ${plural(left, "more skill")}. Greyed ones already come from ${old ? "your race or background" : speciesRow?.skills?.length ? "your species or background" : "the background"}.`;
         if (versatile && originFeat === "") return "Humans pick an Origin feat: choose one under Origin feat.";
         if (versatile && originFeat === "Skilled" && originPicks.skills.length < 3) return `Skilled: pick ${plural(3 - originPicks.skills.length, "more skill")}.`;
         if (cls?.kits.length && kit === "") return "Pick the starting gear.";
@@ -631,6 +707,8 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
       background_skills: bookBackground ? bgSkills : [],
       species_choices: Object.keys(speciesRow?.choices ?? {}).map((k) => ({ key: k, picks: speciesPicks[k]?.picks ?? [], book: [] })),
       prepared_spells: cleanPrepared,
+      // Plan 133 — custom origin: only when a bonus moved (empty keeps the race's own).
+      origin_bonus: movedBonus ?? {},
       background_bonus: {},
       origin_feat: null,
       background_feat_picks: null,
@@ -712,6 +790,16 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
   })();
   const alwaysNames = plan?.always.map((a) => a.name) ?? [];
   const miSpells = miNeeds.flatMap((m) => m.state.spells);
+  /** Plan 133 — DM mode only: open the homebrew catalog's blank form in a new tab. */
+  const makeOwn = (href: string, label: string) => (
+    <div style={{ margin: "8px 0" }}>
+      <a href={href} target="_blank" rel="noopener" onClick={() => { reloadOnReturn.current = true; }}
+        style={{ display: "inline-flex", alignItems: "center", minHeight: 44, fontWeight: 500 }}>
+        {label}
+      </a>
+      <p className="note" style={{ margin: 0 }}>Opens in a new tab. Save it there, come back, and it&rsquo;s on this list.</p>
+    </div>
+  );
 
   return (
     <div className={`cc${dm ? " cc-dm" : ""}`}>
@@ -753,13 +841,15 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
             <div className="cc-cards">
               {opts.species.map((s) => (
                 <button type="button" key={s.name} aria-pressed={species === s.name} className={`cc-card ${species === s.name ? "on" : ""}`} onClick={() => setSpecies(s.name)}>
-                  <b>{s.name}</b><small>{s.size} · speed <span className="num">{s.speed}</span> ft</small>
+                  <span className="cc-card-title"><b>{s.name}</b>{s.homebrew && <HomebrewTag dm={dm} />}</span>
+                  <small>{s.size} · speed <span className="num">{s.speed}</span> ft</small>
                 </button>
               ))}
               <button type="button" aria-pressed={species === "__other"} className={`cc-card ${species === "__other" ? "on" : ""}`} onClick={() => setSpecies("__other")}>
                 <b>From my book…</b><small>Any species your DM allows. You track its traits.</small>
               </button>
             </div>
+            {dm && makeOwn("/homebrew?new=1", "Make a custom species")}
             {species === "__other" && (
               <>
                 <label htmlFor="cspecies">Species name</label>
@@ -778,7 +868,8 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
               {opts.species.map((s) => (
                 <button type="button" key={s.name} aria-pressed={species === s.name} className={`cc-card ${species === s.name ? "on" : ""}`}
                   onClick={() => { if (species !== s.name) { setSpecies(s.name); setSubrace(""); setCustomSubrace(""); setAbilityChoice({}); setSpeciesPicks({}); } }}>
-                  <b>{s.name}</b><small>{s.size} · speed <span className="num">{s.speed}</span> ft</small>
+                  <span className="cc-card-title"><b>{s.name}</b>{s.homebrew && <HomebrewTag dm={dm} />}</span>
+                  <small>{s.size} · speed <span className="num">{s.speed}</span> ft</small>
                   {bonusWords(s.ability_bonuses) && <small className="plus">{bonusWords(s.ability_bonuses)}{s.ability_choice ? `, +${s.ability_choice.amount} to ${s.ability_choice.choose} more` : ""}</small>}
                 </button>
               ))}
@@ -787,6 +878,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
                 <b>From my book…</b><small>Any race your DM allows. You track its traits.</small>
               </button>
             </div>
+            {dm && makeOwn("/homebrew?new=1", "Make a custom race")}
             {species === "__other" && (
               <>
                 <label htmlFor="cspecies">Race name</label>
@@ -794,7 +886,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
               </>
             )}
             {speciesRow && <SpeciesTraits row={speciesRow} level={level} />}
-            <RaceStep2014 opts={opts} klass={klass} level={level} row={speciesRow} book={species === "__other"}
+            <RaceStep2014 opts={opts} klass={klass} level={level} row={raceRow} book={species === "__other"} origin={originControls}
               subrace={subrace} setSubrace={setSubrace} customSubrace={customSubrace} setCustomSubrace={setCustomSubrace}
               abilityChoice={abilityChoice} setAbilityChoice={setAbilityChoice}
               picks={speciesPicks} setPick={(k, st) => setSpeciesPicks((prev) => ({ ...prev, [k]: st }))} />
@@ -828,8 +920,15 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
                       {s}{level < cls.subclass_level ? <small>comes at level {cls.subclass_level}</small> : null}
                     </button>
                   ))}
+                  {/* Plan 133 — the campaign DM's own subclasses for this class. */}
+                  {(opts.homebrew_subclasses?.[klass] ?? []).map((s) => (
+                    <button type="button" key={`hb-${s.name}`} aria-pressed={subclass === s.name} className={`cc-chip ${subclass === s.name ? "on" : ""}`} disabled={level < cls.subclass_level} onClick={() => setSubclass(s.name)}>
+                      {s.name} <HomebrewTag dm={dm} />{level < cls.subclass_level ? <small>comes at level {cls.subclass_level}</small> : null}
+                    </button>
+                  ))}
                   <button type="button" aria-pressed={subclass === "__other"} className={`cc-chip ${subclass === "__other" ? "on" : ""}`} disabled={level < cls.subclass_level} onClick={() => setSubclass("__other")}>From my book…</button>
                 </div>
+                {dm && makeOwn("/homebrew?tab=subclasses&new=1", "Make a custom subclass")}
                 {level < cls.subclass_level ? (
                   <p className="note">A {klass} picks a subclass at level {cls.subclass_level}. Start at level {cls.subclass_level} or higher to choose it now, or pick it when you level up.</p>
                 ) : (
@@ -962,7 +1061,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         )}
 
         {key === "skills" && cls && (
-          <SkillsStep opts={opts} cls={cls} klass={klass} level={level} species={species} speciesRow={speciesRow} bg={bg}
+          <SkillsStep opts={opts} cls={cls} klass={klass} level={level} species={species} speciesRow={skillRow} bg={bg} overlap={overlap}
             skills={skills} setSkills={setSkills} originFeat={originFeat} setOriginFeat={setOriginFeat}
             originPicks={originPicks} setOriginPicks={setOriginPicks} kit={kit} setKit={setKit}
             finalScores={finalScores} startFeats={startFeats} activeSub={activeSub} granted={granted} race={raceName} />
@@ -1029,7 +1128,7 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
               {sheet.slots && <div className="row"><span>Spell slots</span><span>{sheet.slots}</span></div>}
               {choiceWalk && choiceWalk.summary.length > 0 && <div className="row"><span>Class choices</span><span>{choiceWalk.summary.join("; ")}</span></div>}
               {old && raceChoiceFeats.length > 0 && <div className="row"><span>Race choices</span><span>{raceChoiceFeats.join("; ")}</span></div>}
-              {old && Object.keys(raceBonus).length > 0 && <div className="row"><span>Racial bonuses</span><span>{bonusWords(raceBonus)}</span></div>}
+              {old && Object.keys(raceBonus).length > 0 && <div className="row"><span>{movedBonus ? "Racial bonuses (custom origin)" : "Racial bonuses"}</span><span>{bonusWords(raceBonus)}</span></div>}
               <div className="row"><span>Feats</span><span>{(old ? [] : startFeats).concat(walk.feats.filter((f) => !choiceWalk?.feats.includes(f))).join(", ") || "None"}</span></div>
               {walk.summary.length > 0 && <div className="row"><span>Improvements</span><span>{walk.summary.join("; ")}</span></div>}
               {alwaysNames.length > 0 && <div className="row"><span>Always prepared</span><span>{alwaysNames.join(", ")}</span></div>}

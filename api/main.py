@@ -32,6 +32,7 @@ from api.routers import (
     duels,
     encounters,
     features,
+    homebrew,
     inventory,
     items,
     maps,
@@ -192,6 +193,7 @@ app.include_router(sessions.router, prefix=_PREFIX)
 app.include_router(monsters.router, prefix=_PREFIX)
 app.include_router(items.router, prefix=_PREFIX)
 app.include_router(spells.router, prefix=_PREFIX)
+app.include_router(homebrew.router, prefix=_PREFIX)
 app.include_router(inventory.router, prefix=_PREFIX)
 app.include_router(spellcasting.router, prefix=_PREFIX)
 app.include_router(features.router, prefix=_PREFIX)

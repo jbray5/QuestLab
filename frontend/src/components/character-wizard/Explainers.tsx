@@ -1,5 +1,19 @@
 import type { BuilderOptions, BuilderSpellcasting } from "../../api/characterBuilder";
-import { ABILITY_NAMES, abilityWords, andList, cantripCap, featureNote, fmt, maxSpellLevel, ordinal, choiceCounts, spellCap, spellbookSize, stepAt } from "./rules";
+import HomebrewChip from "../HomebrewChip";
+import { ABILITY_NAMES, abilityWords, andList, cantripCap, featureNote, fmt, homebrewSubclass, maxSpellLevel, ordinal, choiceCounts, spellCap, spellbookSize, stepAt, subclassFeatureNote } from "./rules";
+
+/**
+ * Plan 133 — the mark on the campaign DM's own race or subclass: "Yours" for the DM building,
+ * "Your table's" for a player on the join link.
+ */
+export function HomebrewTag({ dm }: { dm: boolean }) {
+  if (dm) return <HomebrewChip title="Your homebrew: only your campaigns see it" />;
+  return (
+    <span className="pill pill-teal" title="Your DM made this for your table" style={{ fontSize: "0.75rem" }}>
+      Your table&rsquo;s
+    </span>
+  );
+}
 
 /**
  * Plan 131 — how a 2014 class gets its leveled spells, in words: "4 known", "Wisdom modifier +
@@ -51,6 +65,8 @@ export function ClassExplainer({ opts, klass, level, subclass }: { opts: Opts; k
   if (!cls) return null;
   const table = opts.class_features[klass] ?? {};
   const subTable = subclass ? opts.subclass_features[subclass] : undefined;
+  // Plan 133 — the DM's own subclass: its features are all here, so no "read it in your book".
+  const own = homebrewSubclass(opts, klass, subclass);
   const levels = Object.keys(table).map(Number).filter((l) => l <= level).sort((a, b) => a - b);
   const asis = (opts.asi_levels[klass] ?? []).filter((l) => l <= level);
   const avg = Math.floor(cls.hit_die / 2) + 1;
@@ -99,6 +115,7 @@ export function ClassExplainer({ opts, klass, level, subclass }: { opts: Opts; k
           {(table[String(l)] ?? []).filter((n) => n !== ASI).map((n) => {
             if (n === SUB_MARK) {
               const names = subTable?.[String(l)];
+              if (own && !names) return null; // the DM's subclass adds nothing at this level
               return (
                 <div key={`${l}-${n}`} className="feat-row">
                   <b>{names ? names.join(", ") : "Subclass feature"}<span className="lv">level {l}</span></b>
@@ -107,10 +124,11 @@ export function ClassExplainer({ opts, klass, level, subclass }: { opts: Opts; k
               );
             }
             if (n.endsWith(" Subclass")) {
+              const names = (subTable?.[String(l)] ?? []).join(", ");
               return (
                 <div key={`${l}-${n}`} className="feat-row">
                   <b>{subclass ?? "Subclass"}<span className="lv">level {l}</span></b>
-                  <span>{subclass ? (subTable?.[String(l)] ?? []).join(", ") || "Your specialty: play it from your book." : "Your specialty: choose it above, or later."}</span>
+                  <span>{subclass ? names || (own ? own.blurb || "Your table's subclass." : "Your specialty: play it from your book.") : "Your specialty: choose it above, or later."}</span>
                 </div>
               );
             }
@@ -133,9 +151,21 @@ export function ClassExplainer({ opts, klass, level, subclass }: { opts: Opts; k
   );
 }
 
-/** What an SRD subclass adds, level by level, up to the build's level (later ones say when). */
+/**
+ * What a subclass adds, level by level, up to the build's level (later ones say when).
+ * Plan 133: the DM's own subclass shows its blurb and each feature in the DM's words.
+ */
 export function SubclassFeatures({ opts, klass, subclass, level }: { opts: Opts; klass: string; subclass: string; level: number }) {
   const table = opts.subclass_features[subclass];
+  const own = homebrewSubclass(opts, klass, subclass);
+  if (!table && own) {
+    return (
+      <div className="panel pad">
+        {own.blurb && <p className="note" style={{ marginTop: 0 }}>{own.blurb}</p>}
+        <p className="note" style={{ margin: 0 }}>No features written for {subclass} yet.</p>
+      </div>
+    );
+  }
   if (!table) return null;
   const levels = Object.keys(table).map(Number).sort((a, b) => a - b);
   const now = levels.filter((l) => l <= level);
@@ -143,8 +173,9 @@ export function SubclassFeatures({ opts, klass, subclass, level }: { opts: Opts;
   return (
     <div className="panel">
       <div className="phead">What {subclass} gives by level {level}</div>
+      {own?.blurb && <div className="feat-row"><span style={{ marginTop: 0 }}>{own.blurb}</span></div>}
       {now.flatMap((l) => (table[String(l)] ?? []).map((n) => {
-        const note = featureNote(opts, klass, n);
+        const note = subclassFeatureNote(opts, klass, subclass, n);
         return (
           <div key={`${l}-${n}`} className="feat-row">
             <b>{n}<span className="lv">level {l}</span></b>

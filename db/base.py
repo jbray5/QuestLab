@@ -239,6 +239,9 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE class_features ADD COLUMN IF NOT EXISTS ruleset VARCHAR(4) DEFAULT '2024'",
         "ALTER TABLE spells ADD COLUMN IF NOT EXISTS ruleset VARCHAR(4)",
         "UPDATE spells SET ruleset = '2024' WHERE ruleset IS NULL AND created_by_email IS NULL",
+        # 0062 — Tasha's custom origin switch (Plan 133); the homebrew_races and
+        # homebrew_subclasses tables come from create_all
+        "ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS custom_origin BOOLEAN DEFAULT FALSE",
         # 0035 — 2024 PHB recovery numbers (Paladin CD 2 uses; the
         # regain-one-on-short-rest pattern for CD + Second Wind).
         # seed_catalog() only fires on an empty table, so already-seeded

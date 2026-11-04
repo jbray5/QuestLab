@@ -25,6 +25,7 @@ from db.repos.puzzle_repo import PuzzleRepo
 from db.repos.session_repo import SessionRepo, SessionRunbookRepo
 from db.repos.shop_repo import ShopItemRepo, ShopRepo
 from domain.campaign import Campaign, CampaignCreate, CampaignRead, CampaignUpdate
+from domain.enums import Ruleset
 from services import plan_service
 
 MAX_CAMPAIGNS_PER_DM = 20
@@ -90,6 +91,7 @@ def create_campaign(
     description: Optional[str] = None,
     world_notes: Optional[str] = None,
     ruleset: str = "2024",
+    custom_origin: bool = False,
 ) -> CampaignRead:
     """Create a new campaign for the requesting DM.
 
@@ -102,6 +104,7 @@ def create_campaign(
         description: Optional campaign premise and overview.
         world_notes: Optional free-form world-building notes.
         ruleset: Plan 131 — "2024" (default) or "2014"; every PC in it follows these rules.
+        custom_origin: Plan 133 — Tasha's custom origin; 2014 campaigns only.
 
     Returns:
         The newly created CampaignRead.
@@ -109,12 +112,14 @@ def create_campaign(
     Raises:
         ValueError: If the name is blank, or a non-Patron DM already has
             MAX_CAMPAIGNS_PER_DM campaigns.
+        CustomOriginError: If custom origin is asked for on a 2024 campaign.
         PlanLimitError: With PRICING=on, a Free DM already runs two campaigns
             (Plan 130; the API answers 402).
     """
     name = (name or "").strip()
     if not name:
         raise ValueError("Give your campaign a name.")
+    _check_custom_origin(custom_origin, ruleset)
     plan_service.check_can_create_campaign(session, dm_email)
     existing = CampaignRepo.list_by_dm(session, dm_email)
     if len(existing) >= MAX_CAMPAIGNS_PER_DM and not plan_service.is_patron(session, dm_email):
@@ -130,6 +135,7 @@ def create_campaign(
         description=description,
         world_notes=world_notes,
         ruleset=ruleset,
+        custom_origin=custom_origin,
     )
     campaign = CampaignRepo.create(session, data)
     return CampaignRead.model_validate(campaign)
@@ -137,6 +143,23 @@ def create_campaign(
 
 class RulesetLockedError(ValueError):
     """Plan 131 — a campaign's rules can't change once it has characters."""
+
+
+class CustomOriginError(ValueError):
+    """Plan 133 — custom origin is a 2014 rule: a 2024 campaign can't turn it on (a 422)."""
+
+
+def _check_custom_origin(custom_origin: Optional[bool], ruleset: object) -> None:
+    """Refuse custom origin on anything but a 2014 campaign.
+
+    Raises:
+        CustomOriginError: If ``custom_origin`` is on and the rules are not 2014.
+    """
+    if custom_origin and str(getattr(ruleset, "value", ruleset)) != Ruleset.R2014.value:
+        raise CustomOriginError(
+            "Custom origin is a 2014 rule. In the 2024 rules a character's background already "
+            "lets them put their ability bonuses where they like."
+        )
 
 
 def update_campaign(
@@ -159,6 +182,7 @@ def update_campaign(
     Raises:
         ValueError: If the campaign does not exist.
         RulesetLockedError: If the rules would change on a campaign that has characters.
+        CustomOriginError: If custom origin would be on in a 2024 campaign (Plan 133).
         PermissionError: If the DM does not own the campaign.
     """
     campaign = CampaignRepo.get_by_id(session, campaign_id)
@@ -175,12 +199,32 @@ def update_campaign(
     elif "ruleset" in update.model_fields_set:
         update.ruleset = None  # a null or unchanged value never touches the column
         update.model_fields_set.discard("ruleset")
+    _apply_custom_origin(campaign, update)
     if "join_code" in update.model_fields_set:
         # Plan 83 — codes are short, upper-case, and "" clears them.
         code = "".join(ch for ch in (update.join_code or "").upper() if ch.isalnum())[:12]
         update.join_code = code or None
     updated = CampaignRepo.update(session, campaign, update)
     return CampaignRead.model_validate(updated)
+
+
+def _apply_custom_origin(campaign: Campaign, update: CampaignUpdate) -> None:
+    """Plan 133 — custom origin is 2014 only; it may change any time on a 2014 campaign.
+
+    A null never touches the column. Turning it on in a 2024 campaign (or in the same
+    request that moves the campaign to 2024) is refused. A 2014 campaign that moves to 2024
+    (only possible while it has no characters) has it switched off.
+
+    Raises:
+        CustomOriginError: If it would be on in a 2024 campaign.
+    """
+    if "custom_origin" in update.model_fields_set and update.custom_origin is None:
+        update.model_fields_set.discard("custom_origin")
+    rules = update.ruleset if update.ruleset is not None else campaign.ruleset
+    if "custom_origin" in update.model_fields_set:
+        _check_custom_origin(update.custom_origin, rules)
+    elif campaign.custom_origin and str(rules) != Ruleset.R2014.value:
+        update.custom_origin = False  # setting it marks the field as set
 
 
 def delete_campaign(session: Session, campaign_id: uuid.UUID, dm_email: str) -> None:

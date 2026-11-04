@@ -26,6 +26,14 @@ Origin feats, the Dragonborn's ancestry, known casters learning their table's co
 casters preparing ability modifier + level (the Paladin half its level, from level 2), the
 Wizard's spellbook, the Fiend's expanded spells, and the "spell" class choices (Mystic Arcanum,
 Magical Secrets) checked against the catalog. A 2024 build runs exactly as before.
+
+Plan 133: the campaign DM's homebrew races and subclasses are real choices for every build in
+that campaign (players on the join link included). A homebrew race gives its speed, its fixed
+skills and skill choice, its hit points per level, its traits, languages and darkvision in the
+notes and, in 2014, its ability bonuses and ability choice. A homebrew subclass carries no
+"from my book" warning, and its always-prepared spells up to the build's level are learned and
+prepared. A 2014 campaign with custom origin on lets the race's fixed bonuses move
+(``origin_bonus``): the same amounts, each on a different ability.
 """
 
 import uuid
@@ -41,12 +49,14 @@ from domain.campaign import Campaign
 from domain.character import CharacterItemCreate, CharacterSpellCreate
 from domain.character_builder import BuilderOptions, BuildResult, CharacterBuild, OriginFeatPicks
 from domain.enums import CharacterClass
+from domain.homebrew import HomebrewRaceRead, HomebrewSubclassRead
 from domain.spell import Spell
 from integrations.dnd_rules import rulesets
 from services import (
     character_service,
     feat_rules,
     feature_service,
+    homebrew_service,
     inventory_service,
     player_service,
     spellcasting_service,
@@ -151,8 +161,13 @@ def _spell_row(s: Spell) -> dict[str, Any]:
 
 
 def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
-    """The compendium for one campaign, from its edition's tables (Plan 131)."""
+    """The compendium for one campaign, from its edition's tables (Plan 131).
+
+    Plan 133: plus the campaign DM's homebrew races (in ``species``) and subclasses.
+    """
     ruleset, srd, rules = _tables(campaign)
+    hb_species, hb_subs = _homebrew(db, campaign)
+    sub_tables = _homebrew_subclass_tables(hb_subs, rules)
     spells = [_spell_row(s) for s in _catalog(db, campaign)]
     weapon_names = {i for c in srd.CLASSES.values() for k in c["kits"] for i in k["items"]}
     weapons = [
@@ -175,7 +190,7 @@ def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
 
     return BuilderOptions(
         campaign_name=campaign.name,
-        species=srd.SPECIES,
+        species=[*srd.SPECIES, *hb_species],
         backgrounds=srd.BACKGROUNDS,
         origin_feats=srd.ORIGIN_FEATS,
         classes=srd.CLASSES,
@@ -190,8 +205,8 @@ def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
         asi_levels={c: sorted(rules.asi_levels(c)) for c in srd.CLASSES},
         popular_feats={c: list(v) for c, v in rules.POPULAR_FEATS.items()},
         class_features={c: rules.CLASS_LEVEL_FEATURES.get(c, {}) for c in srd.CLASSES},
-        subclass_features=rules.SUBCLASS_LEVEL_FEATURES,
-        feature_notes=rules.FEATURE_NOTES,
+        subclass_features=sub_tables["subclass_features"],
+        feature_notes=sub_tables["feature_notes"],
         fighting_style_level=rules.FIGHTING_STYLE_LEVEL,
         caster_subclasses=sorted(rules.CASTER_SUBCLASSES),
         hp_per_level_species=rules.HP_PER_LEVEL_SPECIES,
@@ -212,7 +227,7 @@ def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
         mastery_weapons=feat_rules.mastery_weapons(ruleset),
         weapon_mastery_filter=rules.WEAPON_MASTERY_FILTER,
         always_prepared_class=rules.ALWAYS_PREPARED_CLASS,
-        always_prepared_subclass=rules.ALWAYS_PREPARED_SUBCLASS,
+        always_prepared_subclass=sub_tables["always_prepared_subclass"],
         always_prepared_source=rules.ALWAYS_PREPARED_SOURCE,
         land_spells=rules.LAND_SPELLS,
         extra_spell_lists=rules.EXTRA_SPELL_LISTS,
@@ -222,7 +237,178 @@ def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
         unarmored_ac_base_subclass=getattr(rules, "UNARMORED_AC_BASE_SUBCLASS", {}),
         subclass_armor=getattr(rules, "SUBCLASS_ARMOR", {}),
         expanded_spells=getattr(rules, "EXPANDED_SPELLS", {}),
+        homebrew_subclasses=sub_tables["homebrew_subclasses"],
+        custom_origin=_custom_origin(campaign),
     )
+
+
+# ── Plan 133: the campaign DM's homebrew races and subclasses ───────────────
+
+
+def _custom_origin(campaign: Campaign) -> bool:
+    """Whether a 2014 campaign lets its races' bonuses move (custom origin); never in 2024."""
+    ruleset = rulesets.normalize(getattr(campaign, "ruleset", None))
+    return rulesets.is_2014(ruleset) and bool(getattr(campaign, "custom_origin", False))
+
+
+def _homebrew(
+    db: DBSession, campaign: Campaign
+) -> tuple[list[dict[str, Any]], dict[str, list[HomebrewSubclassRead]]]:
+    """The campaign DM's homebrew for this campaign's rules: race rows and subclasses by class.
+
+    The races come in the edition's ``SPECIES`` row shape (``_race_row``); the subclasses keep
+    their read model, grouped under the class name ("Paladin"), by name. Only the campaign DM's
+    own rows (``homebrew_service.for_campaign``): another DM's homebrew never shows.
+    """
+    old = rulesets.is_2014(rulesets.normalize(getattr(campaign, "ruleset", None)))
+    races, subs = homebrew_service.for_campaign(db, campaign)
+    by_class: dict[str, list[HomebrewSubclassRead]] = {}
+    for sub in subs:
+        by_class.setdefault(sub.character_class, []).append(sub)
+    return [_race_row(r, old) for r in races], by_class
+
+
+def _sentence(line: str) -> str:
+    """A trait line ends like a sentence, so the sheet's notes read as one paragraph."""
+    line = line.strip()
+    return line if line.endswith((".", "!", "?")) else line + "."
+
+
+def _race_row(race: HomebrewRaceRead, old: bool) -> dict[str, Any]:
+    """A homebrew race in the edition's ``SPECIES`` row shape, marked ``homebrew: True``.
+
+    Traits become plain lines ("Hylian Ears — You hear..."), then the darkvision and languages
+    lines the SRD rows carry, and the extra hit points unless a trait already says them. The
+    skill choice uses the key the builder already honours for
+    extra picks (``bonus_skill_choices``, any skill), and ``hp_per_level_bonus`` the 2024
+    Dwarf's key. A 2014 row adds the 2014 keys (bonuses, the ability choice, fixed skills, no
+    subraces, no choices); a 2024 row has no ability bonuses (the background gives them) and
+    says its skills in the traits, the way the 2024 SRD rows do.
+    """
+    traits = [_sentence(f"{t.name} — {t.text}" if t.text else t.name) for t in race.traits]
+    if race.darkvision:
+        traits.append(f"Darkvision {race.darkvision} ft.")
+    if race.languages.strip():
+        traits.append(f"Languages — {race.languages.strip().rstrip('.')}.")
+    if race.hp_per_level and not any("hit point" in t.casefold() for t in traits):
+        # Said once: a race copied from the Hill Dwarf already has its Dwarven Toughness line.
+        traits.append(f"Hit points — +{race.hp_per_level} every level.")
+    skills = list(race.skills)
+    row: dict[str, Any] = {
+        "name": race.name,
+        "size": race.size,
+        "speed": race.speed,
+        "traits": traits,
+        "skills": skills,
+        "homebrew": True,
+    }
+    if race.skill_choice:
+        row["bonus_skill_choices"] = race.skill_choice
+    if race.hp_per_level:
+        row["hp_per_level_bonus"] = race.hp_per_level
+    if old:
+        choice = race.ability_choice
+        row.update(
+            ability_bonuses=dict(race.ability_bonuses),
+            ability_choice=choice.model_dump() if choice else None,
+            skill_choice=race.skill_choice,
+            subraces=[],
+            choices={},
+        )
+    else:
+        if skills:
+            traits.append(f"Skills — trained in {_join(skills)}.")
+        if race.skill_choice:
+            traits.append(
+                f"Skill choice — trained in {_plural(race.skill_choice, 'more skill')} of your "
+                "choice."
+            )
+    return row
+
+
+def _homebrew_subclass_tables(
+    subs: dict[str, list[HomebrewSubclassRead]], rules: ModuleType
+) -> dict[str, Any]:
+    """The options' subclass tables with the homebrew subclasses merged in (new dicts).
+
+    - ``homebrew_subclasses``: ``{class: [{name, blurb, features: [{level, name, text}]}]}``.
+    - ``subclass_features``: the SRD table plus ``{name: {level: [feature names]}}``.
+    - ``feature_notes``: the SRD notes plus "Class: Feature" → its text, unless the name is
+      already noted or is one of the class's own features (an SRD class feature never shows a
+      homebrew text; the wizard reads a homebrew feature's text from ``homebrew_subclasses``
+      first).
+    - ``always_prepared_subclass``: the SRD table plus ``{name: {level: [spells]}}``.
+
+    The SRD module tables are copied, never changed.
+    """
+    listed: dict[str, list[dict[str, Any]]] = {}
+    features: dict[str, dict[int, list[str]]] = dict(rules.SUBCLASS_LEVEL_FEATURES)
+    notes: dict[str, str] = dict(rules.FEATURE_NOTES)
+    prepared: dict[str, dict[int, list[str]]] = dict(rules.ALWAYS_PREPARED_SUBCLASS)
+    for class_name, rows in subs.items():
+        own = {
+            n for names in rules.CLASS_LEVEL_FEATURES.get(class_name, {}).values() for n in names
+        }
+        for sub in rows:
+            listed.setdefault(class_name, []).append(
+                {
+                    "name": sub.name,
+                    "blurb": sub.blurb,
+                    "features": [f.model_dump() for f in sub.features],
+                }
+            )
+            by_level: dict[int, list[str]] = {}
+            for f in sub.features:
+                by_level.setdefault(f.level, []).append(f.name)
+                key = f"{class_name}: {f.name}"
+                if f.text and key not in notes and f.name not in notes and f.name not in own:
+                    notes[key] = f.text
+            if by_level:
+                features[sub.name] = dict(sorted(by_level.items()))
+            spells = {
+                int(lvl): list(names) for lvl, names in (sub.always_prepared or {}).items() if names
+            }
+            if spells:
+                prepared[sub.name] = dict(sorted(spells.items()))
+    return {
+        "homebrew_subclasses": listed,
+        "subclass_features": features,
+        "feature_notes": notes,
+        "always_prepared_subclass": prepared,
+    }
+
+
+def _homebrew_always(
+    sub: HomebrewSubclassRead,
+    level: int,
+    have: list[tuple[str, str]],
+    catalog: dict[str, Spell],
+    warnings: list[str],
+) -> list[tuple[str, str]]:
+    """A homebrew subclass's always-prepared spells at levels up to ``level``, as (spell, source).
+
+    Looked up in the campaign's catalog (its edition plus the DM's homebrew); a name the catalog
+    doesn't have is left out with a plain warning, never an error. Spells already in ``have``
+    (the class's own) count once.
+    """
+    seen = {name.casefold() for name, _src in have}
+    out: list[tuple[str, str]] = []
+    for at, names in sorted((sub.always_prepared or {}).items(), key=lambda kv: int(kv[0])):
+        if int(at) > level:
+            continue
+        for name in names:
+            spell = catalog.get(name.strip().casefold())
+            if spell is None:
+                warnings.append(
+                    f"{name} (always prepared for {sub.name}) isn't in the spell list yet: "
+                    "ask your DM to add it."
+                )
+                continue
+            if spell.name.casefold() in seen:
+                continue
+            seen.add(spell.name.casefold())
+            out.append((spell.name, sub.name))
+    return out
 
 
 def _spellbook_sizes(srd: ModuleType) -> dict[str, list[int]]:
@@ -675,11 +861,20 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
     cls = srd.CLASSES[class_name]
     scores = _validate_scores(build, srd, old)
     level = build.level
+    # Plan 133 — the campaign DM's homebrew races and subclasses count like the SRD ones.
+    hb_species, hb_subs = _homebrew(db, campaign)
 
-    # Species: SRD or "from my book" (free text keeps the name; no traits assumed).
+    # Species: SRD, the DM's homebrew, or "from my book" (free text keeps the name; no traits
+    # assumed). Homebrew names never repeat an SRD race or subrace, so one lookup serves.
     species_row = next(
-        (s for s in srd.SPECIES if s["name"].lower() == build.species.strip().lower()), None
+        (
+            s
+            for s in [*srd.SPECIES, *hb_species]
+            if s["name"].lower() == build.species.strip().lower()
+        ),
+        None,
     )
+    homebrew_race = bool(species_row and species_row.get("homebrew"))
     speed = species_row["speed"] if species_row else 30
     if species_row is None:
         warnings.append(f"Species {build.species!r} isn't in the SRD — traits are yours to track.")
@@ -688,12 +883,25 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
     subrace_row: Optional[dict[str, Any]] = None
     if old:
         subrace_row, race, book_sub = _subrace_2014(build, species_row, race, warnings)
-        bonuses = _race_bonuses_2014(build, species_row, subrace_row, book_sub, race, warnings)
+        bonuses = _race_bonuses_2014(
+            build, species_row, subrace_row, book_sub, race, warnings, _custom_origin(campaign)
+        )
         for a, v in bonuses.items():
             scores[a] = min(20, scores[a] + v)
 
-    # Subclass: required once the level reaches it (Plan 128), an SRD one or a book's by name.
+    # Subclass: required once the level reaches it (Plan 128), an SRD one, the DM's homebrew
+    # (Plan 133, matched ignoring case and stored by its own name) or a book's by name.
     subclass = (build.subclass or "").strip() or None
+    hb_sub = next(
+        (
+            s
+            for s in hb_subs.get(class_name, [])
+            if subclass and s.name.casefold() == subclass.casefold()
+        ),
+        None,
+    )
+    if hb_sub is not None:
+        subclass = hb_sub.name
     sub_level = cls["subclass_level"]
     if subclass is None and level >= sub_level:
         raise ValueError(
@@ -702,7 +910,7 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
         )
     if subclass and level < sub_level:
         warnings.append(f"Subclass recorded; it comes online at level {sub_level}.")
-    if subclass and subclass not in cls["srd_subclasses"]:
+    if subclass and subclass not in cls["srd_subclasses"] and hb_sub is None:
         warnings.append(f"Subclass {subclass!r} isn't in the SRD — features are yours to track.")
     active_subclass = subclass if subclass and level >= sub_level else None
 
@@ -736,15 +944,20 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
     allowed = set(cls["skills"]["from"])
     class_picks = [s for s in build.skills if s in srd.SKILLS]
     bg_skills = set(bg["skills"]) if bg else set()
+    # Plan 131 — a 2014 race's own skills (Elf Perception, Half-Orc Intimidation) and a book
+    # background's two count like the background's: the class picks come on top of them.
+    # Plan 133 — a homebrew race's fixed skills do too, in either edition (the 2024 SRD
+    # species have none). A skill the race and the background both give is replaced by one
+    # more pick of any skill (the rule for a proficiency from two sources).
+    race_skills = set((species_row or {}).get("skills") or [])
+    overlap = len(race_skills & bg_skills)
     if old:
-        # Plan 131 — a 2014 race's own skills (Elf Perception, Half-Orc Intimidation) and a book
-        # background's two count like the background's: the class picks come on top of them.
-        race_skills = set((species_row or {}).get("skills") or [])
         twice = sorted(race_skills & set(book_bg_skills))
         if twice:
             raise ValueError(f"Your race already gives {twice[0]}: pick another background skill.")
-        bg_skills |= race_skills | set(book_bg_skills)
-    extra_allowed = int((species_row or {}).get("bonus_skill_choices", 0) or 0)
+        bg_skills |= set(book_bg_skills)
+    bg_skills |= race_skills
+    extra_allowed = int((species_row or {}).get("bonus_skill_choices", 0) or 0) + overlap
     extra_from = set((species_row or {}).get("bonus_skill_from") or [])
     class_only = [s for s in class_picks if s not in bg_skills]
     off_list = [s for s in class_only if s not in allowed]
@@ -863,8 +1076,11 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
         labels = [rules.CHOICE_KINDS[k]["label"] for k in counts]
         warnings.append("Still to choose on the sheet: " + ", ".join(labels) + ".")
 
-    # Always-prepared spells (Plan 128): free, and off the prepared count.
-    always = rules.always_prepared(class_name, level, active_subclass, effects["land"])
+    # Always-prepared spells (Plan 128): free, and off the prepared count. Plan 133: a homebrew
+    # subclass's too, up to the build's level; a name the catalog lacks is a plain warning.
+    always = list(rules.always_prepared(class_name, level, active_subclass, effects["land"]))
+    if hb_sub is not None and active_subclass:
+        always += _homebrew_always(hb_sub, level, always, catalog, warnings)
     always_keys = {name.casefold() for name, _src in always}
     for name in origin_spells + [s.name for s in choice_spells]:
         if name.casefold() in always_keys:
@@ -955,11 +1171,20 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
 
     # Hit points (2024 and 2014 alike): the full die at level 1 and the fixed value after, each
     # level adding the CON modifier (at least 1 a level), plus Tough / Dwarven Toughness /
-    # Draconic Resilience.
+    # Draconic Resilience. Plan 133: a homebrew race adds its own hit points per level, and the
+    # SRD tables never read a homebrew race or subclass by a look-alike name ("Dwarfling" isn't
+    # a Dwarf), as in the level-up guide.
     con_mod = srd.ability_mod(scores["CON"])
     hd = cls["hit_die"]
     hp = max(1, hd + con_mod) + max(1, hd // 2 + 1 + con_mod) * (level - 1)
-    hp += level * feat_rules.hp_bonus_per_level(race, active_subclass, feat_names, ruleset)
+    hp += level * feat_rules.hp_bonus_per_level(
+        None if homebrew_race else race,
+        None if hb_sub is not None else active_subclass,
+        feat_names,
+        ruleset,
+    )
+    if homebrew_race:
+        hp += level * int((species_row or {}).get("hp_per_level_bonus", 0) or 0)
     hp = max(1, hp)
 
     kit = next(
@@ -1127,6 +1352,11 @@ def _no_2014_picks(build: CharacterBuild) -> None:
         raise ValueError("The 2024 species have no choices to send here.")
     if build.prepared_spells:
         raise ValueError("Only a 2014 Wizard prepares spells out of a spellbook.")
+    if any(int(v) for v in build.origin_bonus.values()):
+        raise ValueError(
+            "In the 2024 rules your ability bonuses come from your background: a species has "
+            "no bonuses to move. Leave the custom origin empty."
+        )
 
 
 def _subrace_2014(
@@ -1172,11 +1402,18 @@ def _race_bonuses_2014(
     book_sub: bool,
     race: str,
     warnings: list[str],
+    custom_origin: bool = False,
 ) -> dict[str, int]:
     """The 2014 racial ability bonuses: the race's, its subrace's, and the ones picked.
 
     The Half-Elf picks two +1s (not Charisma); a race or subrace from the player's book gives
     what the book says, typed in (+1 or +2 each, at most +4 for a race, +2 for a subrace).
+
+    Plan 133 — custom origin (``custom_origin``, the campaign's switch): the race's and
+    subrace's fixed bonuses may move (``build.origin_bonus``, checked by ``_origin_bonus``).
+    The ability-choice picks still come on top, but never on an ability that already has one
+    of the race's bonuses (one bonus per ability from the race, as the Half-Elf's "not
+    Charisma" says).
 
     Raises:
         ValueError: On a pick the race doesn't allow, in plain words.
@@ -1185,10 +1422,18 @@ def _race_bonuses_2014(
     for a in choice:
         if a not in _ABILITY_WORDS:
             raise ValueError(f"{a} isn't an ability score.")
+    fixed = [
+        (a, int(v))
+        for row in (species_row, subrace_row)
+        for a, v in ((row or {}).get("ability_bonuses") or {}).items()
+        if int(v)
+    ]
     out: dict[str, int] = {}
-    for row in (species_row, subrace_row):
-        for a, v in ((row or {}).get("ability_bonuses") or {}).items():
-            out[a] = out.get(a, 0) + int(v)
+    for a, v in fixed:
+        out[a] = out.get(a, 0) + v
+    moved = _origin_bonus(build, species_row, fixed, race, custom_origin)
+    if moved is not None:
+        out = moved
     spec = (species_row or {}).get("ability_choice")
     if species_row is None or book_sub:
         most = 4 if species_row is None else 2
@@ -1204,14 +1449,17 @@ def _race_bonuses_2014(
             warnings.append("Ability bonuses from your book are recorded as you entered them.")
     elif spec:
         n, amount, barred = int(spec["choose"]), int(spec["amount"]), list(spec["exclude"])
+        if custom_origin and fixed:
+            # The race's bonuses may have moved: the picks stay off wherever they are now.
+            barred = [a for a in _ABILITY_WORDS if a in out]
         if (
             len(choice) != n
             or any(v != amount for v in choice.values())
             or any(a in barred for a in choice)
         ):
             raise ValueError(
-                f"{_a(race).title()} {race} picks {n} different abilities for +{amount} each, not "
-                + " or ".join(_ABILITY_WORDS[a] for a in barred)
+                f"{_a(race).title()} {race} picks {n} different abilities for +{amount} each"
+                + (", not " + " or ".join(_ABILITY_WORDS[a] for a in barred) if barred else "")
                 + "."
             )
     elif choice:
@@ -1222,6 +1470,57 @@ def _race_bonuses_2014(
     for a, v in choice.items():
         out[a] = out.get(a, 0) + v
     return out
+
+
+def _origin_bonus(
+    build: CharacterBuild,
+    species_row: Optional[dict[str, Any]],
+    fixed: list[tuple[str, int]],
+    race: str,
+    custom_origin: bool,
+) -> Optional[dict[str, int]]:
+    """Custom origin (Plan 133): the race's fixed bonuses moved, or None to keep the race's own.
+
+    The amounts sent must be exactly the race's and subrace's fixed amounts (a Hill Dwarf's +2
+    and +1, a Human's six +1s), each on a different ability.
+
+    Raises:
+        ValueError: If the campaign has custom origin off, the race is from the player's book
+            or has no fixed bonuses, or the amounts don't match, in plain words.
+    """
+    sent: dict[str, int] = {}
+    for key, value in build.origin_bonus.items():
+        if not int(value):
+            continue
+        a = str(key).strip().upper()
+        if a not in _ABILITY_WORDS:
+            raise ValueError(f"Custom origin: {key} isn't an ability score.")
+        if a in sent:
+            raise ValueError(
+                "Custom origin: each of your race's bonuses goes on a different ability."
+            )
+        sent[a] = int(value)
+    if not sent:
+        return None
+    if not custom_origin:
+        raise ValueError(
+            "Custom origin is off in this campaign: your race's ability bonuses stay where the "
+            "race puts them. Your DM can turn it on in the campaign's rules."
+        )
+    if species_row is None:
+        raise ValueError(
+            "A race from your book already takes its bonuses where you type them: leave the "
+            "custom origin empty."
+        )
+    want = sorted((amount for _ability, amount in fixed), reverse=True)
+    if not want:
+        raise ValueError(f"{_a(race).title()} {race} has no fixed ability bonuses to move.")
+    if sorted(sent.values(), reverse=True) != want:
+        raise ValueError(
+            f"Custom origin moves your race's bonuses ({_join([f'+{v}' for v in want])}), "
+            "each onto a different ability."
+        )
+    return sent
 
 
 def _background_skills_2014(
@@ -1638,10 +1937,16 @@ def _notes(
 
     Plan 131: a 2014 build says SRD 5.1, adds its subrace's traits and race choices, and its
     background line has skills, languages and feature (no feat, no tool).
+
+    Plan 133: a homebrew race's line carries its size, traits, darkvision and languages.
     """
     old = rulesets.is_2014(ruleset)
     lines = [f"Built with the QuestLab character creator (SRD {'5.1' if old else '5.2.1'})."]
-    if species_row:
+    if species_row and species_row.get("homebrew"):
+        # Plan 133 — the DM's own race: its size too (the sheet has no size of its own).
+        traits = " ".join(species_row["traits"])
+        lines.append(f"{species_row['name']} traits ({species_row['size']}): {traits}".rstrip())
+    elif species_row:
         lines.append(f"{species_row['name']} traits: " + " ".join(species_row["traits"]))
     if subrace_row:
         lines.append(f"{subrace_row['name']} traits: " + " ".join(subrace_row["traits"]))

@@ -4,6 +4,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Optional
 
+import sqlalchemy as sa
 from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
 
@@ -42,6 +43,9 @@ class Campaign(CampaignBase, table=True):
         max_length=4,
         sa_column_kwargs={"server_default": Ruleset.R2024.value},
     )
+    # Plan 133 — Tasha's custom origin (2014 only): a race's ability bonuses may go on any
+    # abilities. campaign_service refuses it on a 2024 campaign; it affects new builds only.
+    custom_origin: bool = Field(default=False, sa_column_kwargs={"server_default": sa.false()})
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -55,6 +59,8 @@ class CampaignCreate(CampaignBase):
 
     dm_email: Optional[str] = None
     ruleset: Ruleset = Ruleset.R2024
+    # Plan 133 — 2014 campaigns only (campaign_service refuses it on 2024).
+    custom_origin: bool = False
 
     # Plan 131 — keep "2024"/"2014" (not the enum) after validation: it lands in a str column.
     model_config = {"use_enum_values": True}
@@ -68,6 +74,7 @@ class CampaignRead(CampaignBase):
     allow_player_signup: bool = True
     join_code: Optional[str] = None
     ruleset: Ruleset = Ruleset.R2024
+    custom_origin: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -85,5 +92,7 @@ class CampaignUpdate(BaseModel):
     join_code: Optional[str] = Field(default=None, max_length=12)
     world_notes: Optional[str] = None
     ruleset: Optional[Ruleset] = None
+    # Plan 133 — refused on a 2024 campaign; reset to false when a 2014 one moves to 2024.
+    custom_origin: Optional[bool] = None
 
     model_config = {"use_enum_values": True}

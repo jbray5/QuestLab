@@ -1338,9 +1338,28 @@ def _daily_preparers(ruleset: Any) -> set[str]:
     return _DAILY_PREPARERS_2014 if rulesets.is_2014(ruleset) else _DAILY_PREPARERS
 
 
-def _always_prepared_2014(pc: PlayerCharacter, cls: str) -> set[str]:
-    """Casefolded spells a 2014 PC always has prepared (domain, oath, circle spells)."""
+def _always_prepared_2014(db: Session, pc: PlayerCharacter, cls: str) -> set[str]:
+    """Casefolded spells a 2014 PC always has prepared (domain, oath, circle spells).
+
+    Plan 133: a homebrew subclass's own always-prepared spells (up to the PC's level) count
+    instead of any SRD subclass its name happens to resemble.
+    """
     from integrations.dnd_rules import rulesets
+    from services import homebrew_service
+
+    campaign = CampaignRepo.get_by_id(db, pc.campaign_id)
+    homebrew = (
+        homebrew_service.subclass_for(db, campaign, cls, pc.subclass)
+        if campaign and pc.subclass
+        else None
+    )
+    if homebrew is not None:
+        return {
+            name.casefold()
+            for level, names in (homebrew.always_prepared or {}).items()
+            if int(level) <= pc.level
+            for name in names
+        }
 
     rules = rulesets.levelup(pc.ruleset)
     spec = rules.CHOICE_KINDS.get("land") or {}
@@ -1502,7 +1521,7 @@ def set_spell_prepared(
         sc = srd.CLASSES[cls]["spellcasting"]
         ability_mod = (int(getattr(pc, f"score_{sc['ability'].lower()}")) - 10) // 2
         cap = srd.spells_prepared(cls, pc.level, ability_mod)
-        free = _always_prepared_2014(pc, cls)
+        free = _always_prepared_2014(db, pc, cls)
     else:
         cap = srd.spells_prepared(cls, pc.level)
     leveled = []

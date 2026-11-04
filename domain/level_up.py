@@ -3,6 +3,10 @@
 Plan 131: the plan says which rules it follows (``ruleset``). A 2014 plan also carries the
 class choices the new level brings (Pact Boon, Eldritch Invocations, Metamagic...), the
 spells that become always prepared, and the counts the 2014 spell rules use.
+
+Plan 133: the campaign DM's homebrew subclasses are offered next to the SRD ones, and a
+homebrew subclass's features (``NewFeature.homebrew``) and always-prepared spells arrive at
+the levels the DM set, in both editions.
 """
 
 from typing import Annotated, Any, Literal, Optional
@@ -87,6 +91,15 @@ class NewFeature(BaseModel):
     note: Optional[str] = None
     # Plan 131: set when the feature comes with a subclass picked at this level.
     subclass: Optional[str] = None
+    # Plan 133: a feature of the campaign DM's homebrew subclass (``note`` is the DM's text).
+    homebrew: bool = False
+
+
+class HomebrewSubclassOption(BaseModel):
+    """A subclass the campaign's DM made, offered at the subclass level (Plan 133)."""
+
+    name: str
+    blurb: str = ""
 
 
 class ChoiceOption(BaseModel):
@@ -155,6 +168,9 @@ class LevelUpPlan(BaseModel):
     # Plan 131 — the rules this plan follows, and (2014) the class choices to make.
     ruleset: Ruleset = Ruleset.R2024
     class_choices: list[ChoiceStep] = Field(default_factory=list)
+    # Plan 133 — the campaign DM's homebrew subclasses for this class and edition. Their
+    # names are also in ``subclass_options``, after the SRD ones.
+    homebrew_subclasses: list[HomebrewSubclassOption] = Field(default_factory=list)
 
 
 class SpellSwap(BaseModel):

@@ -30,15 +30,17 @@ When this is done:
 ---
 
 ## Progress
-- [ ] W1-BM battle maps: grid in squares, scale, smarter guess, hide/cover
-- [ ] W1-HR homebrew races and subclasses: model, migration 0062 (also `campaigns.custom_origin`), repo, service, API, catalog page
-- [ ] W2-HB builder: homebrew races and subclasses in the options; custom origin
-- [ ] W2-HL level-up guide and feature listing: homebrew subclass features
-- [ ] Lead: integration, screenshots, docs, gate, merge
+- [x] W1-BM battle maps: the editor showed a fixed-height slice (now the whole map, zoom, Fit width, Move tool); grid in squares with "× N down" and an ask-when-unsure prompt; the import guess reads grid lines drawn into the art; a Hide tool and shown/hidden fog chips at the table; two pointer bugs fixed (6 tests, 36 grid-math checks). Follow-ups TD-133a–d.
+- [x] W1-HR homebrew races and subclasses: model, migration 0062 (also `campaigns.custom_origin`), repo, service, API, `/homebrew` "Races & subclasses" page with SRD race templates; custom origin switch on the Rules card (21 tests). Lead raised the race bonus cap from +4 to +6 so a Human-style race fits.
+- [x] W2-HB builder: homebrew races (edition-shaped, with a "Your table's" chip) and subclasses (features in the explainer, always-prepared learned); custom origin pickers (+2 → [ability]); DM-only "Make a custom race/subclass" links that refresh on return (42 tests)
+- [x] W2-HL level-up: homebrew subclasses offered at the subclass level, features in "What's new" and the sheet/phone listing, always-prepared applied; a homebrew name never borrows SRD subclass rules (13 tests incl. lead's)
+- [x] Lead: race bonus cap +6; the phone's daily limit knows homebrew always-prepared; homebrew races never read as SRD for level-up HP; Guide and immersive_table docs; TD-133a–d; screenshots reviewed
+- [ ] Merge to main and push (waiting on Justin)
 
 ---
 
 ## Surprises and Discoveries
+- James's email screenshots: the chase map is 25 × 75 squares (Inkarnate), a tall strip. QuestLab's editor shows it as a wide frame about 25 × 15. The editor crops tall maps to a landscape box, and the grid box was blank because the guess failed. "Cutting the size down" means cropping, not only a wrong grid.
 - `BattleMaps.tsx guessGrid` takes the first candidate pixel size (70, 100, 96, …) that divides both image sides. A map drawn at another size gets a wrong, smaller grid: 1400×2800 at 56 px reads as 20×40, not 25×50. The only fix today is a "pixels per square" box.
 
 ---

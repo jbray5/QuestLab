@@ -36,6 +36,8 @@ const Monsters      = lazy(() => import("./pages/Monsters"));
 const Npcs          = lazy(() => import("./pages/Npcs"));
 const PlayerView    = lazy(() => import("./pages/PlayerView"));
 const Spells        = lazy(() => import("./pages/Spells"));
+// Plan 133 — the DM's homebrew races and subclasses.
+const HomebrewOptions = lazy(() => import("./pages/HomebrewOptions"));
 const Weapons       = lazy(() => import("./pages/Weapons"));
 const BattleMaps    = lazy(() => import("./pages/BattleMaps"));
 const TableView     = lazy(() => import("./pages/TableView"));
@@ -227,6 +229,7 @@ export default function App() {
         <Route path="monsters" element={lazyRoute(<Monsters />)} />
         <Route path="magic-items" element={lazyRoute(<MagicItems />)} />
         <Route path="spells" element={lazyRoute(<Spells />)} />
+        <Route path="homebrew" element={lazyRoute(<HomebrewOptions />)} />
         <Route path="weapons" element={lazyRoute(<Weapons />)} />
         <Route path="admin" element={lazyRoute(<Admin />)} />
         <Route path="*" element={<NotFound />} />

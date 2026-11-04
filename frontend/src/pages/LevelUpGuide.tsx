@@ -27,6 +27,10 @@ import Confetti from "../components/Confetti";
  * Secrets...), words the spells step the 2014 way (known casters learn and may swap one;
  * prepared casters get a bigger daily list; the Wizard adds to the spellbook), and shows the
  * spells that become always prepared. A 2024 plan has none of these and looks as before.
+ *
+ * Plan 133 — the DM's homebrew subclasses (`plan.homebrew_subclasses`) sit next to the SRD
+ * ones with a "Your table's" chip, in both editions; their features (`homebrew` on a new
+ * feature) show the DM's own text, and their always-prepared spells join the spells step.
  */
 
 const ABILITIES = ["STR", "DEX", "CON", "INT", "WIS", "CHA"] as const;
@@ -74,6 +78,8 @@ const CSS = `
 .lu .new:last-child { border-bottom: 0; }
 .lu .new b { display: block; font-weight: 600; color: var(--text); font-size: 1rem; }
 .lu .new span { display: block; color: var(--text2); font-size: 0.9rem; margin-top: 2px; }
+.lu .new span.dm-text { white-space: pre-line; }
+.lu .new b .pill, .lu-chip .pill { display: inline-block; font-size: 0.75rem; font-weight: 500; vertical-align: middle; }
 .lu ul.plain { margin: 4px 0 0; padding-left: 1.1rem; color: var(--text2); font-size: 0.9375rem; }
 .lu ul.plain li { margin: 0.3rem 0; }
 .lu .big { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 2.2rem; color: var(--text); text-align: center; margin: 16px 0 0; }
@@ -97,6 +103,11 @@ const CSS = `
 const mod = (v: number) => Math.floor((v - 10) / 2);
 const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 const ordinal = (n: number) => (n === 1 ? "1st" : n === 2 ? "2nd" : n === 3 ? "3rd" : `${n}th`);
+
+/** Plan 133 — marks a subclass or feature the campaign's DM made. */
+function TableChip() {
+  return <span className="pill pill-teal" title="Your DM made this for your table">Your table&rsquo;s</span>;
+}
 
 function toggle(list: string[], name: string, cap: number): string[] {
   if (list.includes(name)) return list.filter((x) => x !== name);
@@ -198,6 +209,12 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
   const [customSub, setCustomSub] = useState("");
   // Plan 131 — what a subclass picked now brings is tagged with it: keep the chosen one's.
   const pickedSub = subclass === BOOK ? customSub.trim() : subclass;
+  // Plan 133 — the DM's own subclasses, by name (their names are in subclass_options too).
+  const tableSubs = useMemo(
+    () => new Map((plan.homebrew_subclasses ?? []).map((s) => [s.name, s])),
+    [plan.homebrew_subclasses],
+  );
+  const pickedTableSub = tableSubs.get(pickedSub);
   const activeChoices = useMemo(
     () => (plan.class_choices ?? []).filter((c) => !c.subclass || c.subclass === pickedSub),
     [plan.class_choices, pickedSub],
@@ -411,7 +428,10 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
           <div className="panel">
             {newFeatures.length === 0 && <p className="note">No new class features at this level, but your numbers grow.</p>}
             {newFeatures.map((f) => (
-              <div key={f.name} className="new"><b>{f.name}</b>{f.note && <span>{f.note}</span>}</div>
+              <div key={`${f.homebrew ? "hb-" : ""}${f.name}`} className="new">
+                <b>{f.name}{f.homebrew && <> <TableChip /></>}</b>
+                {f.note && <span className={f.homebrew ? "dm-text" : undefined}>{f.note}</span>}
+              </div>
             ))}
           </div>
           {(plan.scaling.length > 0 || slotChanges.length > 0) && (
@@ -467,22 +487,32 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
           <h2>Choose your subclass</h2>
           <div className="lu-chips">
             {plan.subclass_options.map((s) => (
-              <button key={s} className={`lu-chip ${subclass === s ? "on" : ""}`} onClick={() => setSubclass(s)}>{s}</button>
+              <button key={s} className={`lu-chip ${subclass === s ? "on" : ""}`} onClick={() => setSubclass(s)}>
+                {s}{tableSubs.has(s) && <TableChip />}
+              </button>
             ))}
             <button className={`lu-chip ${subclass === BOOK ? "on" : ""}`} onClick={() => setSubclass(BOOK)}>From my book…</button>
           </div>
           {subclass === BOOK && <input type="text" style={{ marginTop: 8 }} value={customSub} onChange={(e) => setCustomSub(e.target.value)} placeholder="e.g. Circle of the Moon" />}
+          {pickedTableSub?.blurb && <p className="note" style={{ color: "var(--text2)" }}>{pickedTableSub.blurb}</p>}
           {subFeatures.length > 0 && (
             <>
               <span className="lbl">With {pickedSub} you also get</span>
               <div className="panel">
                 {subFeatures.map((f) => (
-                  <div key={f.name} className="new"><b>{f.name}</b>{f.note && <span>{f.note}</span>}</div>
+                  <div key={f.name} className="new">
+                    <b>{f.name}</b>
+                    {f.note && <span className={f.homebrew ? "dm-text" : undefined}>{f.note}</span>}
+                  </div>
                 ))}
               </div>
             </>
           )}
-          <p className="note">A subclass from your book is recorded by name; you play its features from the book.</p>
+          <p className="note">
+            {pickedTableSub
+              ? "Your DM made this subclass for your table. Its features join your sheet as you level."
+              : "A subclass from your book is recorded by name; you play its features from the book."}
+          </p>
         </>
       )}
 
@@ -650,7 +680,8 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
       {step === "spells" && sc && (
         <>
           <h2>Spells</h2>
-          {is2014 && <p className="sub" style={{ margin: "0 0 4px" }}>{spellLead2014(sc)}</p>}
+          {/* A class with no spells of its own only meets this step for its subclass's spells. */}
+          {is2014 && (sc.max_spell_level > 0 || sc.first_spells) && <p className="sub" style={{ margin: "0 0 4px" }}>{spellLead2014(sc)}</p>}
           {activeAlways.length > 0 && (
             <>
               <span className="lbl">Always prepared from now on</span>
