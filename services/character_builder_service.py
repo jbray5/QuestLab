@@ -302,6 +302,9 @@ def _race_row(race: HomebrewRaceRead, old: bool) -> dict[str, Any]:
         "skills": skills,
         "homebrew": True,
     }
+    # Plan 135: fly, swim, climb, burrow; the sheet keeps them in ``pc.speeds``.
+    if race.speeds:
+        row["speeds"] = dict(race.speeds)
     if race.skill_choice:
         row["bonus_skill_choices"] = race.skill_choice
     if race.hp_per_level:
@@ -881,6 +884,7 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
     )
     homebrew_race = bool(species_row and species_row.get("homebrew"))
     speed = species_row["speed"] if species_row else 30
+    speeds = dict(species_row.get("speeds") or {}) if species_row else {}
     if species_row is None:
         warnings.append(f"Species {build.species!r} isn't in the SRD — traits are yours to track.")
     race = species_row["name"] if species_row else build.species.strip()
@@ -1223,6 +1227,7 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
         hp_current=hp,
         ac=ac,
         speed=speed,
+        speeds=speeds or None,
         subclass=subclass,
         background=(bg["name"] if bg else build.background.strip()),
         saving_throw_proficiencies=saves,

@@ -26,11 +26,21 @@ Stored shapes (JSON columns, all validated here before they are written):
   ``CharacterClass`` value. Not the enum NAME ("PALADIN") that ``class_features`` and
   ``player_characters`` store through SQLAlchemy's Enum type: this is a plain str column,
   and the name is what the builder's ``CLASSES`` tables are keyed by.
+
+Plan 135 (James, round 2):
+
+- ``HomebrewRace.speeds``: ``{"fly": 30, "swim": 30}`` or NULL, the speeds besides walking.
+- ``HomebrewRace.natural_weapons``: ``[{"name": "Claws", "damage": "1d6", "damage_type":
+  "slashing", "ability": "STR", "note": ""}]``. Attacks every PC of the race has.
+- ``HomebrewSubclass.resources``: counters like Superiority Dice (``SubclassResource``): the
+  uses and the die come from level tables, so they grow as the PC levels.
+- ``HomebrewFeat``: a DM's own feat; ``power_attack`` is an optional "−5 to hit, +10 damage"
+  trade the sheet's attacks offer as a toggle.
 """
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any, Literal, Optional
+from typing import Annotated, Any, Literal, Optional, Union
 
 from pydantic import BaseModel
 from pydantic import Field as PField
@@ -76,6 +86,34 @@ DARKVISION_RANGES = (30, 60, 120)
 MAX_TRAITS = 20
 MAX_FEATURES = 40
 MAX_PREPARED_PER_LEVEL = 10
+# Plan 135
+SPEED_KINDS = ("fly", "swim", "climb", "burrow")
+MAX_NATURAL_WEAPONS = 4
+MAX_RESOURCES = 4
+DAMAGE_TYPES = (
+    "acid",
+    "bludgeoning",
+    "cold",
+    "fire",
+    "force",
+    "lightning",
+    "necrotic",
+    "piercing",
+    "poison",
+    "psychic",
+    "radiant",
+    "slashing",
+    "thunder",
+)
+# "1d6", "2d4", or a flat number like an unarmed strike's 1.
+NATURAL_DAMAGE_PATTERN = r"^(\d{1,2}d(4|6|8|10|12)|\d{1,2})$"
+DieSize = Literal["d4", "d6", "d8", "d10", "d12"]
+# How a counter's uses can follow the PC instead of a table: the proficiency bonus (or twice
+# it), the level (or half, rounded down, at least 1), or an ability modifier (at least 1).
+UsesFormulaName = Literal[
+    "prof_bonus", "prof_x2", "level", "half_level", "STR", "DEX", "CON", "INT", "WIS", "CHA"
+]
+FeatCategory = Literal["general", "origin", "fighting_style", "epic_boon"]
 
 HomebrewName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
@@ -231,7 +269,192 @@ def _check_prepared(value: Optional[dict[Any, list[str]]]) -> Optional[dict[str,
     return dict(sorted(out.items(), key=lambda kv: int(kv[0]))) or None
 
 
+def check_speeds(value: Optional[dict[str, Any]]) -> Optional[dict[str, int]]:
+    """Other speeds: kinds from ``SPEED_KINDS``, 5–120 ft in steps of 5, 0 dropped."""
+    if not value:
+        return None
+    out: dict[str, int] = {}
+    for key, raw in value.items():
+        kind = str(key).strip().lower()
+        if kind not in SPEED_KINDS:
+            raise ValueError(f"{key!r} isn't a speed. Use fly, swim, climb or burrow.")
+        try:
+            feet = int(raw)
+        except (TypeError, ValueError):
+            raise ValueError(f"The {kind} speed must be a number of feet.") from None
+        if feet == 0:
+            continue
+        if not 5 <= feet <= 120 or feet % 5:
+            raise ValueError(f"The {kind} speed goes from 5 to 120 feet, in steps of 5.")
+        out[kind] = feet
+    return {k: out[k] for k in SPEED_KINDS if k in out} or None
+
+
+def _check_level_table(value: Optional[dict[Any, Any]], what: str) -> Optional[dict[str, Any]]:
+    """A by-level table ({"3": 4, "7": 5}): keys "1"–"20", sorted; None when empty."""
+    if not value:
+        return None
+    out: dict[int, Any] = {}
+    for key, entry in value.items():
+        try:
+            level = int(str(key).strip())
+        except ValueError:
+            raise ValueError(f"{key!r} isn't a level: use 1 to 20.") from None
+        if not 1 <= level <= 20:
+            raise ValueError(f"Level {level} isn't a character level: use 1 to 20.")
+        if level in out:
+            raise ValueError(f"Level {level} is listed twice in the {what}.")
+        out[level] = entry
+    return {str(k): out[k] for k in sorted(out)}
+
+
+def _at_level(table: Optional[dict[str, Any]], level: int) -> Any:
+    """The entry for ``level``: the one at the highest listed level not above it, or None."""
+    best: Any = None
+    for key, entry in (table or {}).items():
+        if int(key) <= level:
+            best = entry
+    return best
+
+
 # ── Nested shapes ───────────────────────────────────────────────────────────
+
+
+class NaturalWeapon(BaseModel):
+    """A race's built-in attack (claws, a bite, horns): always proficient, no item needed.
+
+    ``ability`` is the attack's ability: "STR", "DEX", or "best" (the higher of the two,
+    like a finesse weapon).
+    """
+
+    name: TraitName
+    damage: str = PField(pattern=NATURAL_DAMAGE_PATTERN)
+    damage_type: str
+    ability: Literal["STR", "DEX", "best"] = "STR"
+    note: str = PField(default="", max_length=200)
+
+    @field_validator("damage", mode="before")
+    @classmethod
+    def _dice(cls, value: Any) -> Any:
+        """Dice in lower case with no spaces ("1D6 " → "1d6")."""
+        return str(value).strip().lower().replace(" ", "") if value is not None else value
+
+    @field_validator("damage_type")
+    @classmethod
+    def _type(cls, value: str) -> str:
+        """One of the 13 damage types, in lower case."""
+        word = value.strip().lower()
+        if word not in DAMAGE_TYPES:
+            raise ValueError(f"{value!r} isn't a damage type, like slashing or piercing.")
+        return word
+
+    @field_validator("note")
+    @classmethod
+    def _trim(cls, value: str) -> str:
+        """Trim the note."""
+        return value.strip()
+
+
+class SubclassResource(BaseModel):
+    """A subclass counter, like Superiority Dice: uses (and a die) that grow with level.
+
+    It arrives at ``level``. The uses come from ``uses`` (a by-level table, which needs an
+    entry at ``level``) or from ``uses_formula``, exactly one of the two. ``die`` is an
+    optional by-level table of die sizes. A table's entry holds from its level until the next.
+    """
+
+    name: TraitName
+    level: int = PField(default=3, ge=1, le=20)
+    recovery: Literal["short", "long"] = "long"
+    uses: Optional[dict[str, int]] = None
+    uses_formula: Optional[UsesFormulaName] = None
+    die: Optional[dict[str, DieSize]] = None
+    text: str = PField(default="", max_length=1000)
+
+    @field_validator("uses", mode="before")
+    @classmethod
+    def _uses(cls, value: Any) -> Optional[dict[str, Any]]:
+        """Levels "1"–"20", sorted."""
+        return _check_level_table(value, "uses")
+
+    @field_validator("uses")
+    @classmethod
+    def _counts(cls, value: Optional[dict[str, int]]) -> Optional[dict[str, int]]:
+        """Each count 1 to 50."""
+        for level, n in (value or {}).items():
+            if not 1 <= n <= 50:
+                raise ValueError(f"The uses at level {level} must be 1 to 50.")
+        return value
+
+    @field_validator("die", mode="before")
+    @classmethod
+    def _die(cls, value: Any) -> Optional[dict[str, Any]]:
+        """Levels "1"–"20", sorted; sizes in lower case ("D8" → "d8")."""
+        table = _check_level_table(value, "die sizes")
+        return {k: str(v).strip().lower() for k, v in table.items()} if table else None
+
+    @field_validator("text")
+    @classmethod
+    def _trim(cls, value: str) -> str:
+        """Trim the text."""
+        return value.strip()
+
+    @model_validator(mode="after")
+    def _one_source(self) -> "SubclassResource":
+        """Exactly one of ``uses`` and ``uses_formula``; a table starts at ``level``."""
+        if (self.uses is None) == (self.uses_formula is None):
+            raise ValueError(
+                f"{self.name}: give its uses by level, or say what they follow "
+                "(proficiency bonus, level, an ability), not both."
+            )
+        if self.uses is not None and str(self.level) not in self.uses:
+            raise ValueError(
+                f"{self.name} arrives at level {self.level}, so its uses need a number "
+                f"at level {self.level}."
+            )
+        return self
+
+    def state_at(
+        self, pc_level: int, scores: dict[str, int], prof: int
+    ) -> Optional[tuple[int, Optional[str]]]:
+        """``(max uses, die size or None)`` for a PC, or None before the counter arrives.
+
+        Args:
+            pc_level: The PC's level (in this class).
+            scores: Ability scores by code ({"WIS": 16}).
+            prof: The PC's proficiency bonus.
+
+        Returns:
+            The counter's size and die at that level, or None below ``level``.
+        """
+        if pc_level < self.level:
+            return None
+        formula = self.uses_formula
+        if formula is None:
+            uses = int(_at_level(self.uses, pc_level) or 0)
+        elif formula == "prof_bonus":
+            uses = prof
+        elif formula == "prof_x2":
+            uses = 2 * prof
+        elif formula == "level":
+            uses = pc_level
+        elif formula == "half_level":
+            uses = pc_level // 2
+        else:
+            uses = (int(scores.get(formula, 10)) - 10) // 2
+        return max(1, uses), _at_level(self.die, pc_level)
+
+
+class PowerAttack(BaseModel):
+    """A feat's "−5 to hit, +10 damage" trade, offered as a toggle on qualifying attacks.
+
+    ``weapons``: "ranged" (any ranged weapon), "heavy" (melee weapons with the Heavy
+    property), "melee" (any melee weapon) or "any".
+    """
+
+    to_hit: int = PField(ge=-10, le=-1)
+    damage: int = PField(ge=1, le=20)
+    weapons: Literal["ranged", "heavy", "melee", "any"] = "any"
 
 
 class AbilityChoice(BaseModel):
@@ -306,6 +529,11 @@ class HomebrewRace(SQLModel, table=True):
     languages: str = Field(default="", max_length=200)
     hp_per_level: int = Field(default=0)
     darkvision: Optional[int] = Field(default=None)
+    # Plan 135
+    speeds: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    natural_weapons: list = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]")
+    )
     created_at: datetime = Field(default_factory=_aware_now, sa_column=_ts_column())
     updated_at: datetime = Field(default_factory=_aware_now, sa_column=_ts_column())
 
@@ -343,6 +571,12 @@ class _RaceChecks(BaseModel):
         """Trim the languages line."""
         return None if value is None else value.strip()
 
+    @field_validator("speeds", mode="before", check_fields=False)
+    @classmethod
+    def _speeds(cls, value: Any) -> Optional[dict[str, int]]:
+        """Fly, swim, climb or burrow; 5–120 ft in steps of 5; 0 dropped."""
+        return check_speeds(value)
+
 
 class HomebrewRaceCreate(_RaceChecks):
     """A new homebrew race, as the Race form sends it."""
@@ -359,6 +593,10 @@ class HomebrewRaceCreate(_RaceChecks):
     languages: str = PField(default="", max_length=200)
     hp_per_level: int = PField(default=0, ge=0, le=2)
     darkvision: Optional[int] = None
+    speeds: Optional[dict[str, int]] = None
+    natural_weapons: list[NaturalWeapon] = PField(
+        default_factory=list, max_length=MAX_NATURAL_WEAPONS
+    )
 
     @model_validator(mode="after")
     def _within_total(self) -> "HomebrewRaceCreate":
@@ -370,9 +608,9 @@ class HomebrewRaceCreate(_RaceChecks):
 class HomebrewRaceUpdate(_RaceChecks):
     """A partial change to a homebrew race (the same limits as ``HomebrewRaceCreate``).
 
-    ``ruleset``, ``ability_choice`` and ``darkvision`` may be cleared with null (null rules =
-    both editions); the other fields can't be null. The +4 total is checked by the service
-    against the merged row.
+    ``ruleset``, ``ability_choice``, ``darkvision`` and ``speeds`` may be cleared with null
+    (null rules = both editions); the other fields can't be null. The +6 total is checked by
+    the service against the merged row.
     """
 
     name: Optional[HomebrewName] = None
@@ -387,6 +625,10 @@ class HomebrewRaceUpdate(_RaceChecks):
     languages: Optional[str] = PField(default=None, max_length=200)
     hp_per_level: Optional[int] = PField(default=None, ge=0, le=2)
     darkvision: Optional[int] = None
+    speeds: Optional[dict[str, int]] = None
+    natural_weapons: Optional[list[NaturalWeapon]] = PField(
+        default=None, max_length=MAX_NATURAL_WEAPONS
+    )
 
     @field_validator(
         "name",
@@ -398,6 +640,7 @@ class HomebrewRaceUpdate(_RaceChecks):
         "traits",
         "languages",
         "hp_per_level",
+        "natural_weapons",
         mode="before",
     )
     @classmethod
@@ -438,6 +681,8 @@ class HomebrewRaceRead(BaseModel):
     languages: str = ""
     hp_per_level: int = 0
     darkvision: Optional[int] = None
+    speeds: Optional[dict[str, int]] = None
+    natural_weapons: list[NaturalWeapon] = PField(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -449,7 +694,7 @@ class HomebrewRaceRead(BaseModel):
         """A NULL JSON column reads as no bonuses."""
         return {} if value is None else value
 
-    @field_validator("skills", "traits", mode="before")
+    @field_validator("skills", "traits", "natural_weapons", mode="before")
     @classmethod
     def _no_rows(cls, value: Any) -> Any:
         """A NULL JSON column reads as an empty list."""
@@ -475,6 +720,8 @@ class RaceTemplate(BaseModel):
     languages: str = ""
     hp_per_level: int = 0
     darkvision: Optional[int] = None
+    speeds: Optional[dict[str, int]] = None
+    natural_weapons: list[NaturalWeapon] = PField(default_factory=list)
 
 
 # ── Subclasses ──────────────────────────────────────────────────────────────
@@ -495,6 +742,10 @@ class HomebrewSubclass(SQLModel, table=True):
     features: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     always_prepared: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
     blurb: str = Field(default="", max_length=300)
+    # Plan 135: counters (``SubclassResource``), like Superiority Dice.
+    resources: list = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]")
+    )
     created_at: datetime = Field(default_factory=_aware_now, sa_column=_ts_column())
     updated_at: datetime = Field(default_factory=_aware_now, sa_column=_ts_column())
 
@@ -526,6 +777,19 @@ class _SubclassChecks(BaseModel):
         """Trim the blurb."""
         return None if value is None else value.strip()
 
+    @field_validator("resources", check_fields=False)
+    @classmethod
+    def _resources(
+        cls, value: Optional[list[SubclassResource]]
+    ) -> Optional[list[SubclassResource]]:
+        """Counter names unique within the subclass, ignoring case."""
+        seen: set[str] = set()
+        for r in value or []:
+            if r.name.casefold() in seen:
+                raise ValueError(f"Two counters are called {r.name}. Give each its own name.")
+            seen.add(r.name.casefold())
+        return value
+
 
 class HomebrewSubclassCreate(_SubclassChecks):
     """A new homebrew subclass, as the Subclass form sends it."""
@@ -536,6 +800,7 @@ class HomebrewSubclassCreate(_SubclassChecks):
     features: list[SubclassFeature] = PField(default_factory=list, max_length=MAX_FEATURES)
     always_prepared: Optional[dict[str, list[str]]] = None
     blurb: str = PField(default="", max_length=300)
+    resources: list[SubclassResource] = PField(default_factory=list, max_length=MAX_RESOURCES)
 
 
 class HomebrewSubclassUpdate(_SubclassChecks):
@@ -550,8 +815,9 @@ class HomebrewSubclassUpdate(_SubclassChecks):
     features: Optional[list[SubclassFeature]] = PField(default=None, max_length=MAX_FEATURES)
     always_prepared: Optional[dict[str, list[str]]] = None
     blurb: Optional[str] = PField(default=None, max_length=300)
+    resources: Optional[list[SubclassResource]] = PField(default=None, max_length=MAX_RESOURCES)
 
-    @field_validator("name", "character_class", "features", "blurb", mode="before")
+    @field_validator("name", "character_class", "features", "blurb", "resources", mode="before")
     @classmethod
     def _not_null(cls, value: Any) -> Any:
         """Refuse an explicit null for a field every subclass has."""
@@ -571,13 +837,135 @@ class HomebrewSubclassRead(BaseModel):
     features: list[SubclassFeature] = PField(default_factory=list)
     always_prepared: Optional[dict[str, list[str]]] = None
     blurb: str = ""
+    resources: list[SubclassResource] = PField(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
 
-    @field_validator("features", mode="before")
+    @field_validator("features", "resources", mode="before")
     @classmethod
     def _none_is_empty(cls, value: Any) -> Any:
         """A NULL JSON column reads as empty."""
         return [] if value is None else value
+
+
+# ── Feats (Plan 135) ────────────────────────────────────────────────────────
+
+
+class HomebrewFeat(SQLModel, table=True):
+    """A DM's homebrew feat, offered wherever a character in their campaigns picks a feat.
+
+    ``asi_options`` is where the feat's +1 may go: None (no increase), "any" (all six), or a
+    list of ability codes, the way the rules' ``FEATS`` rows say it. ``prerequisite`` is
+    shown to the player and not enforced. ``power_attack`` is a ``PowerAttack`` or None.
+    """
+
+    __tablename__ = "homebrew_feats"
+    __table_args__ = {"extend_existing": True}
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    created_by_email: str = Field(max_length=320, index=True)
+    name: str = Field(min_length=1, max_length=100)
+    ruleset: Optional[str] = Field(default=None, max_length=4)
+    category: str = Field(default="general", max_length=20)
+    blurb: str = Field(default="", max_length=300)
+    description: str = Field(default="", max_length=3000)
+    prerequisite: str = Field(default="", max_length=200)
+    asi_options: Optional[Any] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    repeatable: bool = Field(default=False)
+    power_attack: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
+    created_at: datetime = Field(default_factory=_aware_now, sa_column=_ts_column())
+    updated_at: datetime = Field(default_factory=_aware_now, sa_column=_ts_column())
+
+
+def _check_asi_options(value: Any) -> Optional[Union[str, list[str]]]:
+    """None, "any", or ability codes each once (an empty list is None)."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        if value.strip().lower() == "any":
+            return "any"
+        raise ValueError('The +1 goes to "any" ability or to a list of abilities.')
+    codes = list(dict.fromkeys(_ability(v) for v in value))
+    if len(codes) == len(ABILITIES):
+        return "any"
+    return codes or None
+
+
+class _FeatChecks(BaseModel):
+    """The feat form's checks, shared by the create and the partial update."""
+
+    @field_validator("asi_options", mode="before", check_fields=False)
+    @classmethod
+    def _asi(cls, value: Any) -> Optional[Union[str, list[str]]]:
+        """None, "any", or ability codes each once."""
+        return _check_asi_options(value)
+
+    @field_validator("blurb", "description", "prerequisite", check_fields=False)
+    @classmethod
+    def _trim(cls, value: Optional[str]) -> Optional[str]:
+        """Trim the text."""
+        return None if value is None else value.strip()
+
+
+class HomebrewFeatCreate(_FeatChecks):
+    """A new homebrew feat, as the Feat form sends it."""
+
+    name: HomebrewName
+    ruleset: Optional[str] = PField(default=None, pattern=RULESET_PATTERN)
+    category: FeatCategory = "general"
+    blurb: str = PField(default="", max_length=300)
+    description: str = PField(default="", max_length=3000)
+    prerequisite: str = PField(default="", max_length=200)
+    asi_options: Optional[Union[Literal["any"], list[str]]] = None
+    repeatable: bool = False
+    power_attack: Optional[PowerAttack] = None
+
+
+class HomebrewFeatUpdate(_FeatChecks):
+    """A partial change to a homebrew feat (the same limits as the create).
+
+    ``ruleset``, ``asi_options`` and ``power_attack`` may be cleared with null; the rest
+    can't be null.
+    """
+
+    name: Optional[HomebrewName] = None
+    ruleset: Optional[str] = PField(default=None, pattern=RULESET_PATTERN)
+    category: Optional[FeatCategory] = None
+    blurb: Optional[str] = PField(default=None, max_length=300)
+    description: Optional[str] = PField(default=None, max_length=3000)
+    prerequisite: Optional[str] = PField(default=None, max_length=200)
+    asi_options: Optional[Union[Literal["any"], list[str]]] = None
+    repeatable: Optional[bool] = None
+    power_attack: Optional[PowerAttack] = None
+
+    @field_validator(
+        "name", "category", "blurb", "description", "prerequisite", "repeatable", mode="before"
+    )
+    @classmethod
+    def _not_null(cls, value: Any) -> Any:
+        """Refuse an explicit null for a field every feat has."""
+        if value is None:
+            raise ValueError("can't be empty")
+        return value
+
+
+class HomebrewFeatRead(BaseModel):
+    """A homebrew feat as the API returns it."""
+
+    id: uuid.UUID
+    created_by_email: str
+    name: str
+    ruleset: Optional[str] = None
+    category: str = "general"
+    blurb: str = ""
+    description: str = ""
+    prerequisite: str = ""
+    asi_options: Optional[Union[Literal["any"], list[str]]] = None
+    repeatable: bool = False
+    power_attack: Optional[PowerAttack] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}

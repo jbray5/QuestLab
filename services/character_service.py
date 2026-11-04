@@ -389,6 +389,7 @@ def create_character(
     subclass: Optional[str] = None,
     background: Optional[str] = None,
     alignment: Optional[str] = None,
+    speeds: Optional[dict[str, int]] = None,
     saving_throw_proficiencies: Optional[list] = None,
     skill_proficiencies: Optional[dict[str, Any]] = None,
     feats: Optional[list[str]] = None,
@@ -425,6 +426,7 @@ def create_character(
         subclass: Optional subclass name.
         background: Optional background name.
         alignment: Optional alignment string.
+        speeds: Speeds besides walking ({"fly": 30}), Plan 135.
         saving_throw_proficiencies: List of AbilityScore enums.
         skill_proficiencies: Dict of skill -> proficiency level (0/1/2).
         feats: List of feat names.
@@ -477,6 +479,7 @@ def create_character(
         hp_current=hp_current,
         ac=ac,
         speed=speed,
+        speeds=speeds,
         saving_throw_proficiencies=saving_throw_proficiencies or [],
         skill_proficiencies=skill_proficiencies,
         feats=feats,

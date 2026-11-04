@@ -1,4 +1,4 @@
-"""Homebrew router (Plan 133) — a DM's own races and subclasses.
+"""Homebrew router (Plans 133, 135) — a DM's own races, subclasses and feats.
 
 Every route needs a signed-in DM; lists show only the caller's own rows (SEC-003). Create
 stamps the caller as the author; update and delete need the author or an admin (403
@@ -15,6 +15,9 @@ from api.deps import DB, CurrentUser
 from domain.enums import Ruleset
 from domain.homebrew import (
     HomebrewConflictError,
+    HomebrewFeatCreate,
+    HomebrewFeatRead,
+    HomebrewFeatUpdate,
     HomebrewNotFoundError,
     HomebrewRaceCreate,
     HomebrewRaceRead,
@@ -220,5 +223,78 @@ def delete_subclass(subclass_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
     """
     try:
         homebrew_service.delete_subclass(db, subclass_id, user)
+    except _ERRORS as exc:
+        _http(exc)
+
+
+# ── Feats (Plan 135) ────────────────────────────────────────────────────────
+
+
+@router.get("/feats", response_model=list[HomebrewFeatRead])
+def list_feats(db: DB, user: CurrentUser, ruleset: Optional[Ruleset] = _RULESET):
+    """The caller's homebrew feats, by name.
+
+    Args:
+        db: Database session.
+        user: The signed-in DM.
+        ruleset: Optional edition filter.
+
+    Returns:
+        The feats.
+    """
+    try:
+        return homebrew_service.list_feats(db, user, ruleset)
+    except _ERRORS as exc:
+        _http(exc)
+
+
+@router.post("/feats", response_model=HomebrewFeatRead, status_code=status.HTTP_201_CREATED)
+def create_feat(body: HomebrewFeatCreate, db: DB, user: CurrentUser):
+    """Make a homebrew feat, stamped as the caller's.
+
+    Args:
+        body: The feat.
+        db: Database session.
+        user: The authoring DM.
+
+    Returns:
+        The new feat.
+    """
+    try:
+        return homebrew_service.create_feat(db, body, user)
+    except _ERRORS as exc:
+        _http(exc)
+
+
+@router.patch("/feats/{feat_id}", response_model=HomebrewFeatRead)
+def update_feat(feat_id: uuid.UUID, body: HomebrewFeatUpdate, db: DB, user: CurrentUser):
+    """Change a homebrew feat the caller made.
+
+    Args:
+        feat_id: UUID of the feat.
+        body: The fields to change.
+        db: Database session.
+        user: The requesting DM (the author, or an admin).
+
+    Returns:
+        The updated feat.
+    """
+    try:
+        return homebrew_service.update_feat(db, feat_id, body, user)
+    except _ERRORS as exc:
+        _http(exc)
+
+
+@router.delete("/feats/{feat_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_feat(feat_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
+    """Delete a homebrew feat, unless a character in the caller's campaigns has it.
+
+    Args:
+        feat_id: UUID of the feat.
+        db: Database session.
+        user: The requesting DM (the author, or an admin).
+    """
+    try:
+        homebrew_service.delete_feat(db, feat_id, user)
     except _ERRORS as exc:
         _http(exc)

@@ -1,4 +1,4 @@
-"""Homebrew race and subclass repositories (Plan 133) — DB access only, no business logic.
+"""Homebrew race, subclass and feat repositories (Plans 133, 135): DB access only.
 
 Owner and name matches ignore case and outer spaces. A ``ruleset`` filter keeps that
 edition's rows plus the ones valid in both (NULL), the way ``spell_repo`` does.
@@ -15,6 +15,8 @@ from domain.campaign import Campaign
 from domain.character import PlayerCharacter
 from domain.enums import CharacterClass
 from domain.homebrew import (
+    HomebrewFeat,
+    HomebrewFeatCreate,
     HomebrewRace,
     HomebrewRaceCreate,
     HomebrewSubclass,
@@ -297,3 +299,121 @@ class HomebrewSubclassRepo:
             .order_by(PlayerCharacter.character_name.asc())
         )
         return [(row[0], row[1]) for row in session.exec(stmt).all()]
+
+
+class HomebrewFeatRepo:
+    """CRUD and lookups for HomebrewFeat rows (Plan 135)."""
+
+    @staticmethod
+    def get_by_id(session: Session, feat_id: uuid.UUID) -> Optional[HomebrewFeat]:
+        """Fetch one feat by primary key.
+
+        Args:
+            session: Active database session.
+            feat_id: UUID of the feat.
+
+        Returns:
+            The feat, or None.
+        """
+        return session.get(HomebrewFeat, feat_id)
+
+    @staticmethod
+    def list_for_owner(
+        session: Session, email: str, ruleset: Optional[str] = None
+    ) -> list[HomebrewFeat]:
+        """One DM's feats, by name.
+
+        Args:
+            session: Active database session.
+            email: The owning DM.
+            ruleset: "2024"/"2014" keeps that edition's feats plus those valid in both;
+                None lists them all.
+
+        Returns:
+            The feats, ordered by name.
+        """
+        stmt = select(HomebrewFeat).where(func.lower(HomebrewFeat.created_by_email) == _key(email))
+        stmt = _in_ruleset(stmt, HomebrewFeat.ruleset, ruleset)
+        return list(session.exec(stmt.order_by(func.lower(HomebrewFeat.name))).all())
+
+    @staticmethod
+    def list_named(session: Session, email: str, name: str) -> list[HomebrewFeat]:
+        """One DM's feats called ``name`` (ignoring case).
+
+        Args:
+            session: Active database session.
+            email: The owning DM.
+            name: The feat name.
+
+        Returns:
+            The matching feats (at most one, unless the data predates the name check).
+        """
+        stmt = select(HomebrewFeat).where(
+            func.lower(HomebrewFeat.created_by_email) == _key(email),
+            func.lower(HomebrewFeat.name) == _key(name),
+        )
+        return list(session.exec(stmt).all())
+
+    @staticmethod
+    def create(session: Session, data: HomebrewFeatCreate, owner_email: str) -> HomebrewFeat:
+        """Persist a new feat owned by ``owner_email``.
+
+        Args:
+            session: Active database session.
+            data: The validated feat.
+            owner_email: The authoring DM.
+
+        Returns:
+            The new feat.
+        """
+        row = HomebrewFeat.model_validate({**data.model_dump(), "created_by_email": owner_email})
+        return _save(session, row)
+
+    @staticmethod
+    def update(session: Session, feat: HomebrewFeat, patch: dict[str, Any]) -> HomebrewFeat:
+        """Apply a partial update (field → value, already validated).
+
+        Args:
+            session: Active database session.
+            feat: The feat to change.
+            patch: The fields to set.
+
+        Returns:
+            The updated feat.
+        """
+        return _patch(session, feat, patch)
+
+    @staticmethod
+    def delete(session: Session, feat: HomebrewFeat) -> None:
+        """Delete a feat.
+
+        Args:
+            session: Active database session.
+            feat: The feat to delete.
+        """
+        session.delete(feat)
+        session.commit()
+
+    @staticmethod
+    def characters_with_feats(
+        session: Session, owner_email: str
+    ) -> list[tuple[str, Optional[str], list]]:
+        """Characters in the owner's campaigns that have any feats on their sheet.
+
+        Feats live in a JSON list, so the name match happens in the service.
+
+        Args:
+            session: Active database session.
+            owner_email: The DM whose campaigns to look in.
+
+        Returns:
+            ``(character name, character ruleset, feats)`` triples, by name.
+        """
+        stmt = (
+            select(PlayerCharacter.character_name, PlayerCharacter.ruleset, PlayerCharacter.feats)
+            .join(Campaign, Campaign.id == PlayerCharacter.campaign_id)
+            .where(func.lower(Campaign.dm_email) == _key(owner_email))
+            .where(PlayerCharacter.feats.is_not(None))
+            .order_by(PlayerCharacter.character_name.asc())
+        )
+        return [(row[0], row[1], list(row[2] or [])) for row in session.exec(stmt).all()]

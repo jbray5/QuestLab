@@ -1,7 +1,8 @@
-"""Homebrew races and subclasses (Plan 133): a DM's own character options.
+"""Homebrew races, subclasses and feats (Plans 133, 135): a DM's own character options.
 
-A DM makes races and subclasses in the "Races & subclasses" catalog. Every character built in
-that DM's campaigns can pick them (``for_campaign``), players on the join link included.
+A DM makes races, subclasses and feats in the "Races & subclasses" catalog. Every character
+built in that DM's campaigns can pick them (``for_campaign``, ``feats_for_campaign``), players
+on the join link included.
 
 Rules enforced here:
 
@@ -12,7 +13,7 @@ Rules enforced here:
   race (or 2014 subrace, which the sheet stores as the race: "Hill Dwarf") or an SRD
   subclass of either edition is refused too, so the builder never meets two options with
   one name. Refusals are ``HomebrewConflictError`` (409) in plain words.
-- **In use.** Characters refer to a race or subclass by name. While a character in the
+- **In use.** Characters refer to a race, subclass or feat by name. While a character in the
   author's campaigns uses one, it can't be deleted, renamed, moved to another class, or
   narrowed to a ruleset that character doesn't play by. The refusal names up to three of
   them.
@@ -24,9 +25,13 @@ from typing import Any, Optional
 
 from sqlmodel import Session
 
-from db.repos.homebrew_repo import HomebrewRaceRepo, HomebrewSubclassRepo
+from db.repos.homebrew_repo import HomebrewFeatRepo, HomebrewRaceRepo, HomebrewSubclassRepo
 from domain.homebrew import (
     HomebrewConflictError,
+    HomebrewFeat,
+    HomebrewFeatCreate,
+    HomebrewFeatRead,
+    HomebrewFeatUpdate,
     HomebrewNotFoundError,
     HomebrewRace,
     HomebrewRaceCreate,
@@ -295,6 +300,160 @@ def delete_subclass(db: Session, subclass_id: uuid.UUID, email: str) -> None:
     HomebrewSubclassRepo.delete(db, sub)
 
 
+# ── Feats (Plan 135) ────────────────────────────────────────────────────────
+
+
+def list_feats(db: Session, email: str, ruleset: Any = None) -> list[HomebrewFeatRead]:
+    """The caller's own homebrew feats, by name.
+
+    Args:
+        db: Active database session.
+        email: The signed-in DM.
+        ruleset: "2024"/"2014" keeps that edition's feats plus those valid in both; None
+            lists them all.
+
+    Returns:
+        The feats.
+
+    Raises:
+        PermissionError: If there is no identity.
+        ValueError: If ``ruleset`` is not a known ruleset.
+    """
+    me = _require_dm(email)
+    rows = HomebrewFeatRepo.list_for_owner(db, me, _edition(ruleset))
+    return [HomebrewFeatRead.model_validate(r) for r in rows]
+
+
+def create_feat(db: Session, payload: HomebrewFeatCreate, email: str) -> HomebrewFeatRead:
+    """Make a homebrew feat, stamped as the caller's.
+
+    Args:
+        db: Active database session.
+        payload: The validated feat.
+        email: The authoring DM.
+
+    Returns:
+        The new feat.
+
+    Raises:
+        PermissionError: If there is no identity.
+        HomebrewConflictError: If the name is a rules feat or one of the DM's own.
+    """
+    me = _require_dm(email)
+    _require_free_feat_name(db, payload.name, me)
+    return HomebrewFeatRead.model_validate(HomebrewFeatRepo.create(db, payload, me))
+
+
+def update_feat(
+    db: Session, feat_id: uuid.UUID, payload: HomebrewFeatUpdate, email: str
+) -> HomebrewFeatRead:
+    """Change a homebrew feat the caller made (or any, for an admin).
+
+    Args:
+        db: Active database session.
+        feat_id: UUID of the feat.
+        payload: The fields to change.
+        email: The requesting DM.
+
+    Returns:
+        The updated feat.
+
+    Raises:
+        PermissionError: If there is no identity, or the feat is another DM's.
+        HomebrewNotFoundError: If there is no such feat.
+        HomebrewConflictError: If the new name is taken, or the change would cut off a
+            character that has the feat.
+    """
+    me = _require_dm(email)
+    feat = _get_feat(db, feat_id)
+    require_catalog_editor(feat.created_by_email, me)
+    patch = payload.model_dump(exclude_unset=True)
+    renamed = "name" in patch and patch["name"].casefold() != feat.name.casefold()
+    if renamed:
+        _require_free_feat_name(db, patch["name"], feat.created_by_email, skip=feat.id)
+    users = _feat_users(db, feat.created_by_email, feat.name)
+    _refuse_cutting_off(
+        feat.name, users, renamed, False, patch.get("ruleset", feat.ruleset), "feat"
+    )
+    return HomebrewFeatRead.model_validate(HomebrewFeatRepo.update(db, feat, patch))
+
+
+def delete_feat(db: Session, feat_id: uuid.UUID, email: str) -> None:
+    """Delete a homebrew feat, unless a character in the author's campaigns has it.
+
+    Args:
+        db: Active database session.
+        feat_id: UUID of the feat.
+        email: The requesting DM.
+
+    Raises:
+        PermissionError: If there is no identity, or the feat is another DM's.
+        HomebrewNotFoundError: If there is no such feat.
+        HomebrewConflictError: If a character has it (the message names who).
+    """
+    me = _require_dm(email)
+    feat = _get_feat(db, feat_id)
+    require_catalog_editor(feat.created_by_email, me)
+    users = _feat_users(db, feat.created_by_email, feat.name)
+    if users:
+        raise HomebrewConflictError(_in_use(feat.name, [n for n, _ in users], "delete", "feat"))
+    HomebrewFeatRepo.delete(db, feat)
+
+
+def feats_for_campaign(db: Session, campaign: Any) -> list[HomebrewFeatRead]:
+    """The homebrew feats a campaign's characters may take: its DM's, fitting its rules.
+
+    Same rules and no-authorization note as ``for_campaign``. How a row maps onto the
+    rules' ``FEATS`` rows (``rulesets.levelup(r).FEATS``): ``name``, ``category``,
+    ``blurb``, ``asi_options`` (None, "any" or ability codes), ``repeatable``; plus
+    ``description``, ``prerequisite`` (shown, not enforced) and ``power_attack``. A
+    character stores the feat by name in ``pc.feats``.
+
+    Args:
+        db: Active database session.
+        campaign: The campaign (anything with ``dm_email`` and ``ruleset``).
+
+    Returns:
+        The feats, by name.
+    """
+    ruleset = rulesets.normalize(getattr(campaign, "ruleset", None))
+    rows = HomebrewFeatRepo.list_for_owner(db, campaign.dm_email, ruleset)
+    return [HomebrewFeatRead.model_validate(r) for r in rows]
+
+
+def feat_for(db: Session, campaign: Any, name: Optional[str]) -> Optional[HomebrewFeatRead]:
+    """The campaign DM's homebrew feat called ``name`` (a sheet entry is fine), or None.
+
+    "Deadeye (Longbow)" matches "Deadeye": the part in brackets is a choice, as in
+    ``base_feat_name``. Same rules and no-authorization note as ``for_campaign``.
+
+    Args:
+        db: Active database session.
+        campaign: The campaign (anything with ``dm_email`` and ``ruleset``).
+        name: The feat name, e.g. an entry of ``pc.feats``.
+
+    Returns:
+        The feat, or None when it isn't a homebrew feat of this campaign.
+    """
+    if not name or not name.strip():
+        return None
+    key = _base_feat(name).casefold()
+    return next((f for f in feats_for_campaign(db, campaign) if f.name.casefold() == key), None)
+
+
+def srd_feat_names() -> dict[str, str]:
+    """Every rules feat name of both editions (fighting styles and the ASI included).
+
+    Returns:
+        Casefolded name → the name as printed.
+    """
+    names: dict[str, str] = {}
+    for edition in rulesets.RULESETS:
+        for feat in rulesets.levelup(edition).FEATS:
+            names.setdefault(feat["name"].casefold(), feat["name"])
+    return names
+
+
 # ── For the builder and the level-up guide (Plan 133 wave 2) ────────────────
 
 
@@ -416,6 +575,29 @@ def _get_subclass(db: Session, subclass_id: uuid.UUID) -> HomebrewSubclass:
     return sub
 
 
+def _get_feat(db: Session, feat_id: uuid.UUID) -> HomebrewFeat:
+    """The feat, or HomebrewNotFoundError."""
+    feat = HomebrewFeatRepo.get_by_id(db, feat_id)
+    if feat is None:
+        raise HomebrewNotFoundError("That homebrew feat doesn't exist (it may have been deleted).")
+    return feat
+
+
+def _base_feat(entry: str) -> str:
+    """A sheet's feat entry without its choice: "Deadeye (Longbow)" → "Deadeye"."""
+    return entry.split(" (")[0].strip()
+
+
+def _feat_users(db: Session, owner: str, name: str) -> list[tuple[str, str]]:
+    """``(character name, ruleset)`` for characters in the owner's campaigns with the feat."""
+    key = name.strip().casefold()
+    return [
+        (who, ruleset)
+        for who, ruleset, feats in HomebrewFeatRepo.characters_with_feats(db, owner)
+        if any(_base_feat(str(f)).casefold() == key for f in feats)
+    ]
+
+
 def _edition(ruleset: Any) -> Optional[str]:
     """The plain ruleset value for a filter, or None when none was asked for."""
     return None if ruleset is None else rulesets.normalize(ruleset)
@@ -492,6 +674,20 @@ def _require_free_subclass_name(
             )
 
 
+def _require_free_feat_name(
+    db: Session, name: str, owner: str, skip: Optional[uuid.UUID] = None
+) -> None:
+    """Refuse a feat name that is a rules feat of either edition, or one of the owner's."""
+    srd = srd_feat_names().get(name.strip().casefold())
+    if srd:
+        raise HomebrewConflictError(f"The rules already have a feat called {srd}. {_OWN_NAME}")
+    for row in HomebrewFeatRepo.list_named(db, owner, name):
+        if row.id != skip:
+            raise HomebrewConflictError(
+                f"You already have a homebrew feat called {row.name}. {_OWN_NAME}"
+            )
+
+
 def _refuse_cutting_off(
     name: str,
     users: list[tuple[str, str]],
@@ -500,7 +696,7 @@ def _refuse_cutting_off(
     new_ruleset: Optional[str],
     what: str,
 ) -> None:
-    """Refuse a change that would leave characters pointing at a race or subclass they lose.
+    """Refuse a change that would leave characters pointing at an option they lose.
 
     Characters store the name, so a rename or a move to another class loses them all; a
     ruleset of "2014" or "2024" loses the ones who play by the other rules.

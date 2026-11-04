@@ -68,6 +68,8 @@ export interface PlayerCharacter {
   hp_max: number;
   ac: number;
   speed: number;
+  /** Plan 135 — speeds besides walking ({ fly: 30 }), or null. */
+  speeds?: Partial<Record<"fly" | "swim" | "climb" | "burrow", number>> | null;
   score_str: number;
   score_dex: number;
   score_con: number;
@@ -142,6 +144,7 @@ export interface PlayerCharacterCreate {
   hp_max?: number;
   ac?: number;
   speed?: number;
+  speeds?: Partial<Record<"fly" | "swim" | "climb" | "burrow", number>> | null;
   score_str?: number;
   score_dex?: number;
   score_con?: number;

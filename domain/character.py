@@ -13,6 +13,7 @@ from sqlalchemy.types import JSON, DateTime
 from sqlmodel import Field, SQLModel
 
 from domain.enums import RULESET_PATTERN, AbilityScore, CharacterClass, Ruleset
+from domain.homebrew import check_speeds
 
 
 def new_play_token() -> str:
@@ -61,6 +62,8 @@ class PlayerCharacter(SQLModel, table=True):
     hp_current: int = Field(ge=0)
     ac: int = Field(ge=1, le=30)
     speed: int = Field(ge=0)
+    # Plan 135: speeds besides walking ({"fly": 30, "swim": 30}), or NULL.
+    speeds: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
     portrait_url: Optional[str] = Field(default=None, max_length=500)
     # Full-body transparent minifig standee for the 3D board (Plan 45).
     figure_url: Optional[str] = Field(default=None, max_length=500)
@@ -172,6 +175,7 @@ class PlayerCharacterCreate(BaseModel):
     hp_current: int = Field(ge=0)
     ac: int = Field(ge=1, le=30)
     speed: int = Field(default=30, ge=0)
+    speeds: Optional[dict[str, int]] = None
     saving_throw_proficiencies: list[AbilityScore] = Field(default_factory=list)
     skill_proficiencies: Optional[dict[str, Any]] = None
     feats: Optional[list[str]] = None
@@ -190,6 +194,12 @@ class PlayerCharacterCreate(BaseModel):
         if hp_max is not None and v > hp_max:
             raise ValueError(f"hp_current ({v}) cannot exceed hp_max ({hp_max})")
         return v
+
+    @field_validator("speeds", mode="before")
+    @classmethod
+    def _speeds(cls, value: Any) -> Optional[dict[str, int]]:
+        """Fly, swim, climb or burrow; 5–120 ft in steps of 5 (Plan 135)."""
+        return check_speeds(value)
 
 
 class PlayerCharacterRead(BaseModel):
@@ -216,6 +226,7 @@ class PlayerCharacterRead(BaseModel):
     hp_current: int
     ac: int
     speed: int
+    speeds: Optional[dict[str, int]] = None
     saving_throw_proficiencies: list[AbilityScore] = Field(default_factory=list)
     skill_proficiencies: Optional[dict[str, Any]] = None
     feats: Optional[list[str]] = None
@@ -285,6 +296,7 @@ class PlayerCharacterUpdate(BaseModel):
     hp_current: Optional[int] = Field(default=None, ge=0)
     ac: Optional[int] = Field(default=None, ge=1, le=30)
     speed: Optional[int] = Field(default=None, ge=0)
+    speeds: Optional[dict[str, int]] = None
     saving_throw_proficiencies: Optional[list[AbilityScore]] = None
     skill_proficiencies: Optional[dict[str, Any]] = None
     feats: Optional[list[str]] = None
@@ -293,6 +305,7 @@ class PlayerCharacterUpdate(BaseModel):
     spell_slots: Optional[dict[str, Any]] = None
     # Combat state (Plan 00023) — DM can set any of these via PATCH
     temp_hp: Optional[int] = Field(default=None, ge=0, le=999)
+
     # UX-001 — the DM's condition list for this character (replaces the whole list).
     conditions: Optional[list[str]] = Field(default=None, max_length=20)
     heroic_inspiration: Optional[bool] = None
@@ -321,6 +334,12 @@ class PlayerCharacterUpdate(BaseModel):
     loadout_url: Optional[str] = None
     hero_generated_at: Optional[datetime] = None
     hero_locked: Optional[bool] = None
+
+    @field_validator("speeds", mode="before")
+    @classmethod
+    def _speeds(cls, value: Any) -> Optional[dict[str, int]]:
+        """Fly, swim, climb or burrow; 5–120 ft in steps of 5; {} or null clears (Plan 135)."""
+        return check_speeds(value)
 
 
 class PlayerRollBody(BaseModel):
