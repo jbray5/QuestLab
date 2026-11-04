@@ -13,7 +13,15 @@ lookup keeps to that edition's spells. A 2014 PC levels by the SRD 5.1 rules: kn
 learn from the Spells Known table and may swap one, prepared casters get a bigger daily list
 (the Wizard two spellbook spells), subclass spells become always prepared, and the class
 choices the new level brings (Pact Boon, Eldritch Invocations, Metamagic, Expertise...) are
-asked for and checked. A 2024 PC levels exactly as before.
+asked for and checked.
+
+Plan 134: a 2024 PC gets the same two paths from the 2024 tables. The class choices the new
+level brings (Eldritch Invocations, Expertise, Metamagic, Weapon Mastery, Fighting Style, the
+SRD subclasses' own) are asked for, checked and recorded as the 2024 creator does, so a PC
+built at a level and one levelled to it end with the same records. The always-prepared
+spells that arrive (domain, oath, circle, patron, Paladin's Smite...) are learned and
+prepared, and don't count against the 2024 prepared number. The 2024 spell counts are
+unchanged.
 
 Plan 133: the campaign DM's homebrew subclasses (``homebrew_service``) join the subclass
 choice in both editions. A PC whose subclass is homebrew gets the DM's features at the
@@ -76,7 +84,7 @@ _ABILITY_NAMES = {
     "CHA": "Charisma",
 }
 # Skills and expertise first, then the picks that may depend on them (as feat_rules orders).
-_KIND_ORDER = {"skill": 0, "expertise": 1, "feat": 2, "option": 3, "spell": 4}
+_KIND_ORDER = {"skill": 0, "expertise": 1, "feat": 2, "option": 3, "spell": 4, "weapon": 5}
 # The class tables' marker for "your subclass gives you something here" (both editions).
 _SUB_MARK = "Subclass feature"
 
@@ -368,9 +376,18 @@ def _features_2014(
 
 
 def _option_lock(
-    row: dict[str, Any], level: int, have: set[str], cantrips: set[str]
+    row: dict[str, Any],
+    level: int,
+    have: set[str],
+    cantrips: set[str],
+    damage: bool = True,
+    attack: bool = True,
 ) -> Optional[str]:
-    """Why an option's prerequisite isn't met yet (a Warlock level, a Pact Boon, a cantrip)."""
+    """Why an option's prerequisite isn't met yet (a Warlock level, a Pact Boon, a cantrip).
+
+    Plan 134: a 2024 invocation asks for a damaging cantrip (``damage``) or one that attacks
+    (``attack``) rather than naming it, as the creator checks.
+    """
     need = row.get("level")
     if need and level < need:
         return f"Needs Warlock level {need}."
@@ -378,6 +395,10 @@ def _option_lock(
     if req and req.casefold() not in have:
         return f"Needs {req}."
     want = row.get("cantrip")
+    if want == "damage" and not damage:
+        return "Needs a Warlock cantrip that deals damage."
+    if want == "attack" and not attack:
+        return "Needs a Warlock cantrip that deals damage with an attack."
     if want and want not in ("damage", "attack") and want.casefold() not in cantrips:
         return f"Needs the {want} cantrip."
     return None
@@ -431,7 +452,12 @@ def _choice_step(
     all_spells: list[Spell],
     subclass: Optional[str],
 ) -> ChoiceStep:
-    """One class choice of the new level, with its options and what's already taken."""
+    """One class choice of the new level, with its options and what's already taken.
+
+    Plan 134 (2024): Weapon Mastery offers the mastery weapons the class may master; an
+    option the rules let you take again (Lessons of the First Ones) is never "already yours";
+    an option that alone teaches cantrips (Blessed Warrior) says how many and from which list.
+    """
     spec = rules.CHOICE_KINDS[key]
     kind = spec["kind"]
     step = ChoiceStep(
@@ -458,19 +484,41 @@ def _choice_step(
             spec["spell"], srd, class_name, level, had, count, known_names, all_spells
         )
         return step
-    rows = rules.choice_options(class_name, key)
     sheet = {f.casefold() for f in feats}
+    if kind == "weapon":
+        for w in feat_rules.mastery_weapons(ruleset):
+            if not rules.mastery_weapon_ok(class_name, w["category"], w["properties"]):
+                continue
+            taken = feat_rules.entry(key, w["name"], ruleset).casefold() in sheet
+            step.options.append(
+                ChoiceOption(
+                    name=w["name"],
+                    blurb=w["mastery"] or "",
+                    ok=not taken,
+                    reason="Already yours." if taken else None,
+                    category=w["category"],
+                )
+            )
+        return step
+    rows = rules.choice_options(class_name, key)
     styles = feat_rules.feat_names(feats, ruleset)
     have = {f.split(": ", 1)[1].casefold() for f in feats if ": " in f}
     cantrips = {s.name.casefold() for s in known if s.level == 0}
+    damage = any(s.damage_dice for s in known if s.level == 0)
+    attack = any(s.damage_dice and s.attack_type for s in known if s.level == 0)
     if kind == "feat":
         step.taken = [r["name"] for r in rows if r["name"].casefold() in styles]
     for row in rows:
         if kind == "feat":
             taken = row["name"].casefold() in styles
         else:
-            taken = feat_rules.entry(key, row["name"], ruleset).casefold() in sheet
-        reason = "Already yours." if taken else _option_lock(row, level, have, cantrips)
+            taken = (
+                not row.get("repeatable")
+                and feat_rules.entry(key, row["name"], ruleset).casefold() in sheet
+            )
+        reason = (
+            "Already yours." if taken else _option_lock(row, level, have, cantrips, damage, attack)
+        )
         step.options.append(
             ChoiceOption(
                 name=row["name"], blurb=row.get("blurb", ""), ok=reason is None, reason=reason
@@ -478,6 +526,10 @@ def _choice_step(
         )
     grants = [int((row.get("cantrips") or {}).get("count", 0)) for row in rows]
     step.cantrips = min(grants) if grants else 0
+    for option, row, grant in zip(step.options, rows, grants):
+        if grant > step.cantrips:
+            option.cantrips = grant - step.cantrips
+            option.cantrip_list = (row.get("cantrips") or {}).get("list")
     return step
 
 
@@ -558,6 +610,32 @@ def _always_new(
     ]
 
 
+def _srd_always(
+    rules: ModuleType,
+    class_name: str,
+    old: int,
+    new: int,
+    subclass: Optional[str],
+    feats: list[str],
+    known: set[str],
+    needs_subclass: bool,
+    subclass_options: list[str],
+) -> list[GrantedSpell]:
+    """The SRD always-prepared spells the new level brings, either edition: the class's, the
+    sheet's subclass's (and land's), and each subclass option's when it's picked now (tagged
+    with it).
+
+    ``subclass`` is the sheet's as the SRD tables may read it (None for a homebrew one).
+    """
+    land = _land(rules, feats)
+    sub = _srd_subclass(rules, subclass)
+    always = _always_new(rules, class_name, old, new, sub, land, known)
+    if needs_subclass:
+        for option in subclass_options:
+            always += _always_new(rules, class_name, old, new, option, land, known, option)
+    return always
+
+
 def _spell_step_2014(
     rules: ModuleType,
     srd: ModuleType,
@@ -605,12 +683,10 @@ def _spell_step_2014(
     n_spells = max(0, n_spells)
 
     known_names = {s.name.casefold() for s in known}
-    land = _land(rules, feats)
     sub = _srd_subclass(rules, subclass)
-    always = _always_new(rules, class_name, old, new, sub, land, known_names)
-    if needs_subclass:
-        for option in subclass_options:
-            always += _always_new(rules, class_name, old, new, option, land, known_names, option)
+    always = _srd_always(
+        rules, class_name, old, new, subclass, feats, known_names, needs_subclass, subclass_options
+    )
     always = _with_extra_always(always, extra_always)
     always_keys = {g.name.casefold() for g in always}
     expanded = {n.casefold() for n in rules.expanded_spells(sub, new)}
@@ -705,9 +781,14 @@ def _spell_step_2024(
     known: list[Spell],
     all_spells: list[Spell],
     always: list[GrantedSpell],
+    choices: Optional[list[ChoiceStep]] = None,
 ) -> Optional[SpellStep]:
-    """The 2024 spells step (Plan 115), unchanged but for a homebrew subclass's
-    always-prepared spells (``always``, Plan 133), which no pick may take."""
+    """The 2024 spells step (Plan 115). No pick may take an always-prepared spell
+    (``always``): a homebrew subclass's (Plan 133), and since Plan 134 the SRD's too.
+
+    Plan 134: a class choice option that teaches cantrips from another list (Blessed
+    Warrior's two Cleric cantrips) puts that list's cantrips in ``choice_cantrips``.
+    """
     known_names = {s.name.casefold() for s in known}
     n_cantrips, n_spells, max_level = _spell_counts(srd, class_name, old, new)
     if class_name not in srd.CLASSES or not srd.CLASSES[class_name]["spellcasting"]:
@@ -719,7 +800,9 @@ def _spell_step_2024(
         s.level == 0 for s in class_known
     )
     spell_swap = class_name in rules.SPELL_SWAP_CLASSES and any(s.level >= 1 for s in class_known)
-    if not (n_cantrips or n_spells or cantrip_swap or spell_swap or always):
+    lists = {o.cantrip_list for c in choices or [] for o in c.options if o.cantrip_list}
+    taught = any(c.cantrips for c in choices or []) or bool(lists)
+    if not (n_cantrips or n_spells or cantrip_swap or spell_swap or always or taught):
         return None
     always_keys = {g.name.casefold() for g in always}
     options = [
@@ -729,6 +812,14 @@ def _spell_step_2024(
         and s.level <= max_level
         and s.name.casefold() not in known_names
         and s.name.casefold() not in always_keys
+    ]
+    offered = {o.name.casefold() for o in options}
+    choice_cantrips = [
+        _option(s)
+        for s in all_spells
+        if s.level == 0
+        and any(x in (s.classes or []) for x in lists)
+        and s.name.casefold() not in known_names | always_keys | offered
     ]
     note = None
     if class_name in _PREPARED_CASTERS:
@@ -744,6 +835,7 @@ def _spell_step_2024(
         options=options,
         note=note,
         always_prepared=always,
+        choice_cantrips=choice_cantrips,
     )
 
 
@@ -820,22 +912,23 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
     for option in hb_options:
         extra_always += _homebrew_always(option, 1, new, known_names, spelled, option.name)
     scaling = rules.scaling_notes(class_name, old, new, is_caster=caster)
-    choices: list[ChoiceStep] = []
+    # Plan 131 (2014), Plan 134 (2024): the class choices the new level brings, each edition
+    # from its own tables.
+    choices = _choice_steps(
+        rules,
+        srd,
+        pc,
+        srd_sub,
+        class_name,
+        old,
+        new,
+        needs_subclass,
+        srd_options,
+        feats,
+        known,
+        all_spells,
+    )
     if is_2014:
-        choices = _choice_steps(
-            rules,
-            srd,
-            pc,
-            srd_sub,
-            class_name,
-            old,
-            new,
-            needs_subclass,
-            srd_options,
-            feats,
-            known,
-            all_spells,
-        )
         step = _spell_step_2014(
             rules,
             srd,
@@ -854,7 +947,21 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
         )
         scaling = _scaling_2014(srd, class_name, old, new, scores) + scaling
     else:
-        step = _spell_step_2024(rules, srd, class_name, old, new, known, all_spells, extra_always)
+        # Plan 134 — the SRD always-prepared spells arriving now, then the homebrew ones.
+        always = _srd_always(
+            rules, class_name, old, new, srd_sub, feats, known_names, needs_subclass, srd_options
+        )
+        step = _spell_step_2024(
+            rules,
+            srd,
+            class_name,
+            old,
+            new,
+            known,
+            all_spells,
+            _with_extra_always(always, extra_always),
+            choices,
+        )
 
     ac_abilities = ["DEX"]
     if class_name == "Monk":
@@ -1029,12 +1136,14 @@ def _apply_choices(
     summary: list[str],
     warnings: list[str],
 ) -> list[SpellOption]:
-    """Validate the class choices of a 2014 level-up and record them on the sheet lists.
+    """Validate the class choices of a level-up and record them on the sheet lists.
 
     Each step needs exactly its count of *new* picks, from its list (or by name from the
     player's book where allowed), not already on the sheet, with prerequisites met. The
     checks and the recording are ``feat_rules``' (shared with the character creator); only
-    the count is the level's delta instead of the running total.
+    the count is the level's delta instead of the running total. Plan 134: the same for a
+    2024 level-up, Weapon Mastery included ("Weapon Mastery: Longsword", as the creator
+    records it); an option the rules let you take again may be.
 
     Returns:
         The spells picked through "spell" choices (Magical Secrets, Mystic Arcanum).
@@ -1076,11 +1185,19 @@ def _apply_choices(
             raise ValueError(f"{step.label}: you choose {step.count} at level {level}.")
         sheet = {f.casefold() for f in feats}
         styles = feat_rules.feat_names(feats, ruleset)
+        again = {
+            r["name"].casefold()
+            for r in rules.choice_options(class_name, step.key)
+            if r.get("repeatable")
+        }
         for name in listed + book:
             if step.kind == "feat":
                 taken = name.casefold() in styles
-            elif step.kind in ("option", "spell"):
-                taken = feat_rules.entry(step.key, name, ruleset).casefold() in sheet
+            elif step.kind in ("option", "spell", "weapon"):
+                taken = (
+                    name.casefold() not in again
+                    and feat_rules.entry(step.key, name, ruleset).casefold() in sheet
+                )
             else:
                 taken = False
             if taken:
@@ -1089,6 +1206,11 @@ def _apply_choices(
             feat_rules.apply_skills(spec, class_name, listed, skills, ruleset)
         elif step.kind == "spell":
             spells += _apply_spell_choice(step, listed, book, feats, ruleset)
+        elif step.kind == "weapon":
+            # The creator's own check (a mastery weapon this class may master), so a PC
+            # built at this level and one levelled to it record the same names.
+            listed = feat_rules.mastery_picks(class_name, listed, ruleset)
+            feats += [feat_rules.entry(step.key, n, ruleset) for n in listed]
         else:
             feat_rules.apply_options(
                 step.key,
@@ -1107,6 +1229,32 @@ def _apply_choices(
             warnings.append(f"{step.label}: {name} is recorded by name. Play it from your book.")
         summary.append(f"{step.label}: " + ", ".join(listed + book))
     return spells
+
+
+def _land_spells_now(
+    db: Session,
+    pc: PlayerCharacter,
+    dm: str,
+    rules: ModuleType,
+    class_name: str,
+    old: int,
+    new: int,
+    subclass: Optional[str],
+    feats: list[str],
+    have: list[GrantedSpell],
+) -> list[GrantedSpell]:
+    """The circle spells of a land picked on this level-up, not already in ``have``.
+
+    A 2024 Circle of the Land picks its land at Druid 3, the level its first circle spells
+    arrive, so the plan can't list them before the pick (Plan 134). ``subclass`` is the one
+    the SRD tables may read (None for a homebrew one); ``feats`` hold this level's picks.
+    """
+    land = _land(rules, feats)
+    if land is None or land == _land(rules, list(pc.feats or [])):
+        return []
+    known = {s.name.casefold() for s in _known_spells(db, pc, dm)}
+    known |= {g.name.casefold() for g in have}
+    return _always_new(rules, class_name, old, new, subclass, land, known)
 
 
 def _prepared_room(db: Session, pc: PlayerCharacter, dm: str, cap: int, always: set[str]) -> int:
@@ -1178,8 +1326,16 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
             summary.append(f"{hb_sub.name}: " + ", ".join(gained))
     # Plan 131 — what a subclass picked now brings is tagged with it; keep the chosen one's.
     active_choices = [s for s in plan.class_choices if s.subclass in (None, subclass)]
-    if choices.class_choices and not is_2014:
+    if choices.class_choices and not is_2014 and not active_choices:
         raise ValueError(f"No class choices to make at level {new}.")
+    # Plan 134 — an option picked now that teaches cantrips from another list (Blessed Warrior).
+    sent = {p.key: {n.strip().casefold() for n in p.picks} for p in choices.class_choices}
+    teaching = [
+        o
+        for s in active_choices
+        for o in s.options
+        if o.cantrips and o.name.casefold() in sent.get(s.key, set())
+    ]
 
     # Ability Score Improvement or feat.
     feat_row: dict[str, Any] = {}
@@ -1200,6 +1356,7 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
     # Spells.
     step = plan.spellcasting
     picked_cantrips: list[str] = []
+    picked: list[str] = []  # every spell the spells step picked (new ones and swaps in)
     always: list[GrantedSpell] = []
     if step is None:
         if choices.cantrips or choices.spells or choices.cantrip_swap or choices.spell_swap:
@@ -1208,8 +1365,18 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
         pool = {o.name.casefold(): o for o in step.options}
         known = {o.name.casefold(): o for o in step.known}
         # Plan 131 — a choice can teach a cantrip too (the Circle of the Land's Bonus Cantrip).
-        cantrip_cap = step.new_cantrips + sum(s.cantrips for s in active_choices)
-        cantrips = _validate_spell_list(choices.cantrips, cantrip_cap, pool, cantrip=True)
+        # Plan 134 — or one option of it, from its own list (Blessed Warrior: 2 Cleric ones).
+        cantrip_cap = (
+            step.new_cantrips
+            + sum(s.cantrips for s in active_choices)
+            + sum(o.cantrips for o in teaching)
+        )
+        lists = {o.cantrip_list for o in teaching}
+        cantrip_pool = dict(pool)
+        for option in step.choice_cantrips:
+            if any(x in option.classes for x in lists):
+                cantrip_pool.setdefault(option.name.casefold(), option)
+        cantrips = _validate_spell_list(choices.cantrips, cantrip_cap, cantrip_pool, cantrip=True)
         spells = _validate_spell_list(choices.spells, step.new_spells, pool, cantrip=False)
         picked_cantrips = cantrips
         taken = {n.casefold() for n in cantrips + spells}
@@ -1230,6 +1397,7 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
             taken.add(into.name.casefold())
             forget.append(out.name)
             learn.append(into.name)
+            picked.append(into.name)
             summary.append(f"Swapped {out.name} for {into.name}")
         if cantrips:
             summary.append(
@@ -1239,6 +1407,7 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
             word = "Spellbook" if step.spellbook else "New spell" + ("s" if len(spells) > 1 else "")
             summary.append(f"{word}: " + ", ".join(spells))
         learn = cantrips + spells + learn
+        picked += cantrips + spells
         if step.prepared_count is not None:
             capped = {n.casefold() for n in spells}
         open_c, open_s = cantrip_cap - len(cantrips), step.new_spells - len(spells)
@@ -1249,10 +1418,11 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
                 "Still to pick: " + " and ".join(parts) + ". Tell your DM, who can add them."
             )
         always = [g for g in step.always_prepared if g.subclass in (None, subclass)]
-        if always:
+        if always and is_2014:
             summary.append("Always prepared: " + ", ".join(g.name for g in always))
 
-    # Plan 131 — the 2014 class choices (Pact Boon, Invocations, Metamagic, Expertise...).
+    # Plan 131 — the class choices (Pact Boon, Invocations, Metamagic, Expertise...); since
+    # Plan 134 the 2024 ones too (Weapon Mastery, Fighting Style, the subclasses' own...).
     if active_choices or choices.class_choices:
         known_cantrips = [s for s in _known_spells(db, pc, dm) if s.level == 0]
         known_cantrips += [
@@ -1275,6 +1445,16 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
         # Spells the PC can cast with its slots join its list; a Mystic Arcanum (6th level and
         # up, cast once a day with no slot) stays a note in its features.
         learn += [s.name for s in secrets if s.level <= top]
+    if not is_2014:
+        # Plan 134 — a land picked now brings its circle spells now (2024 Druid 3).
+        srd_now = None if hb_sub else _srd_subclass(rules, subclass)
+        always += _land_spells_now(db, pc, dm, rules, class_name, old, new, srd_now, feats, always)
+        free = {g.name.casefold() for g in always}
+        for name in picked:
+            if name.casefold() in free:
+                raise ValueError(f"{name} is always prepared for you: pick a different spell.")
+        if always:
+            summary.append("Always prepared: " + ", ".join(g.name for g in always))
     learn += [g.name for g in always if g.name.casefold() not in {n.casefold() for n in learn}]
     if len({n.casefold() for n in learn}) != len(learn):
         raise ValueError("The same spell is picked twice.")

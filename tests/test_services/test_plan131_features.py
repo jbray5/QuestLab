@@ -428,7 +428,7 @@ class TestLongRest:
             ("2014", 5, 5, 3),  # regains 2 (5 // 2)
             ("2014", 1, 1, 0),  # regains at least 1
             ("2014", 8, 2, 0),  # never more than were spent
-            ("2024", 8, 5, 1),  # 2024 unchanged: the same half rule it always used
+            ("2024", 8, 5, 0),  # 2024 RAW: all of them (Plan 134, TD-131a)
         ],
     )
     def test_hit_dice(self, duckdb_session: Session, ruleset, level, spent, left):

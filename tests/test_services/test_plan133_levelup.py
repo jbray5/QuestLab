@@ -230,7 +230,8 @@ def test_2024_triforce_offered_picked_and_levelled_to_7(db: Session):
     assert plan.subclass_options[0] == "Oath of Devotion"
     tagged = [f.name for f in plan.new_features if f.subclass == TRIFORCE]
     assert tagged == ["Triforce Strike"]
-    granted = plan.spellcasting.always_prepared
+    # Plan 134: the SRD oath's spells come tagged with it too; keep to the homebrew one.
+    granted = [g for g in plan.spellcasting.always_prepared if g.subclass == TRIFORCE]
     assert [(g.name, g.subclass) for g in granted] == [("Bless", TRIFORCE)]
     assert "Bless" not in {o.name for o in plan.spellcasting.options}
 
@@ -390,7 +391,7 @@ def test_phone_daily_limit_knows_homebrew_always_prepared(db: Session):
     dm = _dm()
     _triforce(db, dm)
     pc = _pc(db, dm, CharacterClass.PALADIN, 3, subclass=TRIFORCE)
-    assert player_service._always_prepared_2014(db, pc, "Paladin") == {"bless"}
+    assert player_service._always_prepared(db, pc, "Paladin") == {"bless"}
     # A homebrew "Life" Cleric gets its own spells, never the Life Domain's.
     homebrew_service.create_subclass(
         db,
@@ -400,7 +401,7 @@ def test_phone_daily_limit_knows_homebrew_always_prepared(db: Session):
         dm,
     )
     cleric = _pc(db, dm, CharacterClass.CLERIC, 1, subclass="Life")
-    assert player_service._always_prepared_2014(db, cleric, "Cleric") == {"guidance"}
+    assert player_service._always_prepared(db, cleric, "Cleric") == {"guidance"}
 
 
 def test_a_homebrew_race_never_reads_as_an_srd_race_for_hp(db: Session):

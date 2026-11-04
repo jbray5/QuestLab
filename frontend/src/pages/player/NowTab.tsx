@@ -162,9 +162,10 @@ function YourTurn() {
   const bonus = kit?.bonus ?? [];
   const cunning = bonus.find((b) => b.key === "cunning_action");
   const otherBonus = bonus.filter((b) => b.key !== "cunning_action");
-  // Plan 131 — what costs no action (Divine Smite, Action Surge, Stunning Strike). Shown for
-  // the 2014 rules, where Divine Smite lives here; 2024 tables see the screen as before.
-  const free = old ? (kit?.free ?? []) : [];
+  // What costs no action: Action Surge, Reckless Attack, Stunning Strike, Quickened Spell
+  // (and 2014's Divine Smite). Plan 134: shown for both editions (2024 phones never showed it,
+  // TD-131g). The Breath Weapon's use counter isn't an action; the attack above spends it.
+  const free = (kit?.free ?? []).filter((o) => o.key !== "breath_weapon");
   return (
     <>
       <Panel tone="lit" style={{ gap: 4 }}>

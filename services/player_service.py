@@ -1338,8 +1338,11 @@ def _daily_preparers(ruleset: Any) -> set[str]:
     return _DAILY_PREPARERS_2014 if rulesets.is_2014(ruleset) else _DAILY_PREPARERS
 
 
-def _always_prepared_2014(db: Session, pc: PlayerCharacter, cls: str) -> set[str]:
-    """Casefolded spells a 2014 PC always has prepared (domain, oath, circle spells).
+def _always_prepared(db: Session, pc: PlayerCharacter, cls: str) -> set[str]:
+    """Casefolded spells a PC always has prepared (domain, oath, circle spells), either edition.
+
+    Plan 134: 2024 PCs too (the 2024 tables have the same ``always_prepared``), so a 2024 Life
+    Cleric's domain spells stop counting against the daily number (TD-131j's phone half).
 
     Plan 133: a homebrew subclass's own always-prepared spells (up to the PC's level) count
     instead of any SRD subclass its name happens to resemble.
@@ -1516,12 +1519,12 @@ def set_spell_prepared(
     srd = rulesets.options(pc.ruleset)
     # Plan 131 — the 2014 number is the ability modifier + level (Paladin: half), and domain,
     # oath and circle spells are always prepared without counting against it.
-    free: set[str] = set()
+    # Plan 134 — in 2024 too: always-prepared spells never count against the daily number.
+    free = _always_prepared(db, pc, cls)
     if rulesets.is_2014(pc.ruleset):
         sc = srd.CLASSES[cls]["spellcasting"]
         ability_mod = (int(getattr(pc, f"score_{sc['ability'].lower()}")) - 10) // 2
         cap = srd.spells_prepared(cls, pc.level, ability_mod)
-        free = _always_prepared_2014(db, pc, cls)
     else:
         cap = srd.spells_prepared(cls, pc.level)
     leveled = []

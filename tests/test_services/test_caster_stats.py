@@ -173,7 +173,7 @@ class TestSpendHitDice:
 
 
 class TestLongRestRecovery:
-    """Long rest restores HD (half level, min 1) and drops exhaustion."""
+    """Long rest restores HD (2024: all; 2014: half level, min 1) and drops exhaustion."""
 
     def _setup(self, db, hp_current=30, hd_spent=0, exhaustion=0, level=8):
         dm = _dm()
@@ -191,14 +191,14 @@ class TestLongRestRecovery:
         db.refresh(row)
         return dm, c, row
 
-    def test_hd_half_recovery(self, duckdb_session: Session):
-        """L8, spent 5 HD → long rest recovers 4 (8//2)."""
+    def test_hd_full_recovery_2024(self, duckdb_session: Session):
+        """L8, spent 5 HD → a 2024 long rest recovers all 5 (Plan 134; 2014 halves)."""
         dm, _c, pc = self._setup(duckdb_session, hd_spent=5, level=8)
         rest_svc.long_rest_pc(duckdb_session, pc.id, dm)
         from db.repos.character_repo import CharacterRepo
 
         refreshed = CharacterRepo.get_by_id(duckdb_session, pc.id)
-        assert refreshed.hit_dice_spent == 1  # 5 - 4
+        assert refreshed.hit_dice_spent == 0
 
     def test_hd_min_one_at_level_one(self, duckdb_session: Session):
         """L1, spent 1 HD → recovers at least 1."""

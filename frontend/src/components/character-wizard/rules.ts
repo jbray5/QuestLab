@@ -323,7 +323,8 @@ export function armorClass(
   if (armor && kit?.armor) {
     let cap = armor.dex_cap;
     if (armor.category === "medium" && names.has("medium armor master")) cap = 3;
-    const dexPart = cap === null ? dex : Math.min(dex, cap);
+    // Heavy armor ignores DEX either way: a low DEX costs nothing (Plan 134, TD-131l).
+    const dexPart = armor.category === "heavy" ? 0 : cap === null ? dex : Math.min(dex, cap);
     ac = armor.base + dexPart;
     how = `${kit.armor} ${armor.base}` + (cap === 0 ? "" : ` + Dexterity ${fmt(dexPart)}${cap !== null && dex > cap ? ` (at most ${cap})` : ""}`);
     const defense = opts.feats.filter((f) => f.ac_bonus_in_armor && names.has(f.name.toLowerCase()));

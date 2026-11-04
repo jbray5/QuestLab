@@ -14,6 +14,7 @@ import type {
   LevelUpSpell,
 } from "../api/play";
 import Confetti from "../components/Confetti";
+import { MASTERY_NOTES } from "../components/character-wizard/rules";
 
 /**
  * LevelUpGuide (Plan 115) — /play/:pcId/level-up
@@ -26,11 +27,16 @@ import Confetti from "../components/Confetti";
  * choices the level brings (Pact Boon, Eldritch Invocations, Metamagic, Expertise, Magical
  * Secrets...), words the spells step the 2014 way (known casters learn and may swap one;
  * prepared casters get a bigger daily list; the Wizard adds to the spellbook), and shows the
- * spells that become always prepared. A 2024 plan has none of these and looks as before.
+ * spells that become always prepared.
  *
  * Plan 133 — the DM's homebrew subclasses (`plan.homebrew_subclasses`) sit next to the SRD
  * ones with a "Your table's" chip, in both editions; their features (`homebrew` on a new
  * feature) show the DM's own text, and their always-prepared spells join the spells step.
+ *
+ * Plan 134 — a 2024 plan has its Choices step too (Eldritch Invocations, Expertise,
+ * Metamagic, Fighting Style, the subclass's own, and Weapon Mastery as weapon chips) and its
+ * always-prepared spells. An option that teaches cantrips from another list (Blessed Warrior)
+ * opens that list's cantrips in the spells step once it's picked.
  */
 
 const ABILITIES = ["STR", "DEX", "CON", "INT", "WIS", "CHA"] as const;
@@ -223,8 +229,23 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
     () => (sc?.always_prepared ?? []).filter((g) => !g.subclass || g.subclass === pickedSub),
     [sc, pickedSub],
   );
+  const [classPicks, setClassPicks] = useState<Record<string, string[]>>({});
+  const [classBook, setClassBook] = useState<Record<string, string[]>>({});
+  // Plan 134 — a picked option that teaches cantrips from another list (Blessed Warrior).
+  const taught = useMemo(() => {
+    let count = 0;
+    const lists: string[] = [];
+    for (const c of activeChoices) {
+      for (const o of c.options) {
+        if (!o.cantrips || !(classPicks[c.key] ?? []).includes(o.name)) continue;
+        count += o.cantrips;
+        if (o.cantrip_list && !lists.includes(o.cantrip_list)) lists.push(o.cantrip_list);
+      }
+    }
+    return { count, lists };
+  }, [activeChoices, classPicks]);
   // The Circle of the Land's Bonus Cantrip comes with its land pick.
-  const cantripCap = (sc?.new_cantrips ?? 0) + activeChoices.reduce((n, c) => n + c.cantrips, 0);
+  const cantripCap = (sc?.new_cantrips ?? 0) + activeChoices.reduce((n, c) => n + c.cantrips, 0) + taught.count;
   const steps = useMemo(() => {
     const s = ["new", "hp"];
     if (plan.needs_subclass) s.push("subclass");
@@ -245,8 +266,6 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
   const [hpRoll, setHpRoll] = useState<number | null>(null);
   const [rolling, setRolling] = useState(false);
   const [rollNote, setRollNote] = useState<string | null>(null);
-  const [classPicks, setClassPicks] = useState<Record<string, string[]>>({});
-  const [classBook, setClassBook] = useState<Record<string, string[]>>({});
   const [featName, setFeatName] = useState("");
   const [bookFeat, setBookFeat] = useState("");
   const [asiMode, setAsiMode] = useState<"2" | "11">("2");
@@ -266,6 +285,16 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
   const [armor, setArmor] = useState<Armor | "unsure" | "">("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const castSpells = (sc?.options ?? []).filter((s) => s.level >= 1);
+  const castCantrips = (sc?.options ?? []).filter((s) => s.level === 0);
+  // Plan 134 — Blessed Warrior's Cleric cantrips join the new picks while it's chosen; a
+  // pick that no longer fits (the option was changed) drops out.
+  const newCantrips = [
+    ...castCantrips,
+    ...(sc?.choice_cantrips ?? []).filter((s) => taught.lists.some((l) => s.classes.includes(l))),
+  ];
+  const liveCantrips = cantrips.filter((n) => newCantrips.some((s) => s.name === n)).slice(0, cantripCap);
 
   const feat: LevelUpFeat | undefined = plan.feats.find((f) => f.name === featName);
   const isBook = featName === BOOK;
@@ -370,7 +399,7 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
       hp_roll: hpMethod === "roll" ? hpRoll : null,
       subclass: plan.needs_subclass ? (subclass === BOOK ? customSub.trim() : subclass) || null : null,
       feat: featOut,
-      cantrips,
+      cantrips: liveCantrips,
       spells,
       cantrip_swap: cSwapOut && cSwapIn ? { forget: cSwapOut, learn: cSwapIn } : null,
       spell_swap: sSwapOut && sSwapIn ? { forget: sSwapOut, learn: sSwapIn } : null,
@@ -399,9 +428,7 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
   const popular = offered.filter((f) => f.ok && f.popular);
   const others = offered.filter((f) => f.ok && !f.popular);
   const locked = offered.filter((f) => !f.ok);
-  const castSpells = (sc?.options ?? []).filter((s) => s.level >= 1);
-  const castCantrips = (sc?.options ?? []).filter((s) => s.level === 0);
-  const takenByPicks = new Set([...cantrips, ...spells, cSwapIn, sSwapIn]);
+  const takenByPicks = new Set([...liveCantrips, ...spells, cSwapIn, sSwapIn]);
   const newFeatures = plan.new_features.filter((f) => !f.subclass);
   const subFeatures = plan.new_features.filter((f) => f.subclass && f.subclass === pickedSub);
   // Skills trained by a choice this level can take Expertise too (College of Lore + Bard 3).
@@ -693,12 +720,15 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
           )}
           {cantripCap > 0 && (
             <>
-              <span className="lbl">New cantrip{cantripCap > 1 ? "s" : ""} (cast any time, no slot): <span className="num">{cantrips.length}</span> of <span className="num">{cantripCap}</span></span>
+              <span className="lbl">New cantrip{cantripCap > 1 ? "s" : ""} (cast any time, no slot): <span className="num">{liveCantrips.length}</span> of <span className="num">{cantripCap}</span></span>
+              {taught.lists.length > 0 && (
+                <p className="note">Your {taught.lists.join(" and ")} cantrips count as {plan.character_class} spells.</p>
+              )}
               <div className="lu-chips">
-                {castCantrips.map((s) => (
-                  <button key={s.name} className={`lu-chip ${cantrips.includes(s.name) ? "on" : ""}`}
-                    disabled={!cantrips.includes(s.name) && (cantrips.length >= cantripCap || takenByPicks.has(s.name))}
-                    onClick={() => setCantrips(toggle(cantrips, s.name, cantripCap))}>{s.name}</button>
+                {newCantrips.map((s) => (
+                  <button key={s.name} className={`lu-chip ${liveCantrips.includes(s.name) ? "on" : ""}`}
+                    disabled={!liveCantrips.includes(s.name) && (liveCantrips.length >= cantripCap || takenByPicks.has(s.name))}
+                    onClick={() => setCantrips(toggle(liveCantrips, s.name, cantripCap))}>{s.name}</button>
                 ))}
               </div>
             </>
@@ -757,14 +787,14 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
               const names = [...(classPicks[c.key] ?? []), ...(classBook[c.key] ?? [])];
               return names.length > 0 ? <div key={c.key} className="row"><span>{c.label}</span><span>{names.join(", ")}</span></div> : null;
             })}
-            {cantrips.length > 0 && <div className="row"><span>New cantrips</span><span>{cantrips.join(", ")}</span></div>}
+            {liveCantrips.length > 0 && <div className="row"><span>New cantrips</span><span>{liveCantrips.join(", ")}</span></div>}
             {spells.length > 0 && <div className="row"><span>{toBook ? "Spellbook" : "New spells"}</span><span>{spells.join(", ")}</span></div>}
             {activeAlways.length > 0 && <div className="row"><span>Always prepared</span><span>{activeAlways.map((g) => g.name).join(", ")}</span></div>}
             {cSwapOut && cSwapIn && <div className="row"><span>Cantrip swap</span><span>{cSwapOut} → {cSwapIn}</span></div>}
             {sSwapOut && sSwapIn && <div className="row"><span>Spell swap</span><span>{sSwapOut} → {sSwapIn}</span></div>}
           </div>
-          {sc && (cantrips.length < cantripCap || spells.length < sc.new_spells) && (
-            <p className="warn">You've left {cantripCap - cantrips.length > 0 ? `${cantripCap - cantrips.length} cantrip` : ""}{cantripCap - cantrips.length > 0 && sc.new_spells - spells.length > 0 ? " and " : ""}{sc.new_spells - spells.length > 0 ? `${sc.new_spells - spells.length} spell` : ""} unpicked. That's fine: tell your DM what you chose.</p>
+          {sc && (liveCantrips.length < cantripCap || spells.length < sc.new_spells) && (
+            <p className="warn">You've left {cantripCap - liveCantrips.length > 0 ? `${cantripCap - liveCantrips.length} cantrip` : ""}{cantripCap - liveCantrips.length > 0 && sc.new_spells - spells.length > 0 ? " and " : ""}{sc.new_spells - spells.length > 0 ? `${sc.new_spells - spells.length} spell` : ""} unpicked. That's fine: tell your DM what you chose.</p>
           )}
           {acChanges && (
             <>
@@ -883,6 +913,39 @@ function ChoiceSection({ c, picks, book, setPicks, setBook, skills, allSkills, t
             );
           })}
         </div>
+      )}
+
+      {/* Plan 134 — 2024 Weapon Mastery: the weapons this class may master, as the creator shows them. */}
+      {c.kind === "weapon" && (
+        <>
+          {([["Simple weapons", "Simple"], ["Martial weapons", "Martial"]] as const).map(([label, prefix]) => {
+            const list = open.filter((o) => (o.category ?? "").startsWith(prefix));
+            if (!list.length) return null;
+            return (
+              <div key={label} style={{ marginBottom: 8 }}>
+                <span className="note">{label}</span>
+                <div className="lu-chips">
+                  {list.map((o) => {
+                    const on = picks.includes(o.name);
+                    return (
+                      <button type="button" key={o.name} aria-pressed={on} className={`lu-chip ${on ? "on" : ""}`}
+                        disabled={!on && noRoom} onClick={() => pick(o.name)}>
+                        {o.name}{o.blurb && <small>{o.blurb}</small>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {picks.length > 0 && (
+            <ul className="plain">
+              {open.filter((o) => picks.includes(o.name)).map((o) => (
+                <li key={o.name}><b>{o.name}</b>, {o.blurb}: {MASTERY_NOTES[o.blurb] ?? "read it in your book."}</li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
 
       {c.kind === "spell" && (

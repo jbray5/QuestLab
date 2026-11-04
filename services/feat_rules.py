@@ -471,7 +471,7 @@ def apply_class_choices(
             apply_skills(spec, class_name, listed, skills, ruleset)
             summary.append(f"{label}: " + ", ".join(listed))
         elif kind == "weapon":
-            names = _weapons(class_name, listed, ruleset)
+            names = mastery_picks(class_name, listed, ruleset)
             feats += [entry(key, n, ruleset) for n in names]
             summary.append(f"{label}: " + ", ".join(names))
         else:
@@ -543,7 +543,7 @@ def apply_options(
         feats.append(name if kind == "feat" else entry(key, name, ruleset))
 
 
-def _weapons(class_name: str, listed: list[str], ruleset: Any = "2024") -> list[str]:
+def mastery_picks(class_name: str, listed: list[str], ruleset: Any = "2024") -> list[str]:
     """Catalog names of the weapon kinds picked for Weapon Mastery, checked for the class."""
     rules = rulesets.levelup(ruleset)
     weapons = {w["name"].casefold(): w for w in mastery_weapons(ruleset)}

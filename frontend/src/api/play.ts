@@ -444,16 +444,22 @@ export interface LevelUpGrantedSpell {
 /** Plan 131 — one option of a class choice, and whether this PC may take it now. */
 export interface LevelUpChoiceOption {
   name: string;
+  /** Kind "weapon": the weapon's mastery property ("Sap"). */
   blurb: string;
   ok: boolean;
   reason: string | null;
+  /** Plan 134 — cantrips this option alone teaches, from `cantrip_list` (Blessed Warrior: 2 Cleric). */
+  cantrips?: number;
+  cantrip_list?: string | null;
+  /** Plan 134 — kind "weapon": the weapon's category ("Martial Melee"). */
+  category?: string | null;
 }
 
-/** Plan 131 — a class choice the new level brings (2014 rules): `count` new picks. */
+/** Plan 131 — a class choice the new level brings (both editions since Plan 134): `count` new picks. */
 export interface LevelUpChoiceStep {
   key: string;
   label: string;
-  kind: "option" | "feat" | "expertise" | "skill" | "spell";
+  kind: "option" | "feat" | "expertise" | "skill" | "spell" | "weapon";
   note: string | null;
   count: number;
   book: boolean;
@@ -513,6 +519,8 @@ export interface LevelUpPlan {
     /** The level spellcasting starts (a 2014 Paladin or Ranger at 2). */
     first_spells?: boolean;
     always_prepared?: LevelUpGrantedSpell[];
+    /** Plan 134 — another list's cantrips a picked choice option teaches (Blessed Warrior's Cleric ones). */
+    choice_cantrips?: LevelUpSpell[];
   } | null;
   feat_spells: LevelUpSpell[];
   ac: number;

@@ -7,6 +7,9 @@ spells that become always prepared, and the counts the 2014 spell rules use.
 Plan 133: the campaign DM's homebrew subclasses are offered next to the SRD ones, and a
 homebrew subclass's features (``NewFeature.homebrew``) and always-prepared spells arrive at
 the levels the DM set, in both editions.
+
+Plan 134: a 2024 plan carries its class choices and always-prepared spells too, with the
+2024 kinds ("weapon" for Weapon Mastery) and an option's own cantrips (Blessed Warrior).
 """
 
 from typing import Annotated, Any, Literal, Optional
@@ -82,6 +85,9 @@ class SpellStep(BaseModel):
     spellbook: bool = False  # Wizard: the new spells go in the spellbook
     first_spells: bool = False  # the level spellcasting starts (a 2014 Paladin or Ranger at 2)
     always_prepared: list[GrantedSpell] = Field(default_factory=list)
+    # Plan 134: cantrips from another class's list that a class choice option teaches
+    # (``ChoiceOption.cantrip_list``: Blessed Warrior's Cleric ones), offered once it's picked.
+    choice_cantrips: list[SpellOption] = Field(default_factory=list)
 
 
 class NewFeature(BaseModel):
@@ -106,25 +112,30 @@ class ChoiceOption(BaseModel):
     """One pick a class choice offers, and whether this PC may take it now (Plan 131)."""
 
     name: str
-    blurb: str = ""
+    blurb: str = ""  # kind "weapon": the weapon's mastery property ("Sap")
     ok: bool = True
     reason: Optional[str] = None
+    # Plan 134: cantrips this option alone teaches, from ``cantrip_list`` (Blessed Warrior:
+    # 2 Cleric cantrips); a grant every option shares is ``ChoiceStep.cantrips`` instead.
+    cantrips: int = 0
+    cantrip_list: Optional[str] = None
+    category: Optional[str] = None  # kind "weapon": "Simple Melee", "Martial Ranged"...
 
 
 class ChoiceStep(BaseModel):
-    """A class choice the new level brings (Plan 131, 2014 rules).
+    """A class choice the new level brings (Plan 131; 2024 rules too since Plan 134).
 
     ``count`` is the number of *new* picks: the class tables hold running totals, so a
-    Warlock going from 4 to 5 picks one more invocation, not three.
+    2014 Warlock going from 4 to 5 picks one more invocation, not three.
     """
 
-    key: str  # "pact_boon", "invocations", "metamagic", "expertise", "magical_secrets"...
+    key: str  # "pact_boon", "invocations", "metamagic", "expertise", "weapon_mastery"...
     label: str
-    kind: str  # "option" | "feat" | "expertise" | "skill" | "spell"
+    kind: str  # "option" | "feat" | "expertise" | "skill" | "spell" | "weapon"
     note: Optional[str] = None
     count: int
     book: bool = False  # "From my book" names are accepted
-    options: list[ChoiceOption] = Field(default_factory=list)  # kinds "option" and "feat"
+    options: list[ChoiceOption] = Field(default_factory=list)  # kinds "option", "feat", "weapon"
     spells: list[SpellOption] = Field(default_factory=list)  # kind "spell"
     skills: Optional[list[str]] = None  # kinds "skill"/"expertise": allowed skills, None = any
     taken: list[str] = Field(default_factory=list)  # earlier picks already on the sheet
@@ -165,7 +176,8 @@ class LevelUpPlan(BaseModel):
     # When a score that feeds AC rises, the guide asks what armor the PC wears.
     ac: int
     ac_abilities: list[str]
-    # Plan 131 — the rules this plan follows, and (2014) the class choices to make.
+    # Plan 131 — the rules this plan follows, and the class choices to make (2024 too since
+    # Plan 134).
     ruleset: Ruleset = Ruleset.R2024
     class_choices: list[ChoiceStep] = Field(default_factory=list)
     # Plan 133 — the campaign DM's homebrew subclasses for this class and edition. Their
@@ -212,7 +224,7 @@ class LevelUpChoices(BaseModel):
     cantrip_swap: Optional[SpellSwap] = None
     spell_swap: Optional[SpellSwap] = None
     armor: Optional[Literal["none", "light", "medium", "heavy"]] = None
-    # Plan 131 — the class choices of a 2014 plan (``LevelUpPlan.class_choices``).
+    # Plan 131 — the class choices of the plan (``LevelUpPlan.class_choices``).
     class_choices: list[ClassChoicePick] = Field(default_factory=list, max_length=12)
 
 

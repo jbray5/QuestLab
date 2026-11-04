@@ -27,6 +27,7 @@ from db.repos.class_feature_repo import CharacterFeatureRepo, ClassFeatureRepo
 from db.repos.session_repo import SessionRepo
 from domain.character import PlayerCharacter, RestSummary
 from domain.enums import CharacterClass, RecoveryType
+from integrations.dnd_rules import rulesets
 from integrations.event_bus import publish_pc_updated
 from services import character_service, spellcasting_service
 
@@ -114,12 +115,11 @@ def _regain_one_short_one(db: Session, character_id: uuid.UUID) -> list[str]:
 
 
 def _hit_dice_regained(pc: PlayerCharacter) -> int:
-    """How many spent Hit Dice a long rest gives back: half the PC's total, at least 1.
+    """How many spent Hit Dice a long rest gives back.
 
-    The total is the PC's level; the half rounds down, and never more than were spent
-    (Plan 00024). That is the 2014 rule (SRD 5.1), so a 2014 PC is exactly right
-    (Plan 131). The 2024 rules give back all of them, but every PC has used the half
-    rule since Plan 00024, and Plan 131 keeps a 2024 table's behavior as it was.
+    2024 rules: all of them (Plan 134; every PC had used the 2014 half rule since Plan
+    00024, TD-131a). 2014 rules (SRD 5.1): half the PC's total (its level), rounded down,
+    at least 1, and never more than were spent.
 
     Args:
         pc: The resting PC.
@@ -127,6 +127,8 @@ def _hit_dice_regained(pc: PlayerCharacter) -> int:
     Returns:
         The number of Hit Dice to give back (0 when none are spent).
     """
+    if not rulesets.is_2014(pc.ruleset):
+        return pc.hit_dice_spent
     return min(pc.hit_dice_spent, max(1, pc.level // 2))
 
 

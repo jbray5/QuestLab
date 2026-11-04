@@ -641,7 +641,12 @@ def _armor_class(
         cap = a["dex_cap"]
         if a["category"] == "medium" and "medium armor master" in taken:
             cap = 3
-        ac = a["base"] + (dex_mod if cap is None else min(dex_mod, cap))
+        # Heavy armor ignores DEX either way: a low DEX costs nothing (Plan 134, TD-131l).
+        if a["category"] == "heavy":
+            dex_part = 0
+        else:
+            dex_part = dex_mod if cap is None else min(dex_mod, cap)
+        ac = a["base"] + dex_part
         dwarf = rulesets.is_2014(ruleset) and "dwarf" in race.casefold()
         if a.get("str_min") and scores["STR"] < a["str_min"] and not dwarf:
             warnings.append(

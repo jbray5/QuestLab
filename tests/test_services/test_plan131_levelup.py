@@ -795,15 +795,15 @@ def test_2014_listing_names_match_the_tracked_rows(db: Session):
         assert same(row.name) in listed, (cls.value, row.name)
 
 
-def test_2024_plan_is_unchanged_and_takes_no_class_choices(db: Session):
-    """A 2024 plan has no 2014 extras and refuses class choices."""
+def test_2024_plan_says_2024_and_asks_its_own_choices(db: Session):
+    """A 2024 plan follows the 2024 tables (Plan 134): Warlock 1 → 2 picks two invocations."""
     pc, _dm = _pc(db, CharacterClass.WARLOCK, 1, ruleset="2024", spells=["Eldritch Blast"])
     plan = levelup_service.plan_for(db, pc.id)
     assert plan.ruleset == Ruleset.R2024
-    assert plan.class_choices == []
+    assert [(s.key, s.count) for s in plan.class_choices] == [("invocations", 2)]
     assert plan.spellcasting.prepared_count is None and not plan.spellcasting.always_prepared
     assert all(f.subclass is None for f in plan.new_features)
-    with pytest.raises(ValueError, match="No class choices"):
+    with pytest.raises(ValueError, match="Eldritch Invocations: choose one more"):
         levelup_service.apply(
             db,
             pc.id,
@@ -816,4 +816,12 @@ def test_2024_plan_is_unchanged_and_takes_no_class_choices(db: Session):
         SpellRepo.get_by_name(db, o.name, ruleset="2024") is not None
         for o in plan.spellcasting.options
     )
-    levelup_service.apply(db, pc.id, LevelUpChoices())
+    levelup_service.apply(
+        db,
+        pc.id,
+        LevelUpChoices(
+            class_choices=[
+                ClassChoicePick(key="invocations", picks=["Agonizing Blast", "Devil's Sight"])
+            ]
+        ),
+    )
