@@ -1413,15 +1413,17 @@ def turn_kit(db: Session, pc_id: uuid.UUID):
         pc_id: UUID of the PC (capability URL).
 
     Returns:
-        A ``TurnKit``.
+        A ``TurnKit``. Plan 135: with the PC's natural weapons (homebrew race) and the
+        power-attack toggles of its homebrew feats (``attack_service.add_to_turn_kit``).
 
     Raises:
         LookupError: If the PC does not exist.
     """
-    from services import arena_service
+    from services import arena_service, attack_service
 
     pc = _pc_or_lookup(db, pc_id)
-    return arena_service.turn_kit(db, pc, _dm_email_for(db, pc_id))
+    kit = arena_service.turn_kit(db, pc, _dm_email_for(db, pc_id))
+    return attack_service.add_to_turn_kit(db, pc, kit)
 
 
 def cast_spell(

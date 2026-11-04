@@ -2,11 +2,13 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
 
+import { campaignsApi } from "../api/campaigns";
 import { itemsApi } from "../api/items";
 import type { MagicItem } from "../api/items";
 import PhoneSheet from "../components/PhoneSheet";
 import { MineChip } from "../components/HomebrewChip";
 import { useIsCompact } from "../hooks/useIsCompact";
+import { RULESETS, rulesetOf, type Ruleset } from "../lib/ruleset";
 
 // Keeps a checkbox its native size inside .ql-filters (which sizes inputs to 100%).
 const CHECK: React.CSSProperties = { width: "auto", flex: "none", margin: 0 };
@@ -72,7 +74,52 @@ const PROPERTY_RULES: Record<string, string> = {
   Thrown: "Can be thrown for a ranged attack. Same ability mod as melee.",
   "Two-Handed": "Requires two hands to attack.",
   Versatile: "Can be used one- or two-handed; two-handed uses the larger damage die.",
+  // Plan 135 — the 2014 Lance; its rule is in the text.
+  Special: "A rule of its own, written out in the text below.",
 };
+
+// Plan 135 — the viewer's last 2024/2014 pick on this page, per browser.
+const RULES_KEY = "ql-weapons-rules";
+
+/** The remembered pick, or null (none yet, or storage blocked). */
+function storedRules(): Ruleset | null {
+  try {
+    const value = window.localStorage.getItem(RULES_KEY);
+    return value === "2014" || value === "2024" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remember the pick; a private window simply forgets it. */
+function rememberRules(r: Ruleset): void {
+  try {
+    window.localStorage.setItem(RULES_KEY, r);
+  } catch {
+    // Storage blocked: the switch still works for this visit.
+  }
+}
+
+/** "VeryRare" → "Very rare". */
+function rarityLabel(rarity: string): string {
+  return rarity === "VeryRare" ? "Very rare" : rarity;
+}
+
+/** "Weapon (any sword)" → "Any sword", "Weapon (any)" → "Any weapon"; "" for a plain "Weapon". */
+function baseType(itemType: string): string {
+  const match = /\(([^)]*)\)/.exec(itemType ?? "");
+  const inside = match ? match[1].trim() : "";
+  if (!inside) return "";
+  if (inside.toLowerCase() === "any") return "Any weapon";
+  return inside.charAt(0).toUpperCase() + inside.slice(1);
+}
+
+/** A magic weapon's attunement in plain words: "Needed (by a paladin)", "Not needed". */
+function attunementText(w: MagicItem): string {
+  if (!w.attunement_required) return "Not needed";
+  const by = w.properties?.attunement_by;
+  return typeof by === "string" && by ? `Needed (by a ${by})` : "Needed";
+}
 
 /** "Martial Melee" → "Martial melee" (sentence case). */
 function categoryLabel(category: string | null): string {
@@ -95,11 +142,11 @@ function Damage({ w }: { w: MagicItem }) {
   );
 }
 
-/** Mastery and Magic tags. */
-function WeaponTags({ w }: { w: MagicItem }) {
+/** Mastery and Magic tags (no mastery on the 2014 rules, Plan 135). */
+function WeaponTags({ w, showMastery }: { w: MagicItem; showMastery: boolean }) {
   return (
     <>
-      {w.mastery && (
+      {showMastery && w.mastery && (
         <span className="pill" style={{ color: "var(--text)" }} title={MASTERY_RULES[w.mastery] ?? ""}>
           {w.mastery}
         </span>
@@ -109,8 +156,13 @@ function WeaponTags({ w }: { w: MagicItem }) {
   );
 }
 
-/** Damage, range, cost, properties, the mastery rule and the description. */
-function WeaponDetail({ w, phone }: { w: MagicItem; phone: boolean }) {
+/**
+ * Damage, range, cost, properties, the mastery rule and the description. A magic weapon
+ * also shows its base weapon, rarity and attunement; one written against a kind of weapon
+ * ("any sword") has no dice of its own, so it shows the base weapon in their place.
+ */
+function WeaponDetail({ w, phone, showMastery }: { w: MagicItem; phone: boolean; showMastery: boolean }) {
+  const base = w.is_magic ? baseType(w.item_type) : "";
   return (
     <>
       <div
@@ -122,15 +174,35 @@ function WeaponDetail({ w, phone }: { w: MagicItem; phone: boolean }) {
           marginBottom: "0.75rem",
         }}
       >
-        <div>
-          <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>Damage</div>
-          <span className="num">{w.damage_die}</span> {w.damage_type}
-          {w.versatile_damage && (
-            <div style={{ fontSize: "0.8125rem", color: "var(--text2)" }}>
-              <span className="num">{w.versatile_damage}</span> {w.damage_type} (two-handed)
+        {w.damage_die && (
+          <div>
+            <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>Damage</div>
+            <span className="num">{w.damage_die}</span> {w.damage_type}
+            {w.versatile_damage && (
+              <div style={{ fontSize: "0.8125rem", color: "var(--text2)" }}>
+                <span className="num">{w.versatile_damage}</span> {w.damage_type} (two-handed)
+              </div>
+            )}
+          </div>
+        )}
+        {base && (
+          <div>
+            <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>Base weapon</div>
+            {base}
+          </div>
+        )}
+        {w.is_magic && (
+          <>
+            <div>
+              <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>Rarity</div>
+              {rarityLabel(w.rarity)}
             </div>
-          )}
-        </div>
+            <div>
+              <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>Attunement</div>
+              {attunementText(w)}
+            </div>
+          </>
+        )}
         {w.weapon_range && (
           <div>
             <div style={{ color: "var(--muted)", fontSize: "0.8125rem" }}>Range</div>
@@ -174,7 +246,7 @@ function WeaponDetail({ w, phone }: { w: MagicItem; phone: boolean }) {
         </div>
       )}
 
-      {w.mastery && (
+      {showMastery && w.mastery && (
         <div
           style={{
             padding: "0.5rem 0.7rem",
@@ -207,30 +279,87 @@ export default function Weapons() {
   const [propertyFilter, setPropertyFilter] = useState<(typeof PROPERTIES)[number]>("All");
   const [showMagicOnly, setShowMagicOnly] = useState(false);
   const [selected, setSelected] = useState<MagicItem | null>(null);
+  // Plan 135 — the 2024/2014 switch: the viewer's remembered pick, else 2014 when every
+  // campaign this DM runs plays 2014, else 2024. Waits for the campaign list (usually cached).
+  const [rulesPick, setRulesPick] = useState<Ruleset | null>(storedRules);
+  const { data: campaigns, isPending: campaignsPending } = useQuery({
+    queryKey: ["campaigns"],
+    queryFn: campaignsApi.list,
+  });
+  const allOld = !!campaigns && campaigns.length > 0 && campaigns.every((c) => rulesetOf(c.ruleset) === "2014");
+  const rules: Ruleset | null = rulesPick ?? (campaignsPending ? null : allOld ? "2014" : "2024");
+  const showMastery = rules === "2024";
 
   const params = useMemo(
     () => ({
       q: search.trim() || undefined,
       category: category === "All" ? undefined : category,
-      mastery: mastery === "All" ? undefined : mastery,
+      // Mastery is a 2024 rule: a pick left over from 2024 is not sent for 2014.
+      mastery: mastery === "All" || rules !== "2024" ? undefined : mastery,
       property_name: propertyFilter === "All" ? undefined : propertyFilter,
       is_magic: showMagicOnly ? true : undefined,
+      ruleset: rules ?? undefined,
     }),
-    [search, category, mastery, propertyFilter, showMagicOnly],
+    [search, category, mastery, propertyFilter, showMagicOnly, rules],
   );
 
-  const { data: weapons = [], isLoading } = useQuery({
+  const { data: weapons = [], isLoading: weaponsLoading } = useQuery({
     queryKey: ["weapons", params],
     queryFn: () => itemsApi.listWeapons(params),
+    enabled: rules !== null,
   });
+  const isLoading = rules === null || weaponsLoading;
+
+  function pickRules(r: Ruleset) {
+    setRulesPick(r);
+    rememberRules(r);
+  }
 
   return (
     <div className="fade-in">
       <h1>Weapons</h1>
-      <p className="text-muted" style={{ marginBottom: "1.5rem" }}>
-        D&amp;D 5e (2024 rules) SRD weapons with 2024 Mastery properties.{" "}
-        <span className="num">{weapons.length}</span> weapons in catalog.
+      <p className="text-muted" style={{ marginBottom: "1rem" }}>
+        {rules === "2014"
+          ? "SRD weapons (2014 rules) and magic weapons."
+          : "SRD weapons (2024 rules) with their mastery properties, and magic weapons."}{" "}
+        {!isLoading && (
+          <>
+            <span className="num">{weapons.length}</span> in the catalog.
+          </>
+        )}
       </p>
+
+      {/* Plan 135 — which edition's weapon rules the list follows. */}
+      <div style={{ marginBottom: "1rem" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
+          <span id="weapon-rules-label" className="text-sm" style={{ fontWeight: 600 }}>
+            Rules
+          </span>
+          <div role="radiogroup" aria-labelledby="weapon-rules-label" style={{ display: "inline-flex", gap: "0.35rem" }}>
+            {RULESETS.map((r) => {
+              const on = rules === r;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => pickRules(r)}
+                  className={on ? "btn btn-primary" : "btn btn-secondary"}
+                  style={{ minHeight: phone ? 44 : undefined, minWidth: 72, justifyContent: "center" }}
+                >
+                  {r}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        {rules === "2014" && (
+          <p className="text-sm text-muted" style={{ margin: "0.4rem 0 0" }}>
+            2014 rules: no weapon mastery, and no musket or pistol.
+          </p>
+        )}
+      </div>
 
       {/* Filter bar: search on its own row on a phone, the selects two to a row. */}
       <div
@@ -266,21 +395,23 @@ export default function Weapons() {
             ))}
           </select>
         </div>
-        <div style={{ flex: "1 1 120px" }}>
-          <label htmlFor="weapon-mastery">Mastery</label>
-          <select
-            id="weapon-mastery"
-            value={mastery}
-            onChange={(e) => setMastery(e.target.value as (typeof MASTERIES)[number])}
-            style={{ width: "100%" }}
-          >
-            {MASTERIES.map((m) => (
-              <option key={m} value={m}>
-                {m === "All" ? "All masteries" : m}
-              </option>
-            ))}
-          </select>
-        </div>
+        {showMastery && (
+          <div style={{ flex: "1 1 120px" }}>
+            <label htmlFor="weapon-mastery">Mastery</label>
+            <select
+              id="weapon-mastery"
+              value={mastery}
+              onChange={(e) => setMastery(e.target.value as (typeof MASTERIES)[number])}
+              style={{ width: "100%" }}
+            >
+              {MASTERIES.map((m) => (
+                <option key={m} value={m}>
+                  {m === "All" ? "All masteries" : m}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div style={{ flex: "1 1 120px" }}>
           <label htmlFor="weapon-property">Property</label>
           <select
@@ -317,7 +448,7 @@ export default function Weapons() {
       {!isLoading && weapons.length === 0 && (
         <div className="card">
           <p className="text-muted" style={{ margin: 0 }}>
-            No weapons match. Try another name, category, mastery or property.
+            No weapons match. Try another name, category, {showMastery ? "mastery " : ""}or property.
           </p>
         </div>
       )}
@@ -362,7 +493,7 @@ export default function Weapons() {
                           {w.name} <MineChip createdBy={w.created_by_email} />
                         </span>
                         <span style={{ fontSize: "0.875rem", color: "var(--text2)", flexShrink: 0 }}>
-                          <span className="num">{w.damage_die}</span>
+                          {w.damage_die ? <span className="num">{w.damage_die}</span> : rarityLabel(w.rarity)}
                           {w.versatile_damage ? (
                             <span style={{ color: "var(--muted)" }}>
                               {" / "}
@@ -373,10 +504,10 @@ export default function Weapons() {
                       </span>
                       <span style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.3rem 0.5rem", marginTop: "0.15rem", fontSize: "0.8125rem", color: "var(--muted)" }}>
                         <span>
-                          {categoryLabel(w.weapon_category)}
+                          {w.weapon_category ? categoryLabel(w.weapon_category) : baseType(w.item_type)}
                           {w.damage_type ? ` · ${w.damage_type}` : ""}
                         </span>
-                        <WeaponTags w={w} />
+                        <WeaponTags w={w} showMastery={showMastery} />
                       </span>
                     </span>
                     <ChevronRight size={18} aria-hidden style={{ color: "var(--muted)" }} />
@@ -402,12 +533,12 @@ export default function Weapons() {
                       {w.name} <MineChip createdBy={w.created_by_email} />
                     </span>
                     <span style={{ fontSize: "0.8125rem", color: "var(--text2)" }}>
-                      <Damage w={w} />
+                      {w.damage_die ? <Damage w={w} /> : baseType(w.item_type)}
                     </span>
                     <span style={{ fontSize: "0.8125rem", color: "var(--muted)", whiteSpace: "nowrap" }}>
-                      {categoryLabel(w.weapon_category)}
+                      {w.weapon_category ? categoryLabel(w.weapon_category) : rarityLabel(w.rarity)}
                     </span>
-                    <WeaponTags w={w} />
+                    <WeaponTags w={w} showMastery={showMastery} />
                   </button>
                 )}
 
@@ -419,7 +550,7 @@ export default function Weapons() {
                       background: "var(--surface2)",
                     }}
                   >
-                    <WeaponDetail w={w} phone={false} />
+                    <WeaponDetail w={w} phone={false} showMastery={showMastery} />
                   </div>
                 )}
               </div>
@@ -432,9 +563,9 @@ export default function Weapons() {
         <PhoneSheet title={selected.name} onClose={() => setSelected(null)}>
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: "0.4rem", marginBottom: "0.75rem" }}>
             {selected.weapon_category && <span className="pill">{categoryLabel(selected.weapon_category)}</span>}
-            <WeaponTags w={selected} />
+            <WeaponTags w={selected} showMastery={showMastery} />
           </div>
-          <WeaponDetail w={selected} phone />
+          <WeaponDetail w={selected} phone showMastery={showMastery} />
         </PhoneSheet>
       )}
     </div>

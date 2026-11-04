@@ -10,6 +10,10 @@ the levels the DM set, in both editions.
 
 Plan 134: a 2024 plan carries its class choices and always-prepared spells too, with the
 2024 kinds ("weapon" for Weapon Mastery) and an option's own cantrips (Blessed Warrior).
+
+Plan 135: the campaign DM's homebrew feats join the feat list (``FeatOption.homebrew``, with
+the DM's full text, prerequisite and power-attack trade), in both editions; a homebrew
+fighting style joins the Fighting Style choice (``ChoiceOption.homebrew``).
 """
 
 from typing import Annotated, Any, Literal, Optional
@@ -33,7 +37,7 @@ class FeatOption(BaseModel):
     """One feat as the guide lists it, with whether this PC may take it."""
 
     name: str
-    category: str  # general | fighting_style | origin
+    category: str  # general | fighting_style | origin | epic_boon (homebrew only)
     blurb: str
     ok: bool
     reason: Optional[str] = None
@@ -48,6 +52,13 @@ class FeatOption(BaseModel):
     choice: Optional[dict[str, Any]] = None
     hp_per_level: int = 0
     ac_bonus_in_armor: int = 0
+    repeatable: bool = False
+    # Plan 135 — the campaign DM's own feat: its full text, its prerequisite (shown, never
+    # checked) and its "−5 to hit, +10 damage" trade (``{"to_hit", "damage", "weapons"}``).
+    homebrew: bool = False
+    description: str = ""
+    prerequisite: str = ""
+    power_attack: Optional[dict[str, Any]] = None
 
 
 class SpellOption(BaseModel):
@@ -120,6 +131,7 @@ class ChoiceOption(BaseModel):
     cantrips: int = 0
     cantrip_list: Optional[str] = None
     category: Optional[str] = None  # kind "weapon": "Simple Melee", "Martial Ranged"...
+    homebrew: bool = False  # Plan 135: the campaign DM's own fighting style
 
 
 class ChoiceStep(BaseModel):

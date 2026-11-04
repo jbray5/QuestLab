@@ -655,3 +655,154 @@ class RestSummary(BaseModel):
     features_restored: list[str] = Field(default_factory=list)
     slot_levels_restored: list[str] = Field(default_factory=list)
     hp_restored: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Plan 135 — counters: a homebrew subclass's (Superiority Dice) and hand-made ones
+# ---------------------------------------------------------------------------
+
+ResourceSource = Literal["custom", "subclass"]
+# "none": never refills on its own (the DM or player gives uses back by hand).
+ResourceRecovery = Literal["short", "long", "none"]
+ResourceDie = Literal["d4", "d6", "d8", "d10", "d12"]
+MAX_RESOURCE_USES = 100
+MAX_CUSTOM_RESOURCES = 12
+
+
+class CharacterResourceNotFoundError(LookupError):
+    """No such counter (or character) for this caller: an HTTP 404."""
+
+
+class CharacterResourceConflictError(ValueError):
+    """A counter change that clashes (an HTTP 409), said in plain words.
+
+    A name the character already has, too many counters, or an edit to a counter that comes
+    from the subclass (those are changed in the subclass).
+    """
+
+
+class CharacterResource(SQLModel, table=True):
+    """A character's counter (Plan 135), like Superiority Dice: uses spent, refilled on rests.
+
+    - ``source`` "custom": a hand-made counter (a book subclass's dice, an NPC's own pool).
+      The row holds all of it: ``max_uses``, ``die``, ``recovery``.
+    - ``source`` "subclass": only the spent uses of a counter the character's homebrew
+      subclass declares, keyed by ``name`` (and an id derived from it). Its size, die and
+      recovery are computed from the subclass each time it's read
+      (``SubclassResource.state_at``), so ``max_uses`` and ``die`` stay NULL here and a
+      level-up or an edit to the subclass needs no sync.
+    """
+
+    __tablename__ = "character_resources"
+    __table_args__ = {"extend_existing": True}
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    character_id: uuid.UUID = Field(foreign_key="player_characters.id", index=True)
+    source: str = Field(default="custom", max_length=10)
+    name: str = Field(min_length=1, max_length=80)
+    max_uses: Optional[int] = Field(default=None)
+    die: Optional[str] = Field(default=None, max_length=3)
+    recovery: str = Field(default="long", max_length=5)
+    uses_spent: int = Field(default=0, ge=0)
+    notes: Optional[str] = Field(default=None, max_length=300)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        sa_column=Column(DateTime(timezone=True), nullable=False),
+    )
+
+
+def _clean_die(value: Any) -> Any:
+    """A die size in lower case ("D8" → "d8"); "" or "none" means no die."""
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    return None if text in ("", "none") else text
+
+
+def _clean_notes(value: Optional[str]) -> Optional[str]:
+    """Trimmed notes; empty means none."""
+    if value is None:
+        return None
+    return value.strip() or None
+
+
+class CharacterResourceCreate(BaseModel):
+    """A hand-made counter, as the sheet's "Add a counter" form sends it."""
+
+    name: str = PydanticField(min_length=1, max_length=80)
+    max_uses: int = PydanticField(ge=1, le=MAX_RESOURCE_USES)
+    die: Optional[ResourceDie] = None
+    recovery: ResourceRecovery = "long"
+    notes: Optional[str] = PydanticField(default=None, max_length=300)
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _name(cls, value: Any) -> Any:
+        """Trim the name before its length is checked."""
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("die", mode="before")
+    @classmethod
+    def _die(cls, value: Any) -> Any:
+        """Die sizes in lower case; blank is none."""
+        return _clean_die(value)
+
+    @field_validator("notes")
+    @classmethod
+    def _notes(cls, value: Optional[str]) -> Optional[str]:
+        """Trim the notes."""
+        return _clean_notes(value)
+
+
+class CharacterResourceUpdate(BaseModel):
+    """A partial change to a hand-made counter. ``die`` and ``notes`` may be cleared with null.
+
+    ``uses_spent`` sets the spent uses outright (clamped to the counter's size).
+    """
+
+    name: Optional[str] = PydanticField(default=None, min_length=1, max_length=80)
+    max_uses: Optional[int] = PydanticField(default=None, ge=1, le=MAX_RESOURCE_USES)
+    die: Optional[ResourceDie] = None
+    recovery: Optional[ResourceRecovery] = None
+    notes: Optional[str] = PydanticField(default=None, max_length=300)
+    uses_spent: Optional[int] = PydanticField(default=None, ge=0)
+
+    @field_validator("name", "max_uses", "recovery", "uses_spent", mode="before")
+    @classmethod
+    def _not_null(cls, value: Any) -> Any:
+        """Refuse an explicit null for a field every counter has; trim a name."""
+        if value is None:
+            raise ValueError("can't be empty")
+        return value.strip() if isinstance(value, str) else value
+
+    @field_validator("die", mode="before")
+    @classmethod
+    def _die(cls, value: Any) -> Any:
+        """Die sizes in lower case; blank is none."""
+        return _clean_die(value)
+
+    @field_validator("notes")
+    @classmethod
+    def _notes(cls, value: Optional[str]) -> Optional[str]:
+        """Trim the notes."""
+        return _clean_notes(value)
+
+
+class CharacterResourceRead(BaseModel):
+    """A counter as the sheet shows it: "Superiority Dice · 4 of 5 · d10".
+
+    For a subclass counter, ``max_uses``, ``die`` and ``recovery`` are computed from the
+    subclass at the character's level, ``notes`` is the subclass's text for it and ``level``
+    is the level it arrives at. ``uses_spent`` never exceeds ``max_uses``.
+    """
+
+    id: uuid.UUID
+    character_id: uuid.UUID
+    source: ResourceSource
+    name: str
+    max_uses: int
+    die: Optional[str] = None
+    recovery: ResourceRecovery
+    uses_spent: int = 0
+    notes: Optional[str] = None
+    level: Optional[int] = None

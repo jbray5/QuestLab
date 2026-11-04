@@ -42,6 +42,7 @@ from api.routers import (
     npcs,
     play,
     puzzles,
+    resources,
     rest,
     sessions,
     shops,
@@ -84,6 +85,7 @@ async def lifespan(app: FastAPI):
     from db.base import create_db_and_tables, get_engine, patch_duckdb_schema
     from integrations.dnd_rules.class_features_2014 import CLASS_FEATURES_2014
     from integrations.dnd_rules.class_features_2024 import CLASS_FEATURES_2024
+    from integrations.dnd_rules.magic_items import SRD51_MAGIC_WEAPONS
     from integrations.dnd_rules.srd_armor_2024 import SRD_ARMOR_2024
     from integrations.dnd_rules.srd_weapons_2024 import SRD_WEAPONS_2024
     from integrations.dnd_rules.stat_blocks import seed_monsters
@@ -92,6 +94,7 @@ async def lifespan(app: FastAPI):
         backfill_weapon_stats,
         seed_armor,
         seed_magic_items,
+        seed_missing_magic_items,
         seed_weapons,
     )
     from services.spell_service import seed_srd_spells
@@ -102,6 +105,9 @@ async def lifespan(app: FastAPI):
     with Session(engine) as db:
         seed_monsters(db)
         seed_magic_items(db)
+        # Plan 135 — SRD 5.1 magic weapons added after the first seed reach an existing
+        # catalog by name (never touching or duplicating a row).
+        seed_missing_magic_items(db, SRD51_MAGIC_WEAPONS)
         seed_weapons(db, SRD_WEAPONS_2024)
         seed_armor(db, SRD_ARMOR_2024)
         # Plan 131 — the 2024 (SRD 5.2.1) and 2014 (SRD 5.1) spells, each edition
@@ -197,6 +203,7 @@ app.include_router(homebrew.router, prefix=_PREFIX)
 app.include_router(inventory.router, prefix=_PREFIX)
 app.include_router(spellcasting.router, prefix=_PREFIX)
 app.include_router(features.router, prefix=_PREFIX)
+app.include_router(resources.router, prefix=_PREFIX)  # Plan 135 counters
 app.include_router(rest.router, prefix=_PREFIX)
 app.include_router(uploads.router, prefix=_PREFIX)
 app.include_router(admin.router, prefix=_PREFIX)

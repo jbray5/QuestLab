@@ -17,6 +17,7 @@ import { portraitSrc } from "../lib/portrait";
 import RowMenu from "../components/RowMenu";
 import RulesPicker from "../components/RulesPicker";
 import { rulesetOf, type Ruleset } from "../lib/ruleset";
+import { SPEED_KINDS, fieldsFromSpeeds, speedProblem, speedsFromFields } from "../lib/speeds";
 import Monogram from "../components/character-sheet/Monogram";
 import { useIsCompact } from "../hooks/useIsCompact";
 
@@ -54,6 +55,8 @@ const BLANK_FORM = {
   subclass: "",
   level: 1,
   speed: 30,
+  // Plan 135 — fly, swim, climb, burrow in feet ("" = none); sent as `speeds`.
+  speeds: fieldsFromSpeeds(null),
   hp_current: 10,
   hp_max: 10,
   ac: 10,
@@ -348,7 +351,7 @@ export default function Characters() {
   }
 
   const create = useMutation({
-    mutationFn: () => charactersApi.create(campaignId!, { ...form }),
+    mutationFn: () => charactersApi.create(campaignId!, { ...form, speeds: speedsFromFields(form.speeds) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["characters", campaignId] });
       resetForm();
@@ -358,7 +361,8 @@ export default function Characters() {
 
   const update = useMutation({
     mutationFn: async () => {
-      const saved = await charactersApi.update(editing!.id, { ...form });
+      // Plan 135 — `speeds: {}` clears them.
+      const saved = await charactersApi.update(editing!.id, { ...form, speeds: speedsFromFields(form.speeds) });
       // Level/subclass may have changed — sync class features (idempotent).
       await featuresApi.sync(editing!.id).catch(() => undefined);
       return saved;
@@ -422,6 +426,7 @@ export default function Characters() {
       subclass: c.subclass ?? "",
       level: c.level,
       speed: c.speed ?? 30,
+      speeds: fieldsFromSpeeds(c.speeds),
       hp_current: c.hp_current,
       hp_max: c.hp_max,
       ac: c.ac,
@@ -639,6 +644,37 @@ export default function Characters() {
                   />
                 </div>
               </div>
+              {/* Plan 135 — speeds besides walking (a homebrew race fills them in). */}
+              <fieldset style={{ border: 0, padding: 0, margin: "0 0 0.75rem", minWidth: 0 }}>
+                <legend style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--text2)", padding: 0, marginBottom: "0.3rem" }}>
+                  Other speeds, in feet <span style={{ color: "var(--muted)", fontWeight: 400 }}>(blank means none)</span>
+                </legend>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: "0.5rem" }}>
+                  {SPEED_KINDS.map((k) => (
+                    <div key={k} className="form-group" style={{ marginBottom: 0 }}>
+                      <label htmlFor={`pc-speed-${k}`} style={{ textTransform: "capitalize" }}>{k}</label>
+                      <input
+                        id={`pc-speed-${k}`}
+                        type="number"
+                        inputMode="numeric"
+                        min={5}
+                        max={120}
+                        step={5}
+                        placeholder="—"
+                        value={form.speeds[k]}
+                        aria-invalid={!!speedProblem(k, form.speeds[k])}
+                        onChange={(e) => setForm((p) => ({ ...p, speeds: { ...p.speeds, [k]: e.target.value } }))}
+                        onFocus={(e) => e.currentTarget.select()}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {SPEED_KINDS.map((k) => speedProblem(k, form.speeds[k])).filter(Boolean).slice(0, 1).map((msg) => (
+                  <p key={msg} style={{ color: "var(--danger-text)", fontSize: "0.8125rem", margin: "0.25rem 0 0" }}>
+                    {msg}
+                  </p>
+                ))}
+              </fieldset>
             </div>
           </div>
 
@@ -686,6 +722,8 @@ export default function Characters() {
               disabled={
                 !form.character_name.trim() ||
                 !form.character_class ||
+                // Plan 135 — a bad fly/swim/climb/burrow value (its message shows under it).
+                SPEED_KINDS.some((k) => !!speedProblem(k, form.speeds[k])) ||
                 create.isPending ||
                 update.isPending
               }

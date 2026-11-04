@@ -5,6 +5,8 @@ Per-PC and party-wide short / long rest helpers. Consolidates:
 - Spell-slot recovery (long rest = full; short rest = Warlock pact only)
 - HP restoration (long rest only — sets hp_current = hp_max)
 - Hit Dice (long rest: half the total, at least 1) and exhaustion (long rest: one level)
+- Counters (Plan 135, ``resource_service``): a short rest refills "short" ones, a long rest
+  "short" and "long" ones. They're reported with the features (``features_restored``).
 
 The same code serves both rulesets (Plan 131): a 2014 feature row's recovery is SHORT
 or LONG (a 2014 short rest brings back every use), and the 2014 long rest's Hit Dice
@@ -29,7 +31,7 @@ from domain.character import PlayerCharacter, RestSummary
 from domain.enums import CharacterClass, RecoveryType
 from integrations.dnd_rules import rulesets
 from integrations.event_bus import publish_pc_updated
-from services import character_service, spellcasting_service
+from services import character_service, resource_service, spellcasting_service
 
 
 def _assert_pc_owner(db: Session, character_id: uuid.UUID, dm_email: str) -> PlayerCharacter:
@@ -135,8 +137,8 @@ def _hit_dice_regained(pc: PlayerCharacter) -> int:
 def short_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSummary:
     """Apply a short rest to one PC.
 
-    Restores ``recovery=SHORT`` class features and (for Warlock) pact slots.
-    HP and long-rest features are untouched.
+    Restores ``recovery=SHORT`` class features, "short" counters (Plan 135) and (for
+    Warlock) pact slots. HP and long-rest features are untouched.
 
     Args:
         db: Active database session.
@@ -149,6 +151,8 @@ def short_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSu
     pc = _assert_pc_owner(db, character_id, dm_email)
     restored = _reset_features(db, character_id, RecoveryType.SHORT)
     restored += _regain_one_short_one(db, character_id)
+    # Plan 135 — "short" counters (a homebrew subclass's or hand-made) come back too.
+    restored += resource_service.refill_on_rest(db, pc, "short")
 
     slot_levels_restored: list[str] = []
     if pc.character_class == CharacterClass.WARLOCK:
@@ -176,7 +180,8 @@ def short_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSu
 def long_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSummary:
     """Apply a long rest to one PC.
 
-    Restores all class features, all spell slots, and HP to maximum.
+    Restores all class features, every counter that refills on a rest (Plan 135), all
+    spell slots, and HP to maximum.
 
     Args:
         db: Active database session.
@@ -192,6 +197,8 @@ def long_rest_pc(db: Session, character_id: uuid.UUID, dm_email: str) -> RestSum
     short_one_features = _reset_features(db, character_id, RecoveryType.SHORT_ONE)
     long_features = _reset_features(db, character_id, RecoveryType.LONG)
     restored_features = short_features + short_one_features + long_features
+    # Plan 135 — every counter that refills on a rest ("short" and "long").
+    restored_features += resource_service.refill_on_rest(db, pc, "long")
 
     # Slots: zero everything.
     before = spellcasting_service.slot_state(db, character_id, dm_email)

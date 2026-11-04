@@ -670,6 +670,35 @@ export interface WeaponAttackPreview {
   two_handed: boolean;
   /** Plan 132: a magic weapon's +1/+2/+3, already in hit_bonus and damage_roll (0 if none). */
   magic_bonus?: number;
+  /** Plan 135: a homebrew feat's −5/+10 trade that fits this weapon (a toggle), or null. */
+  power_attack?: PowerAttackOffer | null;
+}
+
+/**
+ * Plan 135 — a homebrew feat's "−5 to hit, +10 damage" trade on one attack, offered as a
+ * toggle (off by default). The attack's own numbers never include it.
+ */
+export interface PowerAttackOffer {
+  /** Added to the attack roll when on (negative). */
+  to_hit: number;
+  /** Added to the damage when on. */
+  damage: number;
+  /** The homebrew feat that gives it. */
+  feat: string;
+}
+
+/** Plan 135 — a homebrew race's natural weapon (claws, a bite) worked out for one PC. */
+export interface NaturalAttack {
+  /** "n-0": unique within the PC's attacks. */
+  key: string;
+  name: string;
+  ability: "STR" | "DEX";
+  hit_bonus: number;
+  /** "1d6+3", or a flat total ("4") for a flat weapon. */
+  damage_roll: string;
+  damage_type: string;
+  note: string;
+  power_attack: PowerAttackOffer | null;
 }
 
 // ── PC inventory (Plan 00019) ────────────────────────────────────────────────

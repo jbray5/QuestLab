@@ -9,6 +9,7 @@ from sqlmodel import Session, select
 from domain.character import (
     CharacterFeature,
     CharacterItem,
+    CharacterResource,
     CharacterSpell,
     PlayerCharacter,
     PlayerCharacterCreate,
@@ -108,7 +109,7 @@ class CharacterRepo:
     def delete(session: Session, character: PlayerCharacter) -> bool:
         """Delete a player character record and its junction rows.
 
-        The child tables (inventory, spells, features) reference
+        The child tables (inventory, spells, features, counters) reference
         player_characters without ON DELETE CASCADE, so the repo emulates
         it — otherwise any PC that ever bought or learned anything is
         undeletable (FK violation).
@@ -120,7 +121,8 @@ class CharacterRepo:
         Returns:
             True if deleted.
         """
-        for model in (CharacterItem, CharacterSpell, CharacterFeature):
+        # Plan 135: counters (character_resources) go with the character too.
+        for model in (CharacterItem, CharacterSpell, CharacterFeature, CharacterResource):
             rows = session.exec(select(model).where(model.character_id == character.id)).all()
             for row in rows:
                 session.delete(row)

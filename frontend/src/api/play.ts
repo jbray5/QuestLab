@@ -13,11 +13,13 @@
 import type { Ruleset } from "../lib/ruleset";
 import { api, apiBase, type RequestOptions } from "./client";
 import { friendlyApiError } from "./errors";
+import type { CharacterResource } from "./resources";
 import type {
   CharacterFeature,
   CharacterItem,
   CharacterSpell,
   PlayerCharacter,
+  PowerAttackOffer,
   SpellSlotStateRead,
   SpellcastingStats,
 } from "./types";
@@ -129,6 +131,8 @@ export interface TurnOption {
   spell_level: number;
   uses_left: number | null;
   note: string;
+  /** Plan 135: a homebrew feat's −5/+10 trade on this attack (a toggle), or null. */
+  power_attack?: PowerAttackOffer | null;
 }
 
 /** What a character can do on a turn, grouped by what it costs (Plan 122). */
@@ -247,6 +251,17 @@ export const playApi = {
   spendFeature: (pcId: string, characterFeatureId: string, amount = 1) =>
     playWrite(pcId, (o) =>
       api.post<CharacterFeature>(`/play/${pcId}/features/${characterFeatureId}/spend?amount=${amount}`, undefined, o),
+    ),
+  // Plan 135 — counters (a homebrew subclass's Superiority Dice, hand-made ones): the player
+  // spends them and gives one back (a misclick fix); adding or changing them is the DM's.
+  resources: (pcId: string) => api.get<CharacterResource[]>(`/play/${pcId}/resources`, Q),
+  spendResource: (pcId: string, resourceId: string, amount = 1) =>
+    playWrite(pcId, (o) =>
+      api.post<CharacterResource>(`/play/${pcId}/resources/${resourceId}/spend?amount=${amount}`, undefined, o),
+    ),
+  restoreResource: (pcId: string, resourceId: string, amount = 1) =>
+    playWrite(pcId, (o) =>
+      api.post<CharacterResource>(`/play/${pcId}/resources/${resourceId}/restore?amount=${amount}`, undefined, o),
     ),
   patchState: (pcId: string, patch: PlayerStatePatch) =>
     playWrite(pcId, (o) => api.patch<PlayerCharacter>(`/play/${pcId}/state`, patch, o)),
@@ -416,7 +431,8 @@ export interface LevelUpSpell {
 
 export interface LevelUpFeat {
   name: string;
-  category: "general" | "fighting_style" | "origin";
+  /** "epic_boon" only on a homebrew feat (Plan 135; offered from level 19). */
+  category: "general" | "fighting_style" | "origin" | "epic_boon";
   blurb: string;
   ok: boolean;
   reason: string | null;
@@ -431,6 +447,14 @@ export interface LevelUpFeat {
   choice: { label: string; options: string[] } | null;
   hp_per_level: number;
   ac_bonus_in_armor: number;
+  /** Plan 135 — taken more than once is allowed. */
+  repeatable?: boolean;
+  /** Plan 135 — the campaign DM's own feat: its full text, a prerequisite (shown, not checked)
+   * and its "−5 to hit, +10 damage" trade. */
+  homebrew?: boolean;
+  description?: string;
+  prerequisite?: string;
+  power_attack?: { to_hit: number; damage: number; weapons: "ranged" | "heavy" | "melee" | "any" } | null;
 }
 
 /** Plan 131 — a spell the new level adds by itself (always prepared, no pick spent). */
@@ -453,6 +477,8 @@ export interface LevelUpChoiceOption {
   cantrip_list?: string | null;
   /** Plan 134 — kind "weapon": the weapon's category ("Martial Melee"). */
   category?: string | null;
+  /** Plan 135 — a Fighting Style the campaign DM made. */
+  homebrew?: boolean;
 }
 
 /** Plan 131 — a class choice the new level brings (both editions since Plan 134): `count` new picks. */

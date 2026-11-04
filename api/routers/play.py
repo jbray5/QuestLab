@@ -31,6 +31,7 @@ from domain.arena import (
 )
 from domain.beta import FeedbackCreate
 from domain.character import (
+    CharacterResourceRead,
     NoSpellSlotError,
     PlayerCastBody,
     PlayerCharacter,
@@ -56,6 +57,7 @@ from services import (
     feature_service,
     levelup_service,
     player_service,
+    resource_service,
 )
 
 router = APIRouter(tags=["play"])
@@ -989,3 +991,73 @@ def send_feedback(
         raise _companion_error(exc)
     background.add_task(beta_service.notify, note, sender)
     return {"id": str(note.id)}
+
+
+# ── Counters (Plan 135) ────────────────────────────────────────────────────────
+# The character's counters (a homebrew subclass's Superiority Dice, hand-made ones): the
+# player lists, spends and restores them; adding or changing them is the DM's, like features.
+
+
+@router.get("/play/{pc_id}/resources", response_model=list[CharacterResourceRead])
+def list_resources(pc_id: PlayPcId, db: DB) -> list[CharacterResourceRead]:
+    """This character's counters, with sizes and dice at its level.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        db: Database session.
+
+    Returns:
+        Subclass counters first, then hand-made ones.
+    """
+    try:
+        return resource_service.list_for_player(db, pc_id)
+    except (LookupError, ValueError) as exc:
+        raise _companion_error(exc)
+
+
+@router.post("/play/{pc_id}/resources/{resource_id}/spend", response_model=CharacterResourceRead)
+def spend_resource(
+    pc_id: PlayPcId,
+    resource_id: uuid.UUID,
+    db: DB,
+    amount: int = Query(1, ge=1, le=100),
+) -> CharacterResourceRead:
+    """The player spends uses of one of this character's counters (404 for anyone else's).
+
+    Args:
+        pc_id: The character, resolved from the link.
+        resource_id: The counter.
+        db: Database session.
+        amount: How many uses (default 1).
+
+    Returns:
+        The counter after the change.
+    """
+    try:
+        return resource_service.spend_for_player(db, pc_id, resource_id, amount)
+    except (LookupError, ValueError) as exc:
+        raise _companion_error(exc)
+
+
+@router.post("/play/{pc_id}/resources/{resource_id}/restore", response_model=CharacterResourceRead)
+def restore_resource(
+    pc_id: PlayPcId,
+    resource_id: uuid.UUID,
+    db: DB,
+    amount: int = Query(1, ge=1, le=100),
+) -> CharacterResourceRead:
+    """The player gives uses back (a misclick fix) on one of this character's counters.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        resource_id: The counter.
+        db: Database session.
+        amount: How many uses (default 1).
+
+    Returns:
+        The counter after the change.
+    """
+    try:
+        return resource_service.restore_for_player(db, pc_id, resource_id, amount)
+    except (LookupError, ValueError) as exc:
+        raise _companion_error(exc)

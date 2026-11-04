@@ -12,6 +12,8 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
 
+from domain.item import PowerAttackOffer
+
 Cost = Literal["action", "bonus", "reaction", "free"]
 
 
@@ -28,6 +30,8 @@ class TurnOption(BaseModel):
     spell_level: int = 0
     uses_left: Optional[int] = None
     note: str = ""
+    # Plan 135: a homebrew feat's −5/+10 trade the phone offers as a toggle, or None.
+    power_attack: Optional[PowerAttackOffer] = None
 
 
 class TurnKit(BaseModel):

@@ -249,6 +249,11 @@ For DB-schema changes:
 2. Test against local DuckDB / Postgres
 3. Commit and push — Render runs the migration on deploy
 
+Catalog data that a migration doesn't carry is synced at API startup (`api/main.py` lifespan), by
+name, inserting only what's missing and never editing a row. That covers class features
+(`feature_service.seed_and_backfill`) and the SRD 5.1 magic weapons
+(`item_service.seed_missing_magic_items`, Plan 135). A deploy needs no extra step for them.
+
 For frontend-only changes the Render deploy is skipped (no relevant
 files changed).
 

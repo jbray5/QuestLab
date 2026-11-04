@@ -16,6 +16,8 @@ options say which ruleset they are for and carry the 2014-only tables.
 Plan 133: the options carry the campaign DM's homebrew races and subclasses, and whether the
 campaign uses custom origin; a 2014 build with custom origin on may move its racial bonuses
 (``origin_bonus``).
+
+Plan 135: the options' ``feats`` carry the campaign DM's homebrew feats too.
 """
 
 from typing import Annotated, Any, Optional
@@ -130,6 +132,8 @@ class BuilderOptions(BaseModel):
     # Catalog weapons the kits reference, by name.
     weapons: list[dict[str, Any]]
     # Plan 126 — what the wizard needs to explain each choice and run the improvement step.
+    # Plan 135: the rules' feat rows, then the campaign DM's homebrew feats in the same shape
+    # with ``homebrew: True`` and their ``description``, ``prerequisite`` and ``power_attack``.
     feats: list[dict[str, Any]] = Field(default_factory=list)  # the level-up feat catalog
     asi_levels: dict[str, list[int]] = Field(default_factory=dict)  # per class
     popular_feats: dict[str, list[str]] = Field(default_factory=dict)  # per class

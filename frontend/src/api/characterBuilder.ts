@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { PowerAttack } from "./homebrew";
 import type { Ruleset } from "../lib/ruleset";
 
 /**
@@ -16,6 +17,8 @@ import type { Ruleset } from "../lib/ruleset";
  *
  * Plan 133: the options carry the campaign DM's homebrew races and subclasses, and whether a 2014
  * campaign uses custom origin (a build may then move its racial bonuses: `origin_bonus`).
+ *
+ * Plan 135: and the DM's homebrew feats, in `feats` (marked `homebrew`).
  */
 
 export type Ability = "STR" | "DEX" | "CON" | "INT" | "WIS" | "CHA";
@@ -28,10 +31,14 @@ export interface BuilderSpellPick {
   list_from_choice?: boolean;
 }
 
-/** One row of the level-up feat catalog (integrations/dnd_rules/levelup_2024.py). */
+/**
+ * One row of the level-up feat catalog (integrations/dnd_rules/levelup_2024.py). Plan 135: the
+ * campaign DM's homebrew feats come after the rules' rows in the same shape, with `homebrew`.
+ */
 export interface BuilderFeat {
   name: string;
-  category: "general" | "fighting_style" | "origin";
+  /** "epic_boon" only on a homebrew feat (offered from level 19). */
+  category: "general" | "fighting_style" | "origin" | "epic_boon";
   blurb: string;
   prereq: {
     any_ability?: Record<string, number>;
@@ -53,6 +60,12 @@ export interface BuilderFeat {
   srd: boolean;
   /** Plan 131 — a 2014 fighting style: the classes whose Fighting Style offers it. */
   classes?: string[];
+  /** Plan 135 — the campaign DM's own feat: its full text, a prerequisite that is shown (not
+   * checked), and an optional "−5 to hit, +10 damage" trade the sheet's attacks offer. */
+  homebrew?: boolean;
+  description?: string;
+  prerequisite?: string;
+  power_attack?: PowerAttack | null;
 }
 
 /** One spell in the picker (Plan 128: with enough to choose by, and its full text). */
@@ -93,6 +106,8 @@ export interface ChoiceOption {
   cantrip?: string;
   repeatable?: boolean;
   srd?: boolean;
+  /** Plan 135 — a Fighting Style the campaign DM made (a homebrew feat). */
+  homebrew?: boolean;
 }
 
 /** Plan 131 — a 2014 "spell" choice's rule (Mystic Arcanum, Magical Secrets). */

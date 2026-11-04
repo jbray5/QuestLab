@@ -4,6 +4,7 @@
  */
 import type { PlaySpell, TurnOption } from "../../api/play";
 import type { PlayerCharacter } from "../../api/types";
+import { addToDamage, powerAttackHint } from "../../lib/powerAttack";
 import type { RollSpec } from "./rollContext";
 import { ABILITIES, SKILLS, fmt, healingOf, mod, ordinal, profBonus, type AbilityKey } from "./rules";
 
@@ -65,11 +66,23 @@ export function attackSpec(pc: PlayerCharacter, o: TurnOption): RollSpec {
   };
 }
 
-/** The same attack, with Sneak Attack offered when it applies. */
-export function weaponAttackSpec(pc: PlayerCharacter, o: TurnOption): RollSpec {
+/**
+ * The same attack, with Sneak Attack offered when it applies.
+ *
+ * Plan 135: `powered` switches on the attack's power-attack trade (a homebrew feat's
+ * "−5 to hit, +10 damage", `o.power_attack`): the roll and the damage change, and the
+ * sentence says why. Natural weapons (kind "natural") roll here too.
+ */
+export function weaponAttackSpec(pc: PlayerCharacter, o: TurnOption, powered = false): RollSpec {
   const spec = attackSpec(pc, o);
   const sneak = sneakDice(pc);
   if (spec.damage && sneak && o.kind === "weapon" && /^dex|finesse|sneak attack applies|ranged/i.test(o.note)) spec.damage.sneakDice = sneak;
+  const pa = powered ? o.power_attack : null;
+  if (pa) {
+    spec.modifier += pa.to_hit;
+    if (spec.damage) spec.damage = { ...spec.damage, dice: addToDamage(spec.damage.dice, pa.damage) };
+    spec.why = `${spec.why ?? ""} ${powerAttackHint(pa)} That makes ${fmt(spec.modifier)} to hit.`.trim();
+  }
   return spec;
 }
 

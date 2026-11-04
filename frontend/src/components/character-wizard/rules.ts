@@ -10,6 +10,7 @@ import type {
   ChoiceOption,
   MasteryWeapon,
 } from "../../api/characterBuilder";
+import { EPIC_BOON_LEVEL } from "../../lib/feats";
 
 /**
  * The wizard's rule math (Plan 74, Plan 126) — a mirror of the server's, so each step can
@@ -23,6 +24,10 @@ import type {
  * Plan 133: the campaign DM's homebrew races (their own hit points per level, fixed skills in
  * either edition) and subclasses (their features in the DM's words), and custom origin's moved
  * racial bonuses.
+ *
+ * Plan 135: the DM's homebrew feats are rows of `opts.feats` (`homebrew`), offered at every
+ * improvement in both editions (an epic boon from level 19), and a homebrew fighting style in the
+ * Fighting Style choice; a "From my book" name can't borrow one of theirs.
  */
 
 /** Plan 131 — the options are for a 2014 campaign. */
@@ -161,6 +166,21 @@ export function featQualifies(
   return { ok: true, reason: null };
 }
 
+/** featQualifies at an improvement level: Plan 135's homebrew epic boon waits for level 19. */
+export function featCheckAt(f: BuilderFeat, ctx: Parameters<typeof featQualifies>[1], level: number): FeatCheck {
+  const check = featQualifies(f, ctx);
+  if (check.ok && f.category === "epic_boon" && level < EPIC_BOON_LEVEL) {
+    return { ok: false, reason: `An epic boon comes at level ${EPIC_BOON_LEVEL}.` };
+  }
+  return check;
+}
+
+/** Plan 135 — the campaign DM's homebrew feat named `name` (ignoring case), if any. */
+export function homebrewFeat(opts: BuilderOptions, name: string): BuilderFeat | undefined {
+  const key = name.trim().toLowerCase();
+  return key ? opts.feats.find((f) => f.homebrew && f.name.toLowerCase() === key) : undefined;
+}
+
 export const asiAllowed = (f: BuilderFeat): string[] | null =>
   f.asi_options === "any" ? [...ABILITIES] : f.asi_options;
 
@@ -234,7 +254,7 @@ export function walkImprovements(
 
   for (const level of levels) {
     const ctx = { scores: { ...scores }, caster, training: armorTraining(opts, klass, feats, subclass), style: hasFightingStyle(opts, klass, level, feats), feats: [...feats] };
-    const rows: FeatRow[] = catalog.map((f) => ({ feat: f, check: featQualifies(f, ctx), popular: popular.includes(f.name) }));
+    const rows: FeatRow[] = catalog.map((f) => ({ feat: f, check: featCheckAt(f, ctx, level), popular: popular.includes(f.name) }));
     const context: LevelContext = { level, scores: { ...scores }, feats: [...feats], saves: [...saves], skills: { ...skills }, rows, problem: null };
     contexts.push(context);
     const p = picks[level] ?? emptyPick();
@@ -245,6 +265,8 @@ export function walkImprovements(
     if (!p.name) { fail("choose +2/+1 or a feat."); continue; }
     if (p.name === BOOK) {
       if (!p.bookName.trim()) { fail("type the feat's name."); continue; }
+      const own = homebrewFeat(opts, p.bookName);
+      if (own) { fail(`${own.name} is one of your DM's feats: pick it from the list.`); continue; }
       if (spent > 1) { fail("a feat from your book gives at most +1."); continue; }
       if (capHit) { fail(`${ABILITY_NAMES[capHit[0]]} is ${scores[capHit[0]]}, and 20 is the most.`); continue; }
       for (const [a, v] of Object.entries(p.asi)) scores[a] += v;
@@ -469,7 +491,7 @@ export function choiceOptions(opts: BuilderOptions, klass: string, key: string):
       // Plan 131 — a 2014 style names the classes whose Fighting Style offers it.
       ...opts.feats
         .filter((f) => f.category === "fighting_style" && (!f.classes || f.classes.includes(klass)))
-        .map((f) => ({ name: f.name, blurb: f.blurb, srd: f.srd })),
+        .map((f) => ({ name: f.name, blurb: f.blurb, srd: f.srd, homebrew: f.homebrew })),
       ...(opts.fighting_style_extras?.[klass] ?? []),
     ];
   }

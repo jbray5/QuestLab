@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import type { BuilderOptions } from "../../api/characterBuilder";
+import { HomebrewTag } from "./Explainers";
 import Fold from "./Fold";
 import SpellList from "./SpellList";
 import {
@@ -27,6 +28,9 @@ import {
  * Eldritch Blast, Favored Enemy, Natural Explorer, Dragon Ancestor, Metamagic, the land, the
  * Hunter's picks), and the "spell" choices (Mystic Arcanum, Magical Secrets) get a spell picker
  * filtered by their rule, with "From my book" for spells the app doesn't list.
+ *
+ * Plan 135: a fighting style the campaign DM made (a homebrew feat) is a Fighting Style option,
+ * marked like the DM's races and subclasses.
  */
 
 /** A cantrip an option needs, in words (a damaging one, or in 2014 one by name). */
@@ -43,6 +47,8 @@ interface Props {
   level: number;
   sections: ChoiceSection[];
   setChoice: (key: string, state: ChoiceState) => void;
+  /** The campaign's DM is building (their homebrew reads "Yours"). */
+  dm?: boolean;
 }
 
 function summarize(s: ChoiceSection): string {
@@ -94,7 +100,9 @@ function BookEntries({ state, room, onChange, label }: { state: ChoiceState; roo
  * One choice's picker: skills, weapon kinds, spells (Plan 131) or listed options. Exported so the
  * 2014 race step can show the Dragonborn's ancestry with the same cards (Plan 131).
  */
-export function SectionBody({ opts, klass, level, s, setChoice }: { opts: BuilderOptions; klass: string; level: number; s: ChoiceSection; setChoice: Props["setChoice"] }) {
+export function SectionBody({ opts, klass, level, s, setChoice, dm = false }: {
+  opts: BuilderOptions; klass: string; level: number; s: ChoiceSection; setChoice: Props["setChoice"]; dm?: boolean;
+}) {
   const { spec, state, count } = s;
   const set = (next: ChoiceState) => setChoice(s.key, next);
   const total = state.picks.length + state.book.length;
@@ -208,7 +216,10 @@ export function SectionBody({ opts, klass, level, s, setChoice }: { opts: Builde
           return (
             <button type="button" key={o.name} className={`cc-card ${on ? "on" : ""}`} aria-pressed={on} disabled={!on && full && count > 1}
               onClick={() => set({ ...state, picks: toggle(state.picks, o.name, count) })}>
-              <b className="cc-card-title">{o.name}{o.cantrips ? <span className="pill">{o.cantrips.count} {o.cantrips.list} cantrip{o.cantrips.count > 1 ? "s" : ""}</span> : null}</b>
+              <b className="cc-card-title">
+                {o.name}{o.cantrips ? <span className="pill">{o.cantrips.count} {o.cantrips.list} cantrip{o.cantrips.count > 1 ? "s" : ""}</span> : null}
+                {o.homebrew && <HomebrewTag dm={dm} />}
+              </b>
               <small>{o.blurb}</small>
               {needs && <small style={{ color: "var(--muted)" }}>{needs}</small>}
             </button>
@@ -231,7 +242,7 @@ export function SectionBody({ opts, klass, level, s, setChoice }: { opts: Builde
   );
 }
 
-export default function ChoicesStep({ opts, klass, level, sections, setChoice }: Props) {
+export default function ChoicesStep({ opts, klass, level, sections, setChoice, dm = false }: Props) {
   const [open, setOpen] = useState<string | null>(() => sections.find((s) => s.problem)?.key ?? sections[0]?.key ?? null);
   return (
     <>
@@ -242,7 +253,7 @@ export default function ChoicesStep({ opts, klass, level, sections, setChoice }:
       {sections.map((s) => (
         <Fold key={s.key} id={`cc-ch-${s.key}`} title={s.spec.label} open={open === s.key} onToggle={() => setOpen(open === s.key ? null : s.key)}
           done={!s.problem} summary={summarize(s)}>
-          <SectionBody opts={opts} klass={klass} level={level} s={s} setChoice={(key, next) => {
+          <SectionBody opts={opts} klass={klass} level={level} s={s} dm={dm} setChoice={(key, next) => {
             setChoice(key, next);
             // A one-pick choice is done when picked: open the next one still to do.
             const total = next.picks.length + next.book.length;

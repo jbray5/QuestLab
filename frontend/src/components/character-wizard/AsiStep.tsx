@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import type { BuilderFeat, BuilderOptions } from "../../api/characterBuilder";
+import HomebrewFeatText from "../homebrew/HomebrewFeatText";
+import { HomebrewTag } from "./Explainers";
 import {
   ABILITIES,
   ABILITY_NAMES,
@@ -22,6 +24,11 @@ import {
  * level has passed — +2 to one ability, +1 to two, or a feat the build qualifies for at that
  * level. Each level is a fold-out row; the open one shows the picker, the others a summary.
  * The rules mirror the level-up guide's (Plan 115) and the server re-checks them on Create.
+ *
+ * Plan 135: the campaign DM's homebrew feats sit up front under "From your DM" (marked like
+ * homebrew races and subclasses), with the DM's one line on the card and the prerequisite,
+ * power attack and full text under it once picked. The DM building gets a "Make a custom
+ * feat" link (`makeOwn`).
  */
 
 interface Props {
@@ -32,6 +39,10 @@ interface Props {
   contexts: LevelContext[];
   picks: Record<number, PickState>;
   setPick: (level: number, pick: PickState) => void;
+  /** The campaign's DM is building (their homebrew reads "Yours"). */
+  dm?: boolean;
+  /** Plan 135 — the DM's "Make a custom feat" link, under the picks. */
+  makeOwn?: ReactNode;
 }
 
 function toggle(list: string[], name: string, cap: number): string[] {
@@ -56,9 +67,14 @@ function summarize(p: PickState | undefined, ctx: LevelContext): string {
   return ctx.problem ? `${base}. Still to do: ${ctx.problem}` : base;
 }
 
-export default function AsiStep({ opts, klass, level: charLevel, levels, contexts, picks, setPick }: Props) {
+export default function AsiStep({ opts, klass, level: charLevel, levels, contexts, picks, setPick, dm = false, makeOwn }: Props) {
   const firstOpen = levels.find((l) => contexts.find((c) => c.level === l)?.problem) ?? levels[0];
   const [open, setOpen] = useState<number | null>(firstOpen ?? null);
+  const own = opts.feats.some((f) => f.homebrew);
+  const whose = dm ? "Your own feats" : "Your DM's own feats";
+  const lead2014 = own
+    ? `The free 2014 rules have one feat, Grappler. ${whose} are here too; any other comes from your book.`
+    : "The free 2014 rules have one feat, Grappler; any other comes from your book.";
 
   return (
     <>
@@ -67,7 +83,7 @@ export default function AsiStep({ opts, klass, level: charLevel, levels, context
         By level <span className="num">{charLevel}</span> a {klass} has had {levels.length === 1 ? "one Ability Score Improvement" : `${levels.length} Ability Score Improvements`},
         at level{levels.length > 1 ? "s" : ""} {andList(levels)}. Each one is +2 to one ability (or +1 to two), or a feat you
         qualify for at that level instead.{" "}
-        {is2014(opts) ? "The free 2014 rules have one feat, Grappler; any other comes from your book." : "Most feats also give +1 to an ability."} No score goes above 20.
+        {is2014(opts) ? lead2014 : "Most feats also give +1 to an ability."} No score goes above 20.
       </p>
       {levels.map((level, i) => {
         const ctx = contexts[i];
@@ -84,6 +100,7 @@ export default function AsiStep({ opts, klass, level: charLevel, levels, context
               <LevelPicker
                 opts={opts}
                 klass={klass}
+                dm={dm}
                 ctx={ctx}
                 pick={p ?? emptyPick()}
                 setPick={(next) => setPick(level, next)}
@@ -98,20 +115,27 @@ export default function AsiStep({ opts, klass, level: charLevel, levels, context
           </section>
         );
       })}
-      <p className="note">Read the full feat in your book before you pick. Everything here can be changed later on the sheet.</p>
+      {makeOwn}
+      <p className="note">
+        {own ? `${dm ? "Your own feats" : "Your DM's feats"} have their full text here; read any other in your book before you pick.` : "Read the full feat in your book before you pick."}{" "}
+        Everything here can be changed later on the sheet.
+      </p>
     </>
   );
 }
 
-function LevelPicker({ opts, klass, ctx, pick, setPick, onDone, isLast }: {
-  opts: BuilderOptions; klass: string; ctx: LevelContext; pick: PickState;
+function LevelPicker({ opts, klass, dm, ctx, pick, setPick, onDone, isLast }: {
+  opts: BuilderOptions; klass: string; dm: boolean; ctx: LevelContext; pick: PickState;
   setPick: (p: PickState) => void; onDone: () => void; isLast: boolean;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [showLocked, setShowLocked] = useState(false);
+  const old = is2014(opts);
   const offered = ctx.rows.filter((r) => r.check.reason !== "You already have it.");
-  const popular = offered.filter((r) => r.check.ok && r.popular);
-  const others = offered.filter((r) => r.check.ok && !r.popular);
+  // Plan 135 — the DM's own feats get their own row up front, never behind "Browse all".
+  const homebrew = offered.filter((r) => r.check.ok && r.feat.homebrew);
+  const popular = offered.filter((r) => r.check.ok && r.popular && !r.feat.homebrew);
+  const others = offered.filter((r) => r.check.ok && !r.popular && !r.feat.homebrew);
   const locked = offered.filter((r) => !r.check.ok);
   const row = ctx.rows.find((r) => r.feat.name === pick.name);
   const feat = row?.feat;
@@ -127,15 +151,23 @@ function LevelPicker({ opts, klass, ctx, pick, setPick, onDone, isLast }: {
       {boon && (
         <p className="note">Level 19 brings an Epic Boon: take one from your book (tap &ldquo;From my book&rdquo;), or any feat below, or the Ability Score Improvement.</p>
       )}
+      {homebrew.length > 0 && (
+        <>
+          <span className="lbl">{dm ? "Your own feats" : "From your DM"}</span>
+          <div className="cc-cards">
+            {homebrew.map((r) => <FeatCard key={r.feat.name} f={r.feat} old={old} dm={dm} on={pick.name === r.feat.name} onPick={choose} />)}
+          </div>
+        </>
+      )}
       {popular.length > 0 && <span className="lbl">Popular for a {klass}</span>}
       <div className="cc-cards">
-        {[...popular].sort(sortPopular).map((r) => <FeatCard key={r.feat.name} f={r.feat} on={pick.name === r.feat.name} onPick={choose} />)}
+        {[...popular].sort(sortPopular).map((r) => <FeatCard key={r.feat.name} f={r.feat} old={old} dm={dm} on={pick.name === r.feat.name} onPick={choose} />)}
       </div>
       {showAll || others.some((r) => r.feat.name === pick.name) ? (
         <>
-          <span className="lbl">Every other feat you qualify for at level {ctx.level}</span>
+          <span className="lbl">{homebrew.length > 0 ? `Every rules feat you qualify for at level ${ctx.level}` : `Every other feat you qualify for at level ${ctx.level}`}</span>
           <div className="cc-cards">
-            {others.map((r) => <FeatCard key={r.feat.name} f={r.feat} on={pick.name === r.feat.name} onPick={choose} />)}
+            {others.map((r) => <FeatCard key={r.feat.name} f={r.feat} old={old} dm={dm} on={pick.name === r.feat.name} onPick={choose} />)}
             <button type="button" className={`cc-card ${isBook ? "on" : ""}`} aria-pressed={isBook} onClick={() => choose(BOOK)}>
               <b>From my book…</b><small>{boon ? "An Epic Boon, or any other feat your DM allows." : "Any other feat your DM allows. Recorded by name."}</small>
             </button>
@@ -144,7 +176,9 @@ function LevelPicker({ opts, klass, ctx, pick, setPick, onDone, isLast }: {
       ) : (
         <div className="cc-chips" style={{ marginTop: 10 }}>
           <button type="button" className="cc-chip" onClick={() => setShowAll(true)}>
-            {others.length === 1 ? "See 1 other feat" : `Browse all ${others.length} other feats`}
+            {homebrew.length > 0
+              ? others.length === 1 ? "See 1 rules feat" : `Browse all ${others.length} rules feats`
+              : others.length === 1 ? "See 1 other feat" : `Browse all ${others.length} other feats`}
           </button>
           <button type="button" className={`cc-chip ${isBook ? "on" : ""}`} aria-pressed={isBook} onClick={() => choose(BOOK)}>
             {boon ? "Epic Boon from my book…" : "From my book…"}
@@ -160,7 +194,8 @@ function LevelPicker({ opts, klass, ctx, pick, setPick, onDone, isLast }: {
             <div className="cc-cards" style={{ marginTop: 8 }}>
               {locked.map((r) => (
                 <button type="button" key={r.feat.name} className="cc-card" disabled>
-                  <b>{r.feat.name}</b><small className="why">{r.check.reason}</small>
+                  <b className="cc-card-title">{r.feat.name}{r.feat.homebrew && <HomebrewTag dm={dm} />}</b>
+                  <small className="why">{r.check.reason}</small>
                 </button>
               ))}
             </div>
@@ -179,8 +214,11 @@ function LevelPicker({ opts, klass, ctx, pick, setPick, onDone, isLast }: {
             </>
           ) : feat && (
             <>
-              <b className="cc-feat-name">{feat.name}</b>
+              <b className="cc-feat-name">{feat.name}</b>{feat.homebrew && <> <HomebrewTag dm={dm} /></>}
               <p className="note" style={{ marginTop: 4, color: "var(--text2)" }}>{feat.blurb}</p>
+              {feat.homebrew && (
+                <HomebrewFeatText key={feat.name} prerequisite={feat.prerequisite} powerAttack={feat.power_attack} description={feat.description} />
+              )}
               {feat.name === ASI ? (
                 <>
                   <div className="cc-chips" style={{ marginBottom: 8 }}>
@@ -278,13 +316,20 @@ function LevelPicker({ opts, klass, ctx, pick, setPick, onDone, isLast }: {
   );
 }
 
-function FeatCard({ f, on, onPick }: { f: BuilderFeat; on: boolean; onPick: (name: string) => void }) {
+function FeatCard({ f, old, dm, on, onPick }: {
+  f: BuilderFeat; old: boolean; dm: boolean; on: boolean; onPick: (name: string) => void;
+}) {
   const plus = plusLine(f);
+  // Plan 135: a 2014 table has no Origin feats, so a homebrew "origin" feat is simply a feat there.
+  const kind = f.category === "origin" && !old ? "Origin feat"
+    : f.category === "fighting_style" ? "Fighting style"
+      : f.category === "epic_boon" ? "Epic boon" : null;
   return (
     <button type="button" aria-pressed={on} className={`cc-card ${on ? "on" : ""}`} onClick={() => onPick(f.name)}>
       <b className="cc-card-title">
         {f.name}
-        {f.category === "origin" ? <span className="pill">Origin feat</span> : f.category === "fighting_style" ? <span className="pill">Fighting style</span> : null}
+        {kind && <span className="pill">{kind}</span>}
+        {f.homebrew && <HomebrewTag dm={dm} />}
       </b>
       <small>{f.blurb}</small>
       {plus && <small className="plus">{plus}</small>}

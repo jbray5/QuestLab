@@ -1,13 +1,15 @@
 """Item service — business logic for magic item browsing."""
 
 import uuid
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from sqlmodel import Session
 
 from db.repos.item_repo import ItemRepo, LootTableRepo
 from domain.enums import ItemRarity
 from domain.item import Item, ItemConflictError, ItemCreate, ItemRead, ItemUpdate
+from integrations.dnd_rules import rulesets
+from integrations.dnd_rules import srd_weapons_2014 as srd14
 from integrations.dnd_rules.magic_items import PHB_MAGIC_ITEMS
 from services.auth_service import catalog_visible, require_catalog_editor
 
@@ -81,6 +83,65 @@ def list_items(
     return [ItemRead.model_validate(i) for i in items]
 
 
+def is_variant_magic_weapon(item: Item) -> bool:
+    """True for a magic weapon without stats of its own: "+1 Weapon", "Weapon (any sword)".
+
+    Plan 135: the SRD writes many magic weapons against a kind of weapon, so the row
+    has no damage die until the startup backfill can name one ("any sword" becomes a
+    longsword; "any" and ammunition never do).
+
+    Args:
+        item: An Item ORM object.
+
+    Returns:
+        Whether it's a magic item typed "Weapon" or "Weapon (...)" that ``is_weapon``
+        doesn't already count.
+    """
+    return bool(item.is_magic) and not is_weapon(item) and _type_matches(item.item_type, "Weapon")
+
+
+def _base_weapon(item: Item) -> Optional[str]:
+    """The lowercased SRD weapon a shared row's stats come from ("trident"), if any.
+
+    Args:
+        item: A weapon row.
+
+    Returns:
+        The row's own name for a mundane weapon; the base weapon of a magic one
+        ("Weapon (trident)" gives "trident", "any sword" gives "longsword"); None when
+        the type names no single weapon.
+    """
+    if not item.is_magic:
+        return item.name.strip().lower()
+    return _parse_weapon_template(item.item_type or "")
+
+
+def _as_2014(item: Item) -> Optional[ItemRead]:
+    """The row as the 2014 rules (SRD 5.1) have it, or None when 2014 has no such weapon.
+
+    Mastery is a 2024 rule, so it is always cleared. A shared row built on a 2024-only
+    weapon (Musket, Pistol) is left out, and one built on a weapon whose 2014 stats
+    differ (Lance, Trident, War Pick) shows those. A DM's homebrew keeps its own stats.
+
+    Args:
+        item: A weapon row the viewer may see.
+
+    Returns:
+        A read copy for the 2014 list (the stored row never changes), or None.
+    """
+    read = ItemRead.model_validate(item)
+    update: dict[str, Any] = {"mastery": None}
+    base = None if item.created_by_email else _base_weapon(item)
+    if base in srd14.NOT_IN_2014:
+        return None
+    change = dict(srd14.CHANGES_2014.get(base or "", {})) if is_weapon(item) else {}
+    special = change.pop("special", None)
+    update.update(change)
+    if special:
+        update["description"] = f"{item.description}\n\n{special}" if item.description else special
+    return read.model_copy(update=update)
+
+
 def list_weapons(
     db: Session,
     q: Optional[str] = None,
@@ -89,36 +150,57 @@ def list_weapons(
     property_name: Optional[str] = None,
     is_magic: Optional[bool] = None,
     viewer: Optional[str] = None,
+    ruleset: Optional[Any] = None,
 ) -> list[ItemRead]:
     """Return all weapon items with optional filters.
 
-    A weapon is an item with ``weapon_category`` and ``damage_die`` populated.
+    A weapon is an item with ``weapon_category`` and ``damage_die`` populated. With a
+    ``ruleset`` (Plan 135, the Weapons page's switch) the list also holds the magic
+    weapons that have no stats of their own ("Weapon (any sword)"); they carry no
+    category, mastery or property, so those filters leave them out. Under "2014" every
+    row loses its mastery (and the mastery filter is ignored), the 2024-only firearms
+    are left out, and the few weapons whose SRD 5.1 stats differ show those.
 
     Args:
         db: Active database session.
         q: Optional case-insensitive name substring.
         category: Optional exact match on ``weapon_category`` (e.g. 'Simple Melee').
-        mastery: Optional exact match on mastery property (e.g. 'Vex').
+        mastery: Optional exact match on mastery property (e.g. 'Vex'); ignored for 2014.
         property_name: Optional property the weapon must have (e.g. 'Finesse').
         is_magic: Optional magic filter. None = both mundane and magic.
         viewer: The listing DM: shared weapons plus their own homebrew (SEC-003).
+        ruleset: None (the list as it always was), "2024" or "2014" (Plan 135).
 
     Returns:
         Filtered list of ItemRead objects ordered by name.
+
+    Raises:
+        ValueError: For a ruleset other than "2024" or "2014".
     """
-    items = ItemRepo.list_all(db, is_magic=is_magic)
-    items = [i for i in items if is_weapon(i) and catalog_visible(i.created_by_email, viewer)]
+    edition = rulesets.normalize(ruleset) if ruleset is not None else None
+    old_2014 = edition == rulesets.R2014
+
+    def wanted(i: Item) -> bool:
+        """A weapon row (or, with an edition, a stat-less magic weapon) the viewer may see."""
+        kind_ok = is_weapon(i) or (edition is not None and is_variant_magic_weapon(i))
+        return kind_ok and catalog_visible(i.created_by_email, viewer)
+
+    items = [i for i in ItemRepo.list_all(db, is_magic=is_magic) if wanted(i)]
     if q:
         lower = q.lower()
         items = [i for i in items if lower in i.name.lower()]
     if category:
         items = [i for i in items if (i.weapon_category or "").lower() == category.lower()]
-    if mastery:
+    if mastery and not old_2014:
         items = [i for i in items if (i.mastery or "").lower() == mastery.lower()]
-    if property_name:
+    if old_2014:
+        reads = [r for r in (_as_2014(i) for i in items) if r is not None]
+    else:
+        reads = [ItemRead.model_validate(i) for i in items]
+    if property_name:  # after the 2014 view, which changes a few rows' properties
         target = property_name.lower()
-        items = [i for i in items if any(p.lower() == target for p in (i.weapon_properties or []))]
-    return [ItemRead.model_validate(i) for i in items]
+        reads = [r for r in reads if any(p.lower() == target for p in (r.weapon_properties or []))]
+    return reads
 
 
 def seed_weapons(db: Session, payloads: list[ItemCreate]) -> int:
@@ -369,25 +451,62 @@ def seed_magic_items(db: Session) -> int:
 
     inserted = 0
     for raw in PHB_MAGIC_ITEMS:
-        try:
-            rarity_val = raw.get("rarity", "Common")
-            # Normalise "Very Rare" → "VeryRare" if seed data uses space
-            rarity_val = rarity_val.replace(" ", "")
-            rarity = ItemRarity(rarity_val)
-        except ValueError:
-            rarity = ItemRarity.COMMON
+        ItemRepo.create(db, _magic_item_payload(raw))
+        inserted += 1
+    return inserted
 
-        data = ItemCreate(
-            name=raw["name"],
-            rarity=rarity,
-            item_type=raw.get("item_type", "Wondrous Item"),
-            description=raw.get("description"),
-            attunement_required=raw.get("attunement_required", False),
-            value_gp=raw.get("value_gp", 0),
-            is_magic=True,
-            properties=raw.get("properties"),
-        )
-        ItemRepo.create(db, data)
+
+def _magic_item_payload(raw: dict) -> ItemCreate:
+    """Turn one seed dict from ``magic_items.py`` into a shared, magic ItemCreate.
+
+    Args:
+        raw: A seed entry (name, rarity, item_type, description, ...).
+
+    Returns:
+        The validated payload; an unknown rarity falls back to Common.
+    """
+    try:
+        # Normalise "Very Rare" → "VeryRare" if seed data uses space
+        rarity = ItemRarity(raw.get("rarity", "Common").replace(" ", ""))
+    except ValueError:
+        rarity = ItemRarity.COMMON
+    return ItemCreate(
+        name=raw["name"],
+        rarity=rarity,
+        item_type=raw.get("item_type", "Wondrous Item"),
+        description=raw.get("description"),
+        attunement_required=raw.get("attunement_required", False),
+        value_gp=raw.get("value_gp", 0),
+        is_magic=True,
+        properties=raw.get("properties"),
+    )
+
+
+def seed_missing_magic_items(db: Session, entries: list[dict]) -> int:
+    """Insert the seed magic items an existing catalog lacks, by name. Idempotent.
+
+    ``seed_magic_items`` only fills an empty table, so items added to the seed later
+    (Plan 135: the SRD 5.1 magic weapons the first seed missed) need this to reach
+    databases that already exist, prod included. Runs at startup. Only shared rows
+    count, as in ``seed_armor``: a DM's homebrew of the same name never stands in for
+    the SRD one. Existing rows are never read for anything but their names, so they
+    stay exactly as they are.
+
+    Args:
+        db: Active database session.
+        entries: Seed dicts in the ``magic_items.py`` shape.
+
+    Returns:
+        Number of rows inserted (0 once every entry is present).
+    """
+    have = {i.name.strip().casefold() for i in ItemRepo.list_all(db) if not i.created_by_email}
+    inserted = 0
+    for raw in entries:
+        key = raw["name"].strip().casefold()
+        if key in have:
+            continue
+        ItemRepo.create(db, _magic_item_payload(raw))
+        have.add(key)
         inserted += 1
     return inserted
 

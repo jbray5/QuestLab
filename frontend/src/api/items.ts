@@ -1,5 +1,6 @@
 import { api } from "./client";
 import type { WeaponAttackPreview, WeaponListParams } from "./types";
+import type { Ruleset } from "../lib/ruleset";
 
 export interface MagicItem {
   id: string;
@@ -72,13 +73,15 @@ export const itemsApi = {
   /** Refused (409) with a plain sentence while a character, shop or loot table holds it. */
   remove: (id: string) => api.delete(`/items/${id}`, { quiet: true }),
   // ── Weapons (Plan 00018) ──────────────────────────────────────────────
-  listWeapons: (params?: WeaponListParams) => {
+  /** Plan 135: `ruleset` is the page's 2024/2014 switch; without it the list is as it always was. */
+  listWeapons: (params?: WeaponListParams & { ruleset?: Ruleset }) => {
     const qs = new URLSearchParams();
     if (params?.q) qs.set("q", params.q);
     if (params?.category) qs.set("category", params.category);
     if (params?.mastery) qs.set("mastery", params.mastery);
     if (params?.property_name) qs.set("property", params.property_name);
     if (params?.is_magic !== undefined) qs.set("is_magic", String(params.is_magic));
+    if (params?.ruleset) qs.set("ruleset", params.ruleset);
     const query = qs.toString();
     return api.get<MagicItem[]>(`/weapons${query ? `?${query}` : ""}`);
   },

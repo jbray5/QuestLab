@@ -7,6 +7,7 @@ import { featuresApi } from "../api/features";
 import { restApi } from "../api/rest";
 import type { CharacterFeature } from "../api/types";
 import { rulesetOf } from "../lib/ruleset";
+import ResourcePanel from "./ResourcePanel";
 import {
   PANEL_HEAD_STYLE,
   PANEL_ROW_STYLE,
@@ -77,6 +78,9 @@ function sameFeature(name: string): string {
  * restore them. Below: everything else the PC has at its level (Extra Attack,
  * Weapon Mastery, auras) with a plain-words note each. The catalog picker at
  * the bottom is class-scoped and level-capped to the PC.
+ *
+ * Plan 135: counters (`ResourcePanel`) sit under the tracked features: a homebrew
+ * subclass's, like Superiority Dice, and hand-made ones the DM adds here.
  */
 export default function FeaturePanel({
   characterId,
@@ -458,6 +462,9 @@ export default function FeaturePanel({
               {known.map(renderFeatureRow)}
             </div>
           )}
+
+          {/* Plan 135 — counters: the homebrew subclass's (Superiority Dice) and hand-made ones. */}
+          <ResourcePanel characterId={characterId} characterName={characterName} readOnly={readOnly} />
 
           {/* Everything else at this level: always on, nothing to count. */}
           {passive.length > 0 && (

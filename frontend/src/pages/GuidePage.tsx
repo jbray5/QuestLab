@@ -223,6 +223,15 @@ export default function GuidePage() {
         players&rsquo; sheets, and both the 2024 and 2014 rules. You can delete one once nothing
         uses it any more.
       </p>
+      <p>
+        <span className="btnref">Races, subclasses &amp; feats</span> in the menu is where you make
+        character options for your table. A race can have fly or swim speeds and claws or a bite,
+        which show up as attacks. A subclass can have counters like superiority dice that grow
+        with level. A feat can carry a &ldquo;&minus;5 to hit, +10 damage&rdquo; trade that players
+        switch on per attack. Every character in your campaigns can pick them in the builder and
+        when levelling up. For a subclass from your book, add a counter right on the character
+        sheet.
+      </p>
 
       <h2>No generative AI</h2>
       <p>

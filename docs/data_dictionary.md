@@ -432,6 +432,41 @@ DM-made rows in `monster_stat_blocks`, `items` and `spells` carry `created_by_em
   - spells: on a character's spell list.
 - **Kits** match only shared rows, and a shop's name match prefers the shared row.
 - **Magic weapons:** `items.properties.bonus` (e.g. `"+1"`, 0–3) is added to the attack and damage of a magic weapon by `attack_service.compute_attack` (Plan 132; the PHB seed already stored it).
+- **Missing SRD 5.1 magic weapons** (Plan 135): `item_service.seed_missing_magic_items` adds the entries of `magic_items.SRD51_MAGIC_WEAPONS` at startup, by name. It counts only shared rows and never changes an existing row.
+
+### Homebrew character options (Plans 133, 135)
+A DM's own races, subclasses and feats. Each row belongs to its author (`created_by_email`, indexed; SEC-003) and is listed only to them. Every character in the author's campaigns can pick it (`homebrew_service.for_campaign` / `feats_for_campaign`).
+- `ruleset` is `'2024'`, `'2014'` or NULL (both editions).
+- Characters store the choice by name (`player_characters.race`, `.subclass`, `.feats`), so a row in use can't be deleted, renamed or narrowed to the other edition (409).
+- Names may not repeat an SRD race, subclass or feat of either edition.
+- The JSON shapes are validated in `domain/homebrew.py`.
+
+| Table | Column | Type | Notes |
+|---|---|---|---|
+| homebrew_races (0062) | size, speed, ability_bonuses, ability_choice, skills, skill_choice, traits, languages, hp_per_level, darkvision | various | Plan 133. `ability_bonuses` applies to 2014 only. A race gives at most +6 in all |
+| homebrew_races | speeds | JSON NULL | Plan 135 (0063). `{"fly": 30, "swim": 40}`, kinds fly/swim/climb/burrow, 5–120 ft in steps of 5. The builder copies it to `player_characters.speeds` |
+| homebrew_races | natural_weapons | JSON NOT NULL `[]` | Plan 135. Up to 4 `{name, damage ("1d6" or flat "1"), damage_type, ability (STR/DEX/best), note}`. Computed into attacks (always proficient) by `attack_service.natural_attacks`, on the sheet and the phone's turn kit |
+| homebrew_subclasses (0062) | character_class, features, always_prepared, blurb | various | Plan 133. `character_class` is the class name ("Paladin"), not the enum name |
+| homebrew_subclasses | resources | JSON NOT NULL `[]` | Plan 135. Up to 4 counters `{name, level, recovery short/long, uses {level: n} XOR uses_formula, die {level: "d8"}, text}`; `SubclassResource.state_at` gives (max, die) at a PC level |
+| homebrew_feats (0063) | name, ruleset, category, blurb, description, prerequisite, asi_options, repeatable, power_attack | various | Plan 135. `category`: general / origin / fighting_style / epic_boon. `asi_options`: NULL, `"any"` or ability codes (the +1, max 20). `prerequisite` is shown, not enforced. `power_attack`: `{to_hit −1..−10, damage 1..20, weapons ranged/heavy/melee/any}`, a toggle on the attacks it fits |
+| campaigns | custom_origin | BOOLEAN NOT NULL DEFAULT false | Plan 133 (0062). Tasha's custom origin, 2014 campaigns only |
+| player_characters | speeds | JSON NULL | Plan 135 (0063). Speeds besides walking; edited on the DM's sheet form |
+
+### character_resources (Plan 135, 0064)
+Per-PC counters: a homebrew subclass's counters plus hand-made ones (e.g. a book Battle Master's Superiority Dice). They refill on rests (`resource_service.refill_on_rest`).
+
+| Column | Type | Nullable | Notes |
+|---|---|---|---|
+| id | UUID | No | PK. A subclass counter's id is `uuid5(character id + lowercased name)`, so it can be spent before its row exists |
+| character_id | UUID | No | FK → player_characters.id, indexed. Deleted with the PC (`CharacterRepo.delete`) |
+| source | VARCHAR(10) | No | `custom` or `subclass` |
+| name | VARCHAR(80) | No | Unique per sheet, ignoring case, subclass counters included (service-enforced, TD-135h) |
+| max_uses | INTEGER | Yes | Custom only (1–100). NULL on a subclass row: its max is computed at read time from the PC's level |
+| die | VARCHAR(3) | Yes | Custom only: d4–d12 or NULL. NULL on a subclass row: its die comes from the by-level table |
+| recovery | VARCHAR(5) | No | `short`, `long` or `none` |
+| uses_spent | INTEGER | No | 0 = full; rests reset it; clamped to the max on read |
+| notes | VARCHAR(300) | Yes | |
+| created_at | TIMESTAMPTZ | No | |
 
 ## PII Fields
 

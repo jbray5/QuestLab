@@ -197,6 +197,42 @@ class ItemConflictError(Exception):
     """
 
 
+class PowerAttackOffer(BaseModel):
+    """A homebrew feat's "−5 to hit, +10 damage" trade that fits this attack (Plan 135).
+
+    The sheet and the phone offer it as a toggle, off by default. The numbers are the change
+    the trade makes: the attack's own ``hit_bonus`` and ``damage_roll`` never include it.
+    """
+
+    # Added to the attack roll when the toggle is on (negative, e.g. -5).
+    to_hit: int
+    # Added to the damage roll when the toggle is on (e.g. 10).
+    damage: int
+    # The homebrew feat that gives it, as the DM named it ("Deadeye").
+    feat: str
+
+
+class NaturalAttack(BaseModel):
+    """A homebrew race's natural weapon (claws, a bite) worked out for one PC (Plan 135).
+
+    Every PC of the race has it, always proficient, with no item. ``damage_roll`` is dice
+    plus the modifier ("1d6+3"), or a flat total for a flat weapon ("1" with STR +3 → "4",
+    the way an unarmed strike works).
+    """
+
+    # Unique within the PC's attacks ("n-0"); the phone's turn kit uses it as the key.
+    key: str
+    name: str
+    # "STR" | "DEX": the ability used ("best" weapons take the higher one).
+    ability: str
+    hit_bonus: int
+    damage_roll: str
+    damage_type: str
+    # The DM's note on the weapon ("reach 10 ft"), "" when none.
+    note: str = ""
+    power_attack: Optional[PowerAttackOffer] = None
+
+
 class WeaponAttackPreview(BaseModel):
     """Computed attack-roll output for a PC wielding a weapon (Plan 00018).
 
@@ -220,6 +256,8 @@ class WeaponAttackPreview(BaseModel):
     # Plan 132: a magic weapon's +1/+2/+3 (``properties["bonus"]``), already
     # included in ``hit_bonus`` and ``damage_roll``; 0 for a mundane weapon.
     magic_bonus: int = 0
+    # Plan 135: a homebrew feat's −5/+10 trade when it fits this weapon (a toggle), or None.
+    power_attack: Optional[PowerAttackOffer] = None
 
 
 class LootTable(SQLModel, table=True):

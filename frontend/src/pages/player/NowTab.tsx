@@ -11,7 +11,9 @@ import { useMutation } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Dices, Sparkles, Star } from "lucide-react";
 
 import { playApi, type TurnOption } from "../../api/play";
+import { addToDamage, powerAttackHint, powerAttackLabel } from "../../lib/powerAttack";
 import { rulesetOf } from "../../lib/ruleset";
+import { speedList } from "../../lib/speeds";
 import { usePlayer } from "./playerContext";
 import { useRoll } from "./rollContext";
 import { damageSpec, initiativeSpec, skillSpec, weaponAttackSpec } from "./rolls";
@@ -79,6 +81,9 @@ function YourTurn() {
   const roll = useRoll();
   const [more, setMore] = useState(false);
   const [tipsOpen, setTipsOpen] = useState(help === "teach");
+  // Plan 135 — attacks with their feat's −5/+10 trade switched on (key → on). Off by
+  // default, per attack, and forgotten when the turn ends.
+  const [powered, setPowered] = useState<Record<string, boolean>>({});
   const old = rulesetOf(pc.ruleset) === "2014";
   const spend = useMutation({
     mutationFn: ({ id, amount = 1 }: { id: string; amount?: number }) => playApi.spendFeature(pcId, id, amount),
@@ -108,10 +113,13 @@ function YourTurn() {
 
   const actionRow = (o: TurnOption, last: boolean) => {
     const leveled = (o.kind === "spell" || o.kind === "heal" || o.kind === "buff") && o.spell_level > 0;
+    // Plan 135 — a homebrew feat's −5/+10 trade on this attack, when it's switched on.
+    const pa = o.to_hit != null && !leveled ? o.power_attack ?? null : null;
+    const on = !!pa && !!powered[o.key];
     let button: React.ReactNode = null;
     if (o.to_hit != null && !leveled) {
       button = (
-        <button type="button" className="btn btn-secondary" onClick={() => roll(weaponAttackSpec(pc, o))} style={{ minHeight: 42 }}>
+        <button type="button" className="btn btn-secondary" onClick={() => roll(weaponAttackSpec(pc, o, on))} style={{ minHeight: 42 }}>
           <Dices size={16} /> Roll
         </button>
       );
@@ -138,9 +146,10 @@ function YourTurn() {
       }
     }
     // A healing spell heals: "heals 2d8+3", never "2d8+3 force" (Nina, run 3).
-    const amount = o.kind === "heal" ? (o.damage ? `heals ${o.damage}` : "heals") : o.damage ? `${o.damage}${o.damage_type ? ` ${o.damage_type}` : ""}` : null;
+    const damage = on && pa && o.damage ? addToDamage(o.damage, pa.damage) : o.damage;
+    const amount = o.kind === "heal" ? (o.damage ? `heals ${o.damage}` : "heals") : damage ? `${damage}${o.damage_type ? ` ${o.damage_type}` : ""}` : null;
     const numbers = [
-      o.to_hit != null ? `${fmt(o.to_hit)} to hit` : null,
+      o.to_hit != null ? `${fmt(o.to_hit + (on && pa ? pa.to_hit : 0))} to hit` : null,
       o.save,
       amount,
       o.uses_left != null && o.uses_left < 50 ? `${o.uses_left} left` : null,
@@ -148,9 +157,41 @@ function YourTurn() {
     return (
       <div key={o.key} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: last ? "none" : "1px solid var(--border)" }}>
         <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
-          <span style={{ fontWeight: 600 }}>{o.name}</span>
-          <span className="num" style={{ fontSize: 13, color: "var(--text2)" }}>{numbers.join(" · ")}</span>
+          <span style={{ fontWeight: 600, overflowWrap: "anywhere" }}>
+            {o.name}
+            {o.kind === "natural" && <span style={{ fontWeight: 400, color: "var(--muted)" }}> · natural</span>}
+          </span>
+          <span className="num" style={{ fontSize: 13, color: on ? "var(--accent-text)" : "var(--text2)" }}>{numbers.join(" · ")}</span>
           {help === "teach" && o.kind === "feature" && o.note && <span style={{ fontSize: 13, color: "var(--muted)" }}>{o.note}</span>}
+          {/* Plan 135 — the DM's own note on a natural weapon ("STR · slashing · natural · reach 10 ft"). */}
+          {help !== "numbers" && o.kind === "natural" && o.note.split(" · ").length > 3 && (
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>{o.note.split(" · ").slice(3).join(" · ")}</span>
+          )}
+          {pa && (
+            <button
+              type="button"
+              aria-pressed={on}
+              onClick={() => setPowered((p) => ({ ...p, [o.key]: !p[o.key] }))}
+              title={powerAttackHint(pa)}
+              aria-label={`${powerAttackHint(pa)} ${on ? "On" : "Off"}.`}
+              style={{
+                alignSelf: "flex-start",
+                marginTop: 4,
+                minHeight: 44,
+                padding: "0 12px",
+                borderRadius: 10,
+                border: `1px solid ${on ? "var(--accent-line)" : "var(--border2)"}`,
+                background: on ? "var(--accent-soft)" : "transparent",
+                color: on ? "var(--accent-text)" : "var(--text2)",
+                font: "500 14px var(--font-ui)",
+                cursor: "pointer",
+              }}
+            >
+              <span className="num">{powerAttackLabel(pa)}</span>
+              {on ? " · on" : ""}
+            </button>
+          )}
+          {pa && help === "teach" && <span style={{ fontSize: 13, color: "var(--muted)" }}>{powerAttackHint(pa)} Tap it before you roll.</span>}
         </div>
         {button}
       </div>
@@ -166,6 +207,10 @@ function YourTurn() {
   // (and 2014's Divine Smite). Plan 134: shown for both editions (2024 phones never showed it,
   // TD-131g). The Breath Weapon's use counter isn't an action; the attack above spends it.
   const free = (kit?.free ?? []).filter((o) => o.key !== "breath_weapon");
+  // "Fly 30 ft · swim 40 ft", or "" for a character with only a walking speed.
+  const others = speedList(pc.speeds)
+    .map(([k, ft], i) => `${i === 0 ? k.charAt(0).toUpperCase() + k.slice(1) : k} ${ft} ft`)
+    .join(" · ");
   return (
     <>
       <Panel tone="lit" style={{ gap: 4 }}>
@@ -178,6 +223,8 @@ function YourTurn() {
       <Conditions />
 
       <Step n={1} title="Move" right={<span className="num" style={{ fontWeight: 600 }}>{kit?.speed ?? pc.speed} ft</span>}>
+        {/* Plan 135 — fly, swim, climb, burrow (a homebrew race's). */}
+        {others.length > 0 && <span className="num" style={{ fontSize: 14, color: "var(--text2)" }}>{others}</span>}
         {help === "teach" && <span style={{ fontSize: 14, color: "var(--muted)" }}>Split it however you like, before and after your action.</span>}
       </Step>
 

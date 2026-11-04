@@ -367,9 +367,9 @@ export default function Layout() {
         <NavItem to="/spells" icon={<Sparkles size={16} />} onClick={closeNav}>
           Spells
         </NavItem>
-        {/* Plan 133 — the DM's own races and subclasses, for every campaign they run. */}
+        {/* Plan 133 — the DM's own races and subclasses (Plan 135: and feats), for every campaign they run. */}
         <NavItem to="/homebrew" icon={<Feather size={16} />} onClick={closeNav}>
-          Races &amp; subclasses
+          Races, subclasses &amp; feats
         </NavItem>
         <NavItem to="/weapons" icon={<Sword size={16} />} onClick={closeNav}>
           Weapons

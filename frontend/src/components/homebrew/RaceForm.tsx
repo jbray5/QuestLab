@@ -3,13 +3,16 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 
 import {
+  DAMAGE_TYPES,
   homebrewApi,
   type AbilityCode,
   type HomebrewRace,
   type HomebrewRaceInput,
+  type NaturalWeapon,
   type RaceTemplate,
 } from "../../api/homebrew";
 import { useIsCompact } from "../../hooks/useIsCompact";
+import { SPEED_KINDS, fieldsFromSpeeds, speedProblem, speedsFromFields, type SpeedKind } from "../../lib/speeds";
 import FormFrame, { FormSection, SaveBar, ToggleChip } from "./FormFrame";
 import {
   ABILITY_LIST,
@@ -33,6 +36,10 @@ import {
  * choice, darkvision, extra hit points per level, languages and traits. Checks mirror the
  * server's (domain/homebrew.py) so a save fails only on what the server alone knows: a name
  * that is already taken, or a race characters use being renamed.
+ *
+ * Plan 135: fly, swim, climb and burrow speeds (hidden behind one button until opened: most
+ * races have none), and up to 4 natural weapons (claws, a bite), which every character of
+ * the race gets as attacks on the sheet and the phone.
  */
 
 export type HomebrewFormMode = "new" | "copy" | "edit";
@@ -41,6 +48,16 @@ interface TraitRow {
   id: number;
   name: string;
   text: string;
+}
+
+/** A natural weapon being edited (Plan 135); `damage` is "1d6" or a flat "1". */
+interface WeaponRow {
+  id: number;
+  name: string;
+  damage: string;
+  damageType: string;
+  ability: NaturalWeapon["ability"];
+  note: string;
 }
 
 interface Draft {
@@ -57,7 +74,10 @@ interface Draft {
   hpPerLevel: number;
   languages: string;
   traits: TraitRow[];
-  /** The next trait row id. */
+  /** Plan 135 — fly, swim, climb, burrow in feet ("" = none). */
+  speeds: Record<SpeedKind, string>;
+  weapons: WeaponRow[];
+  /** The next trait or weapon row id. */
   seq: number;
 }
 
@@ -79,8 +99,24 @@ const BLANK: Draft = {
   hpPerLevel: 0,
   languages: "",
   traits: [],
+  speeds: fieldsFromSpeeds(null),
+  weapons: [],
   seq: 1,
 };
+
+const MAX_WEAPONS = 4;
+// The server's NATURAL_DAMAGE_PATTERN (domain/homebrew.py): dice like 1d6, or a flat number.
+const DAMAGE_PATTERN = /^(\d{1,2}d(4|6|8|10|12)|\d{1,2})$/;
+const ABILITY_PICKS: readonly (readonly [NaturalWeapon["ability"], string])[] = [
+  ["STR", "Strength"],
+  ["DEX", "Dexterity"],
+  ["best", "Whichever is higher"],
+];
+
+/** Dice as the server keeps them: lower case, no spaces ("1D6 " → "1d6"). */
+function cleanDamage(raw: string): string {
+  return raw.trim().toLowerCase().replace(/\s/g, "");
+}
 
 const TITLES: Record<HomebrewFormMode, string> = { new: "New race", copy: "Copy and edit", edit: "Edit race" };
 
@@ -89,6 +125,14 @@ function fromSource(src: HomebrewRace | RaceTemplate, name: string): Draft {
   const bonuses = { ...NO_BONUSES };
   for (const [code] of ABILITY_LIST) bonuses[code] = Math.min(2, Math.max(0, src.ability_bonuses[code] ?? 0));
   const traits = src.traits.map((t, i) => ({ id: i + 1, name: t.name, text: t.text }));
+  const weapons: WeaponRow[] = (src.natural_weapons ?? []).map((w, i) => ({
+    id: traits.length + i + 1,
+    name: w.name,
+    damage: w.damage,
+    damageType: w.damage_type,
+    ability: w.ability,
+    note: w.note ?? "",
+  }));
   return {
     name,
     rules: rulesPickOf(src.ruleset),
@@ -103,7 +147,9 @@ function fromSource(src: HomebrewRace | RaceTemplate, name: string): Draft {
     hpPerLevel: Math.min(2, src.hp_per_level),
     languages: src.languages,
     traits,
-    seq: traits.length + 1,
+    speeds: fieldsFromSpeeds(src.speeds),
+    weapons,
+    seq: traits.length + weapons.length + 1,
   };
 }
 
@@ -113,6 +159,10 @@ function bonusTotal(d: Draft): number {
 
 function usedTraits(d: Draft): TraitRow[] {
   return d.traits.filter((t) => t.name.trim() || t.text.trim());
+}
+
+function usedWeapons(d: Draft): WeaponRow[] {
+  return d.weapons.filter((w) => w.name.trim() || w.damage.trim() || w.note.trim());
 }
 
 function check(d: Draft): Problems {
@@ -139,6 +189,22 @@ function check(d: Draft): Problems {
     else if (t.name.trim().length > 80) p[`trait_${t.id}`] = "The name is too long (80 characters at most).";
     else if (t.text.trim().length > 1000) p[`trait_${t.id}`] = "The text is too long (1000 characters at most).";
   }
+  for (const k of SPEED_KINDS) {
+    const problem = speedProblem(k, d.speeds[k]);
+    if (problem) p[`speed_${k}`] = problem;
+  }
+  const weapons = usedWeapons(d);
+  if (weapons.length > MAX_WEAPONS) p.weapons = `At most ${MAX_WEAPONS} natural weapons.`;
+  for (const w of weapons) {
+    const key = `weapon_${w.id}`;
+    if (!w.name.trim()) p[key] = "Give this weapon a name, like Claws or Bite.";
+    else if (w.name.trim().length > 80) p[key] = "The name is too long (80 characters at most).";
+    else if (!w.damage.trim()) p[key] = "Give its damage: dice like 1d6, or a flat number like 1.";
+    else if (!DAMAGE_PATTERN.test(cleanDamage(w.damage))) {
+      p[key] = "Damage is dice like 1d6 or 2d4 (a d4, d6, d8, d10 or d12), or a flat number like 1.";
+    } else if (!(DAMAGE_TYPES as readonly string[]).includes(w.damageType)) p[key] = "Pick a damage type.";
+    else if (w.note.trim().length > 200) p[key] = "The note is too long (200 characters at most).";
+  }
   return p;
 }
 
@@ -159,6 +225,15 @@ function toInput(d: Draft): HomebrewRaceInput {
     languages: d.languages.trim(),
     hp_per_level: d.hpPerLevel,
     darkvision: d.darkvision || null,
+    // Plan 135 — null clears the speeds on an edit.
+    speeds: Object.keys(speedsFromFields(d.speeds)).length ? speedsFromFields(d.speeds) : null,
+    natural_weapons: usedWeapons(d).map((w) => ({
+      name: w.name.trim(),
+      damage: cleanDamage(w.damage),
+      damage_type: w.damageType,
+      ability: w.ability,
+      note: w.note.trim(),
+    })),
   };
 }
 
@@ -183,6 +258,8 @@ export default function RaceForm({
   const [saving, setSaving] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [startedFrom, setStartedFrom] = useState("");
+  // Plan 135 — the other speeds stay behind one button until opened (or already set).
+  const [speedsOpen, setSpeedsOpen] = useState(false);
   const uid = useId();
   const id = (f: string) => `${uid}-${f}`;
 
@@ -240,6 +317,8 @@ export default function RaceForm({
   };
   const total = bonusTotal(draft);
   const byRules = (r: string) => templates.filter((t) => t.ruleset === r);
+  const showSpeeds = speedsOpen || SPEED_KINDS.some((k) => draft.speeds[k].trim() !== "");
+  const speedError = SPEED_KINDS.map((k) => shown[`speed_${k}`]).find(Boolean);
 
   const body = (
     <form
@@ -329,6 +408,44 @@ export default function RaceForm({
             {shown.speed && <p style={ERR}>{shown.speed}</p>}
           </div>
         </div>
+        {showSpeeds ? (
+          <fieldset style={{ border: 0, padding: 0, margin: "0 0 0.75rem", minWidth: 0 }}>
+            <legend style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--text2)", padding: 0, marginBottom: "0.3rem" }}>
+              Other speeds, in feet <span style={{ color: "var(--muted)", fontWeight: 400 }}>(blank means none)</span>
+            </legend>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${phone ? 2 : 4}, minmax(0, 1fr))`, gap: "0 0.75rem" }}>
+              {SPEED_KINDS.map((k) => (
+                <div key={k} className="form-group" style={{ marginBottom: phone ? "0.5rem" : 0 }}>
+                  <label htmlFor={id(`speed-${k}`)} style={{ textTransform: "capitalize" }}>
+                    {k}
+                  </label>
+                  <input
+                    id={id(`speed-${k}`)}
+                    type="number"
+                    inputMode="numeric"
+                    min={5}
+                    max={120}
+                    step={5}
+                    placeholder="—"
+                    value={draft.speeds[k]}
+                    onChange={(e) => patch({ speeds: { ...draft.speeds, [k]: e.target.value } })}
+                    aria-invalid={!!shown[`speed_${k}`]}
+                  />
+                </div>
+              ))}
+            </div>
+            {speedError ? <p style={ERR}>{speedError}</p> : <p style={HINT}>From 5 to 120 feet, in steps of 5. They go on the character sheet.</p>}
+          </fieldset>
+        ) : (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => setSpeedsOpen(true)}
+            style={{ minHeight: phone ? 44 : undefined, padding: "0.35rem 0.5rem", marginBottom: "0.5rem" }}
+          >
+            <Plus size={15} aria-hidden /> Add a fly, swim, climb or burrow speed
+          </button>
+        )}
       </FormSection>
 
       <FormSection
@@ -540,6 +657,129 @@ export default function RaceForm({
           </button>
         )}
         {shown.traits && <p style={ERR}>{shown.traits}</p>}
+      </FormSection>
+
+      <FormSection
+        title="Natural weapons"
+        hint="Claws, a bite, horns: attacks every character of this race has, with no weapon to carry. They show with the character's attacks, always proficient."
+      >
+        {draft.weapons.map((w, i) => {
+          const problem = shown[`weapon_${w.id}`];
+          const set = (p: Partial<WeaponRow>) =>
+            patch({ weapons: draft.weapons.map((x) => (x.id === w.id ? { ...x, ...p } : x)) });
+          const label = w.name.trim() || `natural weapon ${i + 1}`;
+          return (
+            <div
+              key={w.id}
+              style={{
+                border: `1px solid ${problem ? "var(--danger-line)" : "var(--border)"}`,
+                borderRadius: 10,
+                padding: "0.6rem",
+                marginBottom: "0.6rem",
+                background: "var(--surface2)",
+              }}
+            >
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.4rem" }}>
+                <input
+                  aria-label={`Natural weapon ${i + 1} name`}
+                  value={w.name}
+                  maxLength={80}
+                  onChange={(e) => set({ name: e.target.value })}
+                  placeholder="Name, e.g. Claws"
+                  style={{ fontWeight: 600, flex: 1, minWidth: 0 }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => patch({ weapons: draft.weapons.filter((x) => x.id !== w.id) })}
+                  aria-label={`Remove ${label}`}
+                  title="Remove this weapon"
+                  style={{ minWidth: 44, minHeight: phone ? 44 : 36, padding: "0.45rem", flexShrink: 0, justifyContent: "center" }}
+                >
+                  <Trash2 size={16} aria-hidden />
+                </button>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: phone ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.2fr)",
+                  gap: "0 0.6rem",
+                }}
+              >
+                <div className="form-group" style={{ marginBottom: "0.4rem" }}>
+                  <label htmlFor={id(`w${w.id}-damage`)}>Damage</label>
+                  <input
+                    id={id(`w${w.id}-damage`)}
+                    value={w.damage}
+                    maxLength={8}
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    onChange={(e) => set({ damage: e.target.value })}
+                    placeholder="1d6"
+                    className="num"
+                  />
+                </div>
+                <div className="form-group" style={{ marginBottom: "0.4rem" }}>
+                  <label htmlFor={id(`w${w.id}-type`)}>Damage type</label>
+                  <select id={id(`w${w.id}-type`)} value={w.damageType} onChange={(e) => set({ damageType: e.target.value })}>
+                    {DAMAGE_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: "0.4rem", gridColumn: phone ? "1 / -1" : undefined }}>
+                  <label htmlFor={id(`w${w.id}-ability`)}>Attacks with</label>
+                  <select
+                    id={id(`w${w.id}-ability`)}
+                    value={w.ability}
+                    onChange={(e) => set({ ability: e.target.value as WeaponRow["ability"] })}
+                  >
+                    {ABILITY_PICKS.map(([value, word]) => (
+                      <option key={value} value={value}>
+                        {word}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <input
+                aria-label={`Natural weapon ${i + 1} note`}
+                value={w.note}
+                maxLength={200}
+                onChange={(e) => set({ note: e.target.value })}
+                placeholder="Note (optional), e.g. reach 10 ft"
+                style={{ width: "100%" }}
+              />
+              {problem && <p style={ERR}>{problem}</p>}
+            </div>
+          );
+        })}
+        {draft.weapons.length < MAX_WEAPONS && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ minHeight: phone ? 44 : undefined }}
+            onClick={() =>
+              patch({
+                weapons: [
+                  ...draft.weapons,
+                  { id: draft.seq, name: "", damage: "", damageType: "slashing", ability: "STR", note: "" },
+                ],
+                seq: draft.seq + 1,
+              })
+            }
+          >
+            <Plus size={15} aria-hidden /> Add a natural weapon
+          </button>
+        )}
+        <p style={HINT}>
+          Damage is dice like 1d6, or a flat number like 1 (it adds the ability modifier, like a punch). Up to{" "}
+          {MAX_WEAPONS}.
+        </p>
+        {shown.weapons && <p style={ERR}>{shown.weapons}</p>}
       </FormSection>
     </form>
   );

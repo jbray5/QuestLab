@@ -1711,3 +1711,264 @@ PHB_MAGIC_ITEMS = [
         },
     },
 ]
+
+# ── Plan 135: SRD 5.1 magic weapons the first seed missed ─────────────────────
+# Checked by name against src/2014/en/5e-SRD-Magic-Items.json of
+# https://github.com/5e-bits/5e-database on 2026-11-04; the text is the SRD 5.1's.
+# ``seed_magic_items`` only fills an empty table, so startup inserts these into an
+# existing catalog by name (item_service.seed_missing_magic_items). Values in gp are
+# ours (the SRD prices no magic items), in line with the rarities above.
+# The SRD 5.1 is (c) Wizards of the Coast LLC, distributed under CC-BY-4.0:
+# https://creativecommons.org/licenses/by/4.0/legalcode
+SRD51_MAGIC_WEAPONS = [
+    {
+        "name": "+1 Ammunition",
+        "rarity": "Uncommon",
+        "item_type": "Weapon (any ammunition)",
+        "description": (
+            "You have a +1 bonus to attack and damage rolls made with this piece of magic "
+            "ammunition. Once it hits a target, the ammunition is no longer magical."
+        ),
+        "attunement_required": False,
+        "value_gp": 50,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1", "bonus": "+1", "consumable": True},
+    },
+    {
+        "name": "+2 Ammunition",
+        "rarity": "Rare",
+        "item_type": "Weapon (any ammunition)",
+        "description": (
+            "You have a +2 bonus to attack and damage rolls made with this piece of magic "
+            "ammunition. Once it hits a target, the ammunition is no longer magical."
+        ),
+        "attunement_required": False,
+        "value_gp": 250,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1", "bonus": "+2", "consumable": True},
+    },
+    {
+        "name": "+3 Ammunition",
+        "rarity": "VeryRare",
+        "item_type": "Weapon (any ammunition)",
+        "description": (
+            "You have a +3 bonus to attack and damage rolls made with this piece of magic "
+            "ammunition. Once it hits a target, the ammunition is no longer magical."
+        ),
+        "attunement_required": False,
+        "value_gp": 1000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1", "bonus": "+3", "consumable": True},
+    },
+    {
+        "name": "Dancing Sword",
+        "rarity": "VeryRare",
+        "item_type": "Weapon (any sword)",
+        "description": (
+            "You can use a bonus action to toss this magic sword into the air and speak the "
+            "command word. When you do so, the sword begins to hover, flies up to 30 feet, "
+            "and attacks one creature of your choice within 5 feet of it. The sword uses "
+            "your attack roll and ability score modifier to damage rolls.\n\n"
+            "While the sword hovers, you can use a bonus action to cause it to fly up to 30 "
+            "feet to another spot within 30 feet of you. As part of the same bonus action, "
+            "you can cause the sword to attack one creature within 5 feet of it.\n\n"
+            "After the hovering sword attacks for the fourth time, it flies up to 30 feet "
+            "and tries to return to your hand. If you have no hand free, it falls to the "
+            "ground at your feet. If the sword has no unobstructed path to you, it moves as "
+            "close to you as it can and then falls to the ground. It also ceases to hover "
+            "if you grasp it or move more than 30 feet away from it."
+        ),
+        "attunement_required": True,
+        "value_gp": 16000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1"},
+    },
+    {
+        "name": "Defender",
+        "rarity": "Legendary",
+        "item_type": "Weapon (any sword)",
+        "description": (
+            "You gain a +3 bonus to attack and damage rolls made with this magic weapon.\n\n"
+            "The first time you attack with the sword on each of your turns, you can "
+            "transfer some or all of the sword's bonus to your Armor Class, instead of "
+            "using the bonus on any attacks that turn. For example, you could reduce the "
+            "bonus to your attack and damage rolls to +1 and gain a +2 bonus to AC. The "
+            "adjusted bonuses remain in effect until the start of your next turn, although "
+            "you must hold the sword to gain a bonus to AC from it."
+        ),
+        "attunement_required": True,
+        "value_gp": 50000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1", "bonus": "+3"},
+    },
+    {
+        "name": "Dwarven Thrower",
+        "rarity": "VeryRare",
+        "item_type": "Weapon (warhammer)",
+        "description": (
+            "You gain a +3 bonus to attack and damage rolls made with this magic weapon. It "
+            "has the thrown property with a normal range of 20 feet and a long range of 60 "
+            "feet. When you hit with a ranged attack using this weapon, it deals an extra "
+            "1d8 damage or, if the target is a giant, 2d8 damage. Immediately after the "
+            "attack, the weapon flies back to your hand."
+        ),
+        "attunement_required": True,
+        "value_gp": 18000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1", "bonus": "+3", "attunement_by": "dwarf"},
+    },
+    {
+        "name": "Hammer of Thunderbolts",
+        "rarity": "Legendary",
+        "item_type": "Weapon (maul)",
+        "description": (
+            "You gain a +1 bonus to attack and damage rolls made with this magic weapon.\n\n"
+            "Giant's Bane (Requires Attunement). You must be wearing a belt of giant "
+            "strength (any variety) and gauntlets of ogre power to attune to this weapon. "
+            "The attunement ends if you take off either of those items. While you are "
+            "attuned to this weapon and holding it, your Strength score increases by 4 and "
+            "can exceed 20, but not 30. When you roll a 20 on an attack roll made with this "
+            "weapon against a giant, the giant must succeed on a DC 17 Constitution saving "
+            "throw or die.\n\n"
+            "The hammer also has 5 charges. While attuned to it, you can expend 1 charge and "
+            "make a ranged weapon attack with the hammer, hurling it as if it had the thrown "
+            "property with a normal range of 20 feet and a long range of 60 feet. If the "
+            "attack hits, the hammer unleashes a thunderclap audible out to 300 feet. The "
+            "target and every creature within 30 feet of it must succeed on a DC 17 "
+            "Constitution saving throw or be stunned until the end of your next turn. The "
+            "hammer regains 1d4 + 1 expended charges daily at dawn."
+        ),
+        "attunement_required": False,
+        "value_gp": 50000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1", "bonus": "+1", "charges": 5},
+    },
+    {
+        "name": "Luck Blade",
+        "rarity": "Legendary",
+        "item_type": "Weapon (any sword)",
+        "description": (
+            "You gain a +1 bonus to attack and damage rolls made with this magic weapon. "
+            "While the sword is on your person, you also gain a +1 bonus to saving throws."
+            "\n\n"
+            "Luck. If the sword is on your person, you can call on its luck (no action "
+            "required) to reroll one attack roll, ability check, or saving throw you "
+            "dislike. You must use the second roll. This property can't be used again until "
+            "the next dawn.\n\n"
+            "Wish. The sword has 1d4 - 1 charges. While holding it, you can use an action to "
+            "expend 1 charge and cast the wish spell from it. This property can't be used "
+            "again until the next dawn. The sword loses this property if it has no charges."
+        ),
+        "attunement_required": True,
+        "value_gp": 50000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1", "bonus": "+1"},
+    },
+    {
+        "name": "Mace of Smiting",
+        "rarity": "Rare",
+        "item_type": "Weapon (mace)",
+        "description": (
+            "You gain a +1 bonus to attack and damage rolls made with this magic weapon. The "
+            "bonus increases to +3 when you use the mace to attack a construct.\n\n"
+            "When you roll a 20 on an attack roll made with this weapon, the target takes an "
+            "extra 2d6 bludgeoning damage, or 4d6 bludgeoning damage if it's a construct. If "
+            "a construct has 25 hit points or fewer after taking this damage, it is destroyed."
+        ),
+        "attunement_required": False,
+        "value_gp": 7000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1", "bonus": "+1"},
+    },
+    {
+        "name": "Nine Lives Stealer",
+        "rarity": "VeryRare",
+        "item_type": "Weapon (any sword)",
+        "description": (
+            "You gain a +2 bonus to attack and damage rolls made with this magic weapon.\n\n"
+            "The sword has 1d8 + 1 charges. If you score a critical hit against a creature "
+            "that has fewer than 100 hit points, it must succeed on a DC 15 Constitution "
+            "saving throw or be slain instantly as the sword tears its life force from its "
+            "body (a construct or an undead is immune). The sword loses 1 charge if the "
+            "creature is slain. When the sword has no charges remaining, it loses this "
+            "property."
+        ),
+        "attunement_required": True,
+        "value_gp": 16000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1", "bonus": "+2"},
+    },
+    {
+        "name": "Oathbow",
+        "rarity": "VeryRare",
+        "item_type": "Weapon (longbow)",
+        "description": (
+            'When you nock an arrow on this bow, it whispers in Elvish, "Swift defeat to my '
+            'enemies." When you use this weapon to make a ranged attack, you can, as a '
+            'command phrase, say, "Swift death to you who have wronged me." The target of '
+            "your attack becomes your sworn enemy until it dies or until dawn seven days "
+            "later. You can have only one such sworn enemy at a time. When your sworn enemy "
+            "dies, you can choose a new one after the next dawn.\n\n"
+            "When you make a ranged attack roll with this weapon against your sworn enemy, "
+            "you have advantage on the roll. In addition, your target gains no benefit from "
+            "cover, other than total cover, and you suffer no disadvantage due to long "
+            "range. If the attack hits, your sworn enemy takes an extra 3d6 piercing damage."
+            "\n\n"
+            "While your sworn enemy lives, you have disadvantage on attack rolls with all "
+            "other weapons."
+        ),
+        "attunement_required": True,
+        "value_gp": 16000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1"},
+    },
+    {
+        "name": "Scimitar of Speed",
+        "rarity": "VeryRare",
+        "item_type": "Weapon (scimitar)",
+        "description": (
+            "You gain a +2 bonus to attack and damage rolls made with this magic weapon. In "
+            "addition, you can make one attack with it as a bonus action on each of your "
+            "turns."
+        ),
+        "attunement_required": True,
+        "value_gp": 16000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1", "bonus": "+2"},
+    },
+    {
+        "name": "Sword of Sharpness",
+        "rarity": "VeryRare",
+        "item_type": "Weapon (any sword that deals slashing damage)",
+        "description": (
+            "When you attack an object with this magic sword and hit, maximize your weapon "
+            "damage dice against the target.\n\n"
+            "When you attack a creature with this weapon and roll a 20 on the attack roll, "
+            "that target takes an extra 4d6 slashing damage. Then roll another d20. If you "
+            "roll a 20, you lop off one of the target's limbs, with the effect of such loss "
+            "determined by the GM. If the creature has no limb to sever, you lop off a "
+            "portion of its body instead.\n\n"
+            "In addition, you can speak the sword's command word to cause the blade to shed "
+            "bright light in a 10 foot radius and dim light for an additional 10 feet. "
+            "Speaking the command word again or sheathing the sword puts out the light."
+        ),
+        "attunement_required": True,
+        "value_gp": 16000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1"},
+    },
+    {
+        "name": "Vicious Weapon",
+        "rarity": "Rare",
+        "item_type": "Weapon (any)",
+        "description": (
+            "When you roll a 20 on your attack roll with this magic weapon, your critical "
+            "hit deals an extra 2d6 damage of the weapon's type."
+        ),
+        "attunement_required": False,
+        "value_gp": 4000,
+        "is_magic": True,
+        "properties": {"source": "SRD 5.1"},
+    },
+]
+"""SRD 5.1 magic weapons added in Plan 135; startup inserts any a catalog lacks."""

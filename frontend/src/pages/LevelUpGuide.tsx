@@ -15,6 +15,7 @@ import type {
 } from "../api/play";
 import Confetti from "../components/Confetti";
 import { MASTERY_NOTES } from "../components/character-wizard/rules";
+import HomebrewFeatText from "../components/homebrew/HomebrewFeatText";
 
 /**
  * LevelUpGuide (Plan 115) — /play/:pcId/level-up
@@ -37,6 +38,10 @@ import { MASTERY_NOTES } from "../components/character-wizard/rules";
  * Metamagic, Fighting Style, the subclass's own, and Weapon Mastery as weapon chips) and its
  * always-prepared spells. An option that teaches cantrips from another list (Blessed Warrior)
  * opens that list's cantrips in the spells step once it's picked.
+ *
+ * Plan 135 — the DM's homebrew feats (`homebrew` on a feat) sit up front under "From your DM"
+ * with a "Your table's" chip, in both editions; picked, they show the prerequisite, the power
+ * attack and the DM's full text. A homebrew fighting style is marked in the Choices step.
  */
 
 const ABILITIES = ["STR", "DEX", "CON", "INT", "WIS", "CHA"] as const;
@@ -351,6 +356,9 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
     if (!featName) return "Pick the Ability Score Improvement or a feat.";
     if (isBook) {
       if (!bookFeat.trim()) return "Type the feat's name.";
+      // Plan 135 — the server refuses a book entry named like one of the DM's feats.
+      const own = plan.feats.find((f) => f.homebrew && f.name.toLowerCase() === bookFeat.trim().toLowerCase());
+      if (own) return `${own.name} is one of your DM's feats: pick it from the list.`;
       return null;
     }
     if (!feat) return "Pick a feat.";
@@ -425,8 +433,11 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
   // A 2014 fighting style comes from the Fighting Style feature, never an improvement: no
   // point listing the styles as locked feats.
   const offered = plan.feats.filter((f) => f.reason !== "Already taken." && !(is2014 && f.category === "fighting_style"));
-  const popular = offered.filter((f) => f.ok && f.popular);
-  const others = offered.filter((f) => f.ok && !f.popular);
+  // Plan 135 — the DM's own feats get their own row up front, never behind "Browse all".
+  const ownFeats = offered.filter((f) => f.ok && f.homebrew);
+  const hasOwnFeats = plan.feats.some((f) => f.homebrew);
+  const popular = offered.filter((f) => f.ok && f.popular && !f.homebrew);
+  const others = offered.filter((f) => f.ok && !f.popular && !f.homebrew);
   const locked = offered.filter((f) => !f.ok);
   const takenByPicks = new Set([...liveCantrips, ...spells, cSwapIn, sSwapIn]);
   const newFeatures = plan.new_features.filter((f) => !f.subclass);
@@ -567,19 +578,33 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
         <>
           <h2>Ability Score Improvement or a feat</h2>
           {is2014 ? (
-            <p className="note">Take +2 to one ability (or +1 to two). If your DM uses feats, you can take one instead. Grappler is the only feat in the free rules, so any other comes from your book.</p>
+            <p className="note">
+              Take +2 to one ability (or +1 to two). If your DM uses feats, you can take one instead. Grappler is the only feat in the free rules,
+              {hasOwnFeats ? " and your DM's own feats are listed too; any other comes from your book." : " so any other comes from your book."}
+            </p>
           ) : (
-            <p className="note">Take +2 to one ability (or +1 to two), or trade that for any feat you qualify for. Most feats also give +1 to an ability. Read the full feat in your book before you pick.</p>
+            <p className="note">
+              Take +2 to one ability (or +1 to two), or trade that for any feat you qualify for. Most feats also give +1 to an ability.
+              {hasOwnFeats ? " Your DM's feats have their full text here; read any other in your book before you pick." : " Read the full feat in your book before you pick."}
+            </p>
+          )}
+          {ownFeats.length > 0 && (
+            <>
+              <span className="lbl">From your DM</span>
+              <div className="lu-cards">
+                {ownFeats.map((f) => <FeatCard key={f.name} f={f} old={is2014} on={featName === f.name} onPick={pickFeat} />)}
+              </div>
+            </>
           )}
           {popular.length > 0 && <span className="lbl">Popular for a {plan.character_class}</span>}
           <div className="lu-cards">
-            {popular.map((f) => <FeatCard key={f.name} f={f} on={featName === f.name} onPick={pickFeat} />)}
+            {popular.map((f) => <FeatCard key={f.name} f={f} old={is2014} on={featName === f.name} onPick={pickFeat} />)}
           </div>
           {showAll || is2014 || others.some((f) => f.name === featName) ? (
             <>
-              <span className="lbl">{is2014 ? "Pick one" : "Every other feat you qualify for"}</span>
+              <span className="lbl">{is2014 ? (ownFeats.length > 0 ? "Or from the rules" : "Pick one") : ownFeats.length > 0 ? "Every rules feat you qualify for" : "Every other feat you qualify for"}</span>
               <div className="lu-cards">
-                {others.map((f) => <FeatCard key={f.name} f={f} on={featName === f.name} onPick={pickFeat} />)}
+                {others.map((f) => <FeatCard key={f.name} f={f} old={is2014} on={featName === f.name} onPick={pickFeat} />)}
                 <button className={`lu-card ${isBook ? "on" : ""}`} onClick={() => pickFeat(BOOK)}>
                   <b>From my book…</b><small>Any other feat your DM allows. Recorded by name.</small>
                 </button>
@@ -587,7 +612,11 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
             </>
           ) : (
             <div className="lu-chips" style={{ marginTop: 10 }}>
-              <button className="lu-chip" onClick={() => setShowAll(true)}>{others.length === 1 ? "See 1 other feat" : `Browse all ${others.length} other feats`}</button>
+              <button className="lu-chip" onClick={() => setShowAll(true)}>
+                {ownFeats.length > 0
+                  ? others.length === 1 ? "See 1 rules feat" : `Browse all ${others.length} rules feats`
+                  : others.length === 1 ? "See 1 other feat" : `Browse all ${others.length} other feats`}
+              </button>
               <button className={`lu-chip ${isBook ? "on" : ""}`} onClick={() => pickFeat(BOOK)}>From my book…</button>
             </div>
           )}
@@ -599,7 +628,7 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
               {showLocked && (
                 <div className="lu-cards" style={{ marginTop: 8 }}>
                   {locked.map((f) => (
-                    <button key={f.name} className="lu-card" disabled><b>{f.name}</b><small>{f.reason}</small></button>
+                    <button key={f.name} className="lu-card" disabled><b>{f.name}{f.homebrew && <TableChip />}</b><small>{f.reason}</small></button>
                   ))}
                 </div>
               )}
@@ -617,8 +646,11 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
                 </>
               ) : feat && (
                 <>
-                  <b style={{ fontWeight: 600, fontSize: "1.05rem", color: "var(--text)" }}>{feat.name}</b>
+                  <b style={{ fontWeight: 600, fontSize: "1.05rem", color: "var(--text)" }}>{feat.name}</b>{feat.homebrew && <> <TableChip /></>}
                   <p className="note" style={{ marginTop: 4, color: "var(--text2)" }}>{feat.blurb}</p>
+                  {feat.homebrew && (
+                    <HomebrewFeatText key={feat.name} prerequisite={feat.prerequisite} powerAttack={feat.power_attack} description={feat.description} />
+                  )}
                   {feat.name === ASI ? (
                     <>
                       <div className="lu-chips" style={{ marginBottom: 8 }}>
@@ -879,7 +911,7 @@ function ChoiceSection({ c, picks, book, setPicks, setBook, skills, allSkills, t
               return (
                 <button type="button" key={o.name} aria-pressed={on} className={`lu-card ${on ? "on" : ""}`}
                   disabled={!on && noRoom} onClick={() => pick(o.name)}>
-                  <b>{o.name}</b>{o.blurb && <small>{o.blurb}</small>}
+                  <b>{o.name}{o.homebrew && <TableChip />}</b>{o.blurb && <small>{o.blurb}</small>}
                 </button>
               );
             })}
@@ -1008,15 +1040,19 @@ function BookAdd({ book, room, setBook, label }: { book: string[]; room: number;
   );
 }
 
-function FeatCard({ f, on, onPick }: { f: LevelUpFeat; on: boolean; onPick: (name: string) => void }) {
+function FeatCard({ f, old, on, onPick }: { f: LevelUpFeat; old: boolean; on: boolean; onPick: (name: string) => void }) {
   const plus = f.name === ASI
     ? "+2 to one ability, or +1 to two"
     : f.asi_options
       ? `+1 to ${f.asi_options.length === 6 ? "any ability" : f.asi_options.map((a) => ABILITY_NAMES[a] ?? a).join(" or ")}`
       : null;
+  // Plan 135: a 2014 table has no Origin feats, so a homebrew "origin" feat is simply a feat there.
+  const kind = f.category === "origin" && !old ? "Origin feat"
+    : f.category === "fighting_style" ? "Fighting style"
+      : f.category === "epic_boon" ? "Epic boon" : null;
   return (
     <button type="button" aria-pressed={on} className={`lu-card ${on ? "on" : ""}`} onClick={() => onPick(f.name)}>
-      <b>{f.name}{f.category === "origin" ? <span className="pill">Origin feat</span> : f.category === "fighting_style" ? <span className="pill">Fighting style</span> : null}</b>
+      <b>{f.name}{kind && <span className="pill">{kind}</span>}{f.homebrew && <TableChip />}</b>
       <small>{f.blurb}</small>
       {plus && <small className="plus" style={{ marginTop: 4 }}>{plus}</small>}
     </button>

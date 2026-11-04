@@ -20,6 +20,7 @@ import HitDiceTracker from "./HitDiceTracker";
 import InfoTip from "./InfoTip";
 import PlayerLinkButton from "./PlayerLinkButton";
 import { portraitSrc } from "../../lib/portrait";
+import { otherSpeedsLine, speedTitle } from "../../lib/speeds";
 import RollHelper from "./RollHelper";
 import type { RollContext } from "./RollHelper";
 import SavingThrows from "./SavingThrows";
@@ -298,7 +299,13 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
           value={String(pc.ac)}
           title="Armor Class: what an attack roll must reach to hit"
         />
-        <StatChip label="Speed" value={`${pc.speed} ft`} title="Speed: feet moved per turn" />
+        {/* Plan 135 — fly, swim, climb, burrow (a homebrew race's) in a small line under it. */}
+        <StatChip
+          label="Speed"
+          value={`${pc.speed} ft`}
+          sub={otherSpeedsLine(pc.speeds) || undefined}
+          title={speedTitle(pc.speed, pc.speeds)}
+        />
         <StatChip
           label={narrow ? "Insp." : "Inspiration"}
           value={pc.heroic_inspiration ? "Yes" : "No"}
@@ -703,6 +710,7 @@ function StatChip({
   onClick,
   accent,
   title,
+  sub,
 }: {
   label: string;
   value: string;
@@ -710,6 +718,8 @@ function StatChip({
   onClick?: () => void;
   accent?: string;
   title?: string;
+  /** Plan 135 — a small second line under the value ("fly 30 · swim 40"). */
+  sub?: string;
 }) {
   return (
     <button
@@ -749,6 +759,11 @@ function StatChip({
       >
         {value}
       </div>
+      {sub && (
+        <div className="num" style={{ fontSize: "0.6875rem", lineHeight: 1.25, color: "var(--text2)", overflowWrap: "anywhere" }}>
+          {sub}
+        </div>
+      )}
     </button>
   );
 }

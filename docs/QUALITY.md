@@ -79,6 +79,16 @@ Any import violation is a bug. Add import boundary tests in Stage 3.
 | TD-133b | Fog can't "start uncovered and hide chosen areas": a `cover` flag fits in the fog areas' JSON, but the player projection (`table_service`, `domain/table_state.py`) and every fog renderer (`MapCanvas`, the 3D board) would need covered regions | Medium | 2026-11-03 | |
 | TD-133c | On the TV and remote windows a long strip map shows whole but small (about 240 px wide at 720p); a camera that follows the party needs a viewport in the table state | Low | 2026-11-03 | |
 | TD-133d | Dev only: `vite.config.ts` proxies `/uploads` to `:8000`, so with the API on another port uploaded art shows broken locally | Low | 2026-11-03 | |
+| TD-135a | No custom classes (Artificer, third-party). James asked 11/04; deferred as a whole class system (hit dice, slots, feature table, level-up). Today: "From my book" class features are tracked by hand, a feature can be forgotten on the sheet, and hand-made counters cover pools | Medium | 2026-11-04 | |
+| TD-135b | A 2014 PC's sheet attack uses the 2024 stats for Trident, Lance and War Pick (`attack_service`); `srd_weapons_2014.CHANGES_2014` holds the SRD 5.1 values the Weapons page already shows | Low | 2026-11-04 | |
+| TD-135c | Five seeded magic items aren't in SRD 5.1 (Sword of Vengeance, Sending Stones, Rod of the Pact Keeper, Eye and Hand of Vecna), and the seed labels everything `"source": "PHB"`. Review against the no-non-SRD-text rule | Medium | 2026-11-04 | |
+| TD-135d | The 2014 Net isn't in the weapon catalog (2024 made it gear; adding a row would change the 2024 list) | Low | 2026-11-04 | |
+| TD-135e | The private 3D arena doesn't offer natural weapons or the power-attack toggle; its Great Weapon Fighting check (`arena_service.py`, "great weapon" in a feat name) ignores the edition | Low | 2026-11-04 | |
+| TD-135f | Flat damage ("4") has no damage-roll button on the phone (unarmed strikes too); the "Move up to N ft" rules text in the phone's Journal shows only the walking speed | Low | 2026-11-04 | |
+| TD-135g | Counters aren't on the phone's Now screen, and spending one doesn't offer to roll its die; the DM sheet's rest toast says "N feature(s) restored" with counters in the count rather than naming them | Low | 2026-11-04 | |
+| TD-135h | `character_resources` has no DB unique constraint on (character_id, source, name); the service enforces it and subclass rows have fixed uuid5 ids | Low | 2026-11-04 | |
+| TD-135i | A homebrew feat's prerequisite is free text, shown and never checked; feats grant only their +1 and the power-attack trade (spells, skills or choices they describe are text) | Low | 2026-11-04 | |
+| TD-135j | The 2024 Human Versatile extra origin-feat pick offers only SRD origin feats (homebrew origin feats are offered at every Ability Score Improvement) | Low | 2026-11-04 | |
 | UX-003 | Characters: cards embed full inventory/spells/features (very long); DM sheet header fixed and eats half a phone; join settings crowd the header. NPCs: one very long editor form; "Reveal true form" click also opens the editor (event bubbles). Encounters: difficulty shown from two sources; breadcrumb not keyboard-reachable. Battle maps: "drop here" area misses the drop handler | Medium | 2026-10-30 | Plan 121 step 10 |
 
 ## Definition of Done (per task)

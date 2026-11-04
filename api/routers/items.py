@@ -6,8 +6,15 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, status
 
 from api.deps import DB, CurrentUser
-from db.repos.character_repo import CharacterRepo
-from domain.item import ItemConflictError, ItemCreate, ItemRead, ItemUpdate, WeaponAttackPreview
+from domain.enums import Ruleset
+from domain.item import (
+    ItemConflictError,
+    ItemCreate,
+    ItemRead,
+    ItemUpdate,
+    NaturalAttack,
+    WeaponAttackPreview,
+)
 from services import attack_service, item_service
 
 router = APIRouter(tags=["items"])
@@ -58,6 +65,13 @@ def list_weapons(
         description="Weapon must have this property (Finesse, Heavy, Thrown, ...)",
     ),
     is_magic: Optional[bool] = Query(None, description="Filter to magic-only or mundane-only"),
+    ruleset: Optional[Ruleset] = Query(
+        None,
+        description=(
+            "2024 or 2014 (Plan 135): adds the magic weapons without stats of their own; "
+            "2014 drops mastery and the 2024-only weapons. Omitted: the list as it was."
+        ),
+    ),
 ) -> list[ItemRead]:
     """Browse all weapons (mundane + magic) with optional filters.
 
@@ -66,9 +80,10 @@ def list_weapons(
         user: Authenticated DM (sees shared weapons plus their own homebrew).
         q: Optional name substring search.
         category: Optional weapon category.
-        mastery: Optional 2024 mastery property.
+        mastery: Optional 2024 mastery property (ignored for 2014).
         property_name: Optional required property (query param ``property``).
         is_magic: Optional magic filter.
+        ruleset: Optional edition, the Weapons page's switch (Plan 135).
 
     Returns:
         Filtered list of weapon items ordered by name.
@@ -81,6 +96,7 @@ def list_weapons(
         property_name=property_name,
         is_magic=is_magic,
         viewer=user,
+        ruleset=ruleset,
     )
 
 
@@ -88,7 +104,7 @@ def list_weapons(
 def attack_preview(
     item_id: uuid.UUID,
     db: DB,
-    _user: CurrentUser,
+    user: CurrentUser,
     character_id: uuid.UUID = Query(..., description="UUID of the wielding character"),
     proficient: bool = Query(True, description="Treat the character as proficient"),
     two_handed: bool = Query(False, description="Use versatile damage die"),
@@ -98,7 +114,8 @@ def attack_preview(
     Args:
         item_id: UUID of the weapon item.
         db: Database session.
-        _user: Authenticated DM.
+        user: Authenticated DM. Plan 135: the campaign's DM also gets ``power_attack``
+            when one of the PC's homebrew feats has a −5/+10 trade that fits the weapon.
         character_id: UUID of the player character.
         proficient: Whether the character is proficient with this weapon.
         two_handed: For Versatile weapons, use the larger die.
@@ -108,24 +125,56 @@ def attack_preview(
 
     Raises:
         HTTPException 404: If the item or character is not found.
+        HTTPException 403: If the caller doesn't run the character's campaign (Plan 135).
         HTTPException 422: If the item is not a weapon.
     """
     try:
         item = item_service.get_item(db, item_id)
     except ValueError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Item not found")
-    character = CharacterRepo.get_by_id(db, character_id)
-    if character is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
     try:
-        return attack_service.compute_attack(
+        return attack_service.attack_preview_for_dm(
+            db,
             item,
-            character,
+            character_id,
+            user,
             proficient=proficient,
             two_handed=two_handed,
         )
+    except LookupError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
+
+
+@router.get("/characters/{character_id}/natural-attacks", response_model=list[NaturalAttack])
+def natural_attacks(character_id: uuid.UUID, db: DB, user: CurrentUser) -> list[NaturalAttack]:
+    """A PC's natural attacks (claws, a bite) from its homebrew race (Plan 135).
+
+    Each comes worked out like a weapon's attack preview: to-hit (always proficient),
+    damage with the modifier, and the power-attack toggle when one of the PC's homebrew
+    feats fits a melee weapon.
+
+    Args:
+        character_id: UUID of the player character.
+        db: Database session.
+        user: Authenticated DM (must run the PC's campaign).
+
+    Returns:
+        The attacks; empty for a PC whose race has none (every SRD race).
+
+    Raises:
+        HTTPException 404: If the character is not found.
+        HTTPException 403: If the caller doesn't run the PC's campaign.
+    """
+    try:
+        return attack_service.natural_attacks_for_dm(db, character_id, user)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Character not found")
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
 @router.post("/items", response_model=ItemRead, status_code=status.HTTP_201_CREATED)

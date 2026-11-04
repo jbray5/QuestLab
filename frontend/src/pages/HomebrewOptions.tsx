@@ -6,33 +6,49 @@ import { ChevronRight, Copy, Pencil, Plus } from "lucide-react";
 import {
   homebrewApi,
   homebrewRulesLabel,
+  type HomebrewFeat,
   type HomebrewRace,
   type HomebrewSubclass,
 } from "../api/homebrew";
+import FeatForm from "../components/homebrew/FeatForm";
 import RaceForm, { type HomebrewFormMode } from "../components/homebrew/RaceForm";
 import SubclassForm from "../components/homebrew/SubclassForm";
 import { ABILITY_LIST, andList, signed } from "../components/homebrew/options";
 import PhoneSheet from "../components/PhoneSheet";
 import RowMenu from "../components/RowMenu";
 import { useIsCompact } from "../hooks/useIsCompact";
+import { featKindLabel, plusOneLine, powerAttackLine, powerAttackShort } from "../lib/feats";
 
 /**
- * Races & subclasses (Plan 133) — the DM's own character options, at /homebrew.
+ * Races, subclasses & feats (Plans 133, 135) — the DM's own character options, at /homebrew.
  *
- * Every row here is the DM's own (homebrew races and subclasses have no shared rows), so
- * there is no "Yours" chip. Players pick them when they build a character in any of the
- * DM's campaigns. `?tab=subclasses` opens the second tab and `?new=1` opens a blank form on
- * arrival, for "make one now" links from the character builder.
+ * Every row here is the DM's own (homebrew races, subclasses and feats have no shared rows),
+ * so there is no "Yours" chip. Players pick them when they build or level up a character in
+ * any of the DM's campaigns. `?tab=subclasses` or `?tab=feats` opens that tab and `?new=1`
+ * opens a blank form on arrival, for "make one now" links from the character builder.
  */
 
-type Tab = "races" | "subclasses";
+type Tab = "races" | "subclasses" | "feats";
 
 type FormState =
   | { kind: "race"; mode: HomebrewFormMode; from: HomebrewRace | null; key: number }
-  | { kind: "subclass"; mode: HomebrewFormMode; from: HomebrewSubclass | null; key: number };
+  | { kind: "subclass"; mode: HomebrewFormMode; from: HomebrewSubclass | null; key: number }
+  | { kind: "feat"; mode: HomebrewFormMode; from: HomebrewFeat | null; key: number };
+
+type Kind = FormState["kind"];
 
 // Every homebrew query lives under ["homebrew", ...], so one invalidation refreshes them all.
-const HOMEBREW_KEYS = { races: ["homebrew", "races"], subclasses: ["homebrew", "subclasses"] } as const;
+const HOMEBREW_KEYS = {
+  races: ["homebrew", "races"],
+  subclasses: ["homebrew", "subclasses"],
+  feats: ["homebrew", "feats"],
+} as const;
+
+const TAB_OF: Record<Kind, Tab> = { race: "races", subclass: "subclasses", feat: "feats" };
+
+function tabOf(value: string | null): Tab {
+  return value === "subclasses" || value === "feats" ? value : "races";
+}
 
 /** A muted label over its value. */
 function Fact({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
@@ -180,6 +196,51 @@ function SubclassDetail({ s }: { s: HomebrewSubclass }) {
   );
 }
 
+/** The short line under a feat's name: kind, rules, its +1 and its trade. */
+function featSummary(f: HomebrewFeat): string {
+  const bits = [featKindLabel(f.category), homebrewRulesLabel(f.ruleset)];
+  const plus = plusOneLine(f.asi_options);
+  if (plus) bits.push(plus);
+  if (f.power_attack) bits.push(`Power attack ${powerAttackShort(f.power_attack)}`);
+  return bits.join(" · ");
+}
+
+function FeatDetail({ f }: { f: HomebrewFeat }) {
+  const plus = plusOneLine(f.asi_options);
+  return (
+    <>
+      <div style={FACTS}>
+        <Fact label="Kind">{featKindLabel(f.category)}</Fact>
+        <Fact label="Rules">{homebrewRulesLabel(f.ruleset)}</Fact>
+        <Fact label="Ability increase">{plus ?? "None"}</Fact>
+        <Fact label="Taken more than once">{f.repeatable ? "Yes" : "No"}</Fact>
+        {f.prerequisite && (
+          <Fact label="Prerequisite (not checked)" wide>
+            {f.prerequisite}
+          </Fact>
+        )}
+        {f.power_attack && (
+          <Fact label="Power attack" wide>
+            {powerAttackLine(f.power_attack)}: a toggle on the sheet&rsquo;s attacks.
+          </Fact>
+        )}
+      </div>
+      {f.blurb && (
+        <p className="story" style={{ margin: "0 0 0.75rem", fontSize: "1rem", lineHeight: 1.55 }}>
+          {f.blurb}
+        </p>
+      )}
+      {f.description ? (
+        <p style={{ margin: 0, fontSize: "0.9375rem", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{f.description}</p>
+      ) : (
+        <p className="text-muted" style={{ margin: 0, fontSize: "0.875rem" }}>
+          No full text yet. Edit the feat to write what it does.
+        </p>
+      )}
+    </>
+  );
+}
+
 /** Edit, Copy and edit, and Delete (in the ⋯ menu, asking first) for one row. */
 function Actions({
   name,
@@ -191,7 +252,7 @@ function Actions({
   deleteError,
 }: {
   name: string;
-  what: "race" | "subclass";
+  what: Kind;
   phone: boolean;
   onEdit: () => void;
   onCopy: () => void;
@@ -305,22 +366,24 @@ export default function HomebrewOptions() {
   const phone = useIsCompact(640);
   const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
-  const [tab, setTab] = useState<Tab>(() => (params.get("tab") === "subclasses" ? "subclasses" : "races"));
-  const [form, setForm] = useState<FormState | null>(() =>
-    params.get("new") === "1"
-      ? params.get("tab") === "subclasses"
-        ? { kind: "subclass", mode: "new", from: null, key: 0 }
-        : { kind: "race", mode: "new", from: null, key: 0 }
-      : null,
-  );
+  const [tab, setTab] = useState<Tab>(() => tabOf(params.get("tab")));
+  const [form, setForm] = useState<FormState | null>(() => {
+    if (params.get("new") !== "1") return null;
+    const t = tabOf(params.get("tab"));
+    if (t === "subclasses") return { kind: "subclass", mode: "new", from: null, key: 0 };
+    if (t === "feats") return { kind: "feat", mode: "new", from: null, key: 0 };
+    return { kind: "race", mode: "new", from: null, key: 0 };
+  });
   const [openId, setOpenId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<{ id: string; message: string } | null>(null);
 
   const races = useQuery({ queryKey: HOMEBREW_KEYS.races, queryFn: homebrewApi.races });
   const subclasses = useQuery({ queryKey: HOMEBREW_KEYS.subclasses, queryFn: () => homebrewApi.subclasses() });
+  const feats = useQuery({ queryKey: HOMEBREW_KEYS.feats, queryFn: homebrewApi.feats });
   const raceRows = races.data ?? [];
   const subRows = subclasses.data ?? [];
+  const featRows = feats.data ?? [];
 
   function pickTab(t: Tab) {
     setTab(t);
@@ -328,8 +391,8 @@ export default function HomebrewOptions() {
     setDeleteError(null);
     const next = new URLSearchParams(params);
     next.delete("new");
-    if (t === "subclasses") next.set("tab", "subclasses");
-    else next.delete("tab");
+    if (t === "races") next.delete("tab");
+    else next.set("tab", t);
     setParams(next, { replace: true });
   }
 
@@ -343,6 +406,17 @@ export default function HomebrewOptions() {
     setForm((prev) => ({ kind: "subclass", mode, from, key: (prev?.key ?? 0) + 1 }));
   }
 
+  function openFeat(mode: HomebrewFormMode, from: HomebrewFeat | null) {
+    setDeleteError(null);
+    setForm((prev) => ({ kind: "feat", mode, from, key: (prev?.key ?? 0) + 1 }));
+  }
+
+  function openNew() {
+    if (tab === "races") openRace("new", null);
+    else if (tab === "subclasses") openSubclass("new", null);
+    else openFeat("new", null);
+  }
+
   function closeForm() {
     setForm(null);
     if (params.get("new")) {
@@ -352,23 +426,26 @@ export default function HomebrewOptions() {
     }
   }
 
-  function saved(kind: "race" | "subclass", mode: HomebrewFormMode, row: { id: string; name: string }) {
+  function saved(kind: Kind, mode: HomebrewFormMode, row: { id: string; name: string }) {
     closeForm();
     setOpenId(row.id);
     void qc.invalidateQueries({ queryKey: ["homebrew"] });
-    const where = kind === "race" ? "races" : "subclasses";
+    const where = TAB_OF[kind];
     setNotice(
       mode === "edit"
         ? `Saved your changes to ${row.name}.`
-        : `${row.name} is in your ${where}. Players can pick it when they build a character in your campaigns.`,
+        : kind === "feat"
+          ? `${row.name} is in your feats. Characters in your campaigns can take it when they're made or level up.`
+          : `${row.name} is in your ${where}. Players can pick it when they build a character in your campaigns.`,
     );
   }
 
-  async function remove(kind: "race" | "subclass", row: { id: string; name: string }) {
+  async function remove(kind: Kind, row: { id: string; name: string }) {
     setDeleteError(null);
     try {
       if (kind === "race") await homebrewApi.removeRace(row.id);
-      else await homebrewApi.removeSubclass(row.id);
+      else if (kind === "subclass") await homebrewApi.removeSubclass(row.id);
+      else await homebrewApi.removeFeat(row.id);
       setOpenId(null);
       void qc.invalidateQueries({ queryKey: ["homebrew"] });
       setNotice(`Deleted ${row.name}.`);
@@ -377,10 +454,12 @@ export default function HomebrewOptions() {
     }
   }
 
-  const loading = tab === "races" ? races.isLoading : subclasses.isLoading;
-  const failed = tab === "races" ? races.isError : subclasses.isError;
+  const query = tab === "races" ? races : tab === "subclasses" ? subclasses : feats;
+  const loading = query.isLoading;
+  const failed = query.isError;
   const openRaceRow = phone ? raceRows.find((r) => r.id === openId) : undefined;
   const openSubRow = phone ? subRows.find((s) => s.id === openId) : undefined;
+  const openFeatRow = phone ? featRows.find((f) => f.id === openId) : undefined;
 
   const raceActions = (r: HomebrewRace) => (
     <Actions
@@ -402,6 +481,17 @@ export default function HomebrewOptions() {
       onCopy={() => openSubclass("copy", s)}
       onDelete={() => void remove("subclass", s)}
       deleteError={deleteError?.id === s.id ? deleteError.message : null}
+    />
+  );
+  const featActions = (f: HomebrewFeat) => (
+    <Actions
+      name={f.name}
+      what="feat"
+      phone={phone}
+      onEdit={() => openFeat("edit", f)}
+      onCopy={() => openFeat("copy", f)}
+      onDelete={() => void remove("feat", f)}
+      deleteError={deleteError?.id === f.id ? deleteError.message : null}
     />
   );
 
@@ -440,25 +530,30 @@ export default function HomebrewOptions() {
     <div className="fade-in">
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: "0.75rem", marginBottom: "1.25rem" }}>
         <div style={{ flex: "1 1 260px", minWidth: 0 }}>
-          <h1>Races &amp; subclasses</h1>
+          <h1>Races, subclasses &amp; feats</h1>
           <p className="text-muted" style={{ margin: 0 }}>
-            Your own races and subclasses. Players pick them when they build a character in any of your campaigns. Only
-            you can see and change them.
+            Your own races, subclasses and feats. Players pick them when they make or level up a character in any of
+            your campaigns. Only you can see and change them.
           </p>
         </div>
         <button
           type="button"
           className="btn btn-primary"
-          onClick={() => (tab === "races" ? openRace("new", null) : openSubclass("new", null))}
+          onClick={openNew}
           style={{ minHeight: 44, width: phone ? "100%" : undefined, justifyContent: "center" }}
         >
-          <Plus size={16} aria-hidden /> {tab === "races" ? "New race" : "New subclass"}
+          <Plus size={16} aria-hidden /> {tab === "races" ? "New race" : tab === "subclasses" ? "New subclass" : "New feat"}
         </button>
       </div>
 
-      <div role="tablist" aria-label="Races or subclasses" style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
+      <div
+        role="tablist"
+        aria-label="Races, subclasses or feats"
+        style={{ display: "flex", gap: phone ? "0.35rem" : "0.5rem", marginBottom: "1rem" }}
+      >
         {tabBtn("races", "Races", raceRows.length)}
         {tabBtn("subclasses", "Subclasses", subRows.length)}
+        {tabBtn("feats", "Feats", featRows.length)}
       </div>
 
       {notice && (
@@ -506,6 +601,19 @@ export default function HomebrewOptions() {
             </button>
           </div>
         )}
+        {!loading && !failed && tab === "feats" && featRows.length === 0 && (
+          <div className="card">
+            <p style={{ marginTop: 0 }}>No feats yet.</p>
+            <p className="text-muted" style={{ fontSize: "0.9375rem" }}>
+              Write your own: what it does in your words, a +1 to an ability if it gives one, and a power attack if it has
+              one (a penalty to hit for extra damage, like &minus;5 / +10). Characters in your campaigns can take it in
+              place of an Ability Score Improvement, when they&rsquo;re made or when they level up.
+            </p>
+            <button type="button" className="btn btn-primary" onClick={() => openFeat("new", null)} style={{ minHeight: 44 }}>
+              <Plus size={16} aria-hidden /> New feat
+            </button>
+          </div>
+        )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
           {tab === "races" &&
@@ -546,6 +654,23 @@ export default function HomebrewOptions() {
                 {subActions(s)}
               </Row>
             ))}
+          {tab === "feats" &&
+            featRows.map((f) => (
+              <Row
+                key={f.id}
+                title={f.name}
+                summary={featSummary(f)}
+                open={openId === f.id}
+                phone={phone}
+                onToggle={() => {
+                  setDeleteError(null);
+                  setOpenId(openId === f.id && !phone ? null : f.id);
+                }}
+              >
+                <FeatDetail f={f} />
+                {featActions(f)}
+              </Row>
+            ))}
         </div>
       </div>
 
@@ -559,6 +684,12 @@ export default function HomebrewOptions() {
         <PhoneSheet title={openSubRow.name} onClose={() => setOpenId(null)}>
           <SubclassDetail s={openSubRow} />
           {subActions(openSubRow)}
+        </PhoneSheet>
+      )}
+      {phone && tab === "feats" && openFeatRow && !form && (
+        <PhoneSheet title={openFeatRow.name} onClose={() => setOpenId(null)}>
+          <FeatDetail f={openFeatRow} />
+          {featActions(openFeatRow)}
         </PhoneSheet>
       )}
 
@@ -578,6 +709,15 @@ export default function HomebrewOptions() {
           from={form.from}
           onClose={closeForm}
           onSaved={(row) => saved("subclass", form.mode, row)}
+        />
+      )}
+      {form?.kind === "feat" && (
+        <FeatForm
+          key={form.key}
+          mode={form.mode}
+          from={form.from}
+          onClose={closeForm}
+          onSaved={(row) => saved("feat", form.mode, row)}
         />
       )}
     </div>

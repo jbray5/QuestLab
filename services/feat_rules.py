@@ -9,17 +9,99 @@ The data (feat catalog, class tables) stays in ``integrations/dnd_rules/levelup_
 Plan 131: every function that reads those tables takes ``ruleset`` ("2024", the default, or
 "2014") and reads that edition's tables through ``rulesets``; the 2014 modules have the same
 names and shapes.
+
+Plan 135: the campaign DM's homebrew feats (``homebrew_rows``) are catalog rows too, in both
+editions, passed in as ``homebrew`` by the creator and the level-up guide so both offer and
+apply them the same way:
+
+- "general" and "origin" feats are offered at every Ability Score Improvement (the 2024
+  rules let an Origin feat be taken there; the 2014 rules have no Origin feats, so one is
+  simply a feat).
+- "epic_boon" feats only from level 19 (``EPIC_BOON_LEVEL``), in both editions.
+- "fighting_style" feats join the Fighting Style class choice (``choice_rows``) and, like the
+  rules' styles, are taken at an improvement only in 2024 and only with the Fighting Style
+  feature.
+- The +1 follows ``asi_options`` (None, "any" or ability codes), capped at 20 by the caller;
+  ``repeatable`` lets the feat be taken again. The free-text prerequisite is shown, never
+  checked. The feat goes on the sheet by name.
 """
 
 from types import ModuleType
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
+from domain.homebrew import HomebrewFeatRead
 from domain.level_up import FeatChoice, FeatOption
 from domain.spell import Spell
 from integrations.dnd_rules import rulesets
 
 ASI = "Ability Score Improvement"
-_CATEGORY_ORDER = {"general": 0, "fighting_style": 1, "origin": 2}
+EPIC_BOON_LEVEL = 19
+_CATEGORY_ORDER = {"general": 0, "fighting_style": 1, "origin": 2, "epic_boon": 3}
+_BLURB_FALLBACK = 160  # a feat with no blurb shows the start of its text, this long at most
+
+
+def homebrew_row(feat: HomebrewFeatRead) -> dict[str, Any]:
+    """One homebrew feat as a rules ``FEATS`` row, marked ``homebrew`` (Plan 135).
+
+    Every rule key the catalog rows have is present (no spells, skills or choices: a DM's
+    feat says those in its text). A fighting style needs the Fighting Style feature, as the
+    rules' styles do; the free-text prerequisite is only shown. The extra keys are
+    ``homebrew``, ``description``, ``prerequisite`` and ``power_attack`` (a plain dict).
+    """
+    blurb = feat.blurb.strip()
+    if not blurb:
+        text = " ".join(feat.description.split())
+        blurb = text if len(text) <= _BLURB_FALLBACK else text[: _BLURB_FALLBACK - 1] + "…"
+    return {
+        "name": feat.name,
+        "category": feat.category,
+        "blurb": blurb,
+        "prereq": {"fighting_style": True} if feat.category == "fighting_style" else {},
+        "asi_options": feat.asi_options,
+        "save_prof": False,
+        "fixed_spells": [],
+        "spell_picks": [],
+        "skill_pick": None,
+        "expertise_pick": 0,
+        "choice": None,
+        "hp_per_level": 0,
+        "ac_bonus_in_armor": 0,
+        "repeatable": bool(feat.repeatable),
+        "srd": False,
+        "homebrew": True,
+        "description": feat.description,
+        "prerequisite": feat.prerequisite,
+        "power_attack": feat.power_attack.model_dump() if feat.power_attack else None,
+    }
+
+
+def homebrew_rows(feats: Iterable[HomebrewFeatRead]) -> list[dict[str, Any]]:
+    """The campaign DM's homebrew feats as ``FEATS`` rows (``homebrew_row``), in order."""
+    return [homebrew_row(f) for f in feats]
+
+
+def choice_rows(
+    class_name: str,
+    key: str,
+    ruleset: Any = "2024",
+    homebrew: Optional[list[dict[str, Any]]] = None,
+) -> list[dict[str, Any]]:
+    """A class choice's listed options; the Fighting Style choice adds the DM's styles.
+
+    Plan 135: a homebrew "fighting_style" feat is offered to every class whose Fighting Style
+    choice lists feats (``kind`` "feat"), marked ``homebrew``. Other choices are unchanged.
+    """
+    rules = rulesets.levelup(ruleset)
+    rows = list(rules.choice_options(class_name, key))
+    if not homebrew or rules.CHOICE_KINDS.get(key, {}).get("kind") != "feat":
+        return rows
+    have = {r["name"].casefold() for r in rows}
+    rows += [
+        {"name": r["name"], "blurb": r["blurb"], "srd": False, "homebrew": True}
+        for r in homebrew
+        if r["category"] == "fighting_style" and r["name"].casefold() not in have
+    ]
+    return rows
 
 
 def _tables(ruleset: Any) -> tuple[ModuleType, ModuleType]:
@@ -81,14 +163,25 @@ def armor_training(
 
 
 def has_fighting_style(
-    class_name: str, level: int, feats: list[str], ruleset: Any = "2024"
+    class_name: str,
+    level: int,
+    feats: list[str],
+    ruleset: Any = "2024",
+    homebrew: Optional[list[dict[str, Any]]] = None,
 ) -> bool:
-    """True once the class has its Fighting Style feature, or a Fighting Style feat is taken."""
+    """True once the class has its Fighting Style feature, or a Fighting Style feat is taken.
+
+    Plan 135: the campaign DM's homebrew fighting styles count as Fighting Style feats.
+    """
     rules = rulesets.levelup(ruleset)
     at = rules.FIGHTING_STYLE_LEVEL.get(class_name)
     if at is not None and level >= at:
         return True
-    styles = {f["name"].casefold() for f in rules.FEATS if f["category"] == "fighting_style"}
+    styles = {
+        f["name"].casefold()
+        for f in [*rules.FEATS, *(homebrew or [])]
+        if f["category"] == "fighting_style"
+    }
     return bool(feat_names(feats, ruleset) & styles)
 
 
@@ -119,6 +212,7 @@ def feat_options(
     feats: list[str],
     subclass: Optional[str],
     ruleset: Any = "2024",
+    homebrew: Optional[list[dict[str, Any]]] = None,
 ) -> list[FeatOption]:
     """Every catalog feat with whether this PC may take it at ``level``, best picks first.
 
@@ -129,17 +223,19 @@ def feat_options(
         feats: Feat names already on the sheet.
         subclass: The PC's subclass, if any (third-casters count as casters).
         ruleset: Plan 131 — the edition whose feat catalog to offer.
+        homebrew: Plan 135 — the campaign DM's feats (``homebrew_rows``), offered too.
 
     Returns:
-        FeatOption rows: qualifying popular picks first, then the rest, locked ones last.
+        FeatOption rows: qualifying popular picks first, then the DM's homebrew, then the
+        rest, locked ones last.
     """
     rules = rulesets.levelup(ruleset)
     popular = rules.POPULAR_FEATS.get(class_name, [])
     training = armor_training(class_name, feats, ruleset, subclass)
-    style = has_fighting_style(class_name, level, feats, ruleset)
+    style = has_fighting_style(class_name, level, feats, ruleset, homebrew)
     caster = is_caster(class_name, subclass, ruleset)
     out: list[FeatOption] = []
-    for row in rules.FEATS:
+    for row in [*rules.FEATS, *(homebrew or [])]:
         ok, reason = rules.feat_qualifies(
             row,
             scores=scores,
@@ -148,6 +244,8 @@ def feat_options(
             has_fighting_style=style,
             current_feats=feats,
         )
+        if ok and row["category"] == "epic_boon" and level < EPIC_BOON_LEVEL:
+            ok, reason = False, f"An epic boon comes at level {EPIC_BOON_LEVEL}."
         out.append(
             FeatOption(
                 name=row["name"],
@@ -168,6 +266,11 @@ def feat_options(
                 choice=row["choice"],
                 hp_per_level=row["hp_per_level"],
                 ac_bonus_in_armor=row["ac_bonus_in_armor"],
+                repeatable=row["repeatable"],
+                homebrew=bool(row.get("homebrew")),
+                description=row.get("description", ""),
+                prerequisite=row.get("prerequisite", ""),
+                power_attack=row.get("power_attack"),
             )
         )
     rank = {name: i for i, name in enumerate(popular)}
@@ -175,11 +278,18 @@ def feat_options(
         key=lambda f: (
             not f.ok,
             rank.get(f.name, len(rank)),
+            not f.homebrew,
             _CATEGORY_ORDER.get(f.category, 9),
             f.name,
         )
     )
     return out
+
+
+def _homebrew_option(options: list[FeatOption], name: str) -> Optional[FeatOption]:
+    """The campaign DM's homebrew feat called ``name`` among ``options`` (ignoring case)."""
+    key = name.strip().casefold()
+    return next((f for f in options if f.homebrew and f.name.casefold() == key), None)
 
 
 def increase(
@@ -264,10 +374,16 @@ def apply_feat(
 
     Raises:
         ValueError: If the feat is unknown, its prerequisite isn't met, or a sub-pick is wrong.
+
+    Plan 135: the campaign DM's homebrew feats are found among ``options`` (``feat_options``
+    with ``homebrew``), checked and applied like the rules' own; a book entry can't borrow a
+    homebrew feat's name (pick it from the list instead).
     """
     rules, srd = _tables(ruleset)
     if fc.from_book:
         name = fc.name.strip()
+        if _homebrew_option(options, name) is not None:
+            raise ValueError(f"{name} is one of your DM's feats: pick it from the list.")
         if name.casefold() in feat_names(feats, ruleset) and name.casefold() != ASI.casefold():
             raise ValueError(f"You already have {name}.")
         inc = {}
@@ -280,7 +396,10 @@ def apply_feat(
 
     row = rules.FEATS_BY_NAME.get(fc.name.strip().casefold())
     if row is None:
-        raise ValueError(f"Unknown feat {fc.name!r}. Pick 'From my book' for others.")
+        own = _homebrew_option(options, fc.name)
+        if own is None:
+            raise ValueError(f"Unknown feat {fc.name!r}. Pick 'From my book' for others.")
+        row = own.model_dump()
     opt = next(f for f in options if f.name == row["name"])
     if not opt.ok:
         raise ValueError(f"{row['name']}: {opt.reason}")
@@ -412,6 +531,7 @@ def apply_class_choices(
     summary: list[str],
     warnings: list[str],
     ruleset: Any = "2024",
+    homebrew: Optional[list[dict[str, Any]]] = None,
 ) -> dict[str, Any]:
     """Validate the class's choices at ``level`` and record them on the sheet lists.
 
@@ -432,6 +552,8 @@ def apply_class_choices(
         summary: Lines describing what was chosen.
         warnings: Lines the player should read.
         ruleset: Plan 131 — the edition whose class choices apply.
+        homebrew: Plan 135 — the campaign DM's feats; its fighting styles join the Fighting
+            Style choice (``choice_rows``).
 
     Returns:
         Effects for the rest of the build: ``{"cantrips": extra cantrip count,
@@ -487,6 +609,7 @@ def apply_class_choices(
                 effects,
                 ruleset,
                 elsewhere,
+                homebrew,
             )
             for name in book:
                 warnings.append(f"{label}: {name} is recorded by name. Play it from your book.")
@@ -506,15 +629,16 @@ def apply_options(
     effects: dict[str, Any],
     ruleset: Any = "2024",
     elsewhere: Optional[set[str]] = None,
+    homebrew: Optional[list[dict[str, Any]]] = None,
 ) -> None:
     """Check listed options (and their prerequisites) and record them with the book entries.
 
     ``elsewhere`` holds names picked under other choices or already on the sheet, which a
-    prerequisite may name (Plan 131: a 2014 invocation's Pact Boon).
+    prerequisite may name (Plan 131: a 2014 invocation's Pact Boon). ``homebrew`` (Plan 135)
+    adds the campaign DM's fighting styles to a Fighting Style choice.
     """
     label, kind = spec["label"], spec["kind"]
-    rules = rulesets.levelup(ruleset)
-    options = {o["name"].casefold(): o for o in rules.choice_options(class_name, key)}
+    options = {o["name"].casefold(): o for o in choice_rows(class_name, key, ruleset, homebrew)}
     rows = []
     for name in listed:
         row = options.get(name.casefold())

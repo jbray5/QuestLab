@@ -4,6 +4,8 @@
  * check, save and ability is a roll; hit points, temp HP, inspiration, hit dice,
  * features and exhaustion are all one tap. Plan 128: conditions in plain words
  * right under hit points, and "What you can do", the class's features by level.
+ * Plan 135: counters (a homebrew subclass's Superiority Dice, hand-made ones) sit with
+ * the features with uses, one tap to spend.
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -11,9 +13,11 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronRight, Shirt, Swords } from "lucide-react";
 
 import { playApi } from "../../api/play";
+import type { CharacterResource } from "../../api/resources";
 import { exhaustion2014Summary } from "../../lib/conditions";
 import { portraitSrc } from "../../lib/portrait";
 import { rulesetOf } from "../../lib/ruleset";
+import { otherSpeedsLine, speedTitle } from "../../lib/speeds";
 import { usePlayer } from "./playerContext";
 import { useRoll } from "./rollContext";
 import { abilitySpec, initiativeSpec, saveSpec, skillSpec } from "./rolls";
@@ -145,7 +149,8 @@ function TeachSheet() {
     <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
         <StatCard label="Armor Class" value={String(pc.ac)} note="How hard you are to hit." />
-        <StatCard label="Speed" value={`${pc.speed} ft`} note="How far you move on a turn." />
+        {/* Plan 135 — a homebrew race's fly, swim, climb or burrow speeds ride along. */}
+        <StatCard label="Speed" value={`${pc.speed} ft`} note={otherSpeedsLine(pc.speeds) ? `How far you walk on a turn; also ${otherSpeedsLine(pc.speeds)}.` : "How far you move on a turn."} />
         <StatCard label="Initiative · tap to roll" value={fmt(mod(pc.score_dex))} note="Added when a fight starts." onTap={() => roll(initiativeSpec(pc))} />
         <StatCard label="Passive Perception" value={String(passivePerception(pc, skills))} note="What you notice without trying." />
       </div>
@@ -220,12 +225,17 @@ function RemindSheet() {
     <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6 }}>
         {tiles.map(([l, v, tap]) => (
-          <button key={l} type="button" onClick={tap} disabled={!tap} title={l === "Pass. Perc." ? "Passive Perception" : l === "Init" ? "Initiative" : undefined} style={{ borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", padding: "7px 9px", display: "flex", flexDirection: "column", textAlign: "left", color: "var(--text)", font: "inherit", cursor: tap ? "pointer" : "default", opacity: 1 }}>
+          <button key={l} type="button" onClick={tap} disabled={!tap} title={l === "Pass. Perc." ? "Passive Perception" : l === "Init" ? "Initiative" : l === "Speed" ? speedTitle(pc.speed, pc.speeds) : undefined} style={{ borderRadius: 12, background: "var(--surface)", border: "1px solid var(--border)", padding: "7px 9px", display: "flex", flexDirection: "column", textAlign: "left", color: "var(--text)", font: "inherit", cursor: tap ? "pointer" : "default", opacity: 1 }}>
             <span style={{ fontSize: 12, color: "var(--muted)" }}>{l}</span>
             <span className="num" style={{ fontWeight: 600, fontSize: 19 }}>{v}</span>
           </button>
         ))}
       </div>
+      {otherSpeedsLine(pc.speeds) && (
+        <span className="num" style={{ fontSize: 13, color: "var(--text2)", marginTop: -4 }}>
+          Speed {pc.speed} ft · {otherSpeedsLine(pc.speeds)}
+        </span>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
         {ABILITIES.map((a) => (
           <button key={a.key} type="button" className="btn btn-secondary" title={a.name} onClick={() => roll(abilitySpec(pc, a.key))} style={{ minHeight: 44, justifyContent: "space-between", padding: "0 10px" }}>
@@ -255,7 +265,7 @@ function NumbersSheet() {
   const ranks = (pc.skill_proficiencies as Record<string, number> | null) ?? {};
   const dense: Array<[string, string, string]> = [
     ["AC", String(pc.ac), "Armor Class"],
-    ["SPD", String(pc.speed), "Speed"],
+    ["SPD", otherSpeedsLine(pc.speeds) ? `${pc.speed} · ${otherSpeedsLine(pc.speeds)}` : String(pc.speed), speedTitle(pc.speed, pc.speeds)],
     ["INIT", fmt(mod(pc.score_dex)), "Initiative"],
     ["PB", fmt(profBonus(pc.level)), "Proficiency bonus"],
     ["PP", String(passivePerception(pc, skills)), "Passive Perception"],
@@ -335,8 +345,14 @@ function ClassFeatures() {
 function Features() {
   const { features, pcId, refresh, help, notify } = usePlayer();
   const spend = useMutation({ mutationFn: (id: string) => playApi.spendFeature(pcId, id), onSuccess: refresh });
+  // Plan 135 — keyed under "play-features", so every features refresh re-reads the counters.
+  const { data: counters = [] } = useQuery({
+    queryKey: ["play-features", pcId, "counters"],
+    queryFn: () => playApi.resources(pcId),
+    retry: false,
+  });
   const counted = features.filter((f) => f.max_uses > 0);
-  if (counted.length === 0) return null;
+  if (counted.length === 0 && counters.length === 0) return null;
   return (
     <Panel style={{ gap: 10 }}>
       <Heading>Features with uses{help === "teach" ? " · tap a filled dot when you use one" : ""}</Heading>
@@ -358,7 +374,97 @@ function Features() {
           </div>
         );
       })}
+      {counters.map((c) => (
+        <CounterRow key={c.id} counter={c} />
+      ))}
     </Panel>
+  );
+}
+
+/** What brings a counter back, in plain words ("none": only the DM or the player, by hand). */
+const COUNTER_RECOVERY: Record<string, string> = {
+  short: RECOVERY_TEXT.short,
+  long: RECOVERY_TEXT.long,
+  none: "doesn't come back on a rest",
+};
+
+/**
+ * One counter (Plan 135): "Superiority Dice · d10", tap a filled dot to spend one and a
+ * hollow dot to give one back (a misclick fix). A big counter is a number with buttons.
+ */
+function CounterRow({ counter }: { counter: CharacterResource }) {
+  const { pcId, refresh, help, notify } = usePlayer();
+  const left = Math.max(0, counter.max_uses - counter.uses_spent);
+  const leftOf = (row: CharacterResource) => Math.max(0, row.max_uses - row.uses_spent);
+  const spend = useMutation({
+    mutationFn: () => playApi.spendResource(pcId, counter.id),
+    onSuccess: (row) => {
+      notify(`${counter.name} used${counter.die ? `: roll your ${counter.die}` : ""}. ${leftOf(row)} left.`);
+      refresh();
+    },
+  });
+  const giveBack = useMutation({
+    mutationFn: () => playApi.restoreResource(pcId, counter.id),
+    onSuccess: (row) => {
+      notify(`${counter.name}: one back. ${leftOf(row)} left.`);
+      refresh();
+    },
+  });
+  const busy = spend.isPending || giveBack.isPending;
+  const title = counter.die ? `${counter.name} · ${counter.die}` : counter.name;
+  const sub = help !== "numbers" && (
+    <span style={{ fontSize: 13, color: "var(--muted)" }}>
+      {COUNTER_RECOVERY[counter.recovery] ?? counter.recovery}
+      {help === "teach" && counter.die ? ` · each use is a ${counter.die}` : ""}
+    </span>
+  );
+  const note = help === "teach" && counter.notes && (
+    <span style={{ fontSize: 14, color: "var(--text2)", overflowWrap: "anywhere" }}>{counter.notes}</span>
+  );
+  if (counter.max_uses > POOL_FROM) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 600, flex: "1 1 150px" }}>{title}</span>
+          <span>
+            <span className="num" style={{ fontSize: 22, fontWeight: 700 }}>{left}</span>
+            <span className="num" style={{ color: "var(--muted)" }}> of {counter.max_uses} left</span>
+          </span>
+        </div>
+        {sub}
+        {note}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button type="button" className="btn btn-secondary" disabled={busy || left === 0} onClick={() => spend.mutate()} style={{ minHeight: 44, flex: 1 }}>
+            Use one
+          </button>
+          <button type="button" className="btn btn-ghost" disabled={busy || counter.uses_spent === 0} onClick={() => giveBack.mutate()} style={{ minHeight: 44 }}>
+            One back
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 150px", display: "flex", flexDirection: "column" }}>
+          <span style={{ fontWeight: 600 }}>{title}</span>
+          {sub}
+        </div>
+        <Pips
+          filled={left}
+          total={counter.max_uses}
+          size={20}
+          label={counter.name}
+          onTap={(_, on) => {
+            if (busy) return;
+            if (on) spend.mutate();
+            else giveBack.mutate();
+          }}
+        />
+      </div>
+      {note}
+    </div>
   );
 }
 

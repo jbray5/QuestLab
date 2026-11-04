@@ -34,6 +34,11 @@ notes and, in 2014, its ability bonuses and ability choice. A homebrew subclass 
 "from my book" warning, and its always-prepared spells up to the build's level are learned and
 prepared. A 2014 campaign with custom origin on lets the race's fixed bonuses move
 (``origin_bonus``): the same amounts, each on a different ability.
+
+Plan 135: the campaign DM's homebrew feats join the options' ``feats`` (marked ``homebrew``)
+and are real picks at every Ability Score Improvement, in both editions, checked and applied
+by ``feat_rules`` exactly as the level-up guide does; a homebrew fighting style joins the
+Fighting Style choice.
 """
 
 import uuid
@@ -164,9 +169,11 @@ def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
     """The compendium for one campaign, from its edition's tables (Plan 131).
 
     Plan 133: plus the campaign DM's homebrew races (in ``species``) and subclasses.
+    Plan 135: and feats (in ``feats``, after the rules' own).
     """
     ruleset, srd, rules = _tables(campaign)
     hb_species, hb_subs = _homebrew(db, campaign)
+    hb_feats = _homebrew_feats(db, campaign)
     sub_tables = _homebrew_subclass_tables(hb_subs, rules)
     spells = [_spell_row(s) for s in _catalog(db, campaign)]
     weapon_names = {i for c in srd.CLASSES.values() for k in c["kits"] for i in k["items"]}
@@ -201,7 +208,7 @@ def _options(db: DBSession, campaign: Campaign) -> BuilderOptions:
         armor=srd.ARMOR,
         spells=spells,
         weapons=weapons,
-        feats=[dict(row) for row in rules.FEATS],
+        feats=[dict(row) for row in rules.FEATS] + hb_feats,
         asi_levels={c: sorted(rules.asi_levels(c)) for c in srd.CLASSES},
         popular_feats={c: list(v) for c, v in rules.POPULAR_FEATS.items()},
         class_features={c: rules.CLASS_LEVEL_FEATURES.get(c, {}) for c in srd.CLASSES},
@@ -266,6 +273,15 @@ def _homebrew(
     for sub in subs:
         by_class.setdefault(sub.character_class, []).append(sub)
     return [_race_row(r, old) for r in races], by_class
+
+
+def _homebrew_feats(db: DBSession, campaign: Campaign) -> list[dict[str, Any]]:
+    """The campaign DM's homebrew feats for its rules, as ``FEATS`` rows (Plan 135).
+
+    Only that DM's rows that fit the campaign's edition (``homebrew_service``); another DM's
+    feats never show. ``feat_rules.homebrew_row`` gives the shape (``homebrew: True``).
+    """
+    return feat_rules.homebrew_rows(homebrew_service.feats_for_campaign(db, campaign))
 
 
 def _sentence(line: str) -> str:
@@ -543,6 +559,7 @@ def _apply_improvements(
     taken: Optional[set[str]] = None,
     always: Optional[set[str]] = None,
     ruleset: str = "2024",
+    homebrew: Optional[list[dict[str, Any]]] = None,
 ) -> tuple[list[str], list[str]]:
     """Validate and apply one Ability Score Improvement (or feat) per improvement level.
 
@@ -554,6 +571,7 @@ def _apply_improvements(
         taken: Casefolded spells already picked elsewhere (class picks, Magic Initiate).
         always: Casefolded always-prepared spells (a feat can't spend a pick on one).
         ruleset: Plan 131 — the edition whose improvement levels and feats apply.
+        homebrew: Plan 135 — the campaign DM's feats (``_homebrew_feats``), offered too.
 
     Returns:
         (summary lines such as "Level 4: Ability Score Improvement (+2 STR)", feat spells to
@@ -584,7 +602,9 @@ def _apply_improvements(
     feat_spells: list[str] = []
     picked_spells: list[str] = []
     for pick in picks:
-        options = feat_rules.feat_options(class_name, pick.level, scores, feats, subclass, ruleset)
+        options = feat_rules.feat_options(
+            class_name, pick.level, scores, feats, subclass, ruleset, homebrew
+        )
         summary: list[str] = []
         try:
             inc, spells, row = feat_rules.apply_feat(
@@ -871,6 +891,7 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
     level = build.level
     # Plan 133 — the campaign DM's homebrew races and subclasses count like the SRD ones.
     hb_species, hb_subs = _homebrew(db, campaign)
+    hb_feats = _homebrew_feats(db, campaign)  # Plan 135
 
     # Species: SRD, the DM's homebrew, or "from my book" (free text keeps the name; no traits
     # assumed). Homebrew names never repeat an SRD race or subrace, so one lookup serves.
@@ -1028,7 +1049,7 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
             origin_spells += spells
         if origin_feat:
             row = rules.FEATS_BY_NAME.get(origin_feat.casefold())
-            if origin_feat.casefold() in feat_rules.feat_names(feat_names) and not (
+            if origin_feat.casefold() in feat_rules.feat_names(feat_names, ruleset) and not (
                 row and row["repeatable"]
             ):
                 raise ValueError(f"Your background already gives {origin_feat}: pick another feat.")
@@ -1079,6 +1100,7 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
             choice_lines,
             choice_warnings,
             ruleset,
+            hb_feats,
         )
         warnings += [w for w in choice_warnings if w not in quiet]
     elif counts:
@@ -1110,6 +1132,7 @@ def _create(db: DBSession, campaign: Campaign, build: CharacterBuild) -> BuildRe
         taken={n.casefold() for n in origin_spells} | {s.name.casefold() for s in choice_spells},
         always=always_keys,
         ruleset=ruleset,
+        homebrew=hb_feats,
     )
 
     # Spells: only what the class lists allow, up to (and, for the wizard, exactly) the counts.

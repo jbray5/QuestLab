@@ -28,6 +28,11 @@ choice in both editions. A PC whose subclass is homebrew gets the DM's features 
 levels the DM set ("What's new") and the always-prepared spells, learned and prepared. The
 SRD subclass tables never read a homebrew name (a homebrew "Life" is not the Life Domain).
 A homebrew race's hit points per level count toward every level's gain.
+
+Plan 135: the campaign DM's homebrew feats (for the PC's edition) are offered at every feat
+pick and applied by ``feat_rules`` exactly as the creator applies them, so a PC built at level
+4 and one levelled 3 → 4 can take the same feats with the same results. A homebrew fighting
+style joins the Fighting Style choice.
 """
 
 import uuid
@@ -268,6 +273,15 @@ def _homebrew_named(
     return next((s for s in subs if s.name.casefold() == key), None) if key else None
 
 
+def _homebrew_feats(db: Session, pc: PlayerCharacter, dm: str) -> list[dict[str, Any]]:
+    """The campaign DM's homebrew feats for the PC's edition, as ``FEATS`` rows (Plan 135).
+
+    Only the PC's own campaign DM's rows (SEC-003): never another DM's homebrew.
+    """
+    feats = homebrew_service.feats_for_campaign(db, _homebrew_scope(pc, dm))
+    return feat_rules.homebrew_rows(feats)
+
+
 def _homebrew_race_hp(db: Session, pc: PlayerCharacter, dm: str) -> Optional[int]:
     """A homebrew race's extra hit points per level; None when the race isn't homebrew."""
     race = homebrew_service.race_for(db, _homebrew_scope(pc, dm), pc.race)
@@ -451,12 +465,15 @@ def _choice_step(
     known: list[Spell],
     all_spells: list[Spell],
     subclass: Optional[str],
+    homebrew: Optional[list[dict[str, Any]]] = None,
 ) -> ChoiceStep:
     """One class choice of the new level, with its options and what's already taken.
 
     Plan 134 (2024): Weapon Mastery offers the mastery weapons the class may master; an
     option the rules let you take again (Lessons of the First Ones) is never "already yours";
     an option that alone teaches cantrips (Blessed Warrior) says how many and from which list.
+
+    Plan 135: a Fighting Style choice offers the campaign DM's homebrew styles too.
     """
     spec = rules.CHOICE_KINDS[key]
     kind = spec["kind"]
@@ -500,7 +517,7 @@ def _choice_step(
                 )
             )
         return step
-    rows = rules.choice_options(class_name, key)
+    rows = feat_rules.choice_rows(class_name, key, ruleset, homebrew)
     styles = feat_rules.feat_names(feats, ruleset)
     have = {f.split(": ", 1)[1].casefold() for f in feats if ": " in f}
     cantrips = {s.name.casefold() for s in known if s.level == 0}
@@ -521,7 +538,11 @@ def _choice_step(
         )
         step.options.append(
             ChoiceOption(
-                name=row["name"], blurb=row.get("blurb", ""), ok=reason is None, reason=reason
+                name=row["name"],
+                blurb=row.get("blurb", ""),
+                ok=reason is None,
+                reason=reason,
+                homebrew=bool(row.get("homebrew")),
             )
         )
     grants = [int((row.get("cantrips") or {}).get("count", 0)) for row in rows]
@@ -546,11 +567,13 @@ def _choice_steps(
     feats: list[str],
     known: list[Spell],
     all_spells: list[Spell],
+    homebrew: Optional[list[dict[str, Any]]] = None,
 ) -> list[ChoiceStep]:
     """The class choices the new level brings: each table's running total at ``new`` minus
     the total at ``old``. A subclass picked at this level adds its own, tagged with it.
 
     ``subclass`` is the sheet's as the SRD tables may read it (None for a homebrew one).
+    ``homebrew`` (Plan 135): the campaign DM's feats, whose fighting styles join the choice.
     """
     ruleset = _ruleset(pc)
     sub = _srd_subclass(rules, subclass)
@@ -586,6 +609,7 @@ def _choice_steps(
                         known,
                         all_spells,
                         subclass,
+                        homebrew,
                     )
                 )
     return steps
@@ -893,8 +917,10 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
         new_features += _homebrew_features(option, 1, new, option.name)
 
     asi_level = new in rules.asi_levels(class_name)
+    # Plan 135 — the campaign DM's homebrew feats, at feat picks and in a Fighting Style.
+    hb_feats = _homebrew_feats(db, pc, dm)
     feat_options = (
-        feat_rules.feat_options(class_name, new, scores, feats, pc.subclass, ruleset)
+        feat_rules.feat_options(class_name, new, scores, feats, pc.subclass, ruleset, hb_feats)
         if asi_level
         else []
     )
@@ -927,6 +953,7 @@ def _build_plan(db: Session, pc: PlayerCharacter, dm: str) -> LevelUpPlan:
         feats,
         known,
         all_spells,
+        hb_feats,
     )
     if is_2014:
         step = _spell_step_2014(
@@ -1135,6 +1162,7 @@ def _apply_choices(
     cantrips: list[Spell],
     summary: list[str],
     warnings: list[str],
+    homebrew: Optional[list[dict[str, Any]]] = None,
 ) -> list[SpellOption]:
     """Validate the class choices of a level-up and record them on the sheet lists.
 
@@ -1143,7 +1171,8 @@ def _apply_choices(
     checks and the recording are ``feat_rules``' (shared with the character creator); only
     the count is the level's delta instead of the running total. Plan 134: the same for a
     2024 level-up, Weapon Mastery included ("Weapon Mastery: Longsword", as the creator
-    records it); an option the rules let you take again may be.
+    records it); an option the rules let you take again may be. Plan 135: ``homebrew`` (the
+    campaign DM's feats) adds their fighting styles to a Fighting Style choice.
 
     Returns:
         The spells picked through "spell" choices (Magical Secrets, Mystic Arcanum).
@@ -1187,7 +1216,7 @@ def _apply_choices(
         styles = feat_rules.feat_names(feats, ruleset)
         again = {
             r["name"].casefold()
-            for r in rules.choice_options(class_name, step.key)
+            for r in feat_rules.choice_rows(class_name, step.key, ruleset, homebrew)
             if r.get("repeatable")
         }
         for name in listed + book:
@@ -1224,6 +1253,7 @@ def _apply_choices(
                 effects,
                 ruleset,
                 elsewhere,
+                homebrew,
             )
         for name in book:
             warnings.append(f"{step.label}: {name} is recorded by name. Play it from your book.")
@@ -1440,6 +1470,7 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
             known_cantrips,
             summary,
             warnings,
+            _homebrew_feats(db, pc, dm),
         )
         top = step.max_spell_level if step else 0
         # Spells the PC can cast with its slots join its list; a Mystic Arcanum (6th level and

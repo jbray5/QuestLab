@@ -69,6 +69,9 @@ import {
  * explainers in the DM's words. In DM mode, "Make a custom race / subclass" opens the catalog in
  * a new tab, and the options reload when the DM comes back. A 2014 campaign with custom origin on
  * lets the race's fixed bonuses move ("+2 → [ability]").
+ *
+ * Plan 135: the DM's homebrew feats join the improvement step (and a homebrew fighting style the
+ * Fighting Style choice), marked the same way; in DM mode "Make a custom feat" opens the Feats tab.
  */
 
 const NOT_ASSIGNED = "Not assigned yet";
@@ -1068,11 +1071,12 @@ export default function CharacterWizard({ mode }: { mode: WizardMode }) {
         )}
 
         {key === "choices" && cls && choiceWalk && (
-          <ChoicesStep opts={opts} klass={klass} level={level} sections={choiceWalk.sections} setChoice={setChoice} />
+          <ChoicesStep opts={opts} klass={klass} level={level} sections={choiceWalk.sections} setChoice={setChoice} dm={dm} />
         )}
 
         {key === "asi" && cls && walk && (
-          <AsiStep opts={opts} klass={klass} level={level} levels={asiDue} contexts={walk.contexts} picks={asiPicks} setPick={setAsiPick} />
+          <AsiStep opts={opts} klass={klass} level={level} levels={asiDue} contexts={walk.contexts} picks={asiPicks} setPick={setAsiPick}
+            dm={dm} makeOwn={dm ? makeOwn("/homebrew?tab=feats&new=1", "Make a custom feat") : null} />
         )}
 
         {key === "spells" && plan && (

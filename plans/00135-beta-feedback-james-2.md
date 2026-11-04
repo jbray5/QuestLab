@@ -35,17 +35,23 @@ When this is done:
 ---
 
 ## Progress
-- [ ] Foundation (lead): models, migration 0063, feat repo + service + routes, race speeds copied to the PC, frontend types
-- [ ] RA: race speeds and natural weapons (form, sheet, attacks) and the power-attack toggle
-- [ ] RS: counters (migration 0064, service, routes, rests, sheet + phone, subclass form)
-- [ ] FT: homebrew feats (catalog tab + form; builder + level-up offer them; 2014 feat-text check)
-- [ ] WP: Weapons page edition switch, magic weapons listed, missing SRD 5.1 magic weapons
-- [ ] Gate, docs, merge; push after Justin
+- [x] Foundation (lead, b5cf0e8): models, migration 0063, feat repo + service + routes, race speeds copied to the PC, frontend types; 32 service + 4 API tests
+- [x] RA: race speeds and natural weapons (form, sheet, phone attacks) and the power-attack toggle (29 tests)
+- [x] RS: counters (migration 0064, service, routes, rests, sheet + phone, subclass form) (33 tests)
+- [x] FT: homebrew feats (catalog tab + form; builder + level-up + fighting-style choices; 2014 feat-text check) (23 tests)
+- [x] WP: Weapons page edition switch, magic weapons listed, 14 missing SRD 5.1 magic weapons synced at startup (27 tests)
+- [x] Lead merge fixes: attack preview made DM-only (was any signed-in user; also took a repo import out of the router), nav label, Guide paragraph, docs
+- [ ] Gate, commit; push after Justin
 
 ---
 
 ## Surprises and Discoveries
-_None yet._
+- **C: ran out of space mid-wave.** It was at 22 MB free, and one test failed with ENOSPC. 1.7 GB of Visual Studio installer temp and WSL crash dumps were moved to `F:\Temp\c-temp-moved-2026-11-04` (robocopy /MOVE; nothing deleted). This session's own transcript is about 1.4 GB of `.claude`.
+- **Pre-existing hole:** `POST /items/{id}/attack-preview` let any signed-in user preview any PC by id. It now uses `attack_service.attack_preview_for_dm` (403 for others).
+- **"Pulling 2024 feat information":** FT probed every 2014 path and found no 2024 feat reaching a 2014 PC (pinned by 3 tests). The one call missing `ruleset=` was on a 2024-only path. James's campaign may be set to 2024, or predate Plan 131; check on prod.
+- **SRD 5.1 weapon stats differ from 2024** only for Lance, Trident and War Pick; the Weapons page's 2014 view shows the 5.1 values. The sheet doesn't yet (TD-135b).
+- **Non-SRD seed items:** five seeded magic items aren't in SRD 5.1 (TD-135c).
+- **Where the cleanup runs:** character deletes clean up child tables in `CharacterRepo.delete`, not `character_service`, so the counters were added there.
 
 ---
 
@@ -58,6 +64,10 @@ _None yet._
 | 11/04 | Sharpshooter −5/+10 | name-match book feats / a DM-set trade on homebrew feats | DM-set trade (`power_attack`) | No book text shipped; covers GWM and table variants too |
 | 11/04 | Subclass counters | stored max per PC / computed from level tables | computed from the subclass's level tables; only `uses_spent` is stored | Level-ups and edits to the subclass need no sync |
 | 11/04 | Weapon mastery for 2014 tables | a per-campaign house rule / a page switch | page switch only | James: "a toggle for these would be all that's needed" |
+| 11/04 | Missing magic weapons on existing DBs | data migration / startup sync | startup sync by name, only the new list | `seed_magic_items` only fills an empty table; syncing only the new list means an item an admin deleted never comes back |
+| 11/04 | Power-attack offer on the sheet preview | anyone / the campaign DM | the campaign DM | A homebrew feat is the DM's; the preview route was open to any signed-in user |
+| 11/04 | Players and counters | full edit / spend and restore | spend and restore | Matches the player feature routes |
+| 11/04 | Epic boon homebrew feats | 19+ in 2024 only / 19+ in both | 19+ in both | 2014 has no level-19 boon; it stops an early pick |
 
 ---
 
@@ -84,7 +94,7 @@ _None yet._
 - **`homebrew_subclasses.resources`** (JSON, NOT NULL, `[]`), at most 4:
   - Shape: `[{"name": "Superiority Dice", "level": 3, "recovery": "short" | "long", "uses": {"3": 4, "7": 5, "15": 6} | null, "uses_formula": null | "prof_bonus" | "prof_x2" | "level" | "half_level" | "STR".."CHA", "die": {"3": "d8", "10": "d10", "18": "d12"} | null, "text": ""}]`.
   - Exactly one of `uses` and `uses_formula` is set. A `uses` table needs an entry at `level`.
-  - Use `subclass_resource_state(resource, pc_level, scores, prof)` → `(max_uses, die)`, or None before `level`.
+  - Use `SubclassResource.state_at(pc_level, scores, prof)` → `(max_uses, die)`, or None before `level`.
 - **`player_characters.speeds`** (JSON, nullable): the same dict. The builder copies it from a homebrew race; the sheet's edit form changes it.
 - **`homebrew_feats`** (new table):
   - Columns: `id`, `created_by_email`, `name`, `ruleset`, `category` ("general" | "origin" | "fighting_style" | "epic_boon"), `blurb` (≤ 300), `description` (≤ 3000), `prerequisite` (free text ≤ 200, shown, not enforced), `asi_options` (JSON: null | "any" | ["STR", …]), `repeatable`, `power_attack` (JSON: null | `{"to_hit": -5, "damage": 10, "weapons": "ranged" | "heavy" | "melee" | "any"}`), and timestamps.
@@ -134,7 +144,7 @@ _None yet._
 ## Interfaces and Dependencies
 - **Produces:**
   - The shapes above.
-  - `homebrew_service.feats_for_campaign`, `feat_for` and `subclass_resource_state`.
+  - `homebrew_service.feats_for_campaign`, `feat_for`, and `SubclassResource.state_at`.
   - `GET/POST/PATCH/DELETE /homebrew/feats`.
   - RS's counter routes; WP's `?ruleset=` on `GET /weapons`.
 - **Depends on:** Plan 131 (rulesets) and Plan 133 (homebrew races and subclasses).
