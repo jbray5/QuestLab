@@ -1329,6 +1329,7 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
     old_scores = dict(plan.scores)
     new_scores = dict(old_scores)
     summary: list[str] = []
+    still_open: Optional[str] = None
     warnings: list[str] = []
     learn: list[str] = []
     forget: list[str] = []
@@ -1444,9 +1445,8 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
         if open_c > 0 or open_s > 0:
             parts = [f"{open_c} cantrip" + ("s" if open_c > 1 else "")] if open_c > 0 else []
             parts += [f"{open_s} spell" + ("s" if open_s > 1 else "")] if open_s > 0 else []
-            warnings.append(
-                "Still to pick: " + " and ".join(parts) + ". Tell your DM, who can add them."
-            )
+            still_open = "Still to pick: " + " and ".join(parts)
+            warnings.append(f"{still_open}. Tell your DM, who can add them.")
         always = [g for g in step.always_prepared if g.subclass in (None, subclass)]
         if always and is_2014:
             summary.append("Always prepared: " + ", ".join(g.name for g in always))
@@ -1561,7 +1561,7 @@ def apply(db: Session, pc_id: uuid.UUID, choices: LevelUpChoices) -> LevelUpResu
     # Everything checks out: write the sheet.
     pending = int(pc.pending_level or new)
     stamp = datetime.now(UTC).strftime("%Y-%m-%d")
-    note = f"Level {new} ({stamp}): " + "; ".join(summary)
+    note = f"Level {new} ({stamp}): " + "; ".join([*summary, *filter(None, [still_open])])
     before_features = {f.feature_name for f in feature_service.list_for_character(db, pc.id, dm)}
     update = PlayerCharacterUpdate(
         level=new,

@@ -797,7 +797,7 @@ function Guide({ plan, onCancel, onDone }: { plan: LevelUpPlan; onCancel: () => 
             <SwapPicker label="Swap one spell (optional)" known={sc.known.filter((s) => s.level >= 1)} pool={castSpells}
               out={sSwapOut} into={sSwapIn} setOut={setSSwapOut} setInto={setSSwapIn} taken={takenByPicks} />
           )}
-          <p className="note">Spell not listed? Leave the pick open and tell your DM: it's recorded so nothing is lost.</p>
+          <p className="note">Spell not listed? QuestLab only comes with the free rules' spells. Leave the pick open and tell your DM, who can add it. The open pick is noted on your sheet.</p>
         </>
       )}
 
