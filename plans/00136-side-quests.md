@@ -29,16 +29,22 @@ A quest runs by itself once written. The DM doesn't need to be there, and that's
 ---
 
 ## Progress
-- [ ] Backend (lead): models, migration 0065, repo, service, DM and player routes, cascades, tests
-- [ ] SD: the DM's page: list, step editor, try-it preview, send, results
-- [ ] SP: the phone: the Now card, the quest screen, the shake-to-roll check, the Journal list
-- [ ] Gate, docs
+- [x] Backend (lead, 16c8813): models, migration 0065, repo, service, DM and player routes, cascades; 59 tests
+- [x] SD: the Quest creator: list, step editor, try-it preview, send, results
+- [x] SP: the phone: the Now card, the quest screen, the shake-to-roll check, the Journal list
+- [x] Lead merge: quiet phone calls, honest wording on who can read a reply, the Guide and Terms, docs, an end-to-end walk with a real five-quest set (85 routes through the API, 63 checks on the screens)
+- [x] Gate: 1878 tests, black, isort, flake8, interrogate, tsc, eslint, vite build
+- [ ] A real iPhone and Android phone (TD-136a)
 - [ ] Justin tries it locally; merge and push only when he says
 
 ---
 
 ## Surprises and Discoveries
 - `player_service.throw_dice` broadcasts every roll to the TV and to the party's phones, and needs a session to exist. A private quest can't use it, so quest checks roll quietly in `side_quest_service`.
+- Neither agent had walked the whole loop: SD played runs through the API and SP wrote quests through the API. The lead's end-to-end walk (DM page, send, phone, results) found no bugs.
+- The write limit (120 a minute per IP) and the 30-character campaign cap both stopped the test walk. A real player is nowhere near either.
+- A player's reply is readable by anyone with their link, like their notes, so "Only your DM reads this" was untrue. The phone and the Terms now say so.
+- `devicemotion` needs a secure context, so a real shake can only be tried on https, not on a phone over local http. Tap, real die and hold work there.
 
 ---
 
@@ -47,7 +53,8 @@ A quest runs by itself once written. The DM doesn't need to be there, and that's
 | Date | Decision | Options | Chosen | Reason |
 |---|---|---|---|---|
 | 11/04 | How interactive | letter and reply / branching steps | branching steps | Justin: a quest must run itself while the DM is away |
-| 11/04 | Writing help | an AI feature / none in the product | none in the product | The no-AI rule is literal. Justin gets outlines outside the product and writes the prose |
+| 11/04 | Writing help | an AI feature / none in the product | none in the product | The no-AI rule is literal. Whatever help Justin wants for his own table happens outside the product and the repo |
+| 11/04 | What the DM's page is called | Side quests / Quest creator | Quest creator (Justin's name, in the nav's sentence case); players still see "side quest" | DESIGN.md asks for sentence case, and its neighbours are "Town crier" and "Map builder" |
 | 11/04 | Graph shape | free graph / no cycles | no cycles, checked at send | Each step is reached at most once, so each reward can only be paid once, with no ledger |
 | 11/04 | Rewards | at the end only / on any step | on any step, gold may be negative | One check can change the payout without duplicating the steps after it; a cost lets a choice mean something |
 | 11/04 | Paying a cost the player can't afford | block the choice / pay what they have | pay what they have, floor at zero | No dead ends in a quest nobody is supervising |
@@ -133,18 +140,19 @@ Rules, checked when a quest is sent (a draft may be unfinished):
 ---
 
 ## Validation and Acceptance
-- [ ] The gate passes: pytest, black, isort, flake8, interrogate, pip-audit, tsc, eslint on changed files, vite build.
-- [ ] A DM writes a five-step quest with a choice, a check and a reply, and sends it to two characters.
-- [ ] Each character's phone shows a card. Neither sees the other's run, and nothing reaches the TV or other phones when they roll.
-- [ ] A check shows the real bonus. Passing and failing lead to the steps the DM set.
-- [ ] Gold and items arrive exactly once, even on a double tap or a repeated request.
-- [ ] A cost larger than the purse empties the purse without error or a dead end.
-- [ ] The DM's results show every choice, roll and reply.
-- [ ] Inspecting the phone's API responses shows no DC, no links, no later steps.
-- [ ] After sending, words can be edited; links and rewards can't (409).
-- [ ] A cycle, a dangling link or an unreachable step is refused at send, in plain words.
-- [ ] Deleting a character or a campaign removes its runs and quests.
-- [ ] Everything that existed before is unchanged.
+- [x] The gate passes: pytest, black, isort, flake8, interrogate, pip-audit, tsc, eslint on changed files, vite build.
+- [x] A DM writes a five-step quest with a choice, a check and a reply, and sends it to two characters.
+- [x] Each character's phone shows a card. Neither sees the other's run, and nothing reaches the TV or other phones when they roll.
+- [x] A check shows the real bonus. Passing and failing lead to the steps the DM set.
+- [x] Gold and items arrive exactly once, even on a double tap or a repeated request.
+- [x] A cost larger than the purse empties the purse without error or a dead end.
+- [x] The DM's results show every choice, roll and reply.
+- [x] Inspecting the phone's API responses shows no DC, no links, no later steps.
+- [x] After sending, words can be edited; links and rewards can't (409).
+- [x] A cycle, a dangling link or an unreachable step is refused at send, in plain words.
+- [x] Deleting a character or a campaign removes its runs and quests.
+- [x] Everything that existed before is unchanged: the full suite passes.
+- [ ] On a real iPhone and Android phone: a shake, the iOS motion prompt, a finger hold (TD-136a).
 
 ---
 

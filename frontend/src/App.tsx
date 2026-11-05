@@ -55,6 +55,7 @@ const TryLanding = lazy(() => import("./pages/TryLanding"));
 const PuzzleView = lazy(() => import("./pages/PuzzleView"));
 const PuzzleWorkbench = lazy(() => import("./pages/PuzzleWorkbench"));
 const TownCrier = lazy(() => import("./pages/TownCrier"));
+const SideQuests = lazy(() => import("./pages/SideQuests"));
 const NotebookPage = lazy(() => import("./pages/NotebookPage"));
 const JoinView = lazy(() => import("./pages/JoinView"));
 const GuidePage = lazy(() => import("./pages/GuidePage"));
@@ -195,6 +196,10 @@ export default function App() {
         <Route
           path="campaigns/:campaignId/crier"
           element={lazyRoute(<TownCrier />)}
+        />
+        <Route
+          path="campaigns/:campaignId/side-quests"
+          element={lazyRoute(<SideQuests />)}
         />
         <Route
           path="campaigns/:campaignId/notebook"

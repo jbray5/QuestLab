@@ -233,6 +233,22 @@ export default function GuidePage() {
         sheet.
       </p>
 
+      <h2 id="side-quests">Side quests between sessions</h2>
+      <p>
+        Can&rsquo;t find a date? <span className="btnref">Quest creator</span>, under World &amp;
+        tools in the campaign menu, lets you write a short quest your players finish on their
+        phones, whenever they like. You
+        build it in steps: story text with an optional picture, a choice, a skill check, or a
+        written reply to you. Any step can pay gold or items, or cost gold. Use{" "}
+        <span className="btnref">Try it</span> to walk every branch before you send it.
+      </p>
+      <p>
+        Each character plays their own private copy. Checks use their real bonuses, and rewards land
+        on the sheet by themselves. Nothing shows on the TV or on anyone else&rsquo;s phone. You can
+        see what each player chose, rolled and wrote, ready for your next session. Once a quest has
+        gone out, you can still fix its words and pictures, but not its links or rewards.
+      </p>
+
       <h2>No generative AI</h2>
       <p>
         QuestLab has no generative AI in it: no AI art, no AI-written NPCs, briefs or runbooks, no

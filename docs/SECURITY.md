@@ -46,6 +46,8 @@ Players never sign in: their surfaces are **capability URLs** — the secret in 
 | `/market/{campaign_id}`, `/shop/{shop_id}`, `/puzzle/{id}` | UUID | visible shops / answer-free puzzle | purchases (via `/play`) |
 | `/stream/**` (SSE) | UUID of the topic | event ids/types only — no DM content | — |
 
+**Side quests (Plan 136).** `/play/{key}/side-quests/**` only ever returns that character's runs (another character's is a 404) and only the current step, without its DC or links (`side_quest_service._view`). A move with a stale `step_id` changes nothing, and a run moves by compare-and-swap, so a reward can't be paid twice. Rolls don't broadcast. A player's replies go to the DM and are also readable by anyone with that player's link, like their notes, and the phone says so. Quest text is plain text, never rendered as HTML; a picture must be an upload or an https link. The optional Discord ping goes to a shared channel, so the Quest creator warns against naming a private quest.
+
 Never on a player surface: hidden NPCs, NPC secrets/KNOWS/WANT/VOICE, beat cards, session or campaign notes, `world_notes`.
 
 The Terms page (`/terms#players`, Plan 128) tells players the same things in plain words. It covers what a link carries (the character, the player's name and the notes), that anyone with the link or the join code can see them, what is kept and for how long, players under 16 (no account, age or email is ever asked for), and how to get in touch (Send feedback).

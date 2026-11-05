@@ -16,12 +16,14 @@ import { usePlayerPrefs } from "../../stores/usePlayerPrefs";
 import { usePlayer } from "./playerContext";
 import { Heading, HelpSwitch, Label, Monogram, Panel } from "./ui";
 import PlayerFeedback from "./PlayerFeedback";
+import { QuestList } from "./QuestScreen";
 
 export default function JournalTab() {
   return (
     <>
       <Nudge />
       <Tonight />
+      <QuestList />
       <Notes />
       <People />
       <HowToPlay />

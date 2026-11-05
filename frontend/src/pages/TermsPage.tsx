@@ -39,7 +39,7 @@ export default function TermsPage() {
       <p>Only DMs have accounts. An email-and-password account keeps your name, your email and a scrambled (hashed) form of your password, never the password itself. Signing in with Discord or Patreon shares your account id, display name, avatar and email with QuestLab. Either way, the email identifies your campaigns. A Patreon membership supports the project and unlocks nothing you need to play. We keep no payment details.</p>
 
       <h2 id="players">Players and player links</h2>
-      <p>A player link opens one character&rsquo;s sheet, and it carries what is written on that character: the character, the player&rsquo;s name as they typed it, and any notes on the character. Anyone holding the link, or the table&rsquo;s join code, can see those, so share a link only with its player. The DM can replace a link at any time, and the old one stops working.</p>
+      <p>A player link opens one character&rsquo;s sheet, and it carries what is written on that character: the character, the player&rsquo;s name as they typed it, any notes on the character, and what the player wrote in side quests. Anyone holding the link, or the table&rsquo;s join code, can see those, so share a link only with its player. The DM can replace a link at any time, and the old one stops working.</p>
       <p>Players under 16: players never make accounts, and QuestLab never asks them for an age or an email. The name a player types is only for the table, so a club leader can use first names or initials, and keep the notes box free of anything private.</p>
 
       <h2>What is kept, and for how long</h2>

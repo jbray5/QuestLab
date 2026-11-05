@@ -183,11 +183,14 @@ export interface QuestMove {
   reply?: string;
 }
 
-// `key` is the player-link key, the same one `playApi` takes.
+// `key` is the player-link key, the same one `playApi` takes. All quiet: the quest screen shows
+// errors in place, and `list` runs on every phone's Now screen, so a failure must not toast.
 export const playQuestsApi = {
-  list: (key: string) => api.get<QuestCard[]>(`/play/${key}/side-quests`),
-  get: (key: string, runId: string) => api.get<QuestRunView>(`/play/${key}/side-quests/${runId}`),
-  open: (key: string, runId: string) => api.post<QuestRunView>(`/play/${key}/side-quests/${runId}/open`, {}),
+  list: (key: string) => api.get<QuestCard[]>(`/play/${key}/side-quests`, { quiet: true }),
+  get: (key: string, runId: string) =>
+    api.get<QuestRunView>(`/play/${key}/side-quests/${runId}`, { quiet: true }),
+  open: (key: string, runId: string) =>
+    api.post<QuestRunView>(`/play/${key}/side-quests/${runId}/open`, {}, { quiet: true }),
   advance: (key: string, runId: string, move: QuestMove) =>
     api.post<QuestRunView>(`/play/${key}/side-quests/${runId}/advance`, move, { quiet: true }),
 };
