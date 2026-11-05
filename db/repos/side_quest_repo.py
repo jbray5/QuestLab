@@ -132,6 +132,28 @@ class SideQuestRunRepo:
         return [(row[0], row[1]) for row in session.exec(stmt).all()]
 
     @staticmethod
+    def recaps_for_campaign(
+        session: Session, campaign_id: uuid.UUID
+    ) -> list[tuple[SideQuestRun, str]]:
+        """Every run in a campaign with a shared recap, newest first (Plan 138).
+
+        Args:
+            session: Active database session.
+            campaign_id: UUID of the campaign.
+
+        Returns:
+            ``(run, character name)`` pairs.
+        """
+        stmt = (
+            select(SideQuestRun, PlayerCharacter.character_name)
+            .join(PlayerCharacter, PlayerCharacter.id == SideQuestRun.character_id)
+            .where(PlayerCharacter.campaign_id == campaign_id)
+            .where(SideQuestRun.recap.is_not(None))
+            .order_by(SideQuestRun.recap_at.desc())
+        )
+        return [(row[0], row[1]) for row in session.exec(stmt).all()]
+
+    @staticmethod
     def character_ids_with_run(session: Session, quest_id: uuid.UUID) -> set[uuid.UUID]:
         """The characters who already have a run of this quest.
 

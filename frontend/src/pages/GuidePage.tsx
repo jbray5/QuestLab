@@ -248,6 +248,12 @@ export default function GuidePage() {
         see what each player chose, rolled and wrote, ready for your next session. Once a quest has
         gone out, you can still fix its words and pictures, but not its links or rewards.
       </p>
+      <p>
+        When a player finishes, their phone offers to tell the party what happened, in their own
+        words. It&rsquo;s up to them what they say, so it may not match what you see in the results.
+        It reaches the other phones straight away and stays in their Journals. Before your next
+        session, ask everyone to share theirs.
+      </p>
 
       <h2>No generative AI</h2>
       <p>

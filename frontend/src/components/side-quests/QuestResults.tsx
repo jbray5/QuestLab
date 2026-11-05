@@ -101,6 +101,31 @@ function RunCard({ run, quest }: { run: QuestRunDetail; quest: SideQuest }) {
         </ol>
       )}
 
+      {run.recap && (
+        <div style={{ marginTop: "0.75rem" }}>
+          <span>Told the party:</span>
+          <div
+            className="story"
+            style={{
+              marginTop: "0.3rem",
+              padding: "0.75rem 0.9rem",
+              background: "var(--story-bg)",
+              border: "1px solid var(--story-line)",
+              borderRadius: 8,
+              color: "var(--story-text)",
+              fontSize: "1.125rem",
+              lineHeight: 1.5,
+              whiteSpace: "pre-wrap",
+              overflowWrap: "anywhere",
+              userSelect: "text",
+              WebkitUserSelect: "text",
+            }}
+          >
+            {run.recap}
+          </div>
+        </div>
+      )}
+
       {run.status === "new" && (
         <p className="text-muted" style={{ margin: "0.5rem 0 0", fontSize: "0.875rem" }}>
           They haven&rsquo;t opened it yet.

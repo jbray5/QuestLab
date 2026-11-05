@@ -125,6 +125,7 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
         void qc.invalidateQueries({ queryKey: ["play-turn-state", pcId] });
         void qc.invalidateQueries({ queryKey: ["play-quests", pcId] });
         void qc.invalidateQueries({ queryKey: ["play-quest", pcId] });
+        void qc.invalidateQueries({ queryKey: ["play-recaps", pcId] });
       }
     },
     [qc, pcId, refresh, notify],

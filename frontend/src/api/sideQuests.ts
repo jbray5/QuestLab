@@ -85,6 +85,9 @@ export interface QuestLogEntry {
 export interface QuestRunDetail extends QuestRunSummary {
   step_id: string;
   log: QuestLogEntry[];
+  /** Plan 138 — what the player told the party. It may not match the log, and that's allowed. */
+  recap: string | null;
+  recap_at: string | null;
 }
 
 export interface QuestPing {
@@ -171,6 +174,16 @@ export interface QuestRunView {
   step: QuestStepView;
   outcome: QuestOutcome | null;
   history: QuestHistoryItem[];
+  /** Plan 138 — what this player has told the party about it, if anything. */
+  recap: string | null;
+}
+
+/** Plan 138 — a recap as the party gets it: who and their words, nothing about the quest. */
+export interface PartyRecap {
+  character_name: string;
+  text: string;
+  at: string;
+  mine: boolean;
 }
 
 /** A move. `step_id` guards a double tap: a stale one changes nothing. */
@@ -193,4 +206,8 @@ export const playQuestsApi = {
     api.post<QuestRunView>(`/play/${key}/side-quests/${runId}/open`, {}, { quiet: true }),
   advance: (key: string, runId: string, move: QuestMove) =>
     api.post<QuestRunView>(`/play/${key}/side-quests/${runId}/advance`, move, { quiet: true }),
+  recaps: (key: string) => api.get<PartyRecap[]>(`/play/${key}/side-quests/recaps`, { quiet: true }),
+  /** Empty words take it back. */
+  shareRecap: (key: string, runId: string, text: string) =>
+    api.put<QuestRunView>(`/play/${key}/side-quests/${runId}/recap`, { text }, { quiet: true }),
 };

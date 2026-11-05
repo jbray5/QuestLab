@@ -497,6 +497,8 @@ A quest a DM writes in the Quest creator, and each character's private run throu
 | log | JSON | No | What the player did and got: `step_id`, `kind`, `at`, `option`, `skill`, `die`, `bonus`, `total`, `passed`, `real`, `reply`, `gp`, `items`. A reply is the player's own words: treat it like the character's notes |
 | created_at | TIMESTAMPTZ | No | |
 | opened_at, finished_at | TIMESTAMPTZ | Yes | |
+| recap | TEXT | Yes | Plan 138. What the player told the party, up to 1500 characters. Their own words, shared by them with the whole campaign. May not match the log |
+| recap_at | TIMESTAMPTZ | Yes | First shared. A correction keeps it |
 
 Deleting a quest removes its runs. Gold and items already paid stay on the sheet.
 

@@ -17,6 +17,9 @@ Rules enforced here:
   and the payment the player misses a reward rather than getting it twice.
 - **Rolls are quiet.** ``player_service.throw_dice`` broadcasts to the TV and the party's phones.
   A private quest must not, so checks roll here.
+- **A recap is the player's to give (Plan 138).** Nothing about a run reaches the party unless its
+  player writes it, and then only their words and their character's name. It doesn't have to be
+  true, and that's half the fun. The DM sees it next to what really happened.
 """
 
 import logging
@@ -35,12 +38,14 @@ from domain.campaign import Campaign
 from domain.character import CharacterItemCreate, PlayerCharacter, PlayerCharacterUpdate
 from domain.crier import CrierSendRequest
 from domain.side_quest import (
+    PartyRecap,
     QuestAdvance,
     QuestCard,
     QuestHistoryItem,
     QuestLogEntry,
     QuestOptionView,
     QuestOutcome,
+    QuestRecapShare,
     QuestRunDetail,
     QuestRunSummary,
     QuestRunView,
@@ -400,6 +405,8 @@ def list_runs(db: Session, quest_id: uuid.UUID, dm_email: str) -> list[QuestRunD
             **_summary(r, names.get(r.character_id, "")).model_dump(),
             step_id=r.step_id,
             log=[QuestLogEntry.model_validate(e) for e in r.log or []],
+            recap=r.recap,
+            recap_at=r.recap_at,
         )
         for r in runs
     ]
@@ -527,6 +534,65 @@ def advance(
     else:
         db.refresh(run)
     return _view(db, run, quest)
+
+
+def share_recap(
+    db: Session, pc_id: uuid.UUID, run_id: uuid.UUID, payload: QuestRecapShare
+) -> QuestRunView:
+    """Tell the party what happened on a finished quest, change it, or take it back.
+
+    Every phone at the table refreshes, and the others get a card on the Now screen. A correction
+    keeps its time, so it doesn't bring the card back.
+
+    Args:
+        db: Active database session.
+        pc_id: The character the play link belongs to.
+        run_id: UUID of the run.
+        payload: The player's words. Empty takes the recap back.
+
+    Returns:
+        The view, with the recap as it now stands.
+
+    Raises:
+        SideQuestNotFoundError: If this character has no such run.
+        SideQuestConflictError: If the quest isn't finished yet.
+    """
+    run, quest = _own_run(db, pc_id, run_id)
+    if run.status != "done":
+        raise SideQuestConflictError("Finish the quest first.")
+    pc = _pc(db, pc_id)
+    first = not run.recap and bool(payload.text)
+    run.recap = payload.text or None
+    if first:
+        run.recap_at = _now()
+    elif not payload.text:
+        run.recap_at = None
+    SideQuestRunRepo.save(db, run)
+    for other in CharacterRepo.list_by_campaign(db, pc.campaign_id):
+        publish_pc_updated(other.id, pc.campaign_id)
+    return _view(db, run, quest)
+
+
+def party_recaps(db: Session, pc_id: uuid.UUID) -> list[PartyRecap]:
+    """What everyone in this character's campaign has told the party, newest first.
+
+    Args:
+        db: Active database session.
+        pc_id: The character the play link belongs to.
+
+    Returns:
+        The recaps: who, and their words. Nothing else about the run.
+    """
+    pc = _pc(db, pc_id)
+    return [
+        PartyRecap(
+            character_name=name,
+            text=run.recap or "",
+            at=run.recap_at or run.created_at,
+            mine=run.character_id == pc_id,
+        )
+        for run, name in SideQuestRunRepo.recaps_for_campaign(db, pc.campaign_id)
+    ]
 
 
 def _pc(db: Session, pc_id: uuid.UUID) -> PlayerCharacter:
@@ -728,4 +794,5 @@ def _view(db: Session, run: SideQuestRun, quest: SideQuest) -> QuestRunView:
         step=_step_view(step, _pc(db, run.character_id)),
         outcome=_outcome(log[-1]) if log else None,
         history=_history(run, by_id),
+        recap=run.recap,
     )

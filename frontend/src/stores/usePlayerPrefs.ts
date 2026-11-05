@@ -16,6 +16,8 @@ interface PcPrefs {
   nudged?: HelpLevel;
   /** Keep the screen awake during a session. */
   awake: boolean;
+  /** The newest party recap this phone has shown on the Now screen (Plan 138). */
+  recapsSeen?: string;
 }
 
 const DEFAULTS: PcPrefs = { help: "teach", onboarded: false, awake: false };

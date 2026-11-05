@@ -167,7 +167,7 @@ Subagents, slash commands, hooks, rules. See [`.claude/README.md`](.claude/READM
 8. **Players never pay; caps never take anything away.** Pricing (Plan 130) caps only campaign count and upload storage, only for DMs, and only with `PRICING=on`. The checks live in `services/plan_service.py`. Going past a cap refuses the new campaign or upload with a 402. Nothing is ever deleted, hidden or locked.
 9. **One ruleset per table.** A campaign plays by `2024` or `2014` (Plan 131); each PC copies it at creation, and the campaign's rules lock once it has a character. Rules code reads an edition's tables through `integrations/dnd_rules/rulesets.py`, and spell or feature lookups pass the ruleset. A 2024 campaign must behave exactly as it did before 2014 existed.
 
-10. **A side quest shows one step at a time.** `steps` holds the DCs, the links and every later step, so it never reaches a player. The phone gets `QuestRunView`, built by `side_quest_service._view`. Quest rolls and text never reach the TV or other phones, and any Discord ping says nothing about what's inside.
+10. **A side quest shows one step at a time.** `steps` holds the DCs, the links and every later step, so it never reaches a player. The phone gets `QuestRunView`, built by `side_quest_service._view`. Quest rolls and text never reach the TV or other phones, and any Discord ping says nothing about what's inside. The one exception is a recap its player chose to share: `PartyRecap` carries the character's name and their words, and nothing else about the run.
 
 ## Definition of Done
 

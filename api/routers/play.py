@@ -50,9 +50,12 @@ from domain.shop import (
     TransferReceipt,
 )
 from domain.side_quest import (
+    PartyRecap,
     QuestAdvance,
     QuestCard,
+    QuestRecapShare,
     QuestRunView,
+    SideQuestConflictError,
     SideQuestNotFoundError,
 )
 from domain.table_state import PlayerTokenMove
@@ -1087,6 +1090,43 @@ def list_side_quests(pc_id: PlayPcId, db: DB) -> list[QuestCard]:
         The cards for the Now screen and the Journal.
     """
     return side_quest_service.list_cards(db, pc_id)
+
+
+@router.get("/play/{pc_id}/side-quests/recaps", response_model=list[PartyRecap])
+def side_quest_recaps(pc_id: PlayPcId, db: DB) -> list[PartyRecap]:
+    """What the party has told each other about their side quests. Declared before ``{run_id}``.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        db: Database session.
+
+    Returns:
+        Who said what, newest first.
+    """
+    return side_quest_service.party_recaps(db, pc_id)
+
+
+@router.put("/play/{pc_id}/side-quests/{run_id}/recap", response_model=QuestRunView)
+def share_side_quest_recap(
+    pc_id: PlayPcId, run_id: uuid.UUID, body: QuestRecapShare, db: DB
+) -> QuestRunView:
+    """Tell the party what happened on a finished quest. Empty words take it back.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        run_id: The run.
+        body: The player's words.
+        db: Database session.
+
+    Returns:
+        The run as it now stands.
+    """
+    try:
+        return side_quest_service.share_recap(db, pc_id, run_id, body)
+    except SideQuestNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except SideQuestConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 
 @router.get("/play/{pc_id}/side-quests/{run_id}", response_model=QuestRunView)

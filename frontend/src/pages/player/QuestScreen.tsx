@@ -6,6 +6,9 @@
  * later steps. A check rolls on the server inside `advance`, never through `playApi.roll`, which
  * would put a private quest on the TV and on the party's phones. The words are the DM's and render
  * as plain text.
+ *
+ * Plan 138: at the end of a quest a player can tell the party what happened, in their own words.
+ * That's the only thing about a quest that ever reaches another phone.
  */
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -19,6 +22,7 @@ import {
   type QuestOutcome,
   type QuestRunView,
 } from "../../api/sideQuests";
+import { usePlayerPrefs } from "../../stores/usePlayerPrefs";
 import { formatDay } from "../../lib/dates";
 import { zoomable } from "../../lib/lightbox";
 import {
@@ -41,6 +45,8 @@ import { Heading, Panel } from "./ui";
 const HOLD_MS = 800;
 const SCROLL_CANCEL_MS = 300;
 const MAX_REPLY = 2000;
+const MAX_RECAP = 1500;
+const RECAP_DRAFT = "recap";
 const NO_CONNECTION = "No connection. Check your Wi-Fi and try again.";
 
 const CSS = `
@@ -106,6 +112,7 @@ const CSS = `
 `;
 
 const smallText: CSSProperties = { fontSize: 14, color: "var(--text2)", lineHeight: 1.45 };
+const recapWords: CSSProperties = { whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: 16, lineHeight: 1.5, color: "var(--text)" };
 const dmWords: CSSProperties = { margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: 19, lineHeight: 1.6, color: "var(--story-text)" };
 const clamp = (lines: number): CSSProperties => ({ display: "-webkit-box", WebkitLineClamp: lines, WebkitBoxOrient: "vertical", overflow: "hidden" });
 
@@ -140,6 +147,11 @@ function useOpenQuest(onOpened?: () => void) {
 function useQuestCards() {
   const { pcId } = usePlayer();
   return useQuery({ queryKey: ["play-quests", pcId], queryFn: () => playQuestsApi.list(pcId) });
+}
+
+function useRecaps() {
+  const { pcId } = usePlayer();
+  return useQuery({ queryKey: ["play-recaps", pcId], queryFn: () => playQuestsApi.recaps(pcId) });
 }
 
 /** A failed request's words for the player. */
@@ -256,14 +268,44 @@ export function QuestCards() {
   const { help, combat } = usePlayer();
   const { data: cards = [] } = useQuestCards();
   const live = cards.filter((c) => c.status !== "done");
-  if (live.length === 0) return null;
   const compact = live.length > 1 || !!combat?.in_combat;
   return (
-    <div role="group" aria-label="Side quests" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <style>{CSS}</style>
-      {live.map((c) => (c.status === "new" ? <NewCard key={c.run_id} card={c} compact={compact} /> : <ActiveCard key={c.run_id} card={c} compact={compact} />))}
-      {help === "teach" && <span style={{ fontSize: 13, color: "var(--muted)" }}>A side quest is a short quest your DM wrote for you. Play it on your own, whenever you like.</span>}
-    </div>
+    <>
+      {!combat?.in_combat && <RecapCard />}
+      {live.length > 0 && (
+        <div role="group" aria-label="Side quests" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <style>{CSS}</style>
+          {live.map((c) => (c.status === "new" ? <NewCard key={c.run_id} card={c} compact={compact} /> : <ActiveCard key={c.run_id} card={c} compact={compact} />))}
+          {help === "teach" && <span style={{ fontSize: 13, color: "var(--muted)" }}>A side quest is a short quest your DM wrote for you. Play it on your own, whenever you like.</span>}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** The next thing someone told the party, oldest first, until this phone has shown them all. */
+function RecapCard() {
+  const { pcId, help } = usePlayer();
+  const { data: recaps = [] } = useRecaps();
+  const [prefs, setPrefs] = usePlayerPrefs(pcId);
+  const seen = prefs.recapsSeen ? Date.parse(prefs.recapsSeen) : 0;
+  const fresh = recaps
+    .filter((r) => !r.mine && Date.parse(r.at) > seen)
+    .sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const next = fresh[0];
+  if (!next) return null;
+  const more = fresh.length - 1;
+  return (
+    <Panel tone="story" style={{ gap: 8 }}>
+      <span className="story" style={{ fontWeight: 700, fontSize: 18, overflowWrap: "anywhere" }}>{next.character_name} told the party what happened</span>
+      <span style={recapWords}>{next.text}</span>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
+        <button type="button" className="btn btn-secondary" style={{ minHeight: 44 }} onClick={() => setPrefs({ recapsSeen: next.at })}>
+          {more > 0 ? `Next (${more} more)` : "Got it"}
+        </button>
+        {help === "teach" && <span style={smallText}>It stays in your Journal.</span>}
+      </div>
+    </Panel>
   );
 }
 
@@ -353,6 +395,29 @@ export function QuestList() {
           {c.status === "new" ? <span className="pill pill-live">New</span> : c.status === "active" ? <span className="pill">Keep going</span> : <span className="pill pill-teal">Finished</span>}
           <ChevronRight size={16} color="var(--muted)" aria-hidden style={{ flexShrink: 0 }} />
         </button>
+      ))}
+    </Panel>
+  );
+}
+
+/** Everything the party has told each other, newest first. */
+export function PartyRecaps() {
+  const { help } = usePlayer();
+  const { data: recaps = [] } = useRecaps();
+  if (recaps.length === 0) return null;
+  return (
+    <Panel style={{ gap: 2 }}>
+      <Heading>What the party says happened</Heading>
+      {help === "teach" && <span style={{ ...smallText, paddingBottom: 4 }}>What each player chose to tell everyone about their side quests.</span>}
+      {recaps.map((r, i) => (
+        <div key={`${r.at}-${r.character_name}`} style={{ display: "flex", flexDirection: "column", gap: 2, padding: "8px 0", borderBottom: i === recaps.length - 1 ? "none" : "1px solid var(--border)" }}>
+          <span style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "0 8px" }}>
+            <span className="story" style={{ fontWeight: 700, fontSize: 16, overflowWrap: "anywhere" }}>{r.character_name}</span>
+            {r.mine && <span className="pill">You</span>}
+            <span style={{ fontSize: 13, color: "var(--muted)" }}>{formatDay(r.at)}</span>
+          </span>
+          <span style={recapWords}>{r.text}</span>
+        </div>
       ))}
     </Panel>
   );
@@ -688,10 +753,76 @@ function EndStep({ view, rereading, onClose }: StepProps) {
     <>
       {outcome && <Paid outcome={outcome} big />}
       {help === "teach" && !rereading && <span style={smallText}>You finished this side quest. You can read it again from your Journal.</span>}
+      <TellParty view={view} />
       <button type="button" className="btn btn-primary" onClick={onClose} style={{ minHeight: 54, fontSize: 17, borderRadius: 12 }}>
         Back to the game
       </button>
     </>
+  );
+}
+
+/** A player's own account of the quest for the party. Nothing goes out unless they send it. */
+function TellParty({ view }: { view: QuestRunView }) {
+  const { pcId, help } = usePlayer();
+  const qc = useQueryClient();
+  const after = useAfterMove();
+  const { run_id: runId, recap } = view;
+  const [writing, setWriting] = useState(false);
+  const [text, setText] = useState(() => recap ?? loadQuestDraft(runId, RECAP_DRAFT));
+  const share = useMutation({
+    mutationFn: (words: string) => playQuestsApi.shareRecap(pcId, runId, words),
+    onSuccess: (next, words) => {
+      saveQuestDraft(runId, RECAP_DRAFT, "");
+      after(next);
+      void qc.invalidateQueries({ queryKey: ["play-recaps", pcId] });
+      setWriting(false);
+      setText(words.trim());
+    },
+  });
+  const problem = share.error ? <span role="alert" style={{ fontSize: 14, color: "var(--danger-text)" }}>{failureText(share.error)}</span> : null;
+
+  if (recap && !writing) {
+    return (
+      <Panel style={{ gap: 8 }}>
+        <Heading>You told the party</Heading>
+        <span style={recapWords}>{recap}</span>
+        {problem}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <button type="button" className="btn btn-ghost" disabled={share.isPending} onClick={() => setWriting(true)} style={{ minHeight: 44 }}>Change it</button>
+          <button type="button" className="btn btn-ghost" disabled={share.isPending} onClick={() => share.mutate("")} style={{ minHeight: 44 }}>Take it back</button>
+        </div>
+      </Panel>
+    );
+  }
+  return (
+    <Panel style={{ gap: 8 }}>
+      <Heading>
+        <label htmlFor="qsq-recap" style={{ margin: 0, font: "inherit", color: "inherit" }}>Tell the party what happened</label>
+      </Heading>
+      {help !== "numbers" && <span id="qsq-recap-who" style={smallText}>They only know what you tell them. Say as much or as little as you like. Your DM sees it too.</span>}
+      <textarea
+        id="qsq-recap"
+        aria-describedby={help !== "numbers" ? "qsq-recap-who" : undefined}
+        rows={4}
+        value={text}
+        maxLength={MAX_RECAP}
+        onChange={(e) => {
+          setText(e.target.value);
+          saveQuestDraft(runId, RECAP_DRAFT, e.target.value);
+        }}
+        style={{ resize: "vertical", borderRadius: 12, fontSize: 16, lineHeight: 1.5, minHeight: 110 }}
+      />
+      {text.length > MAX_RECAP - 200 && <span className="num" style={{ fontSize: 13, color: "var(--muted)", alignSelf: "flex-end" }}>{text.length} of {MAX_RECAP}</span>}
+      {problem}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <button type="button" className="btn btn-secondary" disabled={share.isPending || !text.trim()} onClick={() => share.mutate(text)} style={{ minHeight: 48 }}>
+          {share.isPending ? "Sharing…" : "Share with the party"}
+        </button>
+        {writing && (
+          <button type="button" className="btn btn-ghost" onClick={() => { setText(recap ?? ""); setWriting(false); }} style={{ minHeight: 48 }}>Cancel</button>
+        )}
+      </div>
+    </Panel>
   );
 }
 

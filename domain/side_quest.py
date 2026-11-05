@@ -21,7 +21,7 @@ from typing import Annotated, Any, Literal, Optional
 from pydantic import BaseModel
 from pydantic import Field as PField
 from pydantic import StringConstraints, field_validator, model_validator
-from sqlalchemy import Column, UniqueConstraint
+from sqlalchemy import Column, Text, UniqueConstraint
 from sqlalchemy.types import JSON, DateTime
 from sqlmodel import Field, SQLModel
 
@@ -33,6 +33,7 @@ MAX_CHECK_SKILLS = 3
 MAX_STEP_ITEMS = 5
 MAX_TEXT = 4000
 MAX_REPLY = 2000
+MAX_RECAP = 1500
 MAX_GP_GAIN = 10000
 MAX_GP_COST = 1000
 
@@ -309,6 +310,9 @@ class SideQuestRun(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_now, sa_column=_ts_column())
     opened_at: Optional[datetime] = Field(default=None, sa_column=_ts_column(nullable=True))
     finished_at: Optional[datetime] = Field(default=None, sa_column=_ts_column(nullable=True))
+    # Plan 138: what the player chose to tell the party. Their own words, and they may not be true.
+    recap: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
+    recap_at: Optional[datetime] = Field(default=None, sa_column=_ts_column(nullable=True))
 
 
 # ── The DM's shapes ─────────────────────────────────────────────────────────
@@ -413,6 +417,8 @@ class QuestRunDetail(QuestRunSummary):
 
     step_id: str
     log: list[QuestLogEntry] = PField(default_factory=list)
+    recap: Optional[str] = None
+    recap_at: Optional[datetime] = None
 
 
 class QuestPing(BaseModel):
@@ -505,6 +511,32 @@ class QuestRunView(BaseModel):
     step: QuestStepView
     outcome: Optional[QuestOutcome] = None
     history: list[QuestHistoryItem] = PField(default_factory=list)
+    recap: Optional[str] = None
+
+
+class QuestRecapShare(BaseModel):
+    """What a player tells the party about a finished quest. Empty takes it back."""
+
+    text: str = PField(default="", max_length=MAX_RECAP)
+
+    @field_validator("text")
+    @classmethod
+    def _trim(cls, value: str) -> str:
+        """Trim it."""
+        return value.strip()
+
+
+class PartyRecap(BaseModel):
+    """A recap as the party gets it: who and their words.
+
+    Never the quest's title, an id, or what really happened: a private quest stays private unless
+    its player says otherwise, and they get to tell it their way.
+    """
+
+    character_name: str
+    text: str
+    at: datetime
+    mine: bool = False
 
 
 class QuestCard(BaseModel):
