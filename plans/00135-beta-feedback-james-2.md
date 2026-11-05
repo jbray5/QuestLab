@@ -1,7 +1,7 @@
 # Plan 00135 — Beta feedback round 2 (James): race speeds and natural weapons, subclass counters, homebrew feats, weapons by edition
 
 ## Status
-[ ] Not started  [x] In progress  [ ] Blocked  [ ] Complete
+[ ] Not started  [ ] In progress  [ ] Blocked  [x] Complete
 
 **Started:** 2026-11-04
 **Last updated:** 2026-11-04
@@ -41,7 +41,7 @@ When this is done:
 - [x] FT: homebrew feats (catalog tab + form; builder + level-up + fighting-style choices; 2014 feat-text check) (23 tests)
 - [x] WP: Weapons page edition switch, magic weapons listed, 14 missing SRD 5.1 magic weapons synced at startup (27 tests)
 - [x] Lead merge fixes: attack preview made DM-only (was any signed-in user; also took a repo import out of the router), nav label, Guide paragraph, docs
-- [ ] Gate, commit; push after Justin
+- [x] Gate, commit (551003b); push approved by Justin 11/04
 
 ---
 
@@ -123,15 +123,15 @@ When this is done:
 ---
 
 ## Validation and Acceptance
-- [ ] The gate passes: pytest, black, isort, flake8, interrogate, pip-audit, tsc, eslint on changed files, vite build.
-- [ ] A homebrew race with fly 30 builds a PC whose sheet reads "Speed 30 ft · fly 30 ft".
-- [ ] A homebrew race with Claws 1d6 slashing (STR) gives a STR 16, level 1 PC an attack of +5 to hit, 1d6+3 slashing, on the sheet and the phone.
-- [ ] A homebrew Battle Master-style subclass (dice 4/5/6 at 3/7/15, d8/d10/d12 at 3/10/18): a level 10 PC shows 5 × d10. Spending one leaves 4. A short rest refills it.
-- [ ] A hand-made counter on any PC (name, max, die, recovery) works the same way.
-- [ ] A homebrew feat "Deadeye" (+1 DEX, −5/+10 ranged) is offered at a 2014 PC's level 4 ASI and on level-up. Taking it raises DEX. The sheet's longbow attack offers the −5/+10 toggle, and melee attacks don't.
-- [ ] A 2014 PC never shows 2024 feat text for a feat taken by name from the book.
-- [ ] The Weapons page on 2014: no mastery column or filter, no Musket or Pistol. Magic weapons (Flame Tongue, Vorpal Sword…) are listed in both editions.
-- [ ] Everything in 2024 and 2014 that existed before is unchanged.
+- [x] The gate passes: pytest, black, isort, flake8, interrogate, pip-audit, tsc, eslint on changed files, vite build.
+- [x] A homebrew race with fly 30 builds a PC whose sheet reads "Speed 30 ft · fly 30 ft".
+- [x] A homebrew race with Claws 1d6 slashing (STR) gives a STR 16, level 1 PC an attack of +5 to hit, 1d6+3 slashing, on the sheet and the phone.
+- [x] A homebrew Battle Master-style subclass (dice 4/5/6 at 3/7/15, d8/d10/d12 at 3/10/18): a level 10 PC shows 5 × d10. Spending one leaves 4. A short rest refills it.
+- [x] A hand-made counter on any PC (name, max, die, recovery) works the same way.
+- [x] A homebrew feat "Deadeye" (+1 DEX, −5/+10 ranged) is offered at a 2014 PC's level 4 ASI and on level-up. Taking it raises DEX. The sheet's longbow attack offers the −5/+10 toggle, and melee attacks don't.
+- [x] A 2014 PC never shows 2024 feat text for a feat taken by name from the book.
+- [x] The Weapons page on 2014: no mastery column or filter, no Musket or Pistol. Magic weapons (Flame Tongue, Vorpal Sword…) are listed in both editions.
+- [x] Everything in 2024 and 2014 that existed before is unchanged.
 
 ---
 
@@ -152,4 +152,10 @@ When this is done:
 ---
 
 ## Outcomes and Retrospective
-_Fill in after completion._
+Shipped as 551003b on the b5cf0e8 foundation: 1819 tests pass, plus tsc, eslint, the vite build and the pre-commit hooks. Nothing was checked against a live Postgres. The 0063 and 0064 DDL was rendered offline with `alembic upgrade 0062:head --sql`, and the new magic weapons were checked against the Item column limits, because DuckDB ignores VARCHAR lengths.
+
+Not built: custom classes (TD-135a). Open follow-ups: TD-135b to j.
+
+Lessons:
+- Have the lead freeze the shared shapes and migration first, then give agents strict file ownership. Four agents shared one checkout here without a conflict.
+- Parallel agents write a lot of log data. Claude Code's own folder was on C: and filled it mid-wave, failing a test; `~/.claude` is now a junction to F:.
