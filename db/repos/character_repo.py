@@ -15,6 +15,7 @@ from domain.character import (
     PlayerCharacterCreate,
     PlayerCharacterUpdate,
 )
+from domain.side_quest import SideQuestRun
 
 
 class CharacterRepo:
@@ -122,7 +123,14 @@ class CharacterRepo:
             True if deleted.
         """
         # Plan 135: counters (character_resources) go with the character too.
-        for model in (CharacterItem, CharacterSpell, CharacterFeature, CharacterResource):
+        # Plan 136: and so do side quest runs.
+        for model in (
+            CharacterItem,
+            CharacterSpell,
+            CharacterFeature,
+            CharacterResource,
+            SideQuestRun,
+        ):
             rows = session.exec(select(model).where(model.character_id == character.id)).all()
             for row in rows:
                 session.delete(row)

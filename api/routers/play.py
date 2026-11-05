@@ -49,6 +49,12 @@ from domain.shop import (
     SellRequest,
     TransferReceipt,
 )
+from domain.side_quest import (
+    QuestAdvance,
+    QuestCard,
+    QuestRunView,
+    SideQuestNotFoundError,
+)
 from domain.table_state import PlayerTokenMove
 from services import (
     arena_service,
@@ -58,6 +64,7 @@ from services import (
     levelup_service,
     player_service,
     resource_service,
+    side_quest_service,
 )
 
 router = APIRouter(tags=["play"])
@@ -1061,3 +1068,81 @@ def restore_resource(
         return resource_service.restore_for_player(db, pc_id, resource_id, amount)
     except (LookupError, ValueError) as exc:
         raise _companion_error(exc)
+
+
+# ---------------------------------------------------------------------------
+# Plan 136 — side quests: only the current step ever leaves the server
+# ---------------------------------------------------------------------------
+
+
+@router.get("/play/{pc_id}/side-quests", response_model=list[QuestCard])
+def list_side_quests(pc_id: PlayPcId, db: DB) -> list[QuestCard]:
+    """This character's side quests, newest first.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        db: Database session.
+
+    Returns:
+        The cards for the Now screen and the Journal.
+    """
+    return side_quest_service.list_cards(db, pc_id)
+
+
+@router.get("/play/{pc_id}/side-quests/{run_id}", response_model=QuestRunView)
+def get_side_quest(pc_id: PlayPcId, run_id: uuid.UUID, db: DB) -> QuestRunView:
+    """The current step of this character's run. Anyone else's run is a 404.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        run_id: The run.
+        db: Database session.
+
+    Returns:
+        The current step, without its DC or links.
+    """
+    try:
+        return side_quest_service.get_view(db, pc_id, run_id)
+    except SideQuestNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/side-quests/{run_id}/open", response_model=QuestRunView)
+def open_side_quest(pc_id: PlayPcId, run_id: uuid.UUID, db: DB) -> QuestRunView:
+    """Open a new quest. Opening twice changes nothing.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        run_id: The run.
+        db: Database session.
+
+    Returns:
+        The first step.
+    """
+    try:
+        return side_quest_service.open_run(db, pc_id, run_id)
+    except SideQuestNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/side-quests/{run_id}/advance", response_model=QuestRunView)
+def advance_side_quest(
+    pc_id: PlayPcId, run_id: uuid.UUID, body: QuestAdvance, db: DB
+) -> QuestRunView:
+    """Take a move on the current step. A stale ``step_id`` changes nothing (a double tap).
+
+    Args:
+        pc_id: The character, resolved from the link.
+        run_id: The run.
+        body: The move.
+        db: Database session.
+
+    Returns:
+        Wherever the run is now.
+    """
+    try:
+        return side_quest_service.advance(db, pc_id, run_id, body)
+    except SideQuestNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))
