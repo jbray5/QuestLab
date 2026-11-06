@@ -251,7 +251,7 @@ export default function Welcome() {
           <div className="ql-w-die">
             <D20Mark size={112} />
           </div>
-          <p className="ql-w-eyebrow">For D&amp;D 5e (2024 rules)</p>
+          <p className="ql-w-eyebrow">For D&amp;D 5e (2024 or 2014 rules)</p>
           <h1>Run the table you&rsquo;ve been picturing.</h1>
           <p className="ql-w-lede">
             Your DM screen and initiative tracker, with every player&rsquo;s sheet on their own phone. Real
@@ -293,8 +293,8 @@ export default function Welcome() {
             <>
               {!inviteCheck?.valid && providers.invites_required ? (
                 <p className="ql-w-invite">
-                  QuestLab is in a friends-only beta. New accounts need an invite link or code from the
-                  DM who told you about it. Already have an account? Sign in.
+                  QuestLab is in an invite-only beta. New accounts need an invite link or code.{" "}
+                  <Link to="/try">Ask for one here.</Link> Already have an account? Sign in.
                 </p>
               ) : null}
               <p className="ql-w-sub">
