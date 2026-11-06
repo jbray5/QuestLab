@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { BookOpen, ChevronDown, ChevronRight, Moon, X } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 
 import {
   PANEL_HEAD_STYLE,
@@ -444,7 +445,11 @@ export default function SpellPanel({
                 }}
               >
                 {pickerHits.length === 0 && (
-                  <p className="text-muted text-sm">No matches.</p>
+                  <p className="text-muted text-sm">
+                    No matches. QuestLab only comes with the free rules&rsquo; spells. To add another,
+                    make it under <Link to="/spells">Spells</Link> with {characterClass} ticked, and it
+                    shows up here and in the level-up guide.
+                  </p>
                 )}
                 {pickerHits.map((s) => (
                   <button
