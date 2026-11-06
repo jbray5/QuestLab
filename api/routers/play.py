@@ -74,7 +74,7 @@ router = APIRouter(tags=["play"])
 
 # Never in a player payload: the DM's notes about the PC (Plan 122), the link
 # secret and its grace stamp (SEC-002; the phone already holds its own link).
-_PLAYER_HIDDEN = {"notes", "play_token", "legacy_uuid_until"}
+_PLAYER_HIDDEN = {"notes", "play_token", "legacy_uuid_until", "claimed_at"}
 
 
 # ── Reads ──────────────────────────────────────────────────────────────────────
@@ -479,11 +479,34 @@ def join_create_character(
     """
     try:
         player_service.check_join_code(db, campaign_id, code)
-        return character_builder_service.create(db, campaign_id, body)
+        result = character_builder_service.create(db, campaign_id, body)
+        # Whoever built it has it, from the first second (Plan 139).
+        player_service.claim_character(db, uuid.UUID(result.pc_id))
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/claim")
+def claim_character(pc_id: PlayPcId, db: DB) -> dict:
+    """Say a player has this character on their phone (Plan 139).
+
+    The party's join list stops opening it from now on. Safe to repeat.
+
+    Args:
+        pc_id: UUID of the player character (capability URL).
+        db: Database session.
+
+    Returns:
+        ``{"claimed": True}``.
+    """
+    try:
+        player_service.claim_character(db, pc_id)
+        return {"claimed": True}
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
 @router.get("/play/{pc_id}/campaign")
@@ -583,6 +606,8 @@ def join_roster(
     campaign_id: uuid.UUID, db: DB, code: str | None = Query(default=None, max_length=12)
 ) -> list[dict]:
     """Party roster for the QR join page (Plan 63) — names + portraits only.
+
+    A character a player already has comes without its link (Plan 139).
 
     Args:
         campaign_id: UUID of the campaign (the capability).

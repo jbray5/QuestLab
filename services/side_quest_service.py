@@ -767,6 +767,7 @@ def _history(run: SideQuestRun, by_id: dict[str, QuestStep]) -> list[QuestHistor
             continue
         items.append(
             QuestHistoryItem(
+                step_id=step.id,
                 kind=step.kind,
                 text=step.text,
                 image_url=step.image_url,
@@ -774,7 +775,7 @@ def _history(run: SideQuestRun, by_id: dict[str, QuestStep]) -> list[QuestHistor
                 skill=entry.get("skill"),
                 total=entry.get("total"),
                 passed=entry.get("passed"),
-                reply=entry.get("reply"),
+                replied=bool(entry.get("reply")),
             )
         )
     return items

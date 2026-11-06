@@ -21,6 +21,8 @@ export const charactersApi = {
   revokeLevelUp: (id: string) => api.delete<PlayerCharacter>(`/characters/${id}/level-up`),
   // SEC-002 — a new player link; the old one stops working at once.
   resetPlayLink: (id: string) => api.post<{ play_key: string }>(`/characters/${id}/play-link/reset`),
+  // Plan 139 — the party's list may open this character again.
+  releasePlayLink: (id: string) => api.post<{ released: boolean }>(`/characters/${id}/play-link/release`),
   updateImage: (id: string, portrait_url: string) =>
     api.patch<PlayerCharacter>(`/characters/${id}`, { portrait_url }),
   // Plan 00022 — computed bonuses

@@ -136,6 +136,28 @@ export function saveQuestDraft(runId: string, stepId: string, text: string): voi
   }
 }
 
+// ── What this phone sent (Plan 139) ──────────────────────────────────────────
+
+const sentKey = (runId: string, stepId: string) => `ql-quest-sent:${runId}:${stepId}`;
+
+/** Keep an answer on the phone that wrote it. The server never sends a reply's words back. */
+export function keepSentReply(runId: string, stepId: string, text: string): void {
+  try {
+    localStorage.setItem(sentKey(runId, stepId), text.trim());
+  } catch {
+    /* storage blocked: the player sees "You answered" instead of their words */
+  }
+}
+
+/** What this phone sent for this step, or null on any other device. */
+export function sentReply(runId: string, stepId: string): string | null {
+  try {
+    return localStorage.getItem(sentKey(runId, stepId));
+  } catch {
+    return null;
+  }
+}
+
 // ── Pictures ─────────────────────────────────────────────────────────────────
 
 /** Where a step's picture lives: an upload is on the API's origin, not the frontend's. */

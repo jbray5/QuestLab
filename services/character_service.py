@@ -505,7 +505,8 @@ def reset_play_link(session: Session, character_id: uuid.UUID, dm_email: str) ->
     """Give a PC a new player link; the old one stops working at once (SEC-002).
 
     Also ends the pre-token UUID grace period for this PC. Use it when a
-    player leaves or a link was shared too widely.
+    player leaves or a link was shared too widely. A claimed character stays
+    claimed (Plan 139), so whoever lost the link can't pick it from the list.
 
     Args:
         session: Active database session.
@@ -530,6 +531,31 @@ def reset_play_link(session: Session, character_id: uuid.UUID, dm_email: str) ->
     session.commit()
     session.refresh(character)
     return character.play_token
+
+
+def release_play_link(session: Session, character_id: uuid.UUID, dm_email: str) -> None:
+    """Let the party's join list open this character again (Plan 139).
+
+    For a new player, or when the DM's own look claimed it by mistake. The next
+    phone to open it claims it. The link itself doesn't change.
+
+    Args:
+        session: Active database session.
+        character_id: UUID of the character.
+        dm_email: Email of the requesting DM.
+
+    Raises:
+        ValueError: If the character does not exist.
+        PermissionError: If the DM does not own the campaign.
+    """
+    character = CharacterRepo.get_by_id(session, character_id)
+    if character is None:
+        raise ValueError(f"Character {character_id} not found.")
+    campaign = CampaignRepo.get_by_id(session, character.campaign_id)
+    _assert_campaign_owner(campaign, dm_email)
+    character.claimed_at = None
+    session.add(character)
+    session.commit()
 
 
 def update_character(

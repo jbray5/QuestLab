@@ -176,6 +176,15 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
     };
   }, [prefs.awake]);
 
+  // Plan 139: once this phone is in use, the party's list stops opening the character. The
+  // welcome screen doesn't count, so "Not you?" still undoes a wrong tap. The DM's Open button
+  // adds ?peek=1, so a look from the DM's own browser doesn't count either.
+  const [peeking] = useState(() => params.get("peek") === "1");
+  const inUse = !!pc && prefs.onboarded && !peeking;
+  useEffect(() => {
+    if (inUse) void playApi.claim(pcId).catch(() => undefined);
+  }, [inUse, pcId]);
+
   // The DM reset this link (or it never existed): the way back is the party's page.
   const replacedFor = replacedLinkCampaign(error, pcId);
   if (replacedFor) return <LinkReplaced campaignId={replacedFor} />;

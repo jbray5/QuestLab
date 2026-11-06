@@ -157,6 +157,7 @@ export interface QuestOutcome {
 }
 
 export interface QuestHistoryItem {
+  step_id: string;
   kind: StepKind;
   text: string;
   image_url: string | null;
@@ -164,7 +165,8 @@ export interface QuestHistoryItem {
   skill: string | null;
   total: number | null;
   passed: boolean | null;
-  reply: string | null;
+  /** Plan 139 — they answered. The words never come back from the server. */
+  replied: boolean;
 }
 
 export interface QuestRunView {

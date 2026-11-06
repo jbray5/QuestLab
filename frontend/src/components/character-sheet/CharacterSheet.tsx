@@ -233,7 +233,7 @@ export default function CharacterSheet({ characterId, onClose, readOnly = false 
   const quick = (
     <>
       <div style={{ marginTop: "0.5rem" }}>
-        <PlayerLinkButton characterId={characterId} playToken={pc.play_token} characterName={pc.character_name} />
+        <PlayerLinkButton characterId={characterId} playToken={pc.play_token} characterName={pc.character_name} claimedAt={pc.claimed_at} />
       </div>
 
       {/* DM-help inline tooltips */}

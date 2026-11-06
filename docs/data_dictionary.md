@@ -132,6 +132,7 @@ Full 2024 5e character sheet, belonging to a Campaign.
 | conditions | JSON | Yes | ≤ 20 names | UX-001 — conditions the DM set ("Poisoned"), kept between fights; trimmed and de-duplicated ignoring case; the running fight's tracker row mirrors them; the phone lists them (migration 0058) |
 | play_token | VARCHAR(64) | Yes | UNIQUE | SEC-002 — the player link's secret (`/play/{play_token}`), 22 URL-safe characters, set at creation; replaced by the DM's "Reset link"; never in a player payload; only the owning DM's reads carry it (migration 0057) |
 | legacy_uuid_until | TIMESTAMPTZ | Yes | | SEC-002 — PCs made before tokens still open by `/play/{id}` until this moment (2026-12-01 UTC for every existing row); NULL for new PCs and after a reset (migration 0057) |
+| claimed_at | TIMESTAMPTZ | Yes | | Plan 139 — when a player first used this character on a phone, or built it on the join page. Once set, the join roster returns `key: null` for it. Only the DM's release route clears it; Reset link leaves it. Migration 0067 set it on existing rows with a real player name. |
 | created_at | TIMESTAMP | No | | |
 | updated_at | TIMESTAMP | No | | |
 

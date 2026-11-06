@@ -169,6 +169,8 @@ Subagents, slash commands, hooks, rules. See [`.claude/README.md`](.claude/READM
 
 10. **A side quest shows one step at a time.** `steps` holds the DCs, the links and every later step, so it never reaches a player. The phone gets `QuestRunView`, built by `side_quest_service._view`. Quest rolls and text never reach the TV or other phones, and any Discord ping says nothing about what's inside. The one exception is a recap its player chose to share: `PartyRecap` carries the character's name and their words, and nothing else about the run.
 
+11. **What a player writes for the DM stays with the DM, and the party's list only opens a character nobody has.** No `/play` response returns a reply's words (`QuestHistoryItem.replied`), and the join roster gives no key for a claimed character (`claimed_at`, Plan 139). No logins or codes for players: the link is still the only credential.
+
 ## Definition of Done
 
 Every change is complete only when all of these pass (run `/quality-gate`):

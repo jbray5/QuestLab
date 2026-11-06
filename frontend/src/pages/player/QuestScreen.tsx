@@ -28,11 +28,13 @@ import { zoomable } from "../../lib/lightbox";
 import {
   askForMotion,
   buzz,
+  keepSentReply,
   loadQuestDraft,
   motionStart,
   prefersReducedMotion,
   questImageSrc,
   saveQuestDraft,
+  sentReply,
   useQuestNav,
   useShake,
   type MotionState,
@@ -512,7 +514,7 @@ export default function QuestScreen({ runId }: { runId: string }) {
     const rereading = view.status === "done" && !played;
     body = (
       <>
-        <SoFar items={view.history} open={soFar ?? rereading} onToggle={() => setSoFar(!(soFar ?? rereading))} />
+        <SoFar runId={view.run_id} items={view.history} open={soFar ?? rereading} onToggle={() => setSoFar(!(soFar ?? rereading))} />
         <StepBody key={view.step.id} view={view} busy={moving} err={err} onMove={(m) => void move(m)} motion={motion} setMotion={setMotion} rereading={rereading} onClose={nav.close} />
       </>
     );
@@ -725,7 +727,7 @@ function ReplyStep({ view, busy, onMove }: StepProps) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <label htmlFor="qsq-reply" style={{ margin: 0, fontSize: 14, fontWeight: 500, color: "var(--text2)" }}>Your answer</label>
-      {help === "teach" && <span id="qsq-reply-who" style={smallText}>This goes to your DM. Like your notes, anyone with your link can read it. It's kept here if you leave before sending it.</span>}
+      {help === "teach" && <span id="qsq-reply-who" style={smallText}>This goes to your DM. Once it's sent, nobody else can read it, and you can still read it on this phone. It's kept here if you leave before sending it.</span>}
       <textarea
         id="qsq-reply"
         aria-describedby={help === "teach" ? "qsq-reply-who" : undefined}
@@ -739,7 +741,10 @@ function ReplyStep({ view, busy, onMove }: StepProps) {
         style={{ resize: "vertical", borderRadius: 12, fontSize: 16, lineHeight: 1.5, minHeight: 140 }}
       />
       {text.length > MAX_REPLY - 200 && <span className="num" style={{ fontSize: 13, color: "var(--muted)", alignSelf: "flex-end" }}>{text.length} of {MAX_REPLY}</span>}
-      <button type="button" className="btn btn-primary" disabled={busy || !text.trim()} onClick={() => onMove({ step_id: step.id, reply: text })} style={{ minHeight: 54, fontSize: 17, borderRadius: 12 }}>
+      <button type="button" className="btn btn-primary" disabled={busy || !text.trim()} onClick={() => {
+          keepSentReply(runId, step.id, text);
+          onMove({ step_id: step.id, reply: text });
+        }} style={{ minHeight: 54, fontSize: 17, borderRadius: 12 }}>
         {busy ? "Sending…" : "Send"}
       </button>
     </div>
@@ -947,7 +952,7 @@ function Picture({ url, caption, small }: { url: string | null; caption: string;
 }
 
 /** Earlier steps, with what the player chose, rolled and wrote. Starts open when rereading a finished quest. */
-function SoFar({ items, open, onToggle }: { items: QuestHistoryItem[]; open: boolean; onToggle: () => void }) {
+function SoFar({ runId, items, open, onToggle }: { runId: string; items: QuestHistoryItem[]; open: boolean; onToggle: () => void }) {
   if (items.length === 0) return null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -960,7 +965,7 @@ function SoFar({ items, open, onToggle }: { items: QuestHistoryItem[]; open: boo
             <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6, padding: "10px 0", borderBottom: i === items.length - 1 ? "none" : "1px solid var(--border)" }}>
               <Picture url={h.image_url} caption="Earlier in this quest" small />
               {h.text && <p className="story" style={{ margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: 16, lineHeight: 1.5, color: "var(--story-text)" }}>{h.text}</p>}
-              <HistoryDid item={h} />
+              <HistoryDid runId={runId} item={h} />
             </div>
           ))}
         </Panel>
@@ -969,7 +974,7 @@ function SoFar({ items, open, onToggle }: { items: QuestHistoryItem[]; open: boo
   );
 }
 
-function HistoryDid({ item }: { item: QuestHistoryItem }) {
+function HistoryDid({ runId, item }: { runId: string; item: QuestHistoryItem }) {
   const style: CSSProperties = { fontSize: 14, color: "var(--text2)", whiteSpace: "pre-wrap", overflowWrap: "anywhere" };
   if (item.option) return <span style={style}>You chose: <b style={{ fontWeight: 600, color: "var(--text)" }}>{item.option}</b></span>;
   if (item.skill) {
@@ -979,6 +984,11 @@ function HistoryDid({ item }: { item: QuestHistoryItem }) {
       </span>
     );
   }
-  if (item.reply) return <span style={style}>You wrote: <span style={{ color: "var(--text)" }}>{item.reply}</span></span>;
+  if (item.replied) {
+    // Plan 139: only the phone that wrote it has the words.
+    const mine = sentReply(runId, item.step_id);
+    if (mine) return <span style={style}>You wrote: <span style={{ color: "var(--text)" }}>{mine}</span></span>;
+    return <span style={style}>You answered. It went to your DM.</span>;
+  }
   return null;
 }

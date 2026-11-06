@@ -57,6 +57,7 @@ def test_join_roster_is_public_and_sorted(client, api_engine):
     # SEC-002: each row carries the character's link secret, never its UUID.
     assert set(rows[0].keys()) == {
         "key",
+        "claimed",
         "character_name",
         "player_name",
         "portrait_url",

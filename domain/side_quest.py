@@ -490,8 +490,13 @@ class QuestOutcome(BaseModel):
 
 
 class QuestHistoryItem(BaseModel):
-    """A step this character has already passed, and what they did on it."""
+    """A step this character has already passed, and what they did on it.
 
+    A reply's words stay out (Plan 139): they're for the DM, and this goes to whoever holds the
+    link. The phone that wrote them keeps its own copy.
+    """
+
+    step_id: str
     kind: StepKind
     text: str = ""
     image_url: Optional[str] = None
@@ -499,7 +504,7 @@ class QuestHistoryItem(BaseModel):
     skill: Optional[str] = None
     total: Optional[int] = None
     passed: Optional[bool] = None
-    reply: Optional[str] = None
+    replied: bool = False
 
 
 class QuestRunView(BaseModel):

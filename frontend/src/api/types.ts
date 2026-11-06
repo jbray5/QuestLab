@@ -114,6 +114,8 @@ export interface PlayerCharacter {
   ruleset?: Ruleset;
   /** SEC-002 — the player link's secret (DM reads only): the link is /play/{play_token}. */
   play_token?: string | null;
+  /** Plan 139 — set once a player has this character; the party's list stops opening it (DM reads only). */
+  claimed_at?: string | null;
   // Proficiencies — JSON columns on the backend (Plan 00022)
   saving_throw_proficiencies: string[] | null;
   skill_proficiencies: Record<string, number> | null;
