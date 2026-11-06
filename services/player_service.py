@@ -968,17 +968,18 @@ def join_roster(db: Session, campaign_id: uuid.UUID) -> list[dict[str, Any]]:
     """Player-safe party roster for the QR join page (Plan 63).
 
     Capability trust model: the campaign UUID (plus the join code, when the
-    DM set one) is the party's door, shown only in the room. Each row carries
-    that character's link secret (``key``, SEC-002) so a player can open their
-    sheet; a DM who resets a departed player's link should also change the
-    join code. Names + portraits only — no stats, no UUIDs.
+    DM set one) is the party's door, shown only in the room. A row carries the
+    character's link secret (``key``, SEC-002) only until a player has that
+    character (Plan 139). After that ``key`` is None and it opens only from its
+    own link, so the list can't open someone else's phone. Names + portraits
+    only — no stats, no UUIDs.
 
     Args:
         db: Active database session.
         campaign_id: UUID of the campaign.
 
     Returns:
-        [{"key", "character_name", "player_name", "portrait_url",
+        [{"key", "claimed", "character_name", "player_name", "portrait_url",
         "character_class"}] sorted by character name.
     """
     campaign = CampaignRepo.get_by_id(db, campaign_id)
@@ -988,7 +989,8 @@ def join_roster(db: Session, campaign_id: uuid.UUID) -> list[dict[str, Any]]:
     return sorted(
         (
             {
-                "key": pc.play_token or str(pc.id),
+                "key": None if pc.claimed_at else (pc.play_token or str(pc.id)),
+                "claimed": pc.claimed_at is not None,
                 "character_name": pc.character_name,
                 "player_name": pc.player_name,
                 "portrait_url": pc.portrait_url,
@@ -998,6 +1000,25 @@ def join_roster(db: Session, campaign_id: uuid.UUID) -> list[dict[str, Any]]:
         ),
         key=lambda r: r["character_name"],
     )
+
+
+def claim_character(db: Session, pc_id: uuid.UUID) -> None:
+    """Mark a character as in a player's hands, so the join list stops opening it (Plan 139).
+
+    Safe to repeat: the first time stands.
+
+    Args:
+        db: Active database session.
+        pc_id: UUID of the player character (the caller holds its link).
+
+    Raises:
+        ValueError: If the character does not exist.
+    """
+    pc = _get_pc_or_raise(db, pc_id)
+    if pc.claimed_at is None:
+        pc.claimed_at = datetime.now(UTC)
+        db.add(pc)
+        db.commit()
 
 
 def list_party(db: Session, pc_id: uuid.UUID) -> list[dict[str, str]]:

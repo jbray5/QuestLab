@@ -81,8 +81,9 @@ export default function PlayLinkGate({ children }: { children: ReactNode }) {
 /**
  * "This link was replaced" (SEC-002; Plan 128 for reset token links too): the
  * way back is the party's page. It opens with `?switch=1` so a remembered
- * pick still holding the old key is forgotten instead of bouncing straight
- * back here.
+ * pick still holding the old key is dropped there instead of bouncing straight
+ * back here. Plan 139: a reset doesn't reopen the list, so the DM's new link is
+ * the real answer; the list only opens it if the DM reopened the character.
  */
 export function LinkReplaced({ campaignId }: { campaignId: string }) {
   return (
@@ -103,8 +104,8 @@ export function LinkReplaced({ campaignId }: { campaignId: string }) {
           This link was replaced
         </h1>
         <p style={{ color: "var(--text2)", margin: 0, lineHeight: 1.55 }}>
-          Your DM gave this character a new link. Open your party's page and tap your character again, or ask your DM
-          for the new link.
+          Your DM gave this character a new link, so ask them to send it to you. Your party's page is still there if
+          you need it.
         </p>
         <Link
           to={`/join/${campaignId}?switch=1`}

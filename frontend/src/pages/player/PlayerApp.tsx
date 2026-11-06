@@ -10,6 +10,9 @@
  * "Wolf is up", "The fight is over"); the header shows the whole name; and a
  * link the DM replaced shows "This link was replaced" with the way back to the
  * party's page, because the phone remembers which party each link belongs to.
+ *
+ * Plan 136: `?quest=<run_id>` opens a side quest over the tabs, so Back closes it
+ * and a refresh returns to it.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -33,6 +36,7 @@ import BagTab from "./BagTab";
 import JournalTab from "./JournalTab";
 import FirstOpen from "./FirstOpen";
 import DyingScreen from "./DyingScreen";
+import QuestScreen from "./QuestScreen";
 
 export default function PlayerApp({ pcId }: { pcId: string }) {
   const qc = useQueryClient();
@@ -119,6 +123,9 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
       } else {
         refresh();
         void qc.invalidateQueries({ queryKey: ["play-turn-state", pcId] });
+        void qc.invalidateQueries({ queryKey: ["play-quests", pcId] });
+        void qc.invalidateQueries({ queryKey: ["play-quest", pcId] });
+        void qc.invalidateQueries({ queryKey: ["play-recaps", pcId] });
       }
     },
     [qc, pcId, refresh, notify],
@@ -169,6 +176,15 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
     };
   }, [prefs.awake]);
 
+  // Plan 139: once this phone is in use, the party's list stops opening the character. The
+  // welcome screen doesn't count, so "Not you?" still undoes a wrong tap. The DM's Open button
+  // adds ?peek=1, so a look from the DM's own browser doesn't count either.
+  const [peeking] = useState(() => params.get("peek") === "1");
+  const inUse = !!pc && prefs.onboarded && !peeking;
+  useEffect(() => {
+    if (inUse) void playApi.claim(pcId).catch(() => undefined);
+  }, [inUse, pcId]);
+
   // The DM reset this link (or it never existed): the way back is the party's page.
   const replacedFor = replacedLinkCampaign(error, pcId);
   if (replacedFor) return <LinkReplaced campaignId={replacedFor} />;
@@ -184,6 +200,7 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
   }
 
   const isCaster = spells.length > 0 || Object.values(slots?.levels ?? {}).some((l) => l.max > 0);
+  const questRun = params.get("quest");
   const raw = (params.get("tab") as Tab) || "now";
   const tab: Tab = raw === "spells" && !isCaster ? "now" : raw;
   const go = (t: Tab) => {
@@ -222,6 +239,8 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
           <div style={{ maxWidth: 560, margin: "0 auto", minHeight: "100dvh", display: "flex", flexDirection: "column" }}>
             {dying ? (
               <DyingScreen />
+            ) : questRun ? (
+              <QuestScreen key={questRun} runId={questRun} />
             ) : (
               <>
                 {tab !== "character" && <TopBar />}

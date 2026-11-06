@@ -16,12 +16,15 @@ import { usePlayerPrefs } from "../../stores/usePlayerPrefs";
 import { usePlayer } from "./playerContext";
 import { Heading, HelpSwitch, Label, Monogram, Panel } from "./ui";
 import PlayerFeedback from "./PlayerFeedback";
+import { PartyRecaps, QuestList } from "./QuestScreen";
 
 export default function JournalTab() {
   return (
     <>
       <Nudge />
       <Tonight />
+      <QuestList />
+      <PartyRecaps />
       <Notes />
       <People />
       <HowToPlay />
@@ -223,6 +226,30 @@ function HowToPlay() {
   );
 }
 
+/** Plan 139: the party's list won't open a character someone has, so a player can keep their own link. */
+function MyLink({ pcId }: { pcId: string }) {
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  const url = `${window.location.origin}/play/${pcId}`;
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setState("copied");
+      window.setTimeout(() => setState("idle"), 1500);
+    } catch {
+      setState("failed");
+    }
+  }
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <button type="button" className="btn btn-secondary" onClick={() => void copy()} style={{ minHeight: 44, justifyContent: "center" }}>
+        {state === "copied" ? "Copied" : "Copy my link"}
+      </button>
+      {state === "failed" && <input type="text" readOnly value={url} aria-label="Your link" onFocus={(e) => e.currentTarget.select()} className="num" style={{ width: "100%", minHeight: 44, fontSize: 16 }} />}
+      <span style={{ fontSize: 13, color: "var(--text2)" }}>It opens your character on any phone or computer. Keep it somewhere safe, and keep it to yourself.</span>
+    </div>
+  );
+}
+
 function Settings() {
   const { pc, pcId, help, setHelp } = usePlayer();
   const [prefs, setPrefs] = usePlayerPrefs(pcId);
@@ -240,6 +267,7 @@ function Settings() {
           Keep the screen on during the session
         </label>
       )}
+      <MyLink pcId={pcId} />
       <Link to={`/join/${pc.campaign_id}?switch=1`} style={{ fontSize: 14, display: "block", padding: "12px 0", lineHeight: 1.4 }}>
         Not <span className="story">{pc.character_name}</span>? Pick your character
       </Link>

@@ -46,6 +46,7 @@ from api.routers import (
     rest,
     sessions,
     shops,
+    side_quests,
     spellcasting,
     spells,
     stream,
@@ -204,6 +205,7 @@ app.include_router(inventory.router, prefix=_PREFIX)
 app.include_router(spellcasting.router, prefix=_PREFIX)
 app.include_router(features.router, prefix=_PREFIX)
 app.include_router(resources.router, prefix=_PREFIX)  # Plan 135 counters
+app.include_router(side_quests.router, prefix=_PREFIX)  # Plan 136 side quests
 app.include_router(rest.router, prefix=_PREFIX)
 app.include_router(uploads.router, prefix=_PREFIX)
 app.include_router(admin.router, prefix=_PREFIX)

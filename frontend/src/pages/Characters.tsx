@@ -936,7 +936,7 @@ export default function Characters() {
               >
                 <ScrollText size={16} /> Open sheet
               </button>
-              <PlayerLinkButton characterId={c.id} playToken={c.play_token} characterName={c.character_name} />
+              <PlayerLinkButton characterId={c.id} playToken={c.play_token} characterName={c.character_name} claimedAt={c.claimed_at} />
               <button className="btn btn-ghost" onClick={() => startEdit(c)}>
                 Edit
               </button>

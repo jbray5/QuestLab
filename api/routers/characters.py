@@ -208,6 +208,27 @@ def reset_play_link(character_id: uuid.UUID, db: DB, user: CurrentUser) -> dict:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
 
 
+@router.post("/characters/{character_id}/play-link/release")
+def release_play_link(character_id: uuid.UUID, db: DB, user: CurrentUser) -> dict:
+    """Let the party's join list open this character again (Plan 139).
+
+    Args:
+        character_id: UUID of the character.
+        db: Database session.
+        user: Authenticated DM email (must own the campaign).
+
+    Returns:
+        ``{"released": True}``.
+    """
+    try:
+        character_service.release_play_link(db, character_id, user)
+        return {"released": True}
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
 @router.post("/characters/{character_id}/level-up", response_model=PlayerCharacter)
 def grant_level_up(
     character_id: uuid.UUID, body: LevelUpGrant, db: DB, user: CurrentUser

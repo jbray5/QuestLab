@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BadgeCheck, BookOpen, CalendarDays, ChevronDown, ChevronRight, Compass, Feather, FlaskConical, Gem, LayoutDashboard, LogOut,
-  Map as MapIcon, Megaphone, Menu, NotebookPen, PencilRuler, Puzzle, ScrollText, Shield, Skull, Sparkles, Store,
+  Map as MapIcon, Megaphone, Menu, NotebookPen, PencilRuler, Puzzle, ScrollText, Shield, Signpost, Skull, Sparkles, Store,
   Heart, MessageSquarePlus, Sword, Swords, UserRound, Users,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -341,6 +341,9 @@ export default function Layout() {
             </NavItem>
             <NavItem to={`/campaigns/${activeCampaign.id}/crier`} icon={<Megaphone size={16} />} onClick={closeNav}>
               Town crier
+            </NavItem>
+            <NavItem to={`/campaigns/${activeCampaign.id}/side-quests`} icon={<Signpost size={16} />} onClick={closeNav}>
+              Quest creator
             </NavItem>
             <NavItem to={`/campaigns/${activeCampaign.id}/notebook`} icon={<NotebookPen size={16} />} onClick={closeNav}>
               Notebook

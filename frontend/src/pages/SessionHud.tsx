@@ -1924,7 +1924,7 @@ export default function SessionHud() {
                             Their turn
                           </span>
                         )}
-                        <PlayerLinkButton characterId={pc.id} playToken={pc.play_token} characterName={pc.character_name} compact />
+                        <PlayerLinkButton characterId={pc.id} playToken={pc.play_token} characterName={pc.character_name} claimedAt={pc.claimed_at} compact />
                       </span>
                     </div>
                     <div style={{ fontSize: "0.8125rem", color: "var(--muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

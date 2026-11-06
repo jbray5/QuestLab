@@ -248,6 +248,12 @@ def patch_duckdb_schema() -> None:
         "ALTER TABLE homebrew_races ADD COLUMN IF NOT EXISTS natural_weapons JSON DEFAULT '[]'",
         "ALTER TABLE homebrew_subclasses ADD COLUMN IF NOT EXISTS resources JSON DEFAULT '[]'",
         "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS speeds JSON",
+        # 0066 — Plan 138: side quest recaps (side_quest_runs itself comes from create_all)
+        "ALTER TABLE side_quest_runs ADD COLUMN IF NOT EXISTS recap TEXT",
+        "ALTER TABLE side_quest_runs ADD COLUMN IF NOT EXISTS recap_at TIMESTAMPTZ",
+        # 0067 — Plan 139: claims. Column only: this list runs at every start, so the
+        # migration's data fix here would re-claim characters a DM had reopened.
+        "ALTER TABLE player_characters ADD COLUMN IF NOT EXISTS claimed_at TIMESTAMPTZ",
         # 0035 — 2024 PHB recovery numbers (Paladin CD 2 uses; the
         # regain-one-on-short-rest pattern for CD + Second Wind).
         # seed_catalog() only fires on an empty table, so already-seeded

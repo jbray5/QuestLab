@@ -3,7 +3,8 @@
  * one bonus action, with your real attacks to roll and a coach tip. Someone
  * else's turn → who's up, when you go, your reaction. No fight → quick checks
  * and the table's latest rolls. Conditions sit near the top (Plan 128): right
- * under "Your turn" in a fight, first thing otherwise.
+ * under "Your turn" in a fight, first thing otherwise. A side quest's card
+ * (Plan 136) goes at the top, except on your turn, when it waits below the actions.
  */
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -21,6 +22,7 @@ import { Label, Panel, Tip } from "./ui";
 import { fmt } from "./rules";
 import Conditions from "./Conditions";
 import NamePrompt from "./NamePrompt";
+import { QuestCards } from "./QuestScreen";
 
 const BASIC_TEXT: Record<string, string> = {
   Dash: "Move again: double your movement this turn.",
@@ -49,6 +51,7 @@ const POOL_COST_2014: Record<string, [string, number]> = {
 export default function NowTab() {
   const { pc, combat, turn, pcId } = usePlayer();
   const levelUp = pc.pending_level != null && pc.pending_level > pc.level;
+  const yourTurn = !!(combat?.in_combat && turn?.active);
   return (
     <>
       {levelUp && (
@@ -62,8 +65,12 @@ export default function NowTab() {
         </Link>
       )}
       <NamePrompt />
-      {combat?.in_combat && turn?.active ? (
-        <YourTurn />
+      {!yourTurn && <QuestCards />}
+      {yourTurn ? (
+        <>
+          <YourTurn />
+          <QuestCards />
+        </>
       ) : (
         <>
           <Conditions />

@@ -14,15 +14,20 @@ import { Monogram } from "./player/ui";
  * character, and lands on their live sheet. No accounts — the campaign
  * UUID is the capability, shown only in the room. Remembers the pick so
  * the next scan goes straight to their sheet. `?switch=1` (the phone's
- * "Not you? Pick your character") forgets that pick and shows the party.
+ * "Not you? Pick your character") shows the party instead.
+ * Plan 139: a character a player already has comes without its link, so this
+ * page can't open someone else's phone. It shows as taken and opens only from
+ * its own link. "Not you?" keeps the remembered pick until they pick another:
+ * the list may not open that character again, so it offers the way back.
  * A link that carries the join code (`?code=OTTER`; a DM can add it by hand,
  * the app's own join links leave it out) fills the code in and tries it, so
  * nobody retypes it (Plan 128).
  */
 
 interface RosterRow {
-  /** SEC-002 — the character's link key (opens /play/{key}); not its id. */
-  key: string;
+  /** SEC-002 — the character's link key (opens /play/{key}); not its id. Plan 139: null once a player has it. */
+  key: string | null;
+  claimed: boolean;
   character_name: string;
   player_name: string | null;
   portrait_url: string | null;
@@ -46,6 +51,8 @@ const CSS = `
 }
 .qj-card:hover { border-color: var(--border2); }
 .qj-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; border-bottom: 1px solid var(--border); }
+.qj-card.taken { cursor: default; opacity: 0.72; }
+.qj-card.taken:hover { border-color: var(--border); }
 .qj-card .ph {
   width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center;
   background: var(--surface2); border-bottom: 1px solid var(--border);
@@ -86,27 +93,39 @@ export default function JoinView() {
   const [needCode, setNeedCode] = useState(false);
   const [code, setCode] = useState(linkCode);
   const [codeWrong, setCodeWrong] = useState(false);
+  // Plan 139 — this phone's own character, when "Not you?" brought them here.
+  const [mine, setMine] = useState<string | null>(null);
 
   useEffect(() => {
     if (!campaignId) return;
     // A remembered pick goes straight to the sheet — the repeat-scan path.
-    // "Not you?" on the phone arrives with ?switch=1: forget it and show the party.
+    // "Not you?" on the phone arrives with ?switch=1: show the party, with a way back.
     try {
-      if (switching) {
-        localStorage.removeItem(`qj-pick-${campaignId}`);
-      } else {
-        const saved = localStorage.getItem(`qj-pick-${campaignId}`);
-        if (saved) {
-          navigate(`/play/${saved}`, { replace: true });
-          return;
-        }
+      const saved = localStorage.getItem(`qj-pick-${campaignId}`);
+      if (saved && !switching) {
+        navigate(`/play/${saved}`, { replace: true });
+        return;
       }
+      if (saved) checkMine(saved);
     } catch {
       /* storage blocked — always show the picker */
     }
     load(linkCode || readCode(campaignId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId, navigate, switching, linkCode]);
+
+  /** The way back, unless that link was replaced: then the pick is no use to anyone. */
+  function checkMine(saved: string) {
+    fetch(`${apiBase()}/play/${saved}/link`)
+      .then((r) => {
+        if (r.ok) {
+          setMine(saved);
+        } else if (r.status === 404 || r.status === 410) {
+          localStorage.removeItem(`qj-pick-${campaignId}`);
+        }
+      })
+      .catch(() => undefined);
+  }
 
   function readCode(cid: string): string {
     try {
@@ -141,13 +160,13 @@ export default function JoinView() {
       .catch(() => setError(true));
   }
 
-  function pick(row: RosterRow) {
+  function pick(key: string) {
     try {
-      localStorage.setItem(`qj-pick-${campaignId}`, row.key);
+      localStorage.setItem(`qj-pick-${campaignId}`, key);
     } catch {
       /* fine */
     }
-    navigate(`/play/${row.key}`);
+    navigate(`/play/${key}`);
   }
 
   return (
@@ -158,6 +177,17 @@ export default function JoinView() {
         <p className="qj-sub">
           Tap your character to open your sheet on this phone, or make a new one.
         </p>
+        {mine && (
+          <Link to={`/play/${mine}`} className="btn btn-secondary" style={{ minHeight: 48, justifyContent: "center", textDecoration: "none", marginBottom: 16 }}>
+            Back to my character
+          </Link>
+        )}
+        {roster?.some((row) => !row.key) && (
+          <p className="qj-sub">
+            A character that&rsquo;s already on a phone opens from its own link. If one of them is yours and you&rsquo;ve
+            lost your link, ask your DM.
+          </p>
+        )}
         {error && (
           <div className="qj-msg">
             <p>This join link isn&rsquo;t working. Ask your DM to show the join code again.</p>
@@ -198,21 +228,34 @@ export default function JoinView() {
         {!error && !needCode && roster === null && <p className="qj-msg">Finding the party…</p>}
         {roster && (
           <div className="qj-grid">
-            {roster.map((row) => (
-              <button key={row.key} type="button" className="qj-card" onClick={() => pick(row)}>
-                {row.portrait_url ? (
-                  <img src={portraitSrc(row.portrait_url, "")} alt="" loading="lazy" />
-                ) : (
-                  <div className="ph">
-                    <Monogram name={row.character_name} size={72} cls={row.character_class} />
-                  </div>
-                )}
-                <span className="qj-text">
-                  <span className="qj-name">{row.character_name}</span>
-                  {realPlayerName(row.player_name) && <span className="qj-player">{realPlayerName(row.player_name)}</span>}
-                </span>
-              </button>
-            ))}
+            {roster.map((row, i) => {
+              const face = (
+                <>
+                  {row.portrait_url ? (
+                    <img src={portraitSrc(row.portrait_url, "")} alt="" loading="lazy" />
+                  ) : (
+                    <div className="ph">
+                      <Monogram name={row.character_name} size={72} cls={row.character_class} />
+                    </div>
+                  )}
+                  <span className="qj-text">
+                    <span className="qj-name">{row.character_name}</span>
+                    {realPlayerName(row.player_name) && <span className="qj-player">{realPlayerName(row.player_name)}</span>}
+                    {!row.key && <span className="qj-player">Already on a phone</span>}
+                  </span>
+                </>
+              );
+              const key = row.key;
+              return key ? (
+                <button key={key} type="button" className="qj-card" onClick={() => pick(key)}>
+                  {face}
+                </button>
+              ) : (
+                <div key={`${row.character_name}-${i}`} className="qj-card taken">
+                  {face}
+                </div>
+              );
+            })}
             <button
               type="button"
               className="qj-card new"

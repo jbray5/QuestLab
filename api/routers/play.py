@@ -49,6 +49,15 @@ from domain.shop import (
     SellRequest,
     TransferReceipt,
 )
+from domain.side_quest import (
+    PartyRecap,
+    QuestAdvance,
+    QuestCard,
+    QuestRecapShare,
+    QuestRunView,
+    SideQuestConflictError,
+    SideQuestNotFoundError,
+)
 from domain.table_state import PlayerTokenMove
 from services import (
     arena_service,
@@ -58,13 +67,14 @@ from services import (
     levelup_service,
     player_service,
     resource_service,
+    side_quest_service,
 )
 
 router = APIRouter(tags=["play"])
 
 # Never in a player payload: the DM's notes about the PC (Plan 122), the link
 # secret and its grace stamp (SEC-002; the phone already holds its own link).
-_PLAYER_HIDDEN = {"notes", "play_token", "legacy_uuid_until"}
+_PLAYER_HIDDEN = {"notes", "play_token", "legacy_uuid_until", "claimed_at"}
 
 
 # ── Reads ──────────────────────────────────────────────────────────────────────
@@ -469,11 +479,34 @@ def join_create_character(
     """
     try:
         player_service.check_join_code(db, campaign_id, code)
-        return character_builder_service.create(db, campaign_id, body)
+        result = character_builder_service.create(db, campaign_id, body)
+        # Whoever built it has it, from the first second (Plan 139).
+        player_service.claim_character(db, uuid.UUID(result.pc_id))
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc))
     except PermissionError as exc:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/claim")
+def claim_character(pc_id: PlayPcId, db: DB) -> dict:
+    """Say a player has this character on their phone (Plan 139).
+
+    The party's join list stops opening it from now on. Safe to repeat.
+
+    Args:
+        pc_id: UUID of the player character (capability URL).
+        db: Database session.
+
+    Returns:
+        ``{"claimed": True}``.
+    """
+    try:
+        player_service.claim_character(db, pc_id)
+        return {"claimed": True}
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
 
 
 @router.get("/play/{pc_id}/campaign")
@@ -573,6 +606,8 @@ def join_roster(
     campaign_id: uuid.UUID, db: DB, code: str | None = Query(default=None, max_length=12)
 ) -> list[dict]:
     """Party roster for the QR join page (Plan 63) — names + portraits only.
+
+    A character a player already has comes without its link (Plan 139).
 
     Args:
         campaign_id: UUID of the campaign (the capability).
@@ -1061,3 +1096,118 @@ def restore_resource(
         return resource_service.restore_for_player(db, pc_id, resource_id, amount)
     except (LookupError, ValueError) as exc:
         raise _companion_error(exc)
+
+
+# ---------------------------------------------------------------------------
+# Plan 136 — side quests: only the current step ever leaves the server
+# ---------------------------------------------------------------------------
+
+
+@router.get("/play/{pc_id}/side-quests", response_model=list[QuestCard])
+def list_side_quests(pc_id: PlayPcId, db: DB) -> list[QuestCard]:
+    """This character's side quests, newest first.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        db: Database session.
+
+    Returns:
+        The cards for the Now screen and the Journal.
+    """
+    return side_quest_service.list_cards(db, pc_id)
+
+
+@router.get("/play/{pc_id}/side-quests/recaps", response_model=list[PartyRecap])
+def side_quest_recaps(pc_id: PlayPcId, db: DB) -> list[PartyRecap]:
+    """What the party has told each other about their side quests. Declared before ``{run_id}``.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        db: Database session.
+
+    Returns:
+        Who said what, newest first.
+    """
+    return side_quest_service.party_recaps(db, pc_id)
+
+
+@router.put("/play/{pc_id}/side-quests/{run_id}/recap", response_model=QuestRunView)
+def share_side_quest_recap(
+    pc_id: PlayPcId, run_id: uuid.UUID, body: QuestRecapShare, db: DB
+) -> QuestRunView:
+    """Tell the party what happened on a finished quest. Empty words take it back.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        run_id: The run.
+        body: The player's words.
+        db: Database session.
+
+    Returns:
+        The run as it now stands.
+    """
+    try:
+        return side_quest_service.share_recap(db, pc_id, run_id, body)
+    except SideQuestNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except SideQuestConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+@router.get("/play/{pc_id}/side-quests/{run_id}", response_model=QuestRunView)
+def get_side_quest(pc_id: PlayPcId, run_id: uuid.UUID, db: DB) -> QuestRunView:
+    """The current step of this character's run. Anyone else's run is a 404.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        run_id: The run.
+        db: Database session.
+
+    Returns:
+        The current step, without its DC or links.
+    """
+    try:
+        return side_quest_service.get_view(db, pc_id, run_id)
+    except SideQuestNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/side-quests/{run_id}/open", response_model=QuestRunView)
+def open_side_quest(pc_id: PlayPcId, run_id: uuid.UUID, db: DB) -> QuestRunView:
+    """Open a new quest. Opening twice changes nothing.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        run_id: The run.
+        db: Database session.
+
+    Returns:
+        The first step.
+    """
+    try:
+        return side_quest_service.open_run(db, pc_id, run_id)
+    except SideQuestNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+
+
+@router.post("/play/{pc_id}/side-quests/{run_id}/advance", response_model=QuestRunView)
+def advance_side_quest(
+    pc_id: PlayPcId, run_id: uuid.UUID, body: QuestAdvance, db: DB
+) -> QuestRunView:
+    """Take a move on the current step. A stale ``step_id`` changes nothing (a double tap).
+
+    Args:
+        pc_id: The character, resolved from the link.
+        run_id: The run.
+        body: The move.
+        db: Database session.
+
+    Returns:
+        Wherever the run is now.
+    """
+    try:
+        return side_quest_service.advance(db, pc_id, run_id, body)
+    except SideQuestNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc))

@@ -146,6 +146,12 @@ class PlayerCharacter(SQLModel, table=True):
     legacy_uuid_until: Optional[datetime] = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
     )
+    # Plan 139 — when a player first used this character on a phone, or built it
+    # on the join page. Once set, the party's join list stops handing out the
+    # link. NULL = nobody has it yet.
+    claimed_at: Optional[datetime] = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -252,6 +258,8 @@ class PlayerCharacterRead(BaseModel):
     conditions: Optional[list[str]] = None
     # SEC-002 — the DM builds the player's link from this (DM-only projection).
     play_token: Optional[str] = None
+    # Plan 139 — set once a player has this character (the DM's link button shows it).
+    claimed_at: Optional[datetime] = None
     backstory: Optional[str] = None
     notes: Optional[str] = None
     player_notes: Optional[str] = None

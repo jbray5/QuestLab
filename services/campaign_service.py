@@ -24,6 +24,7 @@ from db.repos.npc_repo import NpcRepo
 from db.repos.puzzle_repo import PuzzleRepo
 from db.repos.session_repo import SessionRepo, SessionRunbookRepo
 from db.repos.shop_repo import ShopItemRepo, ShopRepo
+from db.repos.side_quest_repo import SideQuestRepo
 from domain.campaign import Campaign, CampaignCreate, CampaignRead, CampaignUpdate
 from domain.enums import Ruleset
 from services import plan_service
@@ -274,6 +275,9 @@ def delete_campaign(session: Session, campaign_id: uuid.UUID, dm_email: str) -> 
         ShopRepo.delete(session, shop)
     for puzzle in PuzzleRepo.list_for_campaign(session, campaign_id):
         PuzzleRepo.delete(session, puzzle)
+    # Plan 136: quests go first; each takes its runs with it.
+    for side_quest in SideQuestRepo.list_for_campaign(session, campaign_id):
+        SideQuestRepo.delete(session, side_quest)
     for character in CharacterRepo.list_by_campaign(session, campaign_id):
         CharacterRepo.delete(session, character)
 

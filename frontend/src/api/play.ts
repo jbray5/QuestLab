@@ -265,6 +265,8 @@ export const playApi = {
     ),
   patchState: (pcId: string, patch: PlayerStatePatch) =>
     playWrite(pcId, (o) => api.patch<PlayerCharacter>(`/play/${pcId}/state`, patch, o)),
+  // Plan 139 — this phone is in use, so the party's list stops opening the character.
+  claim: (pcId: string) => api.post<{ claimed: boolean }>(`/play/${pcId}/claim`, {}, Q),
   // Plan 128 — save "What should we call you?"; the caller shows any error itself.
   setPlayerName: (pcId: string, name: string) =>
     api.patch<PlayerCharacter>(`/play/${pcId}/state`, { player_name: name }, Q),

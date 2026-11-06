@@ -14,6 +14,8 @@ interface Props {
   playToken?: string | null;
   /** Used in the reset confirmation and the controls' names. */
   characterName?: string;
+  /** Plan 139 — set once a player has this character; the party's list stops opening it. */
+  claimedAt?: string | null;
   /** Compact icon-only variant for tight rows (HUD party panel). */
   compact?: boolean;
 }
@@ -41,17 +43,25 @@ interface Props {
  * SEC-002 — the link carries the character's `play_token`, never its id.
  * "Reset link" gives the character a new one and kills the old at once (a
  * player left, or the link was posted somewhere public).
+ *
+ * Plan 139 — once a player has the character, the party's list won't open it,
+ * so this link is how a player gets back on a new phone. A reset doesn't change
+ * that. "Let someone pick it" reopens the list, for a new player or after the
+ * DM's own look claimed it by mistake. "Open" adds ?peek=1 so a look doesn't.
  */
 const POPOVER_W = 320;
 /** About how tall the popover is, to open it above the button when there's no room below. */
-const POPOVER_H = 236;
+const POPOVER_H = 330;
 
-export default function PlayerLinkButton({ characterId, playToken, characterName, compact = false }: Props) {
+export default function PlayerLinkButton({ characterId, playToken, characterName, claimedAt, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [freshToken, setFreshToken] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
   const [resetDone, setResetDone] = useState(false);
+  const [releasing, setReleasing] = useState(false);
+  const [released, setReleased] = useState(false);
+  const claimed = !!claimedAt && !released;
   const qc = useQueryClient();
   const key = freshToken ?? playToken ?? characterId;
   const btnRef = useRef<HTMLButtonElement | null>(null);
@@ -98,8 +108,8 @@ export default function PlayerLinkButton({ characterId, playToken, characterName
   async function handleReset() {
     const who = characterName || "this character";
     const ok = window.confirm(
-      `Give ${who} a new player link?\n\nThe old link stops working right away. ` +
-        "If a player left the party, change the campaign's join code too, so they can't pick the character again.",
+      `Give ${who} a new player link?\n\nThe old link stops working right away, and whoever had it can't pick ` +
+        "the character from the party's list. Send the new link to the player.",
     );
     if (!ok) return;
     setResetting(true);
@@ -111,6 +121,23 @@ export default function PlayerLinkButton({ characterId, playToken, characterName
       void qc.invalidateQueries({ queryKey: ["characters"] });
     } finally {
       setResetting(false);
+    }
+  }
+
+  async function handleRelease() {
+    const who = characterName || "this character";
+    const ok = window.confirm(
+      `Let someone pick ${who} from the party's list?\n\nThe next phone to open it will have it. ` +
+        "Use this for a new player, or if you opened the character by mistake.",
+    );
+    if (!ok) return;
+    setReleasing(true);
+    try {
+      await charactersApi.releasePlayLink(characterId);
+      setReleased(true);
+      void qc.invalidateQueries({ queryKey: ["characters"] });
+    } finally {
+      setReleasing(false);
     }
   }
 
@@ -164,7 +191,7 @@ export default function PlayerLinkButton({ characterId, playToken, characterName
           )}
         </button>
         <a
-          href={url}
+          href={`${url}?peek=1`}
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn-secondary"
@@ -198,6 +225,30 @@ export default function PlayerLinkButton({ characterId, playToken, characterName
       >
         <RotateCcw size={14} aria-hidden /> {resetting ? "Making a new link…" : "Reset link"}
       </button>
+      {claimed && (
+        <>
+          <div style={{ fontSize: "0.8125rem", color: "var(--text2)", marginTop: "0.5rem", lineHeight: 1.45 }}>
+            A player has this character, so the party&rsquo;s list won&rsquo;t open it. This link still does.
+          </div>
+          <button
+            type="button"
+            onClick={() => void handleRelease()}
+            disabled={releasing}
+            className="btn btn-ghost"
+            style={{
+              marginTop: "0.25rem",
+              width: "100%",
+              fontSize: "0.8125rem",
+              padding: "0.35rem",
+              color: "var(--muted)",
+              justifyContent: "center",
+              minHeight: tap,
+            }}
+          >
+            {releasing ? "Opening it up…" : "Let someone pick it from the list"}
+          </button>
+        </>
+      )}
     </>
   );
 
