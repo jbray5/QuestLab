@@ -91,7 +91,7 @@ export default function BetaWelcome({ email, campaigns }: { email: string; campa
       <div className="flex" style={{ alignItems: "flex-start", gap: "0.75rem" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <p className="eyebrow" style={{ margin: 0 }}>
-            Friends beta · <span className="num">{count}</span> of <span className="num">{STEPS.length}</span> done
+            Beta · <span className="num">{count}</span> of <span className="num">{STEPS.length}</span> done
           </p>
           <h2 className="story" style={{ margin: "0.2rem 0 0.35rem", fontSize: "1.35rem" }}>
             Welcome to QuestLab

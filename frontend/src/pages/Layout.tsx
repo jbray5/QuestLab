@@ -269,7 +269,7 @@ export default function Layout() {
         <Link to="/" onClick={closeNav} style={{ display: "flex", alignItems: "center", gap: "0.6rem", color: "var(--text)", textDecoration: "none" }}>
           <BrandMark size={22} />
           <span className="story" style={{ fontWeight: 700, fontSize: "1.3rem", lineHeight: 1 }}>QuestLab</span>
-          <span className="pill" title="You're in the friends beta. Feedback welcome." style={{ fontSize: "0.6875rem", padding: "0 0.45rem", marginLeft: "0.1rem" }}>
+          <span className="pill" title="You're in the beta. Feedback welcome." style={{ fontSize: "0.6875rem", padding: "0 0.45rem", marginLeft: "0.1rem" }}>
             Beta
           </span>
         </Link>

@@ -78,7 +78,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     title: "Tell us how it goes",
     body:
-      "QuestLab is in a friends beta. Send feedback is at the bottom of the menu on " +
+      "QuestLab is in beta. Send feedback is at the bottom of the menu on " +
       "every page, and the Guide walks through a whole night in fifteen minutes.",
   },
 ];
