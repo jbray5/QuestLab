@@ -272,7 +272,7 @@ export default function Welcome() {
             </li>
           </ul>
           <p className="ql-w-price">
-            Free for your table. No generative AI anywhere: rules by the book, art you bring.
+            Free for your table. No generative AI in the app: rules by the book, art you bring.
           </p>
         </div>
 
