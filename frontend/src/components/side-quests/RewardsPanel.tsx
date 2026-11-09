@@ -86,6 +86,25 @@ export default function RewardsPanel({
         onChange={(gp) => onChange({ gp: gp ?? 0 })}
       />
 
+      {/* Plan 141 */}
+      <div>
+        <label htmlFor={`damage-${step.id}`}>Damage</label>
+        <input
+          id={`damage-${step.id}`}
+          type="text"
+          inputMode="text"
+          maxLength={8}
+          placeholder="1d4"
+          disabled={locked}
+          value={step.damage ?? ""}
+          onChange={(e) => onChange({ damage: e.target.value.trim() || null })}
+          style={{ maxWidth: "8rem" }}
+        />
+        <p style={{ ...HINT, marginBottom: 0 }}>
+          Dice like 1d4 or 2d6+1, or a number. Comes off temp HP first, and never takes anyone below 1 HP.
+        </p>
+      </div>
+
       <div>
         <div style={{ fontSize: "0.875rem", fontWeight: 500, color: "var(--text2)", marginBottom: "0.3rem" }}>
           Items

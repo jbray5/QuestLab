@@ -110,6 +110,9 @@ export function blankStep(kind: StepKind): QuestStep {
     fail_next: NEXT_IN_LIST,
     gp: 0,
     item_ids: [],
+    party_sees: false,
+    damage: null,
+    text_for: {},
   };
 }
 
@@ -202,6 +205,7 @@ function cleanStep(step: QuestStep): QuestStep {
     dc: null,
     pass_next: null,
     fail_next: null,
+    party_sees: step.kind === "choice" && !!step.party_sees,
   };
   if (step.kind === "read" || step.kind === "reply") clean.next = step.next;
   if (step.kind === "choice") {
@@ -301,6 +305,7 @@ export function rewardSummary(step: QuestStep): string {
   const bits: string[] = [];
   if (step.gp) bits.push(formatGp(step.gp));
   if (step.item_ids.length) bits.push(step.item_ids.length === 1 ? "1 item" : `${step.item_ids.length} items`);
+  if (step.damage) bits.push(`${step.damage} damage`);
   return bits.join(", ");
 }
 
@@ -330,7 +335,11 @@ export function logLines(entry: QuestLogEntry): string[] {
 
 /** What arriving somewhere paid: gold first, then item names. */
 export function logRewards(entry: QuestLogEntry): string[] {
-  return [...(entry.gp ? [formatGp(entry.gp)] : []), ...entry.items.map((name) => `Got: ${name}`)];
+  return [
+    ...(entry.gp ? [formatGp(entry.gp)] : []),
+    ...entry.items.map((name) => `Got: ${name}`),
+    ...(entry.damage ? [`Took ${entry.damage} damage`] : []),
+  ];
 }
 
 // ── A copy of unsaved work on this device ───────────────────────────────────

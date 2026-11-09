@@ -12,7 +12,9 @@ from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB, CurrentUser
 from domain.side_quest import (
+    QuestPractice,
     QuestRunDetail,
+    QuestRunSummary,
     SideQuestConflictError,
     SideQuestCreate,
     SideQuestNotFoundError,
@@ -156,6 +158,41 @@ def send_quest(quest_id: uuid.UUID, body: SideQuestSend, db: DB, user: CurrentUs
     """
     try:
         return side_quest_service.send_quest(db, quest_id, body, user)
+    except _ERRORS as exc:
+        _http(exc)
+
+
+@router.post("/side-quests/{quest_id}/practice", response_model=QuestRunSummary)
+def practice(quest_id: uuid.UUID, body: QuestPractice, db: DB, user: CurrentUser):
+    """Plan 142: try the quest as a character, hidden from the party. Again starts over.
+
+    Args:
+        quest_id: UUID of the quest.
+        body: The character to play as.
+        db: Database session.
+        user: The requesting DM.
+
+    Returns:
+        The practice run.
+    """
+    try:
+        return side_quest_service.practice(db, quest_id, body, user)
+    except _ERRORS as exc:
+        _http(exc)
+
+
+@router.delete("/side-quests/{quest_id}/practice/{run_id}", status_code=status.HTTP_204_NO_CONTENT)
+def remove_practice(quest_id: uuid.UUID, run_id: uuid.UUID, db: DB, user: CurrentUser) -> None:
+    """Plan 142: delete a practice run (a real run is a 409).
+
+    Args:
+        quest_id: UUID of the quest.
+        run_id: UUID of the practice run.
+        db: Database session.
+        user: The requesting DM.
+    """
+    try:
+        side_quest_service.remove_practice(db, quest_id, run_id, user)
     except _ERRORS as exc:
         _http(exc)
 

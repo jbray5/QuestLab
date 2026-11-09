@@ -12,7 +12,7 @@
  */
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Backpack, ChevronDown, ChevronLeft, ChevronRight, Coins, Dices, Scroll, Vibrate } from "lucide-react";
+import { Backpack, ChevronDown, ChevronLeft, ChevronRight, Coins, Dices, HeartCrack, Scroll, Vibrate } from "lucide-react";
 
 import {
   playQuestsApi,
@@ -322,6 +322,7 @@ function NewCard({ card, compact }: { card: QuestCard; compact: boolean }) {
         <Panel tone="lit" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: "6px 10px", padding: "10px 12px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
             <span className="story" style={{ ...title, fontSize: 18, ...clamp(2) }}>{card.title}</span>
+{card.practice && <span style={{ ...smallText, fontSize: 13, color: "var(--accent-text)" }}>Practice run</span>}
             <span style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
               <span className="pill pill-live" style={{ flexShrink: 0 }}>New</span>
               {card.teaser && <span style={{ ...smallText, fontSize: 13, minWidth: 0, overflowWrap: "anywhere", ...clamp(1) }}>{card.teaser}</span>}
@@ -340,6 +341,7 @@ function NewCard({ card, compact }: { card: QuestCard; compact: boolean }) {
           <Scroll size={24} color="var(--accent-text)" aria-hidden style={{ flexShrink: 0, marginTop: 2 }} />
           <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 0 }}>
             <span className="story" style={{ ...title, fontSize: 21 }}>{card.title}</span>
+{card.practice && <span style={{ ...smallText, fontSize: 13, color: "var(--accent-text)" }}>Practice run</span>}
             {card.teaser && <span style={{ ...smallText, overflowWrap: "anywhere" }}>{card.teaser}</span>}
           </div>
           <span className="pill pill-live" style={{ flexShrink: 0 }}>New</span>
@@ -362,6 +364,7 @@ function ActiveCard({ card, compact }: { card: QuestCard; compact: boolean }) {
       <Scroll size={20} color="var(--accent-text)" aria-hidden style={{ flexShrink: 0 }} />
       <span style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
         <span className="story" style={{ fontWeight: 700, fontSize: 18, lineHeight: 1.2, overflowWrap: "anywhere", ...(compact ? clamp(2) : {}) }}>{card.title}</span>
+{card.practice && <span style={{ ...smallText, fontSize: 13, color: "var(--accent-text)" }}>Practice run</span>}
         {card.teaser && <span style={{ ...smallText, overflowWrap: "anywhere", ...clamp(compact ? 1 : 2) }}>{card.teaser}</span>}
       </span>
       <span style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0, color: "var(--accent-text)", fontWeight: 600, fontSize: 14 }}>
@@ -487,6 +490,26 @@ export default function QuestScreen({ runId }: { runId: string }) {
     }
   };
 
+  // Plan 142 — a practice run goes back to the first step, with this screen's own state reset.
+  const startOver = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setMoving(true);
+    setErr(null);
+    try {
+      after(await playQuestsApi.startOver(pcId, runId));
+      setMoment(null);
+      setPlayed(false);
+      setSoFar(null);
+      setMotion(motionStart);
+    } catch (e) {
+      setErr(failureText(e));
+    } finally {
+      inFlight.current = false;
+      setMoving(false);
+    }
+  };
+
   let body: ReactNode;
   if (gone) {
     body = (
@@ -538,6 +561,16 @@ export default function QuestScreen({ runId }: { runId: string }) {
             <button type="button" className="btn btn-secondary" onClick={nav.close} style={{ minHeight: 44 }}>Go to it</button>
           </Panel>
         )}
+        {view?.practice && (
+          <Panel tone="tip" style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: "8px 12px" }}>
+            <span style={{ flex: 1, fontSize: 14, lineHeight: 1.4 }}>
+              Practice run. Nothing is paid or taken, and the party can&rsquo;t see your picks.
+            </span>
+            <button type="button" className="btn btn-secondary" disabled={moving} onClick={() => void startOver()} style={{ minHeight: 44 }}>
+              Start over
+            </button>
+          </Panel>
+        )}
         {body}
       </main>
     </>
@@ -587,7 +620,7 @@ function StepBody(props: StepProps) {
     <div ref={ref} tabIndex={-1} className="qsq-step" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {help === "teach" && view.history.length === 0 && !isEnd && <span style={smallText}>You can leave any time. You'll come back to this same step.</span>}
       {outcome?.die != null && <RollLine outcome={outcome} />}
-      {!isEnd && outcome && <Paid outcome={outcome} />}
+      {!isEnd && outcome && <Paid outcome={outcome} practice={view.practice} />}
       <Picture url={step.image_url} caption={view.title} />
       {step.text && (
         <Panel tone="story" style={{ padding: 16 }}>
@@ -617,13 +650,21 @@ function ChoiceStep({ view, busy, onMove }: StepProps) {
   return (
     <div role="group" aria-label="Your choice" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {help === "teach" && <span style={smallText}>Pick one. You can't change it afterwards.</span>}
+      {view.step.party_sees_pick && <span style={smallText}>Your party will see which one you pick.</span>}
       {view.step.options.map((o) => (
-        <button key={o.index} type="button" className="btn btn-secondary" disabled={busy} onClick={() => onMove({ step_id: view.step.id, option: o.index })} style={{ minHeight: 56, padding: "12px 16px", fontSize: 16, borderRadius: 12, whiteSpace: "normal", overflowWrap: "anywhere", textAlign: "left", justifyContent: "flex-start" }}>
-          {o.label}
+        <button key={o.index} type="button" className="btn btn-secondary" disabled={busy} onClick={() => onMove({ step_id: view.step.id, option: o.index })} style={{ minHeight: 56, padding: "12px 16px", fontSize: 16, borderRadius: 12, whiteSpace: "normal", overflowWrap: "anywhere", textAlign: "left", justifyContent: "flex-start", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+          <span>{o.label}</span>
+          {o.taken_by?.length > 0 && <span style={{ fontSize: 14, fontWeight: 400, color: "var(--accent-text)" }}>{takenLine(o.taken_by)}</span>}
         </button>
       ))}
     </div>
   );
+}
+
+/** Plan 140 — "Willa is on this", "Willa and Nya are on this", "Willa, Nya and Creed are on this". */
+function takenLine(names: string[]): string {
+  const list = names.length < 3 ? names.join(" and ") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${list} ${names.length === 1 ? "is" : "are"} on this`;
 }
 
 function CheckStep({ view, busy, onMove, motion, setMotion }: StepProps) {
@@ -756,9 +797,9 @@ function EndStep({ view, rereading, onClose }: StepProps) {
   const { outcome } = view;
   return (
     <>
-      {outcome && <Paid outcome={outcome} big />}
+      {outcome && <Paid outcome={outcome} big practice={view.practice} />}
       {help === "teach" && !rereading && <span style={smallText}>You finished this side quest. You can read it again from your Journal.</span>}
-      <TellParty view={view} />
+      {!view.practice && <TellParty view={view} />}
       <button type="button" className="btn btn-primary" onClick={onClose} style={{ minHeight: 54, fontSize: 17, borderRadius: 12 }}>
         Back to the game
       </button>
@@ -912,14 +953,17 @@ function GoldLine({ gp, terse }: { gp: number; terse: boolean }) {
 }
 
 /** What arriving at a step paid. A negative is plainly what they paid. Nothing paid shows nothing. */
-function Paid({ outcome, big }: { outcome: QuestOutcome; big?: boolean }) {
+function Paid({ outcome, big, practice }: { outcome: QuestOutcome; big?: boolean; practice?: boolean }) {
   const { help } = usePlayer();
   const { gp, items } = outcome;
-  if (!gp && items.length === 0) return null;
+  const damage = outcome.damage ?? 0;
+  if (!gp && items.length === 0 && !damage) return null;
   const size = big ? 17 : 15;
   return (
     <Panel tone="tip" style={{ gap: 6, padding: big ? "14px" : "8px 12px" }}>
-      {big && <Heading>{gp < 0 && items.length === 0 ? "What you paid" : "What you got"}</Heading>}
+      {big && (
+        <Heading>{!gp && !items.length ? "What it cost you" : gp < 0 && !items.length ? "What you paid" : "What you got"}</Heading>
+      )}
       {gp !== 0 && (
         <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: size, fontWeight: 600 }}>
           <Coins size={18} color="var(--amber)" aria-hidden style={{ flexShrink: 0 }} />
@@ -932,7 +976,17 @@ function Paid({ outcome, big }: { outcome: QuestOutcome; big?: boolean }) {
           <span>{help === "numbers" ? name : `You got ${name}`}</span>
         </span>
       ))}
-      {help === "teach" && <span style={{ fontSize: 13, color: "var(--text2)" }}>Your sheet is already up to date.</span>}
+      {damage > 0 && (
+        <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: size, fontWeight: 600 }}>
+          <HeartCrack size={18} color="var(--danger-text)" aria-hidden style={{ flexShrink: 0 }} />
+          <span>{help === "numbers" ? `−${damage} HP` : `You took ${damage} damage`}</span>
+        </span>
+      )}
+      {practice ? (
+        <span style={{ fontSize: 13, color: "var(--text2)" }}>Practice, so your sheet didn&rsquo;t change.</span>
+      ) : (
+        help === "teach" && <span style={{ fontSize: 13, color: "var(--text2)" }}>Your sheet is already up to date.</span>
+      )}
     </Panel>
   );
 }

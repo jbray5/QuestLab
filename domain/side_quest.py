@@ -14,6 +14,7 @@ The graph has no cycles, so a step is reached at most once per run. That is what
 reward safe to pay on arrival.
 """
 
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, Optional
@@ -21,7 +22,7 @@ from typing import Annotated, Any, Literal, Optional
 from pydantic import BaseModel
 from pydantic import Field as PField
 from pydantic import StringConstraints, field_validator, model_validator
-from sqlalchemy import Column, Text, UniqueConstraint
+from sqlalchemy import Column, Text, UniqueConstraint, false
 from sqlalchemy.types import JSON, DateTime
 from sqlmodel import Field, SQLModel
 
@@ -36,6 +37,9 @@ MAX_REPLY = 2000
 MAX_RECAP = 1500
 MAX_GP_GAIN = 10000
 MAX_GP_COST = 1000
+MAX_TEXT_FOR = 12
+# Plan 141: a step's damage. Dice ("1d4", "2d6+1") or a flat number ("3").
+DAMAGE_RE = re.compile(r"^(?:(\d{1,2})d(4|6|8|10|12|20)([+-]\d{1,2})?|(\d{1,2}))$")
 
 StepKind = Literal["read", "choice", "check", "reply", "end"]
 StepId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
@@ -95,6 +99,13 @@ class QuestStep(BaseModel):
     - ``end``: the quest is finished. No links.
 
     Any step can pay ``gp`` (negative is a cost) and ``item_ids`` when it's reached.
+
+    ``party_sees`` (Plan 140, choice steps only): everyone on the quest sees the others' names on
+    the options they picked here. A display setting, so it can change after the quest is sent.
+
+    Plan 141: ``damage`` hurts on arrival (dice or a flat number, temp HP first, never below 1 HP).
+    ``text_for`` gives some characters their own words in place of ``text``; each phone only ever
+    gets its own character's. Words, so they can change after sending.
     """
 
     id: StepId
@@ -109,6 +120,35 @@ class QuestStep(BaseModel):
     fail_next: Optional[StepId] = None
     gp: int = PField(default=0, ge=-MAX_GP_COST, le=MAX_GP_GAIN)
     item_ids: list[uuid.UUID] = PField(default_factory=list, max_length=MAX_STEP_ITEMS)
+    party_sees: bool = False
+    damage: Optional[str] = None
+    text_for: dict[uuid.UUID, str] = PField(default_factory=dict)
+
+    @field_validator("damage", mode="before")
+    @classmethod
+    def _damage(cls, value: Any) -> Optional[str]:
+        """Empty, dice like "1d4" or "2d6+1", or a flat number up to 99."""
+        if value is None:
+            return None
+        text = str(value).replace(" ", "").lower()
+        if not text or text == "0":
+            return None
+        if not DAMAGE_RE.match(text):
+            raise ValueError('Damage is dice like "1d4" or "2d6+1", or a number.')
+        return text
+
+    @field_validator("text_for")
+    @classmethod
+    def _text_for(cls, value: dict[uuid.UUID, str]) -> dict[uuid.UUID, str]:
+        """Trimmed; empty ones dropped; each within the step's text limit."""
+        out = {k: v.strip() for k, v in value.items() if v and v.strip()}
+        if len(out) > MAX_TEXT_FOR:
+            raise ValueError(
+                f"A step can have its own words for {MAX_TEXT_FOR} characters at most."
+            )
+        if any(len(v) > MAX_TEXT for v in out.values()):
+            raise ValueError(f"A character's words can be {MAX_TEXT} characters at most.")
+        return out
 
     @field_validator("image_url")
     @classmethod
@@ -266,6 +306,7 @@ def structure_of(steps: list[QuestStep], start_step: Optional[str]) -> list[Any]
                 s.fail_next,
                 s.gp,
                 [str(i) for i in s.item_ids],
+                s.damage,
             )
         )
     return shape
@@ -313,6 +354,9 @@ class SideQuestRun(SQLModel, table=True):
     # Plan 138: what the player chose to tell the party. Their own words, and they may not be true.
     recap: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     recap_at: Optional[datetime] = Field(default=None, sa_column=_ts_column(nullable=True))
+    # Plan 142: the DM trying a quest as a character. Hidden from the party, pays and hurts
+    # nothing, can start over, and is replaced by a real run if the quest is sent to them.
+    practice: bool = Field(default=False, sa_column_kwargs={"server_default": false()})
 
 
 # ── The DM's shapes ─────────────────────────────────────────────────────────
@@ -372,6 +416,7 @@ class QuestRunSummary(BaseModel):
     status: RunStatus
     opened_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
+    practice: bool = False
 
 
 class SideQuestRead(BaseModel):
@@ -406,10 +451,15 @@ class QuestLogEntry(BaseModel):
     passed: Optional[bool] = None
     real: Optional[bool] = None
     reply: Optional[str] = None
+    # Plan 140: which button, and whether the party could see it when it was picked.
+    option_index: Optional[int] = None
+    party: Optional[bool] = None
     # What arriving at the next step paid: a cost is negative, and can be part of a gold piece
     # when it empties a purse.
     gp: Optional[float] = None
     items: list[str] = PField(default_factory=list)
+    # Plan 141: HP it actually took (temp HP included), after the floor at 1 HP.
+    damage: Optional[int] = None
 
 
 class QuestRunDetail(QuestRunSummary):
@@ -440,6 +490,12 @@ class SideQuestSend(BaseModel):
     ping: Optional[QuestPing] = None
 
 
+class QuestPractice(BaseModel):
+    """Plan 142: the character a DM wants to try a quest as."""
+
+    character_id: uuid.UUID
+
+
 class SideQuestSendResult(BaseModel):
     """What a send did. A Discord failure doesn't undo it; ``ping_error`` says what went wrong."""
 
@@ -452,10 +508,15 @@ class SideQuestSendResult(BaseModel):
 
 
 class QuestOptionView(BaseModel):
-    """A choice button. ``index`` is what the phone sends back; the link stays on the server."""
+    """A choice button. ``index`` is what the phone sends back; the link stays on the server.
+
+    ``taken_by`` (Plan 140) names the other characters who picked it, on a step whose DM turned on
+    ``party_sees``. Only picks made while that was on count, so a player was told first.
+    """
 
     index: int
     label: str
+    taken_by: list[str] = PField(default_factory=list)
 
 
 class QuestSkillView(BaseModel):
@@ -474,6 +535,8 @@ class QuestStepView(BaseModel):
     image_url: Optional[str] = None
     options: list[QuestOptionView] = PField(default_factory=list)
     skills: list[QuestSkillView] = PField(default_factory=list)
+    # Plan 140: true on a choice the party will see this player's pick on.
+    party_sees_pick: bool = False
 
 
 class QuestOutcome(BaseModel):
@@ -487,6 +550,7 @@ class QuestOutcome(BaseModel):
     skill: Optional[str] = None
     gp: float = 0
     items: list[str] = PField(default_factory=list)
+    damage: int = 0
 
 
 class QuestHistoryItem(BaseModel):
@@ -517,6 +581,8 @@ class QuestRunView(BaseModel):
     outcome: Optional[QuestOutcome] = None
     history: list[QuestHistoryItem] = PField(default_factory=list)
     recap: Optional[str] = None
+    # Plan 142: nothing is paid or taken, and the party can't see it.
+    practice: bool = False
 
 
 class QuestRecapShare(BaseModel):
@@ -553,6 +619,7 @@ class QuestCard(BaseModel):
     status: RunStatus
     sent_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
+    practice: bool = False
 
 
 class QuestAdvance(BaseModel):

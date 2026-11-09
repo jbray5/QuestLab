@@ -58,8 +58,8 @@ function Stop({ children }: { children: ReactNode }) {
 }
 
 /** What arriving here would pay, in the phone's words. */
-function WouldPay({ gp, items }: { gp: number; items: string[] }) {
-  if (!gp && !items.length) return null;
+function WouldPay({ gp, items, damage }: { gp: number; items: string[]; damage?: string | null }) {
+  if (!gp && !items.length && !damage) return null;
   return (
     <div
       style={{
@@ -83,13 +83,14 @@ function WouldPay({ gp, items }: { gp: number; items: string[] }) {
       {items.map((name, i) => (
         <span key={i}>You got {name}</span>
       ))}
+      {damage && <span>You take {damage} damage (never below 1 HP)</span>}
       <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text2)" }}>(Not really paid: this is a preview.)</span>
     </div>
   );
 }
 
 /** The step's picture and words, as the phone sets them. */
-function StepWords({ step, index }: { step: QuestStep; index: number }) {
+function StepWords({ step, index, words }: { step: QuestStep; index: number; words: string }) {
   return (
     <>
       {step.image_url && (
@@ -106,7 +107,7 @@ function StepWords({ step, index }: { step: QuestStep; index: number }) {
           }}
         />
       )}
-      {step.text.trim() ? (
+      {words.trim() ? (
         <div
           style={{
             background: "var(--story-bg)",
@@ -126,7 +127,7 @@ function StepWords({ step, index }: { step: QuestStep; index: number }) {
               color: "var(--story-text)",
             }}
           >
-            {step.text}
+            {words}
           </p>
         </div>
       ) : (
@@ -140,13 +141,24 @@ function StepWords({ step, index }: { step: QuestStep; index: number }) {
  * Try it: walks the form as it stands, saved or not, in a phone-sized frame. No server calls and
  * no rewards. A check offers both results so the DM can walk every branch.
  */
-export default function TryIt({ draft, onClose }: { draft: QuestDraft; onClose: () => void }) {
+export default function TryIt({
+  draft,
+  onClose,
+  roster = [],
+}: {
+  draft: QuestDraft;
+  onClose: () => void;
+  /** Plan 142 — to read the quest as one character and see their own lines. */
+  roster?: { id: string; name: string }[];
+}) {
   const qc = useQueryClient();
   const phone = useIsCompact(640);
   const steps = useMemo(() => resolveLinks(draft.steps), [draft.steps]);
   // Where the walk has been. Empty means the card the player sees before opening it.
   const [path, setPath] = useState<string[]>([]);
   const [stopped, setStopped] = useState<string | null>(null);
+  const [readAs, setReadAs] = useState("");
+  const anyOwn = steps.some((s) => Object.keys(s.text_for ?? {}).length > 0);
 
   const index = path.length ? steps.findIndex((s) => s.id === path[path.length - 1]) : -1;
   const step = index >= 0 ? steps[index] : null;
@@ -254,13 +266,30 @@ export default function TryIt({ draft, onClose }: { draft: QuestDraft; onClose: 
           </>
         )}
 
+        {anyOwn && roster.length > 0 && (
+          <div>
+            <label htmlFor="tryit-read-as">Read as</label>
+            <select id="tryit-read-as" value={readAs} onChange={(e) => setReadAs(e.target.value)}>
+              <option value="">Anyone without their own words</option>
+              {roster.map((pc) => (
+                <option key={pc.id} value={pc.id}>
+                  {pc.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {step && (
           <>
-            {step.kind !== "end" && <WouldPay gp={step.gp} items={itemNames} />}
+            {step.kind !== "end" && <WouldPay gp={step.gp} items={itemNames} damage={step.damage} />}
 
-            <StepWords step={step} index={index} />
+            <StepWords step={step} index={index} words={(readAs && step.text_for?.[readAs]) || step.text} />
+            {Object.keys(step.text_for ?? {}).length > 0 && !(readAs && step.text_for?.[readAs]) && (
+              <p style={{ ...HINT, margin: 0 }}>Some characters see their own words here instead.</p>
+            )}
 
-            {step.kind === "end" && <WouldPay gp={step.gp} items={itemNames} />}
+            {step.kind === "end" && <WouldPay gp={step.gp} items={itemNames} damage={step.damage} />}
 
             {stopped ? (
               <Stop>{stopped}</Stop>

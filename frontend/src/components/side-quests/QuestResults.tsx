@@ -79,6 +79,7 @@ function RunCard({ run, quest }: { run: QuestRunDetail; quest: SideQuest }) {
           {run.character_name}
         </h3>
         <span className={status.pill}>{status.word}</span>
+        {run.practice && <span className="pill">Practice</span>}
         <span className="text-muted" style={{ fontSize: "0.8125rem" }}>
           {run.status === "done" ? when(run.finished_at) : when(run.opened_at)}
         </span>

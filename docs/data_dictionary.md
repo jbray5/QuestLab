@@ -480,7 +480,7 @@ A quest a DM writes in the Quest creator, and each character's private run throu
 | campaign_id | UUID | No | FK → campaigns.id, indexed. Deleted with the campaign |
 | title | VARCHAR(120) | No | |
 | teaser | VARCHAR(200) | No | DEFAULT ''. Shown on the phone before the quest is opened |
-| steps | JSON | No | A list of `QuestStep`, at most 40: `id`, `kind` (read, choice, check, reply, end), `text` (≤ 4000, plain), `image_url`, `next`, `options` (`{label, next}`), `skills`, `dc`, `pass_next`, `fail_next`, `gp` (−1000 to 10000, paid on arrival; negative is a cost), `item_ids`. **DM-only**: it holds the DCs, the links and every later step |
+| steps | JSON | No | A list of `QuestStep`, at most 40: `id`, `kind` (read, choice, check, reply, end), `text` (≤ 4000, plain), `image_url`, `next`, `options` (`{label, next}`), `skills`, `dc`, `pass_next`, `fail_next`, `gp` (−1000 to 10000, paid on arrival; negative is a cost), `item_ids`, `party_sees` (Plan 140, choice steps: everyone on the quest sees the others' names on the options they picked; can change after sending), `damage` (Plan 141: dice like `1d4` or a flat number up to 99, taken on arrival, temp HP first, never below 1 HP; frozen once sent), `text_for` (Plan 141: character id → that character's own words in place of `text`, at most 12; words, so they can change after sending). **DM-only**: it holds the DCs, the links and every later step |
 | start_step | VARCHAR(40) | Yes | The first step's id |
 | status | VARCHAR(10) | No | `draft` or `sent`. Once sent, only words and pictures can change |
 | created_at, updated_at | TIMESTAMPTZ | No | |
@@ -495,11 +495,12 @@ A quest a DM writes in the Quest creator, and each character's private run throu
 | character_id | UUID | No | FK → player_characters.id, indexed. Deleted with the character (`CharacterRepo.delete`) |
 | step_id | VARCHAR(40) | No | The current step. Moved only by a compare-and-swap (`SideQuestRunRepo.claim_step`) |
 | status | VARCHAR(10) | No | `new`, `active` or `done` |
-| log | JSON | No | What the player did and got: `step_id`, `kind`, `at`, `option`, `skill`, `die`, `bonus`, `total`, `passed`, `real`, `reply`, `gp`, `items`. A reply is the player's own words: treat it like the character's notes |
+| log | JSON | No | What the player did and got: `step_id`, `kind`, `at`, `option`, `skill`, `die`, `bonus`, `total`, `passed`, `real`, `reply`, `gp`, `items`, and on a choice `option_index` and `party` (Plan 140: true if the party could see the pick when it was made; only those picks show), and `damage` (Plan 141: HP actually lost, temp HP included). A reply is the player's own words: treat it like the character's notes |
 | created_at | TIMESTAMPTZ | No | |
 | opened_at, finished_at | TIMESTAMPTZ | Yes | |
 | recap | TEXT | Yes | Plan 138. What the player told the party, up to 1500 characters. Their own words, shared by them with the whole campaign. May not match the log |
 | recap_at | TIMESTAMPTZ | Yes | First shared. A correction keeps it |
+| practice | BOOLEAN | No | DEFAULT false. Plan 142, migration 0068. The DM trying the quest as this character: pays and hurts nothing, never in another phone's "who picked what", no recap, can start over. Sending the quest to the character replaces it with a real run |
 
 Deleting a quest removes its runs. Gold and items already paid stay on the sheet.
 

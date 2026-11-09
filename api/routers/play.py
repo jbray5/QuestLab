@@ -1154,6 +1154,26 @@ def share_side_quest_recap(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
 
 
+@router.post("/play/{pc_id}/side-quests/{run_id}/start-over", response_model=QuestRunView)
+def start_side_quest_over(pc_id: PlayPcId, run_id: uuid.UUID, db: DB) -> QuestRunView:
+    """Plan 142: put a practice run back at the first step. A real run is a 409.
+
+    Args:
+        pc_id: The character, resolved from the link.
+        run_id: The run.
+        db: Database session.
+
+    Returns:
+        The first step.
+    """
+    try:
+        return side_quest_service.start_over(db, pc_id, run_id)
+    except SideQuestNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except SideQuestConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
 @router.get("/play/{pc_id}/side-quests/{run_id}", response_model=QuestRunView)
 def get_side_quest(pc_id: PlayPcId, run_id: uuid.UUID, db: DB) -> QuestRunView:
     """The current step of this character's run. Anyone else's run is a 404.

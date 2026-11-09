@@ -32,6 +32,12 @@ export interface QuestStep {
   gp: number;
   /** Up to 5, granted when the step is reached. */
   item_ids: string[];
+  /** choice, Plan 140: everyone on the quest sees the others' names on the options they picked. */
+  party_sees: boolean;
+  /** Plan 141 — HP lost on arrival: dice like "1d4" or a flat "3". Never below 1 HP. */
+  damage: string | null;
+  /** Plan 141 — character id to their own words in place of `text`. Each phone gets only its own. */
+  text_for: Record<string, string>;
 }
 
 export interface SideQuestInput {
@@ -51,6 +57,8 @@ export interface QuestRunSummary {
   status: RunStatus;
   opened_at: string | null;
   finished_at: string | null;
+  /** Plan 142 — the DM trying it as this character: hidden from the party, nothing paid. */
+  practice: boolean;
 }
 
 export interface SideQuest extends SideQuestInput {
@@ -80,6 +88,8 @@ export interface QuestLogEntry {
   reply: string | null;
   gp: number | null;
   items: string[];
+  /** Plan 141 — HP it actually took. */
+  damage?: number | null;
 }
 
 export interface QuestRunDetail extends QuestRunSummary {
@@ -120,6 +130,11 @@ export const sideQuestsApi = {
       { quiet: true },
     ),
   runs: (id: string) => api.get<QuestRunDetail[]>(`/side-quests/${id}/runs`),
+  /** Plan 142 — play it as a character, hidden from the party. Again starts over. */
+  practice: (id: string, characterId: string) =>
+    api.post<QuestRunSummary>(`/side-quests/${id}/practice`, { character_id: characterId }, { quiet: true }),
+  removePractice: (id: string, runId: string) =>
+    api.delete(`/side-quests/${id}/practice/${runId}`, { quiet: true }),
 };
 
 // ── The phone's side: no DCs, no links, no later steps ─────────────────────
@@ -131,6 +146,8 @@ export interface QuestCard {
   status: RunStatus;
   sent_at: string | null;
   finished_at: string | null;
+  /** Plan 142. */
+  practice: boolean;
 }
 
 export interface QuestStepView {
@@ -138,10 +155,12 @@ export interface QuestStepView {
   kind: StepKind;
   text: string;
   image_url: string | null;
-  /** `index` is what goes back in the move. */
-  options: { index: number; label: string }[];
+  /** `index` is what goes back in the move. `taken_by` (Plan 140): who else picked it. */
+  options: { index: number; label: string; taken_by: string[] }[];
   /** The character's real bonuses. */
   skills: { name: string; bonus: number }[];
+  /** Plan 140 — the party will see this pick. */
+  party_sees_pick: boolean;
 }
 
 /** What just happened: the roll, and what arriving at this step paid. */
@@ -154,6 +173,8 @@ export interface QuestOutcome {
   skill: string | null;
   gp: number;
   items: string[];
+  /** Plan 141 — HP it took. */
+  damage: number;
 }
 
 export interface QuestHistoryItem {
@@ -178,6 +199,8 @@ export interface QuestRunView {
   history: QuestHistoryItem[];
   /** Plan 138 — what this player has told the party about it, if anything. */
   recap: string | null;
+  /** Plan 142 — nothing is paid or taken, and the party can't see it. */
+  practice: boolean;
 }
 
 /** Plan 138 — a recap as the party gets it: who and their words, nothing about the quest. */
@@ -212,4 +235,7 @@ export const playQuestsApi = {
   /** Empty words take it back. */
   shareRecap: (key: string, runId: string, text: string) =>
     api.put<QuestRunView>(`/play/${key}/side-quests/${runId}/recap`, { text }, { quiet: true }),
+  /** Plan 142 — a practice run back to the first step. */
+  startOver: (key: string, runId: string) =>
+    api.post<QuestRunView>(`/play/${key}/side-quests/${runId}/start-over`, {}, { quiet: true }),
 };
