@@ -95,6 +95,9 @@ class QuestStep(BaseModel):
     - ``end``: the quest is finished. No links.
 
     Any step can pay ``gp`` (negative is a cost) and ``item_ids`` when it's reached.
+
+    ``party_sees`` (Plan 140, choice steps only): everyone on the quest sees the others' names on
+    the options they picked here. A display setting, so it can change after the quest is sent.
     """
 
     id: StepId
@@ -109,6 +112,7 @@ class QuestStep(BaseModel):
     fail_next: Optional[StepId] = None
     gp: int = PField(default=0, ge=-MAX_GP_COST, le=MAX_GP_GAIN)
     item_ids: list[uuid.UUID] = PField(default_factory=list, max_length=MAX_STEP_ITEMS)
+    party_sees: bool = False
 
     @field_validator("image_url")
     @classmethod
@@ -406,6 +410,9 @@ class QuestLogEntry(BaseModel):
     passed: Optional[bool] = None
     real: Optional[bool] = None
     reply: Optional[str] = None
+    # Plan 140: which button, and whether the party could see it when it was picked.
+    option_index: Optional[int] = None
+    party: Optional[bool] = None
     # What arriving at the next step paid: a cost is negative, and can be part of a gold piece
     # when it empties a purse.
     gp: Optional[float] = None
@@ -452,10 +459,15 @@ class SideQuestSendResult(BaseModel):
 
 
 class QuestOptionView(BaseModel):
-    """A choice button. ``index`` is what the phone sends back; the link stays on the server."""
+    """A choice button. ``index`` is what the phone sends back; the link stays on the server.
+
+    ``taken_by`` (Plan 140) names the other characters who picked it, on a step whose DM turned on
+    ``party_sees``. Only picks made while that was on count, so a player was told first.
+    """
 
     index: int
     label: str
+    taken_by: list[str] = PField(default_factory=list)
 
 
 class QuestSkillView(BaseModel):
@@ -474,6 +486,8 @@ class QuestStepView(BaseModel):
     image_url: Optional[str] = None
     options: list[QuestOptionView] = PField(default_factory=list)
     skills: list[QuestSkillView] = PField(default_factory=list)
+    # Plan 140: true on a choice the party will see this player's pick on.
+    party_sees_pick: bool = False
 
 
 class QuestOutcome(BaseModel):

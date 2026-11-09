@@ -32,6 +32,8 @@ export interface QuestStep {
   gp: number;
   /** Up to 5, granted when the step is reached. */
   item_ids: string[];
+  /** choice, Plan 140: everyone on the quest sees the others' names on the options they picked. */
+  party_sees: boolean;
 }
 
 export interface SideQuestInput {
@@ -138,10 +140,12 @@ export interface QuestStepView {
   kind: StepKind;
   text: string;
   image_url: string | null;
-  /** `index` is what goes back in the move. */
-  options: { index: number; label: string }[];
+  /** `index` is what goes back in the move. `taken_by` (Plan 140): who else picked it. */
+  options: { index: number; label: string; taken_by: string[] }[];
   /** The character's real bonuses. */
   skills: { name: string; bonus: number }[];
+  /** Plan 140 — the party will see this pick. */
+  party_sees_pick: boolean;
 }
 
 /** What just happened: the roll, and what arriving at this step paid. */

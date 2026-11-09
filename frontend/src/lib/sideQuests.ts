@@ -110,6 +110,7 @@ export function blankStep(kind: StepKind): QuestStep {
     fail_next: NEXT_IN_LIST,
     gp: 0,
     item_ids: [],
+    party_sees: false,
   };
 }
 
@@ -202,6 +203,7 @@ function cleanStep(step: QuestStep): QuestStep {
     dc: null,
     pass_next: null,
     fail_next: null,
+    party_sees: step.kind === "choice" && !!step.party_sees,
   };
   if (step.kind === "read" || step.kind === "reply") clean.next = step.next;
   if (step.kind === "choice") {

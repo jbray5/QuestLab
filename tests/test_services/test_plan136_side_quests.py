@@ -301,13 +301,13 @@ def test_the_phone_never_gets_a_dc_a_link_or_a_later_step(duckdb_session):
 
 
 def test_choice_options_carry_only_an_index_and_a_label(duckdb_session):
-    """A choice's links stay on the server."""
+    """A choice's links stay on the server. ``taken_by`` (Plan 140) is empty unless a DM asks."""
     _d, _c, pc, _q, run_id = _sent(duckdb_session)
     svc.open_run(duckdb_session, pc.id, run_id)
     view = svc.advance(duckdb_session, pc.id, run_id, QuestAdvance(step_id="a"))
     assert [o.model_dump() for o in view.step.options] == [
-        {"index": 0, "label": "Left"},
-        {"index": 1, "label": "Right"},
+        {"index": 0, "label": "Left", "taken_by": []},
+        {"index": 1, "label": "Right", "taken_by": []},
     ]
 
 

@@ -617,13 +617,21 @@ function ChoiceStep({ view, busy, onMove }: StepProps) {
   return (
     <div role="group" aria-label="Your choice" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       {help === "teach" && <span style={smallText}>Pick one. You can't change it afterwards.</span>}
+      {view.step.party_sees_pick && <span style={smallText}>Your party will see which one you pick.</span>}
       {view.step.options.map((o) => (
-        <button key={o.index} type="button" className="btn btn-secondary" disabled={busy} onClick={() => onMove({ step_id: view.step.id, option: o.index })} style={{ minHeight: 56, padding: "12px 16px", fontSize: 16, borderRadius: 12, whiteSpace: "normal", overflowWrap: "anywhere", textAlign: "left", justifyContent: "flex-start" }}>
-          {o.label}
+        <button key={o.index} type="button" className="btn btn-secondary" disabled={busy} onClick={() => onMove({ step_id: view.step.id, option: o.index })} style={{ minHeight: 56, padding: "12px 16px", fontSize: 16, borderRadius: 12, whiteSpace: "normal", overflowWrap: "anywhere", textAlign: "left", justifyContent: "flex-start", flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+          <span>{o.label}</span>
+          {o.taken_by?.length > 0 && <span style={{ fontSize: 14, fontWeight: 400, color: "var(--accent-text)" }}>{takenLine(o.taken_by)}</span>}
         </button>
       ))}
     </div>
   );
+}
+
+/** Plan 140 — "Willa is on this", "Willa and Nya are on this", "Willa, Nya and Creed are on this". */
+function takenLine(names: string[]): string {
+  const list = names.length < 3 ? names.join(" and ") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${list} ${names.length === 1 ? "is" : "are"} on this`;
 }
 
 function CheckStep({ view, busy, onMove, motion, setMotion }: StepProps) {

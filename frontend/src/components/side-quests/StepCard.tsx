@@ -321,6 +321,20 @@ export default function StepCard({
                 </button>
               </div>
             )}
+            {/* Plan 140. A display setting, so it stays open after the quest goes out. */}
+            <label style={{ display: "flex", gap: 8, alignItems: "center", marginTop: "0.25rem", cursor: "pointer", fontWeight: 400 }}>
+              <input
+                type="checkbox"
+                checked={!!step.party_sees}
+                onChange={(e) => onChange({ party_sees: e.target.checked })}
+                style={{ width: 20, height: 20, flex: "none" }}
+              />
+              Show the party who picked what
+            </label>
+            <p style={{ ...HINT, margin: 0 }}>
+              Everyone on this quest sees the others&rsquo; names on the options they picked here, so they can split up
+              the work. Their phones say so before they pick.
+            </p>
           </div>
         )}
 

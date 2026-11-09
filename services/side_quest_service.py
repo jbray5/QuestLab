@@ -17,6 +17,11 @@ Rules enforced here:
   and the payment the player misses a reward rather than getting it twice.
 - **Rolls are quiet.** ``player_service.throw_dice`` broadcasts to the TV and the party's phones.
   A private quest must not, so checks roll here.
+- **Picks are the party's only when the DM says so (Plan 140).** On a choice step with
+  ``party_sees`` on, the phone shows the other characters' names on the options they took, and
+  says so before the pick. Only picks made while it was on count, so turning it on later shows
+  nothing old. Names and option numbers leave a run, nothing else: no rolls, replies or later
+  steps.
 - **A recap is the player's to give (Plan 138).** Nothing about a run reaches the party unless its
   player writes it, and then only their words and their character's name. It doesn't have to be
   true, and that's half the fun. The DM sees it next to what really happened.
@@ -525,12 +530,16 @@ def advance(
     step = by_id[run.step_id]
     pc = _pc(db, pc_id)
     entry, next_id = _resolve(step, move, pc, rng or random.SystemRandom())
+    if step.kind == "choice" and step.party_sees:
+        entry["party"] = True
     target = by_id.get(next_id)
     if target is None:
         raise SideQuestNotFoundError("That side quest isn't here any more.")
     if SideQuestRunRepo.claim_step(db, run.id, step.id, target.id):
         db.refresh(run)
         _arrive(db, run, quest, target, entry)
+        if entry.get("party"):
+            _tell_the_others(db, run, quest)
     else:
         db.refresh(run)
     return _view(db, run, quest)
@@ -623,6 +632,7 @@ def _resolve(
             raise ValueError("Pick one of the options.")
         option = step.options[move.option]
         entry["option"] = option.label
+        entry["option_index"] = move.option
         return entry, option.next or ""
     if step.kind == "reply":
         if not move.reply:
@@ -674,6 +684,13 @@ def _arrive(
     publish_pc_updated(pc.id, pc.campaign_id)
 
 
+def _tell_the_others(db: Session, run: SideQuestRun, quest: SideQuest) -> None:
+    """Refresh the phones of everyone else on this quest, so a new pick's name shows at once."""
+    for other in SideQuestRunRepo.list_for_quest(db, quest.id):
+        if other.character_id != run.character_id:
+            publish_pc_updated(other.character_id, quest.campaign_id)
+
+
 def _pay_gold(db: Session, pc: PlayerCharacter, gp: int) -> float:
     """Add gold, or take a cost from the purse. A cost past zero empties the purse.
 
@@ -723,25 +740,56 @@ def _grant_items(db: Session, pc: PlayerCharacter, quest: SideQuest, step: Quest
 # ── What the phone may see ──────────────────────────────────────────────────
 
 
-def _step_view(step: QuestStep, pc: PlayerCharacter) -> QuestStepView:
+def _step_view(
+    step: QuestStep, pc: PlayerCharacter, taken: Optional[dict[int, list[str]]] = None
+) -> QuestStepView:
     """A step without its DC or links. The only way a step leaves the server to a player."""
     bonuses = compute_skill_bonuses(pc) if step.kind == "check" else {}
+    taken = taken or {}
     return QuestStepView(
         id=step.id,
         kind=step.kind,
         text=step.text,
         image_url=step.image_url,
         options=[
-            QuestOptionView(index=i, label=o.label)
+            QuestOptionView(index=i, label=o.label, taken_by=taken.get(i, []))
             for i, o in enumerate(step.options)
             if step.kind == "choice"
         ],
+        party_sees_pick=step.kind == "choice" and step.party_sees,
         skills=(
             [QuestSkillView(name=s, bonus=bonuses.get(s, 0)) for s in step.skills]
             if step.kind == "check"
             else []
         ),
     )
+
+
+def _picks(
+    db: Session, run: SideQuestRun, quest: SideQuest, step: QuestStep
+) -> dict[int, list[str]]:
+    """Who else took each option of ``step``: option number to names, in the order they picked.
+
+    Only picks made while the party could see them count (``party`` in the log entry).
+    """
+    if step.kind != "choice" or not step.party_sees:
+        return {}
+    found: list[tuple[str, int, uuid.UUID]] = []
+    for other in SideQuestRunRepo.list_for_quest(db, quest.id):
+        if other.character_id == run.character_id:
+            continue
+        for entry in other.log or []:
+            index = entry.get("option_index")
+            if entry.get("step_id") == step.id and entry.get("party") and isinstance(index, int):
+                found.append((str(entry.get("at", "")), index, other.character_id))
+                break
+    names = SideQuestRunRepo.character_names(db, [cid for _, _, cid in found])
+    taken: dict[int, list[str]] = {}
+    for _, index, cid in sorted(found, key=lambda f: f[0]):
+        name = names.get(cid, "").strip()
+        if name:
+            taken.setdefault(index, []).append(name)
+    return taken
 
 
 def _outcome(entry: dict[str, Any]) -> QuestOutcome:
@@ -792,7 +840,7 @@ def _view(db: Session, run: SideQuestRun, quest: SideQuest) -> QuestRunView:
         run_id=run.id,
         title=quest.title,
         status=run.status,
-        step=_step_view(step, _pc(db, run.character_id)),
+        step=_step_view(step, _pc(db, run.character_id), taken=_picks(db, run, quest, step)),
         outcome=_outcome(log[-1]) if log else None,
         history=_history(run, by_id),
         recap=run.recap,
