@@ -500,6 +500,7 @@ A quest a DM writes in the Quest creator, and each character's private run throu
 | opened_at, finished_at | TIMESTAMPTZ | Yes | |
 | recap | TEXT | Yes | Plan 138. What the player told the party, up to 1500 characters. Their own words, shared by them with the whole campaign. May not match the log |
 | recap_at | TIMESTAMPTZ | Yes | First shared. A correction keeps it |
+| practice | BOOLEAN | No | DEFAULT false. Plan 142, migration 0068. The DM trying the quest as this character: pays and hurts nothing, never in another phone's "who picked what", no recap, can start over. Sending the quest to the character replaces it with a real run |
 
 Deleting a quest removes its runs. Gold and items already paid stay on the sheet.
 

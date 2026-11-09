@@ -259,6 +259,17 @@ class SideQuestRunRepo:
         return run
 
     @staticmethod
+    def delete(session: Session, run: SideQuestRun) -> None:
+        """Delete one run (Plan 142: a practice run the DM is done with).
+
+        Args:
+            session: Active database session.
+            run: The run.
+        """
+        session.delete(run)
+        session.commit()
+
+    @staticmethod
     def delete_for_character(session: Session, character_id: uuid.UUID) -> None:
         """Mark a character's runs for deletion (the caller commits, in FK-safe order).
 

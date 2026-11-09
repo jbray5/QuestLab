@@ -28,6 +28,10 @@ Rules enforced here:
 - **Each phone gets its own words (Plan 141).** ``text_for`` replaces a step's text for the
   characters it names. ``_words`` picks one per character, so another character's line never
   leaves the server.
+- **Practice runs are the DM's alone (Plan 142).** A DM can try a quest as a character. That run
+  pays and hurts nothing (the phone shows what it would have), never shows in another phone's
+  "who picked what", can't be shared as a recap, and can start over. Sending the quest to that
+  character replaces it with a real run.
 - **A recap is the player's to give (Plan 138).** Nothing about a run reaches the party unless its
   player writes it, and then only their words and their character's name. It doesn't have to be
   true, and that's half the fun. The DM sees it next to what really happened.
@@ -57,6 +61,7 @@ from domain.side_quest import (
     QuestLogEntry,
     QuestOptionView,
     QuestOutcome,
+    QuestPractice,
     QuestRecapShare,
     QuestRunDetail,
     QuestRunSummary,
@@ -164,6 +169,7 @@ def _summary(run: SideQuestRun, name: str) -> QuestRunSummary:
         status=run.status,
         opened_at=run.opened_at,
         finished_at=run.finished_at,
+        practice=bool(run.practice),
     )
 
 
@@ -270,10 +276,16 @@ def update_quest(
         quest.title = patch["title"]
     if "teaser" in patch:
         quest.teaser = patch["teaser"]
+    moved = structure_of(new_steps, new_start) != structure_of(_steps(quest), quest.start_step)
     quest.steps = _dump_steps(new_steps)
     quest.start_step = new_start
     quest.updated_at = _now()
-    return _read(db, SideQuestRepo.save(db, quest))
+    quest = SideQuestRepo.save(db, quest)
+    if moved:
+        for run in SideQuestRunRepo.list_for_quest(db, quest.id):
+            if run.practice:
+                _restart(db, run, quest)
+    return _read(db, quest)
 
 
 def delete_quest(db: Session, quest_id: uuid.UUID, dm_email: str) -> None:
@@ -328,13 +340,16 @@ def send_quest(
     )
     if problems:
         raise SideQuestConflictError(" ".join(problems))
-    existing = SideQuestRunRepo.character_ids_with_run(db, quest.id)
+    existing = {r.character_id: r for r in SideQuestRunRepo.list_for_quest(db, quest.id)}
     targets = list(dict.fromkeys(payload.character_ids))
     pcs = [_campaign_pc(db, cid, quest.campaign_id) for cid in targets]
     new_runs = 0
     for pc in pcs:
-        if pc.id in existing:
+        had = existing.get(pc.id)
+        if had is not None and not had.practice:
             continue
+        if had is not None:
+            SideQuestRunRepo.delete(db, had)
         SideQuestRunRepo.save(
             db, SideQuestRun(quest_id=quest.id, character_id=pc.id, step_id=quest.start_step)
         )
@@ -438,6 +453,80 @@ def list_runs(db: Session, quest_id: uuid.UUID, dm_email: str) -> list[QuestRunD
     ]
 
 
+def practice(
+    db: Session, quest_id: uuid.UUID, payload: QuestPractice, dm_email: str
+) -> QuestRunSummary:
+    """Try a finished quest as a character (Plan 142). Again means start over.
+
+    Works on a draft too, so a DM can play it before anyone gets it.
+
+    Args:
+        db: Active database session.
+        quest_id: UUID of the quest.
+        payload: The character to play as.
+        dm_email: The requesting DM.
+
+    Returns:
+        The practice run.
+
+    Raises:
+        SideQuestNotFoundError: If there is no such quest.
+        PermissionError: If the caller doesn't run its campaign.
+        SideQuestConflictError: If the quest isn't finished, or that character has it for real.
+        ValueError: If the character isn't in this campaign.
+    """
+    quest = _owned_quest(db, quest_id, dm_email)
+    steps = _steps(quest)
+    problems = quest_problems(steps, quest.start_step) + _item_problems(db, steps, dm_email)
+    if problems:
+        raise SideQuestConflictError(" ".join(problems))
+    pc = _campaign_pc(db, payload.character_id, quest.campaign_id)
+    run = next(
+        (r for r in SideQuestRunRepo.list_for_quest(db, quest.id) if r.character_id == pc.id),
+        None,
+    )
+    if run is not None and not run.practice:
+        raise SideQuestConflictError(
+            f"{pc.character_name} has this quest for real, so practice as someone else."
+        )
+    if run is None:
+        run = SideQuestRunRepo.save(
+            db,
+            SideQuestRun(
+                quest_id=quest.id, character_id=pc.id, step_id=quest.start_step, practice=True
+            ),
+        )
+    else:
+        run = _restart(db, run, quest)
+    publish_pc_updated(pc.id, pc.campaign_id)
+    return _summary(run, pc.character_name)
+
+
+def remove_practice(db: Session, quest_id: uuid.UUID, run_id: uuid.UUID, dm_email: str) -> None:
+    """Delete a practice run the DM is done with. A real run can't be removed this way.
+
+    Args:
+        db: Active database session.
+        quest_id: UUID of the quest.
+        run_id: UUID of the practice run.
+        dm_email: The requesting DM.
+
+    Raises:
+        SideQuestNotFoundError: If there is no such quest or run.
+        PermissionError: If the caller doesn't run its campaign.
+        SideQuestConflictError: If it's a real run.
+    """
+    quest = _owned_quest(db, quest_id, dm_email)
+    run = SideQuestRunRepo.get_by_id(db, run_id)
+    if run is None or run.quest_id != quest.id:
+        raise SideQuestNotFoundError("That run isn't here any more.")
+    if not run.practice:
+        raise SideQuestConflictError("That's a player's real run, so it stays.")
+    character_id = run.character_id
+    SideQuestRunRepo.delete(db, run)
+    publish_pc_updated(character_id, quest.campaign_id)
+
+
 # ── The player's side ───────────────────────────────────────────────────────
 
 
@@ -459,6 +548,7 @@ def list_cards(db: Session, pc_id: uuid.UUID) -> list[QuestCard]:
             status=run.status,
             sent_at=run.created_at,
             finished_at=run.finished_at,
+            practice=bool(run.practice),
         )
         for run, quest in SideQuestRunRepo.list_for_character(db, pc_id)
     ]
@@ -566,6 +656,30 @@ def advance(
     return _view(db, run, quest)
 
 
+def start_over(db: Session, pc_id: uuid.UUID, run_id: uuid.UUID) -> QuestRunView:
+    """Put a practice run back at the start, already open, from the phone (Plan 142).
+
+    Real runs can't. It skips the seal, since the DM has already seen it.
+
+    Args:
+        db: Active database session.
+        pc_id: The character the play link belongs to.
+        run_id: UUID of the run.
+
+    Returns:
+        The view of the first step.
+
+    Raises:
+        SideQuestNotFoundError: If this character has no such run.
+        SideQuestConflictError: If it's a real run.
+    """
+    run, quest = _own_run(db, pc_id, run_id)
+    if not run.practice:
+        raise SideQuestConflictError("Only a practice run can start over.")
+    _restart(db, run, quest)
+    return open_run(db, pc_id, run_id)
+
+
 def share_recap(
     db: Session, pc_id: uuid.UUID, run_id: uuid.UUID, payload: QuestRecapShare
 ) -> QuestRunView:
@@ -588,6 +702,8 @@ def share_recap(
         SideQuestConflictError: If the quest isn't finished yet.
     """
     run, quest = _own_run(db, pc_id, run_id)
+    if run.practice:
+        raise SideQuestConflictError("A practice run stays with you. There's nothing to share.")
     if run.status != "done":
         raise SideQuestConflictError("Finish the quest first.")
     pc = _pc(db, pc_id)
@@ -622,6 +738,7 @@ def party_recaps(db: Session, pc_id: uuid.UUID) -> list[PartyRecap]:
             mine=run.character_id == pc_id,
         )
         for run, name in SideQuestRunRepo.recaps_for_campaign(db, pc.campaign_id)
+        if not run.practice
     ]
 
 
@@ -692,15 +809,18 @@ def _arrive(
     Only ever called by whoever won the claim, so it runs once per step per run.
     """
     pc = _pc(db, run.character_id)
-    paid = _pay_gold(db, pc, step.gp)
-    if paid:
-        entry["gp"] = paid
-    items = _grant_items(db, pc, quest, step)
-    if items:
-        entry["items"] = items
-    hurt = _hurt(db, _pc(db, run.character_id), step.damage, rng or random.SystemRandom())
-    if hurt:
-        entry["damage"] = hurt
+    if run.practice:
+        _would_pay(db, step, entry, rng or random.SystemRandom())
+    else:
+        paid = _pay_gold(db, pc, step.gp)
+        if paid:
+            entry["gp"] = paid
+        items = _grant_items(db, pc, quest, step)
+        if items:
+            entry["items"] = items
+        hurt = _hurt(db, _pc(db, run.character_id), step.damage, rng or random.SystemRandom())
+        if hurt:
+            entry["damage"] = hurt
     run.log = [*(run.log or []), entry]
     if step.kind == "end":
         run.status = "done"
@@ -711,9 +831,34 @@ def _arrive(
 
 def _tell_the_others(db: Session, run: SideQuestRun, quest: SideQuest) -> None:
     """Refresh the phones of everyone else on this quest, so a new pick's name shows at once."""
+    if run.practice:
+        return
     for other in SideQuestRunRepo.list_for_quest(db, quest.id):
         if other.character_id != run.character_id:
             publish_pc_updated(other.character_id, quest.campaign_id)
+
+
+def _would_pay(db: Session, step: QuestStep, entry: dict[str, Any], rng: Any) -> None:
+    """A practice run's arrival: what the step would pay and hurt, with the sheet untouched."""
+    if step.gp:
+        entry["gp"] = float(step.gp)
+    names = [item.name for item in (ItemRepo.get_by_id(db, i) for i in step.item_ids) if item]
+    if names:
+        entry["items"] = names
+    if step.damage:
+        entry["damage"] = _roll(step.damage, rng)
+
+
+def _restart(db: Session, run: SideQuestRun, quest: SideQuest) -> SideQuestRun:
+    """Put a practice run back at the first step, as if it had just been sent."""
+    run.step_id = quest.start_step or run.step_id
+    run.status = "new"
+    run.log = []
+    run.opened_at = None
+    run.finished_at = None
+    run.recap = None
+    run.recap_at = None
+    return SideQuestRunRepo.save(db, run)
 
 
 def _roll(dice: str, rng: Any) -> int:
@@ -833,7 +978,7 @@ def _picks(
         return {}
     found: list[tuple[str, int, uuid.UUID]] = []
     for other in SideQuestRunRepo.list_for_quest(db, quest.id):
-        if other.character_id == run.character_id:
+        if other.character_id == run.character_id or other.practice:
             continue
         for entry in other.log or []:
             index = entry.get("option_index")
@@ -907,4 +1052,5 @@ def _view(db: Session, run: SideQuestRun, quest: SideQuest) -> QuestRunView:
         outcome=_outcome(log[-1]) if log else None,
         history=_history(run, by_id),
         recap=run.recap,
+        practice=bool(run.practice),
     )

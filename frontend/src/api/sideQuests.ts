@@ -57,6 +57,8 @@ export interface QuestRunSummary {
   status: RunStatus;
   opened_at: string | null;
   finished_at: string | null;
+  /** Plan 142 — the DM trying it as this character: hidden from the party, nothing paid. */
+  practice: boolean;
 }
 
 export interface SideQuest extends SideQuestInput {
@@ -128,6 +130,11 @@ export const sideQuestsApi = {
       { quiet: true },
     ),
   runs: (id: string) => api.get<QuestRunDetail[]>(`/side-quests/${id}/runs`),
+  /** Plan 142 — play it as a character, hidden from the party. Again starts over. */
+  practice: (id: string, characterId: string) =>
+    api.post<QuestRunSummary>(`/side-quests/${id}/practice`, { character_id: characterId }, { quiet: true }),
+  removePractice: (id: string, runId: string) =>
+    api.delete(`/side-quests/${id}/practice/${runId}`, { quiet: true }),
 };
 
 // ── The phone's side: no DCs, no links, no later steps ─────────────────────
@@ -139,6 +146,8 @@ export interface QuestCard {
   status: RunStatus;
   sent_at: string | null;
   finished_at: string | null;
+  /** Plan 142. */
+  practice: boolean;
 }
 
 export interface QuestStepView {
@@ -190,6 +199,8 @@ export interface QuestRunView {
   history: QuestHistoryItem[];
   /** Plan 138 — what this player has told the party about it, if anything. */
   recap: string | null;
+  /** Plan 142 — nothing is paid or taken, and the party can't see it. */
+  practice: boolean;
 }
 
 /** Plan 138 — a recap as the party gets it: who and their words, nothing about the quest. */
@@ -224,4 +235,7 @@ export const playQuestsApi = {
   /** Empty words take it back. */
   shareRecap: (key: string, runId: string, text: string) =>
     api.put<QuestRunView>(`/play/${key}/side-quests/${runId}/recap`, { text }, { quiet: true }),
+  /** Plan 142 — a practice run back to the first step. */
+  startOver: (key: string, runId: string) =>
+    api.post<QuestRunView>(`/play/${key}/side-quests/${runId}/start-over`, {}, { quiet: true }),
 };

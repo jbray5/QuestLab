@@ -32,6 +32,7 @@ import { plural } from "../../lib/plural";
 import RowMenu from "../RowMenu";
 import { ToggleChip } from "../homebrew/FormFrame";
 import { ERR, HINT } from "../homebrew/options";
+import PracticePanel from "./PracticePanel";
 import QuestResults from "./QuestResults";
 import SendSheet from "./SendSheet";
 import StepCard from "./StepCard";
@@ -220,11 +221,11 @@ export default function QuestEditor({
   const questId = quest?.id ?? null;
   const sent = quest?.status === "sent";
   // Plan 141 — for a step's per-character words. Same key as the send sheet, so it's shared.
-  const { data: pcs = [] } = useQuery({
+  const { data: pcs = [], isLoading: pcsLoading } = useQuery({
     queryKey: ["characters", campaignId],
     queryFn: () => charactersApi.list(campaignId),
   });
-  const roster = pcs.map((pc) => ({ id: pc.id, name: pc.character_name }));
+  const roster = pcs.map((pc) => ({ id: pc.id, name: pc.character_name, playToken: pc.play_token ?? null }));
 
   // What the form opened with, and any unsaved work from an earlier visit.
   const [opening] = useState(() => ({
@@ -396,6 +397,9 @@ export default function QuestEditor({
               <Send size={16} aria-hidden /> Send to more characters
             </button>
           </div>
+          <div style={{ marginTop: "0.75rem" }}>
+            <PracticePanel quest={quest} roster={roster} ready loading={pcsLoading} />
+          </div>
         </>
       )}
 
@@ -494,6 +498,14 @@ export default function QuestEditor({
           )}
 
           {!sent && <WhatsLeft saved={!!quest} dirty={dirty} serverProblems={serverProblems} local={local} />}
+          {!sent && quest && (
+            <PracticePanel
+              quest={quest}
+              roster={roster}
+              loading={pcsLoading}
+              ready={!dirty && !local.length && !serverProblems.length}
+            />
+          )}
         </div>
       )}
 
@@ -551,7 +563,7 @@ export default function QuestEditor({
       {/* Room to scroll the last card clear of the bar. */}
       {tab === "edit" && <div aria-hidden style={{ height: phone ? "7.5rem" : "4.5rem" }} />}
 
-      {trying && <TryIt draft={draft} onClose={() => setTrying(false)} />}
+      {trying && <TryIt draft={draft} roster={roster} onClose={() => setTrying(false)} />}
       {sending && quest && (
         <SendSheet
           quest={quest}

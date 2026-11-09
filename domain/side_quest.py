@@ -22,7 +22,7 @@ from typing import Annotated, Any, Literal, Optional
 from pydantic import BaseModel
 from pydantic import Field as PField
 from pydantic import StringConstraints, field_validator, model_validator
-from sqlalchemy import Column, Text, UniqueConstraint
+from sqlalchemy import Column, Text, UniqueConstraint, false
 from sqlalchemy.types import JSON, DateTime
 from sqlmodel import Field, SQLModel
 
@@ -354,6 +354,9 @@ class SideQuestRun(SQLModel, table=True):
     # Plan 138: what the player chose to tell the party. Their own words, and they may not be true.
     recap: Optional[str] = Field(default=None, sa_column=Column(Text, nullable=True))
     recap_at: Optional[datetime] = Field(default=None, sa_column=_ts_column(nullable=True))
+    # Plan 142: the DM trying a quest as a character. Hidden from the party, pays and hurts
+    # nothing, can start over, and is replaced by a real run if the quest is sent to them.
+    practice: bool = Field(default=False, sa_column_kwargs={"server_default": false()})
 
 
 # ── The DM's shapes ─────────────────────────────────────────────────────────
@@ -413,6 +416,7 @@ class QuestRunSummary(BaseModel):
     status: RunStatus
     opened_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
+    practice: bool = False
 
 
 class SideQuestRead(BaseModel):
@@ -484,6 +488,12 @@ class SideQuestSend(BaseModel):
 
     character_ids: list[uuid.UUID] = PField(min_length=1, max_length=50)
     ping: Optional[QuestPing] = None
+
+
+class QuestPractice(BaseModel):
+    """Plan 142: the character a DM wants to try a quest as."""
+
+    character_id: uuid.UUID
 
 
 class SideQuestSendResult(BaseModel):
@@ -571,6 +581,8 @@ class QuestRunView(BaseModel):
     outcome: Optional[QuestOutcome] = None
     history: list[QuestHistoryItem] = PField(default_factory=list)
     recap: Optional[str] = None
+    # Plan 142: nothing is paid or taken, and the party can't see it.
+    practice: bool = False
 
 
 class QuestRecapShare(BaseModel):
@@ -607,6 +619,7 @@ class QuestCard(BaseModel):
     status: RunStatus
     sent_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
+    practice: bool = False
 
 
 class QuestAdvance(BaseModel):
