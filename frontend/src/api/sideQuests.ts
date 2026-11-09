@@ -34,6 +34,10 @@ export interface QuestStep {
   item_ids: string[];
   /** choice, Plan 140: everyone on the quest sees the others' names on the options they picked. */
   party_sees: boolean;
+  /** Plan 141 — HP lost on arrival: dice like "1d4" or a flat "3". Never below 1 HP. */
+  damage: string | null;
+  /** Plan 141 — character id to their own words in place of `text`. Each phone gets only its own. */
+  text_for: Record<string, string>;
 }
 
 export interface SideQuestInput {
@@ -82,6 +86,8 @@ export interface QuestLogEntry {
   reply: string | null;
   gp: number | null;
   items: string[];
+  /** Plan 141 — HP it actually took. */
+  damage?: number | null;
 }
 
 export interface QuestRunDetail extends QuestRunSummary {
@@ -158,6 +164,8 @@ export interface QuestOutcome {
   skill: string | null;
   gp: number;
   items: string[];
+  /** Plan 141 — HP it took. */
+  damage: number;
 }
 
 export interface QuestHistoryItem {

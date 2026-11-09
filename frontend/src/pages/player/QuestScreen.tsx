@@ -12,7 +12,7 @@
  */
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Backpack, ChevronDown, ChevronLeft, ChevronRight, Coins, Dices, Scroll, Vibrate } from "lucide-react";
+import { Backpack, ChevronDown, ChevronLeft, ChevronRight, Coins, Dices, HeartCrack, Scroll, Vibrate } from "lucide-react";
 
 import {
   playQuestsApi,
@@ -923,11 +923,14 @@ function GoldLine({ gp, terse }: { gp: number; terse: boolean }) {
 function Paid({ outcome, big }: { outcome: QuestOutcome; big?: boolean }) {
   const { help } = usePlayer();
   const { gp, items } = outcome;
-  if (!gp && items.length === 0) return null;
+  const damage = outcome.damage ?? 0;
+  if (!gp && items.length === 0 && !damage) return null;
   const size = big ? 17 : 15;
   return (
     <Panel tone="tip" style={{ gap: 6, padding: big ? "14px" : "8px 12px" }}>
-      {big && <Heading>{gp < 0 && items.length === 0 ? "What you paid" : "What you got"}</Heading>}
+      {big && (
+        <Heading>{!gp && !items.length ? "What it cost you" : gp < 0 && !items.length ? "What you paid" : "What you got"}</Heading>
+      )}
       {gp !== 0 && (
         <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: size, fontWeight: 600 }}>
           <Coins size={18} color="var(--amber)" aria-hidden style={{ flexShrink: 0 }} />
@@ -940,6 +943,12 @@ function Paid({ outcome, big }: { outcome: QuestOutcome; big?: boolean }) {
           <span>{help === "numbers" ? name : `You got ${name}`}</span>
         </span>
       ))}
+      {damage > 0 && (
+        <span style={{ display: "flex", alignItems: "center", gap: 8, fontSize: size, fontWeight: 600 }}>
+          <HeartCrack size={18} color="var(--danger-text)" aria-hidden style={{ flexShrink: 0 }} />
+          <span>{help === "numbers" ? `−${damage} HP` : `You took ${damage} damage`}</span>
+        </span>
+      )}
       {help === "teach" && <span style={{ fontSize: 13, color: "var(--text2)" }}>Your sheet is already up to date.</span>}
     </Panel>
   );

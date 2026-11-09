@@ -1,8 +1,9 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Play, Plus, Send } from "lucide-react";
 
+import { charactersApi } from "../../api/characters";
 import { sideQuestsApi, type QuestStep, type SideQuest, type StepKind } from "../../api/sideQuests";
 import { useIsCompact } from "../../hooks/useIsCompact";
 import {
@@ -218,6 +219,12 @@ export default function QuestEditor({
   const teaserId = useId();
   const questId = quest?.id ?? null;
   const sent = quest?.status === "sent";
+  // Plan 141 — for a step's per-character words. Same key as the send sheet, so it's shared.
+  const { data: pcs = [] } = useQuery({
+    queryKey: ["characters", campaignId],
+    queryFn: () => charactersApi.list(campaignId),
+  });
+  const roster = pcs.map((pc) => ({ id: pc.id, name: pc.character_name }));
 
   // What the form opened with, and any unsaved work from an earlier visit.
   const [opening] = useState(() => ({
@@ -467,6 +474,7 @@ export default function QuestEditor({
               comesFrom={comesFrom.get(step.id) ?? []}
               locked={sent}
               phone={phone}
+              roster={roster}
               focusOnMount={justAdded === step.id}
               onChange={(patch) => patchStep(step.id, patch)}
               onKind={(kind) => setSteps((steps) => steps.map((s) => (s.id === step.id ? changeKind(s, kind) : s)))}

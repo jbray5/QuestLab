@@ -14,6 +14,7 @@ The graph has no cycles, so a step is reached at most once per run. That is what
 reward safe to pay on arrival.
 """
 
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Any, Literal, Optional
@@ -36,6 +37,9 @@ MAX_REPLY = 2000
 MAX_RECAP = 1500
 MAX_GP_GAIN = 10000
 MAX_GP_COST = 1000
+MAX_TEXT_FOR = 12
+# Plan 141: a step's damage. Dice ("1d4", "2d6+1") or a flat number ("3").
+DAMAGE_RE = re.compile(r"^(?:(\d{1,2})d(4|6|8|10|12|20)([+-]\d{1,2})?|(\d{1,2}))$")
 
 StepKind = Literal["read", "choice", "check", "reply", "end"]
 StepId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)]
@@ -98,6 +102,10 @@ class QuestStep(BaseModel):
 
     ``party_sees`` (Plan 140, choice steps only): everyone on the quest sees the others' names on
     the options they picked here. A display setting, so it can change after the quest is sent.
+
+    Plan 141: ``damage`` hurts on arrival (dice or a flat number, temp HP first, never below 1 HP).
+    ``text_for`` gives some characters their own words in place of ``text``; each phone only ever
+    gets its own character's. Words, so they can change after sending.
     """
 
     id: StepId
@@ -113,6 +121,34 @@ class QuestStep(BaseModel):
     gp: int = PField(default=0, ge=-MAX_GP_COST, le=MAX_GP_GAIN)
     item_ids: list[uuid.UUID] = PField(default_factory=list, max_length=MAX_STEP_ITEMS)
     party_sees: bool = False
+    damage: Optional[str] = None
+    text_for: dict[uuid.UUID, str] = PField(default_factory=dict)
+
+    @field_validator("damage", mode="before")
+    @classmethod
+    def _damage(cls, value: Any) -> Optional[str]:
+        """Empty, dice like "1d4" or "2d6+1", or a flat number up to 99."""
+        if value is None:
+            return None
+        text = str(value).replace(" ", "").lower()
+        if not text or text == "0":
+            return None
+        if not DAMAGE_RE.match(text):
+            raise ValueError('Damage is dice like "1d4" or "2d6+1", or a number.')
+        return text
+
+    @field_validator("text_for")
+    @classmethod
+    def _text_for(cls, value: dict[uuid.UUID, str]) -> dict[uuid.UUID, str]:
+        """Trimmed; empty ones dropped; each within the step's text limit."""
+        out = {k: v.strip() for k, v in value.items() if v and v.strip()}
+        if len(out) > MAX_TEXT_FOR:
+            raise ValueError(
+                f"A step can have its own words for {MAX_TEXT_FOR} characters at most."
+            )
+        if any(len(v) > MAX_TEXT for v in out.values()):
+            raise ValueError(f"A character's words can be {MAX_TEXT} characters at most.")
+        return out
 
     @field_validator("image_url")
     @classmethod
@@ -270,6 +306,7 @@ def structure_of(steps: list[QuestStep], start_step: Optional[str]) -> list[Any]
                 s.fail_next,
                 s.gp,
                 [str(i) for i in s.item_ids],
+                s.damage,
             )
         )
     return shape
@@ -417,6 +454,8 @@ class QuestLogEntry(BaseModel):
     # when it empties a purse.
     gp: Optional[float] = None
     items: list[str] = PField(default_factory=list)
+    # Plan 141: HP it actually took (temp HP included), after the floor at 1 HP.
+    damage: Optional[int] = None
 
 
 class QuestRunDetail(QuestRunSummary):
@@ -501,6 +540,7 @@ class QuestOutcome(BaseModel):
     skill: Optional[str] = None
     gp: float = 0
     items: list[str] = PField(default_factory=list)
+    damage: int = 0
 
 
 class QuestHistoryItem(BaseModel):

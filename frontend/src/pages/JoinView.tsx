@@ -4,6 +4,7 @@ import { UserPlus } from "lucide-react";
 
 import { apiBase } from "../api/client";
 import { portraitSrc } from "../lib/portrait";
+import { onlyLinkFor } from "./player/linkMemory";
 import { realPlayerName } from "./player/rules";
 import { Monogram } from "./player/ui";
 
@@ -101,7 +102,8 @@ export default function JoinView() {
     // A remembered pick goes straight to the sheet — the repeat-scan path.
     // "Not you?" on the phone arrives with ?switch=1: show the party, with a way back.
     try {
-      const saved = localStorage.getItem(`qj-pick-${campaignId}`);
+      // Plan 141 — or the one link this phone has opened here, for players who came in by it.
+      const saved = localStorage.getItem(`qj-pick-${campaignId}`) ?? onlyLinkFor(campaignId);
       if (saved && !switching) {
         navigate(`/play/${saved}`, { replace: true });
         return;

@@ -36,6 +36,26 @@ export function rememberedCampaign(playKey: string): string | null {
   return null;
 }
 
+/**
+ * Plan 141 — the one player link this device has opened in this campaign, or null when it has
+ * opened none or several (a shared tablet). Lets the party's link send a phone that came in by
+ * its own link straight back to its character, like a remembered join pick does.
+ */
+export function onlyLinkFor(campaignId: string): string | null {
+  try {
+    const found: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("ql-play-campaign:") && localStorage.getItem(k) === campaignId) {
+        found.push(k.slice("ql-play-campaign:".length));
+      }
+    }
+    return found.length === 1 ? found[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 /** When a request failed because the link no longer opens a sheet: the party to send the player to. */
 export function replacedLinkCampaign(error: unknown, playKey: string): string | null {
   if (!isLinkGone(error)) return null;

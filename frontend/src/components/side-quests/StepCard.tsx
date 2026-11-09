@@ -148,6 +148,56 @@ function OptionRow({
 }
 
 /** A step of the quest, as one card of a form. */
+/** Plan 141 — some characters' own words for this step, in place of the shared text. */
+function WordsFor({
+  step,
+  roster,
+  onChange,
+}: {
+  step: QuestStep;
+  roster: { id: string; name: string }[];
+  onChange: (patch: Partial<QuestStep>) => void;
+}) {
+  const set = (id: string, text: string) => {
+    const next = { ...step.text_for };
+    if (text) next[id] = text;
+    else delete next[id];
+    onChange({ text_for: next });
+  };
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "0.75rem",
+        padding: "0.75rem",
+        background: "var(--surface2)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+      }}
+    >
+      <p style={{ ...HINT, margin: 0 }}>
+        A character with words here sees them instead of the text above. Leave a box empty for the shared text. Each
+        phone only ever gets its own.
+      </p>
+      {roster.length === 0 && <p style={{ ...HINT, margin: 0 }}>This campaign has no characters yet.</p>}
+      {roster.map((pc) => (
+        <div key={pc.id}>
+          <label htmlFor={`words-${step.id}-${pc.id}`}>{pc.name}</label>
+          <textarea
+            id={`words-${step.id}-${pc.id}`}
+            className="story"
+            rows={3}
+            maxLength={QUEST_LIMITS.text}
+            value={step.text_for?.[pc.id] ?? ""}
+            onChange={(e) => set(pc.id, e.target.value)}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function StepCard({
   step,
   index,
@@ -155,6 +205,7 @@ export default function StepCard({
   comesFrom,
   locked,
   phone,
+  roster,
   focusOnMount,
   onChange,
   onKind,
@@ -169,6 +220,8 @@ export default function StepCard({
   /** Sent: only words and pictures can change. */
   locked: boolean;
   phone: boolean;
+  /** Plan 141 — the campaign's characters, for their own words. */
+  roster: { id: string; name: string }[];
   /** Just added: start typing straight away. */
   focusOnMount: boolean;
   onChange: (patch: Partial<QuestStep>) => void;
@@ -181,6 +234,8 @@ export default function StepCard({
   const [showPicture, setShowPicture] = useState(false);
   const [pictureError, setPictureError] = useState<string | null>(null);
   const [showRewards, setShowRewards] = useState(false);
+  const ownWords = Object.keys(step.text_for ?? {}).length;
+  const [showWords, setShowWords] = useState(false);
   const kind = STEP_KINDS.find((k) => k.kind === step.kind) ?? STEP_KINDS[0];
   const name = stepName(index);
   const rewards = rewardSummary(step);
@@ -422,6 +477,20 @@ export default function StepCard({
               </span>
             )}
           </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            aria-expanded={showWords}
+            onClick={() => setShowWords((open) => !open)}
+          >
+            {showWords ? <ChevronDown size={16} aria-hidden /> : <ChevronRight size={16} aria-hidden />}
+            Words for one character
+            {ownWords > 0 && (
+              <span className="num" style={{ color: "var(--accent-text)" }}>
+                {ownWords}
+              </span>
+            )}
+          </button>
         </div>
 
         {(step.image_url || showPicture) && (
@@ -450,6 +519,7 @@ export default function StepCard({
         )}
 
         {showRewards && <RewardsPanel step={step} locked={locked} onChange={onChange} />}
+        {showWords && <WordsFor step={step} roster={roster} onChange={onChange} />}
       </div>
     </section>
   );

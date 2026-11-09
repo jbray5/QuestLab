@@ -22,6 +22,12 @@ Rules enforced here:
   says so before the pick. Only picks made while it was on count, so turning it on later shows
   nothing old. Names and option numbers leave a run, nothing else: no rolls, replies or later
   steps.
+- **Damage never knocks a character out (Plan 141).** A step's ``damage`` rolls on arrival and
+  comes off temp HP first, then HP, but never below 1 HP: at 0 the dying screen takes over the
+  phone, and nobody's at the table to help between sessions.
+- **Each phone gets its own words (Plan 141).** ``text_for`` replaces a step's text for the
+  characters it names. ``_words`` picks one per character, so another character's line never
+  leaves the server.
 - **A recap is the player's to give (Plan 138).** Nothing about a run reaches the party unless its
   player writes it, and then only their words and their character's name. It doesn't have to be
   true, and that's half the fun. The DM sees it next to what really happened.
@@ -43,6 +49,7 @@ from domain.campaign import Campaign
 from domain.character import CharacterItemCreate, PlayerCharacter, PlayerCharacterUpdate
 from domain.crier import CrierSendRequest
 from domain.side_quest import (
+    DAMAGE_RE,
     PartyRecap,
     QuestAdvance,
     QuestCard,
@@ -314,7 +321,11 @@ def send_quest(
     """
     quest = _owned_quest(db, quest_id, dm_email)
     steps = _steps(quest)
-    problems = quest_problems(steps, quest.start_step) + _item_problems(db, steps, dm_email)
+    problems = (
+        quest_problems(steps, quest.start_step)
+        + _item_problems(db, steps, dm_email)
+        + _character_problems(db, steps, quest.campaign_id)
+    )
     if problems:
         raise SideQuestConflictError(" ".join(problems))
     existing = SideQuestRunRepo.character_ids_with_run(db, quest.id)
@@ -374,6 +385,16 @@ def _campaign_pc(db: Session, character_id: uuid.UUID, campaign_id: uuid.UUID) -
     if pc is None or pc.campaign_id != campaign_id:
         raise ValueError("That character isn't in this campaign.")
     return pc
+
+
+def _character_problems(db: Session, steps: list[QuestStep], campaign_id: uuid.UUID) -> list[str]:
+    """Words for a character who isn't in this campaign (deleted, or never was)."""
+    known = {pc.id for pc in CharacterRepo.list_by_campaign(db, campaign_id)}
+    return [
+        f"Step {index + 1} has words for a character who isn't in this campaign."
+        for index, step in enumerate(steps)
+        if any(cid not in known for cid in step.text_for)
+    ]
 
 
 def _item_problems(db: Session, steps: list[QuestStep], dm_email: str) -> list[str]:
@@ -537,7 +558,7 @@ def advance(
         raise SideQuestNotFoundError("That side quest isn't here any more.")
     if SideQuestRunRepo.claim_step(db, run.id, step.id, target.id):
         db.refresh(run)
-        _arrive(db, run, quest, target, entry)
+        _arrive(db, run, quest, target, entry, rng)
         if entry.get("party"):
             _tell_the_others(db, run, quest)
     else:
@@ -664,8 +685,9 @@ def _arrive(
     quest: SideQuest,
     step: QuestStep,
     entry: dict[str, Any],
+    rng: Any = None,
 ) -> None:
-    """Pay what arriving at ``step`` pays, write the log, and finish the run on an ending.
+    """Pay what arriving at ``step`` pays, hurt what it hurts, write the log, finish on an ending.
 
     Only ever called by whoever won the claim, so it runs once per step per run.
     """
@@ -676,6 +698,9 @@ def _arrive(
     items = _grant_items(db, pc, quest, step)
     if items:
         entry["items"] = items
+    hurt = _hurt(db, _pc(db, run.character_id), step.damage, rng or random.SystemRandom())
+    if hurt:
+        entry["damage"] = hurt
     run.log = [*(run.log or []), entry]
     if step.kind == "end":
         run.status = "done"
@@ -689,6 +714,38 @@ def _tell_the_others(db: Session, run: SideQuestRun, quest: SideQuest) -> None:
     for other in SideQuestRunRepo.list_for_quest(db, quest.id):
         if other.character_id != run.character_id:
             publish_pc_updated(other.character_id, quest.campaign_id)
+
+
+def _roll(dice: str, rng: Any) -> int:
+    """Roll "1d4", "2d6+1" or a flat "3" (already checked by ``QuestStep``)."""
+    match = DAMAGE_RE.match(dice)
+    if match is None:
+        return 0
+    count, sides, mod, flat = match.groups()
+    if flat is not None:
+        return int(flat)
+    total = sum(rng.randint(1, int(sides)) for _ in range(int(count))) + int(mod or 0)
+    return max(0, total)
+
+
+def _hurt(db: Session, pc: PlayerCharacter, dice: Optional[str], rng: Any) -> int:
+    """Take a step's damage: temp HP first, then HP, never below 1 HP.
+
+    Returns:
+        The HP actually lost, temp HP included (0 if already at 1 HP or less).
+    """
+    if not dice:
+        return 0
+    rolled = _roll(dice, rng)
+    temp = pc.temp_hp or 0
+    hp = pc.hp_current or 0
+    from_temp = min(temp, rolled)
+    from_hp = max(0, min(rolled - from_temp, hp - 1))
+    if from_temp or from_hp:
+        CharacterRepo.update(
+            db, pc, PlayerCharacterUpdate(temp_hp=temp - from_temp, hp_current=hp - from_hp)
+        )
+    return from_temp + from_hp
 
 
 def _pay_gold(db: Session, pc: PlayerCharacter, gp: int) -> float:
@@ -749,7 +806,7 @@ def _step_view(
     return QuestStepView(
         id=step.id,
         kind=step.kind,
-        text=step.text,
+        text=_words(step, pc.id),
         image_url=step.image_url,
         options=[
             QuestOptionView(index=i, label=o.label, taken_by=taken.get(i, []))
@@ -803,7 +860,13 @@ def _outcome(entry: dict[str, Any]) -> QuestOutcome:
         skill=entry.get("skill"),
         gp=entry.get("gp") or 0,
         items=entry.get("items") or [],
+        damage=entry.get("damage") or 0,
     )
+
+
+def _words(step: QuestStep, character_id: uuid.UUID) -> str:
+    """The step's words for this character: their own if the DM wrote some, else everyone's."""
+    return step.text_for.get(character_id) or step.text
 
 
 def _history(run: SideQuestRun, by_id: dict[str, QuestStep]) -> list[QuestHistoryItem]:
@@ -817,7 +880,7 @@ def _history(run: SideQuestRun, by_id: dict[str, QuestStep]) -> list[QuestHistor
             QuestHistoryItem(
                 step_id=step.id,
                 kind=step.kind,
-                text=step.text,
+                text=_words(step, run.character_id),
                 image_url=step.image_url,
                 option=entry.get("option"),
                 skill=entry.get("skill"),

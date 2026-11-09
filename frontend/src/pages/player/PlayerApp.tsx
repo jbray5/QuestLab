@@ -132,11 +132,13 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
   );
   useEventStream("pc", pcId, onEvent);
 
-  // Remember which party this link opens, so a reset link can point back to it.
+  // Remember which party this link opens, so a reset link can point back to it. Not for the DM's
+  // Open (?peek=1): the party's link would then send the DM's own browser to this character.
+  const [peeking] = useState(() => params.get("peek") === "1");
   const campaignId = pc?.campaign_id;
   useEffect(() => {
-    if (campaignId) rememberCampaign(pcId, campaignId);
-  }, [pcId, campaignId]);
+    if (campaignId && !peeking) rememberCampaign(pcId, campaignId);
+  }, [pcId, campaignId, peeking]);
 
   // A write found the link gone: re-read the sheet, which then shows "replaced".
   useEffect(() => {
@@ -179,7 +181,6 @@ export default function PlayerApp({ pcId }: { pcId: string }) {
   // Plan 139: once this phone is in use, the party's list stops opening the character. The
   // welcome screen doesn't count, so "Not you?" still undoes a wrong tap. The DM's Open button
   // adds ?peek=1, so a look from the DM's own browser doesn't count either.
-  const [peeking] = useState(() => params.get("peek") === "1");
   const inUse = !!pc && prefs.onboarded && !peeking;
   useEffect(() => {
     if (inUse) void playApi.claim(pcId).catch(() => undefined);

@@ -58,8 +58,8 @@ function Stop({ children }: { children: ReactNode }) {
 }
 
 /** What arriving here would pay, in the phone's words. */
-function WouldPay({ gp, items }: { gp: number; items: string[] }) {
-  if (!gp && !items.length) return null;
+function WouldPay({ gp, items, damage }: { gp: number; items: string[]; damage?: string | null }) {
+  if (!gp && !items.length && !damage) return null;
   return (
     <div
       style={{
@@ -83,6 +83,7 @@ function WouldPay({ gp, items }: { gp: number; items: string[] }) {
       {items.map((name, i) => (
         <span key={i}>You got {name}</span>
       ))}
+      {damage && <span>You take {damage} damage (never below 1 HP)</span>}
       <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text2)" }}>(Not really paid: this is a preview.)</span>
     </div>
   );
@@ -256,11 +257,14 @@ export default function TryIt({ draft, onClose }: { draft: QuestDraft; onClose: 
 
         {step && (
           <>
-            {step.kind !== "end" && <WouldPay gp={step.gp} items={itemNames} />}
+            {step.kind !== "end" && <WouldPay gp={step.gp} items={itemNames} damage={step.damage} />}
 
             <StepWords step={step} index={index} />
+            {Object.keys(step.text_for ?? {}).length > 0 && (
+              <p style={{ ...HINT, margin: 0 }}>Some characters see their own words here instead.</p>
+            )}
 
-            {step.kind === "end" && <WouldPay gp={step.gp} items={itemNames} />}
+            {step.kind === "end" && <WouldPay gp={step.gp} items={itemNames} damage={step.damage} />}
 
             {stopped ? (
               <Stop>{stopped}</Stop>
