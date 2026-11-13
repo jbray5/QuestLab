@@ -61,6 +61,7 @@ from domain.side_quest import (
     QuestLogEntry,
     QuestOptionView,
     QuestOutcome,
+    QuestPlayAgain,
     QuestPractice,
     QuestRecapShare,
     QuestRunDetail,
@@ -405,11 +406,17 @@ def _campaign_pc(db: Session, character_id: uuid.UUID, campaign_id: uuid.UUID) -
 def _character_problems(db: Session, steps: list[QuestStep], campaign_id: uuid.UUID) -> list[str]:
     """Words for a character who isn't in this campaign (deleted, or never was)."""
     known = {pc.id for pc in CharacterRepo.list_by_campaign(db, campaign_id)}
-    return [
+    problems = [
         f"Step {index + 1} has words for a character who isn't in this campaign."
         for index, step in enumerate(steps)
         if any(cid not in known for cid in step.text_for)
     ]
+    problems += [
+        f"Step {index + 1} skips the roll for a character who isn't in this campaign."
+        for index, step in enumerate(steps)
+        if any(cid not in known for cid in step.no_roll)
+    ]
+    return problems
 
 
 def _item_problems(db: Session, steps: list[QuestStep], dm_email: str) -> list[str]:
@@ -441,16 +448,123 @@ def list_runs(db: Session, quest_id: uuid.UUID, dm_email: str) -> list[QuestRunD
     quest = _owned_quest(db, quest_id, dm_email)
     runs = SideQuestRunRepo.list_for_quest(db, quest.id)
     names = SideQuestRunRepo.character_names(db, [r.character_id for r in runs])
-    return [
-        QuestRunDetail(
-            **_summary(r, names.get(r.character_id, "")).model_dump(),
-            step_id=r.step_id,
-            log=[QuestLogEntry.model_validate(e) for e in r.log or []],
-            recap=r.recap,
-            recap_at=r.recap_at,
+    return [_detail(r, names.get(r.character_id, "")) for r in runs]
+
+
+def _detail(run: SideQuestRun, name: str) -> QuestRunDetail:
+    """One run as the DM's results get it: the whole log, earlier tries included."""
+    return QuestRunDetail(
+        **_summary(run, name).model_dump(),
+        step_id=run.step_id,
+        log=[QuestLogEntry.model_validate(e) for e in run.log or []],
+        recap=run.recap,
+        recap_at=run.recap_at,
+    )
+
+
+def play_again(
+    db: Session, quest_id: uuid.UUID, run_id: uuid.UUID, body: QuestPlayAgain, dm_email: str
+) -> QuestRunDetail:
+    """Let a player play a quest again from the start (Plan 143). The DM's call, never theirs.
+
+    The run goes back to the first step, unopened. The last try stays in the log behind an
+    "again" entry, so the DM keeps its choices, rolls and answers, while the phone and the party
+    only see the new try. With ``take_back`` the gold the last try paid comes back off the purse
+    (never below empty) and its items come off the sheet if they're still there. Damage stays.
+
+    Args:
+        db: Active database session.
+        quest_id: UUID of the quest.
+        run_id: UUID of the run.
+        body: Whether to take back what the last try paid.
+        dm_email: The requesting DM.
+
+    Returns:
+        The run, ready to play again.
+
+    Raises:
+        SideQuestNotFoundError: If there is no such quest or run.
+        PermissionError: If the caller doesn't run its campaign.
+        SideQuestConflictError: If it's a practice run, or they haven't opened it yet.
+    """
+    quest = _owned_quest(db, quest_id, dm_email)
+    run = SideQuestRunRepo.get_by_id(db, run_id)
+    if run is None or run.quest_id != quest.id:
+        raise SideQuestNotFoundError("That run isn't here any more.")
+    if run.practice:
+        raise SideQuestConflictError("A practice run starts over from Play it yourself.")
+    if run.status == "new":
+        raise SideQuestConflictError(
+            "They haven't opened it yet, so there's nothing to play again."
         )
-        for r in runs
-    ]
+    pc = _pc(db, run.character_id)
+    marker: dict[str, Any] = {
+        "step_id": quest.start_step or run.step_id,
+        "kind": "again",
+        "at": _now().isoformat(),
+    }
+    if body.take_back:
+        marker.update(_take_back(db, pc, quest, _current(run.log or []), dm_email))
+    if run.recap:
+        marker["recap"] = run.recap
+    run.log = [*(run.log or []), marker]
+    run.step_id = quest.start_step or run.step_id
+    run.status = "new"
+    run.opened_at = None
+    run.finished_at = None
+    run.recap = None
+    run.recap_at = None
+    run = SideQuestRunRepo.save(db, run)
+    publish_pc_updated(pc.id, pc.campaign_id, notice=f"Your DM let you play {quest.title} again.")
+    _tell_the_others(db, run, quest)
+    names = SideQuestRunRepo.character_names(db, [run.character_id])
+    return _detail(run, names.get(run.character_id, ""))
+
+
+def _take_back(
+    db: Session, pc: PlayerCharacter, quest: SideQuest, entries: list[dict[str, Any]], dm_email: str
+) -> dict[str, Any]:
+    """Undo what one try paid: its gold, and its items still on the sheet. Damage isn't undone.
+
+    Returns:
+        The "again" entry's ``taken_gp``, ``taken_items`` and ``kept_items``.
+    """
+    out: dict[str, Any] = {}
+    paid_cp = round(sum(float(e.get("gp") or 0) for e in entries) * 100)
+    if paid_cp:
+        purse = _purse_copper(pc)
+        if 0 < paid_cp <= (pc.gp or 0) * 100 and paid_cp % 100 == 0:
+            CharacterRepo.update(db, pc, PlayerCharacterUpdate(gp=(pc.gp or 0) - paid_cp // 100))
+            now = purse - paid_cp
+        else:
+            now = max(0, purse - paid_cp)
+            CharacterRepo.update(db, pc, PlayerCharacterUpdate(**_redenominate(now)))
+        if purse - now:
+            out["taken_gp"] = (purse - now) / 100
+    names = [n for e in entries for n in (e.get("items") or [])]
+    if not names:
+        return out
+    by_name: dict[str, uuid.UUID] = {}
+    for step in _steps(quest):
+        for item_id in step.item_ids:
+            item = ItemRepo.get_by_id(db, item_id)
+            if item is not None:
+                by_name.setdefault(item.name, item_id)
+    taken: list[str] = []
+    kept: list[str] = []
+    for name in names:
+        rows = inventory_service.list_for_character(db, pc.id, dm_email)
+        row = next((r for r in rows if r.item_id == by_name.get(name) and r.quantity > 0), None)
+        if row is None:
+            kept.append(name)
+            continue
+        inventory_service.set_quantity(db, row.id, row.quantity - 1, dm_email)
+        taken.append(name)
+    if taken:
+        out["taken_items"] = taken
+    if kept:
+        out["kept_items"] = kept
+    return out
 
 
 def practice(
@@ -777,6 +891,9 @@ def _resolve(
             raise ValueError("Write something first.")
         entry["reply"] = move.reply
         return entry, step.next or ""
+    if step.kind == "check" and pc.id in step.no_roll:
+        entry.update(passed=True, auto=True)
+        return entry, step.pass_next or ""
     if step.kind == "check":
         if move.skill not in step.skills:
             raise ValueError("Pick one of the skills.")
@@ -946,6 +1063,7 @@ def _step_view(
     step: QuestStep, pc: PlayerCharacter, taken: Optional[dict[int, list[str]]] = None
 ) -> QuestStepView:
     """A step without its DC or links. The only way a step leaves the server to a player."""
+    no_roll = step.kind == "check" and pc.id in step.no_roll
     bonuses = compute_skill_bonuses(pc) if step.kind == "check" else {}
     taken = taken or {}
     return QuestStepView(
@@ -961,9 +1079,10 @@ def _step_view(
         party_sees_pick=step.kind == "choice" and step.party_sees,
         skills=(
             [QuestSkillView(name=s, bonus=bonuses.get(s, 0)) for s in step.skills]
-            if step.kind == "check"
+            if step.kind == "check" and not no_roll
             else []
         ),
+        no_roll=no_roll,
     )
 
 
@@ -980,7 +1099,7 @@ def _picks(
     for other in SideQuestRunRepo.list_for_quest(db, quest.id):
         if other.character_id == run.character_id or other.practice:
             continue
-        for entry in other.log or []:
+        for entry in _current(other.log or []):
             index = entry.get("option_index")
             if entry.get("step_id") == step.id and entry.get("party") and isinstance(index, int):
                 found.append((str(entry.get("at", "")), index, other.character_id))
@@ -1006,7 +1125,16 @@ def _outcome(entry: dict[str, Any]) -> QuestOutcome:
         gp=entry.get("gp") or 0,
         items=entry.get("items") or [],
         damage=entry.get("damage") or 0,
+        no_roll=bool(entry.get("auto")),
     )
+
+
+def _current(log: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The log since the DM last let them play again (Plan 143): all the phone and party read."""
+    for index in range(len(log) - 1, -1, -1):
+        if log[index].get("kind") == "again":
+            return log[index + 1 :]
+    return log
 
 
 def _words(step: QuestStep, character_id: uuid.UUID) -> str:
@@ -1017,7 +1145,7 @@ def _words(step: QuestStep, character_id: uuid.UUID) -> str:
 def _history(run: SideQuestRun, by_id: dict[str, QuestStep]) -> list[QuestHistoryItem]:
     """The steps this character has already passed, and what they did on each."""
     items: list[QuestHistoryItem] = []
-    for entry in run.log or []:
+    for entry in _current(run.log or []):
         step = by_id.get(entry.get("step_id", ""))
         if step is None or entry.get("kind") == "opened":
             continue
@@ -1032,6 +1160,7 @@ def _history(run: SideQuestRun, by_id: dict[str, QuestStep]) -> list[QuestHistor
                 total=entry.get("total"),
                 passed=entry.get("passed"),
                 replied=bool(entry.get("reply")),
+                no_roll=bool(entry.get("auto")),
             )
         )
     return items
@@ -1043,7 +1172,7 @@ def _view(db: Session, run: SideQuestRun, quest: SideQuest) -> QuestRunView:
     step = by_id.get(run.step_id)
     if step is None:
         raise SideQuestNotFoundError("That side quest isn't here any more.")
-    log = run.log or []
+    log = _current(run.log or [])
     return QuestRunView(
         run_id=run.id,
         title=quest.title,

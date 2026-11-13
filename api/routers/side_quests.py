@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from api.deps import DB, CurrentUser
 from domain.side_quest import (
+    QuestPlayAgain,
     QuestPractice,
     QuestRunDetail,
     QuestRunSummary,
@@ -193,6 +194,28 @@ def remove_practice(quest_id: uuid.UUID, run_id: uuid.UUID, db: DB, user: Curren
     """
     try:
         side_quest_service.remove_practice(db, quest_id, run_id, user)
+    except _ERRORS as exc:
+        _http(exc)
+
+
+@router.post("/side-quests/{quest_id}/runs/{run_id}/again", response_model=QuestRunDetail)
+def play_again(
+    quest_id: uuid.UUID, run_id: uuid.UUID, body: QuestPlayAgain, db: DB, user: CurrentUser
+):
+    """Plan 143: let a player play a quest again from the start (a practice run is a 409).
+
+    Args:
+        quest_id: UUID of the quest.
+        run_id: UUID of the run.
+        body: Whether to take back what the last try paid.
+        db: Database session.
+        user: The requesting DM.
+
+    Returns:
+        The run, ready to play again.
+    """
+    try:
+        return side_quest_service.play_again(db, quest_id, run_id, body, user)
     except _ERRORS as exc:
         _http(exc)
 
