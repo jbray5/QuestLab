@@ -158,7 +158,7 @@ export default function TryIt({
   const [path, setPath] = useState<string[]>([]);
   const [stopped, setStopped] = useState<string | null>(null);
   const [readAs, setReadAs] = useState("");
-  const anyOwn = steps.some((s) => Object.keys(s.text_for ?? {}).length > 0);
+  const anyOwn = steps.some((s) => Object.keys(s.text_for ?? {}).length > 0 || (s.no_roll ?? []).length > 0);
 
   const index = path.length ? steps.findIndex((s) => s.id === path[path.length - 1]) : -1;
   const step = index >= 0 ? steps[index] : null;
@@ -319,7 +319,22 @@ export default function TryIt({
                   </button>
                 ))}
 
-                {step.kind === "check" && (
+                {step.kind === "check" && readAs && step.no_roll?.includes(readAs) && (
+                  <>
+                    <p style={{ margin: 0, fontSize: "0.9375rem", color: "var(--text2)" }}>
+                      No roll needed for {roster.find((pc) => pc.id === readAs)?.name ?? "them"}.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={BIG_BUTTON}
+                      onClick={() => follow(step.pass_next, "where a pass goes")}
+                    >
+                      Continue
+                    </button>
+                  </>
+                )}
+                {step.kind === "check" && !(readAs && step.no_roll?.includes(readAs)) && (
                   <>
                     {step.skills.length > 0 ? (
                       <p style={{ margin: 0, fontSize: "0.9375rem", color: "var(--text2)" }}>

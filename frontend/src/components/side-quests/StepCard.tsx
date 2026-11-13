@@ -198,6 +198,61 @@ function WordsFor({
   );
 }
 
+/** Plan 143 — characters who pass this check without rolling. A ruling, so it stays open once sent. */
+function NoRollFor({
+  step,
+  roster,
+  onChange,
+}: {
+  step: QuestStep;
+  roster: { id: string; name: string }[];
+  onChange: (patch: Partial<QuestStep>) => void;
+}) {
+  const chosen = step.no_roll ?? [];
+  const [open, setOpen] = useState(chosen.length > 0);
+  if (roster.length === 0) return null;
+  const names = roster.filter((pc) => chosen.includes(pc.id)).map((pc) => pc.name);
+  const toggle = (id: string, on: boolean) =>
+    onChange({ no_roll: on ? [...chosen.filter((c) => c !== id), id] : chosen.filter((c) => c !== id) });
+  return (
+    <div>
+      <button
+        type="button"
+        className="btn btn-ghost"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        style={{ paddingLeft: 0 }}
+      >
+        {open ? <ChevronDown size={16} aria-hidden /> : <ChevronRight size={16} aria-hidden />}
+        No roll for
+        {names.length > 0 && <span style={{ color: "var(--accent-text)" }}>{names.join(", ")}</span>}
+      </button>
+      {open && (
+        <fieldset style={{ border: "none", margin: 0, padding: "0.25rem 0 0" }}>
+          <legend style={{ ...HINT, margin: "0 0 0.4rem", padding: 0 }}>
+            They pass without rolling and go where a pass goes. You can change this after it&rsquo;s sent.
+          </legend>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.25rem 1rem" }}>
+            {roster.map((pc) => (
+              <label
+                key={pc.id}
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", minHeight: 44, margin: 0 }}
+              >
+                <input
+                  type="checkbox"
+                  checked={chosen.includes(pc.id)}
+                  onChange={(e) => toggle(pc.id, e.target.checked)}
+                />
+                {pc.name}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+    </div>
+  );
+}
+
 export default function StepCard({
   step,
   index,
@@ -429,6 +484,7 @@ export default function StepCard({
                 onChange={(fail_next) => onChange({ fail_next })}
               />
             </div>
+            <NoRollFor step={step} roster={roster} onChange={onChange} />
           </>
         )}
 

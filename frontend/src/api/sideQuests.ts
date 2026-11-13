@@ -38,6 +38,8 @@ export interface QuestStep {
   damage: string | null;
   /** Plan 141 — character id to their own words in place of `text`. Each phone gets only its own. */
   text_for: Record<string, string>;
+  /** check, Plan 143 — characters who pass without rolling. Can change after sending. */
+  no_roll: string[];
 }
 
 export interface SideQuestInput {
@@ -90,6 +92,13 @@ export interface QuestLogEntry {
   items: string[];
   /** Plan 141 — HP it actually took. */
   damage?: number | null;
+  /** Plan 143 — a check passed without a roll. */
+  auto?: boolean | null;
+  /** Plan 143, on kind "again": what the DM took back, couldn't take back, and the old party story. */
+  taken_gp?: number | null;
+  taken_items?: string[];
+  kept_items?: string[];
+  recap?: string | null;
 }
 
 export interface QuestRunDetail extends QuestRunSummary {
@@ -135,6 +144,9 @@ export const sideQuestsApi = {
     api.post<QuestRunSummary>(`/side-quests/${id}/practice`, { character_id: characterId }, { quiet: true }),
   removePractice: (id: string, runId: string) =>
     api.delete(`/side-quests/${id}/practice/${runId}`, { quiet: true }),
+  /** Plan 143 — back to the start; `takeBack` undoes the last try's gold and items. */
+  playAgain: (id: string, runId: string, takeBack: boolean) =>
+    api.post<QuestRunDetail>(`/side-quests/${id}/runs/${runId}/again`, { take_back: takeBack }, { quiet: true }),
 };
 
 // ── The phone's side: no DCs, no links, no later steps ─────────────────────
@@ -161,6 +173,8 @@ export interface QuestStepView {
   skills: { name: string; bonus: number }[];
   /** Plan 140 — the party will see this pick. */
   party_sees_pick: boolean;
+  /** Plan 143 — this character passes without rolling (`skills` is empty). */
+  no_roll?: boolean;
 }
 
 /** What just happened: the roll, and what arriving at this step paid. */
@@ -175,6 +189,8 @@ export interface QuestOutcome {
   items: string[];
   /** Plan 141 — HP it took. */
   damage: number;
+  /** Plan 143 — passed without a roll. */
+  no_roll?: boolean;
 }
 
 export interface QuestHistoryItem {
@@ -188,6 +204,8 @@ export interface QuestHistoryItem {
   passed: boolean | null;
   /** Plan 139 — they answered. The words never come back from the server. */
   replied: boolean;
+  /** Plan 143 — a check they passed without rolling. */
+  no_roll?: boolean;
 }
 
 export interface QuestRunView {

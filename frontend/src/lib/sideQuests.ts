@@ -113,6 +113,7 @@ export function blankStep(kind: StepKind): QuestStep {
     party_sees: false,
     damage: null,
     text_for: {},
+    no_roll: [],
   };
 }
 
@@ -206,6 +207,7 @@ function cleanStep(step: QuestStep): QuestStep {
     pass_next: null,
     fail_next: null,
     party_sees: step.kind === "choice" && !!step.party_sees,
+    no_roll: step.kind === "check" ? (step.no_roll ?? []) : [],
   };
   if (step.kind === "read" || step.kind === "reply") clean.next = step.next;
   if (step.kind === "choice") {
@@ -329,8 +331,15 @@ export function rollLine(entry: QuestLogEntry): string {
 export function logLines(entry: QuestLogEntry): string[] {
   const lines: string[] = [];
   if (entry.kind === "choice" && entry.option) lines.push(`Chose: ${entry.option}`);
+  if (entry.kind === "check" && entry.auto) lines.push("No roll: passed, by your ruling");
   if (entry.kind === "check" && entry.skill) lines.push(rollLine(entry));
   return lines;
+}
+
+/** Plan 143 — the log since the DM last let them play again. */
+export function currentTry(log: QuestLogEntry[]): QuestLogEntry[] {
+  for (let i = log.length - 1; i >= 0; i--) if (log[i].kind === "again") return log.slice(i + 1);
+  return log;
 }
 
 /** What arriving somewhere paid: gold first, then item names. */

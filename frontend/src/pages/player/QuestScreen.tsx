@@ -620,6 +620,11 @@ function StepBody(props: StepProps) {
     <div ref={ref} tabIndex={-1} className="qsq-step" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {help === "teach" && view.history.length === 0 && !isEnd && <span style={smallText}>You can leave any time. You'll come back to this same step.</span>}
       {outcome?.die != null && <RollLine outcome={outcome} />}
+      {outcome?.no_roll && (
+        <span style={{ fontSize: 14, color: "var(--text2)" }}>
+          No roll needed · <b style={{ fontWeight: 600, color: "var(--accent-text)" }}>It worked</b>
+        </span>
+      )}
       {!isEnd && outcome && <Paid outcome={outcome} practice={view.practice} />}
       <Picture url={step.image_url} caption={view.title} />
       {step.text && (
@@ -629,7 +634,7 @@ function StepBody(props: StepProps) {
       )}
       {step.kind === "read" && <ContinueStep {...props} />}
       {step.kind === "choice" && <ChoiceStep {...props} />}
-      {step.kind === "check" && <CheckStep {...props} />}
+      {step.kind === "check" && (step.no_roll ? <NoRollStep {...props} /> : <CheckStep {...props} />)}
       {step.kind === "reply" && <ReplyStep {...props} />}
       {isEnd && <EndStep {...props} />}
       {err && <span role="alert" style={{ fontSize: 15, color: "var(--danger-text)" }}>{err}</span>}
@@ -642,6 +647,20 @@ function ContinueStep({ view, busy, onMove }: StepProps) {
     <button type="button" className="btn btn-primary" disabled={busy} onClick={() => onMove({ step_id: view.step.id })} style={{ minHeight: 54, fontSize: 17, borderRadius: 12 }}>
       Continue
     </button>
+  );
+}
+
+/** Plan 143 — the DM ruled this one just works for this character, so there's nothing to roll. */
+function NoRollStep({ view, busy, onMove }: StepProps) {
+  const { help } = usePlayer();
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <span style={{ fontSize: 17, fontWeight: 600 }}>No roll needed</span>
+      {help === "teach" && <span style={smallText}>Your DM decided this one just works for you.</span>}
+      <button type="button" className="btn btn-primary" disabled={busy} onClick={() => onMove({ step_id: view.step.id })} style={{ minHeight: 54, fontSize: 17, borderRadius: 12 }}>
+        Continue
+      </button>
+    </div>
   );
 }
 
@@ -1031,6 +1050,7 @@ function SoFar({ runId, items, open, onToggle }: { runId: string; items: QuestHi
 function HistoryDid({ runId, item }: { runId: string; item: QuestHistoryItem }) {
   const style: CSSProperties = { fontSize: 14, color: "var(--text2)", whiteSpace: "pre-wrap", overflowWrap: "anywhere" };
   if (item.option) return <span style={style}>You chose: <b style={{ fontWeight: 600, color: "var(--text)" }}>{item.option}</b></span>;
+  if (item.no_roll) return <span style={style}>No roll needed. It worked.</span>;
   if (item.skill) {
     return (
       <span style={style}>

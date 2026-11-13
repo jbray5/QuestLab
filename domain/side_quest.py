@@ -106,6 +106,9 @@ class QuestStep(BaseModel):
     Plan 141: ``damage`` hurts on arrival (dice or a flat number, temp HP first, never below 1 HP).
     ``text_for`` gives some characters their own words in place of ``text``; each phone only ever
     gets its own character's. Words, so they can change after sending.
+
+    Plan 143: ``no_roll`` (check steps only) lists characters who pass without rolling, like a
+    dragonborn lighting a fire. A ruling about a character, so it can change after sending too.
     """
 
     id: StepId
@@ -123,6 +126,23 @@ class QuestStep(BaseModel):
     party_sees: bool = False
     damage: Optional[str] = None
     text_for: dict[uuid.UUID, str] = PField(default_factory=dict)
+    no_roll: list[uuid.UUID] = PField(default_factory=list)
+
+    @field_validator("no_roll")
+    @classmethod
+    def _no_roll(cls, value: list[uuid.UUID]) -> list[uuid.UUID]:
+        """Each character once, and no more than a party."""
+        out = list(dict.fromkeys(value))
+        if len(out) > MAX_TEXT_FOR:
+            raise ValueError(f"A check can skip the roll for {MAX_TEXT_FOR} characters at most.")
+        return out
+
+    @model_validator(mode="after")
+    def _no_roll_on_checks(self) -> "QuestStep":
+        """Only a check has a roll to skip."""
+        if self.kind != "check":
+            self.no_roll = []
+        return self
 
     @field_validator("damage", mode="before")
     @classmethod
@@ -460,6 +480,15 @@ class QuestLogEntry(BaseModel):
     items: list[str] = PField(default_factory=list)
     # Plan 141: HP it actually took (temp HP included), after the floor at 1 HP.
     damage: Optional[int] = None
+    # Plan 143: a check passed without a roll (the DM's "No roll for").
+    auto: Optional[bool] = None
+    # Plan 143, on an "again" entry (the DM let them play again; everything before it is the
+    # earlier try): gold taken back (negative if a cost was given back), items taken back, items
+    # it couldn't take because they weren't on the sheet, and what they had told the party.
+    taken_gp: Optional[float] = None
+    taken_items: list[str] = PField(default_factory=list)
+    kept_items: list[str] = PField(default_factory=list)
+    recap: Optional[str] = None
 
 
 class QuestRunDetail(QuestRunSummary):
@@ -488,6 +517,16 @@ class SideQuestSend(BaseModel):
 
     character_ids: list[uuid.UUID] = PField(min_length=1, max_length=50)
     ping: Optional[QuestPing] = None
+
+
+class QuestPlayAgain(BaseModel):
+    """Plan 143: the DM lets a player play a quest again from the start.
+
+    ``take_back`` takes back the gold the last try paid (never below an empty purse) and the items
+    it gave that are still on the sheet. Damage stays taken either way.
+    """
+
+    take_back: bool = True
 
 
 class QuestPractice(BaseModel):
@@ -537,6 +576,8 @@ class QuestStepView(BaseModel):
     skills: list[QuestSkillView] = PField(default_factory=list)
     # Plan 140: true on a choice the party will see this player's pick on.
     party_sees_pick: bool = False
+    # Plan 143: a check this character passes without rolling (``skills`` is then empty).
+    no_roll: bool = False
 
 
 class QuestOutcome(BaseModel):
@@ -551,6 +592,8 @@ class QuestOutcome(BaseModel):
     gp: float = 0
     items: list[str] = PField(default_factory=list)
     damage: int = 0
+    # Plan 143: the check was passed without a roll.
+    no_roll: bool = False
 
 
 class QuestHistoryItem(BaseModel):
@@ -569,6 +612,8 @@ class QuestHistoryItem(BaseModel):
     total: Optional[int] = None
     passed: Optional[bool] = None
     replied: bool = False
+    # Plan 143: a check they passed without rolling.
+    no_roll: bool = False
 
 
 class QuestRunView(BaseModel):
